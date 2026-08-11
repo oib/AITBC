@@ -131,7 +131,7 @@ class RewardDistributor:
         self,
         validator_address: str,
         reward_type: RewardType,
-        amount: float,
+        amount: Decimal | float | int | str,
         block_height: int,
         metadata: dict[str, Any] | None = None,
     ) -> None:
@@ -298,10 +298,10 @@ class RewardDistributor:
         return {
             "total_events": len(self.reward_events),
             "total_distributions": len(self.distributions),
-            "total_rewards_distributed": float(total_distributed),
-            "total_pending_rewards": float(total_pending),
+            "total_rewards_distributed": str(total_distributed),
+            "total_pending_rewards": str(total_pending),
             "validators_with_pending": len(self.pending_rewards),
-            "average_distribution_size": float(total_distributed / len(self.distributions)) if self.distributions else 0,
+            "average_distribution_size": str(total_distributed / len(self.distributions)) if self.distributions else "0",
             "last_distribution_time": self.distributions[-1].distributed_at if self.distributions else None,
         }
 

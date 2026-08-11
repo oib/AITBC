@@ -4,6 +4,7 @@ Implements SQLModel definitions for certification, verification, and partnership
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -280,8 +281,8 @@ class AgentPartnership(SQLModel, table=True):
 
     # Benefits and compensation
     earned_benefits: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    total_earnings: float = Field(default=0.0)
-    pending_payments: float = Field(default=0.0)
+    total_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    pending_payments: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Status and lifecycle
     status: str = Field(default="active", index=True)  # active, inactive, suspended, terminated

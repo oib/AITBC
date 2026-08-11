@@ -3,11 +3,13 @@ Edge API CLI Commands
 Commands for interacting with the Edge API service
 """
 
+from decimal import Decimal
+
 import click
 import httpx
 
 from ..config import get_config
-from ..utils import error, info, output, success, warning
+from ..utils import DECIMAL, error, info, output, success, warning
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -56,16 +58,16 @@ def balance(ctx):
 
 @edge.command()
 @click.argument("to_address")
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.option("--note", help="Transfer note")
 @click.pass_context
-def transfer(ctx, to_address: str, amount: float, note: str | None):
+def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
     """Transfer edge tokens to another address"""
     config = get_config()
 
     try:
         http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        transfer_data = {"to_address": to_address, "amount": amount}
+        transfer_data = {"to_address": to_address, "amount": str(amount)}
         if note:
             transfer_data["note"] = note
 

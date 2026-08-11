@@ -5,23 +5,23 @@ Integration service that combines global marketplace operations with cross-chain
 
 import hashlib
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from coordinator_api.shared_kernel.enums import TransactionPriority
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from coordinator_api.shared_kernel.enums import TransactionPriority
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
-from ...reputation.services.reputation_engine import CrossChainReputationEngine
-from ...cross_chain.services.multi_chain_transaction_manager import ChainTransactionManager
-
 from ...cross_chain.services.cross_chain.bridge_client_adapter import (
     BridgeClientAdapter,
     BridgeProtocol,
     BridgeSecurityLevel,
 )
+from ...cross_chain.services.multi_chain_transaction_manager import ChainTransactionManager
+from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ..domain.global_marketplace import GlobalMarketplaceOffer
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
 
@@ -93,12 +93,12 @@ class GlobalMarketplaceIntegrationService:
         agent_id: str,
         service_type: str,
         resource_specification: dict[str, Any],
-        base_price: float,
+        base_price: Decimal,
         currency: str = "USD",
         total_capacity: int = 100,
         regions_available: list[str] | None = None,
         supported_chains: list[int] | None = None,
-        cross_chain_pricing: dict[int, float] | None = None,
+        cross_chain_pricing: dict[int, Decimal] | None = None,
         auto_bridge_enabled: bool = True,
         reputation_threshold: float = 500.0,
         deadline_minutes: int = 60,
@@ -367,8 +367,8 @@ class GlobalMarketplaceIntegrationService:
             raise
 
     async def _calculate_cross_chain_pricing(
-        self, base_price: float, supported_chains: list[int], regions: list[str]
-    ) -> dict[int, float]:
+        self, base_price: Decimal, supported_chains: list[int], regions: list[str]
+    ) -> dict[int, Decimal]:
         """Calculate cross-chain pricing for different chains"""
         try:
             cross_chain_pricing = {}
@@ -389,7 +389,8 @@ class GlobalMarketplaceIntegrationService:
                 elif chain_id in [42161, 10]:
                     gas_factor = 0.6
                     popularity_factor = 0.7
-                chain_price = base_price * gas_factor * popularity_factor * liquidity_factor
+                # The three factors are dimensionless; converting them keeps the price exact.
+                chain_price = base_price * Decimal(str(gas_factor * popularity_factor * liquidity_factor))
                 cross_chain_pricing[chain_id] = chain_price
             return cross_chain_pricing
         except Exception as e:
@@ -440,7 +441,7 @@ class GlobalMarketplaceIntegrationService:
         user_id: str,
         source_chain: int,
         target_chain: int,
-        amount: float,
+        amount: Decimal,
         protocol: BridgeProtocol | None,
         priority: TransactionPriority,
     ) -> dict[str, Any]:
@@ -544,7 +545,7 @@ class GlobalMarketplaceIntegrationService:
         """Calculate optimized pricing based on strategy"""
         try:
             optimized_pricing = {"regional_pricing": {}, "cross_chain_pricing": {}, "price_improvement": 0.0}
-            base_price = float(offer.base_price)
+            base_price = offer.base_price
             if strategy == "balanced":
                 for region in offer.regions_available:
                     regional_condition = market_conditions["regional_conditions"].get(region, {})
@@ -553,7 +554,7 @@ class GlobalMarketplaceIntegrationService:
                         demand_multiplier = 1.1
                     elif regional_condition.get("demand") == "low":
                         demand_multiplier = 0.9
-                    optimized_pricing["regional_pricing"][region] = base_price * demand_multiplier  # type: ignore[index]
+                    optimized_pricing["regional_pricing"][region] = base_price * Decimal(str(demand_multiplier))  # type: ignore[index]
                 for chain_id in offer.supported_chains:
                     chain_condition = market_conditions["chain_conditions"].get(str(chain_id), {})
                     chain_multiplier = 1.0
@@ -561,18 +562,18 @@ class GlobalMarketplaceIntegrationService:
                         chain_multiplier = 1.05
                     elif chain_condition.get("congestion") == "low":
                         chain_multiplier = 0.95
-                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * chain_multiplier  # type: ignore[index]
+                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * Decimal(str(chain_multiplier))  # type: ignore[index]
             elif strategy == "aggressive":
                 for region in offer.regions_available:
-                    optimized_pricing["regional_pricing"][region] = base_price * 0.9  # type: ignore[index]
+                    optimized_pricing["regional_pricing"][region] = base_price * Decimal("0.9")  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * 0.85  # type: ignore[index]
+                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * Decimal("0.85")  # type: ignore[index]
                 optimized_pricing["price_improvement"] = -0.1
             elif strategy == "premium":
                 for region in offer.regions_available:
-                    optimized_pricing["regional_pricing"][region] = base_price * 1.15  # type: ignore[index]
+                    optimized_pricing["regional_pricing"][region] = base_price * Decimal("1.15")  # type: ignore[index]
                 for chain_id in offer.supported_chains:
-                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * 1.1  # type: ignore[index]
+                    optimized_pricing["cross_chain_pricing"][chain_id] = base_price * Decimal("1.1")  # type: ignore[index]
                 optimized_pricing["price_improvement"] = 0.1
             return optimized_pricing
         except Exception as e:

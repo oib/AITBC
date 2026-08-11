@@ -10,6 +10,7 @@ Provides:
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -25,7 +26,7 @@ class SetPriceRequest(BaseModel):
     """Request to set a price"""
 
     pair: str
-    price: float
+    price: Decimal
     confidence: float = 1.0
     source: str = "manual"
 
@@ -34,7 +35,7 @@ class PriceResponse(BaseModel):
     """Price response"""
 
     pair: str
-    price: float
+    price: Decimal
     source: str
     timestamp: str
     confidence: float

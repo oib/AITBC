@@ -1,6 +1,7 @@
 """GPU resource state models for blockchain tracking."""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import JSON, Column, UniqueConstraint
@@ -25,7 +26,7 @@ class GPURegistration(SQLModel, table=True):
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
-    price_per_hour: float = Field(default=0.0)
+    price_per_hour: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
     registered_by: str = Field(index=True)
     registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     status: str = Field(default="active")  # active, deactivated
@@ -47,7 +48,7 @@ class GPUAllocation(SQLModel, table=True):
     gpu_id: str = Field(index=True)
     client_id: str = Field(index=True)
     duration_hours: float = Field(default=0.0)
-    total_cost: float = Field(default=0.0)
+    total_cost: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
     status: str = Field(default="active", index=True)  # active, completed, cancelled
     allocated_by: str = Field(index=True)
     allocated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)

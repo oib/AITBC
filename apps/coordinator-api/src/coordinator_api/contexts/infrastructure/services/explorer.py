@@ -4,6 +4,7 @@ import sqlite3
 from collections import defaultdict, deque
 from contextlib import closing
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import TypedDict
 
@@ -14,7 +15,6 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 from ....config import settings
-from ..domain import Job, JobReceipt
 from ....schemas import (
     AddressListResponse,
     AddressSummary,
@@ -26,6 +26,7 @@ from ....schemas import (
     TransactionListResponse,
     TransactionSummary,
 )
+from ..domain import Job, JobReceipt
 
 logger = get_logger(__name__)
 _STATUS_LABELS = {
@@ -129,22 +130,22 @@ class ExplorerService:
 
         class _AddrEntry(TypedDict):
             address: str
-            balance: float
+            balance: Decimal
             tx_count: int
             last_active: datetime
             recent_transactions: deque[str]
-            earned: float
-            spent: float
+            earned: Decimal
+            spent: Decimal
 
         address_map: dict[str, _AddrEntry] = defaultdict(
             lambda: _AddrEntry(
                 address="",
-                balance=0.0,
+                balance=Decimal("0"),
                 tx_count=0,
                 last_active=datetime.min,
                 recent_transactions=deque(maxlen=5),
-                earned=0.0,
-                spent=0.0,
+                earned=Decimal("0"),
+                spent=Decimal("0"),
             )
         )
 
@@ -159,7 +160,13 @@ class ExplorerService:
                     return datetime.min
             return datetime.min
 
-        def touch(address: str | None, tx_id: str, when: object, earned: float = 0.0, spent: float = 0.0) -> None:
+        def touch(
+            address: str | None,
+            tx_id: str,
+            when: object,
+            earned: Decimal = Decimal("0"),
+            spent: Decimal = Decimal("0"),
+        ) -> None:
             if not address:
                 return
             entry = address_map[address]
@@ -175,13 +182,14 @@ class ExplorerService:
             recent.appendleft(tx_id)
 
         for job in jobs:
-            price = 0.0
+            price = Decimal("0")
             if job.receipt and isinstance(job.receipt, dict):
                 receipt_price = job.receipt.get("price")
                 if receipt_price is not None:
                     try:
-                        price = float(receipt_price)
-                    except (TypeError, ValueError):
+                        # str() first: Decimal(0.1) captures the binary error, Decimal("0.1") does not.
+                        price = Decimal(str(receipt_price))
+                    except (TypeError, ValueError, InvalidOperation):
                         pass
             touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
             touch(job.client_id, job.id, job.requested_at, spent=price)

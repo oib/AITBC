@@ -7,6 +7,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -71,7 +72,7 @@ class Portfolio:
 
     portfolio_id: str
     assets: dict[str, float]
-    cash_balance: float
+    cash_balance: Decimal
     total_value: float
     last_updated: datetime
     risk_level: RiskLevel

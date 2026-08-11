@@ -4,6 +4,7 @@ import json
 import os
 import re
 import tempfile
+from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
@@ -220,7 +221,9 @@ class TestWalletCommands:
         # Verify wallet file updated (raw seconds value stored)
         with open(temp_wallet) as f:
             wallet_data = json.load(f)
-        assert wallet_data["balance"] == 125.5
+        # money is stored as a decimal string now -- Decimal() so the assertion is about
+        # the value, not the spelling
+        assert Decimal(wallet_data["balance"]) == Decimal("125.5")
         assert len(wallet_data["transactions"]) == 2
 
     def test_spend_command_success(self, runner, temp_wallet, mock_config):
@@ -306,7 +309,7 @@ class TestWalletCommands:
         assert "payment_request" in data
         assert data["payment_request"]["from_address"] == "aitbc1payer"
         assert data["payment_request"]["to_address"] == "aitbc1test"
-        assert data["payment_request"]["amount"] == 50.0
+        assert Decimal(data["payment_request"]["amount"]) == Decimal("50")
 
     def test_send_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test send with insufficient balance — CLI delegates balance check to blockchain RPC."""
@@ -340,7 +343,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["amount"] == 50.0
+        assert Decimal(data["amount"]) == Decimal("50")
         assert data["duration_days"] == 30
         assert data["remaining_balance"] == 50.0  # 100 - 50
         assert "stake_id" in data
@@ -420,11 +423,11 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["amount"] == 40.0
+        assert Decimal(data["amount"]) == Decimal("40")
         assert data["pool"] == "main"
         assert data["tier"] == "bronze"
         assert data["apy"] == 3.0
-        assert data["new_balance"] == 60.0
+        assert Decimal(data["new_balance"]) == Decimal("60")
         assert "stake_id" in data
 
     def test_liquidity_stake_gold_tier(self, runner, temp_wallet, mock_config):
@@ -470,9 +473,9 @@ class TestWalletCommands:
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data["stake_id"] == stake_id
-        assert data["principal"] == 50.0
+        assert Decimal(data["principal"]) == Decimal("50")
         assert "rewards" in data
-        assert data["total_returned"] >= 50.0
+        assert Decimal(data["total_returned"]) >= Decimal("50")
 
     def test_liquidity_unstake_invalid_id(self, runner, temp_wallet, mock_config):
         """Test liquidity unstaking with invalid ID"""

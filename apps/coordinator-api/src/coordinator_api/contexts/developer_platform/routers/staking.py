@@ -1,5 +1,6 @@
 """Staking and rewards endpoints for the Developer Platform."""
 
+from decimal import Decimal
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
@@ -19,7 +20,7 @@ async def stake_on_developer(
     request: Request,
     staker_address: str,
     developer_address: str,
-    amount: float,
+    amount: Decimal,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
@@ -56,7 +57,7 @@ async def get_staking_info(
 async def unstake_tokens(
     request: Request,
     staking_id: str,
-    amount: float,
+    amount: Decimal,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:

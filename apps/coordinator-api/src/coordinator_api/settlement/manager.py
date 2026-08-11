@@ -2,6 +2,7 @@
 Bridge manager for cross-chain settlements
 """
 
+from decimal import Decimal
 import asyncio
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -248,11 +249,11 @@ class BridgeManager:
         *,
         source_chain_id: str,
         target_chain_id: str,
-        amount: float,
+        amount: Decimal,
         asset_type: str,
         recipient_address: str,
         gas_limit: int | None = None,
-        gas_price: float | None = None,
+        gas_price: Decimal | None = None,
     ) -> str:
         """Create a pending settlement record and return its ID.
 

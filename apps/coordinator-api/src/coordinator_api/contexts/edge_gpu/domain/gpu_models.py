@@ -8,6 +8,7 @@ SQLModel table names are unchanged — no DB migration required.
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -65,7 +66,7 @@ class ConsumerGPUProfile(SQLModel, table=True):
     supported_ollama_models: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
 
     # Pricing and availability
-    market_price_usd: float | None = Field(default=None)
+    market_price_usd: Decimal | None = Field(default=None, max_digits=20, decimal_places=8)
     edge_premium_multiplier: float = Field(default=1.0)
     availability_score: float = Field(default=1.0)
 

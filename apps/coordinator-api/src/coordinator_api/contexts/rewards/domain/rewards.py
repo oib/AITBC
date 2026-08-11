@@ -259,7 +259,7 @@ class RewardMilestone(SQLModel, table=True):
     progress_percentage: float = Field(default=0.0, ge=0, le=100.0)
 
     # Rewards
-    reward_amount: float = Field(default=0.0, ge=0)
+    reward_amount: Decimal = Field(default=Decimal("0.0"), ge=0, max_digits=20, decimal_places=8)
     reward_type: RewardType = Field(default=RewardType.MILESTONE_BONUS)
 
     # Status
@@ -291,24 +291,24 @@ class RewardAnalytics(SQLModel, table=True):
     period_end: datetime
 
     # Aggregate metrics
-    total_rewards_distributed: float = Field(default=0.0)
+    total_rewards_distributed: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     total_agents_rewarded: int = Field(default=0)
-    average_reward_per_agent: float = Field(default=0.0)
+    average_reward_per_agent: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Tier distribution
-    bronze_rewards: float = Field(default=0.0)
-    silver_rewards: float = Field(default=0.0)
-    gold_rewards: float = Field(default=0.0)
-    platinum_rewards: float = Field(default=0.0)
-    diamond_rewards: float = Field(default=0.0)
+    bronze_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    silver_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    gold_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    platinum_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    diamond_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Reward type distribution
-    performance_rewards: float = Field(default=0.0)
-    loyalty_rewards: float = Field(default=0.0)
-    referral_rewards: float = Field(default=0.0)
-    milestone_rewards: float = Field(default=0.0)
-    community_rewards: float = Field(default=0.0)
-    special_rewards: float = Field(default=0.0)
+    performance_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    loyalty_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    referral_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    milestone_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    community_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    special_rewards: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Performance metrics
     calculation_count: int = Field(default=0)

@@ -5,6 +5,7 @@ Transaction commands for AITBC CLI
 import json
 import os
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import click
@@ -14,7 +15,7 @@ from aitbc import ValidationError
 from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
-from ..utils import error, success
+from ..utils import DECIMAL, error, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -35,8 +36,8 @@ def transactions():
 def _send_transaction_impl(
     from_wallet: str,
     to_address: str,
-    amount: float,
-    fee: float,
+    amount: Decimal,
+    fee: Decimal,
     password: str,
     keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
     rpc_url: str = DEFAULT_RPC_URL,
@@ -144,8 +145,8 @@ def _send_transaction_impl(
 @transactions.command()
 @click.option("--from", "from_wallet", required=True, help="From wallet name")
 @click.option("--to", "to_address", required=True, help="To address")
-@click.option("--amount", type=float, required=True, help="Amount to send")
-@click.option("--fee", type=float, default=0.001, help="Transaction fee")
+@click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
+@click.option("--fee", type=DECIMAL, default="0.001", help="Transaction fee")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
@@ -153,8 +154,8 @@ def _send_transaction_impl(
 def send(
     from_wallet: str,
     to_address: str,
-    amount: float,
-    fee: float,
+    amount: Decimal,
+    fee: Decimal,
     password: str | None,
     password_file: str | None,
     rpc_url: str | None,
@@ -334,8 +335,14 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     results = []
     for tx in transactions_data:
         try:
+            # amounts come out of a JSON batch file as numbers; convert at the boundary
             tx_hash = _send_transaction_impl(
-                tx["from_wallet"], tx["to_address"], tx["amount"], tx.get("fee", 10.0), password, rpc_url=rpc_url
+                tx["from_wallet"],
+                tx["to_address"],
+                Decimal(str(tx["amount"])),
+                Decimal(str(tx.get("fee", 10))),
+                password,
+                rpc_url=rpc_url,
             )
             results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
 
@@ -413,9 +420,9 @@ def pending(rpc_url: str | None):
 @transactions.command()
 @click.option("--from", "from_wallet", required=True, help="From wallet name")
 @click.option("--to", "to_address", required=True, help="To address")
-@click.option("--amount", type=float, required=True, help="Amount to send")
+@click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def estimate_fee(from_wallet: str, to_address: str, amount: float, rpc_url: str | None):
+def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: str | None):
     """Estimate transaction fee"""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL

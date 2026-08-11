@@ -3,6 +3,7 @@ Escrow subgroup and escrow-related helpers
 """
 
 import re
+from decimal import Decimal
 
 import click
 
@@ -44,7 +45,7 @@ def _get_blockchain_rpc_url(config) -> str:
     return url
 
 
-def _escrow_create(job_id: str, buyer: str, provider: str, amount, config) -> str | None:
+def _escrow_create(job_id: str, buyer: str, provider: str, amount: Decimal | None, config) -> str | None:
     """Create escrow on local blockchain node. Returns contract_id or None."""
     rpc_url = _get_blockchain_rpc_url(config)
     try:
@@ -55,7 +56,10 @@ def _escrow_create(job_id: str, buyer: str, provider: str, amount, config) -> st
                 "job_id": job_id,
                 "buyer": buyer,
                 "provider": provider,
-                "amount": float(amount) if amount else 0,
+                # A string, not float(): the node parses this back with Decimal(str(amount))
+                # (escrow_routes.create_escrow), so sending a float threw away digits the
+                # receiver then preserved faithfully.
+                "amount": str(amount) if amount else "0",
             },
         )
         contract_id = result.get("contract_id") if isinstance(result, dict) else None

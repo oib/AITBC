@@ -3,14 +3,16 @@
 import json
 import shutil
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import click
 
 from ...config import get_config
-from ...utils import error, output, success
+from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient
+from ...utils.money import wallet_amount as _wallet_amount
 from aitbc.utils import ait_to_seconds, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
@@ -393,11 +395,11 @@ def transactions(ctx, name: str | None, limit: int):
 
 
 @wallet.command()
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.argument("job_id")
 @click.option("--desc", help="Description of the work")
 @click.pass_context
-def earn(ctx, amount: float, job_id: str, desc: str | None):
+def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
     """Add earnings from completed job"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -409,16 +411,18 @@ def earn(ctx, amount: float, job_id: str, desc: str | None):
     wallet_data = _load_wallet(wallet_path, wallet_name)
 
     # Add transaction
+    # money is stored as a decimal string: json.dump cannot serialise a Decimal, and
+    # _wallet_amount() below reads both this and the JSON numbers older builds wrote.
     transaction = {
         "type": "earn",
-        "amount": amount,
+        "amount": str(amount),
         "job_id": job_id,
         "description": desc or f"Job {job_id}",
         "timestamp": datetime.now().isoformat(),
     }
 
     wallet_data["transactions"].append(transaction)
-    wallet_data["balance"] = wallet_data.get("balance", 0) + amount
+    wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + amount)
 
     # Save wallet with encryption
     password = None
@@ -439,10 +443,10 @@ def earn(ctx, amount: float, job_id: str, desc: str | None):
 
 
 @wallet.command()
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.argument("description")
 @click.pass_context
-def spend(ctx, amount: float, description: str):
+def spend(ctx, amount: Decimal, description: str):
     """Spend AITBC"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -453,7 +457,7 @@ def spend(ctx, amount: float, description: str):
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
 
-    balance = wallet_data.get("balance", 0)
+    balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount:
         error(f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
@@ -462,13 +466,13 @@ def spend(ctx, amount: float, description: str):
     # Add transaction
     transaction = {
         "type": "spend",
-        "amount": -amount,
+        "amount": str(-amount),
         "description": description,
         "timestamp": datetime.now().isoformat(),
     }
 
     wallet_data["transactions"].append(transaction)
-    wallet_data["balance"] = balance - amount
+    wallet_data["balance"] = str(balance - amount)
 
     # Save wallet with encryption
     password = None
@@ -515,12 +519,12 @@ def address(ctx, name: str | None):
 
 @wallet.command()
 @click.argument("to_address")
-@click.argument("amount", type=float)
-@click.option("--fee", type=float, default=0.01, help="Transaction fee in AIT")
+@click.argument("amount", type=DECIMAL)
+@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.option("--password", help="Wallet password for signing")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
-def send(ctx, to_address: str, amount: float, fee: float, password: str | None, rpc_url: str | None):
+def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | None, rpc_url: str | None):
     """Send AITBC to another address"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -632,10 +636,10 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
 
 @wallet.command()
 @click.argument("to_address")
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.option("--description", help="Transaction description")
 @click.pass_context
-def request_payment(ctx, to_address: str, amount: float, description: str | None):
+def request_payment(ctx, to_address: str, amount: Decimal, description: str | None):
     """Request payment from another address"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -650,7 +654,7 @@ def request_payment(ctx, to_address: str, amount: float, description: str | None
     request = {
         "from_address": to_address,
         "to_address": wallet_data["address"],
-        "amount": amount,
+        "amount": str(amount),
         "description": description or "",
         "timestamp": datetime.now().isoformat(),
     }
@@ -681,8 +685,9 @@ def stats(ctx):
     transactions = wallet_data.get("transactions", [])
 
     # Calculate stats
-    total_earned = sum(tx["amount"] for tx in transactions if tx["type"] == "earn" and tx["amount"] > 0)
-    total_spent = sum(abs(tx["amount"]) for tx in transactions if tx["type"] in ["spend", "send"] and tx["amount"] < 0)
+    amounts = [(tx, _wallet_amount(tx.get("amount", 0))) for tx in transactions]
+    total_earned = sum((a for tx, a in amounts if tx["type"] == "earn" and a > 0), Decimal("0"))
+    total_spent = sum((abs(a) for tx, a in amounts if tx["type"] in ["spend", "send"] and a < 0), Decimal("0"))
     jobs_completed = len([tx for tx in transactions if tx["type"] == "earn"])
 
     output(

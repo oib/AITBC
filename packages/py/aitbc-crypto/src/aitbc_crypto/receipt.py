@@ -17,6 +17,10 @@ class Receipt(BaseModel):
     unit_type: str
     started_at: int
     completed_at: int
+    # not-money: wire format. canonical_json() + sha256() below produce the receipt
+    # hash that is signed and verified (including in the ZK circuits). Decimal is not
+    # JSON-serializable, and a string would change the hash of every receipt already
+    # issued. Changing this is a protocol change.
     price: float | None = None
     model: str | None = None
     prompt_hash: str | None = None

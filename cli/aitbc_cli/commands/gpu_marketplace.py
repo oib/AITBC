@@ -3,6 +3,7 @@ Local GPU service commands for hardware management
 """
 
 import json
+from decimal import Decimal
 
 import click
 
@@ -99,11 +100,11 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
                 if isinstance(pricing_data, dict):
                     update_data["price_per_hour"] = pricing_data.get("price_per_hour")
                 else:
-                    update_data["price_per_hour"] = float(pricing_data)
+                    update_data["price_per_hour"] = str(Decimal(str(pricing_data)))
             except json.JSONDecodeError:
                 # Try as direct number
                 try:
-                    update_data["price_per_hour"] = float(pricing)
+                    update_data["price_per_hour"] = str(Decimal(pricing))
                 except ValueError:
                     abort(ctx, "Invalid pricing value")
         if status:
@@ -149,7 +150,9 @@ def list_gpus_cmd(ctx):
                         "GPU ID": gpu.get("id"),
                         "Model": gpu.get("model"),
                         "Memory (GB)": gpu.get("memory_gb"),
-                        "Price/Hour": f"{gpu.get('price_per_hour', 0):.4f} AIT",
+                        # the gpu service now renders money as a decimal string, so
+                        # parse before formatting rather than assuming a JSON number
+                        "Price/Hour": f"{Decimal(str(gpu.get('price_per_hour', 0) or 0)):.4f} AIT",
                         "Status": gpu.get("status"),
                         "Region": gpu.get("region") or "N/A",
                         "Miner ID": gpu.get("miner_id", "")[:16] + "...",

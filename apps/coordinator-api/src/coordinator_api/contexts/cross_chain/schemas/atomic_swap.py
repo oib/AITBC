@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict
 
 from ..domain.atomic_swap import SwapStatus
@@ -8,13 +10,13 @@ class SwapCreateRequest(BaseModel):
     initiator_address: str
     source_chain_id: int
     source_token: str
-    source_amount: float
+    source_amount: Decimal
 
     participant_agent_id: str
     participant_address: str
     target_chain_id: int
     target_token: str
-    target_amount: float
+    target_amount: Decimal
 
     # Optional explicitly provided secret (if not provided, service generates one)
     secret: str | None = None

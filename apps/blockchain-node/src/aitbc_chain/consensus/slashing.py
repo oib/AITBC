@@ -24,6 +24,9 @@ class SlashingEvent:
     evidence: str
     block_height: int
     timestamp: float
+    # not-money: a fraction of stake (0.05-0.5) from slash_rates, not an amount.
+    # apply_slashing() multiplies it by validator.stake to get the amount. The name is
+    # kept because it is a persisted key in ConsensusState.slashing_events.
     slash_amount: float
 
 
