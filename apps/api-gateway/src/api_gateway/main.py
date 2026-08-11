@@ -9,7 +9,8 @@ Routes requests to microservices
 import asyncio  # noqa: E402
 import hmac  # noqa: E402
 import os  # noqa: E402
-from collections.abc import AsyncIterator  # noqa: E402
+from collections.abc import AsyncIterator, Callable  # noqa: E402
+from typing import Any, TypeVar  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
 import httpx  # noqa: E402
@@ -52,7 +53,16 @@ else:
     limiter = None
 
 
-def rate_limit(limit: str) -> object:
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def rate_limit(limit: str) -> Callable[[_F], _F]:
+    """Rate-limit decorator, or a no-op when slowapi is unavailable.
+
+    V23-46: this returned ``object``, so ``@rate_limit(...)`` applied a non-callable as far
+    as the type checker was concerned -- "object not callable" on the route below, plus a
+    ``type: ignore[misc]`` there that was covering for it.
+    """
     if limiter is None:
         return lambda func: func
     return limiter.limit(limit)
@@ -205,7 +215,7 @@ async def proxy_with_retry(client: httpx.AsyncClient, method: str, url: str, **k
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-@rate_limit(RATE_LIMIT)  # type: ignore[misc]
+@rate_limit(RATE_LIMIT)
 async def proxy_request(path: str, request: Request, authenticated: Annotated[bool, Depends(verify_auth)]) -> Response:
     """Proxy request to appropriate microservice with rate limiting and circuit breaker.
 

@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -25,7 +25,10 @@ logger = get_logger(__name__)
 class BillingIntegration:
     """Service for integrating pool-hub with coordinator-api billing"""
 
-    def __init__(self, db: Session):
+    # V23-46: annotated AsyncSession, not Session. Every call site passes one
+    # (app/routers/sla.py, tests/conftest.py) and every use here is `await`ed --
+    # the sync annotation is what forced the `# type: ignore[misc]` on each of them.
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.coordinator_billing_url = getattr(settings, "coordinator_billing_url", "http://localhost:8203")
         self.coordinator_api_key = getattr(settings, "coordinator_api_key", None)
@@ -83,7 +86,7 @@ class BillingIntegration:
     async def sync_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Sync usage data for a miner to coordinator-api billing"""
         stmt = select(Miner).where(Miner.miner_id == miner_id)
-        miner = (await self.db.execute(stmt)).scalar_one_or_none()  # type: ignore[misc]
+        miner = (await self.db.execute(stmt)).scalar_one_or_none()
         if not miner:
             raise ValueError(f"Miner not found: {miner_id}")
         tenant_id = miner_id
@@ -118,7 +121,7 @@ class BillingIntegration:
         # Read all data in one transaction for a consistent snapshot
         async with self.db.begin():
             stmt = select(Miner)
-            miners = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
+            miners = (await self.db.execute(stmt)).scalars().all()
             miner_ids = [m.miner_id for m in miners]
             if not miner_ids:
                 return {
@@ -133,7 +136,7 @@ class BillingIntegration:
             count_stmt = select(func.count(MatchRequest.id)).where(
                 and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
             )
-            total_api_calls = (await self.db.execute(count_stmt)).scalar() or 0  # type: ignore[misc]
+            total_api_calls = (await self.db.execute(count_stmt)).scalar() or 0
 
             # Batch 2: Match results for all miners in one query
             result_stmt = (
@@ -147,7 +150,7 @@ class BillingIntegration:
                 )
                 .where(MatchResult.eta_ms.isnot_(None))
             )
-            all_results = (await self.db.execute(result_stmt)).scalars().all()  # type: ignore[misc]
+            all_results = (await self.db.execute(result_stmt)).scalars().all()
 
         # Group by miner_id and aggregate (outside the transaction — pure computation)
         compute_ms_by_miner: dict[str, int] = {}
@@ -211,7 +214,7 @@ class BillingIntegration:
         count_stmt = select(func.count(MatchRequest.id)).where(
             and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
         )
-        api_calls = (await self.db.execute(count_stmt)).scalar() or 0  # type: ignore[misc]
+        api_calls = (await self.db.execute(count_stmt)).scalar() or 0
         usage_data["api_calls"] = Decimal(str(api_calls))
         result_stmt = (
             select(MatchResult)
@@ -222,7 +225,7 @@ class BillingIntegration:
             )
             .where(MatchResult.eta_ms.isnot_(None))
         )
-        results = (await self.db.execute(result_stmt)).scalars().all()  # type: ignore[misc]
+        results = (await self.db.execute(result_stmt)).scalars().all()
         total_compute_time_ms = sum(r.eta_ms for r in results if r.eta_ms)
         compute_hours = Decimal(str(total_compute_time_ms)) / Decimal("1000") / Decimal("3600") if results else Decimal("0")
         usage_data["compute_hours"] = compute_hours

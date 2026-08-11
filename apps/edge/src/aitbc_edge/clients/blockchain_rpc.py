@@ -1,6 +1,6 @@
 """Blockchain RPC client for Edge API Service"""
 
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import httpx
 
@@ -14,10 +14,14 @@ class BlockchainRPCClient:
         self.base_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
         self.client = httpx.AsyncClient(timeout=30.0)
 
-    async def __aenter__(self):
+    # V23-46: annotated. Without a return type on __aenter__, `async with Client() as c`
+    # binds `c` as Any, and every method result off it is Any too -- which is where all
+    # eight of apps/edge's `Returning Any from function declared to return ...` errors came
+    # from. The client methods themselves were annotated correctly all along.
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         await self.close()
 
     async def close(self) -> None:

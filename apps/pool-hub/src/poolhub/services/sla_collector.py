@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import desc, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -21,7 +21,10 @@ logger = get_logger(__name__)
 class SLACollector:
     """Service for collecting and tracking SLA metrics for miners"""
 
-    def __init__(self, db: Session):
+    # V23-46: annotated AsyncSession, not Session. Every call site passes one
+    # (app/routers/sla.py, tests/conftest.py) and every use here is `await`ed --
+    # the sync annotation is what forced the `# type: ignore[misc]` on each of them.
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.sla_thresholds = {
             "uptime_pct": 95.0,
@@ -46,7 +49,7 @@ class SLACollector:
             meta_data=metadata or {},
         )
         self.db.add(sla_metric)
-        await self.db.commit()  # type: ignore[misc, func-returns-value]
+        await self.db.commit()
         if is_violation:
             await self._record_violation(miner_id, metric_type, metric_value, threshold, metadata)
         logger.info(
@@ -57,7 +60,7 @@ class SLACollector:
     async def collect_miner_uptime(self, miner_id: str) -> float:
         """Calculate miner uptime percentage based on heartbeat intervals"""
         stmt = select(MinerStatus).where(MinerStatus.miner_id == miner_id)
-        miner_status = (await self.db.execute(stmt)).scalar_one_or_none()  # type: ignore[misc]
+        miner_status = (await self.db.execute(stmt)).scalar_one_or_none()
         if not miner_status:
             return 0.0
         if miner_status.last_heartbeat_at:
@@ -70,14 +73,14 @@ class SLACollector:
         else:
             uptime_pct = 0.0
         miner_status.uptime_pct = uptime_pct
-        await self.db.commit()  # type: ignore[misc, func-returns-value]
+        await self.db.commit()
         await self.record_sla_metric(miner_id, "uptime_pct", uptime_pct, {"method": "heartbeat_based"})
         return uptime_pct
 
     async def collect_response_time(self, miner_id: str) -> float | None:
         """Calculate average response time for a miner from match results"""
         stmt = select(MatchResult).where(MatchResult.miner_id == miner_id).order_by(desc(MatchResult.created_at)).limit(100)
-        results = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
+        results = (await self.db.execute(stmt)).scalars().all()
         if not results:
             return None
         response_times = [r.eta_ms for r in results if r.eta_ms is not None]
@@ -101,7 +104,7 @@ class SLACollector:
             .order_by(Feedback.created_at.desc())
             .limit(100)
         )
-        feedback_records = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
+        feedback_records = (await self.db.execute(stmt)).scalars().all()
         if not feedback_records:
             return None
         successful = sum(1 for f in feedback_records if f.outcome == "success")
@@ -114,7 +117,7 @@ class SLACollector:
     async def collect_capacity_availability(self) -> dict[str, Any]:
         """Collect capacity availability metrics across all miners"""
         stmt = select(MinerStatus)
-        miner_statuses = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
+        miner_statuses = (await self.db.execute(stmt)).scalars().all()
         if not miner_statuses:
             return {"total_miners": 0, "active_miners": 0, "capacity_availability_pct": 0.0}
         total_miners = len(miner_statuses)
@@ -123,7 +126,7 @@ class SLACollector:
         snapshot = CapacitySnapshot(
             total_miners=total_miners,
             active_miners=active_miners,
-            total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()),  # type: ignore[misc]
+            total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()),
             total_queue_length=sum(ms.queue_len for ms in miner_statuses),
             capacity_utilization_pct=100.0 - capacity_availability_pct,
             forecast_capacity=total_miners,
@@ -133,7 +136,7 @@ class SLACollector:
             meta_data={"method": "real_time_collection"},
         )
         self.db.add(snapshot)
-        await self.db.commit()  # type: ignore[misc, func-returns-value]
+        await self.db.commit()
         logger.info(
             "Capacity snapshot: total=%s, active=%s, availability=%s%", total_miners, active_miners, capacity_availability_pct
         )
@@ -152,7 +155,7 @@ class SLACollector:
         3. Fetch recent feedback for all miners in one query.
         Then aggregate in Python.
         """
-        miners = (await self.db.execute(select(Miner))).scalars().all()  # type: ignore[misc]
+        miners = (await self.db.execute(select(Miner))).scalars().all()
         miner_ids = [m.miner_id for m in miners]
         results: dict[str, Any] = {"miners_processed": 0, "metrics_collected": [], "violations_detected": 0}
         if not miner_ids:
@@ -166,13 +169,13 @@ class SLACollector:
         # Batch 1: all miner statuses (for uptime)
         status_map: dict[str, MinerStatus] = {
             ms.miner_id: ms
-            for ms in (await self.db.execute(select(MinerStatus).where(MinerStatus.miner_id.in_(miner_ids)))).scalars().all()  # type: ignore[misc]
+            for ms in (await self.db.execute(select(MinerStatus).where(MinerStatus.miner_id.in_(miner_ids)))).scalars().all()
         }
 
         # Batch 2: recent match results for all miners (for response time)
         match_results = (
             (
-                await self.db.execute(  # type: ignore[misc]
+                await self.db.execute(
                     select(MatchResult)
                     .where(MatchResult.miner_id.in_(miner_ids))
                     .where(MatchResult.created_at >= week_ago)
@@ -192,7 +195,7 @@ class SLACollector:
         # Batch 3: recent feedback for all miners (for completion rate)
         feedback_records = (
             (
-                await self.db.execute(  # type: ignore[misc]
+                await self.db.execute(
                     select(Feedback)
                     .where(Feedback.miner_id.in_(miner_ids))
                     .where(Feedback.created_at >= week_ago)
@@ -242,7 +245,7 @@ class SLACollector:
                 logger.error("Failed to collect metrics for miner %s: %s", miner_id, e)
 
         # Commit uptime updates in one transaction
-        await self.db.commit()  # type: ignore[misc, func-returns-value]
+        await self.db.commit()
 
         capacity = await self.collect_capacity_availability()
         results["capacity"] = capacity
@@ -251,7 +254,7 @@ class SLACollector:
             .where(SLAViolation.resolved_at.is_(None))
             .where(SLAViolation.created_at >= datetime.now(UTC) - timedelta(hours=1))
         )
-        results["violations_detected"] = (await self.db.execute(violation_stmt)).scalar() or 0  # type: ignore[misc]
+        results["violations_detected"] = (await self.db.execute(violation_stmt)).scalar() or 0
         logger.info(
             "SLA collection complete: processed=%s, violations=%s", results["miners_processed"], results["violations_detected"]
         )
@@ -277,7 +280,7 @@ class SLACollector:
         if miner_id:
             stmt = stmt.where(SLAMetric.miner_id == miner_id)
         stmt = stmt.order_by(desc(SLAMetric.timestamp))
-        return (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc, no-any-return]
+        return list((await self.db.execute(stmt)).scalars().all())
 
     async def get_sla_violations(self, miner_id: str | None = None, resolved: bool = False) -> list[SLAViolation]:
         """Get SLA violations for a miner or all miners"""
@@ -289,7 +292,7 @@ class SLACollector:
         else:
             stmt = stmt.where(SLAViolation.resolved_at.is_(None))
         stmt = stmt.order_by(desc(SLAViolation.created_at))
-        return (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc, no-any-return]
+        return list((await self.db.execute(stmt)).scalars().all())
 
     def _check_violation(self, metric_type: str, value: float, threshold: float) -> bool:
         """Check if a metric value violates its SLA threshold"""
@@ -320,7 +323,7 @@ class SLACollector:
             meta_data=metadata or {},
         )
         self.db.add(violation)
-        await self.db.commit()  # type: ignore[misc, func-returns-value]
+        await self.db.commit()
         logger.warning(
             "SLA violation recorded: miner=%s, type=%s, severity=%s, value=%s, threshold=%s",
             miner_id,

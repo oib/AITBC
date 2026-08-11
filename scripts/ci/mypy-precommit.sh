@@ -15,9 +15,20 @@
 #      being read as success. The grep alone could not tell the difference between
 #      "no errors" and "never ran".
 #
-# The 29 pre-existing errors are recorded in mypy-baseline.txt; the hook fails on
+# The 29 pre-existing errors were recorded in mypy-baseline.txt; the hook fails on
 # errors not in that file. Same ratchet as scripts/lint/no_float_money.py: the
 # backlog does not block commits, a new error does. Shrink it with --update.
+#
+# V23-46: the baseline is now empty, so this is a plain gate again. It started at 29
+# and five of those were runtime TypeErrors -- calls to PaymentService.create_payment
+# and release_payment missing a required argument, on paths that could therefore never
+# have completed. Two annotations accounted for most of the rest: pool-hub's services
+# declared `db: Session` while every call site passes an AsyncSession (23 `type: ignore`
+# comments existed to cover for that one word), and apps/edge's two clients had an
+# unannotated `__aenter__`, so `async with Client() as c` bound c as Any and every
+# result off it was Any too.
+#
+# Keep it empty. A baseline that grows back is a baseline nobody reads.
 
 set -euo pipefail
 
