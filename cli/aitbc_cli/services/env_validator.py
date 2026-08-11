@@ -19,11 +19,12 @@ DEFAULT_OPTIONAL_KEYS = [
     "EXCHANGE_API_KEY",
 ]
 
-# ponytail: basic entropy checks; production should use a secret scanner.
+# ponytail: key-name matching is the primary redaction guard; entropy patterns are a
+# secondary catch-all. Production should use a real secret scanner.
 _SECRET_PATTERNS = [
-    re.compile(r"[A-Za-z0-9]{32,}"),  # long alphanumeric token
+    re.compile(r"[A-Za-z0-9]{16,}"),  # medium-to-long alphanumeric token
     re.compile(r"sk-[a-zA-Z0-9]{20,}"),  # OpenAI-style key prefix
-    re.compile(r"[a-f0-9]{64}", re.IGNORECASE),  # hex secret
+    re.compile(r"[a-f0-9]{32,}", re.IGNORECASE),  # hex secret
 ]
 
 
@@ -38,10 +39,10 @@ class EnvValidationResult:
 
 
 def _looks_like_secret(key: str, value: str) -> bool:
-    """Return True if the value for ``key`` looks like a secret token."""
+    """Return True if ``key`` or ``value`` looks like a secret token."""
     secret_hints = ["key", "token", "secret", "password", "api_key"]
-    if not any(hint in key.lower() for hint in secret_hints):
-        return False
+    if any(hint in key.lower() for hint in secret_hints):
+        return True
     for pattern in _SECRET_PATTERNS:
         if pattern.search(value):
             return True
