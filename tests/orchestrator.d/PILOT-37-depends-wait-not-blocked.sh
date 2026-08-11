@@ -2,7 +2,7 @@
 # PILOT-37 (ABS-495 twin) — a dependency-wait is a MACHINE state: it rests in
 #   Backlog, never Blocked, and never surfaces as human attention.
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (operator retro point #1, v3 pilot #2, 2026-07-20)

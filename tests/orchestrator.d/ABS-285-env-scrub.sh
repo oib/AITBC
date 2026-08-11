@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-285 — test results must be a function of the COMMIT, not of the SEAT
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, no re-`set -e`, shared
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`, shared
 # assert helpers / counters — see docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS
@@ -23,7 +23,7 @@
 # that exists now or is added later, by construction.
 # =============================================================================
 
-_abs285_overlay="$REPO_ROOT/tests/test-agent-def-overlay.sh"
+_abs285_overlay="$REPO_ROOT/tests/tooling/test-agent-def-overlay.sh"
 
 # Tally a run format-agnostically: the suite files use four different summary
 # formats, so count the PASS/FAIL markers and the exit code instead of parsing

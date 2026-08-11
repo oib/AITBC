@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-316 + ABS-597 — epic-integration branch-split guard (remote-only, content-aware)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness): assert_eq /
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness): assert_eq /
 # assert_contains / assert_not_contains, PASS/FAIL/TOTAL, $ORCH.
 #
 # ABS-316 made a duplicate epic branch mechanically visible at the JOIN (the

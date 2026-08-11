@@ -298,7 +298,7 @@ head -10 .claude/agents/new-agent.md
 
 `harness/claude/agents/` is the **authoritative source** for all agent definitions.
 The live `.claude/agents/` directory is a generated output (`generated(pin v2.22.0)`)
-and must **never** be hand-edited — the drift guard (`tests/test-harness-parity.sh`) fails
+and must **never** be hand-edited — the drift guard (`tests/tooling/test-harness-parity.sh`) fails
 if it diverges from the harness. `agent_providers/claude_code/prompts/` is a second
 generated mirror.
 
@@ -312,7 +312,7 @@ generated mirror.
 bash scripts/generate-governor.sh --providers
 
 # 3. Verify parity (must stay green — all 6 tests)
-bash tests/test-harness-parity.sh
+bash tests/tooling/test-harness-parity.sh
 
 # 4. Commit both the harness edit and the regenerated mirror together
 git add harness/claude/agents/<role>.md \
@@ -351,7 +351,7 @@ scripts/agent-prompt-size.sh --check    # gate: exit 1 if any seat exceeds the b
 scripts/agent-prompt-size.sh --budget 30000   # measure against a different budget
 ```
 
-`tests/test-agent-prompt-size-budget.sh` runs the sensor in CI: it proves the measurement is
+`tests/tooling/test-agent-prompt-size-budget.sh` runs the sensor in CI: it proves the measurement is
 correct and holds a **ratchet** — the count of over-budget roles must never rise above today's
 known-debt ceiling, so any *new* bloat (a newly over-budget role, or a heavier `_common-rules.md`)
 turns the suite red. Reducing the existing over-budget roles below the budget is the follow-up

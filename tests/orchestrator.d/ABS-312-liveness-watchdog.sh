@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-312 — liveness watchdog: full-standstill detection + one-shot self-heal
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh. In scope:
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh. In scope:
 # assert_*, orch / tracker / new_env / cleanup_env / baseline, PASS/FAIL/TOTAL.
 #
 # The runner can go fully idle — 0 live seats while actionable work waits — with
