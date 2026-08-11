@@ -1,0 +1,376 @@
+{
+  "_comment": "Known float-money violations, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after fixing something with: python scripts/lint/no_float_money.py --update-baseline",
+  "total": 210,
+  "violations": {
+    "aitbc/tee/benchmark.py": [
+      "annotation:cost_units"
+    ],
+    "aitbc/trading/types.py": [
+      "annotation:price"
+    ],
+    "apps/agent-coordinator/src/agent_app/ai/realtime_learning.py": [
+      "annotation:reward"
+    ],
+    "apps/agent-coordinator/src/agent_app/config.py": [
+      "annotation:task_payment_timeout_seconds"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/config.py": [
+      "annotation:consensus_slashing_amount"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/consensus/slashing.py": [
+      "annotation:slash_amount"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/contracts/escrow.py": [
+      "float-call:total_amount",
+      "float-call:total_fees"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/contracts/persistent_spending_tracker.py": [
+      "float-call:amount"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/economics/attacks.py": [
+      "annotation:validator_rewards",
+      "float-call:average_price",
+      "float-call:current_price"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/economics/gas.py": [
+      "float-call:average_price",
+      "float-call:current_price",
+      "float-call:estimated_fee",
+      "float-call:max_price",
+      "float-call:min_price",
+      "float-call:optimal_price"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/economics/rewards.py": [
+      "float-call:total_pending_rewards",
+      "float-call:total_rewards_distributed"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/economics/staking.py": [
+      "annotation:rewards",
+      "float-call:withdrawal_amount"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/rpc/ai_services.py": [
+      "annotation:payment"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py": [
+      "annotation:total_cost"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py": [
+      "annotation:price"
+    ],
+    "apps/blockchain-node/src/aitbc_chain/state/gpu_resources.py": [
+      "annotation:total_cost"
+    ],
+    "apps/coordinator-api/src/coordinator_api/agent_identity/sdk/models.py": [
+      "annotation:amount",
+      "annotation:balance",
+      "annotation:total_balance"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/advanced_ai/domain/federated_learning.py": [
+      "annotation:earned_reward",
+      "annotation:reward_pool_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/advanced_ai/schemas/federated_learning.py": [
+      "annotation:reward_pool_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/services/advanced_rl/engine.py": [
+      "float-call:reward_std"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/domain/agent.py": [
+      "annotation:current_cost",
+      "annotation:estimated_total_cost",
+      "annotation:execution_price",
+      "annotation:max_cost_budget",
+      "annotation:subscription_price",
+      "annotation:total_cost"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/domain/agent_performance.py": [
+      "annotation:baseline_cost",
+      "annotation:computational_cost",
+      "annotation:optimized_cost"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_marketplace.py": [
+      "annotation:agent_earnings",
+      "annotation:average_price",
+      "annotation:average_service_price",
+      "annotation:base_price",
+      "annotation:payment",
+      "annotation:total_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/communication.py": [
+      "annotation:base_price",
+      "annotation:price",
+      "annotation:total_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/orchestrator.py": [
+      "annotation:cost",
+      "annotation:estimated_cost"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/task_decomposition.py": [
+      "annotation:estimated_total_cost",
+      "annotation:max_cost"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/analytics/services/ai_analytics/adaptive_learning.py": [
+      "float-call:average_reward",
+      "float-call:max_reward",
+      "float-call:min_reward",
+      "float-call:reward_std"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/analytics/services/ai_analytics/trading_engine.py": [
+      "annotation:cash_balance"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/blockchain/routers/oracle.py": [
+      "annotation:price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/oracle_service.py": [
+      "annotation:price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/bounty/domain/bounty.py": [
+      "annotation:average_reward",
+      "annotation:total_fees_collected",
+      "annotation:total_rewards_paid"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/bounty/routers/bounty.py": [
+      "annotation:average_reward",
+      "annotation:creation_fee",
+      "annotation:max_reward",
+      "annotation:min_reward",
+      "annotation:platform_fee",
+      "annotation:reward_amount",
+      "annotation:success_fee",
+      "annotation:total_fees_collected",
+      "annotation:total_rewards_paid"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/bounty/services/bounty_service.py": [
+      "float-call:total_rewards"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/certification/domain/certification.py": [
+      "annotation:pending_payments",
+      "annotation:total_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/certification/routers/certification.py": [
+      "annotation:total_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/community/domain/community.py": [
+      "annotation:price_amount",
+      "annotation:total_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/community/routers/community.py": [
+      "annotation:price_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/domain/atomic_swap.py": [
+      "annotation:source_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/domain/cross_chain_bridge.py": [
+      "annotation:total_fees",
+      "annotation:total_fees_24h"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/schemas/atomic_swap.py": [
+      "annotation:source_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/developer_platform/domain/developer_platform.py": [
+      "annotation:reward_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/developer_platform/schemas/developer_platform.py": [
+      "annotation:reward_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/ecosystem/domain/ecosystem.py": [
+      "annotation:average_bounty_reward",
+      "annotation:dao_revenue",
+      "annotation:developer_earnings_average",
+      "annotation:developer_earnings_total",
+      "annotation:staking_rewards_total",
+      "annotation:treasury_balance"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/ecosystem/routers/ecosystem_dashboard.py": [
+      "annotation:average_earnings",
+      "annotation:average_reward",
+      "annotation:dao_revenue",
+      "annotation:staking_rewards_total",
+      "annotation:total_earnings",
+      "annotation:treasury_balance"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/edge_gpu/domain/gpu_models.py": [
+      "annotation:market_price_usd"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/governance/domain/dao_governance.py": [
+      "annotation:amount",
+      "annotation:staked_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/governance/domain/governance.py": [
+      "annotation:allocated_funds",
+      "annotation:total_balance"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/governance/schemas/dao_governance.py": [
+      "annotation:amount",
+      "annotation:staked_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/explorer.py": [
+      "annotation:balance",
+      "float-call:price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py": [
+      "float-call:price_value"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/global_marketplace.py": [
+      "annotation:average_price",
+      "annotation:base_price",
+      "annotation:cross_chain_fee",
+      "annotation:total_amount",
+      "annotation:unit_price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/gpu_marketplace.py": [
+      "annotation:avg_price",
+      "annotation:price",
+      "annotation:price_range_max",
+      "annotation:price_range_min"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/provider_bond.py": [
+      "annotation:amount",
+      "annotation:required_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/global_marketplace_integration.py": [
+      "float-call:base_price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/multimodal/routers/multi_modal_rl.py": [
+      "annotation:payment_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/portfolio/domain/agent_portfolio.py": [
+      "annotation:average_cost",
+      "annotation:balance",
+      "annotation:buy_amount",
+      "annotation:cash_balance",
+      "annotation:fee_amount",
+      "annotation:price",
+      "annotation:rebalance_cost",
+      "annotation:sell_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py": [
+      "annotation:daily_earnings",
+      "annotation:monthly_earnings",
+      "annotation:total_earnings",
+      "annotation:weekly_earnings",
+      "annotation:yearly_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/reputation/routers/reputation.py": [
+      "annotation:earnings",
+      "annotation:total_earnings"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/rewards/domain/rewards.py": [
+      "annotation:bronze_rewards",
+      "annotation:community_rewards",
+      "annotation:diamond_rewards",
+      "annotation:gold_rewards",
+      "annotation:loyalty_rewards",
+      "annotation:milestone_rewards",
+      "annotation:performance_rewards",
+      "annotation:platinum_rewards",
+      "annotation:referral_rewards",
+      "annotation:reward_amount",
+      "annotation:silver_rewards",
+      "annotation:special_rewards",
+      "annotation:total_rewards_distributed"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/rewards/routers/rewards.py": [
+      "annotation:base_amount",
+      "annotation:base_earnings",
+      "annotation:bonus_earnings",
+      "annotation:lifetime_earnings",
+      "annotation:reward_amount",
+      "annotation:total_earnings",
+      "annotation:total_rewards_distributed"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/domain/amm.py": [
+      "annotation:amount_in",
+      "annotation:amount_out",
+      "annotation:current_amount_a",
+      "annotation:current_amount_b",
+      "annotation:daily_reward_amount",
+      "annotation:deposit_amount_a",
+      "annotation:deposit_amount_b",
+      "annotation:fee_amount",
+      "annotation:fees_24h",
+      "annotation:fees_earned",
+      "annotation:gas_price",
+      "annotation:liquidity_amount",
+      "annotation:price",
+      "annotation:price_1",
+      "annotation:price_2",
+      "annotation:price_a_to_b",
+      "annotation:price_b_to_a",
+      "annotation:price_difference",
+      "annotation:remaining_reward_amount",
+      "annotation:required_amount",
+      "annotation:reward_amount",
+      "annotation:total_fees_24h",
+      "annotation:total_reward_amount"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/domain/pricing_strategies.py": [
+      "annotation:max_price",
+      "annotation:min_price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/services/market_data_collector.py": [
+      "annotation:average_price",
+      "annotation:competitor_prices"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_marketplace/dynamic_pricing.py": [
+      "float-call:avg_competitor_price",
+      "float-call:base_price",
+      "float-call:price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_marketplace/trading.py": [
+      "float-call:seller_price"
+    ],
+    "apps/coordinator-api/src/coordinator_api/schemas/__init__.py": [
+      "annotation:aitbc_amount",
+      "annotation:amount",
+      "annotation:balance",
+      "annotation:eth_amount",
+      "annotation:fee",
+      "annotation:price"
+    ],
+    "apps/gpu/src/gpu_service/domain/gpu_marketplace.py": [
+      "annotation:market_price_usd",
+      "annotation:total_cost"
+    ],
+    "apps/pool-hub/src/poolhub/settings.py": [
+      "annotation:price"
+    ],
+    "cli/aitbc_cli/commands/exchange_island.py": [
+      "float-call:amount"
+    ],
+    "cli/aitbc_cli/commands/market/jobs.py": [
+      "float-call:price"
+    ],
+    "cli/aitbc_cli/commands/market/offers.py": [
+      "float-call:price"
+    ],
+    "cli/aitbc_cli/commands/marketplace_cmd.py": [
+      "float-call:price"
+    ],
+    "cli/aitbc_cli/core/marketplace.py": [
+      "float-call:escrow_fee_collected",
+      "float-call:price"
+    ],
+    "cli/aitbc_cli/utils/crypto_utils.py": [
+      "float-call:amount"
+    ],
+    "cli/aitbc_cli/utils/wallet_daemon_client.py": [
+      "annotation:balance"
+    ],
+    "cli/utils/crypto_utils.py": [
+      "float-call:amount"
+    ],
+    "cli/utils/wallet_daemon_client.py": [
+      "annotation:balance"
+    ],
+    "packages/aitbc-shared/aitbc_shared/models/reputation.py": [
+      "annotation:total_earnings"
+    ],
+    "packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_consumer.py": [
+      "annotation:cost"
+    ],
+    "packages/py/aitbc-crypto/src/aitbc_crypto/receipt.py": [
+      "annotation:price"
+    ]
+  }
+}
