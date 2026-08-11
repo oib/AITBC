@@ -67,9 +67,9 @@ for _abs285_f in test-agent-def-overlay test-claim-mutex test-claim test-done-ga
                  test-merge-wait test-jira-tracker test-kill-guard test-packet-cache \
                  test-resume-cwd test-station-guard; do
     assert_eq \
-        "$(grep -cE '^unset "\$\{!ORCH_@\}"' "$REPO_ROOT/tests/${_abs285_f}.sh")" \
+        "$(grep -cE '^unset "\$\{!ORCH_@\}"' "$REPO_ROOT/tests/tooling/${_abs285_f}.sh")" \
         "1" \
-        "ABS-285: tests/${_abs285_f}.sh scrubs the ambient ORCH_* env"
+        "ABS-285: tests/tooling/${_abs285_f}.sh scrubs the ambient ORCH_* env"
 done
 
 unset _abs285_overlay _abs285_clean _abs285_hostile _abs285_f
