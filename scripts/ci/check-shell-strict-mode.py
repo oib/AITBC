@@ -46,6 +46,14 @@ PIPEFAIL = re.compile(r"^\s*set\s+[-\w\s]*\bpipefail\b", re.M)
 # caller's shell, which is not this check's business.
 SKIP_SUFFIXES = (".bashrc", ".profile", ".env")
 
+# The same reasoning, for a whole directory the suffix rule cannot see. Every file in
+# `tests/orchestrator.d/` is a per-story include (ABS-215) `source`d by
+# `tests/tooling/test-orchestrator.sh` into the live harness -- each says so in its own
+# header, none of the 61 has strict mode, and adding it to one would switch `-u` on for
+# every fragment sourced after it. That is precisely the wholesale flip V23-23 said not to
+# do, arriving one file at a time through a check meant to prevent it.
+SKIP_DIRS = ("tests/orchestrator.d",)
+
 
 def _is_shell(path: Path) -> bool:
     if path.suffix == ".sh":
@@ -55,6 +63,15 @@ def _is_shell(path: Path) -> bool:
     except (OSError, IndexError):
         return False
     return first.startswith(b"#!") and (b"bash" in first or b"sh" in first)
+
+
+def _is_sourced_fragment(path: Path) -> bool:
+    """True for files that run inside a caller's shell rather than their own."""
+    try:
+        relative = path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return False
+    return any(relative.startswith(f"{d}/") for d in SKIP_DIRS)
 
 
 def _missing(path: Path) -> list[str]:
@@ -98,6 +115,8 @@ def main(argv: list[str] | None = None) -> int:
         if not path.is_absolute():
             path = REPO_ROOT / name
         if not path.is_file() or path.name.endswith(SKIP_SUFFIXES) or not _is_shell(path):
+            continue
+        if _is_sourced_fragment(path):
             continue
 
         gaps = _missing(path)
