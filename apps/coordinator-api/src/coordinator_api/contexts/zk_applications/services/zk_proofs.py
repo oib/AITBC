@@ -155,22 +155,30 @@ class ZKProofService:
                 "vkey_path": self.circuits_dir / "verification_key.json",
             },
         }
-        self.available_circuits = {}
+        # V23-46: `available_circuits` holds only circuits that passed every check, so its
+        # paths are never None -- but `circuits` above is inferred as `Path | None` because
+        # `_resolve_proving_key` may return None, and a subscript is not something the type
+        # checker can narrow. Binding to a local does narrow, which is what the seven
+        # `Path | None` errors in this file came down to.
+        self.available_circuits: dict[str, dict[str, Path]] = {}
         for circuit_name, paths in self.circuits.items():
-            if paths["zkey_path"] is None:
+            zkey_path = paths["zkey_path"]
+            if zkey_path is None:
                 # _resolve_proving_key has already said why: either no key at all, or only
                 # a zero-contribution one. Either way the circuit stays unavailable rather
                 # than falling back to something forgeable.
                 logger.warning("❌ Circuit '%s' unavailable: no usable proving key", circuit_name)
                 continue
-            missing = [str(p) for p in paths.values() if not p.exists()]
+            # Only zkey_path is ever optional; the other two are built from circuits_dir.
+            resolved = {name: path for name, path in paths.items() if path is not None}
+            missing = [str(path) for path in resolved.values() if not path.exists()]
             if not missing:
-                mismatch = _verification_key_mismatch(paths["zkey_path"], paths["vkey_path"])
+                mismatch = _verification_key_mismatch(zkey_path, resolved["vkey_path"])
                 if mismatch:
                     logger.error("❌ Circuit '%s' unavailable: %s", circuit_name, mismatch)
                     continue
-                self.available_circuits[circuit_name] = paths
-                logger.info("✅ Circuit '%s' available, proving key %s", circuit_name, paths["zkey_path"].name)
+                self.available_circuits[circuit_name] = resolved
+                logger.info("✅ Circuit '%s' available, proving key %s", circuit_name, zkey_path.name)
             else:
                 # Name the absent files. A bare "missing files" warning let an over-broad
                 # .gitignore (*.zkey/*.wasm) silently untrack every proving key without

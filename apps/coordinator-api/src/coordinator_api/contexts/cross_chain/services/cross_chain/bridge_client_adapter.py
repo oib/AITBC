@@ -737,6 +737,12 @@ class BridgeClientAdapter:
         """
         from aitbc.settlement.htlc import calculate_dest_timelock, calculate_source_timelock
 
+        # NOTE (V23-46): these are placeholders, not chain parameters. Both chains are
+        # assumed to produce blocks every 5 seconds and to be at height 0, which is true of
+        # neither. Every timelock computed here is therefore nominal. Fixing it means
+        # querying each chain for its head, which this adapter has no client for -- so it is
+        # named rather than guessed at. calculate_dest_timelock's docstring is explicit that
+        # "block heights on two chains are independent quantities".
         block_time_seconds = 5
         current_block_height = 0
         timeout_seconds = 3600  # 1 hour default
@@ -753,9 +759,15 @@ class BridgeClientAdapter:
             sender = bridge_request.sender_address
             recipient = bridge_request.recipient_address
         else:
+            # V23-46: source_current_height and dest_current_height were missing, so this
+            # call raised TypeError every time -- the whole `direction != "source"` branch
+            # has never completed. They are passed as the same placeholder the rest of this
+            # method uses; see the note above about that placeholder being the real problem.
             timelock = calculate_dest_timelock(
                 source_timelock=source_timelock,
+                source_current_height=current_block_height,
                 source_block_time=block_time_seconds,
+                dest_current_height=current_block_height,
                 dest_block_time=block_time_seconds,
             )
             sender = bridge_request.recipient_address
