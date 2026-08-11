@@ -2,7 +2,7 @@
 # ABS-301 — escalation budget must not park terminal statuses or mid-work
 #           legitimate-progress states
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_contains / assert_eq /
 # assert_not_contains, PASS/FAIL/TOTAL, REPO_ROOT / ORCH / TRACKER / STUB.
 #

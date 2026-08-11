@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-371 — _bounded_git must never SIGTERM its caller
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (shared assert helpers / counters).
+# Sourced by tests/tooling/test-orchestrator.sh (shared assert helpers / counters).
 #
 # _bounded_git (scripts/orchestrator.sh, arrived with ABS-355) bounds a git
 # remote probe with a portable sleep-then-kill watcher when timeout(1)/gtimeout

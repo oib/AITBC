@@ -9,7 +9,7 @@ The README version badge (`img.shields.io/badge/version-vX.Y.Z-…`) is now
 **automatically stamped** with the release version during governor promotion.
 No manual badge update is required. The badge is written into the release commit
 by `promote-release.sh`, verified by `generate-governor.sh --check`, and exercised
-end-to-end by `tests/test-harness-parity.sh`.
+end-to-end by `tests/tooling/test-harness-parity.sh`.
 
 Before this change the badge was frozen at v2.10.0 through 11 releases. It will
 no longer drift.
@@ -82,7 +82,7 @@ git commit -m "chore(release): promote governor to $tag …"
 
 ### The drift check
 
-`generate-governor.sh --check` (run by `tests/test-harness-parity.sh` in CI)
+`generate-governor.sh --check` (run by `tests/tooling/test-harness-parity.sh` in CI)
 now also compares the live `README.md` badge against the `.governor-tag` pin. A
 mismatch exits non-zero with a human-readable message:
 
@@ -171,4 +171,4 @@ staged.
 - ABS-95 — `promote-release.sh` governor promotion mechanism
 - `scripts/generate-governor.sh` — `build_stamped_readme()` implementation (~line 297)
 - `scripts/promote-release.sh` — `do_promotion()` staging step (~line 148)
-- `tests/test-harness-parity.sh` — parity suite that exercises the drift check
+- `tests/tooling/test-harness-parity.sh` — parity suite that exercises the drift check

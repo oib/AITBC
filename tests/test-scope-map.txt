@@ -12,7 +12,7 @@
 # CONSERVATIVE / FAIL-OPEN: a changed path that matches NO glob here forces the
 # FULL suite. Never silently test less — when in doubt, add the file to the full
 # run. The mappings below were derived from the actual source references each
-# tests/test-*.sh makes (grep for scripts/ , .claude/hooks/ , profiles/).
+# tests/tooling/test-*.sh makes (grep for scripts/ , .claude/hooks/ , profiles/).
 #
 # The full suite remains MANDATORY at the QAS gate regardless of this map.
 # =============================================================================
@@ -80,7 +80,7 @@ scripts/session-wrong-entry-guard.sh	test-wrong-entry-guard.sh
 .claude/agents/*	test-substitutions.sh test-multi-domain-sync.sh test-agent-def-lint.sh test-agent-def-exit-lint.sh test-agent-def-overlay.sh
 
 # --- Tests -------------------------------------------------------------------
-# (A changed tests/test-*.sh runs itself via a built-in rule in scoped-tests.sh;
+# (A changed tests/tooling/test-*.sh runs itself via a built-in rule in scoped-tests.sh;
 #  only shared test infrastructure needs mapping here.)
 tests/orchestrator.d/*	test-orchestrator.sh
 tests/fixtures/*	test-orchestrator.sh test-fixture-integrity.sh

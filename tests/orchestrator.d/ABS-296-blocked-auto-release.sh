@@ -2,7 +2,7 @@
 # ABS-296 — Blocked auto-release: dependency-caused Blocked tickets return to
 #           their BLOCKED-FROM origin once all depends_on are Done.
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (observed live on ABS-234, 2026-07-13)

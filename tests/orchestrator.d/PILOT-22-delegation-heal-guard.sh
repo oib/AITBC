@@ -4,7 +4,7 @@
 #            the Backlog opt-in gate, and dispatch must re-check the opt-in, so
 #            heal+dispatch cannot compose into a duplicate delivery.
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (observed live: ABS-492, 2026-07-20 12:33Z)

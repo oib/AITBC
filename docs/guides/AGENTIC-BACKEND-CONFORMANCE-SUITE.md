@@ -28,7 +28,7 @@ Total: 187 assertions across Tests 1–22 (Tests 16–22 are the §10 block).
 
 ```bash
 # From repo root. Requires Docker with compose plugin.
-bash tests/test-backend-tracker.sh
+bash tests/tooling/test-backend-tracker.sh
 ```
 
 The script provisions a throwaway compose stack (backend + ephemeral Postgres), seeds a
@@ -39,13 +39,13 @@ tests and is not a failure.
 The orchestrator-side §10/Case 5 tests run as part of the orchestrator suite:
 
 ```bash
-bash tests/test-orchestrator.sh
+bash tests/tooling/test-orchestrator.sh
 ```
 
 Run the lint gate separately:
 
 ```bash
-bash tests/test-tracker-adapter-lint.sh
+bash tests/tooling/test-tracker-adapter-lint.sh
 ```
 
 The lint gate (21 assertions) verifies that all seven `§10/Case N` markers are present
@@ -67,7 +67,7 @@ Two files record expected byte-for-byte output from the policy resolver:
 ```bash
 # Run Test 19 to capture the new output, then overwrite.
 # The test prints the actual rendered text before the assertion fails.
-bash tests/test-backend-tracker.sh 2>&1 | grep -A 20 "Test 19"
+bash tests/tooling/test-backend-tracker.sh 2>&1 | grep -A 20 "Test 19"
 
 # Overwrite with the verified new output.
 printf '%s\n' "<new output>" > tests/fixtures/phase3-golden-empty-render.txt
@@ -100,11 +100,11 @@ setup failed.
 
 ## CI registration
 
-`bitbucket-pipelines.yml` runs the `tests/test-*.sh` glob, which auto-includes:
+`bitbucket-pipelines.yml` runs the `tests/tooling/test-*.sh` glob, which auto-includes:
 
-- `tests/test-backend-tracker.sh`
-- `tests/test-orchestrator.sh`
-- `tests/test-tracker-adapter-lint.sh`
+- `tests/tooling/test-backend-tracker.sh`
+- `tests/tooling/test-orchestrator.sh`
+- `tests/tooling/test-tracker-adapter-lint.sh`
 
 The lint gate requires all seven `§10/Case N` markers to be present. Removing any
 marker from the conformance suite fails CI.
@@ -118,10 +118,10 @@ marker from the conformance suite fails CI.
 - Packet injection SOP (`ORCH_POLICY_INJECT`, `policy_rev` audit): `docs/sop/ORCHESTRATOR_SOP.md`
 - ADR import operator procedure: `docs/sop/ADR-IMPORT-RUNBOOK.md`
 - HTTP routes and adapter subcommands: `docs/guides/AGENTIC-BACKEND-API.md`
-- Conformance suite source: `tests/test-backend-tracker.sh` (Tests 16–22; §10 block at
+- Conformance suite source: `tests/tooling/test-backend-tracker.sh` (Tests 16–22; §10 block at
   the `§10 Conformance Cases 1–7` comment)
-- Orchestrator §10/Case 5 block: `tests/test-orchestrator.sh` (`ABS-382 / §10/Case 5` section)
-- Lint gate source: `tests/test-tracker-adapter-lint.sh` (Phase-3 section at
+- Orchestrator §10/Case 5 block: `tests/tooling/test-orchestrator.sh` (`ABS-382 / §10/Case 5` section)
+- Lint gate source: `tests/tooling/test-tracker-adapter-lint.sh` (Phase-3 section at
   `Phase-3 knowledge conformance registration`)
 - Golden fixtures: `tests/fixtures/phase3-golden-empty-render.txt`,
   `tests/fixtures/phase3-golden-policy-matrix.txt`

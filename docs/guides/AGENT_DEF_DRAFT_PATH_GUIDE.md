@@ -6,7 +6,7 @@
 **Files changed**: `harness/claude/skills/tracker-ops/SKILL.md`,
 `harness/claude/agents/` (14 agent defs + skills swept),
 `agent_providers/claude_code/prompts/` (regenerated),
-`tests/test-agent-def-lint.sh` (new guard)
+`tests/tooling/test-agent-def-lint.sh` (new guard)
 
 ---
 
@@ -23,7 +23,7 @@ read before acting. This story:
 
 1. corrects the contradictory doctrine in `tracker-ops/SKILL.md`,
 2. sweeps the class across all 14 affected agent defs and skills,
-3. adds a lint guard (`tests/test-agent-def-lint.sh`) that makes the class
+3. adds a lint guard (`tests/tooling/test-agent-def-lint.sh`) that makes the class
    mechanically unrepeatable.
 
 ---
@@ -146,7 +146,7 @@ clean and were not modified.
 under the ABS-94 governor-pin model and picks the fix up at the next promotion
 (ABS-95); it was correctly left untouched.
 
-### 3. `tests/test-agent-def-lint.sh` — new guard (7 tests)
+### 3. `tests/tooling/test-agent-def-lint.sh` — new guard (7 tests)
 
 ```
 === agent-def lint: draft-path + inline-body guard (ABS-268) ===
@@ -161,7 +161,7 @@ Results: Total: 7  Passed: 7  Failed: 0
 ```
 
 The guard covers `harness/claude/agents/*.md` and `harness/claude/skills/**/*.md`.
-It auto-registers via the `tests/test-*.sh` glob in `tests.yml`.
+It auto-registers via the `tests/tooling/test-*.sh` glob in `tests.yml`.
 
 **Regression proof**: the guard was run against a `git archive` of the pre-fix tree
 and flagged every line named in the ticket, plus the 11 siblings. Fixtures contain
@@ -184,7 +184,7 @@ verbatim defective lines — not synthetic approximations — so the proof is re
 | AC1: no inline `--body`/`--reason` on tracker calls in `harness/` | PASS — 1 hit: `release-patterns/SKILL.md:81` (`gh pr create`), not a tracker call |
 | AC2: no `/tmp` redirects or `$(mktemp)` in qas-design, bsa, issue-enrichment | PASS — 0 hits; all recipes carry `mkdir -p work/scratch` |
 | AC3: `tracker-ops/SKILL.md` draws Write/Edit vs Bash distinction; unqualified `/tmp` sentence gone | PASS |
-| AC4: `tests/test-agent-def-lint.sh` exists, 7/7, proven to fail on pre-fix tree | PASS |
+| AC4: `tests/tooling/test-agent-def-lint.sh` exists, 7/7, proven to fail on pre-fix tree | PASS |
 | AC5: `test-harness-parity.sh` green (corrected premise: `.claude/` is generated(pin)) | PASS — 6/6; `--providers --check` OK |
 | AC6: `spec-creation/SKILL.md:194` unchanged (anti-overreach) | PASS — byte-identical |
 
@@ -208,7 +208,7 @@ grep -n '$(mktemp)' harness/claude/agents/<seat>.md
 
 **Fix**: route the draft through `work/scratch/` and pass `--body-file`.
 
-### Symptom: `tests/test-agent-def-lint.sh` FAILS after editing an agent def
+### Symptom: `tests/tooling/test-agent-def-lint.sh` FAILS after editing an agent def
 
 **Cause**: the edit introduced an inline `--body`/`--reason` or a `/tmp`/`$(mktemp)`
 draft on a tracker call.
@@ -229,7 +229,7 @@ positive, check whether the match is on an *assignment* (`BODY_FILE=/tmp/…`) o
 
 - `harness/claude/skills/tracker-ops/SKILL.md` — canonical tracker CLI quick reference
   (now contains the corrected Write/Edit vs Bash doctrine)
-- `tests/test-agent-def-lint.sh` — the lint guard (7 tests)
+- `tests/tooling/test-agent-def-lint.sh` — the lint guard (7 tests)
 - `docs/guides/JIRA_TRACKER_ATFILE_WRITE_PATH_GUIDE.md` — the write-path argv fix
   (ABS-263); a complementary guard on the adapter side
 - ABS-253 (Done) — the three implementer-def fixes that established the pattern this
