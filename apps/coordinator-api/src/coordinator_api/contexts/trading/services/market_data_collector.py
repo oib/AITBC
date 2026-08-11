@@ -8,12 +8,13 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
 import websockets
-from websockets.server import ServerProtocol as WebSocketServerProtocol
 from websockets.asyncio.server import Server as WebSocketServer
+from websockets.server import ServerProtocol as WebSocketServerProtocol
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -54,10 +55,10 @@ class AggregatedMarketData:
     timestamp: datetime
     demand_level: float
     supply_level: float
-    average_price: float
+    average_price: Decimal
     price_volatility: float
     utilization_rate: float
-    competitor_prices: list[float]
+    competitor_prices: list[Decimal]
     market_sentiment: float
     data_sources: list[DataSource] = field(default_factory=list)
     confidence_score: float = 0.8
@@ -408,16 +409,21 @@ class MarketDataCollector:
         else:
             return 0.5
 
-    def _calculate_aggregated_price(self, source_data: dict[DataSource, list[MarketDataPoint]]) -> float:
-        """Calculate aggregated average price"""
+    def _calculate_aggregated_price(self, source_data: dict[DataSource, list[MarketDataPoint]]) -> Decimal:
+        """Calculate aggregated average price.
+
+        ``MarketDataPoint.value`` stays ``float`` -- it carries demand and supply levels
+        as well as prices -- so the conversion happens here, where the quantity is known
+        to be money.
+        """
         price_values = []
         if DataSource.COMPETITOR_PRICES in source_data:
             for point in source_data[DataSource.COMPETITOR_PRICES]:
-                price_values.append(point.value)
+                price_values.append(Decimal(str(point.value)))
         if price_values:
-            return sum(price_values) / len(price_values)
+            return sum(price_values, Decimal("0")) / len(price_values)
         else:
-            return 0.05
+            return Decimal("0.05")
 
     def _calculate_price_volatility(self, source_data: dict[DataSource, list[MarketDataPoint]]) -> float:
         """Calculate price volatility"""
@@ -445,13 +451,13 @@ class MarketDataCollector:
         else:
             return 0.6
 
-    def _get_competitor_prices(self, source_data: dict[DataSource, list[MarketDataPoint]]) -> list[float]:
+    def _get_competitor_prices(self, source_data: dict[DataSource, list[MarketDataPoint]]) -> list[Decimal]:
         """Get competitor prices"""
-        competitor_prices = []
+        competitor_prices: list[Decimal] = []
         if DataSource.COMPETITOR_PRICES in source_data:
             for point in source_data[DataSource.COMPETITOR_PRICES]:
                 if "competitor_prices" in point.metadata:
-                    competitor_prices.extend(point.metadata["competitor_prices"])
+                    competitor_prices.extend(Decimal(str(p)) for p in point.metadata["competitor_prices"])
         return competitor_prices[:10]
 
     def _calculate_aggregated_sentiment(self, source_data: dict[DataSource, list[MarketDataPoint]]) -> float:

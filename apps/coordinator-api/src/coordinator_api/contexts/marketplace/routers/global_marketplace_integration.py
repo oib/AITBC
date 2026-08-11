@@ -4,18 +4,19 @@ REST API endpoints for integrated global marketplace with cross-chain capabiliti
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
-from coordinator_api.shared_kernel.enums import TransactionPriority
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
-
 from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
-from ...reputation.services.reputation_engine import CrossChainReputationEngine
+from coordinator_api.shared_kernel.enums import TransactionPriority
+
 from ....storage.db import get_session
 from ...cross_chain.services.cross_chain.bridge_types import BridgeProtocol
+from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ..domain.global_marketplace import GlobalMarketplaceOffer
 from ..services.global_marketplace_integration import GlobalMarketplaceIntegrationService, IntegrationStatus
 
@@ -41,12 +42,12 @@ async def create_cross_chain_marketplace_offer(
     agent_id: str,
     service_type: str,
     resource_specification: dict[str, Any],
-    base_price: float,
+    base_price: Decimal,
     currency: str | None,
     total_capacity: int | None,
     regions_available: list[str] | None,
     supported_chains: list[int] | None,
-    cross_chain_pricing: dict[int, float] | None,
+    cross_chain_pricing: dict[int, Decimal] | None,
     auto_bridge_enabled: bool | None,
     reputation_threshold: float | None,
     deadline_minutes: int | None,

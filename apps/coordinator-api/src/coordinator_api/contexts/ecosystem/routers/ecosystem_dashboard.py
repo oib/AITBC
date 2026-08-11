@@ -4,6 +4,7 @@ REST API for developer ecosystem metrics and analytics
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,8 +15,8 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AuthDep
-from ..services.ecosystem_service import EcosystemService
 from ....storage import get_session
+from ..services.ecosystem_service import EcosystemService
 
 logger = get_logger(__name__)
 
@@ -24,8 +25,8 @@ router = APIRouter()
 
 class DeveloperEarningsResponse(BaseModel):
     period: str
-    total_earnings: float
-    average_earnings: float
+    total_earnings: Decimal
+    average_earnings: Decimal
     top_earners: list[dict[str, Any]]
     earnings_growth: float
     active_developers: int
@@ -43,10 +44,10 @@ class AgentUtilizationResponse(BaseModel):
 
 class TreasuryAllocationResponse(BaseModel):
     period: str
-    treasury_balance: float
-    total_inflow: float
-    total_outflow: float
-    dao_revenue: float
+    treasury_balance: Decimal
+    total_inflow: Decimal
+    total_outflow: Decimal
+    dao_revenue: Decimal
     allocation_breakdown: dict[str, float]
     burn_rate: float
 
@@ -56,7 +57,7 @@ class StakingMetricsResponse(BaseModel):
     total_staked: float
     total_stakers: int
     average_apy: float
-    staking_rewards_total: float
+    staking_rewards_total: Decimal
     top_staking_pools: list[dict[str, Any]]
     tier_distribution: dict[str, int]
 
@@ -65,7 +66,7 @@ class BountyAnalyticsResponse(BaseModel):
     period: str
     active_bounties: int
     completion_rate: float
-    average_reward: float
+    average_reward: Decimal
     total_volume: float
     category_distribution: dict[str, int]
     difficulty_distribution: dict[str, int]

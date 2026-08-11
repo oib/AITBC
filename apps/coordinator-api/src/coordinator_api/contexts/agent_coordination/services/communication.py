@@ -8,15 +8,15 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from coordinator_api.contexts.cross_chain.services.cross_chain.reputation import (
     CrossChainReputationService,
 )
-
-from aitbc.aitbc_logging import get_logger
-from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -80,7 +80,7 @@ class Message:
     read_timestamp: datetime | None = None
     status: MessageStatus = MessageStatus.PENDING
     paid: bool = False
-    price: float = 0.0
+    price: Decimal = Decimal("0.0")
     metadata: dict[str, Any] = field(default_factory=dict)
     expires_at: datetime | None = None
     reply_to: str | None = None
@@ -115,7 +115,7 @@ class MessageTemplate:
     message_type: MessageType
     content_template: str
     variables: list[str]
-    base_price: float
+    base_price: Decimal
     is_active: bool
     creator: str
     usage_count: int = 0
@@ -126,7 +126,7 @@ class CommunicationStats:
     """Communication statistics for agent"""
 
     total_messages: int
-    total_earnings: float
+    total_earnings: Decimal
     messages_sent: int
     messages_received: int
     active_channels: int
@@ -148,7 +148,7 @@ class AgentCommunicationService:
         self.communication_stats: dict[str, CommunicationStats] = {}
         self.reputation_service: CrossChainReputationService | None = None
         self.min_reputation_score = 1000
-        self.base_message_price = 0.001
+        self.base_message_price = Decimal("0.001")
         self.max_message_size = 100000
         self.message_timeout = 86400
         self.channel_timeout = 2592000
@@ -182,7 +182,7 @@ class AgentCommunicationService:
                 if agent_id not in self.communication_stats:
                     self.communication_stats[agent_id] = CommunicationStats(
                         total_messages=0,
-                        total_earnings=0.0,
+                        total_earnings=Decimal("0.0"),
                         messages_sent=0,
                         messages_received=0,
                         active_channels=0,
@@ -370,7 +370,7 @@ class AgentCommunicationService:
             logger.error("Failed to read message %s: %s", message_id, e)
             return None
 
-    async def pay_for_message(self, message_id: str, payer: str, amount: float) -> bool:
+    async def pay_for_message(self, message_id: str, payer: str, amount: Decimal) -> bool:
         """Pay for a message"""
         try:
             if message_id not in self.messages:
@@ -435,7 +435,7 @@ class AgentCommunicationService:
         message_type: MessageType,
         content_template: str,
         variables: list[str],
-        base_price: float = 0.001,
+        base_price: Decimal = Decimal("0.001"),
     ) -> str:
         """Create a message template"""
         try:
@@ -616,8 +616,12 @@ class AgentCommunicationService:
         else:
             return encrypted_content
 
-    async def _calculate_message_price(self, size: int, message_type: MessageType) -> float:
-        """Calculate message price based on size and type"""
+    async def _calculate_message_price(self, size: int, message_type: MessageType) -> Decimal:
+        """Calculate message price based on size and type.
+
+        The multipliers are dimensionless; each is converted where it meets the price so
+        the product stays exact.
+        """
         base_price = self.base_message_price
         size_multiplier = max(1, size / 1000)
         type_multipliers = {
@@ -632,7 +636,7 @@ class AgentCommunicationService:
             MessageType.BULK: 10.0,
         }
         type_multiplier = type_multipliers.get(message_type, 1.0)
-        return base_price * size_multiplier * type_multiplier
+        return base_price * Decimal(str(size_multiplier)) * Decimal(str(type_multiplier))
 
     async def _get_or_create_channel(self, agent1: str, agent2: str, channel_type: ChannelType) -> str:
         """Get or create communication channel"""
@@ -744,7 +748,7 @@ class AgentCommunicationService:
                 message_type=MessageType.TASK_REQUEST,
                 content_template="Hello! I have a task for you: {task_description}. Budget: {budget} AITBC. Deadline: {deadline}.",
                 variables=["task_description", "budget", "deadline"],
-                base_price=0.002,
+                base_price=Decimal("0.002"),
                 is_active=True,
                 creator="system",
             ),
@@ -755,7 +759,7 @@ class AgentCommunicationService:
                 message_type=MessageType.COLLABORATION,
                 content_template="I'd like to collaborate on {project_name}. Your role would be {role_description}. Interested?",
                 variables=["project_name", "role_description"],
-                base_price=0.003,
+                base_price=Decimal("0.003"),
                 is_active=True,
                 creator="system",
             ),
@@ -766,7 +770,7 @@ class AgentCommunicationService:
                 message_type=MessageType.NOTIFICATION,
                 content_template="Notification: {notification_type}. {message}. Action required: {action_required}.",
                 variables=["notification_type", "message", "action_required"],
-                base_price=0.001,
+                base_price=Decimal("0.001"),
                 is_active=True,
                 creator="system",
             ),

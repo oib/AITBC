@@ -132,7 +132,7 @@ class BlockchainService:
         except NetworkError as e:
             logger.error("Failed to claim rewards on-chain: %s", e)
 
-    async def deploy_bounty_contract(self, bounty_id: str, reward_amount: float | Any, tier: Any, deadline: Any) -> None:
+    async def deploy_bounty_contract(self, bounty_id: str, reward_amount: Decimal | Any, tier: Any, deadline: Any) -> None:
         """Deploy a bounty contract on-chain (background task, best-effort)."""
         client = AITBCHTTPClient(timeout=10.0)
         try:
@@ -239,14 +239,14 @@ def validate_address(address: str) -> bool:
     return bool(ADDRESS_PATTERN.match(address))
 
 
-async def mint_tokens(address: str, amount: float) -> dict[str, Any]:
+async def mint_tokens(address: str, amount: Decimal) -> dict[str, Any]:
     """Mint tokens to an address"""
 
     client = AITBCHTTPClient(timeout=10.0)
     try:
         response = client.post(
             f"{BLOCKCHAIN_RPC}/admin/mintFaucet",
-            json={"address": address, "amount": amount},
+            json={"address": address, "amount": str(amount)},
             headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
         )
         return response

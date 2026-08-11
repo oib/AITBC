@@ -6,6 +6,7 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
@@ -27,7 +28,7 @@ class ResourceOffer:
     compute_type: str
     gpu_memory: int
     supported_models: list[str]
-    price_per_hour: float
+    price_per_hour: Decimal
     availability_schedule: dict[str, Any]
     max_concurrent_jobs: int
     quality_guarantee: float = 0.95
@@ -58,7 +59,7 @@ class ComputeProvider(Agent):
         super().__init__(identity, capabilities, coordinator_url)
         self.current_offers: list[ResourceOffer] = []
         self.active_jobs: list[JobExecution] = []
-        self.earnings: float = 0.0
+        self.earnings: Decimal = Decimal("0")
         self.utilization_rate: float = 0.0
         self.pricing_model: dict[str, Any] = {}
         self.dynamic_pricing: dict[str, Any] = {}
@@ -106,7 +107,7 @@ class ComputeProvider(Agent):
 
     async def offer_resources(
         self,
-        price_per_hour: float,
+        price_per_hour: Decimal,
         availability_schedule: dict[str, Any],
         max_concurrent_jobs: int = 3,
     ) -> bool:
@@ -150,7 +151,7 @@ class ComputeProvider(Agent):
 
     async def enable_dynamic_pricing(
         self,
-        base_rate: float,
+        base_rate: Decimal,
         demand_threshold: float = 0.8,
         max_multiplier: float = 2.0,
         adjustment_frequency: str = "15min",
@@ -196,14 +197,14 @@ class ComputeProvider(Agent):
                         current_utilization / self.dynamic_pricing["demand_threshold"],
                     )
 
-                new_price = self.dynamic_pricing["base_rate"] * multiplier
+                new_price = self.dynamic_pricing["base_rate"] * Decimal(str(multiplier))
 
                 # Update marketplace offers
                 for offer in self.current_offers:
                     offer.price_per_hour = new_price
                     await self._update_marketplace_offer(offer)
 
-                logger.debug("Dynamic pricing: utilization=%.2f, price=%.3f AITBC/h", current_utilization, new_price)
+                logger.debug("Dynamic pricing: utilization=%.2f, price=%s AITBC/h", current_utilization, new_price)
 
             except Exception as e:
                 logger.error("Dynamic pricing error: %s", e)
@@ -251,8 +252,10 @@ class ComputeProvider(Agent):
             job.status = "completed"
             job.quality_score = 0.95  # Simulate quality score
 
-            # Calculate earnings
-            earnings = job_request["estimated_hours"] * job_request["agreed_price"]
+            # Calculate earnings. job_request is an untyped dict off the wire, so both
+            # operands are converted here rather than the product being wrapped after
+            # the fact -- and self.earnings is Decimal, which will not add a float.
+            earnings = Decimal(str(job_request["agreed_price"])) * Decimal(str(job_request["estimated_hours"]))
             self.earnings += earnings
 
             # Remove from active jobs
@@ -268,7 +271,7 @@ class ComputeProvider(Agent):
             job.status = "failed"
             logger.error("Job execution failed: %s - %s", job.job_id, e)
 
-    async def _notify_job_completion(self, job: JobExecution, earnings: float) -> None:
+    async def _notify_job_completion(self, job: JobExecution, earnings: Decimal) -> None:
         """Notify consumer about job completion"""
         notification = {
             "job_id": job.job_id,
@@ -276,7 +279,7 @@ class ComputeProvider(Agent):
             "completion_time": datetime.now(UTC).isoformat(),
             "duration_hours": (job.actual_duration.total_seconds() / 3600 if job.actual_duration else None),
             "quality_score": job.quality_score,
-            "cost": earnings,
+            "cost": str(earnings),
         }
 
         await self.send_message(job.consumer_id, "job_completion", notification)
@@ -292,7 +295,7 @@ class ComputeProvider(Agent):
         return {
             "utilization_rate": self.utilization_rate,
             "active_jobs": len(self.active_jobs),
-            "total_earnings": self.earnings,
+            "total_earnings": str(self.earnings),
             "average_job_duration": (
                 sum(j.actual_duration.total_seconds() for j in completed_jobs if j.actual_duration) / len(completed_jobs)
                 if completed_jobs
@@ -314,7 +317,7 @@ class ComputeProvider(Agent):
                 "compute_type": offer.compute_type,
                 "gpu_memory": offer.gpu_memory,
                 "supported_models": offer.supported_models,
-                "price_per_hour": offer.price_per_hour,
+                "price_per_hour": str(offer.price_per_hour),
                 "availability_schedule": offer.availability_schedule,
                 "max_concurrent_jobs": offer.max_concurrent_jobs,
                 "quality_guarantee": offer.quality_guarantee,
@@ -344,7 +347,7 @@ class ComputeProvider(Agent):
                 "compute_type": offer.compute_type,
                 "gpu_memory": offer.gpu_memory,
                 "supported_models": offer.supported_models,
-                "price_per_hour": offer.price_per_hour,
+                "price_per_hour": str(offer.price_per_hour),
                 "availability_schedule": offer.availability_schedule,
                 "max_concurrent_jobs": offer.max_concurrent_jobs,
                 "quality_guarantee": offer.quality_guarantee,

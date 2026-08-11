@@ -4,6 +4,7 @@ Implements SQLModel definitions for agent reputation, trust scores, and economic
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -53,7 +54,7 @@ class AgentReputation(SQLModel, table=True):
     community_rating: float = Field(default=3.0, ge=1.0, le=5.0)  # 1-5 stars
 
     # Economic metrics
-    total_earnings: float = Field(default=0.0)  # Total AITBC earned
+    total_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Total AITBC earned
     transaction_count: int = Field(default=0)  # Total transactions
     success_rate: float = Field(default=0.0, ge=0, le=100.0)  # Success percentage
     dispute_count: int = Field(default=0)  # Number of disputes
@@ -204,10 +205,10 @@ class AgentEconomicProfile(SQLModel, table=True):
     agent_id: str = Field(index=True, foreign_key="agent_reputation.id")
 
     # Earnings breakdown
-    daily_earnings: float = Field(default=0.0)
-    weekly_earnings: float = Field(default=0.0)
-    monthly_earnings: float = Field(default=0.0)
-    yearly_earnings: float = Field(default=0.0)
+    daily_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    weekly_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    monthly_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    yearly_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Performance metrics
     average_job_value: float = Field(default=0.0)

@@ -1,6 +1,7 @@
 """GPU-related schemas for Edge API Service"""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -23,7 +24,7 @@ class GPUListing(SQLModel, table=True):
     island_id: str = Field(default="", index=True)
     miner_id: str = Field(default="", index=True)
     gpu_type: str = Field(default="", index=True)
-    price_per_hour: float = Field(default=0.0)
+    price_per_hour: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
     status: str = Field(default="active", index=True)  # active, inactive, booked
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

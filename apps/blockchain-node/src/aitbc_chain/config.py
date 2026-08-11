@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
 from pydantic import BaseModel, field_validator, model_validator
@@ -538,7 +539,7 @@ class ChainSettings(BaseSettings):
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
     consensus_slashing_enabled: bool = True  # C2 — enable slashing
-    consensus_slashing_amount: float = 100.0  # stake to slash per offense
+    consensus_slashing_amount: Decimal = Decimal("100.0")  # stake to slash per offense
     consensus_byzantine_threshold: int = 3  # slash count before deactivation
 
     # Cross-chain settlement (v0.9.0). Atomic settlement uses HTLCs to

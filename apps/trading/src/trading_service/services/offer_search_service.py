@@ -10,6 +10,7 @@ for advanced search with relevance ranking.
 
 from __future__ import annotations
 
+from decimal import Decimal
 import logging
 from typing import Any
 
@@ -93,8 +94,8 @@ class OfferSearchService:
         query: str = "",
         chain_id: str | None = None,
         service_type: str | None = None,
-        min_price: float | None = None,
-        max_price: float | None = None,
+        min_price: Decimal | None = None,
+        max_price: Decimal | None = None,
         limit: int = 100,
     ) -> list[SyncedOffer]:
         """Search offers with text query and filters."""
@@ -126,8 +127,8 @@ class OfferSearchService:
         query: str,
         chain_id: str | None,
         service_type: str | None,
-        min_price: float | None,
-        max_price: float | None,
+        min_price: Decimal | None,
+        max_price: Decimal | None,
         limit: int,
     ) -> list[SyncedOffer]:
         """Fallback in-memory search with basic text matching."""

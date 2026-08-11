@@ -1,5 +1,6 @@
 """Bounty operations using CLI commands"""
 
+from decimal import Decimal
 from aitbc.aitbc_logging import get_logger
 
 from .command_executor import CommandExecutor
@@ -13,7 +14,7 @@ class BountyOperations:
     def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
         self.executor = CommandExecutor(cli_path)
 
-    def create_bounty(self, title: str, description: str, reward: float) -> str:
+    def create_bounty(self, title: str, description: str, reward: Decimal) -> str:
         """Create bounty"""
         try:
             args = ["create", "--title", title, "--description", description, "--reward", str(reward)]

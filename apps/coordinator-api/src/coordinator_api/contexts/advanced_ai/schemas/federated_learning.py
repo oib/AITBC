@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict
 
 from ..domain.federated_learning import TrainingStatus
@@ -12,7 +14,7 @@ class FederatedSessionCreate(BaseModel):
     total_rounds: int = 10
     aggregation_strategy: str = "fedavg"
     min_participants_per_round: int = 2
-    reward_pool_amount: float = 0.0
+    reward_pool_amount: Decimal = Decimal("0.0")
 
 
 class FederatedSessionResponse(BaseModel):

@@ -494,9 +494,9 @@ class GlobalChainMarketplace:
                 # Add to price history
                 economy.price_history.append(
                     {
-                        "price": float(transaction_price),
+                        "price": transaction_price,
                         "timestamp": datetime.now().isoformat(),
-                        "volume": float(transaction_price),
+                        "volume": transaction_price,
                     }
                 )
 
@@ -694,8 +694,8 @@ class GlobalChainMarketplace:
             return {
                 "active_escrows": active_escrows,
                 "released_escrows": released_escrows,
-                "total_escrow_value": float(total_escrow_value),
-                "escrow_fee_collected": float(total_escrow_value * Decimal(str(self.thresholds["escrow_fee_percentage"]))),
+                "total_escrow_value": str(total_escrow_value),
+                "escrow_fee_collected": str(total_escrow_value * Decimal(str(self.thresholds["escrow_fee_percentage"]))),
             }
 
         except Exception as e:

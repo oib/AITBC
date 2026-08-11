@@ -5,6 +5,7 @@ Database models for agent agent community, third-party solutions, and innovation
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -55,7 +56,7 @@ class DeveloperProfile(SQLModel, table=True):
 
     tier: DeveloperTier = Field(default=DeveloperTier.NOVICE)
     reputation_score: float = Field(default=0.0)
-    total_earnings: float = Field(default=0.0)
+    total_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     skills: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     github_handle: str | None = None
@@ -81,7 +82,7 @@ class AgentSolution(SQLModel, table=True):
     frameworks: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     price_model: str = Field(default="free")  # free, one_time, subscription, usage_based
-    price_amount: float = Field(default=0.0)
+    price_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     currency: str = Field(default="AITBC")
 
     status: SolutionStatus = Field(default=SolutionStatus.DRAFT, index=True)
@@ -110,8 +111,8 @@ class InnovationLab(SQLModel, table=True):
     members: list[str] = Field(default_factory=list, sa_column=Column(JSON))  # List of developer_ids
 
     status: LabStatus = Field(default=LabStatus.PROPOSED)
-    funding_goal: float = Field(default=0.0)
-    current_funding: float = Field(default=0.0)
+    funding_goal: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
+    current_funding: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
 
     milestones: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     publications: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))

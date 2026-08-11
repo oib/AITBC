@@ -3,11 +3,13 @@
 import json
 import os
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 
 import click
 
-from ...utils import error, output, success
+from ...utils import DECIMAL, error, output, success
+from ...utils.money import wallet_amount as _wallet_amount
 from . import wallet
 
 
@@ -62,10 +64,10 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @wallet.command(name="multisig-propose")
 @click.option("--wallet", "wallet_name", required=True, help="Multisig wallet name")
 @click.argument("to_address")
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.option("--description", help="Transaction description")
 @click.pass_context
-def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, description: str | None):
+def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, description: str | None):
     """Propose a multisig transaction"""
     wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
@@ -77,7 +79,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
     with open(multisig_path) as f:
         ms_data = json.load(f)
 
-    if ms_data.get("balance", 0) < amount:
+    if _wallet_amount(ms_data.get("balance", 0)) < amount:
         error(f"Insufficient balance. Available: {ms_data['balance']}, Required: {amount}")
         ctx.exit(1)
         return
@@ -88,7 +90,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
     pending_tx = {
         "tx_id": tx_id,
         "to": to_address,
-        "amount": amount,
+        "amount": str(amount),
         "description": description or "",
         "proposed_at": datetime.now().isoformat(),
         "proposed_by": os.environ.get("USER", "unknown"),
@@ -105,7 +107,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
         {
             "tx_id": tx_id,
             "to": to_address,
-            "amount": amount,
+            "amount": str(amount),
             "signatures_needed": ms_data["threshold"],
             "status": "pending",
         },

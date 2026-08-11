@@ -223,6 +223,9 @@ class AdvancedAnalytics:
         past = values[-(periods + 1)]
         return (current - past) / past if past > 0 else 0
 
+    # not-money: a technical indicator over a price series, computed with numpy and
+    # returning a 0-100 index. numpy has no Decimal dtype; the input is a sample, not a
+    # quantity being settled.
     def _calculate_rsi(self, prices: list[float], period: int = 14) -> float:
         """Calculate RSI indicator"""
         if len(prices) < period + 1:

@@ -1,23 +1,25 @@
 """Staking wallet commands"""
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import click
 
 from aitbc_agent_core import get_active_brand
-from ...utils import error, output, success
+from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient
+from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 
 _brand = get_active_brand()
 
 
 @wallet.command()
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
 @click.pass_context
-def stake(ctx, amount: float, duration: int):
+def stake(ctx, amount: Decimal, duration: int):
     """Stake tokens on blockchain"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -57,7 +59,7 @@ def stake(ctx, amount: float, duration: int):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         stake_data = {
             "address": hex_address,
-            "amount": int(amount * 10**18),  # Convert to wei
+            "amount": int(amount * 10**18),  # Convert to wei -- exact, now that amount is Decimal
             "lock_days": duration,
             "chain_id": chain_id,
         }
@@ -68,7 +70,7 @@ def stake(ctx, amount: float, duration: int):
             {
                 "wallet": wallet_name,
                 "stake_id": result.get("stake_id"),
-                "amount": amount,
+                "amount": str(amount),
                 "duration_days": duration,
                 "locked_until": result.get("locked_until"),
                 "remaining_balance": result.get("remaining_balance"),
@@ -201,11 +203,11 @@ def staking_info(ctx):
 
 
 @wallet.command(name="liquidity-stake")
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.pass_context
-def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
+def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int):
     """Stake tokens into a liquidity pool"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
@@ -216,7 +218,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
 
-    balance = wallet_data.get("balance", 0)
+    balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount:
         error(f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
@@ -244,7 +246,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
     liq_record = {
         "stake_id": stake_id,
         "pool": pool,
-        "amount": amount,
+        "amount": str(amount),
         "apy": apy,
         "tier": tier,
         "lock_days": lock_days,
@@ -254,12 +256,12 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
     }
 
     wallet_data.setdefault("liquidity", []).append(liq_record)
-    wallet_data["balance"] = balance - amount
+    wallet_data["balance"] = str(balance - amount)
 
     wallet_data["transactions"].append(
         {
             "type": "liquidity_stake",
-            "amount": -amount,
+            "amount": str(-amount),
             "pool": pool,
             "stake_id": stake_id,
             "timestamp": now.isoformat(),
@@ -277,7 +279,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
         {
             "stake_id": stake_id,
             "pool": pool,
-            "amount": amount,
+            "amount": str(amount),
             "apy": apy,
             "tier": tier,
             "lock_days": lock_days,
@@ -323,21 +325,24 @@ def liquidity_unstake(ctx, stake_id: str):
     # Calculate rewards
     start = datetime.fromisoformat(record["start_date"])
     days_staked = max((datetime.now() - start).total_seconds() / 86400, 0.001)
-    rewards = record["amount"] * (record["apy"] / 100) * (days_staked / 365)
-    total = record["amount"] + rewards
+    principal = _wallet_amount(record["amount"])
+    # apy and days_staked are genuinely dimensionless; converting them at the
+    # multiplication keeps the principal exact instead of wrapping a float product
+    rewards = principal * (Decimal(str(record["apy"])) / 100) * (Decimal(str(days_staked)) / 365)
+    total = principal + rewards
 
     record["status"] = "completed"
     record["end_date"] = datetime.now().isoformat()
-    record["rewards"] = round(rewards, 6)
+    record["rewards"] = str(round(rewards, 6))
 
-    wallet_data["balance"] = wallet_data.get("balance", 0) + total
+    wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + total)
 
     wallet_data["transactions"].append(
         {
             "type": "liquidity_unstake",
-            "amount": total,
-            "principal": record["amount"],
-            "rewards": round(rewards, 6),
+            "amount": str(total),
+            "principal": str(principal),
+            "rewards": str(round(rewards, 6)),
             "pool": record["pool"],
             "stake_id": stake_id,
             "timestamp": datetime.now().isoformat(),
@@ -350,17 +355,17 @@ def liquidity_unstake(ctx, stake_id: str):
         password = _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
-    success(f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})")
+    success(f"Withdrawn {total:.6f} AITBC (principal: {principal}, rewards: {rewards:.6f})")
     output(
         {
             "stake_id": stake_id,
             "pool": record["pool"],
-            "principal": record["amount"],
-            "rewards": round(rewards, 6),
-            "total_returned": round(total, 6),
+            "principal": str(principal),
+            "rewards": str(round(rewards, 6)),
+            "total_returned": str(round(total, 6)),
             "days_staked": round(days_staked, 2),
             "apy": record["apy"],
-            "new_balance": round(wallet_data["balance"], 6),
+            "new_balance": str(round(_wallet_amount(wallet_data["balance"]), 6)),
         },
         ctx.obj.get("output_format", "table"),
     )

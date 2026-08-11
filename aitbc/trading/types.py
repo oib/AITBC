@@ -14,6 +14,7 @@ blockchain node RPC and bridge run on port 8202 (verified in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from enum import StrEnum
 
 
@@ -113,7 +114,7 @@ class InterChainTradeData:
     recipient: str
     amount: int
     offer_id: str | None = None
-    price: float = 0.0
+    price: Decimal = Decimal("0")
     quantity: int = 0
     status: str = "pending"
     source_tx_hash: str | None = None
@@ -157,7 +158,7 @@ class TradeMatchResult:
     match_score: float = 0.0
     matched_chain: str = ""
     matched_offer_id: str = ""
-    price: float = 0.0
+    price: Decimal = Decimal("0")
     quantity: int = 0
     reason: str = ""
 
@@ -174,7 +175,7 @@ class TradeHistoryEntry:
     dest_chain: str
     status: str
     amount: int
-    price: float = 0.0
+    price: Decimal = Decimal("0")
     quantity: int = 0
     created_at: str = ""
     completed_at: str = ""
@@ -196,7 +197,7 @@ class CreateTradeRequest:
     recipient: str
     amount: int
     offer_id: str | None = None
-    price: float = 0.0
+    price: Decimal = Decimal("0")
     quantity: int = 0
     chain_id: str = "ait-hub"
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +39,7 @@ class ReputationDTO:
     community_rating: float = 3.0  # 1-5 stars
 
     # Economic metrics
-    total_earnings: float = 0.0
+    total_earnings: Decimal = Decimal("0.0")
     transaction_count: int = 0
     success_rate: float = 0.0  # 0-100%
     dispute_count: int = 0

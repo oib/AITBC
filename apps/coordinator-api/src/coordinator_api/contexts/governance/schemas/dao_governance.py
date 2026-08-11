@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, Field
 
 from ..domain.dao_governance import ProposalType
@@ -5,7 +7,7 @@ from ..domain.dao_governance import ProposalType
 
 class MemberCreate(BaseModel):
     wallet_address: str
-    staked_amount: float = 0.0
+    staked_amount: Decimal = Decimal("0.0")
 
 
 class ProposalCreate(BaseModel):
@@ -26,7 +28,7 @@ class VoteCreate(BaseModel):
 
 class AllocationCreate(BaseModel):
     proposal_id: str | None = None
-    amount: float
+    amount: Decimal
     token_symbol: str = "AITBC"
     recipient_address: str
     purpose: str
