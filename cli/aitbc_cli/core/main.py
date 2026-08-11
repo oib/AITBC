@@ -41,7 +41,7 @@ from aitbc_cli.commands.plugin import plugin
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
 from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
-from aitbc_cli.commands.agent import agent as agent_msg
+from aitbc_cli.commands.agent import messaging as agent_msg
 from aitbc_cli.commands.market import market
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
