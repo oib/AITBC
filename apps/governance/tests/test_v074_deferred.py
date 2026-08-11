@@ -23,9 +23,30 @@ _BC_SRC = str(_REPO / "apps" / "blockchain-node" / "src")
 _POOLHUB_SRC = str(_REPO / "apps" / "pool-hub" / "src")
 _MARKETPLACE_SRC = str(_REPO / "apps" / "marketplace" / "src")
 _CLI_SRC = str(_REPO / "cli")
-for _p in [_GOV_SRC, _BC_SRC, _POOLHUB_SRC, _MARKETPLACE_SRC, _CLI_SRC]:
+_COORD_SRC = str(_REPO / "apps" / "coordinator-api" / "src")
+for _p in [_GOV_SRC, _BC_SRC, _POOLHUB_SRC, _MARKETPLACE_SRC, _CLI_SRC, _COORD_SRC]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+
+def _load_bridge_adapter():
+    """Import ``bridge_client_adapter`` from coordinator-api.
+
+    The three adapter tests below each spelled out a path to this file and loaded it
+    with ``importlib.util.spec_from_file_location``, which cannot work: the module
+    opens with five-level relative imports (``from .....agent_identity import ...``),
+    and a module loaded by path has no parent package to resolve them against. The
+    path was also stale — coordinator-api's package was renamed ``app`` ->
+    ``coordinator_api`` — so all three failed at the ``exists()`` assertion and the
+    unusable loader underneath was never reached.
+
+    Imported as a package instead, the way this file already reaches blockchain-node,
+    pool-hub and marketplace. A rename now breaks it in one place, with an ImportError
+    that names the package.
+    """
+    import importlib
+
+    return importlib.import_module("coordinator_api.contexts.cross_chain.services.cross_chain.bridge_client_adapter")
 
 
 # ============================================================================
@@ -181,47 +202,14 @@ class TestBridgeClientAdapter:
 
     def test_adapter_import(self):
         """Test that BridgeClientAdapter can be imported."""
-        import importlib.util
-
-        adapter_path = (
-            _REPO
-            / "apps"
-            / "coordinator-api"
-            / "src"
-            / "app"
-            / "contexts"
-            / "cross_chain"
-            / "services"
-            / "cross_chain"
-            / "bridge_client_adapter.py"
-        )
-        assert adapter_path.exists(), f"BridgeClientAdapter not found at {adapter_path}"
-        spec = importlib.util.spec_from_file_location("bridge_client_adapter", adapter_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_bridge_adapter()
 
         adapter = module.BridgeClientAdapter(rpc_url="http://localhost:8202")
         assert adapter is not None
 
     def test_adapter_init_with_defaults(self):
         """Test adapter initialization with default values."""
-        import importlib.util
-
-        adapter_path = (
-            _REPO
-            / "apps"
-            / "coordinator-api"
-            / "src"
-            / "app"
-            / "contexts"
-            / "cross_chain"
-            / "services"
-            / "cross_chain"
-            / "bridge_client_adapter.py"
-        )
-        spec = importlib.util.spec_from_file_location("bridge_client_adapter", adapter_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_bridge_adapter()
 
         adapter = module.BridgeClientAdapter(rpc_url="http://localhost:9999", chain_id="test-chain")
         assert adapter.client is not None
@@ -229,26 +217,11 @@ class TestBridgeClientAdapter:
 
     def test_adapter_transfer_to_dict(self):
         """Test the _transfer_to_dict conversion method."""
-        import importlib.util
         from datetime import datetime
 
         from aitbc.bridge import BridgeStatus, BridgeTransfer
 
-        adapter_path = (
-            _REPO
-            / "apps"
-            / "coordinator-api"
-            / "src"
-            / "app"
-            / "contexts"
-            / "cross_chain"
-            / "services"
-            / "cross_chain"
-            / "bridge_client_adapter.py"
-        )
-        spec = importlib.util.spec_from_file_location("bridge_client_adapter", adapter_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        module = _load_bridge_adapter()
 
         transfer = BridgeTransfer(
             transfer_id="tx-123",
