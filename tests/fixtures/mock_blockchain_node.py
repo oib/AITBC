@@ -39,30 +39,54 @@ async def get_chain_head():
     return JSONResponse(mock_chain_state)
 
 
-@app.get("/rpc/getBalance/{address}")
+@app.get("/rpc/balance/{address}")
 async def get_balance(address: str):
-    """Get balance for an address"""
+    """Balance breakdown for an address, in compute-seconds.
+
+    V23-42: this served `/rpc/getBalance/{address}` returning `{"balance": n}` — a route and a
+    shape the real node has never had. It matched the coordinator's client, which is the wrong
+    thing for a mock to match: the client and the mock agreed with each other and neither
+    agreed with the server, so the suite was green against a fiction.
+    """
     balance = mock_chain_state["balances"].get(address, 0)
-    return JSONResponse({"balance": balance})
+    return JSONResponse(
+        {
+            "address": address,
+            "available_balance": balance,
+            "staked": 0,
+            "bridge_locked": 0,
+            "total_balance": balance,
+        }
+    )
 
 
-@app.post("/rpc/admin/mintFaucet")
-async def mint_faucet(request: dict[str, Any]):
-    """Mint tokens to an address (devnet only)"""
+@app.post("/rpc/faucet")
+async def faucet(request: dict[str, Any]):
+    """Mint test tokens to an address (devnet only). Was `/rpc/admin/mintFaucet` — see above."""
     address = request.get("address")
-    amount = request.get("amount", 0)
+    amount = request.get("amount", 3600000000)
 
     if address in mock_chain_state["balances"]:
         mock_chain_state["balances"][address] += amount
     else:
         mock_chain_state["balances"][address] = amount
 
-    return JSONResponse({"success": True, "new_balance": mock_chain_state["balances"][address]})
+    return JSONResponse(
+        {
+            "success": True,
+            "address": address,
+            "amount": amount,
+            "tx_hash": f"0x{abs(hash((address, amount))):064x}"[:66],
+            "message": "Faucet transaction completed",
+        }
+    )
 
 
-@app.post("/rpc/sendTx")
+@app.post("/rpc/transaction")
 async def send_transaction(request: dict[str, Any]):
-    """Send a transaction"""
+    """Submit a transaction. Was `/rpc/sendTx`, returning `tx_hash` — neither is what the node
+    does: the route is `/rpc/transaction` and the key is `transaction_hash`, which is what
+    `cli/aitbc_cli/commands/transactions.py` reads back."""
     # Generate mock transaction hash
     tx_hash = f"0x{hash(str(request)) % 1000000000000000000000000000000000000000000000000000000000000000:x}"
 
@@ -71,7 +95,7 @@ async def send_transaction(request: dict[str, Any]):
         {"hash": tx_hash, "type": request.get("type", "TRANSFER"), "sender": request.get("sender"), "timestamp": time.time()}
     )
 
-    return JSONResponse({"tx_hash": tx_hash, "status": "pending"})
+    return JSONResponse({"success": True, "transaction_hash": tx_hash, "message": "Transaction submitted to mempool"})
 
 
 @app.get("/health")

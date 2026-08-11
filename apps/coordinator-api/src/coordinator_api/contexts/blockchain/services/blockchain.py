@@ -1,5 +1,15 @@
-"""
-Blockchain service for token operations
+"""Blockchain service for token operations.
+
+V23-42: this module's URLs were never checked against the node that serves them. The node
+mounts its whole RPC surface under ``/rpc`` (``app.py``), and none of the paths below carried
+that prefix, so every call here returned 404. Twelve of the fourteen have no counterpart on
+the node under any prefix — the staking and bounty paths are near-copies of *this app's own*
+route table pointed at the chain node's base URL.
+
+The failures were invisible because the ``BlockchainService`` methods are fired from FastAPI
+background tasks and catch ``NetworkError`` to a log line, so the caller had already received
+its 200. ``tests/test_blockchain_client_paths.py`` now compares these URLs against the node's
+real route table, so the gap cannot widen in silence.
 """
 
 import re
@@ -9,21 +19,41 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
+from aitbc.utils import seconds_to_ait
 
 from ....config import settings
 
 logger = get_logger(__name__)
 
 # Blockchain node RPC — default to the canonical port 8202 (see apps/blockchain-node/src/aitbc_chain/main.py).
-# Overridable via settings.blockchain_rpc_url.
+# Overridable via settings.blockchain_rpc_url. The node mounts every RPC route under /rpc, so
+# callers must include that prefix; settings.blockchain_rpc_url is the bare origin.
 BLOCKCHAIN_RPC = settings.blockchain_rpc_url
+RPC = f"{BLOCKCHAIN_RPC}/rpc"
 
 # Basic validation for blockchain addresses (alphanumeric, common prefixes)
 ADDRESS_PATTERN = re.compile(r"^[a-zA-Z0-9]{20,50}$")
 
 
 class BlockchainService:
-    """Blockchain service for staking router — fires background RPC calls to the chain node."""
+    """Blockchain service for staking/bounty routers — fires background RPC calls to the node.
+
+    **None of the twelve endpoints below exists on the blockchain node.** They are not merely
+    missing the ``/rpc`` prefix: ``/staking/stake`` is the only one with any counterpart at
+    all (``POST /rpc/staking/stake``), and that one wants ``{address, amount, lock_days,
+    signature}`` and rejects unsigned requests with 403 — this app has no access to an agent's
+    staking key, so it cannot produce that signature. The rest, including every ``/bounty/*``
+    path, have no counterpart under any prefix. They are near-copies of *this app's own*
+    staking routes (``contexts/staking/routers/staking.py``) addressed to the node's host.
+
+    The URLs are left as they are rather than given a ``/rpc`` prefix, because a prefix would
+    imply they resolve. What is needed is either the endpoints on the node or the removal of
+    these calls — a design decision, recorded as V23-42, not a rename.
+
+    Every method here is a background task that catches ``NetworkError`` into a log line, so
+    the router has already returned 200/201 by the time the call fails. A client that stakes
+    or deploys a bounty is told it succeeded and nothing reaches the chain.
+    """
 
     def __init__(self) -> None:
         self.rpc_url = BLOCKCHAIN_RPC
@@ -240,23 +270,36 @@ def validate_address(address: str) -> bool:
 
 
 async def mint_tokens(address: str, amount: Decimal) -> dict[str, Any]:
-    """Mint tokens to an address"""
+    """Not implemented. There is no mint endpoint on the node, and the faucet is not one.
 
-    client = AITBCHTTPClient(timeout=10.0)
-    try:
-        response = client.post(
-            f"{BLOCKCHAIN_RPC}/admin/mintFaucet",
-            json={"address": address, "amount": str(amount)},
-            headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
-        )
-        return response
-    except NetworkError as e:
-        raise Exception(f"Failed to mint tokens: {e}") from e
+    This used to POST ``/admin/mintFaucet``, which has never existed on any node in this
+    repository — only ``tests/fixtures/mock_blockchain_node.py`` served it, which is why the
+    integration suite stayed green. The nearest real endpoint is ``POST /rpc/faucet``, a
+    devnet faucet that mints from nothing, rate-limited to 10/hour and capped at 10M AIT.
+
+    It is deliberately *not* wired up here. The only caller is
+    ``DeveloperPlatformService.claim_rewards``, which pays out a hardcoded 45.75 and returns
+    ``"0xmock_claim_tx_hash"``; pointing that at a working faucet would turn a broken fake
+    into a functioning one that credits real chain balance to anyone who asks. The HTTP layer
+    already refuses for exactly this reason — every route in
+    ``developer_platform/routers/staking.py`` returns 501, noting "The current implementation
+    mints tokens without verification". This raises so the service layer says the same thing.
+    """
+    raise NotImplementedError(
+        "No mint endpoint exists on the blockchain node. Reward payout needs a real on-chain "
+        "distribution path with verification, not the devnet faucet — see V23-42."
+    )
 
 
 def get_balance(address: str) -> Decimal | None:
-    """Get token balance for an address"""
+    """Get an address's available balance, in AIT.
 
+    Three separate mismatches, all in one call: the path lacked the node's ``/rpc`` prefix,
+    the node calls the route ``balance`` rather than ``getBalance``, and its response has no
+    ``balance`` key at all — it returns ``available_balance``/``staked``/``bridge_locked``/
+    ``total_balance``, so ``response.get("balance", 0)`` would have reported every account as
+    empty even from the right URL. The figures are compute-seconds, hence the conversion.
+    """
     if not validate_address(address):
         logger.error("Invalid address format")
         return None
@@ -265,10 +308,10 @@ def get_balance(address: str) -> Decimal | None:
         client = AITBCHTTPClient(timeout=10.0)
         try:
             response = client.get(
-                f"{BLOCKCHAIN_RPC}/getBalance/{address}",
+                f"{RPC}/balance/{address}",
                 headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
             )
-            return Decimal(str(response.get("balance", 0)))
+            return seconds_to_ait(response.get("available_balance", 0))
         except NetworkError as e:
             logger.error("Error getting balance: %s", e)
             return None
