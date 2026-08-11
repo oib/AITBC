@@ -39,7 +39,10 @@ async def submit_job(
             payment_create = JobPaymentCreate(
                 job_id=job.id, amount=req.payment_amount, currency=req.payment_currency, payment_method="aitbc_token"
             )
-            payment = await payment_service.create_payment(job.id, payment_create)
+            # V23-46: create_payment(client_id, job_id, payment_data). Passing (job.id,
+            # payment_create) made client_id=job.id, job_id=payment_create, and left
+            # payment_data unfilled -- a TypeError, swallowed by the except below.
+            payment = await payment_service.create_payment(user["sub"], job.id, payment_create)
             job.payment_id = payment.id
             job.payment_status = payment.status
             session.commit()

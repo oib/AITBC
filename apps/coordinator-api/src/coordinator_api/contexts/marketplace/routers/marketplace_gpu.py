@@ -314,7 +314,12 @@ async def buy_gpu(
                 payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
                 escrow_timeout_seconds=int(request.duration_hours * 3600),
             )
-            payment = await payment_service.create_payment(job_id=job.id, payment_data=payment_create)
+            # V23-46: client_id was missing entirely (TypeError). The job above was
+            # created with client_id=request.buyer_id, which is what the ownership
+            # check compares against.
+            payment = await payment_service.create_payment(
+                client_id=request.buyer_id, job_id=job.id, payment_data=payment_create
+            )
             payment_id = payment.id
             payment_status = payment.status
             payment_session.close()
@@ -545,7 +550,10 @@ async def send_payment(
         escrow_timeout_seconds=3600,
     )
     try:
+        # V23-46: client_id was missing entirely (TypeError). The authenticated caller
+        # is the payer, and _require_owned_job then verifies they own the job.
         payment = await payment_service.create_payment(
+            client_id=user["sub"],
             job_id=payment_create.job_id,
             payment_data=payment_create,
         )

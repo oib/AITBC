@@ -96,7 +96,12 @@ async def submit_result(
         from ...payments.services.payments import PaymentService
 
         payment_service = PaymentService(session)
-        success = await payment_service.release_payment(job.id, job.payment_id, reason="Job completed successfully")
+        # V23-46: release_payment(client_id, job_id, payment_id, reason). This is the
+        # miner router, so user["sub"] is the miner -- the owning client is job.client_id,
+        # which is what _require_owned_job checks against.
+        success = await payment_service.release_payment(
+            job.client_id, job.id, job.payment_id, reason="Job completed successfully"
+        )
         if success:
             job.payment_status = "released"
             session.commit()
