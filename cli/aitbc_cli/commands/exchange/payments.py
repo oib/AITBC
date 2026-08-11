@@ -2,11 +2,15 @@
 Payment-related exchange commands.
 """
 
+from decimal import Decimal
+
 from aitbc_cli.utils import error, output, success
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 
-def create_payment_command(ctx, aitbc_amount: float | None, btc_amount: float | None, user_id: str | None, notes: str | None):
+def create_payment_command(
+    ctx, aitbc_amount: Decimal | None, btc_amount: Decimal | None, user_id: str | None, notes: str | None
+):
     """Create a Bitcoin payment request for AITBC purchase"""
     config = ctx.obj["config"]
 
@@ -25,14 +29,20 @@ def create_payment_command(ctx, aitbc_amount: float | None, btc_amount: float | 
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         rates = http_client.get("/exchange/rates")
-        btc_to_aitbc = rates.get("btc_to_aitbc", 100000)
+        # the rate arrives as a JSON number; convert once rather than dividing a Decimal
+        # by a float, which raises
+        btc_to_aitbc = Decimal(str(rates.get("btc_to_aitbc", 100000)))
 
         if aitbc_amount and not btc_amount:
             btc_amount = aitbc_amount / btc_to_aitbc
         elif btc_amount and not aitbc_amount:
             aitbc_amount = btc_amount * btc_to_aitbc
 
-        payment_data = {"user_id": user_id or "cli_user", "aitbc_amount": aitbc_amount, "btc_amount": btc_amount}
+        payment_data = {
+            "user_id": user_id or "cli_user",
+            "aitbc_amount": str(aitbc_amount) if aitbc_amount is not None else None,
+            "btc_amount": str(btc_amount) if btc_amount is not None else None,
+        }
 
         if notes:
             payment_data["notes"] = notes

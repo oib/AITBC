@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 import click
@@ -55,7 +56,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
             raise click.Abort()
         service_type = offer.get("service_type", "")
         model = offer.get("model", "")
-        price = float(offer.get("price", 0))
+        price = Decimal(str(offer.get("price", 0)))
         price_unit = offer.get("price_unit", "per_1k_tokens")
         provider_address = offer.get("provider_address", "")
 
@@ -68,7 +69,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
 
         # Lock escrow upfront (estimated max cost)
         estimated_tokens = max_tokens
-        estimated_cost = (estimated_tokens / 1000) * price
+        estimated_cost = (Decimal(estimated_tokens) / 1000) * price
         job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
         info(f"Locking escrow: ~{estimated_cost:.4f} AIT (est. {estimated_tokens} tokens)")
         contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
@@ -173,7 +174,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
 
         if offer is None:
             raise click.Abort()
-        price = float(offer.get("price", 0))
+        price = Decimal(str(offer.get("price", 0)))
         price_unit = offer.get("price_unit", "per_audio_min")
         provider_address = offer.get("provider_address", "")
         model = offer.get("model", "base")
@@ -216,7 +217,8 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
             logger.debug("ffprobe duration probe failed", exc_info=True)
             pass
         duration_minutes = duration_seconds / 60
-        estimated_cost = duration_minutes * price if price_unit == "per_audio_min" else price
+        # duration is a measurement, the price is money: convert at the multiplication
+        estimated_cost = Decimal(str(duration_minutes)) * price if price_unit == "per_audio_min" else price
 
         job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
         info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.4f} AIT")
@@ -371,7 +373,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
 
         if offer is None:
             raise click.Abort()
-        price = float(offer.get("price", 0))
+        price = Decimal(str(offer.get("price", 0)))
         price_unit = offer.get("price_unit", "per_video_min")
         provider_address = offer.get("provider_address", "")
         model = offer.get("model", "default")
@@ -381,7 +383,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
 
         # Estimate cost (assume 5 min default if unknown)
         transcode_endpoint = offer.get("endpoint", "http://localhost:8220")
-        estimated_minutes = 5.0
+        estimated_minutes = Decimal("5.0")
         estimated_cost = estimated_minutes * price if price_unit == "per_video_min" else price
         info(f"Estimated duration: {estimated_minutes:.1f} min — locking escrow: ~{estimated_cost:.4f} AIT")
 
@@ -507,7 +509,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
             error(f"FFmpeg offer '{offer_id}' not found on hub")
             raise click.Abort()
 
-        price = float(offer.get("price", 0))
+        price = Decimal(str(offer.get("price", 0)))
         price_unit = offer.get("price_unit", "per_processing_hour")
         provider_address = offer.get("provider_address", "")
         model = offer.get("model", "default")
@@ -529,7 +531,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
         info(f"FFmpeg endpoint: {ffmpeg_process_url}")
 
         # Estimate cost (assume 5 min default if unknown)
-        estimated_hours = 0.1  # 6 minutes default
+        estimated_hours = Decimal("0.1")  # 6 minutes default
         estimated_cost = estimated_hours * price if price_unit == "per_processing_hour" else price
         info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.4f} AIT")
 

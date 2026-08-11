@@ -4,12 +4,13 @@ Main exchange integration commands for AITBC CLI.
 
 import json
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import click
 
 from aitbc_cli.config import get_config  # noqa: F401
-from aitbc_cli.utils import error, output, success, warning
+from aitbc_cli.utils import DECIMAL, error, output, success, warning
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
 
 logger = get_logger(__name__)
@@ -107,12 +108,12 @@ def create_pair(
 
 @exchange.command()
 @click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/BTC)")
-@click.option("--price", type=float, help="Initial price for the pair")
+@click.option("--price", type=DECIMAL, help="Initial price for the pair")
 @click.option("--base-liquidity", type=float, default=10000, help="Base asset liquidity amount")
 @click.option("--quote-liquidity", type=float, default=10000, help="Quote asset liquidity amount")
 @click.option("--exchange", help="Exchange name (if not specified, uses first available)")
 @click.pass_context
-def start_trading(ctx, pair: str, price: float | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
+def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
     """Start trading for a specific pair"""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
@@ -140,7 +141,9 @@ def start_trading(ctx, pair: str, price: float | None, base_liquidity: float, qu
 
     target_pair["trading_enabled"] = True
     target_pair["started_at"] = datetime.now(UTC).isoformat()
-    target_pair["initial_price"] = price or 0.00001
+    # exchanges.json is read back by other commands, so money is stored as a decimal
+    # string -- json.dump cannot serialise a Decimal at all.
+    target_pair["initial_price"] = str(price if price is not None else Decimal("0.00001"))
     target_pair["base_liquidity"] = base_liquidity
     target_pair["quote_liquidity"] = quote_liquidity
 
@@ -220,11 +223,11 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
 
 @exchange.command()
 @click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/BTC)")
-@click.option("--amount", type=float, required=True, help="Liquidity amount")
+@click.option("--amount", type=DECIMAL, required=True, help="Liquidity amount")
 @click.option("--side", type=click.Choice(["buy", "sell"]), default="both", help="Side to provide liquidity")
 @click.option("--exchange", help="Exchange name")
 @click.pass_context
-def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: str | None):
+def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | None):
     """Add liquidity to a trading pair"""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
@@ -253,10 +256,12 @@ def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: str | None
         error(f"Trading pair '{pair}' not found.")
         return
 
+    # str() on the way in: the stored value may be a JSON number written by an older
+    # build, and Decimal will not add a float.
     if side == "buy" or side == "both":
-        target_pair["quote_liquidity"] = target_pair.get("quote_liquidity", 0) + amount
+        target_pair["quote_liquidity"] = str(Decimal(str(target_pair.get("quote_liquidity", 0))) + amount)
     if side == "sell" or side == "both":
-        target_pair["base_liquidity"] = target_pair.get("base_liquidity", 0) + amount
+        target_pair["base_liquidity"] = str(Decimal(str(target_pair.get("base_liquidity", 0))) + amount)
 
     target_pair["liquidity_updated_at"] = datetime.now(UTC).isoformat()
 
@@ -268,7 +273,7 @@ def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: str | None
         {
             "pair": pair,
             "exchange": target_exchange,
-            "amount": amount,
+            "amount": str(amount),
             "side": side,
             "base_liquidity": target_pair.get("base_liquidity"),
             "quote_liquidity": target_pair.get("quote_liquidity"),

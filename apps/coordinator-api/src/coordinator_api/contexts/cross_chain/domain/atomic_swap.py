@@ -7,6 +7,7 @@ Domain models for managing trustless cross-chain atomic swaps between agents.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -37,14 +38,14 @@ class AtomicSwapOrder(SQLModel, table=True):
     initiator_address: str = Field(max_length=42)
     source_chain_id: int = Field(index=True)
     source_token: str = Field(max_length=42)  # "native" or ERC20 address
-    source_amount: float = Field(gt=0)
+    source_amount: Decimal = Field(gt=0, max_digits=20, decimal_places=8)
 
     # Participant details (Party B)
     participant_agent_id: str = Field(index=True, max_length=128)
     participant_address: str = Field(max_length=42)
     target_chain_id: int = Field(index=True)
     target_token: str = Field(max_length=42)  # "native" or ERC20 address
-    target_amount: float = Field(gt=0)
+    target_amount: Decimal = Field(gt=0, max_digits=20, decimal_places=8)
 
     @field_validator("initiator_agent_id", "participant_agent_id")
     @classmethod

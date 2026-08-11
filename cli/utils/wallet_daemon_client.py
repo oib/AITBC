@@ -6,6 +6,7 @@ This module provides a client for interacting with the AITBC wallet daemon.
 import base64
 import sys
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from aitbc import NetworkError
@@ -50,7 +51,7 @@ class WalletBalance:
 
     wallet_id: str
     chain_id: str
-    balance: float
+    balance: Decimal
     address: str | None = None
     last_updated: str | None = None
 
@@ -208,12 +209,17 @@ class WalletDaemonClient:
             raise
 
     def send_transaction(
-        self, wallet_id: str, password: str, to_address: str, amount: float, description: str | None = None
+        self, wallet_id: str, password: str, to_address: str, amount: Decimal, description: str | None = None
     ) -> dict[str, Any]:
         """Send a transaction via the daemon"""
         try:
             client = self._get_http_client()
-            payload = {"password": password, "to_address": to_address, "amount": amount, "description": description or ""}
+            payload = {
+                "password": password,
+                "to_address": to_address,
+                "amount": str(amount),
+                "description": description or "",
+            }
 
             return client.post(f"/v1/wallets/{wallet_id}/send", json=payload)
         except NetworkError as e:
@@ -416,7 +422,7 @@ class WalletDaemonClient:
                 return WalletBalance(
                     wallet_id=wallet_id,
                     chain_id=chain_id,
-                    balance=0.0,  # Placeholder
+                    balance=Decimal("0"),  # Placeholder
                     address=wallet_info.address,
                 )
             return None

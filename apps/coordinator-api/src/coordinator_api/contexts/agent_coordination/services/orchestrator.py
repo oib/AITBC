@@ -6,15 +6,15 @@ Implements multi-agent coordination and sub-task management
 import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from coordinator_api.contexts.trading.services.trading_marketplace.bid_strategy import (
     BidResult,
 )
-
-from aitbc.aitbc_logging import get_logger
-from aitbc.async_tasks import create_task_with_logging
 
 from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
 
@@ -60,7 +60,7 @@ class AgentCapability:
     max_concurrent_tasks: int
     current_load: int
     performance_score: float
-    cost_per_hour: float
+    cost_per_hour: Decimal
     reliability_score: float
     last_updated: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -76,7 +76,7 @@ class ResourceAllocation:
     allocated_at: datetime
     expected_duration: float
     actual_duration: float | None = None
-    cost: float | None = None
+    cost: Decimal | None = None
 
 
 @dataclass
@@ -104,7 +104,7 @@ class OrchestrationPlan:
     agent_assignments: list[AgentAssignment]
     execution_timeline: dict[str, datetime]
     resource_requirements: dict[ResourceType, int]
-    estimated_cost: float
+    estimated_cost: Decimal
     confidence_score: float
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -148,7 +148,7 @@ class AgentOrchestrator:
         self,
         task_id: str,
         decomposition: TaskDecomposition,
-        budget_limit: float | None = None,
+        budget_limit: Decimal | None = None,
         deadline: datetime | None = None,
     ) -> OrchestrationPlan:
         """Orchestrate execution of a decomposed task"""
@@ -304,13 +304,13 @@ class AgentOrchestrator:
         }
 
     async def _create_orchestration_plan(
-        self, task_id: str, decomposition: TaskDecomposition, budget_limit: float | None, deadline: datetime | None
+        self, task_id: str, decomposition: TaskDecomposition, budget_limit: Decimal | None, deadline: datetime | None
     ) -> OrchestrationPlan:
         """Create detailed orchestration plan"""
         assignments = []
         execution_timeline = {}
         resource_requirements = dict.fromkeys(ResourceType, 0)
-        total_cost = 0.0
+        total_cost = Decimal("0")
         for stage_idx, stage_sub_tasks in enumerate(decomposition.execution_plan):
             stage_start = datetime.now(UTC) + timedelta(hours=stage_idx * 2)
             for sub_task_id in stage_sub_tasks:
@@ -360,7 +360,7 @@ class AgentOrchestrator:
         for agent in available_agents:
             score = 0.0
             score += agent.performance_score * 0.4
-            cost_efficiency = min(1.0, 0.05 / agent.cost_per_hour)
+            cost_efficiency = min(1.0, float(Decimal("0.05") / agent.cost_per_hour))
             score += cost_efficiency * 0.3
             score += agent.reliability_score * 0.2
             load_factor = 1.0 - agent.current_load / agent.max_concurrent_tasks
@@ -479,7 +479,7 @@ class AgentOrchestrator:
             self.resource_utilization[resource_type] = used / total if total > 0 else 0.0
 
     async def _calculate_plan_confidence(
-        self, decomposition: TaskDecomposition, budget_limit: float | None, deadline: datetime | None
+        self, decomposition: TaskDecomposition, budget_limit: Decimal | None, deadline: datetime | None
     ) -> float:
         """Calculate confidence in orchestration plan"""
         confidence = decomposition.confidence_score
@@ -496,14 +496,14 @@ class AgentOrchestrator:
             confidence *= 0.5 + availability_ratio * 0.5
         return max(0.1, min(0.95, confidence))
 
-    async def _calculate_actual_cost(self, plan: OrchestrationPlan) -> float:
+    async def _calculate_actual_cost(self, plan: OrchestrationPlan) -> Decimal:
         """Calculate actual cost of orchestration"""
-        actual_cost = 0.0
+        actual_cost = Decimal("0")
         for assignment in plan.agent_assignments:
             if assignment.agent_id in self.agent_capabilities:
                 agent = self.agent_capabilities[assignment.agent_id]
                 duration = getattr(assignment, "actual_duration", None) or 1.0
-                cost = agent.cost_per_hour * duration
+                cost = agent.cost_per_hour * Decimal(str(duration))
                 actual_cost += cost
         return actual_cost
 
@@ -517,7 +517,7 @@ class AgentOrchestrator:
                 max_concurrent_tasks=3,
                 current_load=0,
                 performance_score=0.85,
-                cost_per_hour=0.05,
+                cost_per_hour=Decimal("0.05"),
                 reliability_score=0.92,
             ),
             AgentCapability(
@@ -527,7 +527,7 @@ class AgentOrchestrator:
                 max_concurrent_tasks=2,
                 current_load=0,
                 performance_score=0.92,
-                cost_per_hour=0.09,
+                cost_per_hour=Decimal("0.09"),
                 reliability_score=0.88,
             ),
             AgentCapability(
@@ -537,7 +537,7 @@ class AgentOrchestrator:
                 max_concurrent_tasks=1,
                 current_load=0,
                 performance_score=0.96,
-                cost_per_hour=0.15,
+                cost_per_hour=Decimal("0.15"),
                 reliability_score=0.95,
             ),
         ]

@@ -7,8 +7,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from aitbc_agent_core import get_active_brand
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..custom_types import Constraints, JobState
 
@@ -174,7 +174,7 @@ class UserProfile(BaseModel):
 class UserBalance(BaseModel):
     user_id: str
     address: str
-    balance: float
+    balance: Decimal
     updated_at: str | None = None
 
 
@@ -182,8 +182,8 @@ class Transaction(BaseModel):
     id: str
     type: str
     status: str
-    amount: float
-    fee: float
+    amount: Decimal
+    fee: Decimal
     description: str | None
     created_at: str
     confirmed_at: str | None = None
@@ -199,8 +199,8 @@ class ExchangePaymentRequest(BaseModel):
     """Request for ETH exchange payment"""
 
     user_id: str = Field(..., min_length=1, max_length=128, description="User identifier")
-    aitbc_amount: float = Field(..., gt=0, le=1_000_000, description="AITBC amount to exchange")
-    eth_amount: float = Field(..., gt=0, le=10000, description="ETH amount to receive")
+    aitbc_amount: Decimal = Field(..., gt=0, le=1_000_000, description="AITBC amount to exchange")
+    eth_amount: Decimal = Field(..., gt=0, le=10000, description="ETH amount to receive")
 
     @field_validator("user_id")
     @classmethod
@@ -240,8 +240,8 @@ class ExchangePaymentRequest(BaseModel):
 class ExchangePaymentResponse(BaseModel):
     payment_id: str
     user_id: str
-    aitbc_amount: float
-    eth_amount: float
+    aitbc_amount: Decimal
+    eth_amount: Decimal
     payment_address: str
     status: str
     created_at: int
@@ -341,7 +341,7 @@ class MarketplaceOfferView(BaseModel):
     id: str
     provider: str
     capacity: int
-    price: float
+    price: Decimal
     sla: str
     status: str
     created_at: datetime
@@ -349,7 +349,7 @@ class MarketplaceOfferView(BaseModel):
     gpu_memory_gb: int | None = None
     gpu_count: int | None = 1
     cuda_version: str | None = None
-    price_per_hour: float | None = None
+    price_per_hour: Decimal | None = None
     region: str | None = None
     attributes: dict[str, Any] | None = None
 
@@ -357,7 +357,7 @@ class MarketplaceOfferView(BaseModel):
 class MarketplaceStatsView(BaseModel):
     totalOffers: int
     openCapacity: int
-    averagePrice: float
+    averagePrice: Decimal
     activeBids: int
 
 

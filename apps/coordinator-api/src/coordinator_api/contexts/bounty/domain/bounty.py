@@ -212,10 +212,10 @@ class BountyStats(SQLModel, table=True):
     disputed_bounties: int = Field(default=0)
 
     # Financial metrics
-    total_value_locked: float = Field(default=0.0)
-    total_rewards_paid: float = Field(default=0.0)
-    total_fees_collected: float = Field(default=0.0)
-    average_reward: float = Field(default=0.0)
+    total_value_locked: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    total_rewards_paid: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    total_fees_collected: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    average_reward: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Performance metrics
     success_rate: float = Field(default=0.0)

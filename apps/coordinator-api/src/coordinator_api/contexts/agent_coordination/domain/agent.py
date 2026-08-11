@@ -4,6 +4,7 @@ Implements SQLModel definitions for agent workflows, steps, and execution tracki
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -56,7 +57,7 @@ class AIAgentWorkflow(SQLModel, table=True):
 
     # Execution constraints
     max_execution_time: int = Field(default=3600)  # seconds
-    max_cost_budget: float = Field(default=0.0)
+    max_cost_budget: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Verification requirements
     requires_verification: bool = Field(default=True)
@@ -135,7 +136,7 @@ class AgentExecution(SQLModel, table=True):
     started_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     total_execution_time: float | None = Field(default=None)  # seconds
-    total_cost: float = Field(default=0.0)
+    total_cost: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Progress tracking
     total_steps: int = Field(default=0)
@@ -202,8 +203,8 @@ class AgentMarketplace(SQLModel, table=True):
     category: str = Field(default="general")
 
     # Pricing
-    execution_price: float = Field(default=0.0)
-    subscription_price: float = Field(default=0.0)
+    execution_price: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    subscription_price: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     pricing_model: str = Field(default="pay-per-use")  # pay-per-use, subscription, freemium
 
     # Reputation and usage
@@ -234,7 +235,7 @@ class AgentWorkflowCreate(SQLModel):
     steps: dict[str, Any]
     dependencies: dict[str, list[str]] = Field(default_factory=dict)
     max_execution_time: int = Field(default=3600)
-    max_cost_budget: float = Field(default=0.0)
+    max_cost_budget: Decimal = Field(default=Decimal("0.0"))
     requires_verification: bool = Field(default=True)
     verification_level: VerificationLevel = Field(default=VerificationLevel.BASIC)
     tags: list[str] = Field(default_factory=list)
@@ -249,7 +250,7 @@ class AgentWorkflowUpdate(SQLModel):
     steps: dict[str, Any] | None = Field(default=None)
     dependencies: dict[str, list[str]] | None = Field(default=None)
     max_execution_time: int | None = Field(default=None)
-    max_cost_budget: float | None = Field(default=None)
+    max_cost_budget: Decimal | None = Field(default=None)
     requires_verification: bool | None = Field(default=None)
     verification_level: VerificationLevel | None = Field(default=None)
     tags: list[str] | None = Field(default=None)
@@ -263,7 +264,7 @@ class AgentExecutionRequest(SQLModel):
     inputs: dict[str, Any]
     verification_level: VerificationLevel | None = Field(default=VerificationLevel.BASIC)
     max_execution_time: int | None = Field(default=None)
-    max_cost_budget: float | None = Field(default=None)
+    max_cost_budget: Decimal | None = Field(default=None)
 
 
 class AgentExecutionResponse(SQLModel):
@@ -276,8 +277,8 @@ class AgentExecutionResponse(SQLModel):
     total_steps: int
     started_at: datetime | None
     estimated_completion: datetime | None
-    current_cost: float
-    estimated_total_cost: float | None
+    current_cost: Decimal
+    estimated_total_cost: Decimal | None
 
 
 class AgentExecutionStatus(SQLModel):
@@ -294,7 +295,7 @@ class AgentExecutionStatus(SQLModel):
     started_at: datetime | None
     completed_at: datetime | None
     total_execution_time: float | None
-    total_cost: float
+    total_cost: Decimal
     verification_proof: dict[str, Any] | None
 
 

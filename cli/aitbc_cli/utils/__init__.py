@@ -5,6 +5,7 @@ CLI utility functions for output formatting and error handling
 # Import new utility modules
 from . import blockchain, chain_id, island_credentials, wallet
 from .blockchain import get_blockchain_analytics, get_chain_info, get_network_status
+from .money import DECIMAL, DecimalParamType, wallet_amount
 from .output import (
     decode_value,
     encode_value,
@@ -19,6 +20,9 @@ from .wallet import decrypt_private_key
 
 
 __all__ = [
+    "DECIMAL",
+    "DecimalParamType",
+    "wallet_amount",
     "output",
     "error",
     "success",

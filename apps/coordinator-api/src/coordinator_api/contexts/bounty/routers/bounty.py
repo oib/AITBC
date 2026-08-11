@@ -4,6 +4,7 @@ REST API for AI agent bounty system with ZK-proof verification
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -14,11 +15,11 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AuthDep
+from ....storage import get_session
+from ....validators import validate_ethereum_address
+from ...blockchain.services.blockchain import BlockchainService
 from ..domain.bounty import BountyStatus, BountyTier, SubmissionStatus
 from ..services.bounty_service import BountyService
-from ....storage import get_session
-from ...blockchain.services.blockchain import BlockchainService
-from ....validators import validate_ethereum_address
 
 logger = get_logger(__name__)
 
@@ -28,7 +29,7 @@ router = APIRouter()
 class BountyCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field(..., min_length=10, max_length=5000)
-    reward_amount: float = Field(..., gt=0)
+    reward_amount: Decimal = Field(..., gt=0)
     tier: BountyTier = Field(default=BountyTier.BRONZE)
     performance_criteria: dict[str, Any] = Field(default_factory=dict)
     min_accuracy: float = Field(default=90.0, ge=0, le=100)
@@ -69,7 +70,7 @@ class BountyResponse(BaseModel):
     bounty_id: str
     title: str
     description: str
-    reward_amount: float
+    reward_amount: Decimal
     creator_id: str
     tier: BountyTier
     status: BountyStatus
@@ -84,9 +85,9 @@ class BountyResponse(BaseModel):
     auto_verify_threshold: float
     winning_submission_id: str | None
     winner_address: str | None
-    creation_fee: float
-    success_fee: float
-    platform_fee: float
+    creation_fee: Decimal
+    success_fee: Decimal
+    platform_fee: Decimal
     tags: list[str]
     category: str | None
     difficulty: str | None
@@ -151,8 +152,8 @@ class BountyFilterRequest(BaseModel):
     tier: BountyTier | None = None
     creator_id: str | None = None
     category: str | None = None
-    min_reward: float | None = Field(default=None, ge=0)
-    max_reward: float | None = Field(default=None, ge=0)
+    min_reward: Decimal | None = Field(default=None, ge=0)
+    max_reward: Decimal | None = Field(default=None, ge=0)
     deadline_before: datetime | None = None
     deadline_after: datetime | None = None
     tags: list[str] | None = None
@@ -169,10 +170,10 @@ class BountyStatsResponse(BaseModel):
     completed_bounties: int
     expired_bounties: int
     disputed_bounties: int
-    total_value_locked: float
-    total_rewards_paid: float
-    total_fees_collected: float
-    average_reward: float
+    total_value_locked: Decimal
+    total_rewards_paid: Decimal
+    total_fees_collected: Decimal
+    average_reward: Decimal
     success_rate: float
     average_completion_time: float | None
     average_accuracy: float | None

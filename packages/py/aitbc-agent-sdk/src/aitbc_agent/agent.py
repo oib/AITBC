@@ -2,6 +2,7 @@
 Core Agent class for AITBC network participation
 """
 
+from decimal import Decimal
 import asyncio
 import json
 import os
@@ -476,7 +477,7 @@ class Agent:
         return await self.ipfs_ops.retrieve_ipfs_async(cid, output_path)
 
     # Data oracle operations
-    def announce_data_availability(self, cid: str, price: float, description: str = "") -> str:
+    def announce_data_availability(self, cid: str, price: Decimal, description: str = "") -> str:
         """Announce data availability"""
         return self.data_oracle_ops.announce_data_availability(cid, price, description)
 
@@ -488,7 +489,7 @@ class Agent:
         """Listen for data retrieval requests"""
         await self.data_oracle_ops.listen_for_requests(callback)
 
-    async def announce_data_availability_async(self, cid: str, price: float, description: str = "") -> str:
+    async def announce_data_availability_async(self, cid: str, price: Decimal, description: str = "") -> str:
         """Async version of announce_data_availability"""
         return await self.data_oracle_ops.announce_data_availability_async(cid, price, description)
 
@@ -511,7 +512,7 @@ class Agent:
         return self.knowledge_ops.add_knowledge_node(graph_id, node_data)
 
     # Bounty operations
-    def create_bounty(self, title: str, description: str, reward: float) -> str:
+    def create_bounty(self, title: str, description: str, reward: Decimal) -> str:
         """Create bounty"""
         return self.bounty_ops.create_bounty(title, description, reward)
 
@@ -541,7 +542,7 @@ class Agent:
         """Create agent swarm"""
         return self.extended_ops.create_swarm(name, max_agents)
 
-    def add_stake(self, amount: float, validator_id: str = None) -> str:
+    def add_stake(self, amount: Decimal, validator_id: str = None) -> str:
         """Add stake to validator"""
         return self.extended_ops.add_stake(amount, validator_id)
 

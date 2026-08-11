@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from statistics import mean
 from typing import Any
 
@@ -124,7 +125,7 @@ class MarketplaceService:
             return plugin_manager.execute_hook("after_booking", hook_context)
         return context or {}
 
-    def before_pricing(self, resource_id: str, base_price: float, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def before_pricing(self, resource_id: str, base_price: Decimal, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute before_pricing plugin hooks."""
         plugin_manager = get_plugin_manager()
         if plugin_manager:
@@ -136,7 +137,7 @@ class MarketplaceService:
             return plugin_manager.execute_hook("before_pricing", hook_context)
         return context or {}
 
-    def after_pricing(self, resource_id: str, final_price: float, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def after_pricing(self, resource_id: str, final_price: Decimal, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute after_pricing plugin hooks."""
         plugin_manager = get_plugin_manager()
         if plugin_manager:

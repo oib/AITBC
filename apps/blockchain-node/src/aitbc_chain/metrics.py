@@ -56,6 +56,7 @@ class MetricsRegistry:
         self._summaries: dict[str, tuple[float, float]] = {}
         self._lock = Lock()
 
+    # not-money: a metrics counter increment, in the same units as the counter
     def increment(self, name: str, amount: float = 1.0) -> None:
         with self._lock:
             self._counters[name] = self._counters.get(name, 0.0) + amount

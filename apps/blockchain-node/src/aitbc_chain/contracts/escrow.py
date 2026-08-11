@@ -439,10 +439,10 @@ class EscrowManager:
             "active_contracts": active_count,
             "disputed_contracts": disputed_count,
             "state_distribution": state_counts,
-            "total_amount": float(total_amount),
-            "total_released": float(total_released),
-            "total_refunded": float(total_refunded),
-            "total_fees": float(total_fees),
+            "total_amount": str(total_amount),
+            "total_released": str(total_released),
+            "total_refunded": str(total_refunded),
+            "total_fees": str(total_fees),
         }
 
     async def add_milestone(

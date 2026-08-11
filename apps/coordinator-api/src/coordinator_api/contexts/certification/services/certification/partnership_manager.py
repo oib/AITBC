@@ -6,16 +6,17 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import uuid4
 
+from aitbc_shared.models import ReputationDTO
+from sqlmodel import Session, select
+
+from aitbc.aitbc_logging import get_logger
+
+from ....reputation.services.reputation_service import ReputationService
 from ...domain.certification import (
     AgentPartnership,
     PartnershipProgram,
     PartnershipType,
 )
-from ....reputation.services.reputation_service import ReputationService
-from aitbc_shared.models import ReputationDTO
-from sqlmodel import Session, select
-
-from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -245,7 +246,7 @@ class PartnershipManager:
             return {"eligible": False, "reason": "No sales capability data available", "score": 0.0, "details": {}}
         total_earnings = reputation.total_earnings
         transaction_count = reputation.transaction_count
-        sales_score = min(100.0, total_earnings / 10 + transaction_count / 5)
+        sales_score = min(100.0, float(total_earnings) / 10 + transaction_count / 5)
         eligible = sales_score >= 60.0
         return {
             "eligible": eligible,
@@ -301,7 +302,7 @@ class PartnershipManager:
             return {"eligible": False, "reason": "No market leadership data available", "score": 0.0, "details": {}}
         trust_score = reputation.trust_score
         total_earnings = reputation.total_earnings
-        leader_score = min(100.0, trust_score / 5 + total_earnings / 20)
+        leader_score = min(100.0, trust_score / 5 + float(total_earnings) / 20)
         eligible = leader_score >= 85.0
         return {
             "eligible": eligible,

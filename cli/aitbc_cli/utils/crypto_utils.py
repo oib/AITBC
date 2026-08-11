@@ -7,6 +7,7 @@ import json
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from eth_account import Account
@@ -140,7 +141,7 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
 
     # Validate amount
     try:
-        amount = float(tx_data["amount"])
+        amount = Decimal(str(tx_data["amount"]))
         if amount <= 0:
             return False, "Amount must be positive"
     except Exception:

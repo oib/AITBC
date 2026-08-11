@@ -7,6 +7,7 @@ Domain models for managing cross-agent knowledge sharing and collaborative model
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -49,7 +50,9 @@ class FederatedLearningSession(SQLModel, table=True):
     aggregation_strategy: str = Field(default="fedavg")  # e.g. fedavg, fedprox
     min_participants_per_round: int = Field(default=2)
 
-    reward_pool_amount: float = Field(default=0.0)  # Total AITBC allocated to reward participants
+    reward_pool_amount: Decimal = Field(
+        default=Decimal("0.0"), max_digits=20, decimal_places=8
+    )  # Total AITBC allocated to reward participants
 
     status: TrainingStatus = Field(default=TrainingStatus.INITIALIZED, index=True)
 
@@ -77,7 +80,7 @@ class TrainingParticipant(SQLModel, table=True):
     compute_power_committed: float = Field(default=0.0)  # TFLOPS
 
     reputation_score_at_join: float = Field(default=0.0)
-    earned_reward: float = Field(default=0.0)
+    earned_reward: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

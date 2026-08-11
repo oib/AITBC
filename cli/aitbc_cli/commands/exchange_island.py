@@ -8,10 +8,11 @@ import json
 import os
 import socket
 from datetime import datetime
+from decimal import Decimal
 
 import click
 
-from ..utils import error, info, output, success
+from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import abort
 
 # Import shared modules
@@ -46,11 +47,11 @@ def exchange_island():
 
 
 @exchange_island.command()
-@click.argument("ait_amount", type=float)
+@click.argument("ait_amount", type=DECIMAL)
 @click.argument("quote_currency", type=click.Choice(["ETH"]))
-@click.option("--max-price", type=float, help="Maximum price to pay per AIT")
+@click.option("--max-price", type=DECIMAL, help="Maximum price to pay per AIT")
 @click.pass_context
-def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
+def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None):
     """Buy AIT with ETH"""
     try:
         if ait_amount <= 0:
@@ -99,6 +100,7 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
             "user_id": user_id,
             "pair": pair,
             "side": "buy",
+            # not-money: wire format, POSTed to the node's /transaction endpoint
             "amount": float(ait_amount),
             "max_price": float(max_price) if max_price else None,
             "status": "open",
@@ -139,11 +141,11 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
 
 
 @exchange_island.command()
-@click.argument("ait_amount", type=float)
+@click.argument("ait_amount", type=DECIMAL)
 @click.argument("quote_currency", type=click.Choice(["ETH"]))
-@click.option("--min-price", type=float, help="Minimum price to accept per AIT")
+@click.option("--min-price", type=DECIMAL, help="Minimum price to accept per AIT")
 @click.pass_context
-def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
+def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | None):
     """Sell AIT for ETH"""
     try:
         if ait_amount <= 0:
@@ -192,6 +194,7 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
             "user_id": user_id,
             "pair": pair,
             "side": "sell",
+            # not-money: wire format, POSTed to the node's /transaction endpoint
             "amount": float(ait_amount),
             "min_price": float(min_price) if min_price else None,
             "status": "open",

@@ -4,6 +4,7 @@ Core services for global marketplace operations, multi-region support, and cross
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -58,8 +59,9 @@ class GlobalMarketplaceService:
             regions = await self._get_active_regions()
             price_per_region = {}
             for region in regions:
+                # load_factor is a dimensionless multiplier; convert it, not the price.
                 load_factor = region.load_factor
-                regional_price = request.base_price * load_factor
+                regional_price = request.base_price * Decimal(str(load_factor))
                 price_per_region[region.region_code] = regional_price
             global_offer.price_per_region = price_per_region
             region_statuses = {}

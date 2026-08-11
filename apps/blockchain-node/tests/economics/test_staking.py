@@ -3,6 +3,7 @@ Tests for Staking Mechanism
 """
 
 import time
+from decimal import Decimal
 
 import pytest
 from aitbc_chain.economics.staking import StakingManager, StakingStatus
@@ -225,7 +226,11 @@ class TestStakingManager:
         assert "total_delegators" in stats
         assert "average_stake_per_validator" in stats
         assert stats["total_validators"] >= 1
-        assert stats["total_staked"] >= 2000.0  # At least the initial validator stake
+        # total_staked is a decimal string, not a float: rendering an exact Decimal as a
+        # float in a JSON response throws away the exactness the Decimal was for. This is
+        # the convention escrow_routes.py already uses for money in RPC responses.
+        assert isinstance(stats["total_staked"], str)
+        assert Decimal(stats["total_staked"]) >= Decimal("2000")  # at least the initial validator stake
 
 
 if __name__ == "__main__":

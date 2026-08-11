@@ -3,6 +3,7 @@ Community and Developer Ecosystem Services
 Services for managing agent developer tools, SDKs, and third-party solutions
 """
 
+from decimal import Decimal
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -211,7 +212,7 @@ class InnovationLabService:
 
         return lab  # type: ignore[no-any-return]
 
-    async def fund_lab(self, lab_id: str, amount: float) -> InnovationLab:
+    async def fund_lab(self, lab_id: str, amount: Decimal) -> InnovationLab:
         """Provide funding to an innovation lab"""
         lab = self.session.execute(select(InnovationLab).where(InnovationLab.lab_id == lab_id)).scalars().first()
 

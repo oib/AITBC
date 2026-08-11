@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
+from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
-from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 
 logger = get_logger(__name__)
 
@@ -174,10 +175,10 @@ class JobService:
             if price is None:
                 return False
             try:
-                price_value = float(price)
-            except (TypeError, ValueError):
+                price_value = Decimal(str(price))
+            except (TypeError, ValueError, InvalidOperation):
                 return False
-            if price_value > constraints.max_price:
+            if price_value > Decimal(str(constraints.max_price)):
                 return False
         return True
 

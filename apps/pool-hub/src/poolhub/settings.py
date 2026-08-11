@@ -12,6 +12,7 @@ from aitbc_shared import DatabaseConfig, ServiceSettings
 
 class ScoreWeights(BaseModel):
     capability: float = Field(default=0.40, alias="cap")
+    # not-money: a ranking weight -- these five sum to 1.00 -- not a price
     price: float = Field(default=0.20)
     latency: float = Field(default=0.20)
     trust: float = Field(default=0.15)

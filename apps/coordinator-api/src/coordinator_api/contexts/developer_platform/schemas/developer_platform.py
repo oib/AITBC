@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, field_validator
 
@@ -23,7 +24,7 @@ class BountyCreate(BaseModel):
     description: str
     required_skills: list[str] = []
     difficulty_level: CertificationLevel = CertificationLevel.INTERMEDIATE
-    reward_amount: float
+    reward_amount: Decimal
     creator_address: str
     deadline: datetime | None = None
 
