@@ -857,6 +857,24 @@ def consensus_validators(ctx, node_url: str, chain_id: str, format: str):
         error(f"Error listing validators: {e}")
 
 
+def _slash_rate(event: dict) -> str:
+    """The penalty rate, as a percentage.
+
+    Older nodes send it under `slash_amount`; that key never held an amount, so reading it
+    here is correct rather than a fallback to something else.
+
+    Module-level rather than nested in the command so it can be tested without standing up
+    a node and driving the whole click invocation.
+    """
+    rate = event.get("slash_rate", event.get("slash_amount"))
+    if rate is None:
+        return "N/A"
+    try:
+        return f"{float(rate) * 100:g}%"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
 @consensus_group.command(name="slashing-history")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--chain-id", default="ait-hub", help="Chain ID to query slashing history for")
@@ -883,7 +901,12 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str, format: str):
             {
                 "Validator": e.get("validator_address", "N/A"),
                 "Condition": e.get("condition", "N/A"),
-                "Amount": e.get("slash_amount", "N/A"),
+                # V23-48: this column read `slash_amount`, which held the rate -- so a 50%
+                # double-sign penalty displayed as "0.5" under a heading of "Amount". The
+                # rate and the amount are now separate, and an amount of None means the
+                # event was detected but never levied.
+                "Rate": _slash_rate(e),
+                "Amount Slashed": e.get("slashed_amount") or "not levied",
                 "Block Height": e.get("block_height", "N/A"),
                 "Timestamp": e.get("timestamp", "N/A"),
             }

@@ -2,6 +2,7 @@
 Tests for Multi-Validator PoA Consensus
 """
 
+from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
@@ -246,14 +247,23 @@ class TestConsensusSecurity:
         assert self.consensus.validators[self.addr1].stake < initial_stake
 
     def test_slashing_reduces_stake(self):
-        """Slashed validator has reduced stake (50% for double_sign)"""
+        """Slashed validator has reduced stake (50% for double_sign).
+
+        V23-48: the stake is a Decimal and the deduction is exact, so this asserts equality
+        rather than the old `< 0.01` tolerance. The event now also records what was taken --
+        previously the deducted quantity was computed and thrown away.
+        """
         initial_stake = self.consensus.validators[self.addr1].stake
         self.consensus.record_prepare(self.addr1, "hashA", 1)
         self.consensus.record_prepare(self.addr1, "hashB", 1)
-        # Double-sign slash rate is 50%
-        expected_slash = initial_stake * 0.5
-        actual_stake = self.consensus.validators[self.addr1].stake
-        assert abs(actual_stake - (initial_stake - expected_slash)) < 0.01
+
+        expected_slash = initial_stake * Decimal("0.5")  # double-sign rate
+        assert self.consensus.validators[self.addr1].stake == initial_stake - expected_slash
+
+        event = self.consensus.get_slashing_history()[-1]
+        assert event.slash_rate == 0.5
+        assert event.stake_before == initial_stake
+        assert event.slashed_amount == expected_slash
 
     def test_slashing_deactivates_after_threshold(self):
         """3 slashing events → is_active=False"""

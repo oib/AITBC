@@ -2,6 +2,7 @@
 B14: Integration tests for consensus (full rounds, slashing, view change, persistence)
 """
 
+from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
@@ -138,20 +139,13 @@ def test_state_persistence_save_load():
         # Verify session.add was called (insert path since no existing row)
         assert mock_session.add.called
 
-    # Now test load — simulate a row with saved validator set
-    import json
-
-    saved_validator_set = {
-        addr: {
-            "stake": v.stake,
-            "reputation": v.reputation,
-            "role": v.role.value,
-            "last_proposed": v.last_proposed,
-            "is_active": v.is_active,
-        }
-        for addr, v in consensus.validators.items()
-    }
-    mock_row.validator_set_json = json.dumps(saved_validator_set)
+    # Load back exactly what save_state wrote, rather than a hand-rolled copy of its shape.
+    # The copy had drifted: it put the raw stake in, which stopped being JSON-serialisable
+    # when V23-48 made it a Decimal -- and because nothing here compared the two, a mismatch
+    # between the writer and this stand-in reader would never have failed the test.
+    saved = mock_session.add.call_args[0][0]
+    mock_row.validator_set_json = saved.validator_set_json
+    mock_row.slashing_events_json = saved.slashing_events_json
     mock_row.current_view = 2
     mock_row.current_sequence = 5
     mock_row.current_epoch = 1
@@ -180,6 +174,11 @@ def test_state_persistence_save_load():
         assert result is True
     # Validators should be restored
     assert len(fresh_consensus.validators) == 3
+    # ...with their stakes intact and still Decimal, not merely counted
+    for addr, original in consensus.validators.items():
+        restored = fresh_consensus.validators[addr]
+        assert isinstance(restored.stake, Decimal)
+        assert restored.stake == original.stake
     assert fresh_consensus._pbft_view == 2
     assert fresh_consensus._pbft_sequence == 5
     assert fresh_consensus._current_epoch == 1

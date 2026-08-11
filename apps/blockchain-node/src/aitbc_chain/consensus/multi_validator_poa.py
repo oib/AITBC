@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
@@ -34,7 +35,10 @@ class ValidatorRole(Enum):
 @dataclass
 class Validator:
     address: str
-    stake: float
+    # V23-48: Decimal, so a slash deducts an exact quantity. apply_slashing computes
+    # stake * slash_rate and records the result on the event; in binary float that product
+    # is the thing being reported as "amount slashed", so it has to be exact.
+    stake: Decimal
     reputation: float
     role: ValidatorRole
     last_proposed: int
@@ -93,13 +97,20 @@ class MultiValidatorPoA:
         self._pbft_view: int = 0
         self._pbft_sequence: int = 0
 
-    def add_validator(self, address: str, stake: float = 1000.0) -> bool:
+    def add_validator(self, address: str, stake: Decimal | float | str = Decimal("1000")) -> bool:
         """Add a new validator to the consensus"""
         if address in self.validators:
             return False
 
+        # Coercion boundary: callers pass whatever they have, this normalises once so that
+        # nothing downstream ever sees a float stake.
         self.validators[address] = Validator(
-            address=address, stake=stake, reputation=1.0, role=ValidatorRole.STANDBY, last_proposed=0, is_active=True
+            address=address,
+            stake=Decimal(str(stake)),
+            reputation=1.0,
+            role=ValidatorRole.STANDBY,
+            last_proposed=0,
+            is_active=True,
         )
         return True
 
@@ -309,7 +320,7 @@ class MultiValidatorPoA:
         return {
             "chain_id": self.chain_id,
             "validators": {
-                addr: {"stake": v.stake, "role": v.role.value, "is_active": v.is_active, "reputation": v.reputation}
+                addr: {"stake": str(v.stake), "role": v.role.value, "is_active": v.is_active, "reputation": v.reputation}
                 for addr, v in self.validators.items()
             },
             "network_partitioned": self.network_partitioned,
@@ -404,7 +415,7 @@ class MultiValidatorPoA:
 
         validator_set = {
             addr: {
-                "stake": v.stake,
+                "stake": str(v.stake),
                 "reputation": v.reputation,
                 "role": v.role.value,
                 "last_proposed": v.last_proposed,
@@ -412,6 +423,10 @@ class MultiValidatorPoA:
             }
             for addr, v in self.validators.items()
         }
+        # V23-48: `slash_amount` here held the *rate*, and the amount actually deducted was
+        # never written down at all. Both are recorded now, plus the stake they were computed
+        # from, so a penalty can be audited after the fact. Money goes out as a decimal
+        # string; json.dumps cannot serialise a Decimal and float() would undo the point.
         slashing_events = [
             {
                 "validator_address": e.validator_address,
@@ -419,7 +434,9 @@ class MultiValidatorPoA:
                 "evidence": e.evidence,
                 "block_height": e.block_height,
                 "timestamp": e.timestamp,
-                "slash_amount": e.slash_amount,
+                "slash_rate": e.slash_rate,
+                "stake_before": None if e.stake_before is None else str(e.stake_before),
+                "slashed_amount": None if e.slashed_amount is None else str(e.slashed_amount),
             }
             for e in self._slashing_manager.get_slashing_history()
         ]
@@ -449,6 +466,41 @@ class MultiValidatorPoA:
             logger.error("Failed to save consensus state for %s: %s", self.chain_id, e)
             return False
 
+    @staticmethod
+    def _parse_slashing_events(records: list[dict[str, Any]]) -> list[Any]:
+        """Rebuild SlashingEvents from persisted JSON, tolerating the pre-V23-48 shape.
+
+        Records written before V23-48 carry `slash_amount` holding the *rate*, and no
+        `slashed_amount` at all -- the deducted quantity was never stored, so for those events
+        it is genuinely unknown and stays None. `calculate_total_slashed` skips them rather
+        than guessing, which means a total computed over old history is a lower bound and says
+        so by omission. Re-deriving it is impossible: the stake at the time is not recorded.
+        """
+        from .slashing import SlashingCondition, SlashingEvent
+
+        def _decimal_or_none(value: Any) -> Decimal | None:
+            return None if value is None else Decimal(str(value))
+
+        events = []
+        for record in records:
+            try:
+                events.append(
+                    SlashingEvent(
+                        validator_address=record["validator_address"],
+                        condition=SlashingCondition(record["condition"]),
+                        evidence=record.get("evidence", ""),
+                        block_height=record.get("block_height", 0),
+                        timestamp=record.get("timestamp", 0.0),
+                        # legacy key first, since it is what old rows have
+                        slash_rate=float(record.get("slash_rate", record.get("slash_amount", 0.0))),
+                        stake_before=_decimal_or_none(record.get("stake_before")),
+                        slashed_amount=_decimal_or_none(record.get("slashed_amount")),
+                    )
+                )
+            except (KeyError, ValueError) as e:
+                logger.warning("Skipping unreadable slashing record %s: %s", record, e)
+        return events
+
     def load_state(self) -> bool:
         """Load consensus state from DB on node startup."""
         import json
@@ -469,14 +521,21 @@ class MultiValidatorPoA:
                 for addr, v_data in validator_set.items():
                     self.validators[addr] = Validator(
                         address=addr,
-                        stake=v_data.get("stake", 1000.0),
+                        stake=Decimal(str(v_data.get("stake", "1000"))),
                         reputation=v_data.get("reputation", 1.0),
                         role=ValidatorRole(v_data.get("role", "standby")),
                         last_proposed=v_data.get("last_proposed", 0),
                         is_active=v_data.get("is_active", True),
                     )
-                # Slashing history is loaded for read-only inspection;
-                # the SlashingManager rebuilds its internal state lazily.
+                # V23-48: this used to say the history was "loaded for read-only inspection"
+                # and that "the SlashingManager rebuilds its internal state lazily". Neither
+                # was true -- slashing_events_json was written and never read, so every
+                # penalty was forgotten on restart. That reset get_validator_slash_count to
+                # zero, which reset the thresholds: a validator two strikes into a three-strike
+                # unavailability rule started over each time the node came back.
+                self._slashing_manager.slashing_events = self._parse_slashing_events(
+                    json.loads(row.slashing_events_json) if row.slashing_events_json else []
+                )
             return True
         except Exception as e:
             logger.error("Failed to load consensus state for %s: %s", self.chain_id, e)
