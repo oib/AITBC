@@ -40,7 +40,7 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 55 findings — 40 confirmed defects, 15 observed design gaps. **All 55 resolved**
+**Totals**: 56 findings — 41 confirmed defects, 15 observed design gaps. **All 56 resolved**
 (V23-01..40, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
 V23-32a — forty-nine entries, forty numbered findings); **0 open**.
 
@@ -3601,3 +3601,74 @@ api-gateway 18, coordinator-api 318 passed with its 48 known failures byte-ident
 
 The hook's header now says to keep the baseline empty, for the same reason the float-money
 guard's does: **a baseline that grows back is a baseline nobody reads.**
+
+---
+
+## Medium — two services with no way to change their schema
+
+### V23-47 — Alembic for gpu and edge, and the env var that does nothing · CONFIRMED → RESOLVED
+
+V23-40 recorded this and left it: *"`apps/gpu` and `apps/edge` have no Alembic, so their
+declarations change but the deployed SQLite columns stay `FLOAT` until migration
+infrastructure exists there."* This adds it.
+
+Both apps initialise with `SQLModel.metadata.create_all`, which creates *missing tables* and
+never alters existing columns. So their models have declared money as `Decimal(20, 8)` since
+the V23 conversion while the deployed schema stayed `FLOAT` — including
+**`gpu_registry.price_per_hour`, which has 34 live rows.**
+
+```
+apps/gpu   gpu_registry.price_per_hour            FLOAT -> NUMERIC(20, 8)   34 rows
+           consumer_gpu_profiles.market_price_usd FLOAT -> NUMERIC(20, 8)    2 rows
+           gpu_bookings.total_cost                FLOAT -> NUMERIC(20, 8)    0 rows
+
+apps/edge  gpu_listings.price_per_hour            FLOAT -> NUMERIC(20, 8)    0 rows
+           marketplaceoffer.price                 FLOAT -> NUMERIC(20, 8)    0 rows
+           marketplaceoffer.price_per_hour        FLOAT -> NUMERIC(20, 8)    0 rows
+           marketplace_bid.price                  FLOAT -> NUMERIC(20, 8)    0 rows
+```
+
+Both verified up **and** down against copies of the deployed databases with probe rows
+(`0.1`, `0.12345678`, `1234.56789012`) seeded into the empty tables, and the 34 live GPU
+prices carried through unchanged. **Neither is applied to a deployed database** — that is
+scheduled alongside V23-37's chain migration, not taken here.
+
+Both services run async engines; the migrations use the **sync** driver against the same
+file, because batch-mode ALTER — which SQLite requires for a type change — is synchronous and
+there is nothing to gain from driving DDL through an event loop.
+
+#### `DATABASE_URL` does nothing for the edge service
+
+Found the hard way. `apps/edge/src/aitbc_edge/config.py` carried the comment:
+
+> *Set `DATABASE_ADAPTER=postgresql` and `DATABASE_URL=...` in production.*
+
+Neither variable is read. `DatabaseConfig` is a `BaseSettings` **with no `env_prefix`**, so
+its fields map to the bare names — the working variables are `ADAPTER` and **`URL`**:
+
+```
+URL=sqlite:///copy.db            -> sqlite:////…/copy.db          ✅
+DATABASE_URL=sqlite:///copy.db   -> sqlite:////var/lib/…/aitbc_edge.db
+EDGE_DATABASE_URL=…              -> sqlite:////var/lib/…/aitbc_edge.db
+```
+
+Setting the documented variable changes nothing and the service silently keeps its default
+file. That is how an Alembic run intended for a scratch copy landed on the deployed edge
+database instead — reverted immediately, and the four affected tables were empty, so nothing
+was lost; the revert was checked column-by-column against a pre-migration copy, all 38 column
+definitions identical.
+
+`URL` is a dangerously generic name for a database DSN. Renaming it means adding an
+`env_prefix` to the shared `DatabaseConfig` and changing every service that inherits it, so
+it is documented rather than changed unilaterally. The comment that pointed the wrong way is
+corrected, and both READMEs now give the working invocation.
+
+#### Both `env.py` files print their target before doing anything
+
+```
+alembic: target database -> sqlite:////var/lib/aitbc/data/gpu_service.db
+```
+
+The two apps resolve the URL differently — gpu from `DATABASE_URL`, edge through its settings
+object — and that difference is exactly why both echo it. **A migration should never be the
+first thing that tells you which database it chose.**
