@@ -44,7 +44,8 @@ class AIJobRequest(BaseModel):
     # not-money: wire format. This value goes into tx_data["payload"], which is
     # json.dumps'd and keccak-hashed for signature verification and for the tx hash.
     # Decimal is not JSON-serializable, and even with an encoder "0.5" != 0.5 would
-    # invalidate every signature already issued. Changing it is a hard fork.
+    # invalidate every signature already issued. Changing it is a hard fork -- see
+    # docs/architecture/money-types-and-the-signature-boundary.md.
     payment: float = Field(..., ge=0, description="Payment in AIT")
     parameters: dict[str, Any] | None = Field(default=None, description="Additional job parameters")
     nonce: int = Field(default=0, ge=0, description="Sender account nonce")
