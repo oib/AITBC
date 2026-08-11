@@ -30,6 +30,8 @@ import json
 import logging
 from typing import Any
 
+from .signature_metrics import ERROR, MISMATCH, UNPARSEABLE, record_attempt, record_failure
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,7 +177,9 @@ def verify_block_signature(
         ``expected_proposer``. False if the signature is empty, invalid,
         wrong length, or recovers to a different address.
     """
+    record_attempt("block")
     if not signature:
+        record_failure("block", UNPARSEABLE)
         return False
 
     from .signature_recovery import SignatureMalformed, verify_signature
@@ -184,13 +188,19 @@ def verify_block_signature(
         msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
     except ValueError:
         logger.warning("Block hash is not valid hex, cannot verify signature")
+        record_failure("block", ERROR)
         return False
 
     try:
-        return verify_signature(msg_hash, signature, expected_proposer)
+        valid = verify_signature(msg_hash, signature, expected_proposer)
     except SignatureMalformed as e:
         # V23-04: a signature that cannot be parsed is an encoding fault or a bug, not a
         # failed check. This path used to be indistinguishable from "recovered a different
         # proposer", which is what let every correctly signed block be rejected in silence.
         logger.warning("Malformed block signature (encoding fault, not a failed check): %s", e)
+        record_failure("block", UNPARSEABLE)
         return False
+
+    if not valid:
+        record_failure("block", MISMATCH)
+    return valid
