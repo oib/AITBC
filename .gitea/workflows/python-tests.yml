@@ -116,7 +116,7 @@ jobs:
           venv/bin/python -m pytest \
             tests/cross_phase/ \
             tests/verification/ \
-            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            -o addopts="" --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
             -o asyncio_mode=auto \
             --cov=apps --cov=packages --cov=cli --cov-append \
@@ -138,7 +138,7 @@ jobs:
           venv/bin/python -m pytest \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
-            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            -o addopts="" --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
             --cov=apps --cov=packages --cov=cli --cov-append
 
@@ -163,13 +163,13 @@ jobs:
             tests/services \
             tests/security \
             tests/production \
-            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            -o addopts="" --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
             -o asyncio_mode=auto
 
           venv/bin/python -m pytest \
             apps/blockchain-node/tests \
-            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            -o addopts="" --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
             -o asyncio_mode=auto
 
