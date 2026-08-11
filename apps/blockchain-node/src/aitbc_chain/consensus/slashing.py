@@ -1,10 +1,29 @@
-"""
-Slashing Conditions Implementation
-Handles detection and penalties for validator misbehavior
+"""Slashing conditions: detection and penalties for validator misbehaviour.
+
+V23-48. ``SlashingEvent.slash_amount`` was not an amount. It held a *rate* — 0.05 to 0.5,
+straight from ``slash_rates`` — and ``apply_slashing`` multiplied it by ``validator.stake``
+to get the quantity actually deducted, which was then **discarded**. Nothing recorded how
+much a validator lost.
+
+So ``calculate_total_slashed`` summed rates and returned them as "total amount slashed": three
+double-signs reported 1.5, meaning 1.5 AIT to anyone reading it, when the real total depended
+on a stake nobody had written down. It could not be fixed by changing that function, because
+the number it needed had never been stored.
+
+The event now carries three separate quantities:
+
+    slash_rate       the fraction, set at detection      (0.05 - 0.5)
+    stake_before     the stake at the moment of slashing (None until applied)
+    slashed_amount   what was actually deducted          (None until applied)
+
+``stake_before`` is what makes the record auditable rather than merely correct: with the rate
+and the pre-slash stake, ``slashed_amount`` can be re-derived and checked, and a validator can
+be shown *why* it lost what it lost.
 """
 
 import time
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import Enum
 
 from .multi_validator_poa import Validator, ValidatorRole
@@ -24,10 +43,23 @@ class SlashingEvent:
     evidence: str
     block_height: int
     timestamp: float
-    # not-money: a fraction of stake (0.05-0.5) from slash_rates, not an amount.
-    # apply_slashing() multiplies it by validator.stake to get the amount. The name is
-    # kept because it is a persisted key in ConsensusState.slashing_events.
-    slash_amount: float
+    # not-money: a fraction of stake (0.05-0.5) from slash_rates. Was called `slash_amount`,
+    # which is what made `calculate_total_slashed` wrong -- see the module docstring.
+    slash_rate: float
+    # Both None until apply_slashing() runs: a detected event is not a levied one, and
+    # recording an amount for a penalty that was never applied would be its own lie.
+    stake_before: Decimal | None = None
+    slashed_amount: Decimal | None = None
+
+    @property
+    def is_applied(self) -> bool:
+        """Whether this event actually cost the validator anything."""
+        return self.slashed_amount is not None
+
+
+# Below this, a validator is demoted to standby. Named because it is now compared against a
+# Decimal stake, and a bare `100` next to money reads as a magic number.
+MIN_ACTIVE_STAKE = Decimal("100")
 
 
 class SlashingManager:
@@ -59,7 +91,7 @@ class SlashingManager:
             evidence=f"Double sign detected: {block_hash1} vs {block_hash2} at height {height}",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
+            slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
         )
 
     def detect_unavailability(self, validator: str, missed_blocks: int, height: int) -> SlashingEvent | None:
@@ -73,7 +105,7 @@ class SlashingManager:
             evidence=f"Missed {missed_blocks} consecutive blocks",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.UNAVAILABLE],
+            slash_rate=self.slash_rates[SlashingCondition.UNAVAILABLE],
         )
 
     def detect_invalid_block(self, validator: str, block_hash: str, reason: str, height: int) -> SlashingEvent | None:
@@ -84,7 +116,7 @@ class SlashingManager:
             evidence=f"Invalid block {block_hash}: {reason}",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.INVALID_BLOCK],
+            slash_rate=self.slash_rates[SlashingCondition.INVALID_BLOCK],
         )
 
     def detect_slow_response(
@@ -100,16 +132,25 @@ class SlashingManager:
             evidence=f"Slow response: {response_time}s (threshold: {threshold}s)",
             block_height=height,
             timestamp=time.time(),
-            slash_amount=self.slash_rates[SlashingCondition.SLOW_RESPONSE],
+            slash_rate=self.slash_rates[SlashingCondition.SLOW_RESPONSE],
         )
 
     def apply_slashing(self, validator: Validator, event: SlashingEvent) -> bool:
-        """Apply slashing penalty to validator"""
-        slash_amount = validator.stake * event.slash_amount
-        validator.stake -= slash_amount
+        """Levy the penalty on the validator, and record what it cost.
+
+        The pre-slash stake and the deducted amount are written onto the event. Without
+        them the penalty is unreconstructable the moment the stake changes again, which is
+        what left `calculate_total_slashed` with nothing to sum but rates.
+        """
+        stake_before = validator.stake
+        slashed_amount = stake_before * Decimal(str(event.slash_rate))
+        validator.stake = stake_before - slashed_amount
+
+        event.stake_before = stake_before
+        event.slashed_amount = slashed_amount
 
         # Demote validator role if stake is too low
-        if validator.stake < 100:  # Minimum stake threshold
+        if validator.stake < MIN_ACTIVE_STAKE:
             validator.role = ValidatorRole.STANDBY
 
         # Record slashing event
@@ -139,10 +180,25 @@ class SlashingManager:
             return [event for event in self.slashing_events if event.validator_address == validator_address]
         return self.slashing_events.copy()
 
-    def calculate_total_slashed(self, validator_address: str) -> float:
-        """Calculate total amount slashed for validator"""
+    def calculate_total_slashed(self, validator_address: str) -> Decimal:
+        """Total stake actually deducted from this validator.
+
+        Sums `slashed_amount`, which only applied events carry -- a detected-but-never-levied
+        event contributes nothing, because nothing was taken. Previously this summed
+        `slash_amount`, which held the *rate*, so three double-signs reported 1.5 regardless
+        of how much stake had really been lost.
+        """
         events = self.get_slashing_history(validator_address)
-        return sum(event.slash_amount for event in events)
+        return sum((e.slashed_amount for e in events if e.slashed_amount is not None), Decimal("0"))
+
+    def calculate_total_slashed_by_condition(self, validator_address: str) -> dict[SlashingCondition, Decimal]:
+        """The same total, broken down by what earned it."""
+        totals: dict[SlashingCondition, Decimal] = {}
+        for event in self.get_slashing_history(validator_address):
+            if event.slashed_amount is None:
+                continue
+            totals[event.condition] = totals.get(event.condition, Decimal("0")) + event.slashed_amount
+        return totals
 
 
 # Global slashing manager
