@@ -386,6 +386,10 @@ Get DAO treasury information.
 }
 ```
 
+**Error Responses:**
+- 404: The `main_treasury` row does not exist — the treasury has not been initialised.
+  This case previously returned `200` with a body of `null`.
+
 ### Get Analytics
 
 #### GET /v1/governance/analytics
