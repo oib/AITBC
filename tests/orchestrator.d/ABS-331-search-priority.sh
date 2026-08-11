@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-331 — jira-tracker search: canonical priority column + ORDER BY created ASC
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness. In scope from the parent: assert_*, orch / tracker / new_env /
 # cleanup_env, PASS/FAIL/TOTAL, REPO_ROOT / ORCH / TRACKER.
 #
@@ -9,7 +9,7 @@
 # surface now emits the canonical priority (ABS-242 label mapping) as a column
 # and orders results age-ASC within the fence, so the orchestrator reads priority
 # straight from the sweep instead of a per-row `tracker get` (that per-row read is
-# unit-proven gone in tests/test-abs331-prioritize-rows.sh — AC3). Absent/unmapped
+# unit-proven gone in tests/tooling/test-abs331-prioritize-rows.sh — AC3). Absent/unmapped
 # priority => normal (full backward compat, AC4). The zero-get prioritization
 # itself is asserted in that unit test; here we cover the adapter surface (AC1),
 # the age-ASC ordering at mock parity (AC2), and the no-priority regression (AC4).

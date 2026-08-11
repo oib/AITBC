@@ -4,7 +4,7 @@
 # Skills are stored in three provider directories:
 # - harness/claude/skills/ is the canonical SOURCE (ABS-97: shipped-harness
 #   namespace; may include provider-specific docs). The live .claude/skills/
-#   is a byte-identical copy of this (verified by tests/test-harness-parity.sh)
+#   is a byte-identical copy of this (verified by tests/tooling/test-harness-parity.sh)
 #   until Phase 2b generates it — either points at the same canonical content.
 # - .agents/skills/ must have all canonical skills (SKILL.md only)
 # - .gemini/skills/ must have all canonical skills (SKILL.md + README.md)

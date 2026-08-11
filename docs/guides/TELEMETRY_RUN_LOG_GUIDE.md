@@ -180,7 +180,7 @@ spend from orchestration overhead using the session `/cost` readout.
 
 - `scripts/orchestrator.sh` — `extract_usage_note`, `record_spawn_telemetry`,
   `emit_run_usage_rollup` (tagged `# ABS-165`)
-- `tests/test-station-guard.sh` — unit tests: cache-heavy parser, rollup
+- `tests/tooling/test-station-guard.sh` — unit tests: cache-heavy parser, rollup
   summation, no-double-count assertion
 - [`docs/agent-outputs/ABS-165-telemetry-baseline.md`](../agent-outputs/ABS-165-telemetry-baseline.md)
 - ABS-120 (token accounting), ABS-125 (spawn telemetry), ABS-164 (epic)

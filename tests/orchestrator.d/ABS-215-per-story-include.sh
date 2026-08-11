@@ -1,7 +1,7 @@
 # =============================================================================
 # Per-story orchestrator test file (ABS-215) — TEMPLATE + self-check
 # -----------------------------------------------------------------------------
-# This file is `source`d by tests/test-orchestrator.sh, NOT run standalone.
+# This file is `source`d by tests/tooling/test-orchestrator.sh, NOT run standalone.
 # It therefore has NO shebang and MUST NOT re-source the harness or re-`set -e`
 # — the parent script already did that. Everything below is in scope:
 #   * assert helpers ...... assert_contains / assert_not_contains / assert_eq

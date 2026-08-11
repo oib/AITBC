@@ -36,5 +36,5 @@
 #
 # git resolves attributes per attribute, not per line: this sets `merge` and
 # leaves the `text`/`eol` values from the patterns above intact. Asserted in
-# tests/test-gitattributes-eol.sh.
+# tests/tooling/test-gitattributes-eol.sh.
 docs/sop/ORCHESTRATOR_SOP_CHANGELOG.md merge=union

@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-393 — main-checkout seat state isolation (third live-state wipe, 2026-07-17)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, no re-`set -e`, shared
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`, shared
 # assert helpers / counters — see docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE INCIDENT (v2.26.1 run, 2026-07-17T17:07:13Z)

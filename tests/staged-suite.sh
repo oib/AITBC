@@ -13,7 +13,7 @@
 #   Stage `orch-core` : the scenario blocks only (SUITE_SKIP_STORY_INCLUDES=1).
 #   Stage `stories`   : the ~48 orchestrator.d includes, fanned out
 #                       one-process-per-file in parallel (SUITE_INCLUDE_ONLY).
-#   Stage `pool`      : every OTHER tests/test-*.sh, via run-all.sh (parallel).
+#   Stage `pool`      : every OTHER tests/tooling/test-*.sh, via run-all.sh (parallel).
 #
 # The partition is fixed BY THIS SCRIPT — a seat never chooses which files run,
 # so file-selection cannot be used to make a red suite look green (the integrity
@@ -62,7 +62,7 @@ stage_desc() {
     case "$1" in
         orch-core) echo "test-orchestrator.sh scenario blocks (no story includes), TEST_JOBS=$JOBS" ;;
         stories)   echo "tests/orchestrator.d/*.sh includes, fanned out one-process-per-file (-P$JOBS)" ;;
-        pool)      echo "every other tests/test-*.sh, via run-all.sh (-P$JOBS)" ;;
+        pool)      echo "every other tests/tooling/test-*.sh, via run-all.sh (-P$JOBS)" ;;
         alpha|beta|gamma) echo "selftest no-op stage" ;;
         *)         echo "unknown stage" ;;
     esac
@@ -77,7 +77,7 @@ tree_dirty() { [ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]; }
 run_orch_core() {
     env -u ORCH_STATE_DIR -u ORCH_TARGET_REPO \
         SUITE_SKIP_STORY_INCLUDES=1 TEST_JOBS="$JOBS" \
-        bash "$TESTS_DIR/test-orchestrator.sh"
+        bash "$TESTS_DIR/tooling/test-orchestrator.sh"
 }
 
 run_stories() {
@@ -94,7 +94,7 @@ run_stories() {
         td="$(mktemp -d "$work/t-XXXXXX")"
         env -u ORCH_STATE_DIR -u ORCH_TARGET_REPO \
             SUITE_INCLUDE_ONLY="$f" TMPDIR="$td" \
-            bash "$tests_dir/test-orchestrator.sh" >"$work/$f.out" 2>&1
+            bash "$tests_dir/tooling/test-orchestrator.sh" >"$work/$f.out" 2>&1
         echo "$?" >"$work/$f.rc"
         rm -rf "$td"
     ' _ {} "$work" "$TESTS_DIR"
@@ -115,7 +115,7 @@ run_stories() {
 
 run_pool() {
     local pool=() f
-    for f in "$TESTS_DIR"/test-*.sh; do
+    for f in "$TESTS_DIR"/tooling/test-*.sh; do
         [ "$(basename "$f")" = "test-orchestrator.sh" ] && continue  # covered by orch-core + stories
         pool+=("$(basename "$f")")
     done

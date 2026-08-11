@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-300 — seat race: a foreign handoff may not overwrite a live seat's station
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215 pattern): `source`d by tests/test-orchestrator.sh
+# Per-story include (ABS-215 pattern): `source`d by tests/tooling/test-orchestrator.sh
 # into the live harness — no shebang, no `set -e`, no re-sourcing.
 # Shares: assert_contains / assert_not_contains / assert_eq, PASS/FAIL/TOTAL,
 # REPO_ROOT, ORCH (orchestrator.sh path), TRACKER (mock-tracker.sh path),
