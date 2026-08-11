@@ -2,7 +2,7 @@
 # PILOT-26 — Live-Spawns PRIMARY producer: the runner emits the seat open/close
 # upsert first-hand at spawn/reap (ABS-352 S7 had no production caller).
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215 pattern): `source`d by tests/test-orchestrator.sh
+# Per-story include (ABS-215 pattern): `source`d by tests/tooling/test-orchestrator.sh
 # into the live harness — no shebang, no `set -e` re-entry. Shares assert_eq /
 # assert_contains / assert_not_contains, PASS/FAIL/TOTAL, REPO_ROOT, ORCH.
 #
@@ -22,7 +22,7 @@
 #      handoff. The offline/dry-run test path must stay byte-silent.
 #
 # The live POST round-trip (seat appears <2s, closes with exit_code) is covered
-# by the docker-backed suites (tests/test-backend-shipper.sh drives the same
+# by the docker-backed suites (tests/tooling/test-backend-shipper.sh drives the same
 # endpoint); here we pin the seam contract without a network.
 # =============================================================================
 

@@ -2,7 +2,7 @@
 # ABS-409 — PO first-triage: a declared target on a parentless Backlog ticket is
 #           runner-applied (no NOMOVE respawn / Needs PO Decision detour)
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215 pattern): `source`d by tests/test-orchestrator.sh
+# Per-story include (ABS-215 pattern): `source`d by tests/tooling/test-orchestrator.sh
 # into the live harness — no shebang, no `set -e`, no re-sourcing. Runs in an
 # ISOLATED child via _run_d_include (ABS-370). Shares: assert_contains /
 # assert_not_contains / assert_eq, PASS/FAIL/TOTAL, REPO_ROOT, ORCH

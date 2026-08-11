@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-27 — the PRIMARY producer carries PILOT-24's session_id + session_stored.
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215 pattern): `source`d by tests/test-orchestrator.sh
+# Per-story include (ABS-215 pattern): `source`d by tests/tooling/test-orchestrator.sh
 # into the live harness — no shebang, no `set -e` re-entry. Shares assert_eq /
 # assert_contains / assert_not_contains, PASS/FAIL/TOTAL, REPO_ROOT, ORCH.
 #

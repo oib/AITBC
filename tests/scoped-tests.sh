@@ -80,7 +80,7 @@ for file in "${changed[@]}"; do
     hit=0
     # A changed test file always (at least) runs itself — no map entry needed.
     case "$file" in
-        tests/test-*.sh) selected+=" $(basename "$file")"; hit=1 ;;
+        tests/tooling/test-*.sh) selected+=" $(basename "$file")"; hit=1 ;;
     esac
     for i in "${!globs[@]}"; do
         # shellcheck disable=SC2254
@@ -103,7 +103,7 @@ run_list=()
 seen=" "
 for t in "${SMOKE[@]}" $selected; do
     case "$seen" in *" $t "*) continue ;; esac
-    [ -f "$TESTS_DIR/$t" ] || { echo -e "${YELLOW}map references missing test: $t${NC}" >&2; continue; }
+    [ -f "$TESTS_DIR/tooling/$t" ] || { echo -e "${YELLOW}map references missing test: $t${NC}" >&2; continue; }
     run_list+=("$t"); seen+="$t "
 done
 

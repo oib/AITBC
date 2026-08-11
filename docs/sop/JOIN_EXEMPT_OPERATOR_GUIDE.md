@@ -158,7 +158,7 @@ it). The exemption fired correctly; the genuine blocker is the gate-holder.
 ## References
 
 - `scripts/orchestrator.sh` — `join_exempt_marker()`, `child_join_exempt()`, `join_check_epic()`
-- `tests/test-orchestrator.sh` — ABS-210 JOIN exemption section (13 assertions)
+- `tests/tooling/test-orchestrator.sh` — ABS-210 JOIN exemption section (13 assertions)
 - [ORCHESTRATOR_SOP.md §JOIN rule + guards](ORCHESTRATOR_SOP.md#join-rule--guards-spec-31-36) — inline guard description
 - ADR-A-0019 — declared-marker pattern (escalation-resume-to-origin)
 - ABS-76 — Blocked/TDM-triage semantics (explicitly out of scope here)

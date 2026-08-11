@@ -45,7 +45,7 @@ bash scripts/sandbox-guard-check.sh    # exit 0 = all entrypoints guarded
 
 ## Adding a new backend-touching test
 
-1. Create `tests/test-<ticket>-<slug>.sh`.
+1. Create `tests/tooling/test-<ticket>-<slug>.sh`.
 2. Near the top, after `set -...`, add:
    ```bash
    # shellcheck source=tests/sandbox-guard.sh
@@ -104,7 +104,7 @@ assert_eq "$rc" "1" "removing the guard line from $victim turns the check red"
 assert_contains "$out" "$victim" "check names the file"
 ```
 
-This pattern (PILOT-62) is already in `tests/test-sandbox-guard.sh`. Maintain
+This pattern (PILOT-62) is already in `tests/tooling/test-sandbox-guard.sh`. Maintain
 it when adding entrypoints or modifying the check.
 
 ---
@@ -120,7 +120,7 @@ that already passed, so they always passed — including when a real entrypoint
 was missing the guard line.
 
 The working negative test then immediately found a genuine gap:
-`tests/test-run-status-collector.sh` was touching the tracker adapter without
+`tests/tooling/test-run-status-collector.sh` was touching the tracker adapter without
 sourcing the guard. That file now sources it, and the entrypoint count rose
 from 35 to 36.
 
@@ -131,5 +131,5 @@ from 35 to 36.
 ---
 
 **Related:** `tests/sandbox-guard.sh`, `scripts/sandbox-guard-check.sh`,
-`tests/test-sandbox-guard.sh`, `.github/workflows/pr-validation.yml` (CI
+`tests/tooling/test-sandbox-guard.sh`, `.github/workflows/pr-validation.yml` (CI
 wiring), ABS-546 (original story), PILOT-62 (vacuum-green fix).
