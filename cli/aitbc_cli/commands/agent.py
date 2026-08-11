@@ -104,7 +104,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
         return None
 
 
-@click.group(name="agent-msg")
+@click.group(name="agent")
 def messaging():
     """Agent messaging commands (ping, send, receive, peers, request-coins)."""
     pass
@@ -358,3 +358,8 @@ def request_coins(ctx, wallet: str | None, amount: int, sender: str, coordinator
             error(f"Connection failed to {ws_endpoint}: {e}")
 
     _asyncio.run(_request())
+
+
+# ponytail: tests in tests/cli/ still import this module as `agent`; the CLI
+# registers the same group under the name `agent-msg` in core/main.py.
+agent = messaging
