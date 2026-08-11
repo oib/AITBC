@@ -278,9 +278,10 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["current_balance"] == format_ait(100.0)
-        assert data["total_earned"] == format_ait(50.0)
-        assert data["total_spent"] == format_ait(0.0)
+        # the wallet file stores AIT; `stats` used to format those as compute-seconds
+        assert data["current_balance"] == format_ait(ait_to_seconds(100.0)) == "100 AIT"
+        assert data["total_earned"] == format_ait(ait_to_seconds(50.0)) == "50 AIT"
+        assert data["total_spent"] == format_ait(ait_to_seconds(0.0)) == "0 AIT"
         assert data["jobs_completed"] == 1
         assert data["transaction_count"] == 1
 
