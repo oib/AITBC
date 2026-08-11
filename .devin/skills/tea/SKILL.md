@@ -50,6 +50,16 @@ tea pr view 42
 
 # Create a PR from the current branch
 tea pr create --title "fix: ..." --body "..."
+
+# Create a PR from a different branch/head to a specific base
+tea pr create --head <branch-name> --base main --title "..." --body "..."
+
+# Merge a PR (rebase is the repo convention; use merge for fast-forwards)
+tea pr merge --style rebase <pr-number>
+tea pr merge <pr-number>
+
+# Close a PR that has no net changes or is no longer needed
+tea api /repos/owner/repo/pulls/<pr-number> --method PATCH --data '{"state":"closed"}'
 ```
 
 ### Issues
