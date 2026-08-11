@@ -40,7 +40,7 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 49 findings — 36 confirmed defects, 13 observed design gaps. **All 49 resolved**
+**Totals**: 50 findings — 37 confirmed defects, 13 observed design gaps. **All 50 resolved**
 (V23-01..40, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
 V23-32a — forty-nine entries, forty numbered findings); **0 open**.
 
@@ -3114,3 +3114,86 @@ directions against a copy.
 
 **Six widenings, six times the same result.** The baseline is zero against the rules that
 exist today, and that remains the only claim it supports.
+
+---
+
+## Medium — one CLI, two units for the same quantity
+
+### V23-41 — the AIT/compute-second confusion V23-40 recorded but did not fix · CONFIRMED → RESOLVED
+
+V23-40 found two unit bugs while converting the CLI's parameters and deliberately left
+them: they are unit errors, not rounding errors, and mixing them into a `Decimal` migration
+would have made both harder to review. This is that fix.
+
+**The unit is not ambiguous.** `apps/blockchain-node/src/aitbc_chain/base_models.py`:
+
+```python
+value: int = Field(default=0)   # in compute-seconds (1 AIT = 3600)
+fee: int = Field(default=0)     # in compute-seconds (1 AIT = 3600)
+```
+
+and `rpc/ai_services.py` defaults the fee to `36` — which is 0.01 AIT, only if the field is
+seconds. `wallet send` has always converted with `ait_to_seconds()`. Everything that
+disagreed with that was wrong.
+
+#### `transactions send` sent the wrong number, and its own default fee was zero
+
+```python
+"amount": int(amount),
+"fee": int(fee),
+```
+
+`int()` on an AIT figure reads it as though it were already compute-seconds — 3600x low —
+and truncates every fraction to nothing:
+
+```
+--amount    int() sent   ait_to_seconds() sends
+   0.001             0                        3     <- the default --fee
+     0.5             0                     1800
+     1.5             1                     5400
+  0.5025             0                     1809
+      10            10                    36000
+```
+
+The default `--fee 0.001` became **0** on every invocation. Both commands POST to the same
+`/rpc/transaction` on port 8202, so the CLI has been offering two contradictory readings of
+`--amount` for the same operation against the same endpoint.
+
+#### `wallet stats` and `wallet info` displayed balances 3600x small
+
+`format_ait()` takes compute-seconds. The local wallet file holds AIT — `earn` and `spend`
+wrap their writes in `ait_to_seconds()`, so that much was already established in the same
+file. Four sites did not:
+
+```
+wallet file holds 100 AIT
+  format_ait(100)                  ->   0.0278 AIT
+  format_ait(ait_to_seconds(100))  ->   100 AIT
+```
+
+`wallet balance` and `wallet history` were **not** touched: those values come from the
+service already denominated in seconds, and wrapping them would have introduced the same
+bug in the opposite direction. The distinction is which side of the boundary the number
+arrived from, not which function is being called.
+
+#### `estimate-fee` printed compute-seconds with an "AIT" label
+
+```
+old:  Estimated fee: 36.0 AIT (default)
+new:  Estimated fee: 0.0100 AIT (default)
+```
+
+The 36 was correct as a wire value and wrong as a display. It now goes through
+`format_ait()` like everything else, and the literal is named `DEFAULT_FEE_SECONDS` so the
+next reader does not have to work the unit out from the magnitude.
+
+#### Four tests pinned the wrong behaviour
+
+`tests/cli/test_wallet.py` asserted `format_ait(100.0)` for a 100-AIT balance, and
+`tests/cli/test_commands_transactions.py` asserted `"36.0" in result.output`. Both now
+assert the AIT figure and, for the estimate, that the value reaching the node is
+`100 * 3600` — the conversion, not just its formatting.
+
+**A test that pins the output of the code under test pins whatever that code does**,
+including its bugs. These four passed continuously while the CLI showed balances off by a
+factor of 3600.

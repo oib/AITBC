@@ -301,7 +301,8 @@ def info(ctx):
     }
 
     if "balance" in wallet_data:
-        wallet_info["balance"] = format_ait(wallet_data["balance"])
+        # the local wallet file holds AIT; format_ait takes compute-seconds
+        wallet_info["balance"] = format_ait(ait_to_seconds(wallet_data["balance"]))
 
     output(wallet_info, ctx.obj.get("output_format", "table"))
 
@@ -694,9 +695,9 @@ def stats(ctx):
         {
             "wallet": wallet_name,
             "address": wallet_data["address"],
-            "current_balance": format_ait(wallet_data.get("balance", 0)),
-            "total_earned": format_ait(total_earned),
-            "total_spent": format_ait(total_spent),
+            "current_balance": format_ait(ait_to_seconds(wallet_data.get("balance", 0))),
+            "total_earned": format_ait(ait_to_seconds(total_earned)),
+            "total_spent": format_ait(ait_to_seconds(total_spent)),
             "jobs_completed": jobs_completed,
             "transaction_count": len(transactions),
             "wallet_created": wallet_data.get("created_at"),
