@@ -71,7 +71,7 @@ async def consensus_validators_route(chain_id: str = "ait-hub") -> dict[str, Any
         validators = [
             {
                 "address": addr,
-                "stake": v.stake,
+                "stake": str(v.stake),
                 "reputation": v.reputation,
                 "role": v.role.value,
                 "is_active": v.is_active,
@@ -107,7 +107,14 @@ async def consensus_slashing_history_route(chain_id: str = "ait-hub") -> dict[st
                 "evidence": e.evidence,
                 "block_height": e.block_height,
                 "timestamp": e.timestamp,
-                "slash_amount": e.slash_amount,
+                # V23-48: `slash_amount` carried the *rate* under a name that reads as a
+                # quantity -- the CLI displayed it in a column headed "Amount". The rate and
+                # the amount are separate fields now, and the amount is null until the
+                # penalty is actually levied. Money as a decimal string: FastAPI's
+                # jsonable_encoder turns a bare Decimal back into a float.
+                "slash_rate": e.slash_rate,
+                "stake_before": None if e.stake_before is None else str(e.stake_before),
+                "slashed_amount": None if e.slashed_amount is None else str(e.slashed_amount),
             }
             for e in events
         ]
