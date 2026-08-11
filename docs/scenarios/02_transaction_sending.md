@@ -186,7 +186,7 @@ aitbc transactions estimate-fee \
 
 **Expected output:**
 ```
-Estimated fee: 36.0 AIT (default)
+Estimated fee: 0.0100 AIT (default)
 ```
 
 ### Step 7: View Pending Transactions
