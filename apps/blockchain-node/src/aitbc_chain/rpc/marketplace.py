@@ -63,7 +63,8 @@ class MarketplaceListing(BaseModel):
     # not-money: wire format. This mirrors the "price" key inside a GPU_MARKETPLACE
     # transaction payload (read at marketplace_listings below), which is json.dumps'd
     # and keccak-hashed for signature verification. Decimal is not JSON-serializable,
-    # and "0.5" != 0.5 would invalidate signatures already on chain. Hard fork.
+    # and "0.5" != 0.5 would invalidate signatures already on chain. Hard fork -- see
+    # docs/architecture/money-types-and-the-signature-boundary.md.
     price: float = Field(..., ge=0, description="Price in AIT")
     description: str = Field(..., description="Item description")
     status: str = Field(default="active", description="Listing status")

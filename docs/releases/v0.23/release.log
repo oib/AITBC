@@ -40,7 +40,7 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 53 findings — 39 confirmed defects, 14 observed design gaps. **All 53 resolved**
+**Totals**: 54 findings — 39 confirmed defects, 15 observed design gaps. **All 54 resolved**
 (V23-01..40, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
 V23-32a — forty-nine entries, forty numbered findings); **0 open**.
 
@@ -3447,3 +3447,72 @@ Hash inputs for each branch were found by search and hardcoded rather than deriv
 implementation; deriving them would make the assertions tautological. A separate test asserts
 the mapping still holds, so a change to the hash or the modulus fails once, loudly, instead of
 silently moving every expected verdict in the file.
+
+---
+
+## Medium — the open decision V23-36 left behind
+
+### V23-45 — money on the wire is `float`, decided and enforced · OBSERVED → RESOLVED
+
+V23-36 converted blockchain-node's 24 float-money violations to zero and stopped at four,
+recording why and explicitly declining to decide:
+
+> *"money is `float` inside a signed transaction payload"* is a genuine design defect worth
+> its own decision — but it is a protocol change, and this log is not where protocol changes
+> get made.
+
+This closes that. The decision is **accepted: the four fields stay `float`**, and it now lives
+somewhere findable with a test that enforces it.
+
+#### The argument, executed rather than asserted
+
+`apps/blockchain-node/tests/test_signed_payload_money_is_float.py` signs a real transaction
+with a deterministic secp256k1 key:
+
+```
+float payload    {"from":"0xa953…","payload":{"payment":0.5,…}}     verifies
+Decimal payload  TypeError: Object of type Decimal is not JSON serializable
+string payload   {"from":"0xa953…","payload":{"payment":"0.5",…}}   rejected
+```
+
+The middle line is why an encoder is needed at all; the third is why the encoder does not help.
+**The same signature**, over the same amount spelled `"0.5"`, fails verification — and the
+keccak hash moves with it, so history would not re-derive either. Fourteen tests; verified
+non-vacuous by converting `AIJobRequest.payment` to `Decimal`, deleting a `# not-money:`
+marker, and dropping `sort_keys` from the canonicalisation — each fails by name.
+
+#### What the decision costs, stated in the record
+
+Accepting a design is not the same as calling it good. The record says so:
+
+- **Signature validity depends on float → str → float round-tripping.** Python's `repr` gives
+  shortest-round-trip formatting, which is a *Python* guarantee and not a wire-format one. A
+  client in another language that formats the same double as `0.10000000000000001` produces a
+  valid float, different bytes, and an invalid signature — with no diagnostic pointing at
+  formatting. A test pins the round trip for six representative values so the assumption is
+  visible rather than implicit.
+- **Arithmetic on these values is binary floating point** outside the `Decimal` boundary.
+
+What limits the damage today: the chain settles in **integer compute-seconds**, so the value
+that moves is an integer even where the payload field is a float, and everything upstream of
+serialisation is `Decimal`, so error cannot accumulate before the wire.
+
+#### What a change would take
+
+Not an annotation — a transaction format version that keeps verifying old encodings
+indefinitely, a canonical encoding for exact decimals that is not "whatever `json.dumps`
+does", coordinated updates to every independent signer (wallets, CLI, both SDKs, third
+parties), and a re-derivation story for hashes already on chain. The record spells this out so
+the next person weighing it starts from the actual cost.
+
+#### Where it lives
+
+`docs/architecture/money-types-and-the-signature-boundary.md`, linked from that directory's
+README as *"Read before changing a money type in `blockchain-node`"*, and referenced from the
+`# not-money:` markers on the declarations themselves — so it is reachable from the two places
+someone would actually be standing when the question arises. A release log is a log; this
+needed a reference.
+
+The test's failure message says the same thing in the place it will be read: if the change is
+genuinely intended, **delete the test as part of the protocol change**, do not adjust it to
+pass.
