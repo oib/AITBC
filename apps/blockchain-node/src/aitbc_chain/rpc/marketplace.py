@@ -60,6 +60,10 @@ class MarketplaceListing(BaseModel):
     listing_id: str | None = None
     seller_address: str = Field(..., description="Seller wallet address")
     item_type: str = Field(..., description="Type of item (GPU, compute, etc.)")
+    # not-money: wire format. This mirrors the "price" key inside a GPU_MARKETPLACE
+    # transaction payload (read at marketplace_listings below), which is json.dumps'd
+    # and keccak-hashed for signature verification. Decimal is not JSON-serializable,
+    # and "0.5" != 0.5 would invalidate signatures already on chain. Hard fork.
     price: float = Field(..., ge=0, description="Price in AIT")
     description: str = Field(..., description="Item description")
     status: str = Field(default="active", description="Listing status")
@@ -71,6 +75,7 @@ class MarketplaceCreateRequest(BaseModel):
 
     seller_address: str
     item_type: str
+    # not-money: becomes the price field of a listing in the wire format above
     price: float
     description: str
 

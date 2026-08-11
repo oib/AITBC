@@ -5,6 +5,7 @@ REST API endpoints for multi-jurisdictional DAO governance, regional councils, t
 
 import logging
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -36,7 +37,7 @@ async def create_regional_council(
     council_name: str,
     jurisdiction: str,
     council_members: list[str],
-    budget_allocation: float,
+    budget_allocation: Decimal,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
@@ -87,7 +88,7 @@ async def create_regional_proposal(
     title: str,
     description: str,
     proposal_type: str,
-    amount_requested: float,
+    amount_requested: Decimal,
     proposer_address: str,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -157,7 +158,7 @@ async def get_treasury_balance(
 async def allocate_treasury_funds(
     request: Request,
     council_id: str,
-    amount: float,
+    amount: Decimal,
     purpose: str,
     recipient_address: str,
     approver_address: str,
@@ -244,7 +245,7 @@ async def calculate_staking_rewards(
     request: Request,
     pool_id: str,
     staker_address: str,
-    amount: float,
+    amount: Decimal,
     duration_days: int,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],

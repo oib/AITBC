@@ -12,6 +12,7 @@ Complete command-line interface for AI compute miner operations including:
 import json
 import os
 import time
+from decimal import Decimal
 from typing import Any
 
 import click
@@ -454,7 +455,7 @@ def list_marketplace_offers(
 
 def create_marketplace_offer(
     miner_id: str,
-    price: float,
+    price: Decimal,
     api_key: str = DEFAULT_API_KEY,
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
     capacity: int = 1,
@@ -464,7 +465,7 @@ def create_marketplace_offer(
     try:
         admin_headers = {"X-Api-Key": api_key.replace("miner_", "admin_")}
 
-        payload = {"miner_id": miner_id, "price": price, "capacity": capacity, "region": region}
+        payload = {"miner_id": miner_id, "price": str(price), "capacity": capacity, "region": region}
 
         response = requests.post(f"{coordinator_url}/v1/marketplace/offers", headers=admin_headers, json=payload, timeout=30)
 
@@ -473,7 +474,7 @@ def create_marketplace_offer(
                 "action": "marketplace_create",
                 "miner_id": miner_id,
                 "status": "✅ Offer created successfully",
-                "price": price,
+                "price": str(price),
                 "capacity": capacity,
                 "region": region,
             }

@@ -3,6 +3,7 @@ Advanced Agent Performance API Endpoints
 REST API for meta-learning, resource optimization, and performance enhancement
 """
 
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....storage import get_session
 from ..domain.agent_performance import (
     LearningStrategy,
     OptimizationTarget,
@@ -23,7 +25,6 @@ from ..services.performance import (
     PerformanceOptimizer,
     ResourceManager,
 )
-from ....storage import get_session
 
 logger = get_logger(__name__)
 
@@ -50,7 +51,7 @@ class PerformanceProfileResponse(BaseModel):
     specialization_areas: list[str]
     expertise_levels: dict[str, float]
     resource_efficiency: dict[str, float]
-    cost_per_task: float
+    cost_per_task: Decimal
     throughput: float
     average_latency: float
     last_assessed: str | None

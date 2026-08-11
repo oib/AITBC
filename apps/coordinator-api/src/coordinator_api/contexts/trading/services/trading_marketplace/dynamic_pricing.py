@@ -365,8 +365,8 @@ class DynamicPricingEngine:
                         strategy_type=strategy.value,
                         strategy_name=strategy.value,
                         parameters=self.strategy_configs.get(strategy, {}),
-                        min_price=float(constraints.min_price) if constraints and constraints.min_price else None,
-                        max_price=float(constraints.max_price) if constraints and constraints.max_price else None,
+                        min_price=constraints.min_price if constraints and constraints.min_price else None,
+                        max_price=constraints.max_price if constraints and constraints.max_price else None,
                         max_change_percent=constraints.max_change_percent if constraints else 0.5,
                         min_change_interval=constraints.min_change_interval if constraints else 300,
                         strategy_lock_period=constraints.strategy_lock_period if constraints else 3600,
@@ -437,6 +437,8 @@ class DynamicPricingEngine:
         demand_adjustment = (factors.demand_level - 0.5) * config["demand_sensitivity"]
         price *= _D(1 + demand_adjustment)
         if market_conditions.competitor_prices:
+            # `price` itself stays Decimal through _D() below; this is only its divisor.
+            # not-money: consumed only to form competition_ratio, a dimensionless factor
             avg_competitor_price = float(np.mean([float(p) for p in market_conditions.competitor_prices]))
             competition_ratio = avg_competitor_price / float(base_price)
             competition_adjustment = (competition_ratio - 1) * config["competition_weight"]
@@ -537,6 +539,7 @@ class DynamicPricingEngine:
         """Calculate competition-based multiplier"""
         if not competitor_prices:
             return Decimal("1.0")
+        # not-money: consumed only to form price_ratio; this function returns a multiplier
         avg_competitor_price = float(np.mean([float(p) for p in competitor_prices]))
         price_ratio = float(base_price) / avg_competitor_price
         if strategy == PricingStrategy.COMPETITIVE_RESPONSE:
@@ -683,8 +686,8 @@ class DynamicPricingEngine:
                     PricingHistory(
                         resource_id=resource_id,
                         resource_type=PricingResourceType(resource_type.value),
-                        price=float(price),
-                        base_price=float(factors.base_price),
+                        price=price,
+                        base_price=factors.base_price,
                         demand_level=factors.demand_level,
                         supply_level=factors.supply_level,
                         market_volatility=factors.market_volatility,
@@ -867,6 +870,8 @@ class DynamicPricingEngine:
         self.circuit_breakers[resource_id] = False
         logger.info("Reset circuit breaker for %s", resource_id)
 
+    # not-money: np.polyfit over a price series, returning a slope. Same reasoning as
+    # _calculate_rsi -- a dimensionless statistic, and numpy has no Decimal dtype.
     def _calculate_price_trend(self, prices: list[float]) -> float:
         """Calculate simple price trend"""
         if len(prices) < 2:

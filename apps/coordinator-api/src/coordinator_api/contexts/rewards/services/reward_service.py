@@ -3,6 +3,7 @@ Agent Reward Engine Service
 Implements performance-based reward calculations, distributions, and tier management
 """
 
+from decimal import Decimal
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -46,7 +47,7 @@ class RewardCalculator:
             "response_time_excellent": 1000,
         }
 
-    def calculate_tier_multiplier(self, trust_score: float, session: Session) -> float:
+    def calculate_tier_multiplier(self, trust_score: float, session: Session) -> Decimal:
         """Calculate reward multiplier based on agent's tier"""
         tier_config = (
             session.execute(
@@ -58,80 +59,81 @@ class RewardCalculator:
             .first()
         )
         if tier_config:
-            return tier_config.base_multiplier  # type: ignore[no-any-return]
+            return Decimal(str(tier_config.base_multiplier))
         elif trust_score >= 900:
-            return 2.0
+            return Decimal("2.0")
         elif trust_score >= 750:
-            return 1.5
+            return Decimal("1.5")
         elif trust_score >= 600:
-            return 1.2
+            return Decimal("1.2")
         elif trust_score >= 400:
-            return 1.1
+            return Decimal("1.1")
         else:
-            return 1.0
+            return Decimal("1.0")
 
-    def calculate_performance_bonus(self, performance_metrics: dict[str, Any], session: Session) -> float:
+    def calculate_performance_bonus(self, performance_metrics: dict[str, Any], session: Session) -> Decimal:
         """Calculate performance-based bonus multiplier"""
-        bonus = 0.0
+        bonus = Decimal("0")
         rating = performance_metrics.get("performance_rating", 3.0)
         if rating >= self.performance_thresholds["excellent"]:
-            bonus += 0.5
+            bonus += Decimal("0.5")
         elif rating >= self.performance_thresholds["good"]:
-            bonus += 0.2
+            bonus += Decimal("0.2")
         response_time = performance_metrics.get("average_response_time", 5000)
         if response_time <= self.performance_thresholds["response_time_excellent"]:
-            bonus += 0.3
+            bonus += Decimal("0.3")
         elif response_time <= self.performance_thresholds["response_time_fast"]:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         success_rate = performance_metrics.get("success_rate", 80.0)
         if success_rate >= 95.0:
-            bonus += 0.2
+            bonus += Decimal("0.2")
         elif success_rate >= 90.0:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         job_count = performance_metrics.get("jobs_completed", 0)
         if job_count >= 100:
-            bonus += 0.15
+            bonus += Decimal("0.15")
         elif job_count >= 50:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         return bonus
 
-    def calculate_loyalty_bonus(self, agent_id: str, session: Session) -> float:
+    def calculate_loyalty_bonus(self, agent_id: str, session: Session) -> Decimal:
         """Calculate loyalty bonus based on agent history"""
         reward_profile = (
             session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
         )
         if not reward_profile:
-            return 0.0
-        bonus = 0.0
+            return Decimal("0")
+        bonus = Decimal("0")
         if reward_profile.current_streak >= 30:
-            bonus += 0.3
+            bonus += Decimal("0.3")
         elif reward_profile.current_streak >= 14:
-            bonus += 0.2
+            bonus += Decimal("0.2")
         elif reward_profile.current_streak >= 7:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         if reward_profile.lifetime_earnings >= 1000:
-            bonus += 0.2
+            bonus += Decimal("0.2")
         elif reward_profile.lifetime_earnings >= 500:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         if reward_profile.referral_count >= 10:
-            bonus += 0.2
+            bonus += Decimal("0.2")
         elif reward_profile.referral_count >= 5:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         if reward_profile.community_contributions >= 20:
-            bonus += 0.15
+            bonus += Decimal("0.15")
         elif reward_profile.community_contributions >= 10:
-            bonus += 0.1
+            bonus += Decimal("0.1")
         return bonus
 
-    def calculate_referral_bonus(self, referral_data: dict[str, Any]) -> float:
+    def calculate_referral_bonus(self, referral_data: dict[str, Any]) -> Decimal:
         """Calculate referral bonus"""
-        referral_count = referral_data.get("referral_count", 0)
+        # referral_data is an untyped dict off the wire; both come back as Any
+        referral_count = int(referral_data.get("referral_count", 0))
         referral_quality = referral_data.get("referral_quality", 1.0)
-        base_bonus = 0.05 * referral_count
-        quality_multiplier = 0.5 + referral_quality * 0.5
-        return base_bonus * quality_multiplier  # type: ignore[no-any-return]
+        base_bonus = Decimal("0.05") * referral_count
+        quality_multiplier = Decimal("0.5") + Decimal(str(referral_quality)) * Decimal("0.5")
+        return base_bonus * quality_multiplier
 
-    def calculate_milestone_bonus(self, agent_id: str, session: Session) -> float:
+    def calculate_milestone_bonus(self, agent_id: str, session: Session) -> Decimal:
         """Calculate milestone achievement bonus"""
         milestones = (
             session.execute(
@@ -142,7 +144,9 @@ class RewardCalculator:
             .scalars()
             .all()
         )
-        total_bonus = 0.0
+        # RewardMilestone.reward_amount is Decimal, so the old float accumulator raised
+        # TypeError the moment an agent actually had a completed milestone
+        total_bonus = Decimal("0")
         for milestone in milestones:
             total_bonus += milestone.reward_amount
             milestone.is_claimed = True
@@ -150,7 +154,7 @@ class RewardCalculator:
         return total_bonus
 
     def calculate_total_reward(
-        self, agent_id: str, base_amount: float, performance_metrics: dict[str, Any], session: Session
+        self, agent_id: str, base_amount: Decimal, performance_metrics: dict[str, Any], session: Session
     ) -> dict[str, Any]:
         """Calculate total reward with all bonuses and multipliers"""
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
@@ -206,7 +210,7 @@ class RewardEngine:
         self,
         agent_id: str,
         reward_type: RewardType,
-        base_amount: float,
+        base_amount: Decimal,
         performance_metrics: dict[str, Any],
         reference_date: datetime | None = None,
     ) -> dict[str, Any]:

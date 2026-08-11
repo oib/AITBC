@@ -7,6 +7,7 @@ import os
 import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -205,7 +206,7 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
             "memory_gb": gpu.memory_gb,
             "cuda_version": gpu.cuda_version,
             "region": gpu.region,
-            "price_per_hour": gpu.price_per_hour,
+            "price_per_hour": str(gpu.price_per_hour),
             "status": gpu.status,
             "capabilities": gpu.capabilities,
             "average_rating": gpu.average_rating,
@@ -260,7 +261,7 @@ async def update_gpu(
         if not gpu:
             return JSONResponse(status_code=404, content={"error": "GPU not found"})
         if "price_per_hour" in gpu_data:
-            gpu.price_per_hour = gpu_data["price_per_hour"]
+            gpu.price_per_hour = Decimal(str(gpu_data["price_per_hour"]))
         if "status" in gpu_data:
             # v0.6.6: validate status transition via OfferFSM
             gpu.status = _validate_gpu_status_transition(gpu.status, gpu_data["status"])
@@ -268,7 +269,7 @@ async def update_gpu(
         await session.refresh(gpu)
         return {
             "id": gpu.id,
-            "price_per_hour": gpu.price_per_hour,
+            "price_per_hour": str(gpu.price_per_hour),
             "status": gpu.status,
             "message": f"GPU {gpu_id} updated successfully",
         }
@@ -432,6 +433,9 @@ async def submit_transaction(
                     "memory_gb": gpu_specs.get("memory_gb", 0),
                     "cuda_cores": cuda_cores,
                     "compute_capability": gpu_specs.get("compute_capability", ""),
+                    # not-money: this payload is the signed body of a GPU_REGISTER
+                    # transaction, hashed as JSON. Decimal is not JSON-serializable and a
+                    # string would change the hash. Same boundary as PR #162.
                     "price_per_hour": transaction_data.get("price_per_gpu", 0.0),
                     "description": gpu_specs.get("description", ""),
                     "miner_id": transaction_data.get("provider_node_id", "default_miner"),
@@ -476,7 +480,7 @@ async def submit_transaction(
                 "miner_id": transaction_data.get("provider_node_id", "default_miner"),
                 "model": gpu_specs.get("model", "Unknown"),
                 "memory_gb": gpu_specs.get("memory_gb", 0),
-                "price_per_hour": transaction_data.get("price_per_gpu", 0.0),
+                "price_per_hour": Decimal(str(transaction_data.get("price_per_gpu", 0))),
                 "status": transaction_data.get("status", "available"),
                 "region": gpu_specs.get("region", ""),
                 "capabilities": gpu_specs.get("capabilities", []),
@@ -530,7 +534,7 @@ async def get_transactions(
                     "action": "offer",
                     "model": gpu.model,
                     "memory_gb": gpu.memory_gb,
-                    "price_per_hour": gpu.price_per_hour,
+                    "price_per_hour": str(gpu.price_per_hour),
                     "status": gpu.status,
                     "region": gpu.region,
                     "miner_id": gpu.miner_id,
@@ -591,7 +595,7 @@ async def register_gpu(
                 memory_gb=specs.get("memory_gb", 0),
                 cuda_version=specs.get("cuda_version", ""),
                 region=specs.get("region", ""),
-                price_per_hour=0.0,
+                price_per_hour=Decimal("0"),
                 status="available",
                 capabilities=specs.get("capabilities", []),
             )
@@ -667,7 +671,7 @@ async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends
                 "model": gpu.model,
                 "memory_gb": gpu.memory_gb,
                 "status": gpu.status,
-                "price_per_hour": gpu.price_per_hour,
+                "price_per_hour": str(gpu.price_per_hour),
                 "region": gpu.region,
                 "created_at": gpu.created_at.isoformat() if gpu.created_at else None,
             }

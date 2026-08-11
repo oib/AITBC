@@ -8,6 +8,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -79,10 +80,10 @@ class Service:
     name: str
     description: str
     metadata: dict[str, Any]
-    base_price: float
+    base_price: Decimal
     reputation: int
     status: ServiceStatus
-    total_earnings: float
+    total_earnings: Decimal
     completed_jobs: int
     average_rating: float
     rating_count: int
@@ -104,14 +105,14 @@ class ServiceRequest:
     id: str
     client_id: str
     service_id: str
-    budget: float
+    budget: Decimal
     requirements: str
     deadline: datetime
     status: RequestStatus
     assigned_agent: str | None = None
     accepted_at: datetime | None = None
     completed_at: datetime | None = None
-    payment: float = 0.0
+    payment: Decimal = Decimal("0.0")
     rating: int = 0
     review: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -132,7 +133,7 @@ class Guild:
     service_category: ServiceType
     member_count: int
     total_services: int
-    total_earnings: float
+    total_earnings: Decimal
     reputation: int
     status: GuildStatus
     created_at: datetime
@@ -149,8 +150,8 @@ class ServiceCategory:
     name: str
     description: str
     service_count: int
-    total_volume: float
-    average_price: float
+    total_volume: Decimal
+    average_price: Decimal
     is_active: bool
     trending: bool = False
     popular_services: list[str] = field(default_factory=list)
@@ -165,9 +166,9 @@ class MarketplaceAnalytics:
     active_services: int
     total_requests: int
     pending_requests: int
-    total_volume: float
+    total_volume: Decimal
     total_guilds: int
-    average_service_price: float
+    average_service_price: Decimal
     popular_categories: list[str]
     top_agents: list[str]
     revenue_trends: dict[str, float]
@@ -190,9 +191,9 @@ class AgentServiceMarketplace:
         self.services_by_type: dict[str, list[str]] = {}
         self.guilds_by_category: dict[str, list[str]] = {}
         self._lock = asyncio.Lock()
-        self.marketplace_fee = 0.025
-        self.min_service_price = 0.001
-        self.max_service_price = 1000.0
+        self.marketplace_fee = Decimal("0.025")
+        self.min_service_price = Decimal("0.001")
+        self.max_service_price = Decimal("1000.0")
         self.min_reputation_to_list = 500
         self.request_timeout = 7 * 24 * 3600
         self.rating_weight = 100
@@ -215,7 +216,7 @@ class AgentServiceMarketplace:
         name: str,
         description: str,
         metadata: dict[str, Any],
-        base_price: float,
+        base_price: Decimal,
         tags: list[str],
         capabilities: list[str],
         requirements: list[str],
@@ -244,7 +245,7 @@ class AgentServiceMarketplace:
                 base_price=base_price,
                 reputation=agent_reputation,
                 status=ServiceStatus.ACTIVE,
-                total_earnings=0.0,
+                total_earnings=Decimal("0.0"),
                 completed_jobs=0,
                 average_rating=0.0,
                 rating_count=0,
@@ -285,7 +286,7 @@ class AgentServiceMarketplace:
         self,
         client_id: str,
         service_id: str,
-        budget: float,
+        budget: Decimal,
         requirements: str,
         deadline: datetime,
         priority: str = "normal",
@@ -447,7 +448,7 @@ class AgentServiceMarketplace:
                 service_category=service_category,
                 member_count=1,
                 total_services=0,
-                total_earnings=0.0,
+                total_earnings=Decimal("0.0"),
                 reputation=founder_reputation,
                 status=GuildStatus.ACTIVE,
                 created_at=datetime.now(UTC),
@@ -506,8 +507,8 @@ class AgentServiceMarketplace:
         query: str | None = None,
         service_type: ServiceType | None = None,
         tags: list[str] | None = None,
-        min_price: float | None = None,
-        max_price: float | None = None,
+        min_price: Decimal | None = None,
+        max_price: Decimal | None = None,
         min_rating: float | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -581,19 +582,25 @@ class AgentServiceMarketplace:
             total_requests = len(self.service_requests)
             pending_requests = len([r for r in self.service_requests.values() if r.status == RequestStatus.PENDING])
             total_guilds = len(self.guilds)
-            total_volume = sum(service.total_earnings for service in self.services.values())
+            # sum() with no start returns int 0 on an empty sequence, which is what makes
+            # the result `Decimal | int` rather than `Decimal`; the explicit start fixes it.
+            total_volume = sum((service.total_earnings for service in self.services.values()), Decimal("0"))
             active_service_prices = [
                 service.base_price for service in self.services.values() if service.status == ServiceStatus.ACTIVE
             ]
-            average_price = sum(active_service_prices) / len(active_service_prices) if active_service_prices else 0
+            average_price = (
+                sum(active_service_prices, Decimal("0")) / len(active_service_prices)
+                if active_service_prices
+                else Decimal("0")
+            )
             category_counts: dict[str, int] = {}
             for service in self.services.values():
                 if service.status == ServiceStatus.ACTIVE:
                     category_counts[service.service_type.value] = category_counts.get(service.service_type.value, 0) + 1
             popular_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-            agent_earnings: dict[str, float] = {}
+            agent_earnings: dict[str, Decimal] = {}
             for service in self.services.values():
-                agent_earnings[service.agent_id] = agent_earnings.get(service.agent_id, 0) + service.total_earnings
+                agent_earnings[service.agent_id] = agent_earnings.get(service.agent_id, Decimal("0")) + service.total_earnings
             top_agents = sorted(agent_earnings.items(), key=lambda x: x[1], reverse=True)[:5]
             return MarketplaceAnalytics(
                 total_services=total_services,
@@ -612,21 +619,26 @@ class AgentServiceMarketplace:
             logger.error("Failed to get marketplace analytics: %s", e)
             raise
 
-    async def _calculate_dynamic_price(self, service_id: str, budget: float) -> float:
-        """Calculate dynamic price based on demand and reputation"""
+    async def _calculate_dynamic_price(self, service_id: str, budget: Decimal) -> Decimal:
+        """Calculate dynamic price based on demand and reputation.
+
+        The multipliers are dimensionless and stay ``float``; each is converted at the
+        point it meets the price, so the arithmetic runs in ``Decimal`` and the result the
+        caller stores in ``ServiceRequest.payment`` is exact.
+        """
         async with self._lock:
             if service_id not in self.services:
                 return budget
             service = self.services[service_id]
             dynamic_price = service.base_price
             reputation_multiplier = 1.0 + service.reputation / 10000 * 0.5
-            dynamic_price *= reputation_multiplier
+            dynamic_price *= Decimal(str(reputation_multiplier))
             demand_multiplier = 1.0
             if service.completed_jobs > 10:
                 demand_multiplier = 1.0 + service.completed_jobs / 100 * 0.5
-            dynamic_price *= demand_multiplier
+            dynamic_price *= Decimal(str(demand_multiplier))
             rating_multiplier = 1.0 + service.average_rating / 5 * 0.3
-            dynamic_price *= rating_multiplier
+            dynamic_price *= Decimal(str(rating_multiplier))
             return min(dynamic_price, budget)
 
     async def _calculate_reputation_change(self, rating: int, current_reputation: int) -> int:
@@ -675,8 +687,8 @@ class AgentServiceMarketplace:
                 name=service_type.value,
                 description=f"Services related to {service_type.value}",
                 service_count=0,
-                total_volume=0.0,
-                average_price=0.0,
+                total_volume=Decimal("0.0"),
+                average_price=Decimal("0.0"),
                 is_active=True,
             )
 

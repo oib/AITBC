@@ -8,6 +8,7 @@ mode is intended for development and testing only. A warning is logged on
 initialization when mock mode is active.
 """
 
+from decimal import Decimal
 import logging
 import os
 import secrets
@@ -50,8 +51,8 @@ class DataLayer:
     async def get_transactions(
         self,
         address: str | None = None,
-        amount_min: float | None = None,
-        amount_max: float | None = None,
+        amount_min: Decimal | None = None,
+        amount_max: Decimal | None = None,
         tx_type: str | None = None,
         since: str | None = None,
         until: str | None = None,
@@ -99,8 +100,8 @@ class MockDataGenerator:
     def generate_transactions(
         self,
         address: str | None = None,
-        amount_min: float | None = None,
-        amount_max: float | None = None,
+        amount_min: Decimal | None = None,
+        amount_max: Decimal | None = None,
         tx_type: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
@@ -174,8 +175,8 @@ if HAS_HTTPX:
         async def fetch_transactions(
             self,
             address: str | None = None,
-            amount_min: float | None = None,
-            amount_max: float | None = None,
+            amount_min: Decimal | None = None,
+            amount_max: Decimal | None = None,
             tx_type: str | None = None,
             since: str | None = None,
             until: str | None = None,
@@ -192,9 +193,9 @@ if HAS_HTTPX:
             if address:
                 params["address"] = address
             if amount_min:
-                params["amount_min"] = amount_min
+                params["amount_min"] = str(amount_min)
             if amount_max:
-                params["amount_max"] = amount_max
+                params["amount_max"] = str(amount_max)
             if tx_type:
                 params["type"] = tx_type
             if since:

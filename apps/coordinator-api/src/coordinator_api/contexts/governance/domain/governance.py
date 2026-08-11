@@ -5,6 +5,7 @@ Database models for agent DAO, voting, proposals, and governance analytics
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -65,7 +66,7 @@ class RegionalCouncil(SQLModel, table=True):
     council_name: str = Field(max_length=200)
     jurisdiction: str = Field(max_length=200)
     members: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    budget_allocation: float = Field(default=0.0)
+    budget_allocation: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -127,8 +128,8 @@ class DaoTreasury(SQLModel, table=True):
 
     treasury_id: str = Field(primary_key=True, default="main_treasury")
 
-    total_balance: float = Field(default=0.0)
-    allocated_funds: float = Field(default=0.0)
+    total_balance: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    allocated_funds: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     asset_breakdown: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 

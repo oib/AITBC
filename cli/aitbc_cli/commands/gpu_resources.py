@@ -1,12 +1,13 @@
 """GPU resource tracking commands for AITBC CLI."""
 
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import click
 
 from ..config import get_config
-from ..utils import error, output, success
+from ..utils import DECIMAL, error, output, success
 from ..utils.crypto_utils import bech32_to_hex
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -27,7 +28,7 @@ def gpu():
 @click.option("--cuda-version", default="", help="CUDA version")
 @click.option("--region", default="", help="Geographic region")
 @click.option("--capabilities", multiple=True, help="GPU capabilities (can specify multiple)")
-@click.option("--price-per-hour", type=float, required=True, help="Price per hour in AIT")
+@click.option("--price-per-hour", type=DECIMAL, required=True, help="Price per hour in AIT")
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -40,7 +41,7 @@ def register_onchain(
     cuda_version: str,
     region: str,
     capabilities: tuple,
-    price_per_hour: float,
+    price_per_hour: Decimal,
     wallet: str,
     format: str,
 ):
@@ -86,7 +87,7 @@ def register_onchain(
             "cuda_version": cuda_version,
             "region": region,
             "capabilities": list(capabilities),
-            "price_per_hour": price_per_hour,
+            "price_per_hour": str(price_per_hour),
             "registered_by": hex_address,
         }
         result = http_client.post(f"/rpc/gpu/register?chain_id={chain_id}", json=registration_data)
@@ -137,11 +138,11 @@ def query_gpu(ctx, gpu_id: str, format: str):
 @click.option("--gpu-id", required=True, help="GPU ID to allocate")
 @click.option("--client-id", required=True, help="Client wallet address")
 @click.option("--duration-hours", type=float, required=True, help="Allocation duration in hours")
-@click.option("--total-cost", type=float, required=True, help="Total cost in AIT")
+@click.option("--total-cost", type=DECIMAL, required=True, help="Total cost in AIT")
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_cost: float, wallet: str, format: str):
+def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_cost: Decimal, wallet: str, format: str):
     """Record GPU allocation on blockchain"""
     config = get_config()
 
@@ -181,7 +182,7 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_
             "gpu_id": gpu_id,
             "client_id": hex_client_id,
             "duration_hours": duration_hours,
-            "total_cost": total_cost,
+            "total_cost": str(total_cost),
             "allocated_by": hex_allocated_by,
         }
         result = http_client.post(f"/rpc/gpu/allocate?chain_id={chain_id}", json=allocation_data)

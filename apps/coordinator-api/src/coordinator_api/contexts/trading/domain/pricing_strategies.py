@@ -5,6 +5,7 @@ Defines various pricing strategies and their configurations for dynamic pricing
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -118,8 +119,8 @@ class PricingStrategyConfig:
     learning_enabled: bool = True
 
     # Strategy constraints
-    min_price: float | None = None
-    max_price: float | None = None
+    min_price: Decimal | None = None
+    max_price: Decimal | None = None
     resource_types: list[str] = field(default_factory=list)
     regions: list[str] = field(default_factory=list)
 

@@ -204,6 +204,7 @@ class EconomicSecurityMonitor:
             if total_rewards == 0:
                 distribution_score = 0.0
             else:
+                # not-money: sizes fed to a coefficient of variation, never summed as an amount
                 validator_rewards: list[float] = []
                 for dist in distributions:
                     validator_rewards.extend(float(v) for v in dist.validator_rewards.values())
@@ -377,8 +378,8 @@ class EconomicSecurityMonitor:
                         attacker_address="unknown",
                         evidence={
                             "spike_ratio": float(Decimal(price) / Decimal(avg_price)),
-                            "current_price": float(price),
-                            "average_price": float(avg_price),
+                            "current_price": str(price),
+                            "average_price": str(avg_price),
                         },
                         detected_at=current_time,
                         confidence=0.6,

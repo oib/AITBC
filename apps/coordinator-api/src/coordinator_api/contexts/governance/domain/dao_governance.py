@@ -7,6 +7,7 @@ Domain models for managing multi-jurisdictional DAOs, regional councils, and glo
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -40,7 +41,7 @@ class DAOMember(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     wallet_address: str = Field(index=True, unique=True)
 
-    staked_amount: float = Field(default=0.0)
+    staked_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     voting_power: float = Field(default=0.0)
 
     is_council_member: bool = Field(default=False)
@@ -113,7 +114,7 @@ class TreasuryAllocation(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     proposal_id: str | None = Field(foreign_key="dao_proposal.id", default=None)
 
-    amount: float = Field()
+    amount: Decimal = Field(max_digits=20, decimal_places=8)
     token_symbol: str = Field(default="AITBC")
 
     recipient_address: str = Field()
