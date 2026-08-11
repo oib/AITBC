@@ -44,8 +44,12 @@ if _CLI_SRC not in sys.path:
 # It used to be, "so fixture modules are importable". The side effect was that every
 # package directly under tests/ became importable as a top-level name -- and tests/cli/
 # has an __init__.py, so `import cli` resolved to the test package rather than the repo's
-# cli/ package, for the entire run. Anything trying to import the real cli.utils or
-# cli.models got a ModuleNotFoundError that pointed nowhere near the cause.
+# cli/ package, for the entire run, and anything importing from the real one got a
+# ModuleNotFoundError that pointed nowhere near the cause.
+#
+# V23-43 removed cli/__init__.py, so there is no longer a `cli` package to shadow -- but the
+# reasoning applies to any top-level name tests/ happens to collide with, so tests/ stays off
+# the path.
 #
 # The fixtures are reachable without it: tests/cli/conftest.py puts tests/fixtures itself
 # on sys.path, which is what makes `from cli_mocks import ...` work. Nothing imports
