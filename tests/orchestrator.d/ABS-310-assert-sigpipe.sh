@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-310 — test-harness: pipefail leak + SIGPIPE-unsafe assert_contains
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness — NO shebang, NO `set -e`, NO re-sourcing. In scope from the
 # parent: assert_contains / assert_not_contains / assert_eq, PASS/FAIL/TOTAL,
 # REPO_ROOT.
@@ -66,7 +66,8 @@ test-epic-join-resting.sh test-local-main-guard.sh test-station-guard.sh \
 test-packet-cache.sh test-done-gate.sh test-jira-tracker.sh test-agent-def-overlay.sh"
 _hits310=0
 for _tf in $_ABS310_FILES; do
-    _p="$REPO_ROOT/tests/$_tf"
+    _p="$REPO_ROOT/tests/tooling/$_tf"
+    [ -f "$_p" ] || _p="$REPO_ROOT/tests/$_tf"
     [ -f "$_p" ] || continue
     if grep -nE 'echo "\$[A-Za-z_]+" \| grep -q|echo "\$[A-Za-z_]+" \| head' "$_p" >/dev/null 2>&1; then
         _hits310=$((_hits310 + 1))

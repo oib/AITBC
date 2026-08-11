@@ -154,14 +154,14 @@ different decisions.
 ready to commit the file. Seats that grab a number while still drafting block it for
 the duration of their branch, which is the root cause of the four-way collision above.
 
-**Mechanical guard.** `tests/test-adr-id-uniqueness.sh` (introduced ABS-283) catches:
+**Mechanical guard.** `tests/tooling/test-adr-id-uniqueness.sh` (introduced ABS-283) catches:
 
 - Two ADR files under `adrs/**/*.md` sharing the same frontmatter `id:`.
 - A frontmatter `id:` that disagrees with the id encoded in the filename
   (`ADR-A-0023-foo.md` must carry `id: ADR-A-0023`).
 
 The guard runs automatically on two paths: GitHub Actions discovers it via the
-`tests/test-*.sh` glob (`.github/workflows/tests.yml`, and `scripts/pre-release-check.sh`),
+`tests/tooling/test-*.sh` glob (`.github/workflows/tests.yml`, and `scripts/pre-release-check.sh`),
 AND — because the active push remote is GitLab, where GitHub Actions never run — the
 `.gitlab-ci.yml` `adr-id-uniqueness` job runs it on the live remote on every push and
 merge request (PILOT-59). So a collision surfaces on whichever remote actually gates the
@@ -170,7 +170,7 @@ merge, not just at the next confused reader. See
 for the full sensor→path matrix. Run it locally any time from the repo root:
 
 ```bash
-bash tests/test-adr-id-uniqueness.sh   # exit 0 = clean; exit 1 = collision found
+bash tests/tooling/test-adr-id-uniqueness.sh   # exit 0 = clean; exit 1 = collision found
 ```
 
 **When a collision does occur,** the resolution rule (from the `ADR-A-0024` renumber

@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-47 — progress-aware spawn budget: drain, auto-extend, per-ticket cap
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh. In scope:
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh. In scope:
 # assert_*, REPO_ROOT / ORCH / TRACKER, new_env / baseline / cleanup_env, orch /
 # tracker, PASS/FAIL/TOTAL.
 #

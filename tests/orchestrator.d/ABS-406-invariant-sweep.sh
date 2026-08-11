@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-406 — degraded wait-state-watchdog: invariant sweep on the jira/mock lane
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness — NO shebang, NO `set -e`, NO re-sourcing. In scope from the
 # parent: assert_contains / assert_eq / assert_not_contains, PASS/FAIL/TOTAL,
 # REPO_ROOT / ORCH / TRACKER, new_env / cleanup_env, and every exported env var.

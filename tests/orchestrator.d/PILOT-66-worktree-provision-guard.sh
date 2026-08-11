@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-66 — worktree provisioning: count failures, back off, escalate
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, no re-`set -e`, shared
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`, shared
 # assert helpers / counters — see docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS

@@ -2,17 +2,17 @@
 # =============================================================================
 # Parallel test runner (test-runtime-diet)
 # -----------------------------------------------------------------------------
-# Runs the independent `tests/test-*.sh` files concurrently. Each file is
+# Runs the independent `tests/tooling/test-*.sh` files concurrently. Each file is
 # already self-contained (its own `mktemp -d` state, no fixed paths/ports), so
 # they parallelise cleanly. Exit codes are aggregated; a non-zero from ANY file
 # fails the run, and every failing file's full output is reprinted at the end so
 # nothing gets lost in the interleave.
 #
 #   TEST_JOBS   parallelism (default 4). TEST_JOBS=1 => strictly serial, in the
-#               same lexical order as `tests/test-*.sh`, i.e. deterministic.
+#               same lexical order as `tests/tooling/test-*.sh`, i.e. deterministic.
 #
 # Usage:
-#   bash tests/run-all.sh                 # every tests/test-*.sh
+#   bash tests/run-all.sh                 # every tests/tooling/test-*.sh
 #   bash tests/run-all.sh a.sh b.sh ...   # only the named test files
 #
 # NOTE: this is the developer/CI fast path. The QAS gate still runs the full
@@ -47,12 +47,12 @@ if [ "$#" -gt 0 ]; then
         case "$a" in
             /*) f="$a" ;;
             tests/*) f="$TESTS_DIR/../$a" ;;
-            *) f="$TESTS_DIR/$a" ;;
+            *) f="$TESTS_DIR/tooling/$a" ;;
         esac
         [ -f "$f" ] && FILES+=("$f") || echo -e "${RED}skip (not found):${NC} $a" >&2
     done
 else
-    for f in "$TESTS_DIR"/test-*.sh; do FILES+=("$f"); done
+    for f in "$TESTS_DIR"/tooling/test-*.sh; do FILES+=("$f"); done
 fi
 
 [ "${#FILES[@]}" -eq 0 ] && { echo "no test files to run"; exit 0; }

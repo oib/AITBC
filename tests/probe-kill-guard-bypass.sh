@@ -6,8 +6,8 @@
 # NOT a pass/fail test — it prints the guard's verdict per bypass vector, so the
 # review artifact's exploitable/not table is reproducible instead of asserted.
 # Deliberately NOT named test-*.sh: scripts/pre-release-check.sh and CI glob
-# tests/test-*.sh, and a probe that reports "allowed" for an accepted-risk vector
-# is a characterization, not a gate. Regression gates live in tests/test-kill-guard.sh.
+# tests/tooling/test-*.sh, and a probe that reports "allowed" for an accepted-risk vector
+# is a characterization, not a gate. Regression gates live in tests/tooling/test-kill-guard.sh.
 #
 # SAFETY. Every candidate is fed to the guard through the PreToolUse stdin JSON
 # contract and only its EXIT CODE is read. No candidate command is ever executed:

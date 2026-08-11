@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-325 — v3 Fastlane: EJECTION instead of parking (Auswurf statt Parkung)
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness. In scope from the parent: assert_*, orch / tracker / new_env /
 # cleanup_env, PASS/FAIL/TOTAL, REPO_ROOT / ORCH / TRACKER, warm_git_repo.
 #
