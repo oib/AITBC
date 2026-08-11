@@ -40,7 +40,7 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 50 findings — 37 confirmed defects, 13 observed design gaps. **All 50 resolved**
+**Totals**: 51 findings — 38 confirmed defects, 13 observed design gaps. **All 51 resolved**
 (V23-01..40, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
 V23-32a — forty-nine entries, forty numbered findings); **0 open**.
 
@@ -3197,3 +3197,117 @@ assert the AIT figure and, for the estimate, that the value reaching the node is
 **A test that pins the output of the code under test pins whatever that code does**,
 including its bugs. These four passed continuously while the CLI showed balances off by a
 factor of 3600.
+
+---
+
+## High — a client that had never been checked against its server
+
+### V23-42 — fourteen RPC calls, fourteen 404s · CONFIRMED → RESOLVED
+
+V23-40 recorded that `mint_tokens` posts to `/admin/mintFaucet`, "which is not implemented in
+this repo — only a test fixture and a docs entry, at a different path". Following that up
+found it was not one broken call. **Every outbound URL in
+`coordinator-api/contexts/blockchain/services/blockchain.py` 404s against the node**, checked
+against the live node's route table on port 8202:
+
+```
+line  URL the coordinator builds        bare  with /rpc
+  43  /staking/stake                    404   OK
+  62  /staking/performance              404   404
+  75  /staking/stake/{}/add             404   404
+  88  /staking/stake/{}/unbond          404   404
+ 101  /staking/stake/{}/complete        404   404
+ 114  /staking/agents/{}/distribute     404   404
+ 127  /staking/claim-rewards            404   404
+ 140  /bounty/deploy                    404   404
+ 166  /bounty/{}/submit                 404   404
+ 185  /bounty/{}/verify                 404   404
+ 202  /bounty/{}/dispute                404   404
+ 219  /bounty/{}/expire                 404   404
+ 248  /admin/mintFaucet                 404   404
+ 268  /getBalance/{}                    404   404
+```
+
+The node mounts its whole RPC surface under `/rpc` (`app.py:250`) and none of these carried
+the prefix — but the prefix is the smaller half of the problem. Twelve have no counterpart
+under any prefix. The node's entire staking and balance surface is five routes:
+
+```
+POST /rpc/faucet          POST /rpc/staking/stake     GET /rpc/staking/{address}
+GET  /rpc/balance/{}      POST /rpc/staking/unstake
+```
+
+There are no bounty routes at all.
+
+#### Where the paths actually came from
+
+They are near-copies of **this app's own** route table. `contexts/staking/routers/staking.py`
+serves `/stake`, `/stake/{id}/add`, `/stake/{id}/unbond`, `/stake/{id}/complete`,
+`/staking/claim-rewards`, `/agents/{w}/distribute-earnings` — the same names, addressed to
+the chain node's host. The client was written from the wrong side of the boundary.
+
+#### Why nobody noticed
+
+Two mechanisms, both worth recognising again elsewhere:
+
+1. **The calls are FastAPI background tasks that swallow the failure.** Each catches
+   `NetworkError` into `logger.error` and the docstring calls it "best-effort" — a description
+   written on the assumption that the endpoint exists and occasionally fails. Here it has
+   never existed, so it is a 100% failure rate behind a 201. A client that stakes or deploys a
+   bounty is told it succeeded.
+2. **The mock was written to match the client, not the server.**
+   `tests/fixtures/mock_blockchain_node.py` served `/rpc/getBalance/{address}` returning
+   `{"balance": n}`, `/rpc/admin/mintFaucet`, and `/rpc/sendTx` returning `tx_hash`. The real
+   node has `/rpc/balance/{address}` returning an `available_balance`/`staked`/`bridge_locked`
+   /`total_balance` breakdown, `/rpc/faucet`, and `/rpc/transaction` returning
+   `transaction_hash`. The client and the mock agreed with each other and neither agreed with
+   the thing they stand in for.
+
+> **A mock that does not match its subject is worse than no mock**: it converts a 404 in
+> production into a green test.
+
+#### `get_balance` — three mismatches in one call
+
+Wrong prefix, wrong route name, and a response key that does not exist. Even from the correct
+URL, `response.get("balance", 0)` would have reported **every account as empty**, because the
+node returns a breakdown with no `balance` key. Fixed to `GET /rpc/balance/{address}`, reading
+`available_balance` and converting compute-seconds to AIT — the caller compares the result
+against an AIT amount.
+
+#### `mint_tokens` — deliberately left unimplemented
+
+The nearest real endpoint is `POST /rpc/faucet`: a devnet faucet that mints from nothing,
+rate-limited 10/hour, capped at 10M AIT. Its only caller is
+`DeveloperPlatformService.claim_rewards`, which pays out a hardcoded `45.75` and returns
+`"0xmock_claim_tx_hash"`. **Wiring those together would convert a broken fake into a working
+one** that credits real chain balance to anyone who calls it.
+
+The HTTP layer already refuses for exactly this reason — every route in
+`developer_platform/routers/staking.py` returns 501, one of them noting "The current
+implementation mints tokens without verification". So `mint_tokens` now raises
+`NotImplementedError` with the reason, and the service layer says what the router already
+said. Reward payout needs a real distribution path, not a faucet.
+
+#### `create_stake_contract` — cannot be repointed either
+
+`POST /rpc/staking/stake` exists, and is still unusable: it requires `{address, amount,
+lock_days, signature}` and returns 403 without a staker signature verified against
+`{address, amount, chain_id, action}`. The coordinator sends `{stake_id, agent_wallet,
+amount, lock_period, auto_compound}` and holds no agent staking key. Adding `/rpc` would turn
+a 404 into a 403. Left as-is and named, because a prefix that makes a URL *look* resolvable is
+worse than one that plainly does not.
+
+#### What now stops this recurring
+
+- `apps/coordinator-api/tests/test_blockchain_client_paths.py` parses the client's URLs out of
+  its own source and compares them to the node's real route table, built by importing
+  `aitbc_chain` — no running node, no mock in between. The twelve gaps are grandfathered in a
+  named list that can only shrink; a new unresolvable URL fails.
+- `tests/unit/test_mock_blockchain_node_matches_real.py` does the same for the mock, so it
+  cannot drift from the node again.
+
+Both verified non-vacuous by reintroducing the original defects: restoring
+`/getBalance/{address}` in either place fails its test naming the path.
+
+Three integration tests and the endpoint table in
+`docs/development/8_blockchain-node-deployment.md` were pointed at the real names as well.
