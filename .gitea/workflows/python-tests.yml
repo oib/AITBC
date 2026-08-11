@@ -41,6 +41,7 @@ jobs:
 
     env:
       WORKSPACE: ${{ github.workspace }}
+      MULTI_VALIDATOR_CONSENSUS_ENABLED: "1"
 
     steps:
       - name: Check out the commit under test
