@@ -2,7 +2,7 @@
 # ABS-601 — a seat that awaits an async completion notification a one-shot spawn
 #           never delivers, and the orphaned background process it leaves behind
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness — NO shebang, NO `set -e`, NO re-sourcing. In scope from the
 # parent: assert_contains / assert_not_contains / assert_eq, PASS/FAIL/TOTAL,
 # orch / tracker / new_env / cleanup_env / baseline, ORCH / STUB / ORCH_STATE_DIR.

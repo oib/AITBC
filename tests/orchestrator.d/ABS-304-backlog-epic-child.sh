@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-304 — Backlog PO sweep does not spawn on epic-pipeline children
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness. In scope from the parent: assert_*, orch / tracker / new_env /
 # cleanup_env / baseline, PASS/FAIL/TOTAL, REPO_ROOT / ORCH / TRACKER.
 #
@@ -94,5 +94,5 @@ assert_contains "$_abs304_throttle" "intents=1" "ABS-304: the SKIP-EPIC-CHILD in
 assert_contains "$_abs304_throttle" "throttled=1" "ABS-304: the second sweep is throttled to a runlog line (no re-emit)"
 
 # Regression note: epic_join_rest_complete() (the EPIC-side of this class) is not
-# touched — its behaviour is guarded by tests/test-epic-join-resting.sh.
+# touched — its behaviour is guarded by tests/tooling/test-epic-join-resting.sh.
 unset E C P E2 C2 out out_off _abs304_throttle

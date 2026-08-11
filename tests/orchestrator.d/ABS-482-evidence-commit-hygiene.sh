@@ -2,7 +2,7 @@
 # ABS-482 — QAS/evidence-commit hygiene: a QA report must ride the STORY BRANCH
 #           of the ticket under test and carry nothing else.
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215 pattern): `source`d by tests/test-orchestrator.sh
+# Per-story include (ABS-215 pattern): `source`d by tests/tooling/test-orchestrator.sh
 # into the live harness — no shebang, no `set -e`, no re-sourcing. Runs in an
 # ISOLATED child via _run_d_include (ABS-370). Shares: assert_contains /
 # assert_not_contains / assert_eq, PASS/FAIL/TOTAL, REPO_ROOT, ORCH

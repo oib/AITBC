@@ -98,7 +98,7 @@ Exit codes: 0 = tagged/exempt; 1 = at least one untagged story commit; 3 =
 ## Running the test suite
 
 ```bash
-bash tests/test-commit-tag-guard.sh
+bash tests/tooling/test-commit-tag-guard.sh
 # 25 assertions: AC1-AC5 (tagged pass, untagged fail, release exempt,
 # [no-ticket] exempt, recover subcommand, kill switch)
 ```
@@ -116,6 +116,6 @@ exits 0.
 | `scripts/commit-tag-guard.sh` | prefix-agnostic classifier + recover subcommand |
 | `scripts/hooks/commit-msg-ticket-tag-guard.sh` | git commit-msg hook |
 | `scripts/orchestrator.sh` (`provision_ticket_tag_guard`) | installs hook at startup |
-| `tests/test-commit-tag-guard.sh` | 25-assertion regression suite |
+| `tests/tooling/test-commit-tag-guard.sh` | 25-assertion regression suite |
 | `CONTRIBUTING.md` §"Exempt commits" | human-readable two-class table |
 | `harness/claude/agents/rte.md` step 6 | bisect recovery procedure |

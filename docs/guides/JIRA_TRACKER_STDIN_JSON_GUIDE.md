@@ -2,7 +2,7 @@
 
 **Story**: ABS-250 — jira-tracker.sh: JSON-Antworten per stdin statt argv parsen
 **Adapter affected**: `scripts/jira-tracker.sh`
-**Tests updated**: `tests/test-jira-tracker.sh`, `tests/fixtures/jira-curl-shim.sh`
+**Tests updated**: `tests/tooling/test-jira-tracker.sh`, `tests/fixtures/jira-curl-shim.sh`
 
 ---
 
@@ -87,7 +87,7 @@ adapter. See `docs/guides/JIRA_TRACKER_ATFILE_WRITE_PATH_GUIDE.md` for details.
 
 ## Regression guard
 
-Test 9g (`tests/test-jira-tracker.sh`) asserts on a ~1.5 MB comment history
+Test 9g (`tests/tooling/test-jira-tracker.sh`) asserts on a ~1.5 MB comment history
 (served by a new shim route in `tests/fixtures/jira-curl-shim.sh`):
 
 - `get` exits 0 (no E2BIG)
@@ -143,7 +143,7 @@ checkout, delete leaked dirs manually.
 
 - `scripts/jira-tracker.sh` — Jira adapter implementation
 - `scripts/mock-tracker.sh` — reference adapter (parity unaffected by ABS-250)
-- `tests/test-jira-tracker.sh` — adapter test suite (128 tests; Test 9g guards the
+- `tests/tooling/test-jira-tracker.sh` — adapter test suite (128 tests; Test 9g guards the
   read-path fix; Tests 9h/9i guard the write-path fix from ABS-263)
 - `tests/fixtures/jira-curl-shim.sh` — curl shim (oversized-response route added)
 - `profiles/neutral/adapters/task-tracking.md` — canonical adapter contract

@@ -65,8 +65,8 @@ These are created at runtime and excluded from version control:
 
 ```bash
 npx markdownlint-cli specs/ABS-25-evolver-integration-spec.md docs/onboarding/EVOLVER-INTEGRATION.md profiles/neutral/adapters/evolution.md
-bash tests/test-hooks-config.sh
-bash tests/test-evolver-lifecycle.sh
+bash tests/tooling/test-hooks-config.sh
+bash tests/tooling/test-evolver-lifecycle.sh
 echo "ABS-25 SUCCESS"
 ```
 

@@ -2,7 +2,7 @@
 # PILOT-2 — ready-for-Merge wait-state invariant: refuse/repair the UNMERGED
 #           Merging->Docs jump (merge-state-aware)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_contains / assert_eq /
 # assert_not_contains, PASS/FAIL/TOTAL, new_env / cleanup_env / baseline /
 # tracker / orch, ORCH / TRACKER / ORCH_STATE_DIR.
@@ -41,7 +41,7 @@ _pilot2_walk_to_merging() {
         tracker transition "$t" "$s" --actor agent --reason walk >/dev/null
     done
 }
-# The subshells below stub the forge seam exactly like tests/test-done-gate.sh:
+# The subshells below stub the forge seam exactly like tests/tooling/test-done-gate.sh:
 # story_pr_state calls `forge pr-state <ticket>`, so a `forge()` override + a
 # non-empty FORGE_CMD lets each case declare the PR merge state it exercises.
 
