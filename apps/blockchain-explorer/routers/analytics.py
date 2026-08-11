@@ -106,21 +106,23 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
                 WHERE type IN ('TRANSFER', 'GPU_MARKETPLACE')
             """)
             row = await cursor.fetchone()
-            total_ait = row[0] or 0
+            # V23-46: fetchone() is Row | None. An aggregate always returns a row, but
+            # only while the table exists -- otherwise this is a TypeError on None.
+            total_ait = (row[0] if row else 0) or 0
 
             # Active offers (GPU_MARKETPLACE transactions)
             await cursor.execute("""
                 SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
             """)
             row = await cursor.fetchone()
-            active_offers = row[0] or 0
+            active_offers = (row[0] if row else 0) or 0
 
             # Unique nodes (distinct senders)
             await cursor.execute("""
                 SELECT COUNT(DISTINCT sender) FROM "transaction"
             """)
             row = await cursor.fetchone()
-            unique_nodes = row[0] or 0
+            unique_nodes = (row[0] if row else 0) or 0
 
             # Unique providers from GPU_MARKETPLACE payload
             await cursor.execute("""
@@ -141,7 +143,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
             # Total transactions
             await cursor.execute('SELECT COUNT(*) FROM "transaction"')
             row = await cursor.fetchone()
-            total_transactions = row[0] or 0
+            total_transactions = (row[0] if row else 0) or 0
 
         return {
             "total_ait": round(total_ait, 2),
