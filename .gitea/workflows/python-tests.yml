@@ -8,6 +8,11 @@ on:
       - 'apps/**/*.py'
       - 'packages/py/**'
       - 'tests/**'
+      # cli/ is both tested by this job (tests/cli) and covered by the money guard, but
+      # was not a trigger: a CLI-only change ran neither. scripts/lint/ is here so that
+      # editing the guard or its baseline re-runs the guard.
+      - 'cli/**'
+      - 'scripts/lint/**'
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.gitea/workflows/python-tests.yml'
@@ -18,6 +23,8 @@ on:
       - 'apps/**/*.py'
       - 'packages/py/**'
       - 'tests/**'
+      - 'cli/**'
+      - 'scripts/lint/**'
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.gitea/workflows/python-tests.yml'
@@ -82,6 +89,15 @@ jobs:
           fi
 
           echo "✅ Linting completed"
+
+      - name: Money must be Decimal
+        # Deliberately not `|| true` like the ruff step above: this one fails the build.
+        # It reports only violations absent from scripts/lint/no_float_money_baseline.json,
+        # so the pre-existing backlog cannot break CI and a newly introduced float amount
+        # can. Before this the guard existed but was wired into nothing.
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          venv/bin/python scripts/lint/no_float_money.py
 
       - name: Run repository tests with coverage
         run: |

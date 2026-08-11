@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,13 +16,23 @@ class MatchRequestPayload(BaseModel):
 
 
 class MatchCandidate(BaseModel):
+    """A miner offered for a job.
+
+    ``price`` is ``Decimal``, not ``float``: it is read from ``Miner.base_price``
+    (``Numeric(20, 8)``) in ``routers/match.py`` and written back to ``MatchResult.price``
+    (``Numeric(20, 8)``) in ``repositories/match_repository.py``. Declaring it ``float``
+    put a binary floating-point round trip in the middle of that path, losing precision at
+    the eighth decimal for no reason. ``score`` stays ``float`` — it is a ranking weight,
+    not money.
+    """
+
     miner_id: str
     addr: str
     proto: str
     score: float
     explain: str | None = None
     eta_ms: int | None = None
-    price: float | None = None
+    price: Decimal | None = None
 
 
 class MatchResponse(BaseModel):
