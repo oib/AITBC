@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from cli.utils.secure_audit import SecureAuditLogger
+from aitbc_cli.utils.secure_audit import SecureAuditLogger
 
 
 class TestSecureAuditLogger:
@@ -157,8 +157,8 @@ class TestConvenienceFunctions:
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
 
             # Temporarily replace global logger
-            with patch("cli.utils.secure_audit.secure_audit_logger", new_logger):
-                from cli.utils.secure_audit import log_action
+            with patch("aitbc_cli.utils.secure_audit.secure_audit_logger", new_logger):
+                from aitbc_cli.utils.secure_audit import log_action
 
                 log_action("test_action", {"key": "value"}, "test_user")
 
@@ -170,8 +170,8 @@ class TestConvenienceFunctions:
         with tempfile.TemporaryDirectory() as tmpdir:
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
 
-            with patch("cli.utils.secure_audit.secure_audit_logger", new_logger):
-                from cli.utils.secure_audit import verify_audit_integrity
+            with patch("aitbc_cli.utils.secure_audit.secure_audit_logger", new_logger):
+                from aitbc_cli.utils.secure_audit import verify_audit_integrity
 
                 is_valid, issues = verify_audit_integrity()
 
@@ -183,8 +183,8 @@ class TestConvenienceFunctions:
         with tempfile.TemporaryDirectory() as tmpdir:
             new_logger = SecureAuditLogger(log_dir=Path(tmpdir))
 
-            with patch("cli.utils.secure_audit.secure_audit_logger", new_logger):
-                from cli.utils.secure_audit import get_audit_logs
+            with patch("aitbc_cli.utils.secure_audit.secure_audit_logger", new_logger):
+                from aitbc_cli.utils.secure_audit import get_audit_logs
 
                 logs = get_audit_logs()
 
