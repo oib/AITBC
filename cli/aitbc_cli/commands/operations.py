@@ -4,6 +4,7 @@ General operations commands for AITBC CLI (marketplace, AI, agents)
 
 import json
 import os
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from ..config import get_config
-from ..utils import error, info, output, success
+from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -168,9 +169,9 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
 @marketplace.command()
 @click.option("--wallet-name", required=True, help="Seller wallet name")
 @click.option("--item-type", required=True, help="Type of item")
-@click.option("--price", type=float, required=True, help="Listing price")
+@click.option("--price", type=DECIMAL, required=True, help="Listing price")
 @click.option("--description", help="Item description")
-def create_listing(wallet_name: str, item_type: str, price: float, description: str | None):
+def create_listing(wallet_name: str, item_type: str, price: Decimal, description: str | None):
     """Create a marketplace listing"""
     try:
         # Get wallet address
@@ -184,7 +185,12 @@ def create_listing(wallet_name: str, item_type: str, price: float, description: 
         address = wallet_data["address"]
 
         # Create listing via RPC
-        listing_config = {"seller_address": address, "item_type": item_type, "price": price, "description": description or ""}
+        listing_config = {
+            "seller_address": address,
+            "item_type": item_type,
+            "price": str(price),
+            "description": description or "",
+        }
 
         try:
             http_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=30)
@@ -215,9 +221,9 @@ def ai():
 @click.option("--wallet-name", required=True, help="Client wallet name")
 @click.option("--job-type", required=True, help="Type of AI job")
 @click.option("--prompt", required=True, help="AI prompt")
-@click.option("--payment", type=float, required=True, help="Payment amount")
+@click.option("--payment", type=DECIMAL, required=True, help="Payment amount")
 @click.option("--model", help="AI model to use")
-def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, model: str | None):
+def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, model: str | None):
     """Submit an AI job"""
     try:
         # Get wallet address
@@ -235,7 +241,7 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, mod
             "client_address": address,
             "job_type": job_type,
             "prompt": prompt,
-            "payment": payment,
+            "payment": str(payment),
             "model": model or "default",
         }
 

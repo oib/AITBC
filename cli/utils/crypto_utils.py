@@ -5,6 +5,7 @@ Provides real signature verification for multisig operations
 
 import json
 import secrets
+from decimal import Decimal
 
 from eth_account import Account
 from eth_utils import keccak, to_checksum_address
@@ -127,7 +128,7 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
 
     # Validate amount
     try:
-        amount = float(tx_data["amount"])
+        amount = Decimal(str(tx_data["amount"]))
         if amount <= 0:
             return False, "Amount must be positive"
     except Exception:

@@ -41,6 +41,10 @@ class AIJobRequest(BaseModel):
     wallet_address: str = Field(..., description="Client wallet address")
     job_type: str = Field(..., description="Type of AI job (text, image, training, etc.)")
     prompt: str = Field(..., description="AI prompt or task description")
+    # not-money: wire format. This value goes into tx_data["payload"], which is
+    # json.dumps'd and keccak-hashed for signature verification and for the tx hash.
+    # Decimal is not JSON-serializable, and even with an encoder "0.5" != 0.5 would
+    # invalidate every signature already issued. Changing it is a hard fork.
     payment: float = Field(..., ge=0, description="Payment in AIT")
     parameters: dict[str, Any] | None = Field(default=None, description="Additional job parameters")
     nonce: int = Field(default=0, ge=0, description="Sender account nonce")
@@ -55,6 +59,8 @@ class AIJobResponse(BaseModel):
     status: str
     wallet_address: str
     job_type: str
+    # not-money: echoes the request field above, whose wire type is fixed by the
+    # transaction signature. Changing one without the other would be worse than either.
     payment: float
     created_at: datetime
     estimated_completion: datetime | None = None

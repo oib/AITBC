@@ -337,7 +337,7 @@ class ChainTransactionManager:
     async def optimize_transaction_routing(
         self,
         transaction_type: ChainTransactionType,
-        amount: float,
+        amount: Decimal,
         from_chain: int,
         to_chain: int | None = None,
         urgency: TransactionPriority = TransactionPriority.MEDIUM,
@@ -442,7 +442,7 @@ class ChainTransactionManager:
         self,
         chain_id: int,
         transaction_type: ChainTransactionType,
-        amount: float,
+        amount: Decimal,
         urgency: TransactionPriority,
         chain_metrics: dict[str, Any],
     ) -> float:
@@ -545,7 +545,7 @@ class ChainTransactionManager:
         self,
         chain_id: int,
         transaction_type: ChainTransactionType,
-        amount: float,
+        amount: Decimal,
         urgency: TransactionPriority,
         chain_metrics: dict[str, Any],
     ) -> float:

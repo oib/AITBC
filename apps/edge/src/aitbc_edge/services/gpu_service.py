@@ -1,5 +1,6 @@
 """GPU service for Edge API Service"""
 
+from decimal import Decimal
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -28,7 +29,7 @@ class GPUService:
                 gpu_listing = GPUListing(
                     gpu_id=profile.get("id", ""),
                     model=profile.get("model", "Unknown"),
-                    price_per_hour=0.0,
+                    price_per_hour=Decimal("0"),
                     memory_gb=profile.get("memory_gb", 0),
                     cuda_version=profile.get("cuda_version", ""),
                     region=profile.get("region", ""),

@@ -2,6 +2,8 @@
 Trading-related exchange commands.
 """
 
+from decimal import Decimal
+
 from aitbc_cli.utils import error, output, success
 
 
@@ -150,7 +152,7 @@ def price_command(ctx, base: str, quote: str):
         error(f"Error: {e}")
 
 
-def deposit_command(ctx, amount: float, ait_address: str, dry_run: bool):
+def deposit_command(ctx, amount: Decimal, ait_address: str, dry_run: bool):
     """Deposit to external exchange"""
     try:
         success(f"Deposit {amount} to {ait_address}")
@@ -160,7 +162,7 @@ def deposit_command(ctx, amount: float, ait_address: str, dry_run: bool):
         error(f"Error: {e}")
 
 
-def withdraw_command(ctx, amount: float, eth_address: str, dry_run: bool):
+def withdraw_command(ctx, amount: Decimal, eth_address: str, dry_run: bool):
     """Withdraw from external exchange"""
     try:
         success(f"Withdraw {amount} to {eth_address}")
@@ -170,10 +172,10 @@ def withdraw_command(ctx, amount: float, eth_address: str, dry_run: bool):
         error(f"Error: {e}")
 
 
-def swap_command(ctx, from_token: str, to_token: str, amount: float, slippage: float):
+def swap_command(ctx, from_token: str, to_token: str, amount: Decimal, slippage: float):
     """Swap tokens on external exchange"""
     try:
         success(f"Swap {amount} {from_token} to {to_token}")
-        output({"from": from_token, "to": to_token, "amount": amount, "slippage": slippage})
+        output({"from": from_token, "to": to_token, "amount": str(amount), "slippage": slippage})
     except Exception as e:
         error(f"Error: {e}")

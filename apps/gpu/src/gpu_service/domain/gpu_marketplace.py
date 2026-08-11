@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -35,7 +36,7 @@ CONSUMER_GPU_PROFILES: dict[str, dict[str, Any]] = {
         "supported_cuda_versions": ["11.0", "11.1", "11.2", "11.3", "11.4", "11.5", "11.6", "11.7", "11.8", "12.0"],
         "supported_tensorrt_versions": ["8.0", "8.1", "8.2", "8.3", "8.4", "8.5", "8.6"],
         "supported_ollama_models": ["llama2", "mistral", "gemma"],
-        "market_price_usd": 299.0,
+        "market_price_usd": Decimal("299"),
         "edge_premium_multiplier": 1.2,
         "availability_score": 0.9,
     },
@@ -62,7 +63,7 @@ CONSUMER_GPU_PROFILES: dict[str, dict[str, Any]] = {
         "supported_cuda_versions": ["11.8", "12.0", "12.1", "12.2"],
         "supported_tensorrt_versions": ["8.5", "8.6"],
         "supported_ollama_models": ["llama2", "mistral", "gemma", "phi"],
-        "market_price_usd": 299.0,
+        "market_price_usd": Decimal("299"),
         "edge_premium_multiplier": 1.3,
         "availability_score": 0.85,
     },
@@ -90,7 +91,7 @@ class GPURegistry(SQLModel, table=True):
     memory_gb: int = Field(default=0)
     cuda_version: str = Field(default="")
     region: str = Field(default="", index=True)
-    price_per_hour: float = Field(default=0.0)
+    price_per_hour: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
     status: str = Field(default="available", index=True)  # available, booked, offline
     # v0.6.6: Chain awareness — which chain this GPU offer is registered on
     chain_id: str = Field(default="ait-hub", index=True)
@@ -141,7 +142,7 @@ class ConsumerGPUProfile(SQLModel, table=True):
     supported_ollama_models: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
 
     # Pricing and availability
-    market_price_usd: float | None = Field(default=None)
+    market_price_usd: Decimal | None = Field(default=None, max_digits=20, decimal_places=8)
     edge_premium_multiplier: float = Field(default=1.0)
     availability_score: float = Field(default=1.0)
 
@@ -194,7 +195,7 @@ class GPUBooking(SQLModel, table=True):
     client_id: str = Field(default="", index=True)
     job_id: str | None = Field(default=None, index=True)
     duration_hours: float = Field(default=0.0)
-    total_cost: float = Field(default=0.0)
+    total_cost: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
     status: str = Field(default="active", index=True)  # active, completed, cancelled
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime | None = Field(default=None)

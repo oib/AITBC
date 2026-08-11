@@ -10,7 +10,7 @@ import click
 from ..config import get_config
 from ..core.config import load_multichain_config
 from ..core.marketplace import ChainType, GlobalChainMarketplace, MarketplaceStatus
-from ..utils import error, output, success
+from ..utils import DECIMAL, error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -85,6 +85,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
             "chain_type": chain_type,
             "description": description,
             "seller_id": seller_id,
+            # not-money: wire format, POSTed to /v1/transactions as a transaction body
             "price": float(price),
             "currency": currency,
             "specs": chain_specs,
@@ -500,17 +501,17 @@ def monitor(ctx, realtime, interval):
 
 
 @marketplace.command()
-@click.argument("price", type=float)
+@click.argument("price", type=DECIMAL)
 @click.argument("quantity", type=float)
 @click.option("--market", help="Market identifier")
 @click.pass_context
-def bid(ctx, price: float, quantity: float, market: str | None):
+def bid(ctx, price: Decimal, quantity: float, market: str | None):
     """Place a bid in the marketplace"""
     config = get_config()
 
     try:
         http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-        bid_data = {"price": price, "quantity": quantity, "market": market or "default"}
+        bid_data = {"price": str(price), "quantity": quantity, "market": market or "default"}
         result = http_client.post("/marketplace/bid", json=bid_data)
         success(f"Bid placed: {quantity} @ {price}")
         output(result, ctx.obj.get("output_format", "table"))
@@ -548,13 +549,13 @@ def bids(ctx, market: str | None, limit: int):
 @click.argument("quantity", type=float)
 @click.option("--market", help="Market identifier")
 @click.pass_context
-def ask(ctx, price: float, quantity: float, market: str | None):
+def ask(ctx, price: Decimal, quantity: float, market: str | None):
     """Place an ask in the marketplace"""
     config = get_config()
 
     try:
         http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-        ask_data = {"price": price, "quantity": quantity, "market": market or "default"}
+        ask_data = {"price": str(price), "quantity": quantity, "market": market or "default"}
         result = http_client.post("/marketplace/ask", json=ask_data)
         success(f"Ask placed: {quantity} @ {price}")
         output(result, ctx.obj.get("output_format", "table"))

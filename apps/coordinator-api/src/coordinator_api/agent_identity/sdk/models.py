@@ -5,6 +5,7 @@ Data models for the Agent Identity SDK
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -97,9 +98,9 @@ class AgentWallet:
     chain_address: str
     wallet_type: str
     contract_address: str | None
-    balance: float
-    spending_limit: float
-    total_spent: float
+    balance: Decimal
+    spending_limit: Decimal
+    total_spent: Decimal
     is_active: bool
     permissions: list[str]
     requires_multisig: bool
@@ -211,7 +212,7 @@ class TransactionRequest:
     """Request model for transaction execution"""
 
     to_address: str
-    amount: float
+    amount: Decimal
     data: dict[str, Any] | None = None
     gas_limit: int | None = None
     gas_price: str | None = None
@@ -246,10 +247,10 @@ class WalletStatistics:
 
     total_wallets: int
     active_wallets: int
-    total_balance: float
-    total_spent: float
+    total_balance: Decimal
+    total_spent: Decimal
     total_transactions: int
-    average_balance_per_wallet: float
+    average_balance_per_wallet: Decimal
     chain_breakdown: dict[str, dict[str, Any]]
     supported_chains: list[str]
 

@@ -3,6 +3,7 @@
 import logging
 import os
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -23,7 +24,7 @@ class GPURegistrationRequest(BaseModel):
     cuda_version: str = Field(default="", description="CUDA version")
     region: str = Field(default="", description="Geographic region")
     capabilities: list[Any] = Field(default_factory=list, description="GPU capabilities")
-    price_per_hour: float = Field(..., ge=0, description="Price per hour in AIT")
+    price_per_hour: Decimal = Field(..., ge=0, description="Price per hour in AIT")
     registered_by: str = Field(..., description="Wallet address of registrant")
 
 
@@ -33,7 +34,7 @@ class GPUAllocationRequest(BaseModel):
     gpu_id: str = Field(..., description="GPU ID to allocate")
     client_id: str = Field(..., description="Client wallet address")
     duration_hours: float = Field(..., ge=0, description="Allocation duration in hours")
-    total_cost: float = Field(..., ge=0, description="Total cost in AIT")
+    total_cost: Decimal = Field(..., ge=0, description="Total cost in AIT")
     allocated_by: str = Field(..., description="Wallet address of allocator")
 
 
@@ -68,7 +69,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
                         "model": g.model,
                         "memory_gb": g.memory_gb,
                         "region": g.region,
-                        "price_per_hour": g.price_per_hour,
+                        "price_per_hour": str(g.price_per_hour),
                         "status": g.status,
                         "registered_at": g.registered_at.isoformat() if g.registered_at else None,
                     }
@@ -116,7 +117,7 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
                         "allocation_id": a.allocation_id,
                         "client_id": a.client_id,
                         "duration_hours": a.duration_hours,
-                        "total_cost": a.total_cost,
+                        "total_cost": str(a.total_cost),
                         "status": a.status,
                         "allocated_by": a.allocated_by,
                         "allocated_at": a.allocated_at.isoformat() if a.allocated_at else None,
@@ -238,7 +239,7 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
                 "cuda_version": gpu.cuda_version,
                 "region": gpu.region,
                 "capabilities": gpu.capabilities,
-                "price_per_hour": gpu.price_per_hour,
+                "price_per_hour": str(gpu.price_per_hour),
                 "registered_by": gpu.registered_by,
                 "registered_at": gpu.registered_at.isoformat() if gpu.registered_at else None,
                 "status": gpu.status,

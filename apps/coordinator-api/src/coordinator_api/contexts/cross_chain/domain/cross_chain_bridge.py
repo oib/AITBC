@@ -311,7 +311,7 @@ class BridgeStatistics(SQLModel, table=True):
     total_transactions: int = Field(default=0)  # Total number of transactions
     successful_transactions: int = Field(default=0)  # Successful transactions
     failed_transactions: int = Field(default=0)  # Failed transactions
-    total_fees: float = Field(default=0.0)  # Total fees collected
+    total_fees: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Total fees collected
     average_transaction_time: float = Field(default=0.0)  # Average time in minutes
     average_transaction_size: float = Field(default=0.0)  # Average transaction size
     unique_users: int = Field(default=0)  # Unique users for the day
@@ -392,7 +392,7 @@ class BridgeSnapshot(SQLModel, table=True):
     total_transactions_24h: int = Field(default=0)
     successful_transactions_24h: int = Field(default=0)
     failed_transactions_24h: int = Field(default=0)
-    total_fees_24h: float = Field(default=0.0)
+    total_fees_24h: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     average_transaction_time: float = Field(default=0.0)
     unique_users_24h: int = Field(default=0)
     active_validators: int = Field(default=0)

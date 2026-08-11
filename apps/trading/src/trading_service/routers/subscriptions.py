@@ -1,5 +1,6 @@
 """Offer subscription, heartbeat, search, and WebSocket endpoints."""
 
+from decimal import Decimal
 import asyncio
 import json
 import time
@@ -249,8 +250,8 @@ async def search_offers(
     q: str = "",
     chain_id: str | None = None,
     service_type: str | None = None,
-    min_price: float | None = None,
-    max_price: float | None = None,
+    min_price: Decimal | None = None,
+    max_price: Decimal | None = None,
     limit: int = 100,
 ):
     """Search offers via the optional search index (B7).

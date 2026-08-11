@@ -19,6 +19,7 @@ class TEEBenchmarkResult:
 
     name: str
     latency_ms: float
+    # not-money: a synthetic benchmark metric alongside latency_ms and memory_bytes
     cost_units: float = 0.0
     memory_bytes: int = 0
     meta: dict[str, Any] = field(default_factory=dict)
@@ -36,6 +37,7 @@ class TEEBenchmark:
         operation_name: str,
         fn: Callable[..., Any],
         *args: Any,
+        # not-money: the synthetic benchmark metric recorded on TEEBenchmarkResult
         cost_units: float = 0.0,
         **kwargs: Any,
     ) -> TEEBenchmarkResult:

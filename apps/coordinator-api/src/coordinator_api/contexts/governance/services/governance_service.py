@@ -16,6 +16,7 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -498,7 +499,12 @@ class GovernanceService:
     # ------------------------------------------------------------------
 
     async def create_regional_council(
-        self, region: str, council_name: str, jurisdiction: str, council_members: list[str], budget_allocation: float
+        self,
+        region: str,
+        council_name: str,
+        jurisdiction: str,
+        council_members: list[str],
+        budget_allocation: Decimal,
     ) -> dict[str, Any]:
         from ..domain.governance import RegionalCouncil
 
@@ -507,7 +513,7 @@ class GovernanceService:
             council_name=council_name,
             jurisdiction=jurisdiction,
             members=council_members,
-            budget_allocation=budget_allocation,
+            budget_allocation=Decimal(str(budget_allocation)),
         )
         self._session_factory.add(council)
         self._session_factory.commit()
@@ -518,7 +524,7 @@ class GovernanceService:
             "council_name": council.council_name,
             "jurisdiction": council.jurisdiction,
             "members": council.members,
-            "budget_allocation": council.budget_allocation,
+            "budget_allocation": str(council.budget_allocation),
             "created_at": council.created_at.isoformat(),
         }
 
@@ -537,7 +543,7 @@ class GovernanceService:
                 "council_name": c.council_name,
                 "jurisdiction": c.jurisdiction,
                 "members": c.members,
-                "budget_allocation": c.budget_allocation,
+                "budget_allocation": str(c.budget_allocation),
                 "created_at": c.created_at.isoformat(),
             }
             for c in rows
@@ -549,7 +555,7 @@ class GovernanceService:
         title: str,
         description: str,
         proposal_type: str,
-        amount_requested: float,
+        amount_requested: Decimal,
         proposer_address: str,
     ) -> dict[str, Any]:
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus, RegionalCouncil
@@ -634,13 +640,13 @@ class GovernanceService:
         }
 
     async def allocate_treasury_funds(
-        self, council_id: str, amount: float, purpose: str, recipient_address: str, approver_address: str
+        self, council_id: str, amount: Decimal, purpose: str, recipient_address: str, approver_address: str
     ) -> dict[str, Any]:
         allocation_id = f"alloc_{uuid4().hex[:8]}"
         return {
             "allocation_id": allocation_id,
             "council_id": council_id,
-            "amount": amount,
+            "amount": str(amount),
             "purpose": purpose,
             "recipient_address": recipient_address,
             "approver_address": approver_address,
@@ -671,15 +677,15 @@ class GovernanceService:
         return []
 
     async def calculate_staking_rewards(
-        self, pool_id: str, staker_address: str, amount: float, duration_days: int
+        self, pool_id: str, staker_address: str, amount: Decimal, duration_days: int
     ) -> dict[str, Any]:
-        estimated_reward = amount * 0.05 * (duration_days / 365)
+        estimated_reward = amount * Decimal("0.05") * (Decimal(duration_days) / 365)
         return {
             "pool_id": pool_id,
             "staker_address": staker_address,
-            "amount": amount,
+            "amount": str(amount),
             "duration_days": duration_days,
-            "estimated_reward": estimated_reward,
+            "estimated_reward": str(estimated_reward),
             "apy": 5.0,
         }
 

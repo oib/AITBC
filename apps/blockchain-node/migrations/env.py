@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from logging.config import fileConfig
 
 from aitbc_chain import models  # noqa: F401
@@ -12,9 +13,18 @@ from sqlmodel import SQLModel
 # access to the values within the .ini file in use.
 config = context.config
 
-# Ensure the database path exists and propagate URL to Alembic config
-settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.db_path}")
+# Ensure the database path exists and propagate URL to Alembic config.
+#
+# DATABASE_URL / SQLITE_URL override the configured path so CI and local tests can target
+# a temp database -- the same escape hatch coordinator-api's env.py has had. Without it
+# there is no way to run a migration except against the real chain database, and the
+# obvious way to test one (export DATABASE_URL, run `alembic upgrade`) silently ignores
+# the variable and writes to settings.db_path instead.
+_db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLITE_URL")
+if not _db_url:
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+    _db_url = f"sqlite:///{settings.db_path}"
+config.set_main_option("sqlalchemy.url", _db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

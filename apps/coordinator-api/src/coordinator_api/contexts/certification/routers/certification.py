@@ -4,6 +4,7 @@ REST API for agent certification, partnership programs, and badge system
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,6 +15,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....storage import get_session
 from ..domain.certification import (
     AchievementBadge,
     AgentBadge,
@@ -28,7 +30,6 @@ from ..domain.certification import (
     VerificationRecord,
     VerificationType,
 )
-from ....storage import get_session
 from ..services.certification import (
     BadgeSystem,
     CertificationAndPartnershipService,
@@ -99,7 +100,7 @@ class PartnershipResponse(BaseModel):
     applied_at: str
     approved_at: str | None
     performance_score: float
-    total_earnings: float
+    total_earnings: Decimal
     earned_benefits: list[str]
 
 

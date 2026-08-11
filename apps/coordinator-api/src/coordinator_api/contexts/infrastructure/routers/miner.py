@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -135,7 +136,7 @@ async def list_miner_jobs(
     limit: int = 20,
     offset: int = 0,
     job_type: str | None = None,
-    min_reward: float | None = None,
+    min_reward: Decimal | None = None,
     job_status: str | None = None,
 ) -> dict[str, Any]:
     """List jobs assigned to a specific miner"""

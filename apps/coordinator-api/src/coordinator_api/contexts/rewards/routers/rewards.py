@@ -4,6 +4,7 @@ REST API for agent rewards, incentives, and performance-based earnings
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,8 +15,8 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..domain.rewards import AgentRewardProfile, RewardTier, RewardType
 from ....storage import get_session
+from ..domain.rewards import AgentRewardProfile, RewardTier, RewardType
 from ..services.reward_service import RewardEngine
 
 logger = get_logger(__name__)
@@ -29,10 +30,10 @@ class RewardProfileResponse(BaseModel):
     agent_id: str
     current_tier: str
     tier_progress: float
-    base_earnings: float
-    bonus_earnings: float
-    total_earnings: float
-    lifetime_earnings: float
+    base_earnings: Decimal
+    bonus_earnings: Decimal
+    total_earnings: Decimal
+    lifetime_earnings: Decimal
     rewards_distributed: int
     current_streak: int
     longest_streak: int
@@ -50,7 +51,7 @@ class RewardRequest(BaseModel):
 
     agent_id: str
     reward_type: RewardType
-    base_amount: float = Field(..., gt=0, description="Base reward amount in AITBC")
+    base_amount: Decimal = Field(..., gt=0, description="Base reward amount in AITBC")
     performance_metrics: dict[str, Any] = Field(..., description="Performance metrics for bonus calculation")
     reference_date: str | None = Field(default=None, description="Reference date for calculation")
 
@@ -60,10 +61,10 @@ class RewardResponse(BaseModel):
 
     calculation_id: str
     distribution_id: str
-    reward_amount: float
+    reward_amount: Decimal
     reward_type: str
     tier_multiplier: float
-    total_bonus: float
+    total_bonus: Decimal
     status: str
 
 
@@ -73,9 +74,9 @@ class RewardAnalyticsResponse(BaseModel):
     period_type: str
     start_date: str
     end_date: str
-    total_rewards_distributed: float
+    total_rewards_distributed: Decimal
     total_agents_rewarded: int
-    average_reward_per_agent: float
+    average_reward_per_agent: Decimal
     tier_distribution: dict[str, int]
     total_distributions: int
 
@@ -110,7 +111,7 @@ class MilestoneResponse(BaseModel):
     target_value: float
     current_value: float
     progress_percentage: float
-    reward_amount: float
+    reward_amount: Decimal
     is_completed: bool
     is_claimed: bool
     completed_at: str | None

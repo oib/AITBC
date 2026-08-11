@@ -138,6 +138,7 @@ class Settings(ServiceSettings):
 
     # Task payment escrow (v0.6.5)
     task_payment_escrow_enabled: bool = False
+    # not-money: a duration in seconds; only the escrow it guards is money
     task_payment_timeout_seconds: float = 3600.0
     task_max_retries: int = 3
 

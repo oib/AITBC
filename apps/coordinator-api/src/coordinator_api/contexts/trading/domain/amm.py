@@ -7,6 +7,7 @@ Domain models for automated market making, liquidity pools, and swap transaction
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -51,7 +52,7 @@ class LiquidityPool(SQLModel, table=True):
     total_supply: float = Field(default=0.0)  # Total LP token supply
     apr: float = Field(default=0.0)  # Annual percentage rate
     volume_24h: float = Field(default=0.0)  # 24h trading volume
-    fees_24h: float = Field(default=0.0)  # 24h fee revenue
+    fees_24h: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # 24h fee revenue
     tvl: float = Field(default=0.0)  # Total value locked
     utilization_rate: float = Field(default=0.0)  # Pool utilization rate
     price_impact_threshold: float = Field(default=0.05)  # Price impact threshold
@@ -78,14 +79,14 @@ class LiquidityPosition(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     provider_address: str = Field(index=True)
-    liquidity_amount: float = Field(default=0.0)  # Amount of liquidity tokens
+    liquidity_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Amount of liquidity tokens
     shares_owned: float = Field(default=0.0)  # Percentage of pool owned
-    deposit_amount_a: float = Field(default=0.0)  # Initial token A deposit
-    deposit_amount_b: float = Field(default=0.0)  # Initial token B deposit
-    current_amount_a: float = Field(default=0.0)  # Current token A amount
-    current_amount_b: float = Field(default=0.0)  # Current token B amount
-    unrealized_pnl: float = Field(default=0.0)  # Unrealized P&L
-    fees_earned: float = Field(default=0.0)  # Fees earned
+    deposit_amount_a: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Initial token A deposit
+    deposit_amount_b: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Initial token B deposit
+    current_amount_a: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Current token A amount
+    current_amount_b: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Current token B amount
+    unrealized_pnl: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Unrealized P&L
+    fees_earned: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Fees earned
     impermanent_loss: float = Field(default=0.0)  # Impermanent loss
     status: LiquidityPositionStatus = Field(default=LiquidityPositionStatus.ACTIVE, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
@@ -108,18 +109,18 @@ class SwapTransaction(SQLModel, table=True):
     user_address: str = Field(index=True)
     token_in: str = Field(index=True)
     token_out: str = Field(index=True)
-    amount_in: float = Field(default=0.0)
-    amount_out: float = Field(default=0.0)
-    price: float = Field(default=0.0)  # Execution price
+    amount_in: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    amount_out: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    price: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Execution price
     price_impact: float = Field(default=0.0)  # Price impact
     slippage: float = Field(default=0.0)  # Slippage percentage
-    fee_amount: float = Field(default=0.0)  # Fee amount
+    fee_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Fee amount
     fee_percentage: float = Field(default=0.0)  # Applied fee percentage
     status: SwapStatus = Field(default=SwapStatus.PENDING, index=True)
     transaction_hash: str | None = Field(default=None, index=True)
     block_number: int | None = Field(default=None)
     gas_used: int | None = Field(default=None)
-    gas_price: float | None = Field(default=None)
+    gas_price: Decimal | None = Field(default=None, max_digits=20, decimal_places=8)
     executed_at: datetime | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     deadline: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(minutes=20))
@@ -137,7 +138,7 @@ class PoolMetrics(SQLModel, table=True):
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     timestamp: datetime = Field(index=True)
     total_volume_24h: float = Field(default=0.0)
-    total_fees_24h: float = Field(default=0.0)
+    total_fees_24h: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     total_value_locked: float = Field(default=0.0)
     apr: float = Field(default=0.0)
     utilization_rate: float = Field(default=0.0)
@@ -183,9 +184,9 @@ class IncentiveProgram(SQLModel, table=True):
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     program_name: str = Field(index=True)
     reward_token: str = Field(index=True)  # Reward token address
-    daily_reward_amount: float = Field(default=0.0)  # Daily reward amount
-    total_reward_amount: float = Field(default=0.0)  # Total reward amount
-    remaining_reward_amount: float = Field(default=0.0)  # Remaining rewards
+    daily_reward_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Daily reward amount
+    total_reward_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Total reward amount
+    remaining_reward_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Remaining rewards
     incentive_multiplier: float = Field(default=1.0)  # Incentive multiplier
     duration_days: int = Field(default=30)  # Program duration in days
     minimum_liquidity: float = Field(default=0.0)  # Minimum liquidity to qualify
@@ -211,7 +212,7 @@ class LiquidityReward(SQLModel, table=True):
     program_id: int = Field(foreign_key="incentive_program.id", index=True)
     position_id: int = Field(foreign_key="liquidity_position.id", index=True)
     provider_address: str = Field(index=True)
-    reward_amount: float = Field(default=0.0)
+    reward_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     reward_token: str = Field(index=True)
     liquidity_share: float = Field(default=0.0)  # Share of pool liquidity
     time_weighted_share: float = Field(default=0.0)  # Time-weighted share
@@ -235,7 +236,7 @@ class FeeClaim(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     position_id: int = Field(foreign_key="liquidity_position.id", index=True)
     provider_address: str = Field(index=True)
-    fee_amount: float = Field(default=0.0)
+    fee_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     fee_token: str = Field(index=True)
     claim_period_start: datetime = Field(index=True)
     claim_period_end: datetime = Field(index=True)
@@ -298,10 +299,10 @@ class PoolSnapshot(SQLModel, table=True):
     reserve_a: float = Field(default=0.0)
     reserve_b: float = Field(default=0.0)
     total_liquidity: float = Field(default=0.0)
-    price_a_to_b: float = Field(default=0.0)  # Price of A in terms of B
-    price_b_to_a: float = Field(default=0.0)  # Price of B in terms of A
+    price_a_to_b: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Price of A in terms of B
+    price_b_to_a: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Price of B in terms of A
     volume_24h: float = Field(default=0.0)
-    fees_24h: float = Field(default=0.0)
+    fees_24h: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     tvl: float = Field(default=0.0)
     apr: float = Field(default=0.0)
     utilization_rate: float = Field(default=0.0)
@@ -323,18 +324,19 @@ class ArbitrageOpportunity(SQLModel, table=True):
     token_b: str = Field(index=True)
     pool_1_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     pool_2_id: int = Field(foreign_key="liquidity_pool.id", index=True)
-    price_1: float = Field(default=0.0)  # Price in pool 1
-    price_2: float = Field(default=0.0)  # Price in pool 2
+    price_1: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Price in pool 1
+    price_2: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Price in pool 2
+    # not-money: a percentage, named for what it is derived from
     price_difference: float = Field(default=0.0)  # Price difference percentage
-    potential_profit: float = Field(default=0.0)  # Potential profit amount
-    gas_cost_estimate: float = Field(default=0.0)  # Estimated gas cost
-    net_profit: float = Field(default=0.0)  # Net profit after gas
-    required_amount: float = Field(default=0.0)  # Amount needed for arbitrage
+    potential_profit: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Potential profit amount
+    gas_cost_estimate: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Estimated gas cost
+    net_profit: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Net profit after gas
+    required_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Amount needed for arbitrage
     confidence: float = Field(default=0.0)  # Confidence in opportunity
     is_executed: bool = Field(default=False, index=True)
     executed_at: datetime | None = Field(default=None)
     execution_tx_hash: str | None = Field(default=None)
-    actual_profit: float | None = Field(default=None)
+    actual_profit: Decimal | None = Field(default=None, max_digits=20, decimal_places=8)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(minutes=5))
 

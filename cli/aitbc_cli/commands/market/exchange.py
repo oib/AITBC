@@ -2,10 +2,12 @@
 Exchange subgroup and exchange commands
 """
 
+from decimal import Decimal
+
 import click
 
 from ...config import get_config
-from ...utils import error, info, success, warning
+from ...utils import DECIMAL, error, info, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -179,10 +181,10 @@ def mint_ait(ctx, deposit_id: str):
 
 
 @exchange.command(name="withdraw-eth")
-@click.argument("amount", type=float)
+@click.argument("amount", type=DECIMAL)
 @click.argument("address")
 @click.pass_context
-def withdraw_eth(ctx, amount: float, address: str):
+def withdraw_eth(ctx, amount: Decimal, address: str):
     """Withdraw ETH from bridge wallet (admin only)"""
     try:
         config = get_config()
@@ -259,7 +261,12 @@ def withdraw_eth(ctx, amount: float, address: str):
                     exchange_url = getattr(config, "exchange_url", "http://localhost:8106")
                     record_response = httpx.post(
                         f"{exchange_url}/v1/exchange/withdrawals",
-                        json={"amount": amount, "to_address": address, "tx_hash": tx_hash.hex(), "status": "completed"},
+                        json={
+                            "amount": str(amount),
+                            "to_address": address,
+                            "tx_hash": tx_hash.hex(),
+                            "status": "completed",
+                        },
                     )
                     if record_response.status_code != 200:
                         warning("Withdrawal completed but failed to record in exchange service")

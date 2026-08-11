@@ -6,13 +6,14 @@ and daemon-based wallet operations, allowing seamless switching between modes.
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
-
 from aitbc_cli.utils import error, success
 from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
+
+from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
 
 
 class DualModeWalletAdapter:
@@ -241,14 +242,14 @@ class DualModeWalletAdapter:
             error(f"Failed to get file wallet info: {str(e)}")
             return None
 
-    def get_wallet_balance(self, wallet_name: str) -> float | None:
+    def get_wallet_balance(self, wallet_name: str) -> Decimal | None:
         """Get wallet balance using the appropriate mode"""
         if self.use_daemon:
             return self._get_wallet_balance_daemon(wallet_name)
         else:
             return self._get_wallet_balance_file(wallet_name)
 
-    def _get_wallet_balance_daemon(self, wallet_name: str) -> float | None:
+    def _get_wallet_balance_daemon(self, wallet_name: str) -> Decimal | None:
         """Get wallet balance using daemon"""
         try:
             if not self.is_daemon_available():
@@ -264,17 +265,19 @@ class DualModeWalletAdapter:
             error(f"Failed to get daemon wallet balance: {str(e)}")
             return None
 
-    def _get_wallet_balance_file(self, wallet_name: str) -> float | None:
+    def _get_wallet_balance_file(self, wallet_name: str) -> Decimal | None:
         """Get wallet balance using file-based storage"""
         wallet_info = self._get_wallet_info_file(wallet_name)
         if wallet_info:
             balance = wallet_info.get("balance", 0.0)
-            if isinstance(balance, int | float):
-                return float(balance)
+            if isinstance(balance, int | float | str):
+                # str() first: the value comes from JSON on disk, so Decimal(0.1) would
+                # capture the binary error that Decimal("0.1") does not.
+                return Decimal(str(balance))
         return None
 
     def send_transaction(
-        self, wallet_name: str, password: str, to_address: str, amount: float, description: str | None = None
+        self, wallet_name: str, password: str, to_address: str, amount: Decimal, description: str | None = None
     ) -> dict[str, Any]:
         """Send transaction using the appropriate mode"""
         if self.use_daemon:
@@ -283,7 +286,7 @@ class DualModeWalletAdapter:
             return self._send_transaction_file(wallet_name, password, to_address, amount, description)
 
     def _send_transaction_daemon(
-        self, wallet_name: str, password: str, to_address: str, amount: float, description: str | None
+        self, wallet_name: str, password: str, to_address: str, amount: Decimal, description: str | None
     ) -> dict[str, Any]:
         """Send transaction using daemon"""
         try:
@@ -300,7 +303,7 @@ class DualModeWalletAdapter:
                 "mode": "daemon",
                 "wallet_name": wallet_name,
                 "to_address": to_address,
-                "amount": amount,
+                "amount": str(amount),
                 "description": description,
                 "tx_hash": result.get("tx_hash"),
                 "timestamp": result.get("timestamp"),
@@ -310,15 +313,15 @@ class DualModeWalletAdapter:
             raise
 
     def _send_transaction_file(
-        self, wallet_name: str, password: str, to_address: str, amount: float, description: str | None
+        self, wallet_name: str, password: str, to_address: str, amount: Decimal, description: str | None
     ) -> dict[str, Any]:
         """Send transaction using file-based storage and blockchain RPC"""
         from datetime import datetime
 
         import httpx
+        from aitbc_cli.utils import error, success
 
         from ..commands.wallet import _load_wallet, _save_wallet
-        from aitbc_cli.utils import error, success
 
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
 
@@ -347,7 +350,7 @@ class DualModeWalletAdapter:
             error(f"Failed to connect to blockchain RPC: {e}")
             raise
 
-        if chain_balance < amount:
+        if Decimal(str(chain_balance)) < amount:
             error(f"Insufficient blockchain balance. Available: {chain_balance}, Required: {amount}")
             raise Exception("Insufficient balance")
 
@@ -357,7 +360,7 @@ class DualModeWalletAdapter:
             "sender": from_address,
             "nonce": nonce,
             "fee": 0,
-            "payload": {"to": to_address, "value": amount},
+            "payload": {"to": to_address, "value": str(amount)},
             "sig": "mock_signature",  # Replace with real signature when implemented
         }
 
@@ -374,7 +377,7 @@ class DualModeWalletAdapter:
         # Add transaction to local history
         transaction = {
             "type": "send",
-            "amount": -amount,
+            "amount": str(-amount),
             "to_address": to_address,
             "description": description or "",
             "timestamp": datetime.now().isoformat(),
@@ -573,7 +576,7 @@ class DualModeWalletAdapter:
             error(f"Failed to get wallet info from chain {chain_id}: {str(e)}")
             return None
 
-    def get_wallet_balance_in_chain(self, chain_id: str, wallet_name: str) -> float | None:
+    def get_wallet_balance_in_chain(self, chain_id: str, wallet_name: str) -> Decimal | None:
         """Get wallet balance in a specific chain"""
         if not self.use_daemon or not self.is_daemon_available():
             error("Chain-specific balance check requires daemon mode")

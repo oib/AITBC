@@ -13,9 +13,9 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Any
-
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -38,7 +38,7 @@ class PriceData:
     """Price data point"""
 
     pair: str
-    price: float
+    price: Decimal
     source: PriceSource
     timestamp: datetime
     confidence: float
@@ -217,13 +217,19 @@ class AggregatedPriceFeed:
                 logger.warning("CoinGecko response missing price for %s", coin_id)
                 return None
             return PriceData(
-                pair=pair, price=price, source=PriceSource.aggregated, timestamp=datetime.now(UTC), confidence=0.9
+                # str() first: the JSON value arrives as a binary float, and Decimal(0.1)
+                # would preserve that error where Decimal("0.1") does not.
+                pair=pair,
+                price=Decimal(str(price)),
+                source=PriceSource.aggregated,
+                timestamp=datetime.now(UTC),
+                confidence=0.9,
             )
         except Exception as e:
             logger.warning("CoinGecko API error for %s: %s", pair, e)
             return None
 
-    def set_manual_price(self, pair: str, price: float, confidence: float = 1.0) -> PriceData:
+    def set_manual_price(self, pair: str, price: Decimal, confidence: float = 1.0) -> PriceData:
         """Set a manual price (admin override)"""
         data = PriceData(pair=pair, price=price, source=PriceSource.manual, timestamp=datetime.now(UTC), confidence=confidence)
         self._prices[pair] = data
@@ -289,7 +295,7 @@ class OracleService:
         prices = await self.feed.get_all_prices()
         return {pair: data.to_dict() for pair, data in prices.items()}
 
-    async def set_price(self, pair: str, price: float, confidence: float = 1.0, source: str = "manual") -> dict[str, Any]:
+    async def set_price(self, pair: str, price: Decimal, confidence: float = 1.0, source: str = "manual") -> dict[str, Any]:
         """Set price manually (admin function)"""
         data = self.feed.set_manual_price(pair, price, confidence)
         # Copy-on-read to avoid race condition during iteration

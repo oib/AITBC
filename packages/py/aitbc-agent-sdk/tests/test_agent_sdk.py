@@ -1,5 +1,6 @@
 """Test suite for AITBC Agent SDK"""
 
+from decimal import Decimal
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -114,12 +115,12 @@ class TestComputeProvider:
             compute_type="inference",
             gpu_memory=8,
             supported_models=["llama2"],
-            price_per_hour=50.0,
+            price_per_hour=Decimal("50"),
             availability_schedule={"start": "09:00", "end": "18:00"},
             max_concurrent_jobs=3,
         )
         assert offer.provider_id == "provider-1"
-        assert offer.price_per_hour == 50.0
+        assert offer.price_per_hour == Decimal("50")
         assert offer.max_concurrent_jobs == 3
 
     def test_job_execution_tracking(self):
@@ -158,11 +159,11 @@ class TestComputeConsumer:
             job_type="training",
             model_id="resnet50",
             input_data={"dataset": "imagenet"},
-            max_price_per_hour=100.0,
+            max_price_per_hour=Decimal("100"),
         )
         assert job.consumer_id == "consumer-1"
         assert job.job_type == "training"
-        assert job.max_price_per_hour == 100.0
+        assert job.max_price_per_hour == Decimal("100")
 
     def test_job_result_creation(self):
         """Test JobResult dataclass"""
@@ -172,11 +173,11 @@ class TestComputeConsumer:
             status="completed",
             output={"accuracy": 0.95},
             execution_time=3600.0,
-            cost=50.0,
+            cost=Decimal("50"),
         )
         assert result.job_id == "job-1"
         assert result.status == "completed"
-        assert result.cost == 50.0
+        assert result.cost == Decimal("50")
 
     def test_consumer_spending_summary(self):
         """Test spending summary"""

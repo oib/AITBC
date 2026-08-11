@@ -40,17 +40,26 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 42 findings — 29 confirmed defects, 13 observed design gaps. **All 42 resolved**
-(V23-01..33, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — forty-two entries, thirty-three numbered findings); **0 open**.
+**Totals**: 49 findings — 36 confirmed defects, 13 observed design gaps. **All 49 resolved**
+(V23-01..40, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
+V23-32a — forty-nine entries, forty numbered findings); **0 open**.
+
+Two things V23-36 and V23-37 surfaced are recorded rather than fixed, because both are
+decisions someone else has to make: money is `float` inside signed transaction payloads
+(changing it is a hard fork), and the deployed chain database has no `alembic_version` table,
+so the four revisions under `apps/blockchain-node/migrations/versions/` have never been
+applied to it. Neither is a defect this audit can close on its own.
 
 Nothing open.
 
-V23-33 was added after the four passes closed, by a later audit of the *last five releases*
-(v0.21.0 → v0.23.0) rather than of the tree. It is recorded here because what it found is a
-correction to this log's own Method section, not a new area: the `float(` grep that produced
-this audit's "one positive result worth recording" cannot see a `float` annotation, and there
-was one.
+V23-33 … V23-35 were added after the four passes closed, by a later audit of the *last five
+releases* (v0.21.0 → v0.23.0) rather than of the tree. V23-33 belongs here because what it
+found is a correction to this log's own Method section, not a new area: the `float(` grep
+that produced this audit's "one positive result worth recording" cannot see a `float`
+annotation, and there was one. V23-34 clears the backlog V23-33 only measured. V23-35 turned
+up while looking for a type-checking safety net for that work, and is the third instance in
+this log of a check that reports success because it never runs — after V23-10a's dark app
+suites and V23-33's uninvoked guard.
 
 V23-16 was the last to close, and it closed differently from the other forty: it asked for a
 release tag, not a code change, so the decision — which tag to move, and which remote to push
@@ -2599,3 +2608,509 @@ and was triggering neither this job nor the `tests/cli` suite the job already ru
 Verified non-vacuous both ways: adding `settlement_amount: float | None` to a pool-hub schema
 makes it exit 1 naming the field, and removing a baselined entry makes it print the tighten
 note while still exiting 0.
+
+---
+
+## High — the largest float-money backlog, and the type checker that was not checking
+
+### V23-34 — coordinator-api held 168 of the 210 baselined violations · CONFIRMED → RESOLVED
+
+V23-33 recorded the backlog rather than fixing it. This clears the coordinator-api share of
+it: **210 → 48 baselined violations, and coordinator-api itself to zero.** Everything still
+baselined is in `blockchain-node` (24), `cli` (11), `packages/py` (4) and four other apps.
+
+**What the vocabulary was still missing.** Converting the 168 immediately turned up three
+false negatives in the guard, each found by a field sitting next to one it had named:
+
+- `per` was in `DERIVED_TOKENS`, which excluded **`price_per_hour`** — the most common money
+  field name in this repo, already `Numeric(20, 8)` on `marketplaceoffer`, and re-declared
+  `float` in six services' schemas. The guard could not see the one name it most needed to.
+- `target` excluded **`target_amount`**, beside a flagged `source_amount` in the same
+  `AtomicSwapOrder` row: one side of a swap guarded, the other not.
+- Names were split on `_` only, so camelCase was invisible — `averagePrice` in
+  `schemas/__init__.py` next to a flagged `price`.
+
+Both tokens are gone and identifiers are now split on case as well. That surfaced 19 further
+violations; the 12 in coordinator-api are fixed here, the 7 elsewhere are baselined.
+
+**Where the guard was wrong, and how that is recorded.** A name-driven check has false
+positives, and there is one honest place to record them — the declaration. `# not-money:
+<reason>` suppresses a line; the reason is mandatory. Six use it: one percentage named
+`price_difference`, four reinforcement-learning episode returns named `*_reward`, and two
+competitor-price averages consumed only to form a dimensionless ratio. Parking those in the
+baseline would file them as debt to repay, which is the wrong claim about them.
+
+**What the conversion found.** 197 annotations across 44 files, plus 15 same-class siblings
+converted because a class must not hold one quantity in two representations —
+`AgentWallet.balance` was named but `spending_limit` and `total_spent` were not. Beyond the
+mechanical part, three live narrowings:
+
+- `dynamic_pricing.py` wrote `price=float(price)` and `base_price=float(factors.base_price)`
+  into `PricingHistory`, whose columns are **already** `Numeric(20, 8)`. Exact values were
+  being rounded on their way into an exact column.
+- `explorer.py` built every address balance in the block explorer from
+  `float(receipt["price"])`, then formatted it `:.6f`.
+- `global_marketplace_integration.py` multiplied an offer's `base_price` by regional and
+  chain factors in float and returned those products as prices.
+
+**102 table columns** across 45 tables move `Float → Numeric(20, 8)` in
+`c7d1f4a9e230_v23_money_columns_to_numeric`, following the `_table_exists` +
+`batch_alter_table(recreate="always")` pattern of the four earlier `migrate_*_to_numeric`
+revisions. Verified by building a SQLite database from the models at the parent commit,
+upgrading, and inspecting every column: **102 of 102 NUMERIC(20,8), 0 missed.** Downgrade
+restores `FLOAT` with rows intact. Three `0.1` rewards written and read back sum to exactly
+`0.3`; the float path gives `0.30000000000000004`.
+
+Worth recording: **42 of those 102 columns belong to tables the application never creates.**
+`amm.py`, `agent_portfolio.py`, `federated_learning.py` and `gpu_models.py` are imported by
+nothing — importing `coordinator_api.main` produces 157 tables, and adding every `domain`
+module by hand produces 190. The migration's `_table_exists` guard is what makes that
+harmless. The models are still worth fixing: they are the schema of record if anything is
+ever wired up to them.
+
+Zero new mypy errors, and the 48 pre-existing coordinator-api test failures are
+byte-identical before and after (compared against a detached worktree at the parent commit).
+
+### V23-35 — the mypy pre-commit hook checked nothing, and reported success · CONFIRMED → RESOLVED
+
+Found while looking for a safety net for V23-34's Decimal conversion.
+
+`scripts/ci/mypy-precommit.sh` passed fourteen app directories to mypy, two of which —
+`apps/ffmpeg` and `apps/whisper` — contain exactly one Python file each, `main.py`, which
+`pyproject.toml` excludes via `^apps/[^/]+/main\.py$`. mypy treats a directory with no
+checkable files as a **hard error** and aborts before checking any of the other twelve:
+
+```
+$ ./venv/bin/python -m mypy --ignore-missing-imports apps/coordinator-api ... apps/zk-circuits
+There are no .py[i] files in directory 'apps/ffmpeg'
+```
+
+That message contains no `error:` substring. The hook's only test was
+`grep -E "(error:|warning:)"`, which therefore found nothing, and it printed
+
+```
+✅ MyPy: All clean apps pass
+```
+
+on every commit while checking zero files. Dropping the two directories reports **29 real
+errors in 11 files** — including four `Missing positional argument` calls to
+`PaymentService.create_payment` and `release_payment`, which are wrong-arity calls into the
+payments layer, not style.
+
+The same shape as V23-10a and V23-33: a check that passes because it never runs. What makes
+this one worse is that the grep could not distinguish "no errors" from "never executed", so
+the failure was indistinguishable from success by construction. The hook now checks mypy's
+**exit code** — anything above 1 means it did not run and is not a pass — and ratchets
+against `scripts/ci/mypy-baseline.txt` (29 entries, line numbers stripped so unrelated
+moves do not churn it).
+
+Verified non-vacuous: assigning `1.5` to a `Decimal` money field makes it exit 1 naming the
+assignment — which is precisely the defect class V23-34 removes.
+
+---
+
+## High — money in consensus code, and the line where Decimal must stop
+
+### V23-36 — blockchain-node's 24 violations, and the two that must not be fixed · CONFIRMED → RESOLVED
+
+The remaining large share of the V23-33 backlog. **24 → 0 in blockchain-node; the repo
+baseline is now 24, none of it in an app that settles money on chain.**
+
+This app answers the question differently from coordinator-api, and the difference is the
+finding. Four of the 24 sit on a **signature and hash boundary**:
+
+```python
+# rpc/ai_services.py -- AIJobRequest.payment, AIJobResponse.payment
+# rpc/marketplace.py -- MarketplaceListing.price, MarketplaceCreateRequest.price
+tx_data["payload"]["payment"] = request.payment
+verify_transaction_signature(tx_data, request.signature, request.wallet_address)
+tx_hash = mempool.add(tx_data, chain_id=chain_id)
+```
+
+`verify_transaction_signature` builds the signed message as
+`json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":"))`, keccak-hashes it, and
+recovers the signer. So the wire type of `payment` is fixed by every signature already
+issued. Converting it would fail twice over, and both were checked rather than assumed:
+
+```
+float payload  : ...,"payment":0.5,"prompt":"hi"},"to":"ai_service","type":"AI_JOB"}
+Decimal payload: TypeError - Object of type Decimal is not JSON serializable
+```
+
+`Decimal` is not JSON-serializable at all, and even with an encoder `"0.5" != 0.5` changes
+the hash — every existing client signature would be rejected and transaction hashes would
+diverge. **That is a hard fork, not a lint fix.** All four keep `float` and carry a
+`# not-money:` marker saying so at the declaration. Recorded here because *"money is
+`float` inside a signed transaction payload"* is a genuine design defect worth its own
+decision — it means signature validity depends on float→str round-tripping — but it is a
+protocol change, and this log is not where protocol changes get made.
+
+**The reverse mistake was also present.** `SlashingEvent.slash_amount` is not an amount: it
+holds `0.05`–`0.5` from `slash_rates`, and `apply_slashing` multiplies it by
+`validator.stake` to get the amount. Converting it would have been wrong. It keeps `float`
+with a marker, and the name is kept because it is a persisted key in
+`ConsensusState.slashing_events`. **`calculate_total_slashed` is wrong regardless**: it sums
+those fractions and returns them as "total amount slashed". It cannot be fixed without
+recording the stake at each event, which `SlashingEvent` does not carry — so it is recorded
+here, not patched. It has no callers.
+
+**What was genuinely broken.** `economics/staking.py` computed epoch rewards entirely in
+float and then wrapped the result:
+
+```python
+position.rewards += Decimal(str(reward_amount * share))   # before
+```
+
+`Decimal(str(x))` preserves a float's binary error exactly rather than removing it, so
+`rewards` was a `Decimal` field holding float-derived values — the appearance of exactness
+without any of it. The calculation itself is now `Decimal` end to end, and `withdraw()`
+returns `Decimal` instead of narrowing `position.amount + position.rewards` on the way out.
+
+**Where money leaves the node, the fix is `str`, not `Decimal`.** `escrow_routes.py` already
+established this: money in RPC responses is serialised with `str(value)`. Statistics dicts
+across `escrow.py`, `gas.py`, `rewards.py`, `staking.py` and `attacks.py` were rendering
+exact sums with `float(...)`, which discards the exactness the `Decimal` was for; and
+returning a bare `Decimal` does not help, because FastAPI's `jsonable_encoder` turns it
+straight back into a float. Dimensionless neighbours — `price_volatility`, `spike_ratio` —
+stay `float`.
+
+Two persisted columns move `Float → Numeric(20, 8)` in `d4e8b91c0a37`:
+`gpu_registration.price_per_hour` and `gpu_allocation.total_cost`. Neither passes through
+the mempool. Verified against a temp database: both `NUMERIC(20, 8)` after upgrade, seeded
+row intact, `0.12345678` read back as an exactly equal `Decimal`. `persistent_spending_tracker`
+(six `Column(Float)` money columns behind the agent spending limits) is converted too; it has
+its own `create_all` database, no callers and no file on disk.
+
+### V23-37 — the migration runner could only be pointed at the real chain database · CONFIRMED → RESOLVED
+
+Found by running into it. `apps/blockchain-node/migrations/env.py` hardcoded
+
+```python
+config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.db_path}")
+```
+
+with no environment override, unlike `apps/coordinator-api/alembic/env.py`, which has
+honoured `DATABASE_URL` / `SQLITE_URL` since it was written, with the comment *"so CI and
+local tests can target a temp DB"*.
+
+The consequence is worse than inconvenience: the obvious way to test a migration — export
+`DATABASE_URL`, run `alembic upgrade` — **silently ignores the variable** and writes to
+`settings.db_path` instead. There is no error and no warning; the run reports success
+against a database the caller did not name. `env.py` now takes the same override.
+
+The deployed node was never at risk: it runs against a per-island path
+(`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`, 93,275 blocks) which has **no
+`alembic_version` table** — its schema comes from `SQLModel.metadata.create_all` plus the
+column-adder in `database.py`, not from alembic at all. The default `settings.db_path`
+(`/var/lib/aitbc/data/chain.db`) is a separate, empty, unused file: 0 blocks, 0
+transactions, 0 accounts. That is a second thing worth knowing — **the chain's real database
+is not under migration control**, so the four revisions in `migrations/versions/` describe a
+schema no deployed node has ever applied them to.
+
+---
+
+## Medium — the client side of the same protocol
+
+### V23-38 — the CLI's 11 violations, and a blind spot they exposed · CONFIRMED → RESOLVED
+
+**`cli` 11 → 0. The repo baseline is now 13**, spread across `packages/py` (4), `gpu` (3),
+`aitbc` (2), `agent-coordinator` (2), `edge` (1) and `pool-hub` (1).
+
+The CLI is the *producer* of the payloads V23-36 declined to change, so the same line falls
+in the same place — three sites keep `float` with a `# not-money:` marker: the
+`GPU_MARKETPLACE` payload in `commands/market/offers.py`, and the transaction bodies POSTed
+by `commands/marketplace_cmd.py` and `commands/exchange_island.py`. Converting the client
+half while the node half stays fixed would produce payloads the node rejects, which is
+worse than either state.
+
+The rest were genuine, and one of them was hidden by the guard itself.
+
+**`amount = float(tx_data["amount"])`** in `utils/crypto_utils.py` is inside
+`validate_transaction` — the function that decides whether an amount is acceptable. Rounding
+a value *in order to check it* is backwards: the check no longer applies to what the caller
+sent. Now `Decimal`.
+
+**`WalletBalance.balance: float`** — a wallet balance dataclass. Converting it pulled four
+more declarations with it, because `dual_mode_wallet_adapter` returned `float | None` on
+both its daemon and file-backed paths, and the file path did `float(balance)` on a value
+read from JSON on disk.
+
+**`_escrow_create` sent `float(amount)`** to `/rpc/escrow/create`, and the node parses it
+straight back with `Decimal(str(amount))` (`escrow_routes.create_escrow`). The receiver was
+faithfully preserving a value the sender had already rounded. Now sent as a string.
+
+That last one is the blind spot. The guard walked past it because the expression is
+
+```python
+"amount": float(amount) if amount else 0
+```
+
+an `ast.IfExp`, not an `ast.Call` — so the `{"money_key": float(...)}` rule never fired.
+`_is_float_call` now recurses into both branches of a conditional expression. **That change
+alone found four more**, all in coordinator-api, which V23-34 had reported as zero:
+
+- `dynamic_pricing.py` wrote `min_price=float(...)` and `max_price=float(...)` into
+  `ProviderPricingStrategy`, whose columns are `Numeric(20, 8)` — the same defect V23-36
+  found two lines away in the same file, in a form the guard could not see.
+- `settlement/storage.py` rendered `AVG(payment_amount)` and `SUM(payment_amount)` as floats
+  in a statistics payload.
+
+Both are fixed here, so coordinator-api is at zero again — but the lesson is the one this
+whole sequence keeps repeating in a new costume: **"zero violations" means zero of what the
+checker can currently see.** Each widening of the guard so far — annotations (V23-33),
+`per`/`target`/camelCase (V23-34), conditional expressions (V23-38) — has found real defects
+in code that had already been declared clean.
+
+One thing recorded, not fixed: **`cli/utils/` is a stale parallel copy of `cli/aitbc_cli/utils/`.**
+`crypto_utils.py` and `wallet_daemon_client.py` exist in both and have diverged (158 and 300
+differing lines); `setup.py` packages only `aitbc_cli`, and every import in the tree is
+`aitbc_cli.utils.*`. But `cli/__init__.py` exists and CI puts the repo root on `PYTHONPATH`,
+so `cli.utils.crypto_utils` — a stale copy of wallet and signing code — is importable. Three
+files there (`kyc_aml_providers.py`, `secure_audit.py`, `security.py`) have no counterpart,
+so the tree cannot simply be deleted. Both duplicated files got the same fix as their live
+counterparts; deciding the tree's fate is separate work.
+
+---
+
+### V23-39 — the last 13, and the two words the guard did not know · CONFIRMED → RESOLVED
+
+**The baseline is 0.** 210 → 60 → 48 → 24 → 13 → 0 across five passes. `no_float_money.py`
+is now an ordinary gate: anything it reports is a regression, not inherited debt.
+
+Of the 13 that remained, **five were the guard being wrong** and keep `float` with a
+`# not-money:` marker giving the reason:
+
+| Site | Why it is not money |
+|---|---|
+| `aitbc/tee/benchmark.py` `cost_units` | a synthetic benchmark metric beside `latency_ms` and `memory_bytes` |
+| `agent-coordinator` `realtime_learning.reward` | a reinforcement-learning return |
+| `agent-coordinator` `config.task_payment_timeout_seconds` | a duration; only the escrow it guards is money |
+| `pool-hub` `ScoreWeights.price = 0.20` | a ranking weight — the five weights sum to 1.00 |
+| `aitbc-crypto` `Receipt.price` | wire format: `canonical_json()` + `sha256()` is `receipt_hash()` |
+
+That last one is V23-36's boundary again, in the package the ZK circuits verify against.
+A string would change the hash of every receipt already issued.
+
+**The other eight were genuine**, and converting them ran past the 13:
+
+- `aitbc/trading/types.py` — four dataclasses (`InterChainTradeData`, `TradeMatchResult`,
+  `TradeHistoryEntry`, `CreateTradeRequest`) declared `price: float` beside `amount: int`.
+  The baseline recorded one entry for all four, because entries are deduplicated by name.
+- `apps/gpu` — `GPURegistry.price_per_hour`, `ConsumerGPUProfile.market_price_usd`,
+  `GPUBooking.total_cost`. The coordinator's *own copy* of `ConsumerGPUProfile` has been
+  `Numeric(20, 8)` since V23-34; the gpu app's twin was still `Float`.
+- `apps/edge` — `GPUListing.price_per_hour`.
+- `aitbc-agent-sdk` — `JobRequest.max_price_per_hour`, `JobResult.cost`,
+  `ResourceOffer.price_per_hour`, all sent as decimal strings at the `json=` boundary.
+
+**Neither `apps/gpu` nor `apps/edge` has Alembic.** Both build their schema with
+`SQLModel.metadata.create_all`, which is a no-op on a table that already exists, so the
+declaration changes and the deployed SQLite columns stay `FLOAT` until someone adds
+migration infrastructure to those two apps. Verified what that actually means rather than
+assuming: existing float-stored rows read back as exact `Decimal`, no warning, no error —
+but a *new* write still lands as SQLite `REAL`, so storage stays lossy there. The gain is
+Python-side arithmetic and correctness on PostgreSQL, which is what `apps/edge/config.py`
+documents as the production adapter. Recorded, not silently skipped.
+
+#### The blind spot this time: annotated attributes
+
+```python
+price: float = 0.0        # ast.Name    -- checked since V23-33
+self.earnings: float = 0.0  # ast.Attribute -- never checked
+```
+
+The annotation rule required `isinstance(node.target, ast.Name)`. Both lines declare the
+same thing, and for four PRs the guard read only the first. Widening it found
+`ComputeProvider.earnings` and `ComputeConsumer.total_spent` — and `total_spent` accumulates
+`JobResult.cost`, so converting the field without it would have written Decimals into a
+float accumulator.
+
+Two vocabulary gaps went with it. `budget` and `spent` were not money words, which hid:
+
+- `RegionalHub.budget_allocation` and `RegionalHub.spent_budget` — **in coordinator-api,
+  which V23-38 had just reported at zero**, one row from `BountyTask.reward_amount` which
+  is already `Numeric(20, 8)`.
+- `RegionalCouncil.budget_allocation` — in the same file as `total_balance` and
+  `allocated_funds`, both already `Decimal`.
+
+All three convert in `f2b6c04a91d8`; both tables exist in the deployed coordinator database
+and both are empty, so the conversion moves no data. Verified up and down against a copy.
+
+`ComputeProvider._dynamic_pricing_loop` was V23-36's staking bug in a second costume:
+`new_price = base_rate * multiplier` computed the whole price in float before assigning it
+to the offer. The multiplier is genuinely dimensionless, so it converts at the
+multiplication rather than the result being wrapped afterwards.
+
+The four `float(...)` budget bounds in `trading_marketplace/trading.py` stay float: one
+scores a 0–100 budget fit weighted at 0.25 into a match score, the other is an uncalled
+negotiation heuristic, and both use `float("inf")` as the unbounded sentinel.
+
+Marking them exposed a fourth property of the suppression marker, after the three in V23-36:
+**a comment block suppresses the statement directly beneath it and nothing further.** Three
+conversions under one paragraph need a short marker on each of the other two. That is the
+right trade — the alternative silently exempts whatever gets appended to the stanza later —
+but it is now written in the docstring instead of being rediscovered.
+
+#### Two consumers the string boundary would have broken
+
+Converting a field to `Decimal` and rendering it as a string is only half a change; the
+readers have to be checked too, and two were not fine:
+
+- `cli/aitbc_cli/commands/gpu_marketplace.py` formatted the gpu service's response with
+  `f"{gpu.get('price_per_hour', 0):.4f}"`. Against a decimal string that raises
+  `ValueError: Unknown format code 'f' for object of type 'str'` — a broken command, not a
+  wrong number. It parses before formatting now.
+- `ComputeProvider._execute_job` computed `earnings = estimated_hours * agreed_price` from
+  an untyped wire dict and did `self.earnings += earnings`. With `self.earnings` a
+  `Decimal`, that is a `TypeError` at runtime. Both operands convert at the boundary now,
+  rather than the product being wrapped after the fact — which is V23-36's staking bug for
+  the third time.
+
+The agent SDK's HTTP calls have no live receiver to check against: it posts to `/v1/jobs`
+and `/v1/marketplace/offers`, and **neither route exists on coordinator-api**. Pre-existing,
+recorded here because it is the reason the string change could not be verified end to end.
+
+#### Measured, not fixed: 126 parameter annotations
+
+`def pay(amount: float)` is still invisible to the guard — it reads annotated assignments,
+not parameters. Measured at the point the baseline hit zero: **126 sites**. Genuine ones
+include `stake(amount: float)`, `mint_tokens`, `to_atomic_units` and the CLI's
+`send(amount, fee)`; false positives are the kinds already understood (RL `reward`,
+`_calculate_rsi(prices)`, `metrics.increment(amount)`).
+
+Enabling that rule here would have put 126 entries straight back into a baseline that had
+just emptied, which is the state this guard was rewritten to end. It is a sixth pass, sized
+and written down in the guard's docstring, not a switch to flip mid-PR.
+
+**Five widenings, five times the same result.** Annotations (V23-33), `per`/`target`/
+camelCase (V23-34), `ast.IfExp` (V23-38), annotated attributes and `budget`/`spent` (here):
+every one found real defects in code the previous pass had declared clean. The baseline is
+zero against the rules that exist today. That is the only claim it supports — and the 126
+above are the measured size of the next one.
+
+---
+
+### V23-40 — 131 float money parameters, and the compute-second the CLI kept losing · CONFIRMED → RESOLVED
+
+V23-39 measured the last blind spot at 126 sites and left it. This closes it. The rule as
+implemented reports **131** sites (the earlier figure checked suppression per *function*,
+which over-counted five as already marked); `_is_narrowed_float` then took that to **119**,
+and the rest were converted or marked here. The baseline is still 0.
+
+#### The defect the rule was hiding
+
+```python
+def ait_to_seconds(ait: float) -> int:
+    return int(ait * SECONDS_PER_AIT)   # SECONDS_PER_AIT = 3600
+```
+
+This is the function that turns a user's `--amount` into the integer number of
+compute-seconds the chain settles. Computing the product in float truncates on the low side
+whenever it lands just under an integer:
+
+```
+aitbc wallet send ... 0.5025    ->  1808 seconds   (0.5025 * 3600 == 1808.9999999999998)
+                                ->  1809 seconds   exact
+```
+
+**1402 of the million four-decimal inputs between 0.0001 and 100.0000 lose a compute-second
+that way** — always in the same direction, always the sender's. `seconds_to_ait` returns
+`Decimal` now, `ait_to_seconds` converts before multiplying, and
+`tests/unit/test_ait_unit_conversion.py` pins both the fix and the old behaviour so the
+regression is recognisable if it returns.
+
+#### `type=float` made the CLI annotations unenforceable
+
+42 of the 131 were CLI handlers, and annotating them `Decimal` alone would have been a lie:
+
+```python
+@click.option("--amount", type=float)   # click converts before the function is called
+def send(amount: Decimal, ...)          # ...so this holds a float regardless
+```
+
+So `cli/aitbc_cli/utils/money.py` adds a `DecimalParamType` (`type=DECIMAL`) that parses the
+user's own digits, rejects non-finite input, and leaves bad input failing as a Click usage
+error rather than a traceback. Every money option and argument in the CLI now uses it.
+
+That composes with the agent SDK, which shells out to this CLI: `Decimal` → `str(...)` →
+argv → `DECIMAL.convert` → `Decimal`, with no float anywhere in the path.
+
+**Honest scope note on the JSON boundary.** Money leaving the CLI is sent as a decimal
+string, and for these endpoints that is *not* mainly about the wire. Checked rather than
+assumed: Pydantic v2 parses the JSON literal `0.1` straight into `Decimal("0.1")`, so a
+plain float body was already exact for ordinary prices. The string only matters past ~17
+significant digits. What the conversion actually buys is everything **before** serialisation
+— `ait_to_seconds`, `btc_amount = aitbc_amount / rate`, `quote_liquidity + amount`,
+`balance - amount` — where float error accumulates.
+
+#### Local wallet files now store money as decimal strings
+
+`json.dump` cannot serialise a `Decimal`, and writing `float(amount)` back would restore
+exactly the rounding the `Decimal` was for. So `~/.aitbc/wallets/*.json`,
+`*_multisig.json` and `exchanges.json` hold decimal strings, and every reader goes through
+`utils.money.wallet_amount()`, which accepts both those and the JSON numbers older builds
+wrote. Six assertions in `tests/cli/test_wallet.py` were updated to compare values rather
+than spellings.
+
+#### Two latent crashes, found only because the types moved
+
+- `RewardCalculator.calculate_milestone_bonus` did `total_bonus = 0.0` then
+  `total_bonus += milestone.reward_amount`, and `RewardMilestone.reward_amount` is
+  `Decimal`. **That raises `TypeError` the moment an agent actually has a completed
+  milestone.** All five reward calculators return `Decimal` now — every one of them feeds a
+  `Decimal` column on `RewardCalculation`, so returning float had been narrowing them on the
+  way in.
+- `ComputeProvider._execute_job` (fixed in V23-39) was the same shape. Third occurrence.
+
+The mypy ratchet caught both, which is the payoff from V23-35 — the hook that used to report
+success while checking zero files.
+
+#### What kept `float`, with a marker and a reason
+
+Reinforcement-learning returns in `adaptive_learning.py` (five sites); `_calculate_rsi` and
+`_calculate_price_trend`, which are numpy statistics over a price *series* returning an index
+and a slope — numpy has no `Decimal` dtype; `MetricsRegistry.increment`; and
+`TEEBenchmarkResult.run(cost_units)`.
+
+Marking the RL ones exposed the fifth property of the suppression marker: **a comment above
+`def` does not cover parameters on continuation lines**, because the walk starts at the
+parameter's own line. Wrapped signatures need the marker on the parameter.
+
+#### A refinement, not just a widening
+
+`_is_narrowed_float` exempts any annotation that also admits `Decimal`. `amount: float`
+narrows — the caller cannot pass an exact value at all. `amount: Decimal | float | str` is a
+coercion boundary, and this repo has a dozen on purpose (`money.to_atomic_units`,
+`grant_service.create_grant`, `capacity_publisher.publish_capacity`), each normalising on the
+first line. Reporting those would be telling the code to stop accepting the type it exists to
+accept. Whether such a boundary then *keeps* the value exact is a separate question the body
+rules already answer.
+
+`blockchain-node`'s economics constructors were rewritten to that shape rather than to bare
+`Decimal`: `GasManager`, `StakingManager`, `stake()` and `add_reward_event()` already did
+`Decimal(str(x))` internally, so widening the door beats breaking every caller.
+
+#### One more vocabulary gap
+
+`funding` was not a money word, which hid `InnovationLab.funding_goal` and
+`current_funding` — and `fund_lab` does `current_funding += amount` then compares
+`current_funding >= funding_goal` to decide whether a lab is fully funded. A threshold
+comparison on a binary float is how a lab gets funded at 999.9999999999999 out of 1000. Both
+convert in `a3e7c15b8d94`; the table is empty in the deployed database. Verified both
+directions against a copy.
+
+#### Recorded, not fixed
+
+- **`wallet stats` and `wallet info` format the balance as compute-seconds**, while `earn`,
+  `spend` and `liquidity-stake` store it in AIT — a 3600x display error. Pre-existing, a unit
+  bug rather than a rounding one, and orthogonal to this pass.
+- **`transactions send` truncates with `int(amount)`** while `wallet send` goes through
+  `ait_to_seconds`. Two unit conventions for the same operation in one CLI.
+- **`mint_tokens` posts to `/admin/mintFaucet`, which is not implemented in this repo** (only
+  a test fixture and a docs entry, at a different path). The string boundary there could not
+  be verified against a receiver.
+- `exchange/payments.py` and `exchange/trading.py` define command functions that are **never
+  wired to Click**. Converted for consistency; unreachable either way.
+
+**Six widenings, six times the same result.** The baseline is zero against the rules that
+exist today, and that remains the only claim it supports.

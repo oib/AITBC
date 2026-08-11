@@ -25,6 +25,7 @@ class LearningExperience:
     action: str
     outcome: str
     performance_metrics: dict[str, float]
+    # not-money: a reinforcement-learning reward signal, not currency
     reward: float
     metadata: dict[str, Any] = field(default_factory=dict)
 

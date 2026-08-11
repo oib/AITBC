@@ -2,6 +2,8 @@
 Tests for governance service persistence.
 """
 
+from decimal import Decimal
+
 import pytest
 
 from coordinator_api.contexts.governance.services.governance_service import GovernanceService
@@ -16,7 +18,7 @@ async def test_regional_council_persisted_across_service_instances(db_session):
         council_name="NA Council",
         jurisdiction="US",
         council_members=["alice"],
-        budget_allocation=100.0,
+        budget_allocation=Decimal("100"),
     )
     council_id = created["council_id"]
 

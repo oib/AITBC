@@ -16,8 +16,8 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
-
 from coordinator_api.contexts.advanced_rl.domain import ReinforcementLearningConfig
+
 from .agents import PPOAgent, RainbowDQNAgent, SACAgent
 
 logger = get_logger(__name__)
@@ -335,6 +335,7 @@ class AdvancedReinforcementLearningEngine:
             "average_reward": total_reward / 10,
             "best_episode": max(episode_rewards),
             "worst_episode": min(episode_rewards),
+            # not-money: reinforcement-learning episode return, not currency
             "reward_std": float(np.std(episode_rewards)),
         }
 

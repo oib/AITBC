@@ -1,5 +1,6 @@
 """Search routes — advanced transaction and block search via data layer or RPC."""
 
+from decimal import Decimal
 from typing import Any
 
 import httpx
@@ -17,8 +18,8 @@ router = APIRouter()
 @router.get("/api/search/transactions")
 async def search_transactions(
     address: str | None = None,
-    amount_min: float | None = None,
-    amount_max: float | None = None,
+    amount_min: Decimal | None = None,
+    amount_max: Decimal | None = None,
     tx_type: str | None = None,
     since: str | None = None,
     until: str | None = None,
@@ -43,9 +44,9 @@ async def search_transactions(
             if address:
                 params["address"] = address
             if amount_min:
-                params["amount_min"] = amount_min
+                params["amount_min"] = str(amount_min)
             if amount_max:
-                params["amount_max"] = amount_max
+                params["amount_max"] = str(amount_max)
             if tx_type:
                 params["type"] = tx_type
             if since:

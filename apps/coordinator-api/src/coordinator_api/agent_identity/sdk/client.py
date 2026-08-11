@@ -6,6 +6,7 @@ Main client class for interacting with the Agent Identity API
 import asyncio
 import json
 from datetime import datetime
+from decimal import Decimal
 from types import TracebackType
 from typing import Any
 from urllib.parse import urljoin
@@ -310,9 +311,9 @@ class AgentIdentityClient:
             chain_address=response["chain_address"],
             wallet_type=response["wallet_type"],
             contract_address=response["contract_address"],
-            balance=0.0,
-            spending_limit=0.0,
-            total_spent=0.0,
+            balance=Decimal("0.0"),
+            spending_limit=Decimal("0.0"),
+            total_spent=Decimal("0.0"),
             is_active=True,
             permissions=[],
             requires_multisig=False,
@@ -330,10 +331,10 @@ class AgentIdentityClient:
         return float(response["balance"])
 
     async def execute_transaction(
-        self, agent_id: str, chain_id: int, to_address: str, amount: float, data: dict[str, Any] | None = None
+        self, agent_id: str, chain_id: int, to_address: str, amount: Decimal, data: dict[str, Any] | None = None
     ) -> TransactionResponse:
         """Execute a transaction from agent wallet"""
-        request_data = {"to_address": to_address, "amount": amount, "data": data}
+        request_data = {"to_address": to_address, "amount": str(amount), "data": data}
         response = await self._request(
             "POST", f"/agent-identity/identities/{agent_id}/wallets/{chain_id}/transactions", request_data
         )

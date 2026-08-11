@@ -4,6 +4,7 @@ Business logic for AI agent bounty system with ZK-proof verification
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, desc, func, or_, select
@@ -27,7 +28,7 @@ class BountyService:
         creator_id: str,
         title: str,
         description: str,
-        reward_amount: float,
+        reward_amount: Decimal,
         tier: BountyTier,
         performance_criteria: dict[str, Any],
         min_accuracy: float,
@@ -42,9 +43,9 @@ class BountyService:
     ) -> Bounty:
         """Create a new bounty"""
         try:
-            creation_fee = reward_amount * 0.005
-            success_fee = reward_amount * 0.02
-            platform_fee = reward_amount * 0.01
+            creation_fee = reward_amount * Decimal("0.005")
+            success_fee = reward_amount * Decimal("0.02")
+            platform_fee = reward_amount * Decimal("0.01")
             bounty = Bounty(
                 title=title,
                 description=description,
@@ -91,8 +92,8 @@ class BountyService:
         tier: BountyTier | None = None,
         creator_id: str | None = None,
         category: str | None = None,
-        min_reward: float | None = None,
-        max_reward: float | None = None,
+        min_reward: Decimal | None = None,
+        max_reward: Decimal | None = None,
         deadline_before: datetime | None = None,
         deadline_after: datetime | None = None,
         tags: list[str] | None = None,
@@ -334,7 +335,7 @@ class BountyService:
                         "address": row.submitter_address,
                         "submissions": row.submissions,
                         "avg_accuracy": float(row.avg_accuracy),
-                        "total_rewards": float(row.total_rewards),
+                        "total_rewards": Decimal(str(row.total_rewards)),
                         "rank": len(leaderboard) + 1,
                     }
                 )

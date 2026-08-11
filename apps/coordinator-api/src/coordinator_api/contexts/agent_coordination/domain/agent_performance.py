@@ -4,6 +4,7 @@ Implements SQLModel definitions for meta-learning, resource management, and perf
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -85,7 +86,7 @@ class AgentPerformanceProfile(SQLModel, table=True):
 
     # Resource utilization
     resource_efficiency: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    cost_per_task: float = Field(default=0.0)
+    cost_per_task: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     throughput: float = Field(default=0.0)
     average_latency: float = Field(default=0.0)
 
@@ -143,7 +144,7 @@ class MetaLearningModel(SQLModel, table=True):
 
     # Resource requirements
     training_time: float | None = None  # hours
-    computational_cost: float | None = None  # cost units
+    computational_cost: Decimal | None = None  # cost units
     memory_requirement: float | None = None  # GB
     gpu_requirement: bool | None = Field(default=False)
 
@@ -231,7 +232,7 @@ class PerformanceOptimization(SQLModel, table=True):
     # Before optimization
     baseline_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     baseline_resources: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    baseline_cost: float = Field(default=0.0)
+    baseline_cost: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Optimization configuration
     optimization_parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -241,7 +242,7 @@ class PerformanceOptimization(SQLModel, table=True):
     # After optimization
     optimized_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     optimized_resources: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    optimized_cost: float = Field(default=0.0)
+    optimized_cost: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Improvement metrics
     performance_improvement: float = Field(default=0.0)

@@ -2,6 +2,7 @@
 Storage layer for cross-chain settlements
 """
 
+from decimal import Decimal
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
@@ -217,8 +218,8 @@ class SettlementStorage:
 
             stats[bridge][result["status"]] = {
                 "count": result["count"],
-                "avg_amount": float(result["avg_amount"]) if result["avg_amount"] else 0,
-                "total_amount": float(result["total_amount"]) if result["total_amount"] else 0,
+                "avg_amount": str(result["avg_amount"]) if result["avg_amount"] else "0",
+                "total_amount": str(result["total_amount"]) if result["total_amount"] else "0",
             }
 
         return stats
@@ -240,11 +241,11 @@ class SettlementStorage:
         settlement_id: str,
         source_chain_id: str,
         target_chain_id: str,
-        amount: float,
+        amount: Decimal,
         asset_type: str,
         recipient_address: str,
         gas_limit: int | None = None,
-        gas_price: float | None = None,
+        gas_price: Decimal | None = None,
     ) -> None:
         """Store a new settlement record from router-level params"""
         query = """
@@ -425,11 +426,11 @@ class InMemorySettlementStorage(SettlementStorage):
         settlement_id: str,
         source_chain_id: str,
         target_chain_id: str,
-        amount: float,
+        amount: Decimal,
         asset_type: str,
         recipient_address: str,
         gas_limit: int | None = None,
-        gas_price: float | None = None,
+        gas_price: Decimal | None = None,
     ) -> None:
         async with self._lock:
             self.settlements[settlement_id] = {
