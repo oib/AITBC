@@ -195,9 +195,7 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
-        ) from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.get("/models", summary="List available models")

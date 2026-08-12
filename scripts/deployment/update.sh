@@ -12,7 +12,10 @@
 #   3. Sync Python venv (reinstall requirements + CLI)
 #   4. Relink systemd unit files (role-aware, via link-systemd.sh)
 #   5. daemon-reload + enable services for this role
-#   6. Run Alembic DB migrations for all services with alembic.ini
+#   6. Run Alembic DB migrations for all services with alembic.ini, each with its own
+#      /etc/aitbc/aitbc-<svc>.env and with the service stopped for the duration.
+#      blockchain-node is skipped unless DATABASE_URL is given: it has one database per
+#      island and its Alembic default points at a file no node uses.
 #   7. Restart all aitbc services
 #   8. Run health check
 #   9. Print summary + manual follow-up reminders
@@ -443,21 +446,90 @@ run_migrations() {
 
         log "  Migrating: $svc_name (in $svc_dir)"
 
-        # Load service-specific DB env vars from /etc/aitbc/<svc>.env if present
-        # so alembic env.py picks up the correct DATABASE_URL / DB_TYPE / etc.
-        local env_file="/etc/aitbc/${svc_name}.env"
-        if [ -f "$env_file" ]; then
-            # shellcheck disable=SC1090
-            source "$env_file" 2>/dev/null || true
+        # Locate this service's env file, which carries its DATABASE_URL.
+        #
+        # The installed files are /etc/aitbc/aitbc-<svc>.env -- the same `aitbc-` prefix the
+        # unit-file check three lines above already uses. This looked for <svc>.env without
+        # the prefix and so found nothing for blockchain-node, gpu, edge or coordinator-api;
+        # pool-hub was the only one that worked, and only because it happens to have a file
+        # under both names. The visible effect was coordinator-api migrating its *default*
+        # sqlite path while its env file pointed DATABASE_URL at production Postgres.
+        local env_file="" candidate
+        for candidate in "/etc/aitbc/aitbc-${svc_name}.env" "/etc/aitbc/${svc_name}.env"; do
+            if [ -f "$candidate" ]; then
+                env_file="$candidate"
+                log "    env: $env_file"
+                break
+            fi
+        done
+
+        # Read DATABASE_URL out in a subshell. It must NOT be sourced into this shell: these
+        # files export a per-service DATABASE_URL, and one leaking into the next iteration
+        # would point that service's `upgrade head` at another service's database. Sourcing
+        # coordinator-api's Postgres URL and then migrating edge, gpu, pool-hub and trading
+        # into it is a far worse failure than the missing-file bug this replaced.
+        local svc_db_url=""
+        if [ -n "$env_file" ]; then
+            svc_db_url=$(
+                unset DATABASE_URL SQLITE_URL
+                # shellcheck disable=SC1090
+                set -a; source "$env_file" 2>/dev/null || true; set +a
+                printf '%s' "${DATABASE_URL:-}"
+            )
         fi
 
         local pythonpath="/opt/aitbc:${svc_dir}/src"
         [ -n "$packages_src" ] && pythonpath="${pythonpath}:${packages_src}"
 
-        if ( set -o pipefail && cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /' ); then
+        # blockchain-node keeps one database per island under
+        # /var/lib/aitbc/data/<island>/chain.db. Its alembic default is settings.db_path,
+        # /var/lib/aitbc/data/chain.db, which no running node uses -- so a bare `upgrade head`
+        # migrates an empty file, reports success, and leaves every real chain untouched.
+        # That is exactly what had happened: the default target sat at head with zero rows
+        # while the live island database had no alembic_version table at all (V23-49).
+        # There is no single right answer here, so this refuses to guess.
+        if [ "$svc_name" = "blockchain-node" ] && [ -z "$svc_db_url" ]; then
+            warning "  skipping $svc_name: no DATABASE_URL set, and its default target is not"
+            warning "  a database any node uses. Migrate each island explicitly, with the"
+            warning "  service stopped:"
+            local island_db
+            for island_db in /var/lib/aitbc/data/*/chain.db; do
+                [ -e "$island_db" ] || continue
+                warning "    DATABASE_URL=sqlite:///$island_db \\"
+                warning "      $alembic_bin -c $svc_dir/alembic.ini upgrade head"
+            done
+            ((skipped++))
+            continue
+        fi
+
+        # Stop the service before touching its schema. SQLite migrations that convert a
+        # column go through batch_alter_table(recreate="always"), which drops and rebuilds
+        # the table; doing that under a process that holds the file open and has the old
+        # schema cached is how a routine update corrupts a live service. Restarted below
+        # only if it was running when we arrived -- step 6 restarts everything anyway.
+        local was_active=false
+        if systemctl is-active --quiet "aitbc-${svc_name}"; then
+            was_active=true
+            log "    stopping aitbc-${svc_name} for the duration of the migration"
+            systemctl stop "aitbc-${svc_name}" || true
+        fi
+
+        # The env file is sourced *inside* this subshell, so nothing it sets outlives the
+        # service it belongs to.
+        if (
+            set -o pipefail
+            unset DATABASE_URL SQLITE_URL
+            if [ -n "$env_file" ]; then
+                # shellcheck disable=SC1090
+                set -a; source "$env_file" 2>/dev/null || true; set +a
+            fi
+            cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /'
+        ); then
             success "  migrated: $svc_name"
             ((migrated++))
+            [ "$was_active" = "true" ] && systemctl start "aitbc-${svc_name}" || true
         else
+            [ "$was_active" = "true" ] && systemctl start "aitbc-${svc_name}" || true
             error "  migration failed for $svc_name (multiple heads, missing baseline, or DB unreachable)"
             error "  inspect: cd $svc_dir && PYTHONPATH=$pythonpath $alembic_bin upgrade head"
             ((failed++))
@@ -558,13 +630,23 @@ print_summary() {
     fi
     echo ""
     echo "  Manual follow-ups to consider:"
+    # Discovered, not hardcoded: this list read "blockchain-node, pool-hub, governance,
+    # trading" long after coordinator-api, edge and gpu had gained an alembic.ini.
     echo "    - DB migrations (alembic) — services with alembic.ini:"
-    echo "        blockchain-node, pool-hub, governance, trading"
-    echo "      Run individually if auto-migration was skipped or failed:"
-    echo "        cd $AITBC_ROOT/apps/blockchain-node && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
-    echo "        cd $AITBC_ROOT/apps/pool-hub       && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
-    echo "        cd $AITBC_ROOT/apps/governance     && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
-    echo "        cd $AITBC_ROOT/apps/trading        && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
+    local ini svc
+    while IFS= read -r ini; do
+        svc=$(basename "$(dirname "$ini")")
+        [ "$svc" = "blockchain-node" ] && continue
+        echo "        cd $AITBC_ROOT/apps/$svc && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
+    done < <(find "$AITBC_ROOT/apps" -maxdepth 3 -name "alembic.ini" 2>/dev/null | sort)
+    echo "      blockchain-node is per-island — name the database, and stop the node first."
+    echo "      Its default target is /var/lib/aitbc/data/chain.db, which no node uses:"
+    local island_db
+    for island_db in /var/lib/aitbc/data/*/chain.db; do
+        [ -e "$island_db" ] || continue
+        echo "        DATABASE_URL=sqlite:///$island_db \\"
+        echo "          $AITBC_ROOT/venv/bin/alembic -c $AITBC_ROOT/apps/blockchain-node/alembic.ini upgrade head"
+    done
     echo "    - Review changed config templates in examples/ vs /etc/aitbc/"
     echo "    - If nginx configs changed, update both container + host proxy:"
     echo "        Container: /opt/aitbc/examples/nginx/nginx-*.conf.example"
