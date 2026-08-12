@@ -47,9 +47,9 @@ HEALTH_CHECK_SCRIPT="$AITBC_ROOT/scripts/monitoring/health_check.sh"
 LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
 
-# Public Git remote — pull from GitHub by default.
-# Override with --remote flag or AITBC_GIT_REMOTE env var.
-GIT_REMOTE="${AITBC_GIT_REMOTE:-https://github.com/oib/AITBC.git}"
+# Public Git remote — pull from Gitea by default (matches the 'origin' remote
+# configured by setup.sh). Override with --remote <url> or AITBC_GIT_REMOTE.
+GIT_REMOTE="${AITBC_GIT_REMOTE:-origin}"
 
 # Flags
 DO_PULL=true
