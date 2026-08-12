@@ -87,11 +87,43 @@ ENABLE_BLOCK_PRODUCTION=false  # Set to false for follower nodes
 GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 MEMPOOL_BACKEND=database
 MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:password@localhost:5432/aitbc_mempool
-PROPOSER_ID=ait1db5247d03ca2e40f3995a583b2c097ab703efd4d
+PROPOSER_ID=<your-proposer-address>
 DEFAULT_PEER_RPC_URL=http://hub.aitbc.bubuit.net:8202
 P2P_NODE_ID=<your-node-id>
 P2P_PEERS=auto
 ```
+
+### `PROPOSER_ID` and `GENESIS_WALLET_ADDRESS` are different things
+
+Conflating these two has already caused a production outage, so they are worth stating plainly:
+
+| Variable | What it is | Holds funds? |
+|---|---|---|
+| `PROPOSER_ID` | The identity a node signs blocks *as*. Must match the address of the key in `keystore/proposer.json`, or the blocks it produces fail verification on every follower. | No |
+| `GENESIS_WALLET_ADDRESS` | The wallet holding the genesis allocation — the account AIT transfers are sent *from*, paired with `GENESIS_WALLET_PRIVATE_KEY`. Read by bridge-monitor, blockchain-node escrow, and the CLI exchange command. | Yes |
+
+Setting `GENESIS_WALLET_ADDRESS` to the proposer address does not fail loudly. It produces
+transfers from an account that does not exist, so bridge deposits and faucet transfers stop
+working while block production looks perfectly healthy.
+
+**A follower still needs its own `PROPOSER_ID`**, even with `ENABLE_BLOCK_PRODUCTION=false`.
+It is not inert there: the node filters gossip with it, skipping any block whose `proposer`
+equals its own as self-proposed (`aitbc_chain/main.py`). Copying the hub's `PROPOSER_ID` into
+a follower's env therefore makes that follower silently discard every block the hub gossips.
+It still catches up over bulk RPC sync, so the symptom is a node that falls behind and
+recovers in bursts rather than one that visibly fails. Use your own node's address, or leave
+it empty if the node never produces blocks.
+
+Two things to check when setting it:
+
+- **Write it once.** Settings are read case-insensitively, so `PROPOSER_ID` and `proposer_id`
+  are the same setting written two ways — but both reach the process as distinct environment
+  variables, and the lowercase spelling wins. An env file containing both has one live value
+  and one line of dead text that reads exactly like configuration.
+- **It must be the full 40-hex address.** `validate_address` accepts a short `ait1…` body, but
+  signature verification canonicalises `ait1<body>` to `0x<body>` only at exactly 40 hex
+  characters. A shorter id passes validation, fails to match any keystore entry (`Failed to
+  load proposer key from keystore` on every start), and produces blocks no peer can verify.
 
 ## 3. Setup Genesis Block
 
@@ -131,6 +163,12 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
   ]
 }
 ```
+
+> **Copy this byte for byte.** The genesis hash above is computed over these fields, so the
+> `proposer` and `allocations[].address` here are historical facts of the chain, not settings.
+> They record who proposed block 0 and who received the initial supply. Do **not** update them
+> to match a node's current `PROPOSER_ID` — a node whose genesis differs computes a different
+> genesis hash and cannot join.
 
 ## 4. Start Blockchain Services
 
