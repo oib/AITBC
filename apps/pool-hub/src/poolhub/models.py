@@ -83,9 +83,7 @@ class MinerStatus(Base):
     mem_free_gb: Mapped[float | None] = mapped_column(Float)
     uptime_pct: Mapped[float | None] = mapped_column(Float)  # SLA metric
     last_heartbeat_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
-    )
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     miner: Mapped[Miner] = relationship(back_populates="status")
 
@@ -148,9 +146,7 @@ class ServiceConfig(Base):
     capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
-    )
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     # Add unique constraint for miner_id + service_type
     __table_args__ = ({"schema": None},)

@@ -54,6 +54,30 @@ SKIP_SUFFIXES = (".bashrc", ".profile", ".env")
 # do, arriving one file at a time through a check meant to prevent it.
 SKIP_DIRS = ("tests/orchestrator.d",)
 
+# Scripts whose omission is a deliberate, documented design decision rather than an
+# oversight. Each is exempt from the *specific* settings named, and nothing else -- an
+# entry here is a claim about one property, not a blanket pass.
+#
+# V23-50. Both are long-lived deployment scripts where the check, applied as a ratchet on
+# touch, would have forced a semantic change to production behaviour as a side effect of an
+# unrelated fix. That is the wholesale flip V23-23 warned about, arriving through the very
+# check meant to prevent it.
+#
+#   deployment/update.sh -- `set -e` is refused on purpose, at its own line 37: "do NOT use
+#     -e (we want to continue past soft failures)". It counts failures per service and
+#     reports them at the end; errexit would abort at the first one and skip the rest of a
+#     multi-service deploy. It does set -u.
+#   deployment/setup.sh -- 1,400+ lines of installer with many legitimately-unset optional
+#     variables. It does set -e. Switching -u on unreviewed would abort a production install
+#     on the first one, and there is no way to test that here.
+#
+# Converting either is its own task, with its own testing. Until then the gap is visible
+# here rather than silently absent.
+SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
+    "scripts/deployment/update.sh": ("set -e",),
+    "scripts/deployment/setup.sh": ("set -u", "set -o pipefail"),
+}
+
 
 def _is_shell(path: Path) -> bool:
     if path.suffix == ".sh":
@@ -87,7 +111,13 @@ def _missing(path: Path) -> list[str]:
         gaps.append("set -u")
     if not PIPEFAIL.search(text):
         gaps.append("set -o pipefail")
-    return gaps
+
+    try:
+        relative = path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return gaps
+    exempt = SKIP_SETTINGS.get(relative, ())
+    return [g for g in gaps if g not in exempt]
 
 
 def _tracked_shell_scripts() -> list[Path]:
