@@ -148,7 +148,7 @@ sudo tar xzf /var/backups/aitbc/<timestamp>/etc-aitbc.tar.gz -C /
 
 The backup script reads the governance database password from `/etc/aitbc/credentials/postgres_aitbc_governance_password` (created by `setup_postgresql_databases.sh`). As a fallback, it reads `DB_PASS` from `/etc/aitbc/aitbc-governance.env`.
 
-The password is **never** read from `blockchain-secrets.env` — that file is published on the website for followers to join the island and must not contain database credentials.
+The password is **never** read from `blockchain-secrets.env`. That file used to be published on the website, so it was kept free of database credentials; publishing it was itself the defect and stopped in v0.23 (V23-58). Keep DB credentials out of it regardless — it is distributed to every node running the wallet or agent-coordinator, which is a far wider audience than needs Postgres.
 
 ## Related Topics
 
