@@ -40,11 +40,13 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 60 findings — 45 confirmed defects, 15 observed design gaps. **59 resolved**
+**Totals**: 61 findings — 46 confirmed defects, 15 observed design gaps. **59 resolved**
 (V23-01..51, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — sixty entries, fifty-one numbered findings); **1 needs a deploy** — V23-51 fixes
-the serializer in this repo, but peer sync only recovers once `hub.aitbc.bubuit.net` is
-running the fixed code, since the follower can only receive what the hub serves.
+V23-32a — sixty-one entries, fifty-two numbered findings); **2 need an operator** —
+V23-51's serializer fix is deployed on both ends and working, but V23-52 shows the hub signs
+with a key that is not its declared proposer, so followers still reject every block; and the
+coordinator-api/governance Alembic state remains unaddressed after the 2026-08-12 deploy ran
+with `--no-migrate`.
 
 V23-50's `/var/lib/aitbc` repermission **was applied** on 2026-08-12 at 08:46. All five
 looping services recovered within five seconds and their restart counters stopped
@@ -4001,3 +4003,42 @@ new blocks carry signatures and sync resumes from the tip; the historical rows s
 unless refetched. Setting `trusted_proposers` to the hub's proposer ID is the documented
 escape hatch and would unblock it immediately, at the cost of accepting unauthenticated
 blocks on the strength of TLS to the hub alone — an operator's call, not a default.
+
+### V23-52 — the hub signs with a key that is not the proposer it declares
+
+**Confirmed**, and **not fixable in this repo** — it is a keystore/config fault on
+`hub.aitbc.bubuit.net`. The code change here is diagnostic only.
+
+V23-51 shipped and the hub was redeployed. The follower's rejection message changed:
+
+    before:  Unsigned block and no trusted proposer set configured
+    after:   Invalid proposer signature
+
+which is progress — the signature now crosses the wire and is actually being checked — and
+the node is still pinned at 93,274. The deploy report gave the height as 105,586; that is the
+hub's height. The follower has imported nothing.
+
+The hub's blocks all declare proposer `ait1db5247d03ca2e40f3995a583b2c097ab703efd4d`, which
+is the documented genesis proposer (`docs/getting-started/node/blockchain-setup.md:90`).
+Recovering the address from the signatures instead gives
+`0xFe2d63FE87Db282083b9159e5857Cac788af9E03` — consistently, across every block sampled, and
+an identity that appears nowhere in the repo, the genesis metadata, or the node config.
+`ait1` is a legacy prefix stripped to the `0x` body (`cli/aitbc_cli/utils/crypto_utils.py`),
+so these are two different keys, not two spellings of one.
+
+Sign/verify round-trips correctly in this codebase — checked with a fresh keypair — so the
+crypto is sound and the hash formatting is not at fault (verification fails under every
+0x-normalisation). The hub is simply signing with a key it is not claiming.
+
+Every follower validating signatures will reject every block the hub produces, and will go
+on doing so after any amount of redeployment. Resolving it is a hub-side decision between
+giving the node the key for its declared identity, or declaring the identity that actually
+signs — the first preserves the chain's documented proposer, the second rewrites it, and
+neither is ours to pick from here.
+
+**What was fixed.** `verify_block_signature` said "Invalid proposer signature" and stopped,
+so a forged block and a proposer using the wrong key produced the same line. It now names
+both addresses — recovered and expected — which are public. This is the log half of exactly
+the distinction V23-04 drew for the metrics half, and it is why that finding's test file is
+where the new tests live. Identifying this took fetching a block and recovering the address
+by hand; the next occurrence is one line of log.

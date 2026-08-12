@@ -106,3 +106,34 @@ def test_the_v2301_regression_would_now_be_visible() -> None:
         "the two outcomes must move independently -- if a deployment fault raised the same "
         "counter as an attack, the operator learns nothing from either"
     )
+
+
+def test_a_mismatch_names_the_key_that_actually_signed(caplog) -> None:
+    """V23-52: the log half of the same distinction.
+
+    A mismatch has two very different causes: someone forged a block, or a proposer is
+    signing with a key that is not the identity it declares. The metric cannot tell them
+    apart and neither could the message -- it said "Invalid proposer signature" and stopped.
+
+    That is not hypothetical. The deployed hub signed 12,000+ blocks with an unregistered
+    key while declaring the genesis proposer, so every block was well-formed, correctly
+    signed, and rejected by every follower. Identifying it meant fetching a block and
+    recovering the address by hand. Both addresses are public; naming them makes the next
+    occurrence one line of log.
+    """
+    signer = Account.create()
+    impostor = Account.create()
+    signature = sign_block_hash(BLOCK_HASH, signer.key.hex())
+
+    with caplog.at_level("WARNING"):
+        assert verify_block_signature(BLOCK_HASH, signature, impostor.address) is False
+
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert signer.address in logged, "the recovered key must be named -- it is the whole diagnosis"
+    assert impostor.address in logged, "and the expected one, or there is nothing to compare against"
+
+
+def test_an_unparseable_signature_still_logs_without_raising(caplog) -> None:
+    """The mismatch branch re-recovers to report; that must not turn a rejection into a crash."""
+    with caplog.at_level("WARNING"):
+        assert verify_block_signature(BLOCK_HASH, "0x" + "00" * 64 + "ff", Account.create().address) is False
