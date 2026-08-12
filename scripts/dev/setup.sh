@@ -22,6 +22,20 @@ info()  { echo -e "${BLUE}[INFO]${NC} $*"; }
 ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
+# The same gates pre-commit runs, so "All checks passed" here means the commit will not
+# bounce. ruff + mypy alone did not: the two ratchets below are enforced as hooks, and a
+# dev who ran only this script found that out at commit time instead.
+run_checks() {
+    ./venv/bin/python -m ruff check .
+    ./venv/bin/python -m ruff format --check .
+    ./venv/bin/python -m mypy --show-error-codes aitbc/
+    # apps/ type ratchet — baseline is 0; a new error fails the hook
+    bash scripts/ci/mypy-precommit.sh
+    # no new float-money declarations
+    ./venv/bin/python scripts/lint/no_float_money.py
+    ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+}
+
 CHECK_ONLY=false
 START_SERVICES=false
 for arg in "$@"; do
@@ -35,10 +49,7 @@ done
 
 if [ "$CHECK_ONLY" = true ]; then
     info "Running checks only"
-    ./venv/bin/python -m ruff check .
-    ./venv/bin/python -m ruff format --check .
-    ./venv/bin/python -m mypy --show-error-codes aitbc/
-    ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+    run_checks
     ok "All checks passed"
     exit 0
 fi
@@ -70,10 +81,7 @@ fi
 
 # 4. Run checks
 info "Running checks"
-./venv/bin/python -m ruff check .
-./venv/bin/python -m ruff format --check .
-./venv/bin/python -m mypy --show-error-codes aitbc/
-./venv/bin/python -m pytest tests/unit -q -o addopts=""
+run_checks
 ok "All checks passed"
 
 # 5. Optionally start services
