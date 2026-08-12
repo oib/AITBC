@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import runpy
+import sys
 from pathlib import Path
 
 import aitbc_agent
@@ -99,12 +100,15 @@ def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
             run_name="__main__",
         )
 
-        assert captured["file"] == "/opt/aitbc/venv/bin/python"
-        assert captured["args"][0] == "/opt/aitbc/venv/bin/python"
+        SERVICE_DIR = REPO_ROOT / "apps" / "agent-coordinator" / "src"
+
+        assert captured["file"] == sys.executable
+        assert captured["args"][0] == sys.executable
         assert captured["args"][1] == "-m"
         assert captured["args"][2] == "agent_app.main"
         # The wrapper does not set AITBC_ENV_FILE / AITBC_NODE_ENV_FILE -- it never
         # reads or writes them. What it does set for the child is PYTHONPATH, so that is
         # what is asserted.
         assert "PYTHONPATH" in captured_env
-        assert "/opt/aitbc/apps/agent-coordinator/src" in captured_env["PYTHONPATH"]
+        assert str(SERVICE_DIR) in captured_env["PYTHONPATH"]
+        assert str(REPO_ROOT) in captured_env["PYTHONPATH"]
