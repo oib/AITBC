@@ -5,18 +5,34 @@
 # follower starts from height 0 using the provided genesis.json file.
 #
 # Usage (run as root on the follower):
-#   sudo GENESIS_FILE=/path/to/new-genesis.json bash reset-follower-to-genesis.sh
+#   sudo bash reset-follower-to-genesis.sh
 #
-# The GENESIS_FILE can be copied from the hub with:
-#   scp root@hub.aitbc.bubuit.net:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/genesis.json ./new-genesis.json
+# The script can either:
+#   - Download the genesis from the public hub URL (default)
+#   - Use a local file: GENESIS_FILE=/path/to/genesis.json bash reset-follower-to-genesis.sh
+#
+# The public genesis URL is:
+#   http://hub.aitbc.bubuit.net/agent/genesis.json
 
 set -euo pipefail
 
 CHAIN_ID="${CHAIN_ID:-ait-hub.aitbc.bubuit.net}"
-GENESIS_FILE="${GENESIS_FILE:-/var/lib/aitbc/data/${CHAIN_ID}/genesis.json}"
+HUB="${HUB:-hub.aitbc.bubuit.net}"
+GENESIS_URL="${GENESIS_URL:-http://${HUB}/agent/genesis.json}"
+GENESIS_FILE="${GENESIS_FILE:-}"  # set to use a local file instead of downloading
 DB_DIR="${DB_DIR:-/var/lib/aitbc/data}"
 DB="${DB_DIR}/${CHAIN_ID}/chain.db"
 UNITS="aitbc-blockchain-node aitbc-blockchain-rpc"
+
+# Download from the hub unless a local file is provided
+if [ -z "$GENESIS_FILE" ]; then
+    GENESIS_FILE="/tmp/aitbc-genesis-${CHAIN_ID}.json"
+    echo "Downloading genesis from $GENESIS_URL"
+    if ! curl -fsSL "$GENESIS_URL" -o "$GENESIS_FILE"; then
+        echo "Failed to download genesis from $GENESIS_URL" >&2
+        exit 1
+    fi
+fi
 
 [ -f "$GENESIS_FILE" ] || { echo "No genesis file: $GENESIS_FILE" >&2; exit 1; }
 
