@@ -7,6 +7,8 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from sqlmodel import SQLModel
 from starlette.testclient import TestClient
 
@@ -90,6 +92,7 @@ def coordinator_client() -> Generator[TestClient]:
         pytest.skip(f"coordinator-api not available: {_e}")
 
     app = _create_app()
+    SQLModel.metadata.create_all(_db.get_engine())
     with patch.object(_db, "init_async_db", _noop_async):
         with TestClient(app) as client:
             yield client
@@ -109,28 +112,37 @@ def reset_coordinator_state(coordinator_client: TestClient) -> Generator[None]:
 def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient]:
     """Create an authenticated test client with a session token.
 
-    Registers a test user via the coordinator API and uses the returned
-    session token for authenticated requests. The coordinator API accepts
-    the token via the Authorization: Bearer header or the ``token`` query
-    parameter.
+    Generates an Ethereum wallet, obtains a nonce from /v1/auth/nonce, signs
+    the canonical login message, and registers the wallet via /v1/register.
+    The coordinator API accepts the token via the Authorization: Bearer header
+    or the ``token`` query parameter.
     """
     import uuid
 
     unique = uuid.uuid4().hex[:8]
+    account = Account.create()
+    wallet_address = account.address.lower()
+
+    nonce_resp = coordinator_client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+    if nonce_resp.status_code != 200:
+        pytest.skip(f"Could not get nonce for integration test user: {nonce_resp.text}")
+    nonce = nonce_resp.json()["nonce"]
+
+    message = f"Sign this message to log in to AITBC.\nWallet: {wallet_address}\nNonce: {nonce}"
+    signable = encode_defunct(text=message)
+    signature = account.sign_message(signable).signature.hex()
+
     register_data = {
         "email": f"integration-test-{unique}@aitbc.local",
         "username": f"integration_test_user_{unique}",
+        "wallet_address": wallet_address,
+        "nonce": nonce,
+        "signature": signature,
     }
     register_response = coordinator_client.post("/v1/register", json=register_data)
     if register_response.status_code not in (200, 201):
-        # If registration failed, try login with a unique wallet address
-        wallet = f"auth_test_wallet_{unique}"
-        login_response = coordinator_client.post("/v1/login", json={"wallet_address": wallet})
-        if login_response.status_code not in (200, 201):
-            pytest.skip(f"Could not authenticate integration test user: {register_response.text} / {login_response.text}")
-        token = login_response.json().get("session_token", "")
-    else:
-        token = register_response.json().get("session_token", "")
+        pytest.skip(f"Could not authenticate integration test user: {register_response.text}")
+    token = register_response.json().get("session_token", "")
 
     if not token:
         pytest.skip("No session token returned for integration test user")
