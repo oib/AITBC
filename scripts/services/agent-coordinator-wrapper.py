@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 # Add AITBC to path
-REPO_DIR = Path(__file__).resolve().parents[3]
+REPO_DIR = Path(__file__).resolve().parents[2]
 SERVICE_DIR = REPO_DIR / "apps" / "agent-coordinator" / "src"
 
 sys.path.insert(0, str(REPO_DIR))
