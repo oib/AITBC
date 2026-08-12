@@ -14,9 +14,14 @@ Download the public chain configuration and cluster secrets from the hub:
 ```bash
 curl https://hub.aitbc.bubuit.net/agent/blockchain.env \
   -o /etc/aitbc/blockchain.env
-curl https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env \
-  -o /etc/aitbc/blockchain-secrets.env
+curl https://hub.aitbc.bubuit.net/agent/genesis.json \
+  -o /etc/aitbc/genesis.json
 ```
+
+A node that follows the chain needs nothing else — `blockchain-node` does not read
+`blockchain-secrets.env`. If you also run the wallet or agent-coordinator, get that file from
+the hub operator over an authenticated channel; it holds live credentials and is not
+published (V23-58).
 
 ## 2. Create Your Node Configuration
 
