@@ -9,6 +9,8 @@ current API and are skipped.
 import uuid
 
 import pytest
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from starlette.testclient import TestClient
 
 
@@ -16,11 +18,25 @@ class TestAuthentication:
     """Test current authentication endpoints."""
 
     def test_register_user_success(self, coordinator_client: TestClient):
-        """Test successful user registration."""
+        """Test successful user registration with a signed wallet address."""
         unique = uuid.uuid4().hex[:8]
+        account = Account.create()
+        wallet_address = account.address.lower()
+
+        nonce_resp = coordinator_client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+        assert nonce_resp.status_code == 200
+        nonce = nonce_resp.json()["nonce"]
+
+        message = f"Sign this message to log in to AITBC.\nWallet: {wallet_address}\nNonce: {nonce}"
+        signable = encode_defunct(text=message)
+        signature = account.sign_message(signable).signature.hex()
+
         register_data = {
             "email": f"auth-test-{unique}@aitbc.local",
             "username": f"auth_test_user_{unique}",
+            "wallet_address": wallet_address,
+            "nonce": nonce,
+            "signature": signature,
         }
         response = coordinator_client.post("/v1/register", json=register_data)
         assert response.status_code in (200, 201)
@@ -29,9 +45,22 @@ class TestAuthentication:
         assert "session_token" in data
 
     def test_login_user_success(self, coordinator_client: TestClient):
-        """Test successful user login by wallet address."""
-        wallet_address = f"auth_login_wallet_{uuid.uuid4().hex[:8]}"
-        response = coordinator_client.post("/v1/login", json={"wallet_address": wallet_address})
+        """Test successful user login with a signed wallet-address nonce."""
+        account = Account.create()
+        wallet_address = account.address.lower()
+
+        nonce_resp = coordinator_client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+        assert nonce_resp.status_code == 200
+        nonce = nonce_resp.json()["nonce"]
+
+        message = f"Sign this message to log in to AITBC.\nWallet: {wallet_address}\nNonce: {nonce}"
+        signable = encode_defunct(text=message)
+        signature = account.sign_message(signable).signature.hex()
+
+        response = coordinator_client.post(
+            "/v1/login",
+            json={"wallet_address": wallet_address, "nonce": nonce, "signature": signature},
+        )
         assert response.status_code in (200, 201)
         data = response.json()
         assert "user_id" in data
