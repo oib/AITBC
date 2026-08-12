@@ -182,7 +182,7 @@ def verify_block_signature(
         record_failure("block", UNPARSEABLE)
         return False
 
-    from .signature_recovery import SignatureMalformed, verify_signature
+    from .signature_recovery import SignatureMalformed, recover_address, verify_signature
 
     try:
         msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
@@ -202,5 +202,20 @@ def verify_block_signature(
         return False
 
     if not valid:
+        # V23-52: "invalid signature" alone cannot distinguish a forged block from a
+        # proposer signing with a key that is not the identity it declares. The deployed
+        # hub did the latter for 12,000+ blocks -- every block well-formed, correctly
+        # signed, and rejected -- and telling the two apart meant recovering the address
+        # by hand. Both addresses are public, so naming them costs nothing and turns the
+        # next occurrence into one line of log. Same reasoning as the V23-04 branch above.
+        try:
+            recovered = recover_address(msg_hash, signature)
+        except (SignatureMalformed, ValueError):
+            recovered = "<unrecoverable>"
+        logger.warning(
+            "Block signature does not match the declared proposer: recovered %s, expected %s",
+            recovered,
+            expected_proposer,
+        )
         record_failure("block", MISMATCH)
     return valid
