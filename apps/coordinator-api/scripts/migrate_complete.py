@@ -67,9 +67,13 @@ def migrate_all_data():
         # nosec B608 - table_name validated against allowed_tables above; column_names
         # come from PRAGMA table_info (the DB's own schema), never external input.
         if table_name == "user":
-            insert_sql = f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
+            insert_sql = (
+                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
+            )
         else:
-            insert_sql = f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
+            insert_sql = (
+                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
+            )
 
         # Insert data
         count = 0
