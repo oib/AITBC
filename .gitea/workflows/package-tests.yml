@@ -132,7 +132,7 @@ jobs:
               echo "Skipping aitbc.logging import check for ${{ matrix.package.name }}"
             fi
             echo "=== Running Tests ==="
-            venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short
+            venv/bin/python -m pytest -o addopts="" --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short
           else
             echo "⚠️ No tests directory found"
           fi
