@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 # Add AITBC to path
-REPO_DIR = Path("/opt/aitbc")
-SERVICE_DIR = Path("/opt/aitbc/apps/agent-coordinator/src")
+REPO_DIR = Path(__file__).resolve().parents[3]
+SERVICE_DIR = REPO_DIR / "apps" / "agent-coordinator" / "src"
 
 sys.path.insert(0, str(REPO_DIR))
 sys.path.insert(0, str(SERVICE_DIR))
@@ -36,6 +36,6 @@ logger.info(f"Executing: {' '.join(exec_cmd)}")
 
 # Ensure PYTHONPATH is set for the child process
 env = os.environ.copy()
-env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/agent-coordinator/src"
+env["PYTHONPATH"] = f"{REPO_DIR}:{SERVICE_DIR}"
 
 os.execvpe(exec_cmd[0], exec_cmd, env)
