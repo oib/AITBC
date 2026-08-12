@@ -82,7 +82,7 @@ jobs:
             --venv-dir "$PWD/venv" \
             --requirements-file /tmp/requirements-ci.txt \
             --mode copy \
-            --extra-packages "pytest mypy black pydantic-settings fastapi uvicorn httpx requests filelock"
+            --extra-packages "pytest pytest-asyncio mypy black pydantic-settings fastapi uvicorn httpx requests filelock"
 
           venv/bin/python -m pip install -q -e "$GITHUB_WORKSPACE/packages/aitbc-shared"
           venv/bin/python -m pip install -q -e "$GITHUB_WORKSPACE/packages/py/aitbc-agent-core"
