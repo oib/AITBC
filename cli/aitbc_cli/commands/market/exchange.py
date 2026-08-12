@@ -115,7 +115,7 @@ def mint_ait(ctx, deposit_id: str):
         # Transfer AIT tokens from genesis wallet (fixed supply, no minting)
         wallet_address = getattr(config, "wallet_address", None)
         chain_id = getattr(config, "chain_id", None)
-        genesis_wallet_address = "ait1db5247d03ca2e40f3995a583b2c097ab703efd4d"
+        genesis_wallet_address = getattr(config, "genesis_wallet_address", "")
 
         try:
             import httpx
@@ -124,7 +124,11 @@ def mint_ait(ctx, deposit_id: str):
             blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
             sender_response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{genesis_wallet_address}")
             if sender_response.status_code != 200:
-                error(f"Failed to get genesis wallet account: {sender_response.text}")
+                # Name the address. The likely cause is GENESIS_WALLET_ADDRESS pointing at the
+                # block proposer, which is a signing identity with no account and no balance —
+                # a mix-up that has already been made in a deployed env file.
+                error(f"Failed to get genesis wallet account {genesis_wallet_address}: {sender_response.text}")
+                error("GENESIS_WALLET_ADDRESS must be the wallet holding the genesis allocation, not the proposer.")
                 raise click.Abort()
 
             sender_data = sender_response.json()
