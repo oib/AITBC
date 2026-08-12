@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,6 +57,11 @@ class CLIConfig(BaseAITBCConfig):
     genesis_wallet_address: str = Field(
         default="ait1db5247d03ca2e40f3995a583b2c097ab703efd4d",
         description="Wallet holding the genesis allocation (from GENESIS_WALLET_ADDRESS env var)",
+    )
+    # SecretStr so it cannot land in a log line or traceback via repr.
+    genesis_wallet_private_key: SecretStr | None = Field(
+        default=None,
+        description="Signing key for genesis_wallet_address (from GENESIS_WALLET_PRIVATE_KEY env var)",
     )
     hub_discovery_url: str | None = Field(
         default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)"
