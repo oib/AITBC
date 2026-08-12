@@ -153,16 +153,20 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 
 ## Address Formats
 
-AIT supports multiple address formats:
+AIT supports multiple address formats. Both are a prefix followed by the same 40 hex
+characters as the equivalent `0x` address, so `ait1<body>`, `aitbc1<body>` and `0x<body>`
+all name the same account.
+
+The examples below are illustrative and deliberately not real accounts — do not send to them.
 
 ### aitbc1 Format (Most Common)
 ```
-aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+aitbc1abcdef0123456789abcdef0123456789abcdef01
 ```
 
 ### ait1 Format (Newer Addresses)
 ```
-ait1db5247d03ca2e40f3995a583b2c097ab703efd4d
+ait1abcdef0123456789abcdef0123456789abcdef01
 ```
 
 ### Finding Your Address
