@@ -61,11 +61,24 @@ def _load_keystore_password() -> str:
 
 
 def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_address: str | None = None) -> bytes | None:
-    """Load an ed25519 private key from the keystore.
+    """Load a secp256k1 private key from the keystore.
+
     If target_address is given, find the keystore file with matching address.
     Otherwise, return the first key found.
     Supports both Ethereum encrypted keystore and simple wallet JSON formats.
+
+    A file is only accepted if the key inside it derives to the address the file
+    declares. Matching on the declared ``address`` alone is what let one key be
+    labelled as three different identities on the deployed hub: `proposer.json` named
+    the treasury while holding the block-signing key, so the node signed 12,353 blocks
+    as an address it could not prove, and no follower could import any of them
+    (V23-51..55). The file's own claim is the thing that was wrong, so it cannot also
+    be the thing that is checked.
     """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    from .proposer_identity import address_of
+
     if not keystore_dir.exists():
         logger.warning("Keystore directory not found: %s", keystore_dir)
         return None
@@ -74,7 +87,7 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
             with open(kf) as f:
                 data = json.load(f)
             addr = data.get("address")
-            if target_address and addr != target_address:
+            if target_address and canonical_address(str(addr or "")) != canonical_address(target_address):
                 continue
             private_key_hex = data.get("private_key", "")
             if not private_key_hex:
@@ -89,6 +102,19 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
                     continue
             if private_key_hex.startswith("0x"):
                 private_key_hex = private_key_hex[2:]
+
+            if addr:
+                derived = address_of(private_key_hex)
+                if canonical_address(derived) != canonical_address(str(addr)):
+                    logger.error(
+                        "Keystore file %s is mislabelled: it declares %s but its key controls %s. "
+                        "Refusing to use it — signing with it would produce blocks no peer can verify.",
+                        kf.name,
+                        addr,
+                        derived,
+                    )
+                    continue
+
             return bytes.fromhex(private_key_hex)
         except Exception as e:
             logger.warning("Failed to load keystore file %s: %s: %s", kf.name, type(e).__name__, str(e))
@@ -468,6 +494,12 @@ class BlockchainNode:
         await self._shutdown()
 
     def _start_proposers(self) -> None:
+        # Checked here rather than at import: this is the point where the node commits to
+        # appending blocks, and a node that never proposes must not be blocked by it.
+        from .proposer_identity import assert_can_sign
+
+        assert_can_sign(settings.proposer_id, settings.proposer_key, settings.keystore_path)
+
         chains = self._supported_chains()
         production_chains_str = self._env_value(
             "AITBC_FORCE_BLOCK_PRODUCTION_CHAINS", "BLOCK_PRODUCTION_CHAINS", "block_production_chains"

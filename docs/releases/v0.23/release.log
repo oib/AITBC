@@ -40,11 +40,20 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 65 findings — 50 confirmed defects, 15 observed design gaps. **64 resolved in the
-repo** (V23-01..56, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
-V23-27c, V23-32a — sixty-five entries, fifty-six numbered findings); **1 needs an operator** —
+**Totals**: 66 findings — 51 confirmed defects, 15 observed design gaps. **65 resolved in the
+repo** (V23-01..57, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
+V23-27c, V23-32a — sixty-six entries, fifty-seven numbered findings); **2 need an operator** —
 V23-56's duplicate `proposer_id`/`PROPOSER_ID` in this follower's `/etc/aitbc/blockchain.env`,
-where the losing line is dead text and the winning value is not a 40-hex address.
+where the losing line is dead text and the winning value is not a 40-hex address; and V23-57's
+missing treasury key on the hub, which no code change can substitute for.
+
+**The treasury key is not a repo problem and may not be recoverable.** The hub holds no key
+for `ait1db5247d0…`; `GENESIS_PRIVATE_KEY` and `wallets/genesis.json` both derive to the
+block-signing address. Transaction signing has been enforced only since 2026-07-14
+(`80268e892`), and genesis was 2026-05-30 — so for seven weeks the endpoint accepted unsigned
+transactions, which is how that account reached nonce 37 with no key behind it. Until the key
+is found, its 3,599,933,198,340 balance cannot be spent, and no config edit changes that:
+relabelling a key you *do* hold is what produced this entire release's worth of findings.
 
 V23-56's hub-side `GENESIS_WALLET_ADDRESS` was **reported restored** to
 `ait1db5247d03ca2e40f3995a583b2c097ab703efd4d` on 2026-08-12, with `PROPOSER_ID` left at
@@ -4263,3 +4272,60 @@ default, and no module under `cli/` outside `config.py` may contain a quoted `ai
 transfers from an account with no balance, and after this change the CLI reads it too. It
 should be `ait1db5247d03ca2e40f3995a583b2c097ab703efd4d`. `PROPOSER_ID` on the hub stays
 `ait1fe2d63fe…` — that one is correct.
+
+### V23-57 — nothing checked that a key matched the identity it was labelled with
+
+**Confirmed.** `apps/blockchain-node/src/aitbc_chain/{proposer_identity,main,app}.py`,
+`cli/aitbc_cli/commands/market/exchange.py`, `docs/getting-started/free-ait.md`.
+
+Three defects with one root. Found while answering "what should be done on the hub", after
+the operator confirmed the treasury private key is not on that host: `GENESIS_PRIVATE_KEY`
+and `/var/lib/aitbc/wallets/genesis.json` both derive to `0xFe2d63FE…`, the block-signing
+address, while `genesis.json` declares `ait1db5247d0…`.
+
+**1. The keystore trusted the label, not the key.** `_load_private_key_from_keystore` matched
+files on the `address` field they declared and never derived the address from the key inside.
+So one secp256k1 key was labelled as three different identities across `proposer.json`,
+`wallets/genesis.json` and `node.env`, and every one of them loaded clean. That is the whole
+mechanism behind V23-51..55: the hub signed 12,353 blocks as an address it could not prove.
+The file's own claim was the thing that was wrong, so it cannot also be the thing that is
+checked. A file whose key does not derive to its declared address is now refused, loudly.
+
+**2. Nothing stopped a node from producing blocks it could not sign.** A failed key load
+logged a warning and start-up continued. That is how block 105,627 was appended with no
+signature at all. `assert_can_sign` now refuses to start when block production is on and the
+node has no key, an empty `PROPOSER_ID`, or a key controlling a different address.
+
+Placed at the two points where production actually begins — `BlockchainNode._start_proposers`
+and the `app.py` lifespan branch — not at import. A node that never proposes is never blocked
+by it, which matters because `enable_block_production` **defaults to `True`** and the real
+gate is `blockchain_mode`. An earlier draft asserted at import time and would have refused to
+start the deployed follower, whose `proposer_id` is the 32-hex value from V23-56 with no
+matching key. Caught by running the deployed entry points before committing, not by reasoning
+about them.
+
+In `app.py` the call sits *outside* the following `try`, which turns any failure into a
+warning and carries on — the same swallow that let this run for 12,353 blocks.
+
+Both faults are unrecoverable once written, because the chain commits to them. Every
+validating follower stalls at the first bad block permanently and the only remedy is manual
+database surgery on each one. A refused start is a five-minute fix.
+
+**3. The CLI transfer was never signed.** `mint_ait` built its payload with no `signature`
+field. `/rpc/transactions/marketplace` has rejected unsigned transactions since `80268e892`
+(2026-07-14) with `403 Signature required`, so `aitbc market exchange mint-ait` cannot have
+worked for the four weeks since. Now signed with the key for `genesis_wallet_address`, read
+from `GENESIS_WALLET_PRIVATE_KEY` as a `SecretStr` so it cannot reach a log line via `repr`.
+
+Tested against the server's real verifier rather than a copy of the format
+(`tests/cli/test_exchange_signs_transactions.py`): canonical JSON is easy to almost match,
+and a stray separator yields a 403 that says nothing about which side drifted. Also covers
+tamper detection and that both sides exclude the signature field from the signed bytes.
+
+**Also:** `free-ait.md` claimed the hub "signs an Ed25519 transaction". There is no Ed25519
+anywhere in `aitbc/crypto/` — signing is secp256k1 throughout, and `_load_private_key_from_keystore`
+carried the same wrong word in its docstring. Doc drift that sends someone hunting for the
+wrong key type, which is exactly the afternoon this entry came out of.
+
+Verified: 737 passed / 17 skipped (blockchain-node, +8 new), 1146 passed / 46 skipped
+(tests/cli, +4 new), ruff clean, and both deployed entry points still import.
