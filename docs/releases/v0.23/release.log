@@ -40,9 +40,16 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 64 findings — 49 confirmed defects, 15 observed design gaps. **all 64 resolved**
-(V23-01..55, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — sixty-four entries, fifty-five numbered findings).
+**Totals**: 65 findings — 50 confirmed defects, 15 observed design gaps. **64 resolved in the
+repo** (V23-01..56, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
+V23-27c, V23-32a — sixty-five entries, fifty-six numbered findings); **1 needs an operator** —
+V23-56's duplicate `proposer_id`/`PROPOSER_ID` in this follower's `/etc/aitbc/blockchain.env`,
+where the losing line is dead text and the winning value is not a 40-hex address.
+
+V23-56's hub-side `GENESIS_WALLET_ADDRESS` was **reported restored** to
+`ait1db5247d03ca2e40f3995a583b2c097ab703efd4d` on 2026-08-12, with `PROPOSER_ID` left at
+`ait1fe2d63fe…`. That split is the correct one. It is recorded as reported rather than
+verified: the file is on the hub, and nothing reachable from a follower exposes it.
 
 Follower sync works end to end as of 2026-08-12: V23-51 put the signature on the wire and in
 the database, V23-52 named the wrong signing key (fixed hub-side), V23-54 made the legacy
@@ -4180,3 +4187,79 @@ clears the trap, and the stray backup was removed.
 
 Both are the same mistake in different clothes — reasoning about what the script *does* rather
 than what state it *leaves behind*, which is also the recurring theme of this release log.
+
+### V23-56 — the genesis wallet and the block proposer are two different addresses
+
+**Confirmed.** `cli/aitbc_cli/commands/market/exchange.py`, `cli/aitbc_cli/config.py`,
+`docs/getting-started/free-ait.md`, `docs/getting-started/node/blockchain-setup.md`.
+
+Flagged after V23-52 as "`GENESIS_WALLET_ADDRESS` now points at `ait1fe2d63fe…` while
+`ait1db5247d0…` is still hardcoded in the CLI — a faucet request would go to the wrong
+address." That framing was backwards, and checking the chain says so in one query:
+
+    ait1db5247d0…   balance 3,599,933,198,340   nonce 37
+    ait1fe2d63fe…   {"detail":"Account not found"}
+
+`ait1db5247d0…` is the **genesis allocation** — the funded treasury AIT transfers are sent
+*from*. `ait1fe2d63fe…` is the **proposer identity** blocks are signed *as*; it holds nothing
+and has never had an account. They were never meant to be the same value, and V23-52's fix
+was correct: it repointed the *signing* identity. The hardcoded address in the CLI was right
+all along.
+
+The real defect is that nothing anywhere recorded that these are different roles, so the two
+kept being substituted for each other:
+
+- `exchange.py:118` hardcoded the treasury mid-function while reading the wallet, chain id and
+  RPC URL from config. It happened to hold the correct value, so it worked — and silently
+  disagreed with `GENESIS_WALLET_ADDRESS`, which `bridge-monitor` (`main.py:38`, paired with
+  `GENESIS_WALLET_PRIVATE_KEY`) and blockchain-node escrow (`escrow_routes.py:26`) both read
+  for the same purpose. Now read from `CLIConfig.genesis_wallet_address`, which resolves that
+  env var, so all three agree.
+- The two "address format" examples in `free-ait.md` were **live funded accounts** — the
+  treasury, and someone's wallet holding 5,047,200 at nonce 50. A getting-started page is
+  exactly where an example gets copy-pasted as a destination. Replaced with well-formed but
+  non-real addresses (both still validate and canonicalise to the same body, so they still
+  demonstrate what the section claims).
+- `blockchain-setup.md` gained a table stating the distinction outright, because the failure
+  is silent: pointing `GENESIS_WALLET_ADDRESS` at the proposer yields transfers from an
+  account that does not exist while block production stays perfectly healthy.
+
+**`PROPOSER_ID` is not inert on a follower**, which is the opposite of what was about to be
+written into that doc. `main.py:246` filters gossip with it, skipping any block whose
+`proposer` equals the node's own as self-proposed, so copying another node's `PROPOSER_ID`
+makes a follower silently discard that node's blocks and recover only via bulk RPC sync.
+
+An earlier draft of this entry claimed that had happened here, on the grounds that
+`/etc/aitbc/blockchain.env` line 7 reads `PROPOSER_ID=ait1db5247d0…` — the address the hub
+proposed as until V23-52. Asking the running node instead of the file says otherwise, and
+turns up something worse. `/health` reports:
+
+    "proposer_id": "ait17add2a952e8349c5aed65ac503569c37"
+
+**The same env file sets this setting twice, under two spellings, with two different values** —
+line 7 `PROPOSER_ID`, line 24 `proposer_id`. Both reach the process (confirmed in
+`/proc/<pid>/environ`), and `CLIConfig`-style `case_sensitive=False` settings resolve the
+lowercase one, so line 24 wins and line 7 is dead text that reads like configuration. No
+gossip was being discarded; the claim above was wrong.
+
+What does bite is the value that wins. `ait17add2a95…` carries **32** hex characters, not 40.
+`validate_address` accepts it — it does not check the body length — but `canonical_address`
+only strips the prefix at exactly 40 hex, so it passes through unchanged and can never
+compare equal to the `0x` address recovery returns. A node configured this way logs
+`Failed to load proposer key from keystore` on every start (visible in this follower's journal
+at 10:26:44 and 10:28:46), and any block it did produce would fail verification on every peer
+for the V23-54 reason, one layer deeper. Harmless here only because this node is a follower
+with block production disabled.
+
+Not fixed in this release: it is deployment configuration on an operator's machine, not repo
+content. Recorded so the next person to read that file knows line 7 is inert.
+
+Guarded by `tests/cli/test_genesis_wallet_is_configured.py`: the env var overrides the
+default, and no module under `cli/` outside `config.py` may contain a quoted `ait1`/`aitbc1`
++ 40-hex literal. Verified the guard fails on the pre-fix line and passes after it.
+
+**Still needs an operator (hub-side).** `/etc/aitbc/blockchain.env` on the hub sets
+`GENESIS_WALLET_ADDRESS=ait1fe2d63fe…`. `bridge-monitor` already reads that and would attempt
+transfers from an account with no balance, and after this change the CLI reads it too. It
+should be `ait1db5247d03ca2e40f3995a583b2c097ab703efd4d`. `PROPOSER_ID` on the hub stays
+`ait1fe2d63fe…` — that one is correct.
