@@ -40,9 +40,9 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 68 findings — 53 confirmed defects, 15 observed design gaps. **67 resolved in the
-repo** (V23-01..59, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
-V23-27c, V23-32a — sixty-eight entries, fifty-nine numbered findings); **2 need an operator** —
+**Totals**: 69 findings — 54 confirmed defects, 15 observed design gaps. **68 resolved in the
+repo** (V23-01..60, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
+V23-27c, V23-32a — sixty-nine entries, sixty numbered findings); **2 need an operator** —
 V23-57's missing treasury key on the hub, which no code change can substitute for, and
 V23-58's **credential rotation**, which is urgent: the repo fix stops the leak continuing but
 cannot un-publish what was already served.
@@ -4487,3 +4487,52 @@ identity to declare.
 **Verified:** 744 passed / 17 skipped (blockchain-node, +7 new, no regressions), ruff clean.
 `settings.proposer_id` now resolves to `''` with `blockchain_mode='follower'` and
 `trusted_proposers=''`. **The node still needs a restart to pick this up.**
+
+---
+
+### V23-60 — RPC genesis bootstrap could never reach an HTTPS hub
+
+Found in the operator's `journalctl` output while confirming V23-59 had worked:
+
+```
+Trying to fetch genesis block from http://https://hub.aitbc.bubuit.net
+Failed to fetch genesis block from http://https://hub.aitbc.bubuit.net: [Errno -2] Name or service not known
+RPC bootstrap for genesis block failed for all peers
+```
+
+The peer URL normalisation tested only for `http://` before prepending `http://`:
+
+```python
+if peer_url.startswith("http://"):
+    peer_url = peer_url.replace("http://", "")
+peer_url = f"http://{peer_url}"
+```
+
+An `https://` URL fails that test, so nothing is stripped and a second scheme is bolted on.
+The result is a hostname that cannot resolve. Duplicated verbatim in
+`_load_genesis_block_from_rpc` and `_load_genesis_allocations_from_rpc`.
+
+**Why it went unnoticed:** the failure is indistinguishable from the hub being down. The peer
+loop catches the exception, logs a DNS error, and falls through to the local `genesis.json` —
+so on any node that has that file, bootstrap "works" and the log line reads as a network
+blip. A node relying on RPC bootstrap, which is the whole point of the path, has nothing to
+fall back on. Every TLS-fronted hub is affected, which is every hub reachable by name.
+
+**Fixed:** one `_with_scheme()` helper used at both sites, preserving an existing scheme.
+This is not a new convention — `aitbc/sync/source_resolver.py:51` and `sync_bulk.py:133`
+already test for both schemes. `poa.py` was the only place in the repo that got it wrong,
+which is why the fix is local rather than a new shared utility.
+
+**Tests:** 5 added to `test_follower_genesis_bootstrap.py`, including an end-to-end one
+asserting on the URL actually handed to the HTTP client — the defect lived in the caller's
+inlined copy, so a helper-only test would have passed against the broken code.
+
+**Not a defect, checked while here:** the paired log lines `Created 0 accounts from genesis
+allocations` / `Initialized 1 accounts from genesis.json` are both accurate — the first counts
+newly inserted rows and skips accounts that already exist, the second counts allocations
+processed. Confirmed against the running node: the treasury account holds 3,600,000,000,000,
+matching the hub.
+
+**Verified:** 749 passed / 17 skipped (blockchain-node, +5 new), ruff clean. V23-59 confirmed
+working in production — this follower built block 0 as `0x7a444401f721fd10…`, the hub's exact
+hash, and resumed syncing.
