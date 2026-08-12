@@ -23,6 +23,26 @@ except ImportError as e:
     pytest.skip(f"Required modules not available: {e}", allow_module_level=True)
 
 
+@pytest.fixture(autouse=True)
+def _activate_multi_validator_consensus(monkeypatch):
+    """Enable the consensus gate for this module (V23-61).
+
+    `MultiValidatorPoA.__init__` raises unless `multi_validator_consensus_enabled` is set,
+    which defaults False pending security review. That guard is about what a *node* may run
+    in production; it is not a property these tests are asserting. Left unpatched it turned
+    all nine tests in this file into collection-time errors — and because the message names a
+    config setting rather than a broken assertion, the whole file read as "not activated yet"
+    rather than "unrun". Byzantine-majority and partition-tolerance coverage is exactly what
+    should not quietly stop executing while the feature waits for that review.
+
+    Set on the settings object the constructor reads, not the environment: the setting is
+    resolved at import time, so an env var set here would arrive too late.
+    """
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "multi_validator_consensus_enabled", True, raising=False)
+
+
 class TestConsensusDuringNetworkPartition:
     """Test consensus behavior during network partition"""
 
