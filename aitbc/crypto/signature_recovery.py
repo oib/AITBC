@@ -98,11 +98,40 @@ def recover_address(msg_hash: bytes, signature: str | bytes) -> str:
     return str(pub_key.to_checksum_address())
 
 
+_LEGACY_PREFIXES: Final = ("aitbc1", "ait1")
+_HEX_DIGITS: Final = frozenset("0123456789abcdef")
+
+
+def canonical_address(address: str) -> str:
+    """Reduce an address to the form recovery produces, so the two can be compared.
+
+    Recovery always yields ``0x`` + 40 hex. The chain also carries the legacy
+    ``ait1``/``aitbc1`` spellings of the same twenty bytes — ``validate_address`` accepts
+    them, ``cli/aitbc_cli/utils/crypto_utils.py`` strips them to the ``0x`` body, and the
+    deployed hub's own blocks declare their proposer that way. Comparing the two spellings
+    as plain strings therefore fails for every legacy-addressed block, whatever key signed
+    it (V23-54).
+
+    The prefix is only stripped when what follows is exactly 40 hex characters, so this
+    cannot collapse two addresses that are genuinely different — the mapping between
+    ``ait1<body>`` and ``0x<body>`` is one-to-one on the body.
+    """
+    lowered = address.strip().lower()
+    for prefix in _LEGACY_PREFIXES:
+        if lowered.startswith(prefix):
+            body = lowered[len(prefix) :]
+            if len(body) == 40 and _HEX_DIGITS.issuperset(body):
+                return f"0x{body}"
+            break
+    return lowered
+
+
 def verify_signature(msg_hash: bytes, signature: str | bytes, expected_address: str) -> bool:
     """Return True iff ``signature`` over ``msg_hash`` recovers to ``expected_address``.
 
     Address comparison is case-insensitive, so a checksummed and a lowercase form of the
-    same address compare equal.
+    same address compare equal, and it accepts the legacy ``ait1``/``aitbc1`` spelling of
+    the address recovery returns — see :func:`canonical_address`.
 
     Raises:
         SignatureMalformed: If the signature cannot be decoded. Callers that want a
@@ -112,4 +141,4 @@ def verify_signature(msg_hash: bytes, signature: str | bytes, expected_address: 
     if not signature or not expected_address:
         return False
     recovered = recover_address(msg_hash, signature)
-    return recovered.lower() == expected_address.lower()
+    return canonical_address(recovered) == canonical_address(expected_address)
