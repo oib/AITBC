@@ -40,14 +40,16 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 67 findings — 52 confirmed defects, 15 observed design gaps. **66 resolved in the
-repo** (V23-01..58, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
-V23-27c, V23-32a — sixty-seven entries, fifty-eight numbered findings); **3 need an operator** —
-V23-56's duplicate `proposer_id`/`PROPOSER_ID` in this follower's `/etc/aitbc/blockchain.env`,
-where the losing line is dead text and the winning value is not a 40-hex address; V23-57's
-missing treasury key on the hub, which no code change can substitute for; and V23-58's
-**credential rotation**, which is urgent — the repo fix stops the leak continuing but cannot
-un-publish what was already served.
+**Totals**: 68 findings — 53 confirmed defects, 15 observed design gaps. **67 resolved in the
+repo** (V23-01..59, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
+V23-27c, V23-32a — sixty-eight entries, fifty-nine numbered findings); **2 need an operator** —
+V23-57's missing treasury key on the hub, which no code change can substitute for, and
+V23-58's **credential rotation**, which is urgent: the repo fix stops the leak continuing but
+cannot un-publish what was already served.
+
+V23-56's duplicate `proposer_id`/`PROPOSER_ID` is now corrected in this follower's
+`/etc/aitbc/blockchain.env` (collapsed to a single empty `PROPOSER_ID`, backup alongside) and
+needs only a service restart to take effect.
 
 **The treasury key is not a repo problem and may not be recoverable.** The hub holds no key
 for `ait1db5247d0…`; `GENESIS_PRIVATE_KEY` and `wallets/genesis.json` both derive to the
@@ -4429,3 +4431,59 @@ passes on the bug is worse than no guard.
 
 **Verified:** 7 passed (new security suite), ruff clean, 7-fail/7-pass differential against
 the pre-fix tree.
+
+---
+
+### V23-59 — a follower could not bootstrap without permanently weakening its validation
+
+Surfaced by the chain reset: after `reset-follower-to-genesis.sh` this node sat at
+`{"detail":"no blocks yet"}` and could not reach height 1, with a correct `genesis.json`
+already installed at `/var/lib/aitbc/data/<chain>/genesis.json`.
+
+`_ensure_genesis_for_chains()` was called only in the hub branch of `main.py`. A follower
+therefore had no block 0 of its own and had to receive one over sync — but block 0 is unsigned
+by construction (`proposer="genesis"`, no signature), and `sync_validator.py:77` fails closed
+on unsigned blocks unless `TRUSTED_PROPOSERS` is non-empty.
+
+**The available workaround was the actual defect.** A non-empty trusted set is not an
+exception carved out for genesis; `sync_validator.py:67` applies it as an allowlist to *every*
+block, checked before the signature is examined. So the only way to import one unsigned block
+was to permanently narrow which proposers the node would ever accept. Worse, the obvious
+value — `TRUSTED_PROPOSERS=genesis` — gets you past block 0 and then rejects block 1 with a
+different error, because the hub's real proposer is now excluded. Both entries are needed, and
+nothing says so.
+
+**Fixed:** the follower branch now calls `_bootstrap_genesis_for_follower()`, which builds
+block 0 the same way the hub does. `TRUSTED_PROPOSERS` can stay empty, which is the strict
+setting.
+
+**This trusts nothing new**, which is the part worth being sure of. `_ensure_genesis_block`
+takes the hash and state_root out of `genesis.json` (or the hub's RPC bootstrap) rather than
+recomputing them. The node writes the hub's exact block 0 or it writes a different hash and
+fails the next block's parent_hash check immediately — it cannot quietly fork onto a genesis
+of its own invention. Verified against the deployed file: the hub publishes the values under
+`block.hash` / `block.state_root` with no top-level `genesis_hash`, and the loader's fallback
+reads exactly those, resolving to `0x7a444401f721fd10…`.
+
+Failure is logged, not raised. Followers already syncing with `TRUSTED_PROPOSERS` set and no
+local `genesis.json` keep working unchanged; a hub still raises, correctly, since it has
+nothing to fall back on.
+
+**Tests:** `apps/blockchain-node/tests/test_follower_genesis_bootstrap.py` (7). The fixture
+uses the hub's real file shape rather than a flatter invented one — a test built around a
+top-level `genesis_hash` would pass while the real file failed. Two tests pin the reasoning
+rather than the fix: that an unsigned genesis is rejected with an empty trusted set, and that
+a non-empty set filters ordinary blocks too. Those are why the fix exists, and they would
+otherwise be the first thing lost.
+
+**Also corrected on this host (V23-56's operator item):** `/etc/aitbc/blockchain.env` carried
+`PROPOSER_ID` twice — the treasury address on line 7, a malformed 33-hex value on line 24 —
+with the lowercase spelling winning. Collapsed to a single empty `PROPOSER_ID`, backup written
+alongside. Empty is correct rather than merely tidy: `main.py:246`'s gossip self-filter drops
+any block whose proposer matches `PROPOSER_ID`, so a stale value there is a way to silently
+discard the hub's own blocks, and no block has an empty proposer. A follower has no proposing
+identity to declare.
+
+**Verified:** 744 passed / 17 skipped (blockchain-node, +7 new, no regressions), ruff clean.
+`settings.proposer_id` now resolves to `''` with `blockchain_mode='follower'` and
+`trusted_proposers=''`. **The node still needs a restart to pick this up.**

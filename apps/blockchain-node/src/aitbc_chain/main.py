@@ -199,6 +199,34 @@ class BlockchainNode:
             )
             await proposer._ensure_genesis_block()
 
+    async def _bootstrap_genesis_for_follower(self) -> None:
+        """Build block 0 locally instead of syncing it from the hub (V23-59).
+
+        A follower could not reach height 1 from an empty database. It had no genesis of its
+        own, so block 0 had to arrive over sync — and block 0 is unsigned by construction
+        (``proposer="genesis"``), which ``sync_validator`` refuses unless ``TRUSTED_PROPOSERS``
+        is non-empty. Setting it to admit one unsigned block turns it into an allowlist for
+        *every* block thereafter, so the price of bootstrapping was permanently weakened
+        validation on the node doing the bootstrapping.
+
+        Nothing is trusted by doing this. ``_ensure_genesis_block`` takes the hash and
+        state_root from genesis.json (or the hub's RPC bootstrap) rather than recomputing
+        them, so the block written here is the hub's block 0 or it is nothing: a mismatched
+        genesis.json produces a different hash, and the first synced block fails its
+        parent_hash check immediately rather than silently forking.
+
+        Failure is logged, not raised. Followers that already sync with ``TRUSTED_PROPOSERS``
+        set and no local genesis.json keep working exactly as before.
+        """
+        try:
+            await self._ensure_genesis_for_chains()
+        except Exception as exc:
+            logger.error(
+                "Could not bootstrap genesis locally: %s. Falling back to syncing block 0 from the hub, "
+                "which requires TRUSTED_PROPOSERS to include 'genesis'. Supply genesis.json to avoid that.",
+                exc,
+            )
+
     async def _setup_gossip_subscribers(self) -> None:
         logger.info("Setting up gossip subscribers")
         chains = self._supported_chains()
@@ -438,6 +466,7 @@ class BlockchainNode:
         elif settings.blockchain_mode == "follower":
             logger.info("Running in FOLLOWER mode (blockchain_mode=%s)", settings.blockchain_mode)
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
+            await self._bootstrap_genesis_for_follower()
             subscription_client: SubscriptionClient | None = None
             if settings.subscription_enabled:
                 node_id = os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node")
