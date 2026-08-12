@@ -40,13 +40,13 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 61 findings — 46 confirmed defects, 15 observed design gaps. **59 resolved**
+**Totals**: 62 findings — 47 confirmed defects, 15 observed design gaps. **60 resolved**
 (V23-01..51, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — sixty-one entries, fifty-two numbered findings); **2 need an operator** —
+V23-32a — sixty-two entries, fifty-three numbered findings); **1 needs an operator** —
 V23-51's serializer fix is deployed on both ends and working, but V23-52 shows the hub signs
-with a key that is not its declared proposer, so followers still reject every block; and the
-coordinator-api/governance Alembic state remains unaddressed after the 2026-08-12 deploy ran
-with `--no-migrate`.
+with a key that is not its declared proposer, so followers still reject every block. The
+coordinator-api/governance Alembic state that forced the 2026-08-12 deploy to run
+`--no-migrate` is resolved in `6a2413138` and V23-53.
 
 V23-50's `/var/lib/aitbc` repermission **was applied** on 2026-08-12 at 08:46. All five
 looping services recovered within five seconds and their restart counters stopped
@@ -4042,3 +4042,45 @@ both addresses — recovered and expected — which are public. This is the log 
 the distinction V23-04 drew for the metrics half, and it is why that finding's test file is
 where the new tests live. Identifying this took fetching a block and recovering the address
 by hand; the next occurrence is one line of log.
+
+### V23-53 — an idempotency fix that only works on one of the two backends
+
+**Confirmed**, and a regression introduced by the fix for the problem it was solving.
+
+`6a2413138` made two migrations re-runnable, because a deploy had to be run with
+`--no-migrate` to get past them. The coordinator-api half is fine. The governance half
+rewrote `002_v073_onchain_governance_fields` from Alembic operations into raw SQL:
+
+    ALTER TABLE proposals ADD COLUMN IF NOT EXISTS chain_id VARCHAR NOT NULL DEFAULT 'ait-hub'
+    ALTER TABLE votes    DROP COLUMN IF EXISTS tx_hash
+
+Both spellings are PostgreSQL-only. SQLite rejects them outright —
+`near "EXISTS": syntax error` — and `apps/governance/alembic/env.py:26` defaults `DB_TYPE`
+to `"sqlite"`. Production carries `DB_TYPE=postgresql` in `/etc/aitbc/aitbc-governance.env`,
+so the new SQL passes exactly where it was tested and fails everywhere else: CI, a fresh
+checkout, and anyone running `alembic` without sourcing the service env. Confirmed by running
+the chain against a scratch SQLite file both ways — the previous version of the file reaches
+head, the new one aborts on the first statement. A migration that had worked on both backends
+now works on one.
+
+The verification in the report — "`alembic upgrade head` passed for governance" — was true
+and load-bearing in the wrong direction. It ran with the production env sourced, which is the
+one configuration where the bug is invisible.
+
+Fixed by asking the database instead of encoding the answer in the SQL: `sa.inspect(bind)`
+reports existing columns and indexes on every backend, so the migration keeps the Alembic
+operations it always used and gains a guard that is not dialect-specific.
+
+`003_v023_voting_ends_block` had the same non-idempotent `add_column` and was not part of
+that commit. Left alone, it would have moved the abort one revision later without changing
+the outcome — `alembic upgrade head` still stops, just at 003 instead of 002. Fixed the same
+way.
+
+Verified on SQLite: fresh database reaches head; rewinding `alembic_version` to 001 and
+re-running the whole chain over the existing schema completes cleanly; every column appears
+exactly once afterwards. Postgres is unchanged by construction — the guarded path issues the
+same `op.add_column`/`op.create_index` calls the pre-`6a2413138` file did, which production
+has already run successfully.
+
+Also: the coordinator-api migration in that commit was committed unformatted, which
+`ruff-format` runs as a pre-commit hook and would have caught. Reformatted here.
