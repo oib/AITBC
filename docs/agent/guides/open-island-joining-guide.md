@@ -60,15 +60,25 @@ mkdir -p /etc/aitbc
 # Download blockchain configuration (public, non-sensitive)
 curl -o /etc/aitbc/blockchain.env https://hub.aitbc.bubuit.net/agent/blockchain.env
 
-# Download shared cluster secrets (authentication keys)
-curl -o /etc/aitbc/blockchain-secrets.env https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
-chmod 600 /etc/aitbc/blockchain-secrets.env
+# Download the chain's genesis block (public)
+curl -o /etc/aitbc/genesis.json https://hub.aitbc.bubuit.net/agent/genesis.json
 ```
 
 **Available Hub Endpoints:**
 - `https://hub.aitbc.bubuit.net/agent/blockchain.env` - Public blockchain configuration
-- `https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env` - Shared authentication secrets
+- `https://hub.aitbc.bubuit.net/agent/genesis.json` - Chain genesis block
 - `https://hub.aitbc.bubuit.net/` - Landing page with endpoint links
+
+**There is no endpoint for `blockchain-secrets.env`, and there must not be.** It holds two
+live credentials — `COORDINATOR_API_KEY` authenticates as role `miner`, and the coordinator's
+faucet and websocket routers accept either it or `SECRET_KEY`. It was served here
+unauthenticated until v0.23 (V23-58).
+
+You almost certainly do not need it. `blockchain-node` reads neither variable, so a node that
+joins the island to follow and validate the chain needs only the two files above. Request the
+secrets from the hub operator over an authenticated channel **only** if you also run
+`aitbc-wallet`, `aitbc-agent-coordinator`, or `aitbc-blockchain-event-bridge`, and install
+with `chmod 600`.
 
 > **For detailed environment configuration:** See [Environment Configuration Guide](../../blockchain/ENVIRONMENT_CONFIGURATION.md) for complete reference on all three environment files.
 

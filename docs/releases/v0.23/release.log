@@ -40,12 +40,14 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 66 findings — 51 confirmed defects, 15 observed design gaps. **65 resolved in the
-repo** (V23-01..57, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
-V23-27c, V23-32a — sixty-six entries, fifty-seven numbered findings); **2 need an operator** —
+**Totals**: 67 findings — 52 confirmed defects, 15 observed design gaps. **66 resolved in the
+repo** (V23-01..58, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
+V23-27c, V23-32a — sixty-seven entries, fifty-eight numbered findings); **3 need an operator** —
 V23-56's duplicate `proposer_id`/`PROPOSER_ID` in this follower's `/etc/aitbc/blockchain.env`,
-where the losing line is dead text and the winning value is not a 40-hex address; and V23-57's
-missing treasury key on the hub, which no code change can substitute for.
+where the losing line is dead text and the winning value is not a 40-hex address; V23-57's
+missing treasury key on the hub, which no code change can substitute for; and V23-58's
+**credential rotation**, which is urgent — the repo fix stops the leak continuing but cannot
+un-publish what was already served.
 
 **The treasury key is not a repo problem and may not be recoverable.** The hub holds no key
 for `ait1db5247d0…`; `GENESIS_PRIVATE_KEY` and `wallets/genesis.json` both derive to the
@@ -4329,3 +4331,101 @@ wrong key type, which is exactly the afternoon this entry came out of.
 
 Verified: 737 passed / 17 skipped (blockchain-node, +8 new), 1146 passed / 46 skipped
 (tests/cli, +4 new), ruff clean, and both deployed entry points still import.
+
+---
+
+### V23-58 — the hub published its own cluster credentials, and the repo told it to
+
+**Reported by the operator**, who noticed nginx serving `/agent/blockchain-secrets.env`
+publicly and flagged it as "pre-existing and unrelated to the chain reset". It is
+pre-existing. It is also the most serious finding in this pass, and the repo is where it
+came from — this was not a hand-edit on one host.
+
+**Confirmed live before changing anything:** the endpoint returned HTTP 200, 231 bytes,
+unauthenticated, serving both `COORDINATOR_API_KEY` and `SECRET_KEY`. (Verified by shape and
+byte count with values redacted; the values are not in this log.) Scoped the surrounding
+directory at the same time: `/agent/` is not browsable, and `node.env`,
+`aitbc-coordinator-api.env`, `keystore/proposer.json` and `wallets/genesis.json` all 404.
+Only this one file was exposed.
+
+These are credentials, not configuration:
+
+- `COORDINATOR_API_KEY` is the fallback for `X-Api-Key` miner auth in
+  `aitbc/auth/dependencies.py:167`. Presenting it authenticates as role `miner`.
+- The agent-coordinator faucet and websocket routers accept `COORDINATOR_API_KEY` **or**
+  `SECRET_KEY` (`routers/coin_requests.py:44`, `routers/websocket.py:32`), so the two are not
+  independent. On this hub they are byte-identical, which collapses the distinction entirely.
+
+**Nothing ever needed it published.** `blockchain-node` reads neither variable — grepped the
+whole app, no hits. A node joining the island to follow and validate the chain needs
+`blockchain.env` and `genesis.json`, both of which are genuinely public. The one file that had
+to be secret was the only one that had to be fetched.
+
+**Worse than the endpoint: the live secret is committed.** `ENVIRONMENT_CONFIGURATION.md`
+printed both values under "Example blockchain-secrets.env", and the deployed hub's values
+match it byte for byte (compared by hash; nothing printed). It entered in `dcfa58039`,
+2026-06-06, under the commit message *"feat: comprehensive AITBC platform with clean
+security"*, and `github.com/oib/AITBC` is a public repository. So the credential has been
+readable three ways for over two months: served by nginx, rendered on the docs site, and
+present in the git history of a public clone.
+
+**Why it survived a year of review — it looked deliberate at every layer.** An nginx block
+with a comment. A documented `curl` in four separate guides. A clickable link on the hub
+landing page, annotated "required for follower nodes to authenticate with the hub" (which is
+false — no follower reads it). And a doc line stating outright: *"For open islands, these keys
+are public (downloadable from hub)."* That sentence is the root cause. "Open island" describes
+who may **join the chain**; it was read as describing who may **authenticate to the services**.
+
+One reviewer got within a line of it. `setup-service-selection.md:151` says the governance DB
+password is "**never** read from `blockchain-secrets.env` — that file is published on the
+website for followers to join the island and must not contain database credentials." They saw
+the exposure, correctly kept Postgres credentials out of the blast radius, and routed around
+the publication rather than closing it.
+
+**Fixed:**
+
+- `examples/nginx/nginx-aitbc.conf.example` — removed the alias; added
+  `location ~ ^/agent/.*secret { return 404; }`. A regex, deliberately: nginx matches regex
+  locations before prefix locations, so a future `location /agent/ { alias /etc/aitbc/; }` —
+  the obvious way this comes back — still cannot expose it.
+- `website/index.html`, `website/README.md` — replaced the advertised endpoint with
+  `genesis.json`, which is what a joiner actually needs.
+- `open-island-joining-guide.md`, `node-quickstart.md`, `setup-reference.md`,
+  `ENVIRONMENT_CONFIGURATION.md` — the `curl` instructions now fetch `blockchain.env` and
+  `genesis.json` only, and say plainly that the secrets file is not published and not needed
+  to follow the chain.
+- `ENVIRONMENT_CONFIGURATION.md` — the live values replaced with visibly unusable
+  placeholders; the "these keys are public" note replaced with what each credential actually
+  authorises; added generation via `openssl rand -hex 32` (two *different* values, since
+  either one alone opens both surfaces) and a rotation procedure.
+- `setup-service-selection.md` — corrected the stale "is published on the website" claim
+  while keeping the advice it justified, which was right for a second reason: that file
+  reaches every wallet and coordinator host, a far wider audience than needs Postgres.
+
+**Guard:** `tests/security/test_secrets_are_not_published.py` — seven tests pinning the
+invariant rather than any one file: no nginx location may `alias`/`root` a secrets file, the
+regex deny must exist and return 404, nothing may advertise such an endpoint, no doc outside
+`docs/releases/` may `curl` one over HTTP, and no literal hex credential may sit in an example
+block. Verified against the pre-fix tree in a scratch checkout: **7 failed before, 7 pass
+after.** The first draft passed one test pre-fix — the README's table entry is wrapped in
+backticks, which the pattern missed — so the character class now includes it. A guard that
+passes on the bug is worse than no guard.
+
+**Operator action, and the repo fix does not substitute for it:**
+
+1. **Rotate `COORDINATOR_API_KEY` and `SECRET_KEY`.** Mandatory. The values were served
+   publicly and are in the history of a public repo; deleting them changes nothing about who
+   already holds them. Rotation across the wallet, agent-coordinator and event-bridge hosts
+   together — the old and new values are not accepted simultaneously.
+2. **Give them different values.** Identical values mean a single leak is a total leak, with
+   nothing to fall back on mid-rotation.
+3. **Remove the location block from the *active* nginx config** and reload. The repo example
+   is fixed; the deployed config is a separate file on the host.
+4. **Check nginx access logs** for `GET /agent/blockchain-secrets.env` to scope who fetched
+   it and when.
+5. Consider whether the git history needs rewriting. Rotation makes the committed value
+   worthless, which is the cheaper and more reliable remedy; history rewriting on a public
+   repo with existing clones does not retract anything.
+
+**Verified:** 7 passed (new security suite), ruff clean, 7-fail/7-pass differential against
+the pre-fix tree.

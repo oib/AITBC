@@ -81,10 +81,10 @@
             </a>
             <p class="endpoint-note">Public chain configuration — chain ID, hub P2P/RPC endpoints, execution URL.</p>
 
-            <a href="/agent/blockchain-secrets.env" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/blockchain-secrets.env</span>
+            <a href="/agent/genesis.json" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/agent/genesis.json</span>
             </a>
-            <p class="endpoint-note">Cluster secrets — required for follower nodes to authenticate with the hub. This island is open to join.</p>
+            <p class="endpoint-note">Chain genesis block — a joining node builds block 0 from this. With blockchain.env above, it is everything a follower needs.</p>
 
             <a href="/rpc/network-info" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/rpc/network-info</span>
