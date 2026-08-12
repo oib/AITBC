@@ -1,13 +1,51 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-06-30
+**Last Updated:** 2026-08-12
 **Version:** 2.0 (Split into topic-focused files)
 
 Quick reference guide for AITBC setup and onboarding.
 
-> **🟢 Service Status**: All core services are operational as of June 7, 2026. See [Service Status](../infrastructure/SYSTEMD_SERVICES.md#current-service-status) for details.
-
 > **⚠️ v0.4.26 Update**: JWT authentication is now required. `setup.sh` automatically generates `JWT_SECRET` and `SECRET_KEY`. If upgrading from an earlier version, run `/opt/aitbc/scripts/utils/load-keystore-secrets.sh` after updating the credential files.
+
+## `/var/lib/aitbc` must be writable by the `aitbc` group
+
+`aitbc/auth/api_key.py` stores API keys at `/var/lib/aitbc/api_keys.json` (override with
+`API_KEY_STORAGE_PATH`) and takes a file lock on `<path>.lock` beside it. `filelock` **unlinks
+that lock on release**, so it is created fresh on every acquisition — which needs write
+permission on the *directory*, not just on `api_keys.json`.
+
+`APIKeyManager()` is instantiated at module scope in `aitbc.auth`, so if the directory is not
+writable, every service that imports it dies during import and systemd restart-loops it. This
+took down coordinator-api, pool-hub, gpu, marketplace and trading at once.
+
+```bash
+sudo chown root:aitbc /var/lib/aitbc && sudo chmod 2775 /var/lib/aitbc
+```
+
+`setup.sh` now sets this and verifies it; `keystore/` and `credentials/` stay `root:root 700`,
+so the group on the parent does not expose them.
+
+## Database migrations
+
+`update.sh` runs `alembic upgrade head` for every `apps/*/alembic.ini` whose unit is linked,
+stopping each service around its own migration — a SQLite column conversion rebuilds the table,
+which is not safe under a process holding the file open.
+
+**blockchain-node is skipped unless you pass `DATABASE_URL`.** It keeps one database per island
+under `/var/lib/aitbc/data/<island>/chain.db`, while its Alembic default is
+`/var/lib/aitbc/data/chain.db` — a file no running node uses. Migrate each island explicitly,
+with the node stopped:
+
+```bash
+sudo systemctl stop aitbc-blockchain-node aitbc-blockchain-rpc
+sudo DATABASE_URL=sqlite:////var/lib/aitbc/data/<island>/chain.db \
+  /opt/aitbc/venv/bin/alembic -c /opt/aitbc/apps/blockchain-node/alembic.ini upgrade head
+sudo systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
+```
+
+Every `env.py` prints its resolved target to stderr before doing anything. Read that line
+before letting a migration proceed — it is the only thing that tells you which file you are
+about to rewrite.
 
 ## Documentation Structure
 

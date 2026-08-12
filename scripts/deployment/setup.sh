@@ -48,7 +48,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPLOY_COMMON_PATH="$SCRIPT_DIR/utils/deploy_common.sh"
+# ../utils, not ./utils: this script lives in scripts/deployment/ and the helper is in
+# scripts/utils/. The old path never existed, so the `if [ ! -f ]` below was always true and
+# every run silently curl'd deploy_common.sh from GitHub main instead -- meaning setup ran a
+# copy of the helper that had nothing to do with the checkout being deployed, and a local edit
+# to it did nothing. The download stays as a fallback for piped-from-curl installs.
+DEPLOY_COMMON_PATH="$SCRIPT_DIR/../utils/deploy_common.sh"
 DEPLOY_COMMON_TEMP=""
 
 if [ ! -f "$DEPLOY_COMMON_PATH" ]; then
@@ -363,7 +368,18 @@ setup_runtime_directories() {
     done
 
     # Set permissions
-    chmod 755 /var/lib/aitbc
+    #
+    # /var/lib/aitbc is setgid group-writable, NOT 755, because the API key store lives at
+    # its top level: aitbc/auth/api_key.py defaults to /var/lib/aitbc/api_keys.json and takes
+    # a filelock on <path>.lock beside it. filelock unlinks that lock on release, so the lock
+    # is created fresh on every acquisition -- which needs write permission on the *directory*,
+    # not just on api_keys.json. With 755 root:root, every service running as `aitbc` that
+    # imports aitbc.auth dies at import time with
+    #     PermissionError: [Errno 13] Permission denied: '/var/lib/aitbc/api_keys.json.lock'
+    # and systemd restart-loops it. That took down coordinator-api, pool-hub, gpu, marketplace
+    # and trading simultaneously, since APIKeyManager() is instantiated at module scope.
+    # The setgid bit keeps new entries in the aitbc group so this cannot drift back.
+    chmod 2775 /var/lib/aitbc
     chmod 700 /var/lib/aitbc/keystore  # Secure keystore
     chmod 700 /var/lib/aitbc/keystore/config
     chmod 700 /var/lib/aitbc/keystore/passwords
@@ -374,7 +390,10 @@ setup_runtime_directories() {
     chmod 700 /run/aitbc/secrets  # Runtime secrets (tmpfs)
 
     # Set ownership
-    chown root:root /var/lib/aitbc
+    # Group is aitbc so the services can create api_keys.json.lock here (see chmod above).
+    # Owner stays root: keystore/ and credentials/ below remain root-only at 700, so widening
+    # the group on the parent does not expose them.
+    chown root:aitbc /var/lib/aitbc 2>/dev/null || chown root:root /var/lib/aitbc
     chown root:root /var/lib/aitbc/keystore
     chown root:root /var/lib/aitbc/keystore/config
     chown root:root /var/lib/aitbc/keystore/passwords
@@ -481,6 +500,21 @@ setup_service_users() {
     # Fix data directory ownership now that aitbc user exists
     # (setup_runtime_directories runs before this step, so chown may have been skipped)
     chown -R aitbc:aitbc /var/lib/aitbc/data 2>/dev/null || true
+
+    # Same for the parent: setup_runtime_directories runs before the aitbc group exists, so
+    # its `chown root:aitbc /var/lib/aitbc` falls back to root:root on a first install. Redo
+    # it here or every aitbc.auth importer restart-loops on api_keys.json.lock.
+    chown root:aitbc /var/lib/aitbc 2>/dev/null || true
+    chmod 2775 /var/lib/aitbc
+
+    # Verify the thing that actually breaks, rather than trusting the chmod above.
+    # error() exits, so the explanation goes out as warnings first.
+    if ! sudo -u aitbc test -w /var/lib/aitbc; then
+        warning "/var/lib/aitbc is not writable by the aitbc user."
+        warning "Every service importing aitbc.auth fails at import on api_keys.json.lock,"
+        warning "and systemd restart-loops it -- coordinator-api, pool-hub, gpu, marketplace, trading."
+        error "Fix: chown root:aitbc /var/lib/aitbc && chmod 2775 /var/lib/aitbc"
+    fi
 
     success "Service users setup completed"
 }

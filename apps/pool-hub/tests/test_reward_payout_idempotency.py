@@ -121,7 +121,9 @@ class TestDistributionIsIdempotent:
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
             patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-1"}),
             patch.object(other._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
-            patch.object(other._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-2"}) as second_submit,
+            patch.object(
+                other._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-2"}
+            ) as second_submit,
         ):
             await client.distribute_rewards(block_height=100, session=session)
             replica = await other.distribute_rewards(block_height=100, session=session)
@@ -175,17 +177,13 @@ class TestDatabaseConstraint:
 
     @pytest_asyncio.fixture
     async def seeded(self, db_session):
-        db_session.add(
-            RewardPayout(miner_id="miner-1", chain_id="ait-hub", epoch_number=7, amount=500, status="paid")
-        )
+        db_session.add(RewardPayout(miner_id="miner-1", chain_id="ait-hub", epoch_number=7, amount=500, status="paid"))
         await db_session.commit()
         return db_session
 
     @pytest.mark.asyncio
     async def test_duplicate_insert_is_rejected(self, seeded):
-        seeded.add(
-            RewardPayout(miner_id="miner-1", chain_id="ait-hub", epoch_number=7, amount=500, status="pending")
-        )
+        seeded.add(RewardPayout(miner_id="miner-1", chain_id="ait-hub", epoch_number=7, amount=500, status="pending"))
         with pytest.raises(IntegrityError):
             await seeded.flush()
 
