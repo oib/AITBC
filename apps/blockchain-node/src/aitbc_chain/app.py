@@ -166,6 +166,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}
 
     if block_production_enabled and settings.proposer_id:
+        # Outside the try below: that block turns any failure into a warning and carries on,
+        # which is how a node with no usable key still went on to append unsigned blocks.
+        from .proposer_identity import assert_can_sign
+
+        assert_can_sign(settings.proposer_id, settings.proposer_key, settings.keystore_path)
+
         try:
             from .consensus import PoAProposer, ProposerConfig
 

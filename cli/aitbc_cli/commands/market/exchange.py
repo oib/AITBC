@@ -16,6 +16,25 @@ logger = get_logger(__name__)
 from . import market
 
 
+def _sign_transaction(tx_payload: dict, private_key: str) -> str:
+    """Sign ``tx_payload`` the way the RPC endpoint verifies it.
+
+    ``verify_transaction_signature`` (blockchain-node `rpc/utils.py`) drops the signature
+    field, re-encodes the rest as canonical JSON — sorted keys, no whitespace — and recovers
+    the signer from the keccak256 of those bytes. Any difference in separators or key order
+    produces a different hash and a 403, so this must mirror it exactly.
+    """
+    import json as _json
+
+    from eth_utils import keccak
+
+    from aitbc.crypto.crypto import sign_transaction_hash
+
+    unsigned = {k: v for k, v in tx_payload.items() if k != "signature"}
+    message = _json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+    return sign_transaction_hash("0x" + keccak(message).hex(), private_key)
+
+
 @market.group(name="exchange")
 def exchange():
     """ETH-AIT exchange and bridge operations"""
@@ -145,6 +164,17 @@ def mint_ait(ctx, deposit_id: str):
                 "type": "TRANSFER",
                 "chain_id": chain_id,
             }
+
+            # The endpoint has rejected unsigned transactions since v0.10.13 (403 "Signature
+            # required"). This payload went out without a signature, so the command could not
+            # have succeeded since then.
+            secret = getattr(config, "genesis_wallet_private_key", None)
+            if secret is None:
+                error(f"No signing key for {genesis_wallet_address}; cannot authorise the transfer.")
+                error("Set GENESIS_WALLET_PRIVATE_KEY to the key controlling that address.")
+                raise click.Abort()
+
+            tx_payload["signature"] = _sign_transaction(tx_payload, secret.get_secret_value())
 
             # Submit transaction to blockchain
             blockchain_response = httpx.post(f"{blockchain_rpc_url}/rpc/transactions/marketplace", json=tx_payload)
