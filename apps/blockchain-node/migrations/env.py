@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from logging.config import fileConfig
 
 from aitbc_chain import models  # noqa: F401
@@ -25,6 +26,17 @@ if not _db_url:
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     _db_url = f"sqlite:///{settings.db_path}"
 config.set_main_option("sqlalchemy.url", _db_url)
+
+# V23-49: echo the target, because the default is NOT the database the node writes to.
+#
+# `settings.db_path` is /var/lib/aitbc/data/chain.db. A running node writes to a *per-island*
+# file -- /var/lib/aitbc/data/<island>/chain.db -- so a bare `alembic upgrade head` migrates
+# an empty database, records success, and leaves the real one untouched. That is exactly what
+# had happened: the default target sat at head with 0 rows while the live island database,
+# 93k blocks and the tables the migration was written for, had no alembic_version table at
+# all. There is no single correct default here -- the island is chosen at runtime -- so the
+# target is printed instead of guessed. Pass DATABASE_URL to name the island explicitly.
+print(f"alembic: target database -> {_db_url}", file=sys.stderr)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
