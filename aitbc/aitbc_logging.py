@@ -104,13 +104,18 @@ def _get_log_format() -> str:
 
 
 def _get_log_file_path(service_name: str) -> Path | None:
-    """Get log file path from environment"""
+    """Get log file path from environment."""
     log_dir = os.getenv("LOG_DIR")
     if not log_dir:
         return None
-    log_path = Path(log_dir) / service_name
-    log_path.mkdir(parents=True, exist_ok=True)
-    return log_path / f"{service_name}.log"
+    log_path = Path(log_dir)
+    # ponytail: refuse relative/placeholder env values to avoid writing a log
+    # tree into whatever directory happens to be the current working directory.
+    if not log_path.is_absolute():
+        return None
+    service_path = log_path / service_name
+    service_path.mkdir(parents=True, exist_ok=True)
+    return service_path / f"{service_name}.log"
 
 
 def setup_logger(
