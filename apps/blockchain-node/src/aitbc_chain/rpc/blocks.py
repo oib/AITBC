@@ -15,11 +15,11 @@ from sqlmodel import select
 from aitbc.rate_limiting import rate_limit
 
 from ..block_cache import get_block_header_cache
-from ..database import session_scope
+from ..database import init_db, session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Block, Transaction
-from .utils import get_chain_id
+from .utils import get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
 _last_import_time = 0.0
@@ -214,6 +214,13 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                 await asyncio.sleep(1.0 - time_since_last)
             _last_import_time = time.time()
             chain_id = block_data.get("chain_id") or block_data.get("chainId") or get_chain_id(None)
+            _logger.info("import_block called for chain_id=%s height=%s", chain_id, block_data.get("height"))
+            if not validate_chain_id(chain_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Unsupported chain_id: {chain_id}",
+                )
+            init_db(chain_id)
             block_hash = block_data["hash"]
             if not isinstance(block_hash, str) or not re.fullmatch("0x[0-9a-fA-F]{64}", block_hash):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block hash format")
