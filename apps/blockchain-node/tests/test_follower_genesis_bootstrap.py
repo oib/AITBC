@@ -182,3 +182,63 @@ def test_follower_startup_actually_calls_the_bootstrap() -> None:
     follower_branch = text.split('elif settings.blockchain_mode == "follower":')[1].split("if settings.")[0]
 
     assert "_bootstrap_genesis_for_follower" in follower_branch, "follower mode no longer bootstraps genesis"
+
+
+class TestPeerUrlScheme:
+    """RPC genesis bootstrap was dead against any TLS-fronted hub (V23-60).
+
+    The deployed follower logged `Trying to fetch genesis block from
+    http://https://hub.aitbc.bubuit.net` and failed with "Name or service not known". The
+    normalisation tested only for `http://` before prepending `http://`, so an `https://` URL
+    fell through the strip and got a second scheme bolted on.
+
+    It stayed hidden because the failure is indistinguishable from a hub being down: the peer
+    loop logs a DNS error and falls through to the local genesis.json. This node had that file
+    and recovered; a node relying on RPC bootstrap has nothing to fall back on.
+    """
+
+    def test_an_https_peer_is_left_alone(self) -> None:
+        from aitbc_chain.consensus.poa import _with_scheme
+
+        assert _with_scheme("https://hub.aitbc.bubuit.net") == "https://hub.aitbc.bubuit.net"
+
+    def test_an_http_peer_is_left_alone(self) -> None:
+        from aitbc_chain.consensus.poa import _with_scheme
+
+        assert _with_scheme("http://10.0.0.4:8202") == "http://10.0.0.4:8202"
+
+    def test_a_bare_host_still_gets_a_scheme(self) -> None:
+        """The behaviour the old code was for; it must survive the fix."""
+        from aitbc_chain.consensus.poa import _with_scheme
+
+        assert _with_scheme("10.0.0.4:8202") == "http://10.0.0.4:8202"
+
+    def test_no_url_ever_ends_up_with_two_schemes(self) -> None:
+        from aitbc_chain.consensus.poa import _with_scheme
+
+        for raw in ("https://hub.example.net", "http://hub.example.net", "hub.example.net", "hub.example.net:8202"):
+            assert _with_scheme(raw).count("://") == 1, raw
+
+    def test_an_https_peer_survives_into_the_request_url(self) -> None:
+        """End to end: the bug was in the caller's inlined copy, not only in a helper."""
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+
+        from aitbc_chain.consensus.poa import PoAProposer
+
+        config = ProposerConfig(
+            chain_id=CHAIN_ID,
+            proposer_id="",
+            interval_seconds=5,
+            max_block_size_bytes=1_000_000,
+            max_txs_per_block=100,
+            default_peer_rpc_url="https://hub.aitbc.bubuit.net",
+        )
+        node = PoAProposer(config=config, session_factory=None)
+
+        with patch("aitbc_chain.consensus.poa.SharedHttpClient.get", new=AsyncMock(side_effect=RuntimeError("stop"))) as get:
+            asyncio.run(node._load_genesis_block_from_rpc())
+
+        requested = get.await_args[0][0]
+        assert requested.startswith("https://hub.aitbc.bubuit.net/"), requested
+        assert "http://https://" not in requested
