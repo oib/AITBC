@@ -158,6 +158,11 @@ class BlockImportMixin(SyncBase):
             timestamp=timestamp,
             tx_count=tx_count,
             state_root=block_data.get("state_root"),
+            # Persist the signature this block was just validated against. Dropping
+            # it made the check single-use: the block verified once on the way in and
+            # was then stored unsigned, so this node could never re-serve proof of who
+            # proposed it. One sync hop stripped authorship from the whole chain.
+            signature=block_data.get("signature", ""),
         )
         session.add(block)
         if transactions:
