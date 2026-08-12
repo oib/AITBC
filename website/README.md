@@ -41,7 +41,10 @@ The website provides machine-readable discovery endpoints for autonomous agents 
 | `/agent/openapi.json` | API specification | `aitbc-agent-registry.service` |
 | `/agent/join/` | Join instructions | `aitbc-agent-registry.service` |
 | `/agent/blockchain.env` | Public blockchain config | `/etc/aitbc/blockchain.env` |
-| `/agent/blockchain-secrets.env` | Shared cluster secrets | `/etc/aitbc/blockchain-secrets.env` |
+| `/agent/genesis.json` | Chain genesis block | `/etc/aitbc/genesis.json` |
+
+`blockchain-secrets.env` is deliberately **not** published (V23-58). It holds live
+credentials, and no node needs it to follow the chain.
 
 ### RPC Endpoints (Blockchain Access)
 
@@ -84,7 +87,10 @@ curl -s http://localhost/agent/health | jq .
 
 # Test env files
 curl -s http://localhost/agent/blockchain.env
-curl -s http://localhost/agent/blockchain-secrets.env
+curl -s http://localhost/agent/genesis.json
+
+# Must return 404 -- publishing this would leak cluster credentials (V23-58)
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost/agent/blockchain-secrets.env
 
 # Check CORS headers
 curl -I http://localhost/agent/discovery.json

@@ -365,22 +365,28 @@ GRAFANA_PORT=3000
 **Purpose:** Shared cluster authentication secrets. Contains API keys that must match across all nodes in the same island for authentication.
 **Security Level:** Private - Contains sensitive authentication secrets. File permissions should be `600`.
 
-**Source:** Downloaded from hub's public endpoint for open islands: `https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env`
+**Source:** Generated per island and distributed out of band. **Never published over HTTP.**
+
+Until v0.23 this file was served unauthenticated from `https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env`, and this page printed the hub's live values as an "example". Both are fixed (V23-58); if you deployed before that, rotate — see [Rotating these secrets](#rotating-these-secrets).
 
 ### Authentication Secrets
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `COORDINATOR_API_KEY` | Yes | - | API key for Agent Coordinator authentication |
-| `SECRET_KEY` | Yes | - | JWT signing and message authentication secret |
+| `COORDINATOR_API_KEY` | Yes | - | API key for Agent Coordinator authentication. Also the fallback credential for `X-Api-Key` miner auth (`aitbc/auth/dependencies.py`) — presenting it authenticates as role `miner`. |
+| `SECRET_KEY` | Yes | - | Message authentication secret. Accepted **interchangeably with** `COORDINATOR_API_KEY` by the agent-coordinator faucet and websocket routers, so the two are not independent: either value alone opens both. |
 
 ### Example blockchain-secrets.env
 
+Generate the values; do not copy them from anywhere, including this page.
+
 ```bash
-# Shared cluster secrets for the ait-hub.aitbc.bubuit.net open island
-COORDINATOR_API_KEY=8598095866d24aa8bcdf5c11fe9cb0ea6ece8c5868af6ee95732fe41dfe8de5c
-SECRET_KEY=8598095866d24aa8bcdf5c11fe9cb0ea6ece8c5868af6ee95732fe41dfe8de5c
+# Shared cluster secrets for one island -- placeholders, not usable values
+COORDINATOR_API_KEY=<64 hex chars from `openssl rand -hex 32`>
+SECRET_KEY=<a different 64 hex chars from a second `openssl rand -hex 32`>
 ```
+
+Use two different values. Because the coordinator routers accept either one, reusing a single value for both means a leak of one is a leak of the other, with nothing left to fall back on during rotation.
 
 ### Services That Load This File
 
@@ -391,20 +397,36 @@ SECRET_KEY=8598095866d24aa8bcdf5c11fe9cb0ea6ece8c5868af6ee95732fe41dfe8de5c
 ### Security Notes
 
 - **File permissions:** Should be `600` (owner read/write only)
-- **Distribution:** For open islands, these keys are public (downloadable from hub)
-- **Private islands:** Should use unique, non-public keys generated during setup
+- **Distribution:** Out of band only. These are credentials, not configuration — "open island" describes who may *join* the chain, not who may *authenticate* to its services.
 - **Consistency:** All nodes in the same island must use the same keys
+- **Not needed to follow the chain:** `blockchain-node` reads neither variable. A node that only syncs blocks needs `blockchain.env` and `genesis.json` and nothing from this file. Install it only on hosts running `aitbc-wallet`, `aitbc-agent-coordinator`, or `aitbc-blockchain-event-bridge`.
 
 ### Setup Instructions
 
 ```bash
-# Download from hub (for open islands)
-curl -o /etc/aitbc/blockchain-secrets.env https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
-chmod 600 /etc/aitbc/blockchain-secrets.env
-
-# For private islands, generate unique keys
-# and distribute securely to all nodes
+# Generate one island's secrets, on the hub, once
+umask 077
+{ echo "COORDINATOR_API_KEY=$(openssl rand -hex 32)"
+  echo "SECRET_KEY=$(openssl rand -hex 32)"; } > /etc/aitbc/blockchain-secrets.env
 ```
+
+Copy the file to joining nodes over an authenticated channel — `scp`, your configuration
+manager, or a secrets store. Do not put it behind a URL.
+
+### Rotating these secrets
+
+Rotate if the file was ever fetched over HTTP, or if you deployed a hub whose values came
+from a published example.
+
+```bash
+# 1. On the hub: generate replacements (as above), keeping the old file for step 3
+# 2. Distribute to every node running wallet / agent-coordinator / event-bridge
+# 3. Restart those services together -- the old and new keys are not accepted
+#    simultaneously, so nodes mid-rotation will 401 against each other
+systemctl restart aitbc-agent-coordinator aitbc-wallet aitbc-blockchain-event-bridge
+```
+
+Rotation is the only remedy once a value has been served publicly. Removing the endpoint does not un-publish what was already fetched, cached, or indexed.
 
 ---
 
@@ -526,10 +548,14 @@ supported_chains=ait-mainnet,ait-testnet
 # Add to service file
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 
-# Ensure file exists
-curl -o /etc/aitbc/blockchain-secrets.env https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
+# Ensure file exists -- copy it from the hub over an authenticated channel
+scp hub:/etc/aitbc/blockchain-secrets.env /etc/aitbc/blockchain-secrets.env
 chmod 600 /etc/aitbc/blockchain-secrets.env
 ```
+
+If this node only follows the chain, the real fix is the opposite one: drop the
+`EnvironmentFile=/etc/aitbc/blockchain-secrets.env` line, because `blockchain-node` never
+reads either variable.
 
 ### Issue: Service fails to start with "Failed to load environment files"
 
