@@ -40,9 +40,9 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 62 findings — 47 confirmed defects, 15 observed design gaps. **60 resolved**
+**Totals**: 63 findings — 48 confirmed defects, 15 observed design gaps. **61 resolved**
 (V23-01..51, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — sixty-two entries, fifty-three numbered findings); **1 needs an operator** —
+V23-32a — sixty-three entries, fifty-four numbered findings); **1 needs an operator** —
 V23-51's serializer fix is deployed on both ends and working, but V23-52 shows the hub signs
 with a key that is not its declared proposer, so followers still reject every block. The
 coordinator-api/governance Alembic state that forced the 2026-08-12 deploy to run
@@ -4084,3 +4084,42 @@ has already run successfully.
 
 Also: the coordinator-api migration in that commit was committed unformatted, which
 `ruff-format` runs as a pre-commit hook and would have caught. Reformatted here.
+
+### V23-54 — the legacy address spelling never verifies
+
+**Confirmed.** `aitbc/crypto/signature_recovery.py`.
+
+The hub was repointed at the key it actually holds: `PROPOSER_ID` and the keystore now say
+`ait1fe2d63fe87db282083b9159e5857cac788af9e03`, and block 105,628 onward declare it. The
+signatures still did not verify, and the V23-52 log line said why in one line:
+
+    recovered 0xFe2d63FE87Db282083b9159e5857Cac788af9E03
+    expected  ait1fe2d63fe87db282083b9159e5857cac788af9e03
+
+Identical on all forty hex characters. `verify_signature` lowercased both and compared them
+as plain strings, so `0x` against `ait1` is unequal and always was.
+
+`ait1`/`aitbc1` is the chain's own legacy spelling of an `0x` address — `validate_address`
+accepts it (`aitbc/utils/validation.py:30`), `cli/aitbc_cli/utils/crypto_utils.py:312` strips
+it to the `0x` body, and every block the hub has ever produced declares its proposer that
+way. So no legacy-addressed block could verify regardless of which key signed it.
+
+`canonical_address` now reduces both sides before comparing, and only strips the prefix when
+what follows is exactly 40 hex characters — one-to-one with the `0x` body, so it cannot merge
+two addresses that differ. Confirmed against the live hub: 105,628–105,630 verify, 105,626
+still fails (genuinely the wrong key), 105,627 carries no signature at all.
+
+**Three defects stacked in the same rejection**, which is why it took three passes to reach
+this one. While V23-51 kept the signature from ever crossing the wire, no block reached the
+comparison. Once it did, V23-52's key mismatch was real and fully explained the failure. Only
+after the hub was repointed did the remainder isolate to the prefix. Each fix was necessary,
+each looked complete, and the same log line survived all three — which is the argument for
+V23-52's change: a rejection that names what it recovered and what it expected turns the
+fourth pass into reading one line.
+
+**The trusted-proposer fallback does not work here**, contrary to the deploy note.
+`sync_validator.validate_block_signature` verifies whenever a signature is present; the
+`trusted_proposers` branch is reached only when the block is *unsigned*. Blocks
+93,275–105,627 now arrive signed and wrong, so they fail the signature check before trust is
+consulted. That range cannot be imported by any follower that validates signatures, whatever
+`trusted_proposers` is set to.
