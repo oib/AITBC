@@ -7,11 +7,14 @@ This document outlines the backup and restore procedures for all AITBC system co
 ## Overview
 
 The AITBC platform implements a comprehensive backup strategy with:
-- **Automated daily backups** via Kubernetes CronJobs
+- **Automated daily backups** via `aitbc-backup.service` / `aitbc-backup.timer` (systemd on bare-metal / VM deployments)
 - **Manual backup capabilities** for on-demand operations
 - **Incremental and full backup options** for ledger data
-- **Cloud storage integration** for off-site backups
+- **Cloud storage integration** for off-site backups (optional AWS S3 upload where configured)
 - **Retention policies** to manage storage efficiently
+- **Key/address audit** to detect mismatched or unrecoverable private keys before they become operational failures
+
+The systemd timer runs `scripts/maintenance/aitbc-backup.sh` daily at 02:00 UTC. Output is written to `/var/backups/aitbc/<YYYYMMDD_HHMMSS>/` and retained for 30 days.
 
 ## Components
 
@@ -58,6 +61,24 @@ journalctl -u aitbc-backup.service -f
 | 02:00      | PostgreSQL     | Full       | 30 days   |
 | 02:01      | Redis          | Full       | 30 days   |
 | 02:02      | Ledger         | Full       | 30 days   |
+
+## Backup Snapshot Contents
+
+Each timestamped directory under `/var/backups/aitbc/` now contains:
+
+| File / Directory | Description |
+|------------------|-------------|
+| `governance_postgres.sql.gz` | **Deprecated / historical** — replaced by `postgres_<db>.sql.gz` |
+| `postgres_<database>.sql.gz` | `pg_dump` of each AITBC PostgreSQL database |
+| `chain_*.gz` | `sqlite3 .dump` of each per-chain SQLite database |
+| `keystore.tar.gz` | `/var/lib/aitbc/keystore/` (proposer and other keys) |
+| `wallets.tar.gz` | `/var/lib/aitbc/wallets/` (legacy and generated wallet files) |
+| `etc-aitbc.tar.gz` | `/etc/aitbc/` environment and credential files |
+| `prometheus-config.tar.gz` | `/etc/prometheus/` monitoring configuration |
+| `redis.rdb` | Redis RDB snapshot |
+| `key-audit.json` | Non-sensitive report comparing declared addresses to derived addresses |
+
+The `key-audit.json` file contains only public addresses and `match: true/false` results. It flags mismatches such as a `wallets/*.json` or `*.env` file whose private key does not derive to its declared address, which is the root cause of faucet/bridge signing failures and chain splits.
 
 ## Manual Backups
 
