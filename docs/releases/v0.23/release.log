@@ -40,13 +40,15 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 63 findings — 48 confirmed defects, 15 observed design gaps. **61 resolved**
-(V23-01..51, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — sixty-three entries, fifty-four numbered findings); **1 needs an operator** —
-V23-51's serializer fix is deployed on both ends and working, but V23-52 shows the hub signs
-with a key that is not its declared proposer, so followers still reject every block. The
-coordinator-api/governance Alembic state that forced the 2026-08-12 deploy to run
-`--no-migrate` is resolved in `6a2413138` and V23-53.
+**Totals**: 64 findings — 49 confirmed defects, 15 observed design gaps. **all 64 resolved**
+(V23-01..55, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
+V23-32a — sixty-four entries, fifty-five numbered findings).
+
+Follower sync works end to end as of 2026-08-12: V23-51 put the signature on the wire and in
+the database, V23-52 named the wrong signing key (fixed hub-side), V23-54 made the legacy
+`ait1` spelling comparable, and V23-55 backfilled the range that predates all three and can
+never verify. Follower head equals hub head. The coordinator-api/governance Alembic state that
+forced the 2026-08-12 deploy to run `--no-migrate` is resolved in `6a2413138` and V23-53.
 
 V23-50's `/var/lib/aitbc` repermission **was applied** on 2026-08-12 at 08:46. All five
 looping services recovered within five seconds and their restart counters stopped
@@ -4123,3 +4125,58 @@ fourth pass into reading one line.
 93,275–105,627 now arrive signed and wrong, so they fail the signature check before trust is
 consulted. That range cannot be imported by any follower that validates signatures, whatever
 `trusted_proposers` is set to.
+
+### V23-55 — the follower could not bootstrap past the unverifiable range
+
+**Confirmed.** Operational; `scripts/ops/backfill-follower-gap.sh`.
+
+V23-51..54 fixed every code defect that kept a follower from verifying hub blocks, and the
+follower still could not sync. The reason is not a bug: 93,275–105,626 were signed with a key
+the hub no longer holds, and 105,627 carries no signature at all. Those blocks cannot be made
+to verify — the evidence needed to check them does not exist anywhere. `sync_block_import`
+rejects `height > our_height + 1` with "Gap detected", so the node could not skip the range
+either. Head stayed at 93,274 from 2026-08-03 while the hub reached 105,6xx.
+
+`trusted_proposers` is not the escape hatch. `sync_validator.validate_block_signature` only
+consults trust for *unsigned* blocks; a present-but-wrong signature fails first (V23-54).
+
+So the range was written directly, and the manual trust decision scoped to exactly the blocks
+that provably cannot be checked. Everything from 105,628 on was left to normal validated sync.
+
+**Why that is exact here and not an approximation.** The script refuses to write unless four
+things hold, checked against what the hub actually serves:
+
+  - heights are a contiguous run from the local head to the anchor
+  - `parent_hash` linkage is unbroken across the whole range
+  - **zero transactions** in all 12,353 blocks
+  - `state_root` is constant across the range and equal to the local head's
+
+The last two are what make this a header-only backfill rather than a state guess. No balance
+moves in an empty range, and the local account state was already correct for the hub's tip —
+`state_root` was byte-identical at 93,274, 105,627 and 105,628. Had any block carried a
+transaction, the script would have refused: the state would then depend on blocks it is
+copying headers for, and copying headers would silently diverge the ledger.
+
+After writing it re-reads the database and checks head, duplicate heights, and linkage across
+the entire chain, not just the inserted range.
+
+Result: 12,353 rows inserted, head 93,274 → 105,627, 0 duplicates, 0 linkage breaks. The node
+resumed at 105,628 and imported forward under full signature validation. Follower head now
+equals hub head (105,659 at the time of writing), all 32 blocks past the anchor signed and
+verified. First time the gap has been zero since 2026-08-03.
+
+**Two bugs in the script itself, both found by running it.**
+
+The exit trap restarted only units it had stopped itself. Run against services that were
+already down it restarted nothing while printing "Services restart on exit" — which is what
+happened on the first real run: the backfill succeeded, the node stayed down, and the follower
+sat at the anchor with the hub 27 blocks ahead. The trap now restores the *intended* end
+state rather than a diff of what the run changed, skipping masked units. Resuming sync is the
+entire point of the script, so it must not exit with the node stopped.
+
+`DRY_RUN=1` stopped the services and wrote a 72 MB backup before doing nothing. A check that
+changes nothing must not take production down to perform it; dry run now skips both and
+clears the trap, and the stray backup was removed.
+
+Both are the same mistake in different clothes — reasoning about what the script *does* rather
+than what state it *leaves behind*, which is also the recurring theme of this release log.
