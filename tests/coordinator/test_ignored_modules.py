@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-SRC_ROOT = Path("/opt/aitbc/apps/agent-coordinator/src")
+SRC_ROOT = Path(__file__).resolve().parents[3] / "apps" / "agent-coordinator" / "src"
 
 
 def _load_module(module_name: str, rel_path: str):
