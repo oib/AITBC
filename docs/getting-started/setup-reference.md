@@ -47,8 +47,10 @@ cd /opt/aitbc
 # 2. Download hub configuration
 mkdir -p /etc/aitbc
 curl https://hub.aitbc.bubuit.net/agent/blockchain.env -o /etc/aitbc/blockchain.env
-curl https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env -o /etc/aitbc/blockchain-secrets.env
-chmod 600 /etc/aitbc/blockchain-secrets.env
+curl https://hub.aitbc.bubuit.net/agent/genesis.json -o /etc/aitbc/genesis.json
+# blockchain-secrets.env is NOT published (V23-58) -- blockchain-node does not read it.
+# Only if this host also runs wallet / agent-coordinator, copy it from the hub:
+#   scp hub:/etc/aitbc/blockchain-secrets.env /etc/aitbc/ && chmod 600 /etc/aitbc/blockchain-secrets.env
 
 # 3. Configure node identity
 cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
