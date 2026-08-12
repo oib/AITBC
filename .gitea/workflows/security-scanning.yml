@@ -64,7 +64,11 @@ jobs:
           # --skip-editable avoids aitbc-shared, which is a local package and not on PyPI.
           # PYSEC-2026-1325 is a timing side-channel in python-ecdsa P-256 that the
           # project considers out of scope and has no planned fix for.
-          venv/bin/pip-audit -r requirements.txt \
+          # pip-audit does not need the local editable package; it is also
+          # referenced by an absolute path in requirements.txt (from poetry export),
+          # which does not resolve inside the CI checkout. Strip editable lines.
+          grep -v '^-e ' requirements.txt > /tmp/requirements-audit.txt
+          venv/bin/pip-audit -r /tmp/requirements-audit.txt \
             --skip-editable \
             --ignore-vuln PYSEC-2026-1325 \
             --desc
