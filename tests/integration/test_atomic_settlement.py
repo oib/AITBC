@@ -48,25 +48,42 @@ class TestHTLCUtilities:
         assert not verify_secret("0xwrong", hashlock)
 
     def test_timelock_calculation(self):
+        # The two chains are at different heights on purpose. Heights are independent
+        # quantities, so what converts between chains is the remaining *duration*, not the
+        # height -- which is why both current heights are arguments.
+        source_current, dest_current = 100, 200
+        margin = 300
+
         source_tl = calculate_source_timelock(
-            current_block_height=100,
+            current_block_height=source_current,
             timeout_seconds=3600,
             block_time_seconds=5,
         )
         dest_tl = calculate_dest_timelock(
             source_timelock=source_tl,
+            source_current_height=source_current,
             source_block_time=5,
+            dest_current_height=dest_current,
             dest_block_time=3,
+            margin_seconds=margin,
         )
-        assert source_tl > 100
-        assert dest_tl > 0
-        # Dest expiry (in seconds) must be before source expiry
-        assert dest_tl * 3 < source_tl * 5
+
+        assert source_tl > source_current
+        assert dest_tl > dest_current
+
+        # The property that matters: the dest HTLC must expire far enough ahead of the source
+        # one that the buyer still has `margin` seconds to spend the revealed secret. Compare
+        # remaining durations -- the previous form compared `dest_tl * 3 < source_tl * 5`,
+        # which multiplies absolute heights on unrelated chains and happens to pass.
+        source_remaining = (source_tl - source_current) * 5
+        dest_remaining = (dest_tl - dest_current) * 3
+        assert dest_remaining <= source_remaining - margin
 
     def test_validate_timelocks_valid(self):
-        source_tl = calculate_source_timelock(100, 7200, 5)
-        dest_tl = calculate_dest_timelock(source_tl, 5, 3)
-        errors = validate_timelocks(source_tl, dest_tl, 100, 200, 5, 3, min_margin_seconds=0)
+        source_current, dest_current = 100, 200
+        source_tl = calculate_source_timelock(source_current, 7200, 5)
+        dest_tl = calculate_dest_timelock(source_tl, source_current, 5, dest_current, 3)
+        errors = validate_timelocks(source_tl, dest_tl, source_current, dest_current, 5, 3, min_margin_seconds=0)
         assert errors == [], f"Expected no errors, got: {errors}"
 
     def test_validate_timelocks_dest_too_late(self):
