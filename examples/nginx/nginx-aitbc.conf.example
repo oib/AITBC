@@ -88,11 +88,25 @@ server {
         add_header Access-Control-Allow-Origin * always;
     }
 
-    # Serve blockchain-secrets.env from /etc/aitbc
-    location = /agent/blockchain-secrets.env {
-        alias /etc/aitbc/blockchain-secrets.env;
-        add_header Content-Type "text/plain; charset=utf-8";
-        add_header Access-Control-Allow-Origin * always;
+    # blockchain-secrets.env is NOT served here, and must never be added back (V23-58).
+    #
+    # It previously was, unauthenticated and with CORS wide open. The two values it holds are
+    # both live credentials, not configuration: COORDINATOR_API_KEY authenticates as role
+    # `miner` via the X-Api-Key dependency in aitbc/auth/dependencies.py, and either value
+    # alone authorises the agent-coordinator faucet and websocket endpoints, which accept
+    # COORDINATOR_API_KEY *or* SECRET_KEY. Publishing them grants those roles to anyone who
+    # runs curl.
+    #
+    # Joining a public island does not require them: blockchain-node reads neither variable.
+    # A follower needs only blockchain.env and genesis.json, both served above. Nodes that do
+    # run the wallet or agent-coordinator get these secrets out of band -- see
+    # docs/agent/guides/open-island-joining-guide.md.
+    #
+    # The regex below is deliberate belt-and-braces. nginx matches regex locations before
+    # prefix locations, so a future `location /agent/ { alias /etc/aitbc/; }` -- the obvious
+    # way someone re-introduces this -- still cannot expose a secrets file.
+    location ~ ^/agent/.*secret {
+        return 404;
     }
 
     # Redirect /agent/ to main site
@@ -188,7 +202,7 @@ server {
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
-    
+
     # ── Wallet Service Exchange API ─────────────────────────────
 
     location /v1/exchange/ {
@@ -314,7 +328,7 @@ server {
     }
 
 
-    
+
     location / {
         try_files $uri $uri/ =404;
     }
