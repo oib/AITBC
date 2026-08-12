@@ -37,6 +37,22 @@ logger = get_logger(__name__)
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
 
+def _with_scheme(url: str) -> str:
+    """Return ``url`` with an HTTP scheme, preserving one it already has (V23-60).
+
+    The previous form tested only for ``http://`` before prepending ``http://``, so an
+    ``https://`` peer fell through the strip and came out as
+    ``http://https://hub.aitbc.bubuit.net`` — a hostname that cannot resolve. RPC genesis
+    bootstrap was therefore dead against any TLS-fronted hub, and the failure read as DNS
+    ("Name or service not known") rather than as a malformed URL.
+
+    Matches the idiom already used in ``aitbc/sync/source_resolver.py`` and ``sync_bulk.py``.
+    """
+    if url.startswith(("http://", "https://")):
+        return url
+    return f"http://{url}"
+
+
 # v0.7.3: Governance transaction payload validation
 _GOV_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "GOVERNANCE_PROPOSE": ("proposal_id", "title", "proposer"),
@@ -665,11 +681,7 @@ class PoAProposer:
         """
         trusted_peers = []
         if self._config.default_peer_rpc_url:
-            peer_url = self._config.default_peer_rpc_url
-            if peer_url.startswith("http://"):
-                peer_url = peer_url.replace("http://", "")
-            peer_url = f"http://{peer_url}"
-            trusted_peers.append(peer_url)
+            trusted_peers.append(_with_scheme(self._config.default_peer_rpc_url))
         self._logger.info("Attempting RPC bootstrap for genesis block from peers: %s", trusted_peers)
         for peer_url in trusted_peers:
             try:
@@ -695,11 +707,7 @@ class PoAProposer:
         """
         trusted_peers = []
         if self._config.default_peer_rpc_url:
-            peer_url = self._config.default_peer_rpc_url
-            if peer_url.startswith("http://"):
-                peer_url = peer_url.replace("http://", "")
-            peer_url = f"http://{peer_url}"
-            trusted_peers.append(peer_url)
+            trusted_peers.append(_with_scheme(self._config.default_peer_rpc_url))
         self._logger.info("Attempting RPC bootstrap from peers: %s", trusted_peers)
         for peer_url in trusted_peers:
             try:
