@@ -22,26 +22,26 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Add on-chain governance fields to proposals
-    op.add_column("proposals", sa.Column("chain_id", sa.String(), nullable=False, server_default="ait-hub"))
-    op.add_column("proposals", sa.Column("block_height", sa.Integer(), nullable=True))
-    op.add_column("proposals", sa.Column("tx_hash", sa.String(), nullable=True))
-    op.create_index("idx_proposals_chain_id", "proposals", ["chain_id"])
+    # Add on-chain governance fields to proposals (idempotent)
+    op.execute(sa.text("ALTER TABLE proposals ADD COLUMN IF NOT EXISTS chain_id VARCHAR NOT NULL DEFAULT 'ait-hub'"))
+    op.execute(sa.text("ALTER TABLE proposals ADD COLUMN IF NOT EXISTS block_height INTEGER"))
+    op.execute(sa.text("ALTER TABLE proposals ADD COLUMN IF NOT EXISTS tx_hash VARCHAR"))
+    op.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_proposals_chain_id ON proposals (chain_id)"))
 
-    # Add on-chain governance fields to votes
-    op.add_column("votes", sa.Column("chain_id", sa.String(), nullable=False, server_default="ait-hub"))
-    op.add_column("votes", sa.Column("block_height", sa.Integer(), nullable=True))
-    op.add_column("votes", sa.Column("tx_hash", sa.String(), nullable=True))
-    op.create_index("idx_votes_chain_id", "votes", ["chain_id"])
+    # Add on-chain governance fields to votes (idempotent)
+    op.execute(sa.text("ALTER TABLE votes ADD COLUMN IF NOT EXISTS chain_id VARCHAR NOT NULL DEFAULT 'ait-hub'"))
+    op.execute(sa.text("ALTER TABLE votes ADD COLUMN IF NOT EXISTS block_height INTEGER"))
+    op.execute(sa.text("ALTER TABLE votes ADD COLUMN IF NOT EXISTS tx_hash VARCHAR"))
+    op.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_votes_chain_id ON votes (chain_id)"))
 
 
 def downgrade() -> None:
-    op.drop_index("idx_votes_chain_id", table_name="votes")
-    op.drop_column("votes", "tx_hash")
-    op.drop_column("votes", "block_height")
-    op.drop_column("votes", "chain_id")
+    op.execute(sa.text("DROP INDEX IF EXISTS idx_votes_chain_id"))
+    op.execute(sa.text("ALTER TABLE votes DROP COLUMN IF EXISTS tx_hash"))
+    op.execute(sa.text("ALTER TABLE votes DROP COLUMN IF EXISTS block_height"))
+    op.execute(sa.text("ALTER TABLE votes DROP COLUMN IF EXISTS chain_id"))
 
-    op.drop_index("idx_proposals_chain_id", table_name="proposals")
-    op.drop_column("proposals", "tx_hash")
-    op.drop_column("proposals", "block_height")
-    op.drop_column("proposals", "chain_id")
+    op.execute(sa.text("DROP INDEX IF EXISTS idx_proposals_chain_id"))
+    op.execute(sa.text("ALTER TABLE proposals DROP COLUMN IF EXISTS tx_hash"))
+    op.execute(sa.text("ALTER TABLE proposals DROP COLUMN IF EXISTS block_height"))
+    op.execute(sa.text("ALTER TABLE proposals DROP COLUMN IF EXISTS chain_id"))
