@@ -50,6 +50,14 @@ class CLIConfig(BaseAITBCConfig):
 
     # Chain configuration
     chain_id: str = Field(default="", description="Default chain ID for multichain operations (from CHAIN_ID env var)")
+    # The wallet holding the genesis allocation — the account AIT transfers are sent *from*.
+    # This is not the block proposer: the proposer is a signing identity and holds no funds
+    # (see docs/getting-started/node/blockchain-setup.md). Matches the meaning
+    # GENESIS_WALLET_ADDRESS already has in bridge-monitor and blockchain-node escrow.
+    genesis_wallet_address: str = Field(
+        default="ait1db5247d03ca2e40f3995a583b2c097ab703efd4d",
+        description="Wallet holding the genesis allocation (from GENESIS_WALLET_ADDRESS env var)",
+    )
     hub_discovery_url: str | None = Field(
         default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)"
     )
