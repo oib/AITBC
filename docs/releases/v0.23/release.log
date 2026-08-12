@@ -40,11 +40,19 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 59 findings — 44 confirmed defects, 15 observed design gaps. **58 resolved**
-(V23-01..50, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — fifty-nine entries, fifty numbered findings); **1 needs an operator** — the
-`/var/lib/aitbc` repermission in V23-50, which is fixed in `setup.sh` but not yet applied to
-the running host.
+**Totals**: 60 findings — 45 confirmed defects, 15 observed design gaps. **59 resolved**
+(V23-01..51, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
+V23-32a — sixty entries, fifty-one numbered findings); **1 needs a deploy** — V23-51 fixes
+the serializer in this repo, but peer sync only recovers once `hub.aitbc.bubuit.net` is
+running the fixed code, since the follower can only receive what the hub serves.
+
+V23-50's `/var/lib/aitbc` repermission **was applied** on 2026-08-12 at 08:46. All five
+looping services recovered within five seconds and their restart counters stopped
+(coordinator-api had reached 21,017). `aitbc-wallet` was a sixth casualty that did not
+self-recover: its `StartLimitBurst=3`/1min is a real circuit breaker, unlike the other five
+whose `5`/10s can never trip at `RestartSec=5s`, so systemd had abandoned it on 2026-08-10
+and the permission fix alone left it down. It needed `systemctl reset-failed`. The storm cost
+~102,800 restarts and left the journal at 2.7 GB with no `SystemMaxUse` configured.
 
 (The enumeration in that parenthetical had gone stale: it still read "V23-01..40 — forty-nine
 entries, forty numbered findings" long after V23-41 onward had landed. The count was being
@@ -3929,3 +3937,67 @@ chown root:aitbc /var/lib/aitbc && chmod 2775 /var/lib/aitbc
 ```
 
 Until it runs, those five services stay in their restart loop.
+
+### V23-51 — a signature that does not survive a sync hop
+
+**Confirmed.** `apps/blockchain-node/src/aitbc_chain/rpc/blocks.py`,
+`apps/blockchain-node/src/aitbc_chain/sync_block_import.py`.
+
+Found from the deployed node's journal: 10,031 warning lines in 24 hours, of which
+
+    Block rejected: signature validation failed                                    3,815
+    Block import failed during bulk at height N: Unsigned block and no trusted
+      proposer set configured                                                      2,377
+    Block gap too large (N blocks), forcing pull sync despite push mode            2,375
+
+The follower has been pinned at height 93,274 since 2026-08-03 while the hub advanced to
+105,564 — a gap of 12,287 blocks, growing about one a minute. An earlier pass recorded this
+as "node stuck, unsigned block" and left it, because the message reads like a chain-side or
+configuration problem. It is neither.
+
+A block is signed once, by its proposer, at production time: `consensus/poa.py:419` calls
+`_sign_block_hash` and writes `signature=block_signature` into the row. Every node that
+receives that block afterwards authenticates the proposer from that field. Three places
+dropped it.
+
+- `get_blocks_range` — the endpoint peer sync pulls from — built a seven-field dict and
+  omitted `signature`.
+- `get_block` did the same, in both the response and the header dict it seeded the cache
+  with. Fixing only the response would have made the field appear on a cache miss and vanish
+  on a hit.
+- `sync_block_import._append_block` validated `block_data["signature"]` and then constructed
+  the `Block` row without it — so the check was single-use. The block verified on the way in
+  and was stored unsigned.
+
+Individually each is invisible: every field anyone asked about was present and correct. The
+`blocks-range` response is well-formed JSON, `get_block` returns a complete-looking block,
+and the import path does verify the signature before accepting. Together they mean a signed
+chain becomes unsigned the moment it crosses an RPC boundary, and `validate_block_signature`
+— which fails closed, correctly — can never authenticate anything it did not produce itself.
+The deployed follower's `block` table has a `signature` column and **0 of 93,275 rows
+populated**, which is not evidence the upstream chain is unsigned; it is the consequence of
+the field never having been transmitted or stored.
+
+Confirmed against the live hub rather than inferred. `/rpc/blocks-range` with the exact
+parameters `sync_bulk.fetch_blocks_range` sends returns blocks keyed
+`hash, height, parent_hash, proposer, state_root, timestamp, transactions, tx_count` — no
+`signature`, on a chain whose every block above genesis was proposed by
+`ait1db5247d03ca2e40f3995a583b2c097ab703efd4d`.
+
+The four new tests in `tests/test_block_signature_roundtrip.py` fail on the unfixed tree, and
+`test_signature_survives_a_sync_hop` fails with the production string verbatim —
+`Block rejected: Unsigned block and no trusted proposer set configured`. It exports from one
+node, imports into a second that never saw the proposer's key, and asserts the stored
+signature still verifies and can be re-served to a third.
+
+The existing `test_import_valid_signed_block` asserted `block.proposer` after a successful
+import and stopped there. That is why three separate drops of an adjacent field on the same
+row went unnoticed: the tests checked that import *succeeded*, never that what was stored was
+what was sent.
+
+**Does not retroactively fix the deployed follower.** Its 93,274 stored blocks have no
+signature and re-serving them will not produce one. Once the hub runs the fixed serializer,
+new blocks carry signatures and sync resumes from the tip; the historical rows stay unsigned
+unless refetched. Setting `trusted_proposers` to the hub's proposer ID is the documented
+escape hatch and would unblock it immediately, at the cost of accepting unauthenticated
+blocks on the strength of TLS to the hub alone — an operator's call, not a default.

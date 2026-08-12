@@ -124,9 +124,13 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
         "timestamp": block.timestamp.isoformat(),
         "tx_count": block.tx_count,
         "state_root": block.state_root,
+        "signature": block.signature,
         "transactions": tx_list,
     }
     # Populate the in-process cache with the block header (without transactions).
+    # `signature` belongs here too: a header served from cache and one served from
+    # the session must carry the same fields, or the field appears and disappears
+    # depending on cache state -- which is harder to diagnose than never sending it.
     header_cache.set(
         {
             "chain_id": block.chain_id,
@@ -137,6 +141,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
             "timestamp": block.timestamp.isoformat(),
             "tx_count": block.tx_count,
             "state_root": block.state_root,
+            "signature": block.signature,
         },
         chain_id,
     )
@@ -184,6 +189,12 @@ async def get_blocks_range(
                 "timestamp": b.timestamp.isoformat(),
                 "tx_count": b.tx_count,
                 "state_root": b.state_root,
+                # This is the endpoint peer sync pulls from, and the receiving
+                # validator authenticates the proposer from `signature`. Omitting it
+                # here meant no follower could ever verify a block it fetched: it
+                # fell through to the unsigned branch and, with no trusted proposer
+                # configured, failed closed on every block forever.
+                "signature": b.signature,
             }
             if include_tx:
                 block_data["transactions"] = [tx.model_dump() for tx in txs_by_height.get(b.height, [])]
