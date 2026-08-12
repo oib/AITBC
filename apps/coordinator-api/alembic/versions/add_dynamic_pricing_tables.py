@@ -35,11 +35,12 @@ def upgrade() -> None:
         "COST_PLUS",
         "VALUE_BASED",
         "COMPETITOR_BASED",
-        name="pricingstrategytype", create_type=False,
+        name="pricingstrategytype",
+        create_type=False,
     ).create(op.get_bind(), checkfirst=True)
-    sa.Enum(
-        "INCREASING", "DECREASING", "STABLE", "VOLATILE", "UNKNOWN", name="pricetrend", create_type=False
-    ).create(op.get_bind(), checkfirst=True)
+    sa.Enum("INCREASING", "DECREASING", "STABLE", "VOLATILE", "UNKNOWN", name="pricetrend", create_type=False).create(
+        op.get_bind(), checkfirst=True
+    )
 
     # Create pricing_history table
     op.create_table(
@@ -47,7 +48,9 @@ def upgrade() -> None:
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("resource_id", sa.String(), nullable=False),
         sa.Column(
-            "resource_type", sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False), nullable=False
+            "resource_type",
+            sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False),
+            nullable=False,
         ),
         sa.Column("provider_id", sa.String(), nullable=True),
         sa.Column("region", sa.String(), nullable=False),
@@ -72,7 +75,8 @@ def upgrade() -> None:
                 "COST_PLUS",
                 "VALUE_BASED",
                 "COMPETITOR_BASED",
-                name="pricingstrategytype", create_type=False,
+                name="pricingstrategytype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -116,12 +120,15 @@ def upgrade() -> None:
                 "COST_PLUS",
                 "VALUE_BASED",
                 "COMPETITOR_BASED",
-                name="pricingstrategytype", create_type=False,
+                name="pricingstrategytype",
+                create_type=False,
             ),
             nullable=False,
         ),
         sa.Column(
-            "resource_type", sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False), nullable=True
+            "resource_type",
+            sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False),
+            nullable=True,
         ),
         sa.Column("strategy_name", sa.String(), nullable=False),
         sa.Column("strategy_description", sa.String(), nullable=True),
@@ -166,7 +173,9 @@ def upgrade() -> None:
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("region", sa.String(), nullable=False),
         sa.Column(
-            "resource_type", sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False), nullable=False
+            "resource_type",
+            sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False),
+            nullable=False,
         ),
         sa.Column("demand_level", sa.Float(), nullable=False),
         sa.Column("supply_level", sa.Float(), nullable=False),
@@ -214,7 +223,9 @@ def upgrade() -> None:
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("resource_id", sa.String(), nullable=False),
         sa.Column(
-            "resource_type", sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False), nullable=False
+            "resource_type",
+            sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False),
+            nullable=False,
         ),
         sa.Column("region", sa.String(), nullable=False),
         sa.Column("forecast_horizon_hours", sa.Integer(), nullable=False),
@@ -232,7 +243,8 @@ def upgrade() -> None:
                 "COST_PLUS",
                 "VALUE_BASED",
                 "COMPETITOR_BASED",
-                name="pricingstrategytype", create_type=False,
+                name="pricingstrategytype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -273,7 +285,9 @@ def upgrade() -> None:
         sa.Column("experiment_id", sa.String(), nullable=False),
         sa.Column("provider_id", sa.String(), nullable=False),
         sa.Column(
-            "resource_type", sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False), nullable=True
+            "resource_type",
+            sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False),
+            nullable=True,
         ),
         sa.Column("experiment_name", sa.String(), nullable=False),
         sa.Column("experiment_type", sa.String(), nullable=False),
@@ -291,7 +305,8 @@ def upgrade() -> None:
                 "COST_PLUS",
                 "VALUE_BASED",
                 "COMPETITOR_BASED",
-                name="pricingstrategytype", create_type=False,
+                name="pricingstrategytype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -308,7 +323,8 @@ def upgrade() -> None:
                 "COST_PLUS",
                 "VALUE_BASED",
                 "COMPETITOR_BASED",
-                name="pricingstrategytype", create_type=False,
+                name="pricingstrategytype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -352,7 +368,9 @@ def upgrade() -> None:
         sa.Column("provider_id", sa.String(), nullable=True),
         sa.Column("resource_id", sa.String(), nullable=True),
         sa.Column(
-            "resource_type", sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False), nullable=True
+            "resource_type",
+            sa.Enum("GPU", "SERVICE", "STORAGE", "NETWORK", "COMPUTE", name="resourcetype", create_type=False),
+            nullable=True,
         ),
         sa.Column("alert_type", sa.String(), nullable=False),
         sa.Column("severity", sa.String(), nullable=False),

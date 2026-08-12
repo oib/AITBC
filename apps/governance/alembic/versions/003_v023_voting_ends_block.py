@@ -28,9 +28,18 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _has_column(name: str) -> bool:
+    # V23-53: same inspector guard as 002. Making 002 re-runnable and leaving this one
+    # alone would have moved the abort one revision later without changing the outcome --
+    # `alembic upgrade head` still stops, just at 003 instead of 002.
+    return name in {column["name"] for column in sa.inspect(op.get_bind()).get_columns("proposals")}
+
+
 def upgrade() -> None:
-    op.add_column("proposals", sa.Column("voting_ends_block", sa.Integer(), nullable=True))
+    if not _has_column("voting_ends_block"):
+        op.add_column("proposals", sa.Column("voting_ends_block", sa.Integer(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("proposals", "voting_ends_block")
+    if _has_column("voting_ends_block"):
+        op.drop_column("proposals", "voting_ends_block")
