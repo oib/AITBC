@@ -12,10 +12,6 @@ from eth_account.messages import encode_defunct
 from sqlmodel import SQLModel
 from starlette.testclient import TestClient
 
-# Skip collection of test modules that import non-existent app modules.
-# test_staking_lifecycle.py imports app.domain.bounty which was removed in a
-# prior release. This is a pre-existing issue outside v0.5.18's scope.
-collect_ignore = ["test_staking_lifecycle.py"]
 
 # Enable debug mode for integration tests so legacy compatibility routes and
 # docs are available. Must be set before importing the coordinator app.
