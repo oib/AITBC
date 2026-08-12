@@ -23,27 +23,47 @@ log "Starting AITBC backup to ${BACKUP_DIR}"
 mkdir -p "${BACKUP_DIR}"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
-# Read password from credentials dir (NOT from blockchain-secrets.env which is published)
-GOVERNANCE_PW=""
-if [ -f /etc/aitbc/credentials/postgres_aitbc_governance_password ]; then
-    GOVERNANCE_PW=$(cat /etc/aitbc/credentials/postgres_aitbc_governance_password)
-elif [ -f /etc/aitbc/aitbc-governance.env ]; then
-    # Fallback: read DB_PASS from governance env file
-    GOVERNANCE_PW=$(grep "^DB_PASS=" /etc/aitbc/aitbc-governance.env 2>/dev/null | cut -d= -f2-)
-fi
+# Back up all AITBC PostgreSQL databases, not just governance.
+PG_DBS=(
+    "aitbc_governance"
+    "aitbc_marketplace"
+    "aitbc_trading"
+    "aitbc_user"
+    "aitbc_mempool"
+    "aitbc_gpu"
+)
 
-log "Backing up PostgreSQL aitbc_governance..."
-if [ -z "$GOVERNANCE_PW" ]; then
-    error "PostgreSQL backup FAILED: no governance password found"
-    error "Expected /etc/aitbc/credentials/postgres_aitbc_governance_password or DB_PASS in /etc/aitbc/aitbc-governance.env"
-else
-    if PGPASSWORD="$GOVERNANCE_PW" pg_dump -U aitbc_governance -h localhost aitbc_governance \
-        | gzip > "${BACKUP_DIR}/governance_postgres.sql.gz"; then
-        log "PostgreSQL backup: OK ($(du -sh "${BACKUP_DIR}/governance_postgres.sql.gz" | cut -f1))"
-    else
-        error "PostgreSQL backup FAILED"
+for pg_db in "${PG_DBS[@]}"; do
+    # Map database name to service/env name for credential discovery
+    pg_service="aitbc-${pg_db#aitbc_}"
+    pg_creds="/etc/aitbc/credentials/postgres_${pg_db}_password"
+    pg_env="/etc/aitbc/${pg_service}.env"
+    pg_pw=""
+
+    if [ -f "$pg_creds" ]; then
+        pg_pw=$(cat "$pg_creds")
+    elif [ -f "$pg_env" ]; then
+        pg_pw=$(grep "^DB_PASS=" "$pg_env" 2>/dev/null | cut -d= -f2- || true)
     fi
-fi
+
+    pg_user="${pg_db}"
+    if [ -f "$pg_env" ]; then
+        pg_user_env=$(grep "^DB_USER=" "$pg_env" 2>/dev/null | cut -d= -f2- || true)
+        [ -n "$pg_user_env" ] && pg_user="$pg_user_env"
+    fi
+
+    log "Backing up PostgreSQL ${pg_db}..."
+    if [ -z "$pg_pw" ]; then
+        warn "PostgreSQL backup SKIPPED for ${pg_db}: no password found"
+    else
+        if PGPASSWORD="$pg_pw" pg_dump -U "$pg_user" -h localhost "$pg_db" \
+            | gzip > "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"; then
+            log "PostgreSQL backup: OK for ${pg_db} ($(du -sh "${BACKUP_DIR}/postgres_${pg_db}.sql.gz" | cut -f1))"
+        else
+            error "PostgreSQL backup FAILED for ${pg_db}"
+        fi
+    fi
+done
 
 # ── Blockchain SQLite DB ──────────────────────────────────────────────────────
 CHAIN_DB_DIR="/var/lib/aitbc/data"
@@ -70,6 +90,15 @@ if [ -d "$KEYSTORE_DIR" ]; then
         || error "Keystore backup FAILED"
 fi
 
+# ── Wallet files ──────────────────────────────────────────────────────────────
+WALLETS_DIR="/var/lib/aitbc/wallets"
+if [ -d "$WALLETS_DIR" ]; then
+    log "Backing up wallet files..."
+    tar czf "${BACKUP_DIR}/wallets.tar.gz" -C "$(dirname "$WALLETS_DIR")" "$(basename "$WALLETS_DIR")" \
+        && log "Wallets backup: OK ($(du -sh "${BACKUP_DIR}/wallets.tar.gz" | cut -f1))" \
+        || error "Wallets backup FAILED"
+fi
+
 # ── Service Configuration ─────────────────────────────────────────────────────
 log "Backing up service configurations..."
 tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" /etc/aitbc/ 2>/dev/null \
@@ -89,6 +118,18 @@ if [ -f "${REDIS_RDB}/${REDIS_FILE}" ]; then
         || error "Redis RDB copy FAILED"
 else
     warn "Redis RDB not found, skipping"
+fi
+
+# ── Key audit ─────────────────────────────────────────────────────────────────
+log "Running key/address audit..."
+if PYTHONPATH="/opt/aitbc" /opt/aitbc/venv/bin/python /opt/aitbc/scripts/ops/key-audit.py --report "${BACKUP_DIR}/key-audit.json"; then
+    if /opt/aitbc/venv/bin/python -c "import json,sys; sys.exit(0 if json.load(open('${BACKUP_DIR}/key-audit.json')).get('ok') else 1)"; then
+        log "Key audit: OK (see ${BACKUP_DIR}/key-audit.json)"
+    else
+        warn "Key audit: mismatches detected (see ${BACKUP_DIR}/key-audit.json)"
+    fi
+else
+    error "Key audit: script failed"
 fi
 
 # ── Finalize ──────────────────────────────────────────────────────────────────
