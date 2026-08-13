@@ -35,8 +35,8 @@
   the release owner runs them by hand and records pass/fail. They are the epic
   exit gate (ORCHESTRATOR_SOP §"epic exit gate", ABS-80) and drive the real
   `scripts/orchestrator.sh` against the mock tracker + stub spawn (no live model):
-  - [ ] `bash tests/e2e-orchestrator-dryrun.sh` (v1/v2 lifecycle — ABS-55): ___pass /___ fail
-  - [ ] `bash tests/e2e-workflow-v3.sh` (v3 full-team scenarios — ABS-80): ___pass /___ fail
+  - [ ] `bash tests/e2e-orchestrator-dryrun.sh` (v1/v2 lifecycle — ABS-55): **pass** / **fail**
+  - [ ] `bash tests/e2e-workflow-v3.sh` (v3 full-team scenarios — ABS-80): **pass** / **fail**
   - [ ] Any failure investigated and either fixed or documented in Notes/Errata before tagging.
 - [ ] **Suite-budget re-measurement** (ABS-603 AC5). The tentpole `tests/tooling/test-orchestrator.sh`
   grows with every epic that adds a `tests/orchestrator.d` fixture, shrinking its reserve against

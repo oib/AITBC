@@ -230,7 +230,7 @@ Content-Type: application/json
 }
 ```
 
-## Configuration
+## Configuration — Run rule engine tests
 
 ### Environment Variables
 

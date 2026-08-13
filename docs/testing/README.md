@@ -1,10 +1,10 @@
 # AITBC Testing Documentation
 
-**Level**: Intermediate<br>
-**Prerequisites**: Basic familiarity with the AITBC codebase, Python testing tools, and service management<br>
-**Estimated Time**: 20-40 minutes<br>
-**Last Updated**: 2026-04-27<br>
-**Version**: 1.0
+- **Level**: Intermediate
+- **Prerequisites**: Basic familiarity with the AITBC codebase, Python testing tools, and service management
+- **Estimated Time**: 20-40 minutes
+- **Last Updated**: 2026-04-27
+- **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
 
@@ -68,7 +68,7 @@ It covers unit tests, integration tests, end-to-end tests, security tests, and l
 6. [CI/CD Integration](#cicd-integration)
 7. [Troubleshooting](#troubleshooting)
 
-## 🧱 **Test Structure**
+## Test Structure
 
 ```
 tests/
@@ -113,7 +113,7 @@ scripts/utils/             # Testing utilities
 └── other utility scripts          # Various helper scripts
 ```
 
-## ✅ **Prerequisites**
+## Prerequisites
 
 ### **Environment Setup**
 
@@ -138,7 +138,7 @@ source /etc/aitbc/.env  # Central environment configuration
 - Database accessible (SQLite/PostgreSQL)
 - GPU services (if running AI tests)
 
-## ▶️ **Running Tests**
+## Running Tests
 
 ### **Quick Start**
 
@@ -182,7 +182,7 @@ bash scripts/testing/test_workflow.sh
 bash scripts/testing/test-all-services.sh
 ```
 
-## 🧪 **Test Types**
+## Test Types
 
 ### **Unit Tests**
 
@@ -212,7 +212,7 @@ bash scripts/testing/test-all-services.sh
 - **Speed**: Variable (depends on test parameters)
 - **Coverage**: API response times, throughput
 
-## ⚙️ **Configuration**
+## Configuration
 
 ### **Test Configuration Files**
 
@@ -235,7 +235,7 @@ TEST_LOG_FILE=/var/log/aitbc/test.log
 TEST_API_BASE_URL=http://localhost:8012
 ```
 
-## 🔄 **CI/CD Integration**
+## CI/CD Integration
 
 ### **GitHub Actions**
 
@@ -256,7 +256,7 @@ python tests/test_runner.py --all --coverage
 coverage html -o coverage_html/
 ```
 
-## 🛠️ **Troubleshooting**
+## Troubleshooting
 
 ### **Common Issues**
 
@@ -340,6 +340,6 @@ All test logs are now centralized in `/var/log/aitbc/`:
 
 ---
 
-*Last updated: 2026-04-27*<br>
-*Version: 1.0*<br>
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Active index for testing documentation*

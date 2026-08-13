@@ -2,7 +2,7 @@
 
 FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.
 
-<span class="component-status live">● Live</span>
+● Live
 
 ## Overview
 

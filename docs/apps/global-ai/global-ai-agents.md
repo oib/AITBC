@@ -204,7 +204,7 @@ Content-Type: application/json
 GET /api/v1/global-ai/sync/status
 ```
 
-## Configuration
+## Configuration — Run state synchronizer tests
 
 ### Environment Variables
 

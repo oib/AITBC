@@ -221,7 +221,7 @@ Expected response:
 
 ### Marketplace Service Testing
 
-#### Health Check
+#### Health Check — Marketplace Service Testing
 
 ```bash
 curl http://localhost:8102/health
@@ -250,7 +250,7 @@ Expected response:
 
 ### Trading Service Testing
 
-#### Health Check
+#### Health Check — Trading Service Testing
 
 ```bash
 curl http://localhost:8104/health
@@ -279,7 +279,7 @@ Expected response:
 
 ### Governance Service Testing
 
-#### Health Check
+#### Health Check — Governance Service Testing
 
 ```bash
 curl http://localhost:8105/health
@@ -502,7 +502,7 @@ curl http://localhost:8080/services
 **Solution:**
 
 ```bash
-# Verify PostgreSQL is running
+# Verify PostgreSQL is running (2)
 sudo systemctl status postgresql
 
 # Check database credentials in service file

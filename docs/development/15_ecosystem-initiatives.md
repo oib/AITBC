@@ -351,10 +351,10 @@ The ecosystem is positioned to become a leading platform for decentralized busin
 
 ### C. Additional Resources
 
-- [Hackathon Framework](#hackathon-program)
-- [Grant Program Details](#grant-program)
-- [Extension SDK Documentation](#marketplace-extension-sdk)
-- [Analytics API Reference](#analytics-and-monitoring)
+- Hackathon Framework
+- Grant Program Details
+- Extension SDK Documentation
+- Analytics API Reference
 
 ---
 

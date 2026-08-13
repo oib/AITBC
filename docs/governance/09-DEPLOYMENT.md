@@ -234,7 +234,7 @@ This document covers deployment procedures for the Governance Service, including
 
 ## Smart Contract Deployment
 
-### Prerequisites
+### Prerequisites — Smart Contract Deployment
 
 - Foundry installed
 - Testnet/Mainnet RPC endpoint
@@ -340,13 +340,13 @@ curl http://localhost:8105/live
 ### Systemd Monitoring
 
 ```bash
-# View service logs
+# View service logs (2)
 sudo journalctl -u aitbc-governance -f
 
-# View service status
+# View service status (2)
 sudo systemctl status aitbc-governance
 
-# Restart service
+# Restart service (2)
 sudo systemctl restart aitbc-governance
 ```
 
@@ -445,7 +445,7 @@ sudo systemctl stop aitbc-governance
 cd /opt/aitbc/apps/governance
 git checkout <previous_version>
 
-# Restart service
+# Restart service (3)
 sudo systemctl start aitbc-governance
 ```
 

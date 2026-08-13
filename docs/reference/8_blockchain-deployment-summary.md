@@ -29,11 +29,11 @@ Successfully deployed two independent AITBC blockchain nodes on the same server 
 ### Systemd Services
 
 ```bash
-# Node 1
+# Node 1 (2)
 systemctl status blockchain-node    # Consensus node
 systemctl status blockchain-rpc     # RPC API
 
-# Node 2
+# Node 2 (2)
 systemctl status blockchain-node-2  # Consensus node
 systemctl status blockchain-rpc-2   # RPC API
 ```
@@ -148,7 +148,7 @@ journalctl -u blockchain-rpc-2 -f
 - `/opt/aitbc/scripts/deployment/deploy-second-node.sh`
 - `/opt/aitbc/scripts/deployment/setup-gossip-relay.sh`
 
-### Test Scripts
+### Test Scripts — Files Created/Modified
 
 - `/opt/aitbc/tests/test_blockchain_nodes.py`
 - `/opt/aitbc/tests/test_blockchain_simple.py`

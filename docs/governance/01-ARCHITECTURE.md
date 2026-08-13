@@ -178,7 +178,7 @@ The AITBC Governance system consists of three main components: the Governance Se
 
 ## Scalability Considerations
 
-### Database
+### Database — Scalability Considerations
 
 - Connection pooling for PostgreSQL
 - Indexed queries for performance

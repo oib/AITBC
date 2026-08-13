@@ -2,7 +2,7 @@
 
 PoA/PoS consensus blockchain with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability
 
-<span class="status-badge live">● Live</span>
+● Live
 
 ## Overview
 
