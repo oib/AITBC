@@ -8,9 +8,9 @@
 **Goal**: Connect the marketplace, GPU, and edge services into a functioning compute marketplace. Add chain_id awareness to offer discovery, implement a formal offer state machine, add payment verification to edge serving, and integrate marketplace matching with agent-coordinator task queues.
 
 > **Scope constraint**: This release targets `apps/marketplace/` (~2K lines), `apps/gpu/` (~1.2K lines), `apps/edge/` (~1.4K lines), and new shared utilities in `aitbc/`. It does NOT add reputation scoring (v0.6.7), pool hub/mining (v0.6.7), or bridge functionality (v0.7.0).
-
+>
 > **Prerequisites**: [v0.6.5](../v0.6.5/change.log) (Agent Coordination — task assignment, PaymentEscrow), [v0.6.3](../v0.6.3/change.log) (Multi-Island), [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island), [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions). All verified complete.
-
+>
 > **Risk**: Medium. Changes are backward compatible (optional chain_id, feature-flagged payment). Schema fixes in edge service are breaking but the existing code is already broken (runtime errors from schema mismatch). Mitigated by: (1) all offer FSM changes are additive, (2) payment verification is feature-flagged, (3) edge schema fixes fix already-broken code.
 
 ---
@@ -446,7 +446,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/marketplace/tests/ apps/gpu/te
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ apps/edge/
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

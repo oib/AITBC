@@ -8,7 +8,7 @@
 **Goal**: Achieve measurable DB/network/caching performance gains with low regression risk. All changes are additive (indexes, pools, cache layers, batch fetches) — the sequential transaction loop in `poa.py` and full state root recompute architecture stay as-is; only the I/O around them is optimized.
 
 > **Scope constraint**: No parallel processing, no architectural changes to the tx loop. Block import rate / tx validation latency targets are v0.6.1. This release targets: query latency <5ms (95th percentile), cache hit rate >80%, mempool query latency <5ms, network compression >50%.
-
+>
 > **Prerequisites**: [v0.5.18](../v0.5.18/change.log) (green blockchain-node test suite — the regression baseline).
 
 ---

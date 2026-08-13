@@ -317,7 +317,7 @@ During the migration, several systemd services required configuration fixes:
 
 ## Removed/Legacy Services
 
-### aitbc-wallet-daemon.service
+### aitbc-wallet-daemon.service — Removed/Legacy Services
 
 - **Status**: Removed
 - **Reason**: Legacy duplicate of aitbc-wallet.service

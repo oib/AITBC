@@ -167,7 +167,7 @@ def get_account(address: str) -> Account:
 
 ## Task 2: Consolidate HTTP Client Implementations
 
-### Current State Analysis
+### Current State Analysis — Task 2: Consolidate HTTP Client Implementations
 
 **Existing Implementations:**
 
@@ -191,7 +191,7 @@ def get_account(address: str) -> Account:
 - No single source of truth
 - Import confusion
 
-### Proposed Architecture
+### Proposed Architecture — Task 2: Consolidate HTTP Client Implementations
 
 ```
 aitbc/http/
@@ -220,7 +220,7 @@ async_client = AsyncHTTPClient(base_url="http://localhost:8202", timeout=30)
 response = await async_client.get("/rpc/account", params={"address": addr})
 ```
 
-### Migration Strategy
+### Migration Strategy — Async client
 
 **Phase 1: Create New Module (Week 1)**
 
@@ -258,7 +258,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 3. Performance benchmarking
 4. Update CI to test HTTP clients
 
-### Risk Assessment
+### Risk Assessment — Async client
 
 **High Risk:**
 
@@ -279,7 +279,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 - Comprehensive testing before removal
 - Rollback plan (keep old code in branch)
 
-### Testing Approach
+### Testing Approach — Async client
 
 **Unit Tests:**
 
@@ -303,14 +303,14 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 - Measure connection overhead
 - Measure memory usage
 
-### Rollback Plan
+### Rollback Plan — Async client
 
 1. Keep old HTTP clients in `aitbc/http_legacy/` during migration
 2. Feature flag to switch between implementations
 3. If issues arise, revert to legacy implementation
 4. Remove legacy code after 2 weeks of stable operation
 
-### Timeline Estimate
+### Timeline Estimate — Async client
 
 - **Phase 1:** 1 week (create new module)
 - **Phase 2:** 1 week (update CLI imports)
@@ -323,7 +323,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 
 ## Task 3: Break Down Monolithic Files
 
-### Current State Analysis
+### Current State Analysis — Task 3: Break Down Monolithic Files
 
 **Monolithic Files (>700 lines):**
 
@@ -436,7 +436,7 @@ apps/coordinator-api/src/app/
 └── config.py            # Configuration (100 lines)
 ```
 
-### Migration Strategy
+### Migration Strategy — Task 3: Break Down Monolithic Files
 
 **Phase 1: Create New Structure (Week 1)**
 
@@ -470,7 +470,7 @@ apps/coordinator-api/src/app/
 3. Performance testing
 4. Update CI
 
-### Risk Assessment
+### Risk Assessment — Task 3: Break Down Monolithic Files
 
 **High Risk:**
 
@@ -491,7 +491,7 @@ apps/coordinator-api/src/app/
 - Code review for each split
 - Update documentation immediately
 
-### Testing Approach
+### Testing Approach — Task 3: Break Down Monolithic Files
 
 **Unit Tests:**
 
@@ -511,14 +511,14 @@ apps/coordinator-api/src/app/
 - Performance benchmarking
 - Memory usage comparison
 
-### Rollback Plan
+### Rollback Plan — Task 3: Break Down Monolithic Files
 
 1. Keep old files in `*_legacy/` directories during migration
 2. Feature flag to switch between implementations
 3. If issues arise, revert to legacy implementation
 4. Remove legacy code after 2 weeks of stable operation
 
-### Timeline Estimate
+### Timeline Estimate — Task 3: Break Down Monolithic Files
 
 - **Phase 1:** 1 week (create new structure)
 - **Phase 2:** 1 week (update external imports)

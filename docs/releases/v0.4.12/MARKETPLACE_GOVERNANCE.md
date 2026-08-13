@@ -32,7 +32,7 @@ aitbc governance propose --type service_approval --title "Add image generation s
 aitbc governance propose --type fee_structure --title "Reduce escrow fee" --value 0.005
 ```
 
-### Features
+### Features — Propose fee change
 
 - **Transparent**: All fee changes require community vote
 - **Flexible**: Easy to adjust fees based on market conditions
@@ -47,7 +47,7 @@ aitbc governance propose --type fee_structure --title "Reduce escrow fee" --valu
 aitbc governance propose --type dispute_resolution --title "Resolve dispute job_123" --description "Provider claims job completed, buyer disputes"
 ```
 
-### Features
+### Features — Propose dispute resolution
 
 - **Fair resolution**: Community-based dispute resolution
 - **Transparent**: All disputes and resolutions are public
@@ -61,10 +61,10 @@ aitbc governance propose --type dispute_resolution --title "Resolve dispute job_
 # Propose service approval
 aitbc governance propose --type service_approval --title "Add image generation service" --description "Add Stable Diffusion as supported service type"
 
-# Propose fee change
+# Propose fee change (2)
 aitbc governance propose --type fee_structure --title "Reduce escrow fee" --value 0.005
 
-# Propose dispute resolution
+# Propose dispute resolution (2)
 aitbc governance propose --type dispute_resolution --title "Resolve dispute job_123" --description "Provider claims job completed, buyer disputes"
 ```
 

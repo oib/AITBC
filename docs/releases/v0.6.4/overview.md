@@ -12,9 +12,9 @@ Multi-Chain Per Island — Parallel Block Streams, MultiChainManager Activation,
 Enable an island to host multiple parallel block streams (chains), each producing blocks independently with its own genesis, block height, state, and mempool — but sharing the same island identity, P2P network, and validator set. Wire up the existing dead-code `MultiChainManager`, make `IslandMembership` hold multiple chain_ids, and activate multi-chain block production within a single island.
 
 > **Scope constraint**: This release activates multi-chain per island only. It does NOT activate `MultiValidatorPoA`/`PBFT` (those stay in THRESHOLD state — separate security review required). It does NOT add bridge functionality (v0.7.0) or inter-chain trading (v0.8.0).
-
+>
 > **Prerequisites**: [v0.6.1](../v0.6.1/change.log) (Parallel Processing — multiple proposers as parallel tasks), [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support — island-to-chain registry infrastructure). All complete.
-
+>
 > **Risk**: High. The `join_island()` signature change is a breaking change across 5 repos / 8 call sites. Any mismatch crashes island join. Mitigated by: (1) backward compat adapter (`chain_id: str | list[str]`), (2) atomic refactor in single commit, (3) grep verification before merge.
 
 ## Status Baseline — Verified Code Targets

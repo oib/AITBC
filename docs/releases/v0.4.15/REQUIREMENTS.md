@@ -89,7 +89,7 @@ The recommended method is using the installation profile script:
 # Install core dependencies
 pip install -r requirements.txt
 
-# Install development dependencies
+# Install development dependencies (2)
 pip install -r requirements-dev.txt
 
 # Install optional modules
@@ -158,7 +158,7 @@ Services should not maintain their own `requirements.txt` files. Instead:
 Example for a service requiring AI/ML:
 
 ```bash
-# Install core dependencies
+# Install core dependencies (2)
 pip install -r /opt/aitbc/requirements.txt
 
 # Install AI/ML optional module

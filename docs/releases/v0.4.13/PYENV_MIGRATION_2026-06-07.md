@@ -122,7 +122,7 @@ systemctl start aitbc-*.service
 ### 9. pyenv Cleanup ✅
 
 ```bash
-# Stopped all services
+# Stopped all services (2)
 systemctl stop aitbc-*.service
 
 # Removed pyenv installation
@@ -136,7 +136,7 @@ sed -i '/pyenv virtualenv-init/d' ~/.bashrc
 # Removed backup venv
 rm -rf /opt/aitbc/venv.backup
 
-# Restarted services
+# Restarted services (2)
 systemctl start aitbc-*.service
 ```
 

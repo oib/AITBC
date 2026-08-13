@@ -8,20 +8,20 @@
 **Goal**: Replace the current trivially forgeable bridge proof validation (`_validate_proof` in `cross_chain/bridge.py:399-475`, which only checks field equality + signature format) with cryptographic Merkle proof verification using the existing `merkle_patricia_trie.verify_proof()`. Verify block header proposer signatures against the v0.7.1 validator set registry. Track block finality per chain. Include an abstract oracle client interface for future external oracle integration.
 
 > **Rescope from original change.log**: The original v0.7.2 plan assumed external oracle infrastructure (`oracle1.aitbc.bubuit.net`, `oracle2.aitbc.bubuit.net`) that **does not exist**. No oracle client code, light client library, or deployed oracle network are present. v0.7.2 is rescoped to use **in-process cryptographic verification** with existing Merkle Patricia Trie infrastructure (`merkle_patricia_trie.verify_proof`). External oracle integration is deferred to v0.8.x or v0.9.x. A stub oracle client interface is included to allow future integration without breaking changes.
-
+>
 > **Hard prerequisite**: v0.7.1 must be **complete and committed** before v0.7.2 implementation starts. v0.7.2's core verification depends on:
 >
 > - v0.7.1 Agent A: `ValidatorSetRegistry`, `verify_threshold_signatures`, `ValidatorSet`/`ValidatorInfo` types (✅ committed `1fcf1e829`)
 > - v0.7.1 Agent B: `BridgeValidator` SQLModel table, block header `signature` field, `_verify_threshold_signatures` in bridge.py, validator RPC endpoints (🔴 NOT STARTED — v0.7.0 Agent B is still uncommitted)
 >
 > **Do NOT start v0.7.2 implementation until v0.7.1 Agent B is complete.** This AGENTS.md is a planning document only.
-
+>
 > **Scope constraint**: This release **unfences** the bridge release path. `BRIDGE_RELEASE_ENABLED=false` (config.py:290) is flipped to `true` after Merkle proof verification is operational and tested. This is the single most security-critical change in the v0.7.x series — the fence has been in place since v0.5.16 to prevent unauthorized minting.
-
+>
 > **No external security audit**: All development is in-house. Internal code review + comprehensive test coverage replaces the external audit gate (same as v0.7.1).
-
+>
 > **Risk**: High. This release unfences the bridge release path. The Merkle proof verification must be correct — a bug here means an attacker can mint tokens on the destination chain without a real lock on the source chain. The existing `merkle_patricia_trie.verify_proof` is tested but has not been used in the bridge path before.
-
+>
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅ (Agent A committed), [v0.7.1](../v0.7.1/change.log) (Agent A ✅ committed, Agent B 🔴 not started), [v0.5.16](../v0.5.16/change.log) ✅ (bridge proof hardening + release fence).
 
 ---
@@ -590,7 +590,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v072_bridge_verification.py -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

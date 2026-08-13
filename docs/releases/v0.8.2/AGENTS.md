@@ -8,9 +8,9 @@
 **Goal**: Upgrade cross-chain offer synchronization from polling-based (v0.8.1) to subscription-based with real-time notifications. Offers are pushed to subscribers via WebSocket and gossip pub/sub, eliminating polling latency. Optional external search index for advanced queries.
 
 > **Not on the critical path**: v0.9.0 (Atomic Cross-Chain Settlement) does NOT depend on v0.8.2. v0.9.0 only needs v0.8.1's polling-based sync. v0.8.2 is an enhancement release that can ship after v0.9.0 or in parallel.
-
+>
 > **Prerequisites**: [v0.8.1](../v0.8.1/change.log) (Agent A ✅ `b3f3ef57d`, Agent B ⬜ pending), [v0.8.0](../v0.8.0/change.log), [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅.
-
+>
 > **Risk**: Low-Medium. This is an enhancement layer on v0.8.1. No consensus-critical path is touched. The main risk is WebSocket connection management (reconnection, backpressure) and gossip event ordering. Polling-based sync (v0.8.1) remains as fallback.
 
 ---
@@ -547,7 +547,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/ cli/aitbc_cli
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v082_offer_subscription.py -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

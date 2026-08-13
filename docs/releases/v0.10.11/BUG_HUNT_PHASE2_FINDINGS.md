@@ -489,7 +489,7 @@ This document summarizes all security, performance, and reliability issues found
 
 ### High Priority
 
-4. Fix blocking HTTP calls in async functions (3 instances)
+1. Fix blocking HTTP calls in async functions (3 instances)
 2. Add missing database indexes (4 instances)
 3. Fix hardcoded blockchain RPC URLs (4 instances)
 4. Add authentication to GPU marketplace registration
@@ -498,6 +498,7 @@ This document summarizes all security, performance, and reliability issues found
 7. Add connection pool limits to HTTP clients (3 instances)
 
 ### Medium Priority
+
  1. Fix unsafe dictionary access with .get() (6 instances)
  2. Add JSON parsing error handling (10 instances)
  3. Add pagination to unbounded queries (3 instances)
@@ -508,6 +509,7 @@ This document summarizes all security, performance, and reliability issues found
  8. Add path traversal validation (2 instances)
 
 ### Low Priority
+
  1. Fix unsafe list index access (2 instances)
  2. Fix hardcoded SDK default URLs (2 instances)
  3. Replace random with secrets in non-critical contexts (2 instances)

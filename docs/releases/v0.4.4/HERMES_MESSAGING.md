@@ -41,7 +41,7 @@ HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 
 ### Agent Coordinator Integration
 
-#### Port Update
+#### Port Update — Agent Coordinator Integration
 
 - Agent Coordinator port updated from 8011 to 8107
 

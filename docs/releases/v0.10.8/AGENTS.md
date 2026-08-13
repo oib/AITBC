@@ -8,9 +8,9 @@
 **Goal**: Close out the 3 deferred items from v0.10.7 §B5 and §B7. These are small, low-risk tasks that were deferred to avoid scope creep in v0.10.7.
 
 > **Scope**: 3 tasks. (1) Merge `config.py` into `hierarchical_config.py` and delete the shadowed file + importlib hack, (2) Add `create_simple_health_response()` helper and update 11 services, (3) Delete 3 dead retry helpers and update their tests.
-
+>
 > **Prerequisites**: [v0.10.7](../v0.10.7/change.log) (✅ complete — dead code elimination & duplicate consolidation).
-
+>
 > **Risk**: Low. Config consolidation has only 1 production importer. Health endpoint helper is additive. Retry helpers have zero production importers (dead code). Mitigated by: comprehensive test suite.
 
 ---
@@ -100,7 +100,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Config Consolidation & Health Endpoints (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

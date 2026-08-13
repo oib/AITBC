@@ -295,10 +295,10 @@ def process_transaction(tx: dict):
 #### 4. Enable Database Monitoring (Optional)
 
 ```python
-# Old way (still works)
+# Old way (still works) (2)
 db = DatabaseConnection(db_path)
 
-# New way (recommended)
+# New way (recommended) (2)
 db = DatabaseConnection(db_path, enable_monitoring=True)
 stats = db.get_monitoring_stats()
 ```
@@ -427,7 +427,7 @@ manager = ReadReplicaManager(
 
 ## 🚀 Deprecations
 
-### None
+### None — 🚀 Deprecations
 
 No features are deprecated in this release. All existing APIs remain functional.
 
