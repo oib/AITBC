@@ -76,7 +76,7 @@ For backward compatibility, legacy flat commands are automatically normalized to
 
 - Python 3.13+
 - Virtual environment at `/opt/aitbc/venv`
-- AITBC services running on ports 8203, 8001, 8202
+- AITBC services running on ports 8104, 8106, 8202 (or see [Service Ports Reference](../reference/SERVICE_PORTS.md))
 
 ### Setup
 
@@ -268,7 +268,7 @@ The CLI uses configuration from `/etc/aitbc/.env` by default.
 ### Service Endpoints
 
 - **Coordinator API**: http://localhost:8203
-- **Exchange API**: http://localhost:8001
+- **Exchange API**: http://localhost:8106
 - **Blockchain RPC**: http://localhost:8202
 - **Ollama**: http://localhost:11434
 
@@ -277,7 +277,7 @@ The CLI uses configuration from `/etc/aitbc/.env` by default.
 ```bash
 # Check all services
 curl -s http://localhost:8203/health
-curl -s http://localhost:8001/api/health
+curl -s http://localhost:8106/api/health
 curl -s http://localhost:8202/health
 curl -s http://localhost:11434/api/tags
 ```
