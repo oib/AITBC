@@ -6,7 +6,7 @@
 ## Base URL
 
 ```
-http://localhost:9001
+http://localhost:8107
 ```
 
 ## Task Management API
@@ -18,6 +18,7 @@ Submit a task for distribution to agents.
 **Endpoint:** `POST /tasks/submit`
 
 **Request Body:**
+
 ```json
 {
   "task_data": {
@@ -35,11 +36,13 @@ Submit a task for distribution to agents.
 ```
 
 **Parameters:**
+
 - `task_data` (required): Object containing task information
 - `priority` (required): Task priority (urgent, critical, high, normal, low)
 - `requirements` (optional): Object specifying agent requirements
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -51,6 +54,7 @@ Submit a task for distribution to agents.
 ```
 
 **Response (400 Bad Request):**
+
 ```json
 {
   "detail": "Invalid priority: {priority}"
@@ -58,6 +62,7 @@ Submit a task for distribution to agents.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Task distributor not available"
@@ -65,6 +70,7 @@ Submit a task for distribution to agents.
 ```
 
 **Response (500 Internal Server Error):**
+
 ```json
 {
   "detail": "Error submitting task: {error message}"
@@ -72,8 +78,9 @@ Submit a task for distribution to agents.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST http://localhost:9001/tasks/submit \
+curl -X POST http://localhost:8107/tasks/submit \
   -H "Content-Type: application/json" \
   -d '{
     "task_data": {
@@ -92,6 +99,7 @@ Get task distribution statistics and load balancer metrics.
 **Endpoint:** `GET /tasks/status`
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -123,6 +131,7 @@ Get task distribution statistics and load balancer metrics.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Task distributor not available"
@@ -130,6 +139,7 @@ Get task distribution statistics and load balancer metrics.
 ```
 
 **Response (500 Internal Server Error):**
+
 ```json
 {
   "detail": "Error getting task status: {error message}"
@@ -137,8 +147,9 @@ Get task distribution statistics and load balancer metrics.
 ```
 
 **Example:**
+
 ```bash
-curl http://localhost:9001/tasks/status
+curl http://localhost:8107/tasks/status
 ```
 
 ## Related Topics

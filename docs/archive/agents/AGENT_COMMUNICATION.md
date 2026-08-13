@@ -1,10 +1,15 @@
 # Agent Communication
 
+> **Archived**: This document describes the v0.4.6 agent communication design (port 9001, `aitbc agent message`).
+> The current agent SDK and messaging commands are in `cli/aitbc_cli/commands/agent.py` and `cli/aitbc_cli/commands/agent_comm.py`.
+> See [docs/agent-sdk/AGENT_COMMUNICATION_GUIDE.md](../../agent-sdk/AGENT_COMMUNICATION_GUIDE.md) for the current communication guide.
+
 This document describes the advanced agent communication features in AITBC v0.4.6, including message protocols, encryption, capability discovery, and real-time messaging.
 
 ## Overview
 
 The AITBC agent communication system provides:
+
 - Structured message protocols (request/response, broadcast, subscription)
 - Message queues with priority and TTL
 - Agent capability discovery and matching
@@ -19,11 +24,13 @@ The AITBC agent communication system provides:
 Direct point-to-point communication between agents.
 
 **CLI:**
+
 ```bash
 aitbc agent message --to agent_abc123 --type request --payload '{"service": "whisper", "input": "..."}'
 ```
 
 **API:**
+
 ```bash
 curl -X POST http://localhost:9001/api/v1/agent/messages/send \
   -H "Content-Type: application/json" \
@@ -42,11 +49,13 @@ curl -X POST http://localhost:9001/api/v1/agent/messages/send \
 Send messages to multiple agents based on criteria.
 
 **CLI:**
+
 ```bash
 aitbc agent message --type broadcast --topic "gpu_available" --payload '{"gpu_model": "RTX 4090", "price": 0.5}'
 ```
 
 **API:**
+
 ```bash
 curl -X POST http://localhost:9001/api/v1/agent/messages/broadcast \
   -H "Content-Type: application/json" \
@@ -64,11 +73,13 @@ curl -X POST http://localhost:9001/api/v1/agent/messages/broadcast \
 Subscribe to topics to receive relevant messages.
 
 **CLI:**
+
 ```bash
 aitbc agent subscribe --topic "whisper_offers" --filter '{"price": {"$lt": 0.05}}'
 ```
 
 **API:**
+
 ```bash
 curl -X POST http://localhost:9001/api/v1/agent/subscribe \
   -H "Content-Type: application/json" \
@@ -88,6 +99,7 @@ Messages can be encrypted end-to-end using RSA public/private key pairs.
 Keys are stored in `/var/lib/aitbc/agent_keys/` with restricted permissions (0o600).
 
 **Generate key pair:**
+
 ```python
 from apps.agent_coordinator.src.app.encryption import get_encryptor
 
@@ -96,6 +108,7 @@ key_pair = encryptor.generate_key_pair("agent_001")
 ```
 
 **Register public key:**
+
 ```python
 public_key = b"..."  # From another agent
 encryptor.register_public_key("agent_002", public_key)
@@ -127,16 +140,18 @@ Discover agents by capability, service, type, or health score.
 ### CLI Commands
 
 **Discover by capability:**
+
 ```bash
 aitbc agent discover --capability whisper --min-health 0.8 --limit 10
 ```
 
 **Discover by type:**
+
 ```bash
 aitbc agent discover --agent-type worker --coordinator-url http://localhost:9001
 ```
 
-### API Endpoints
+### Discovery API Endpoints
 
 ```bash
 # Discover agents
@@ -202,12 +217,14 @@ message = AgentMessage(
 
 View an agent's message inbox.
 
-### CLI
+### Inbox CLI
+
 ```bash
 aitbc agent inbox --agent-id agent_001 --limit 50 --unread-only
 ```
 
-### API
+### Inbox API
+
 ```bash
 curl "http://localhost:9001/api/v1/agent/messages/inbox?agent_id=agent_001&limit=50&unread_only=true"
 ```
@@ -223,6 +240,7 @@ wscat -c "ws://localhost:9001/api/v1/agent/messages/stream?agent_id=agent_001"
 ```
 
 **Subscribe to topic:**
+
 ```json
 {
   "type": "subscribe",
@@ -231,6 +249,7 @@ wscat -c "ws://localhost:9001/api/v1/agent/messages/stream?agent_id=agent_001"
 ```
 
 **Send message:**
+
 ```json
 {
   "type": "message",
@@ -242,6 +261,7 @@ wscat -c "ws://localhost:9001/api/v1/agent/messages/stream?agent_id=agent_001"
 ```
 
 **Broadcast:**
+
 ```json
 {
   "type": "broadcast",
@@ -259,6 +279,7 @@ wscat -c "ws://localhost:9001/api/v1/agent/presence/stream?agent_id=agent_001"
 ```
 
 **Get connected agents:**
+
 ```json
 {
   "type": "get_agents"
@@ -266,6 +287,7 @@ wscat -c "ws://localhost:9001/api/v1/agent/presence/stream?agent_id=agent_001"
 ```
 
 **Update presence:**
+
 ```json
 {
   "type": "presence",
@@ -318,6 +340,7 @@ wscat -c "ws://localhost:9001/api/v1/agent/presence/stream?agent_id=agent_001"
 ### Connection Issues
 
 If agents cannot connect to the coordinator:
+
 - Check that the agent-coordinator service is running: `systemctl status aitbc-agent-coordinator`
 - Verify the coordinator URL: `http://localhost:9001`
 - Check firewall rules
@@ -325,6 +348,7 @@ If agents cannot connect to the coordinator:
 ### Encryption Issues
 
 If message encryption fails:
+
 - Verify key pairs are generated: check `/var/lib/aitbc/agent_keys/`
 - Ensure recipient's public key is registered
 - Check that the cryptography library is installed
@@ -332,6 +356,7 @@ If message encryption fails:
 ### Discovery Issues
 
 If agent discovery returns no results:
+
 - Verify agents are registered with the coordinator
 - Check agent heartbeat status (agents with old heartbeats are marked inactive)
 - Verify capability and service names match exactly
