@@ -76,10 +76,10 @@ def create_order(
 **Remediation**:
 
 ```python
-# Before
+# Before (2)
 allow_origins=["*"]
 
-# After
+# After (2)
 allow_origins=[
     "http://localhost:3000",
     "http://localhost:8080",
@@ -105,10 +105,10 @@ allow_origins=[
 **Remediation**:
 
 ```python
-# Before
+# Before (3)
 encrypted = xor_encrypt(private_key, password)
 
-# After
+# After (3)
 encrypted = encrypt_value(private_key, password)  # Fernet
 # Uses PBKDF2 with SHA-256 for key derivation
 ```

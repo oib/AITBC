@@ -73,7 +73,7 @@ Peer list.
 3. Transaction hash stored in local database
 4. Dual storage: blockchain + local database
 
-## Network Discovery
+## Network Discovery — Blockchain RPC Updates - v0.4.4
 
 ### Features
 

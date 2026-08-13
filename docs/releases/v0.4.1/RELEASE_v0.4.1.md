@@ -260,7 +260,7 @@ systemctl restart aitbc-edge
 - SQLite database created automatically
 - No data migration needed (fresh installation)
 
-### Git Remotes
+### Git Remotes — 📝 Migration Notes
 
 - Daily operations use `origin` (Gitea)
 - Milestone pushes use `github` (GitHub)
@@ -280,7 +280,7 @@ systemctl restart aitbc-edge
 - Miner reports GPU as N/A
 - Requires actual GPU hardware for production
 
-### Edge API
+### Edge API — 🔍 Known Issues
 
 - Some endpoints may require GPU hardware
 - Island bridge functionality requires GPU resources

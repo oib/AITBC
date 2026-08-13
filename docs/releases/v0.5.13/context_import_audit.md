@@ -238,12 +238,12 @@
 
 ### Tier 2 — Shared kernel decisions (require design)
 
-6. **`reputation.py`** → `contexts/reputation/domain/` — ✅ DONE (15 importers fixed: 2 intra-context, 5 cross-context from certification/rewards, 2 top-level app/reputation, 6 tests). Decision: `reputation` context owns the model (it already had services + router, just empty domain/). Certification and rewards import `AgentReputation` cross-context — known boundary violations, refactorable to service interface later.
+1. **`reputation.py`** → `contexts/reputation/domain/` — ✅ DONE (15 importers fixed: 2 intra-context, 5 cross-context from certification/rewards, 2 top-level app/reputation, 6 tests). Decision: `reputation` context owns the model (it already had services + router, just empty domain/). Certification and rewards import `AgentReputation` cross-context — known boundary violations, refactorable to service interface later.
 2. **`multi_chain_transaction.py`** → `contexts/cross_chain/domain/` — ✅ DONE (5 importers fixed: 1 intra-context cross_chain router, 2 cross-context marketplace, 1 top-level app/services, 1 top-level with alias). Decision: `cross_chain` context owns the model (it's about cross-chain transactions). Marketplace imports `TransactionPriority` cross-context (enum only). Approach A (move full model) chosen over Approach B (extract enums) — consistent with Tier 1 pattern, and marketplace still needs cross-context import either way.
 
 ### Tier 3 — Boundary violations (require ownership decisions)
 
-8. **`agent.py`** — imported by `agent_coordination`. Does it belong to `agent_coordination` or `agent_identity`?
+1. **`agent.py`** — imported by `agent_coordination`. Does it belong to `agent_coordination` or `agent_identity`?
 2. **`agent_performance.py`** — imported by `advanced_rl` + `multimodal`. No owning context exists. Create `contexts/agent_performance/` or assign to an existing context.
 
 ### Already done (no action)

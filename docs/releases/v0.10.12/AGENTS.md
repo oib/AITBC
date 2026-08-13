@@ -154,7 +154,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/coordinator -q -o addopts=""
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Infrastructure & Apps
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
@@ -181,7 +181,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ cli/ --ignore-missing-imports
-# Expected: no errors
+# Expected: no errors (2)
 ```
 
 **Estimated impact**: ~14 files, ~20 lines.
@@ -205,9 +205,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ cli/ --igno
 
 ```bash
 cd /opt/aitbc && grep -R "^\s*assert\s" apps/ cli/ aitbc/agent_bridge/src --include="*.py" | grep -v test | wc -l
-# Expected: 0
+# Expected: 0 (2)
 cd /opt/aitbc && grep -R "^\s*print(" apps/*/src cli/aitbc_cli aitbc/agent_bridge/src --include="*.py" | wc -l
-# Expected: 0
+# Expected: 0 (3)
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k generate_eth_address
 # Expected: regression test passes
 ```
@@ -308,7 +308,7 @@ Confirmed problematic revisions:
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/alembic upgrade head
 # Expected: succeeds
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/alembic downgrade base
-# Expected: succeeds
+# Expected: succeeds (2)
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/alembic upgrade heads --sql > /tmp/upgrade.sql
 # Expected: succeeds and produces valid SQL
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k alembic
@@ -367,11 +367,11 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" 
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/
-# Expected: no errors
+# Expected: no errors (3)
 cd /opt/aitbc && ./venv/bin/python scripts/check_no_assert_print.py
 # Expected: exit 0
 cd /opt/aitbc && ./venv/bin/python scripts/check_version_consistency.py
-# Expected: exit 0
+# Expected: exit 0 (2)
 ```
 
 **Estimated impact**: 2 new scripts + CI workflow + `pyproject.toml`, ~50 lines.

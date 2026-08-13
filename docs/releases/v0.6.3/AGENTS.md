@@ -8,9 +8,9 @@
 **Goal**: Enable a follower node to sync chains from different hubs on different islands simultaneously. Fix the single-hub/single-chain assumption in the subscription client, enable per-chain sync source mapping, and activate the island manager background tasks.
 
 > **Scope constraint**: This release fixes the sync/subscription/network layer for multi-island awareness. It does NOT add multi-chain-per-island (that's v0.6.4) or bridge functionality (v0.7.0). The gossip topic migration to `transactions.{chain_id}` is already done (v0.6.2).
-
+>
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) (network compression), [v0.6.2](../v0.6.2/change.log) (sync & gossip optimization), [v0.5.16](../v0.5.16/change.log) (multi-chain preparation — chain_id bug fixes). All complete.
-
+>
 > **Risk**: Medium. Subscription client changes affect runtime behavior (multiple WebSocket connections). Island manager activation enables background tasks. Mitigated by: (1) backward-compatible config (single-hub still works), (2) feature flags for island tasks, (3) per-chain failover isolation.
 
 ---
@@ -554,7 +554,7 @@ Export from `aitbc/network/__init__.py` as `SubscriptionManager`, `SubscriptionE
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

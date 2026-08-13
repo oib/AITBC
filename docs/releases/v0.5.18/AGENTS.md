@@ -8,7 +8,7 @@
 **Goal**: `pytest apps/blockchain-node/tests/` → 0 failed / 0 errors (infra tests skip when Redis/Postgres absent), no hangs, zero collection errors, and the suite collected by `testpaths`.
 
 > **Hard constraint**: **test-only + pytest config.** No production `aitbc_chain` source changes. If a "stale test" exposes a real behavioral regression (watch `test_staking`, `test_consensus`, `test_guardian_contract`), STOP and escalate — do not weaken an assertion to force a pass.
-
+>
 > **Scope note**: Full investigation + per-file root causes are in <ref_file file="/opt/aitbc/docs/releases/v0.5.18/suggestions.md" />. All 72 failures verified pre-existing at commit `3d94338c2`.
 
 ---
@@ -147,7 +147,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --colle
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
 
-### Tasks
+### Tasks — Agent B — Blockchain-Node Test Fixes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

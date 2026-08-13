@@ -223,7 +223,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy --show-error-codes apps/coordinator-api/src apps/blockchain-node/src
 ```
 
-### Tasks
+### Tasks — Agent B — Bug Fixes, Infrastructure & Apps
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
@@ -384,7 +384,7 @@ These were identified during the audit but left for future releases:
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python -m mypy --show-error-codes apps/coordinator-api/src apps/blockchain-node/src
 ```
 
-### Tasks
+### Tasks — Next Release — v0.5.12 (Agent B Plan)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
@@ -441,7 +441,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 
 - All 12 `aitbc*.service` symlinks verified present (recovery ✅ from v0.5.11). Confirm each symlink target file exists and is non-empty. Report any dangling symlinks.
 
-### Execution Order
+### Execution Order — Next Release — v0.5.12 (Agent B Plan)
 
 1. **B12** first (commit pending index work — clears the working tree).
 2. **B13, B14, B18** in parallel (independent, no shared files).

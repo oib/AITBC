@@ -82,6 +82,7 @@ __Priority__: HIGH (core infrastructure)
 __Risk__: Medium (security-critical and core infrastructure)
 
 ### 2.1 Create `aitbc.crypto` Submodule
+
 __Risk__: MEDIUM (security-critical, already exists as directory)
 __Target file__: `/opt/aitbc/aitbc/crypto/__init__.py`
 __Source__: Existing `aitbc/crypto/` directory
@@ -114,6 +115,7 @@ __all__ = [
 ```
 
 ### 2.2 Create `aitbc.database` Submodule
+
 __Risk__: MEDIUM (core infrastructure)
 __Target file__: `/opt/aitbc/aitbc/database/__init__.py`
 __Source__: Existing `aitbc/database/` directory + `aitbc.database_service.py`
@@ -138,6 +140,7 @@ __all__ = [
 ```
 
 ### 2.3 Create `aitbc.network` Submodule
+
 __Risk__: LOW (already exists as directory)
 __Target file__: `/opt/aitbc/aitbc/network/__init__.py`
 __Source__: Existing `aitbc/network/` directory
@@ -164,6 +167,7 @@ __Priority__: MEDIUM (utility reorganization)
 __Risk__: LOW (already exists as directory)
 
 ### 3.1 Create `aitbc.utils` Submodule
+
 __Risk__: LOW (already exists as directory)
 __Target__: Ensure `aitbc/utils/__init__.py` properly exports all utility functions
 __Lazy mapping__: Already correct (`utils.json_utils`, `utils.time_utils`, `utils.validation`, `utils.env`, `utils.paths`)

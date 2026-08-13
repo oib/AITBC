@@ -108,7 +108,7 @@ aitbc governance propose --type marketplace_rule --title "Adjust escrow fee" --d
 
 ## Software Marketplace Governance
 
-### Service Approval
+### Service Approval — Software Marketplace Governance
 
 ```bash
 # Propose new service type
@@ -122,7 +122,7 @@ aitbc governance propose --type service_approval --title "Add image generation s
 aitbc governance propose --type fee_structure --title "Reduce escrow fee" --value 0.005
 ```
 
-### Dispute Resolution
+### Dispute Resolution — Propose fee change
 
 ```bash
 # Propose dispute resolution
