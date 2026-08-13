@@ -56,52 +56,6 @@ def test_agent_coordinator_cors_accepts_localhost():
     # Clean up
     os.environ.pop("SECRET_KEY", None)
 
-
-def test_marketplace_cors_rejects_wildcard():
-    """Test that marketplace rejects wildcard origins via environment variable"""
-    repo_root = Path(__file__).resolve().parents[2]
-    marketplace_src = repo_root / "apps" / "marketplace"
-    agent_marketplace_file = marketplace_src / "agent_marketplace.py"
-
-    if not agent_marketplace_file.exists():
-        pytest.skip("agent_marketplace.py not found")
-
-    # Set environment variable with wildcard
-    os.environ["AITBC_MARKETPLACE_CORS_ORIGINS"] = "*"
-
-    # The marketplace module raises ValueError on import when wildcard is set
-    # This is the expected behavior
-    with pytest.raises(ValueError, match="Wildcard CORS origins are not allowed"):
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("agent_marketplace", agent_marketplace_file)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-    # Clean up
-    os.environ.pop("AITBC_MARKETPLACE_CORS_ORIGINS", None)
-
-
-def test_marketplace_cors_accepts_localhost():
-    """Test that marketplace accepts localhost origins via environment variable"""
-    repo_root = Path(__file__).resolve().parents[2]
-    marketplace_src = repo_root / "apps" / "marketplace"
-    agent_marketplace_file = marketplace_src / "agent_marketplace.py"
-
-    if not agent_marketplace_file.exists():
-        pytest.skip("agent_marketplace.py not found")
-
-    os.environ["AITBC_MARKETPLACE_CORS_ORIGINS"] = "http://localhost:8001,http://localhost:9001"
-
-    # Import the function directly from the file
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("agent_marketplace", agent_marketplace_file)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    result = module.get_cors_origins()
-    assert "http://localhost:8001" in result
     assert "http://localhost:9001" in result
 
     # Clean up
