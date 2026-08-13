@@ -70,7 +70,7 @@ source /opt/aitbc/venv/bin/activate
 ```bash
 # Note: Exchange operations may require additional setup
 # Check exchange status via API
-curl -s http://localhost:8001/health
+curl -s http://localhost:8106/health
 ```
 
 ### Blockchain Operations
