@@ -173,10 +173,10 @@ git checkout HEAD~1 -- .claude/
 
 ## Related Resources
 
-- [Skill Authoring Guide](../../guides/SKILL_AUTHORING_GUIDE.md) -- Complete Skills 2.0 reference
-- [Agent Teams Guide](../../onboarding/AGENT-TEAMS-GUIDE.md) -- Agent Teams onboarding
-- [Optional Features](../../guides/OPTIONAL-FEATURES.md) -- Feature removal checklists
-- [Harness Sync Guide](../../HARNESS_SYNC_GUIDE.md) -- Sync script documentation
+- Skill Authoring Guide -- Complete Skills 2.0 reference
+- Agent Teams Guide -- Agent Teams onboarding
+- Optional Features Guide -- Feature removal checklists
+- Harness Sync Guide -- Sync script documentation
 - [PR #22](https://github.com/oib/AITBC/pull/22) -- Implementation PR
 - [WOR-540](https://linear.app/{{LINEAR_WORKSPACE}}/issue/WOR-540) -- Epic ticket
 

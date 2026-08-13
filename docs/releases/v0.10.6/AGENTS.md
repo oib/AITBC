@@ -523,7 +523,7 @@ self.cross_chain_syncs: list[CrossChainSync] = []
 
 No shared-file conflicts between Agent A and Agent B in this release. Agent A touches `aitbc/utils/validation.py` (A3) and `aitbc/crypto/crypto.py` (A3); Agent B touches `aitbc/network/circuit_breaker.py` (B12). These are in different subpackages — no overlap.
 
-If any conflict arises, follow the [Coordination Protocol](../../../AGENTS.md#coordination-protocol) in the root AGENTS.md.
+If any conflict arises, follow the the coordination protocol in the root AGENTS.md.
 
 ---
 
