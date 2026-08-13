@@ -34,6 +34,7 @@
 ### Prometheus Metrics
 
 Future implementation:
+
 - Export metrics at `/metrics` endpoint
 - Use Grafana for visualization
 

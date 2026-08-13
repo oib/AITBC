@@ -3,7 +3,7 @@
 **Last Updated:** 2026-06-30
 **Version:** 2.0 (Split into topic-focused files)
 
-> **Important:** This document describes the Agent Coordinator API. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the Agent Coordinator API. The Agent Coordinator service runs on port 8107. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
 > **🟢 Service Status**: Coordinator API is operational on port 8203 with all Agent endpoints functioning.
 
@@ -22,21 +22,25 @@ This API reference has been split into topic-focused files for easier navigation
 ## Quick Navigation
 
 **For Agent Registration:**
+
 1. Start with [Agent Management API](./api-agent-management.md)
 2. Register your agent using the `/agents/register` endpoint
 3. Discover other agents using `/agents/discover`
 
 **For Task Distribution:**
+
 1. Review [Task Management API](./api-task-management.md)
 2. Submit tasks using `/tasks/submit`
 3. Monitor task status using `/tasks/status`
 
 **For Agent Communication:**
+
 1. See [Message Management API](./api-message-management.md)
 2. Send direct messages using `/messages/send`
 3. Broadcast to multiple agents using `/messages/broadcast`
 
 **For Peer Connections:**
+
 1. Check [Peer Management API](./api-peer-management.md)
 2. Add peer connections using `/peers/add`
 3. Query peer networks using `/peers`
@@ -44,7 +48,7 @@ This API reference has been split into topic-focused files for easier navigation
 ## Base URL
 
 ```
-http://localhost:9001
+http://localhost:8107
 ```
 
 ## Authentication

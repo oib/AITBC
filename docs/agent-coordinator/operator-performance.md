@@ -37,7 +37,7 @@ Configured in `TaskDistributor` class.
 ### Monitoring Queue Sizes
 
 ```bash
-curl http://localhost:9001/tasks/status | jq .stats.queue_sizes
+curl http://localhost:8107/tasks/status | jq .stats.queue_sizes
 ```
 
 ## Resource Limits
@@ -52,6 +52,7 @@ redis-cli CONFIG SET maxmemory-policy allkeys-lru
 ### Service Memory Limits
 
 Configure in systemd service file:
+
 ```
 MemoryLimit=2G
 MemorySwap=2G
@@ -60,6 +61,7 @@ MemorySwap=2G
 ### Connection Limits
 
 Configure in uvicorn startup:
+
 ```
 --limit-concurrency 100
 ```
