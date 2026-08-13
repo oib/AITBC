@@ -127,9 +127,7 @@ def main() -> None:
                 "consensus_algorithm": "poa",
             },
         },
-        "allocations": [
-            {"address": treasury_address, "balance": args.balance, "nonce": 0}
-        ],
+        "allocations": [{"address": treasury_address, "balance": args.balance, "nonce": 0}],
     }
 
     out_path = Path(args.out)
@@ -159,7 +157,9 @@ def main() -> None:
             node_text = re.sub(r"^GENESIS_ADDRESS=.*$", f"GENESIS_ADDRESS={treasury_address}", node_text, flags=re.M)
             node_text = re.sub(r"^NODE_WALLET_ADDRESS=.*$", f"NODE_WALLET_ADDRESS={treasury_address}", node_text, flags=re.M)
             node_text = re.sub(r"^PROPOSER_ID=.*$", f"PROPOSER_ID={treasury_address}", node_text, flags=re.M)
-            node_text = re.sub(r"^GENESIS_WALLET_PRIVATE_KEY=.*$", f"GENESIS_WALLET_PRIVATE_KEY={private_key_hex}", node_text, flags=re.M)
+            node_text = re.sub(
+                r"^GENESIS_WALLET_PRIVATE_KEY=.*$", f"GENESIS_WALLET_PRIVATE_KEY={private_key_hex}", node_text, flags=re.M
+            )
             node_path.write_text(node_text)
             print(f"updated {node_path}")
 

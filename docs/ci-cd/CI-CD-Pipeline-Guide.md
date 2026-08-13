@@ -432,10 +432,10 @@ gh api repos/:owner/:repo/branches/dev/protection \
 
 ## 📞 Support
 
-**Pipeline Issues**: oib (ARCHitect-in-the-IDE)  
+**Pipeline Issues**: oib (ARCHitect-in-the-IDE)
 **Team Coordination**: #{{LINEAR_WORKSPACE}}-development
 **Emergency**: dev-team@{{PROJECT_SLUG}}.com
 
-**Last Updated**: 2025-08-16  
-**Version**: 1.0  
+**Last Updated**: 2025-08-16
+**Version**: 1.0
 **Maintained by**: AITBC Development Team
