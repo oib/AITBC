@@ -8,18 +8,18 @@
 **Goal**: Extend the existing `apps/trading/` service (1011 lines, P2P agent-to-agent) with inter-chain trading capabilities: InterChainTrade schema, island registry, chain discovery, inter-chain trade lifecycle, basic matching engine, CLI commands. Defer atomic cross-chain settlement to v0.9.0 and cross-chain offer sync to v0.8.1.
 
 > **Rescope from original change.log**: The original v0.8.0 change.log claimed "No trading service exists" — this is **FALSE**. `apps/trading/` exists with 1011 lines (FastAPI app, domain models, service layer, SQLite storage). However, it only has P2P agent-to-agent models (TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement, TradeFeedback) with NO inter-chain fields (source_chain, dest_chain). v0.8.0 extends this existing service with inter-chain capabilities rather than creating a new app from scratch.
-
+>
 > **Prerequisite correction**: The user's analysis claimed v0.7.1 and v0.7.2 are "not done" — this is **FALSE**. Both are complete and committed:
 >
 > - v0.7.1 (Bridge Security): Agent A `1fcf1e829` + Agent B `a4ea61295` — multi-sig, validator sets, block header sigs, CLI commands
 > - v0.7.2 (Bridge Verification): Agent A `9a7b17a34` + Agent B `09fa64342` — Merkle proofs, block headers, finality, oracle status, release unfenced
 > - Bridge release is now **unfenced** (`bridge_release_enabled: bool = True` in `config.py:292`)
 > - All 15 bridge RPC endpoints are operational (lock, confirm, unlock, transfer, pending, balance, health, batch, validators, security, block-headers, oracle)
-
+>
 > **Stale port correction**: The change.log migration guide references `BLOCKCHAIN_RPC_URL=http://localhost:8006`. Port 8006 is stale — the correct port is **8202** (verified in `aitbc/constants.py:50` and `apps/blockchain-node/src/aitbc_chain/config.py:89`).
-
+>
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅, [v0.6.3](../v0.6.3/change.log) ✅, [v0.6.4](../v0.6.4/change.log) ✅, [v0.6.6](../v0.6.6/change.log) ✅, [v0.6.7](../v0.6.7/change.log) ✅.
-
+>
 > **Risk**: Medium. The existing trading service is SQLite-based and P2P-only. Adding inter-chain fields and bridge integration is additive (new tables, new endpoints, new client). The main risk is the matching engine across chains (price-time priority with chain-aware routing). No consensus-critical path is touched — trading is an off-chain service that submits transactions to the blockchain node via RPC.
 
 ---
@@ -328,7 +328,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/ cli/aitbc_cli
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v080_inter_chain.py -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

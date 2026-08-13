@@ -88,7 +88,7 @@ psql aitbc_governance < backup_YYYYMMDD.sql
 
 ## Data Recovery Procedures
 
-### Database Recovery
+### Database Recovery — Data Recovery Procedures
 
 - **Point-in-Time Recovery**: Use database WAL files for precise recovery
 - **Transaction Logs**: Replay transaction logs for data consistency
@@ -122,7 +122,7 @@ psql aitbc_governance < backup_YYYYMMDD.sql
 ### Immediate Rollback (0-30 minutes)
 
 ```bash
-# Stop governance service
+# Stop governance service (2)
 systemctl stop aitbc-governance
 
 # Restore previous database state

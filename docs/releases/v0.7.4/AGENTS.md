@@ -8,11 +8,11 @@
 **Goal**: Implement the 7 items deferred from v0.7.0-v0.7.3 that were tagged "deferred to v0.8.x" but never assigned to a specific release. These are bridge/governance/consensus items that belong in the v0.7.x track.
 
 > **Not on the critical path**: v0.8.x (trading) and v0.9.0 (atomic settlement) do not depend on v0.7.4. This release can ship in parallel with v0.8.x work.
-
+>
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅ (Agent A `9a7b17a34`), [v0.7.3](../v0.7.3/change.log) (Agent A ✅ `923e0a5bc`).
-
+>
 > **Risk**: Medium-High. MultiValidatorPoA activation is consensus-critical (requires security review). External oracle adds external dependency. Cross-chain governance touches the bridge path. Low-risk items: parameter automation, emergency proposals.
-
+>
 > **Consider phasing**: Low-risk items (parameter automation, emergency proposals) can ship first. High-risk items (MultiValidatorPoA, external oracle) need security review and can ship later.
 
 ---
@@ -196,7 +196,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/governance/src/ apps/pool-
 cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytest apps/governance/tests/test_v074_deferred.py -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

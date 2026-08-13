@@ -339,7 +339,7 @@ The GPU service registers GPUs locally first, then attempts blockchain registrat
 - **Config file names changed** - Use `blockchain.env` and `node.env` instead of `.env`
 - **chain_id fallback changed** - From `ait-testnet` to `ait-hub.aitbc.bubuit.net`
 
-### Documentation
+### Documentation — 🔄 Breaking Changes
 
 - **Documentation paths changed** - From `/home/oib/windsurf/aitbc` to `/opt/aitbc`
 - **Setup script path changed** - From `scripts/setup.sh` to `scripts/deployment/setup.sh`
@@ -404,7 +404,7 @@ The GPU service registers GPUs locally first, then attempts blockchain registrat
 - Advanced GPU marketplace features
 - Additional security hardening
 
-### Documentation
+### Documentation — 🚀 Next Steps
 
 - Continue expanding Hermes agent documentation
 - Add more troubleshooting guides
@@ -425,11 +425,11 @@ The GPU service registers GPUs locally first, then attempts blockchain registrat
 **Status**: ✅ Released
 **Scope**: Landing Page Refinement & Endpoint Data Hardening
 
-## 🎯 Overview
+## 🎯 Overview — AITBC v0.4.3 Release Notes
 
 AITBC v0.4.3 is a focused release on refining the landing page, hardening endpoint data to remove hardcoded values, and improving nginx configuration for security and proxy routing. This release ensures all public-facing endpoints return dynamic configuration data from environment files, eliminating hardcoded values for multi-environment deployment. The landing page now dynamically loads node information and provides a polished user experience with clickable endpoint links.
 
-## 🎯 Release Highlights
+## 🎯 Release Highlights — AITBC v0.4.3 Release Notes
 
 ### Landing Page Improvements
 
@@ -467,9 +467,9 @@ AITBC v0.4.3 is a focused release on refining the landing page, hardening endpoi
 - ✅ OpenAPI spec uses `contact.email` instead of `contact.url`
 - ✅ Network-info endpoint includes `contact_email` field
 
-## 🔧 Configuration Changes
+## 🔧 Configuration Changes — AITBC v0.4.3 Release Notes
 
-### Environment Variables
+### Environment Variables — 🔧 Configuration Changes
 
 New environment variable for contact information:
 
@@ -520,7 +520,7 @@ New environment variable for contact information:
 - HTML file now imports external stylesheet
 - Improved maintainability
 
-## 🔒 Security Improvements
+## 🔒 Security Improvements — AITBC v0.4.3 Release Notes
 
 ### Nginx Security Headers
 
@@ -540,7 +540,7 @@ New environment variable for contact information:
 - proxy_send_timeout: 30s
 - proxy_read_timeout: 30s
 
-## 🐛 Bug Fixes
+## 🐛 Bug Fixes — AITBC v0.4.3 Release Notes
 
 ### Static File Conflicts
 
@@ -552,22 +552,22 @@ New environment variable for contact information:
 - Resolved blockchain RPC port binding issues during restart
 - Ensured clean service restarts
 
-## 📝 Documentation Updates
+## 📝 Documentation Updates — AITBC v0.4.3 Release Notes
 
 ### Release Notes
 
 - Updated RELEASE_v0.4.2.md with v0.4.3 section
 - Documented all landing page and endpoint improvements
 
-## 🔄 Breaking Changes
+## 🔄 Breaking Changes — AITBC v0.4.3 Release Notes
 
 ### None
 
 This release is backward compatible with no breaking changes.
 
-## 📈 Migration Guide
+## 📈 Migration Guide — AITBC v0.4.3 Release Notes
 
-### Configuration Migration
+### Configuration Migration — 📈 Migration Guide
 
 1. Add `CONTACT_EMAIL` to `/etc/aitbc/node.env` (optional, has default)
 2. Restart services to load new environment variables
@@ -578,9 +578,9 @@ This release is backward compatible with no breaking changes.
 
 No migration required - changes are purely frontend improvements.
 
-## ✅ Testing
+## ✅ Testing — AITBC v0.4.3 Release Notes
 
-### Manual Testing
+### Manual Testing — ✅ Testing
 
 - Verify landing page loads node information dynamically
 - Test all endpoint links are clickable and return correct data
@@ -598,7 +598,7 @@ No migration required - changes are purely frontend improvements.
 - `/agent/openapi.json` - Returns dynamic OpenAPI spec
 - `/agent/health` - Returns health status
 
-## 🎯 Success Criteria
+## 🎯 Success Criteria — AITBC v0.4.3 Release Notes
 
 - ✅ Landing page dynamically loads node information
 - ✅ All endpoint boxes are clickable links
@@ -609,7 +609,7 @@ No migration required - changes are purely frontend improvements.
 - ✅ CSS extracted to external file
 - ✅ Static file conflicts resolved
 
-## 🚀 Next Steps
+## 🚀 Next Steps — AITBC v0.4.3 Release Notes
 
 ### v0.4.4 Planning
 
@@ -617,7 +617,7 @@ No migration required - changes are purely frontend improvements.
 - Advanced GPU marketplace features
 - Additional security hardening
 
-### Documentation
+### Documentation (2)
 
 - Continue expanding Hermes agent documentation
 - Add more troubleshooting guides

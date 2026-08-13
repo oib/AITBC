@@ -12,15 +12,15 @@
 > - ✅ v0.7.3: On-chain proposals/votes (GOVERNANCE_PROPOSE/VOTE/EXECUTE tx types), on-chain balance snapshot for voting power, parameter change schema, timelock execution, CLI
 > - ➡️ v0.8.x: Cross-chain governance (proposal propagation via bridge, cross-chain vote aggregation) — deferred until v0.7.2 verification is operational and audited
 > - ➡️ v0.8.x: Parameter automation (pool-hub/marketplace parameter APIs) — deferred until target services expose parameter change endpoints
-
+>
 > **Stale claim correction**: The original analysis claimed "Pool Hub doesn't exist yet (confirmed in v0.6.7 investigation)". This is **WRONG** — v0.6.7 is complete (commit `5bb3803bd`). Pool Hub exists at `apps/pool-hub/` with `PoolHubBlockchainClient`, `Settings` (blockchain_rpc_url=8202, default_chain_id="ait-hub"), miner registration, and reward distribution. However, Pool Hub does NOT yet expose a parameter change API — that's a v0.8.x prerequisite for parameter automation.
-
+>
 > **Stale port correction**: The change.log migration guide references `BLOCKCHAIN_RPC_URL=http://localhost:8006`. Port 8006 is stale — the correct port is **8202** (verified in `apps/pool-hub/src/poolhub/settings.py:57` and `aitbc/constants.py:50`).
-
+>
 > **No external security audit**: All development is in-house (same as v0.7.1, v0.7.2).
-
+>
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅ (Agent A `1fcf1e829` + Agent B `a4ea61295`), [v0.7.2](../v0.7.2/change.log) (Agent A ✅ `9a7b17a34`, Agent B 🔴 in progress), [v0.6.7](../v0.6.7/change.log) ✅ (`5bb3803bd`), [v0.5.16](../v0.5.16/change.log) ✅.
-
+>
 > **Risk**: Medium. Same-chain governance is self-contained — no bridge dependency. The main risk is adding new transaction types to blockchain-node (consensus-critical path). The existing tx processing in `poa.py:348` already handles arbitrary `type` strings in `tx.content`, so GOVERNANCE_* types are additive (new payload handling, not new consensus logic).
 
 ---

@@ -8,9 +8,9 @@
 **Goal**: Wire the existing pool-hub service (3,855 lines, two parallel implementations) into the blockchain payment layer. Add chain_id awareness, reward policy constants, and a single end-to-end flow: job completed → reward paid via blockchain transaction. Register miners on-chain via agent-coordinator.
 
 > **Scope constraint**: This release targets `apps/pool-hub/` (3.8K lines) and new shared utilities in `aitbc/rewards/`. It does NOT add complex scoring weight tuning, multi-chain pool support, or governance integration (deferred to v0.7.x). The two parallel implementations (`src/app/` dataclass + `src/poolhub/` SQLModel) are consolidated — the SQLModel/PostgreSQL version in `src/poolhub/` is the canonical implementation; the in-memory dataclass version in `src/app/` is deprecated.
-
+>
 > **Prerequisites**: [v0.6.5](../v0.6.5/change.log) (Agent Coordination — miners register as agents), [v0.6.6](../v0.6.6/change.log) (Compute Marketplace — jobs come from marketplace matches), [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions). v0.6.6 Agent A complete (OfferFSM + BlockchainRPCClient available in `aitbc.marketplace`).
-
+>
 > **Risk**: Medium. Reward distribution adds blockchain transaction overhead. The two parallel implementations need consolidation. Mitigated by: (1) reward distribution is feature-flagged (default off), (2) consolidation is additive (SQLModel version already works), (3) chain_id is optional (defaults to `DEFAULT_CHAIN_ID`).
 
 ---
@@ -59,7 +59,9 @@ This release documentation has been split into topic-focused files:
 
 ---
 
-## Status Baseline — Verified Code Targets (from subagent investigation, 2026-06-29)
+## Status Baseline — Verified Code Targets
+
+*(from subagent investigation, 2026-06-29)*
 
 | Component | Location | Current State | v0.6.7 Target |
 |-----------|----------|---------------|---------------|

@@ -38,7 +38,7 @@ AITBC v0.4.12 includes a comprehensive risk assessment covering technical risks,
 
 ### Performance Risk
 
-#### Level: Medium
+#### Level: Medium — Performance Risk
 
 **Description**: High voting participation could overwhelm system performance.
 
@@ -53,7 +53,7 @@ AITBC v0.4.12 includes a comprehensive risk assessment covering technical risks,
 
 ### Governance Attack Risk
 
-#### Level: High
+#### Level: High — Governance Attack Risk
 
 **Description**: Malicious actors could attempt to capture governance control.
 
@@ -66,7 +66,7 @@ AITBC v0.4.12 includes a comprehensive risk assessment covering technical risks,
 
 ### Sybil Attack Risk
 
-#### Level: Medium
+#### Level: Medium — Sybil Attack Risk
 
 **Description**: Attackers could create multiple identities to gain voting power.
 
@@ -81,7 +81,7 @@ AITBC v0.4.12 includes a comprehensive risk assessment covering technical risks,
 
 ### Low Participation Risk
 
-#### Level: Medium
+#### Level: Medium — Low Participation Risk
 
 **Description**: Low governance participation could stall decision-making.
 
@@ -94,7 +94,7 @@ AITBC v0.4.12 includes a comprehensive risk assessment covering technical risks,
 
 ### Regulatory Risk
 
-#### Level: Medium
+#### Level: Medium — Regulatory Risk
 
 **Description**: Regulatory changes could impact governance operations.
 

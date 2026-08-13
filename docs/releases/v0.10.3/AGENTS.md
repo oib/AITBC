@@ -8,9 +8,9 @@
 **Goal**: Production readiness from a correctness and resource management standpoint. No new features — fix financial correctness bugs, resource leaks, concurrency issues, and configuration mismatches. 29 issues identified across shared core, CLI, and all application services.
 
 > **Scope**: All critical and high-priority bugs from the codebase analysis. Medium and low issues are included as time permits.
-
+>
 > **Prerequisites**: [v0.10.2](../v0.10.2/change.log) (complete — all mock/placeholder implementations replaced).
-
+>
 > **Risk**: Medium. Financial correctness fixes require careful testing. Resource leak fixes are mechanical but require verification. Configuration changes may affect deployments. Mitigated by: (1) comprehensive test suite, (2) live testing on shop node, (3) rollback plan for schema migrations.
 
 ---
@@ -496,7 +496,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ apps/coordinator-api/ apps/blockchain-node/src/aitbc_chain/ aitbc/network/ aitbc/database/ aitbc/bridge/ && ./venv/bin/python -m ruff check apps/exchange/ apps/coordinator-api/ apps/blockchain-node/ aitbc/network/ aitbc/database/ aitbc/bridge/ && ./venv/bin/python -m pytest tests/unit apps/exchange/tests/ -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Complex Tasks (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

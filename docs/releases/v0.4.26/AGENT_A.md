@@ -155,6 +155,7 @@ aitbc/crypto/
    from .jwt_handler import JWTHandler, encode_jwt, decode_jwt, validate_jwt
    from .password import validate_password, generate_password_hash, verify_password
    ```
+
 3. Update `__init__.py` exports
 4. Keep backward compat in `security.py` as shim:
 

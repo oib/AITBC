@@ -8,9 +8,9 @@
 **Goal**: Complete the foundational cross-chain bridge infrastructure in blockchain-node. The core bridge logic already exists (`cross_chain/bridge.py` — 401 lines, lock/confirm flow, partial proof validation). This release adds the missing pieces: refund/unlock endpoint, bridge balance query, bridge health monitoring, CLI command fixes, batch operations, and a shared bridge client SDK in `aitbc/bridge/`.
 
 > **Scope constraint**: This release targets bridge **basics** only — lock/unlock RPC, simple transfers, monitoring, CLI. It does NOT add multi-sig validation, time-locks, cross-chain signature verification (v0.7.1), or Merkle proof verification / proposer-set tracking / block header signatures (v0.7.2). The existing `BRIDGE_RELEASE_ENABLED=false` fence remains in place — the confirm/release path stays gated until v0.7.2 completes full cryptographic verification.
-
+>
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) ✅, [v0.6.1](../v0.6.1/change.log) ✅, [v0.6.3](../v0.6.3/change.log) ✅, [v0.6.4](../v0.6.4/change.log) ✅, [v0.5.16](../v0.5.16/change.log) ✅. All technical prerequisites complete. v0.6.6/v0.6.7 (product track) are in progress but touch different code (marketplace/pool-hub) — no file conflicts with bridge work.
-
+>
 > **Risk**: Low-Medium. The bridge core already exists and is tested (401-line test suite). This release adds missing endpoints and monitoring — it does not change the proof validation logic. The `BRIDGE_RELEASE_ENABLED=false` fence prevents unauthorized fund release until v0.7.2.
 
 ---
@@ -57,7 +57,9 @@ This release documentation has been split into topic-focused files:
 
 ---
 
-## Status Baseline — Verified Code Targets (from subagent investigation, 2026-06-29)
+## Status Baseline — Verified Code Targets
+
+*(from subagent investigation, 2026-06-29)*
 
 | Component | Location | Current State | v0.7.0 Target |
 |-----------|----------|---------------|---------------|

@@ -8,9 +8,9 @@
 **Goal**: Make existing code actually work. No new features — fix broken CLI commands, misconfigured services, dead-code endpoints, unwired infrastructure, and undeployed services. 20 tasks identified across 9 source releases.
 
 > **Scope**: All fixable gaps from v0.6.0–v0.8.2. 4 architectural gaps deferred to v1.0.0 (parallel block validation, gossip v2 protocol, compact blocks, epoch rewards in block production).
-
+>
 > **Prerequisites**: [v0.10.0](../v0.10.0/change.log) (complete — all critical runtime bugs fixed, features activated).
-
+>
 > **Risk**: Low–Medium. Most tasks are wiring fixes with existing infrastructure. Two tasks (B16 duplicate bridge removal, B18 gossip integration) touch more code. Mitigated by: (1) feature flags for new activations, (2) all changes are to non-functional code, (3) end-to-end verification per task.
 
 ---
@@ -102,7 +102,7 @@ Run `mypy`, `ruff`, `pytest` clean for all `aitbc/` changes.
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy --show-error-codes apps/blockchain-node/src/aitbc_chain/ apps/marketplace/ apps/edge/ apps/pool-hub/ apps/governance/ apps/trading/ apps/coordinator-api/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Apps, CLI, Scripts & Config
 
 | # | Task | Priority | Source | Files | Status |
 |---|------|----------|--------|-------|--------|

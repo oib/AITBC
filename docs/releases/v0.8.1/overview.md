@@ -12,11 +12,11 @@
 > - ✅ v0.8.1: Polling-based sync, local offer cache (Redis), staleness detection, conflict resolution, CLI discover/sync/sync-status commands
 > - ➡️ Future (v0.8.2+): Subscription-based sync (WebSocket), real-time offer notifications, external search index (Elasticsearch/Meilisearch)
 > - The user's recommendation to start with polling-only sync is adopted — subscription adds WebSocket complexity (auth, reconnection, backpressure) that can be deferred.
-
+>
 > **Stale prerequisite correction**: The user's analysis claimed "v0.8.0 is a Concept Plan (no trading service exists yet)" — this is **FALSE**. `apps/trading/` exists (1011 lines) and v0.8.0 Agent A is complete (`939bb066f` — `aitbc/trading/` SDK with types, client, bridge utilities). v0.8.0 Agent B is pending but the trading service app exists with FastAPI, domain models, and service layer. v0.8.1 can proceed after v0.8.0 Agent B completes.
-
+>
 > **Prerequisites**: [v0.8.0](../v0.8.0/change.log) (Agent A ✅ `939bb066f`, Agent B ⬜ pending), [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅, [v0.6.6](../v0.6.6/change.log) ✅ (Marketplace + OfferFSM + BlockchainRPCClient).
-
+>
 > **Risk**: Medium. Offer sync is an off-chain service layer — no consensus-critical path is touched. The main risk is cache consistency (stale offers → failed trades) and bandwidth management (polling all chains). Redis is already used in the codebase for caching and pub/sub.
 
 ---
