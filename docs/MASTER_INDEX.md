@@ -312,7 +312,7 @@ The following directories were consolidated to improve documentation organizatio
 6. **governance/ → blockchain/governance/** - Governance documentation merged into blockchain
 7. **nodes/ → deployment/** - Node operations documentation merged into deployment
 8. **policies/ → security/policies/** - Policy documentation merged into security
-9. **clients/ → apps/clients/** - Client documentation moved to apps directory
+9. **clients/ → archive/apps-clients/** - Old client guides archived; current client path is `getting-started/`
 10. **archive/** - Historical archive directory removed (cleanup completed)
 11. **reports/** - Historical reports directory removed (cleanup completed)
 12. **guides/getting-started/** - Content moved to getting-started/ (May 30, 2026)

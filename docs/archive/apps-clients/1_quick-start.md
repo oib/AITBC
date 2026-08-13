@@ -1,5 +1,7 @@
 # Client Quick Start
 
+> **Archived.** This guide is preserved for historical reference. It describes CLI commands that no longer exist. For the current client path, see [Getting Started](../../getting-started/README.md).
+
 **5 minutes** — Install, configure, submit your first job with the enhanced AITBC CLI.
 
 ## 1. Install & Configure

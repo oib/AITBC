@@ -135,7 +135,7 @@ Choose a tutorial based on your interest:
 
 - [AI Inference Service](./12_marketplace-extensions.md)
 - [Marketplace Bot](./4_examples.md)
-- [Mining Operation](../apps/clients/1_quick-start.md)
+- [Miner Quick Start](../getting-started/mining/miner-quick-start.md)
 
 ## Developer Resources
 

@@ -1,4 +1,6 @@
 # Pricing & Costs
+
+> **Archived.** This guide is preserved for historical reference. Pricing and billing details may be out of date. See the current [Getting Started](../../getting-started/README.md) and [Marketplace](../../marketplace/) documentation.
 Understand the cost structure for using AITBC.
 
 ## Cost Structure
