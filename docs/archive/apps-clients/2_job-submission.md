@@ -1,5 +1,7 @@
 # Job Submission Guide
 
+> **Archived.** This guide is preserved for historical reference. It describes CLI commands that no longer exist. For the current client path, see [Getting Started](../../getting-started/README.md).
+
 Submit compute jobs to the the network using the enhanced CLI.
 
 ## Basic Submission

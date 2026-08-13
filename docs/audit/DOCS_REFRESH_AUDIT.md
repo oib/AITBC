@@ -104,4 +104,4 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 | `docs/apps/README.md` | rewrite app catalog | done |
 | `docs/MASTER_INDEX.md` | update counts | done |
 | `docs/apps/<missing>/README.md` | create | pending |
-| `docs/apps/clients/` | merge or archive | pending |
+| `docs/apps/clients/` | archived to `docs/archive/apps-clients/` | done |
