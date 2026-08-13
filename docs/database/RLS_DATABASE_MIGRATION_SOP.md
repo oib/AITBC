@@ -6,9 +6,9 @@
 
 This document establishes **mandatory procedures** for maintaining Row Level Security (RLS) when making database schema changes. **All database migrations MUST follow these procedures** to maintain security compliance.
 
-**Created**: 2025-09-02  
-**Author**: {{ARCHITECT_NAME}} (SAFe ARCHitect)  
-**Status**: MANDATORY - Effective immediately upon RLS deployment  
+**Created**: 2025-09-02
+**Author**: {{ARCHITECT_NAME}} (SAFe ARCHitect)
+**Status**: MANDATORY - Effective immediately upon RLS deployment
 **Enforcement**: All PRs with database changes require RLS review
 
 ---
@@ -78,7 +78,7 @@ WHERE migration_name = 'YOUR_MIGRATION';
 -- If applied_steps_count = 0 → Migration NOT executed!
 ```
 
-**ONLY valid use**: Mark already-manually-applied migration as resolved  
+**ONLY valid use**: Mark already-manually-applied migration as resolved
 **MUST verify**: SQL actually executed via manual psql application
 
 **Prevention**: Use `scripts/pre-migration-audit.ts` before production
@@ -581,6 +581,6 @@ This SOP is **mandatory** for all database changes in the AITBC application. Non
 
 **Document Version**: 2.0
 **Last Updated**: 2025-10-06
-**Next Review**: Quarterly  
+**Next Review**: Quarterly
 **Owner**: {{ARCHITECT_NAME}} (SAFe ARCHitect)
 **Updated**: AITBC-321 (Production incident learnings - separate RLS files, migrate resolve misuse)
