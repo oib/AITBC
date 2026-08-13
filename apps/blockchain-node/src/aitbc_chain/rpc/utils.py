@@ -27,8 +27,11 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
     if not signature or not sender:
         return False
 
-    # Build the message that was signed: canonical JSON of tx fields without signature
-    tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature"}
+    # Build the message that was signed: canonical JSON of tx fields without the
+    # signature field. ``value`` is also excluded because it is an internal alias
+    # for ``amount`` added by ``normalize_transaction_data`` after the client has
+    # already signed; it is not part of the wire format that was signed.
+    tx_without_sig = {k: v for k, v in tx_data.items() if k not in ("signature", "value")}
     message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
 
     try:
