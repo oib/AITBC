@@ -6,11 +6,15 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Request
+from sqlalchemy import func
+from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
 from ...config import settings
+from ...database import session_scope
 from ...logger import get_logger
+from ...models import Account, Transaction
 from ..accounts import (
     create_account,
     faucet_request,
@@ -31,6 +35,7 @@ from ..transactions import (
     submit_marketplace_transaction,
     submit_transaction,
 )
+from ..utils import get_chain_id
 
 _logger = get_logger(__name__)
 
@@ -101,18 +106,27 @@ async def get_blocks_range_route(
 async def get_info_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get comprehensive blockchain information including transactions, accounts, and genesis parameters"""
     head = await get_head(request, chain_id)
-    genesis_params = head.get("genesis_params", {})
-    if not genesis_params:
-        genesis_params = {
-            "block_time_seconds": getattr(settings, "block_time", 2),
-            "max_block_size": getattr(settings, "max_block_size", 1000000),
-            "difficulty": getattr(settings, "difficulty", 1),
-        }
+    resolved_chain_id = get_chain_id(chain_id)
+
+    with session_scope(resolved_chain_id) as session:
+        total_transactions = session.exec(
+            select(func.count()).select_from(Transaction).where(Transaction.chain_id == resolved_chain_id)
+        ).one()
+        total_accounts = session.exec(
+            select(func.count()).select_from(Account).where(Account.chain_id == resolved_chain_id)
+        ).one()
+
+    # Use the actual settings fields; there is no difficulty in PoA, so omit it.
+    genesis_params = {
+        "block_time_seconds": settings.block_time_seconds,
+        "max_block_size_bytes": settings.max_block_size_bytes,
+    }
+
     return {
         "chain_id": getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net"),
         "height": head.get("height", 0),
-        "total_transactions": head.get("total_transactions", 0),
-        "total_accounts": head.get("total_accounts", 0),
+        "total_transactions": total_transactions,
+        "total_accounts": total_accounts,
         "genesis_params": genesis_params,
         "last_block_hash": head.get("hash", ""),
         "timestamp": head.get("timestamp", datetime.now(UTC).isoformat()),
