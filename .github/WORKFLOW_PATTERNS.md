@@ -1,6 +1,8 @@
-# GitHub Workflow Patterns for SAFe Multi-Agent Development
+# GitHub Workflow Patterns for AITBC
 
-This document describes the GitHub Actions workflow patterns used in SAFe multi-agent development. These are architectural patterns—not copy-paste templates—that teams should adapt to their specific infrastructure.
+This document describes the GitHub Actions workflow patterns used in AITBC. These are architectural patterns—not copy-paste templates—that teams should adapt to their specific infrastructure.
+
+For the current project conventions (branch naming, commit messages, validation commands, and merge policy), see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Overview
 
