@@ -250,9 +250,6 @@ class TestGenerateSecureRandomBytes:
 class TestKeccak256Hash:
     """Test keccak256_hash function"""
 
-    def test_keccak256_missing_dependency(self):
-        pytest.skip("eth-hash dependency test skipped - module handles import internally")
-
     def test_keccak256_string_input(self):
         result = crypto.keccak256_hash("test")
         assert isinstance(result, str)
@@ -262,9 +259,6 @@ class TestKeccak256Hash:
         result = crypto.keccak256_hash(b"test")
         assert isinstance(result, str)
         assert len(result) == 64
-
-    def test_keccak256_error(self):
-        pytest.skip("Cannot test error path with actual eth-hash installed")
 
 
 # ============================================================================
