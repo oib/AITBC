@@ -310,6 +310,6 @@ export default async function AdminPage() {
 
 **This RLS implementation provides enterprise-grade database security that complements application-level security, ensuring comprehensive data protection for all AITBC users.**
 
-**Last Updated**: 2025-08-28  
-**Version**: 1.0 (Complete Implementation)  
+**Last Updated**: 2025-08-28
+**Version**: 1.0 (Complete Implementation)
 **Maintained by**: AITBC Development Team
