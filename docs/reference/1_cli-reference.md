@@ -444,6 +444,6 @@ The CLI uses `/etc/aitbc/.env` for configuration. Key settings include:
 
 - Coordinator API URL: `http://localhost:8203`
 - Blockchain RPC: `http://localhost:8202`
-- Wallet Daemon: `http://localhost:8015`
+- Wallet Daemon: `http://localhost:8108`
 
 For authoritative port configuration, see [Service Ports Reference](./SERVICE_PORTS.md).
