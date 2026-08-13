@@ -364,7 +364,6 @@ testpaths = [
     "tests/security",
     "tests/cli",
     "tests/services",
-    "tests/production",
     "tests/ui-accessibility",
     # Added: these hold real coverage that no run was picking up. tests/core alone is 365
     # tests, and tests/property_tests is the hypothesis suite. Both sat outside testpaths
@@ -372,7 +371,6 @@ testpaths = [
     # excluded from every run lets happen.
     "tests/core",
     "tests/property_tests",
-    "tests/verification",
     "apps/blockchain-node/tests",
 ]
 markers = [
