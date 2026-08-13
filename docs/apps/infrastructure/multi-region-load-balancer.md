@@ -154,7 +154,7 @@ Content-Type: application/json
 GET /api/v1/lb/failover/status
 ```
 
-### Configuration
+### Configuration — API Reference
 
 #### Add Regional Endpoint
 
@@ -175,7 +175,7 @@ Content-Type: application/json
 DELETE /api/v1/lb/regions/{region}
 ```
 
-## Configuration
+## Configuration — Run failover tests
 
 ### Environment Variables
 

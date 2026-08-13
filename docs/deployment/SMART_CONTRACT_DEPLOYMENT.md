@@ -6,7 +6,7 @@
 **Last Updated**: 2026-05-28
 **Version**: 1.0
 
-## 🧭 **Navigation Path:**
+## Navigation Path
 
 **🏠 [Documentation Home](../README.md)** → **🚀 Deployment** → **📜 Smart Contract Deployment**
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 🎯 **See Also:**
+## See Also
 
 - **🔧 SETUP_PRODUCTION.md** - Production blockchain setup
 - **📋 [Advanced Deployment](../deployment/0_index.md)** - Advanced deployment topics
@@ -23,7 +23,7 @@
 
 ---
 
-## 📦 **Contents**
+## Contents
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
@@ -35,7 +35,7 @@
 
 ---
 
-## 🧱 **Overview**
+## Overview
 
 This guide covers the deployment of AITBC smart contracts to testnet and mainnet networks using automated CI/CD workflows. The deployment process includes:
 
@@ -47,7 +47,7 @@ This guide covers the deployment of AITBC smart contracts to testnet and mainnet
 
 ---
 
-## 📋 **Prerequisites**
+## Prerequisites
 
 ### Required Tools
 
@@ -87,7 +87,7 @@ pnpm install
 
 ---
 
-## 🧪 **Testnet Deployment**
+## Testnet Deployment
 
 ### Automated Deployment via CI/CD
 
@@ -129,7 +129,7 @@ After deployment, record the contract addresses:
 
 ---
 
-## 🚀 **Mainnet Deployment**
+## Mainnet Deployment
 
 ### Pre-deployment Checklist
 
@@ -143,7 +143,7 @@ Before deploying to mainnet, ensure:
 - [ ] Backup of deployment keys
 - [ ] Rollback plan documented
 
-### Automated Deployment via CI/CD
+### Automated Deployment via CI/CD — Mainnet Deployment
 
 The mainnet deployment workflow is triggered by:
 
@@ -152,17 +152,17 @@ The mainnet deployment workflow is triggered by:
 
 **Workflow:** `.gitea/workflows/deploy-mainnet.yml`
 
-### Manual Deployment
+### Manual Deployment — Mainnet Deployment
 
 ```bash
 cd /opt/aitbc/contracts
 
-# Set environment variables
+# Set environment variables (2)
 export HARDHAT_NETWORK=mainnet
 export PRIVATE_KEY=<your-mainnet-private-key>
 export MAINNET_RPC_URL=<mainnet-rpc-url>
 
-# Compile contracts
+# Compile contracts (2)
 pnpm hardhat compile
 
 # Run security scan
@@ -171,7 +171,7 @@ bash scripts/ci/security-scan.sh
 # Run contract tests
 pnpm hardhat test
 
-# Deploy contracts
+# Deploy contracts (2)
 pnpm hardhat run scripts/deploy-mainnet.js --network mainnet
 ```
 
@@ -186,7 +186,7 @@ Mainnet deployment includes:
 
 ---
 
-## ✅ **Contract Verification**
+## Contract Verification
 
 ### Etherscan Verification (Mainnet)
 
@@ -218,7 +218,7 @@ export TESTNET_EXPLORER_URL=<testnet-explorer-url>
 
 ---
 
-## 📊 **Monitoring and Alerts**
+## Monitoring and Alerts
 
 ### Contract Monitoring Setup
 
@@ -273,7 +273,7 @@ bash scripts/monitoring/verify-monitoring.sh <network>
 
 ---
 
-## 🔧 **Troubleshooting**
+## Troubleshooting
 
 ### Deployment Fails
 

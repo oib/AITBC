@@ -114,7 +114,7 @@ aitbc billing auto-pay disable
 aitbc billing alert --limit 100 --email you@example.com
 ```
 
-## Next Steps
+## Next Steps — Set spending limit
 
 - [Pricing](./5_pricing-billing.md) - Cost structure
 - [Wallet](./4_wallet.md) - Managing your wallet

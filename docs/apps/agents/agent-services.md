@@ -59,7 +59,7 @@ export REGISTRY_DATABASE_URL="postgresql://user:<DB_PASSWORD>@localhost/agent_re
 # Start individual services
 cd agent-bridge && python main.py
 cd agent-compliance && python main.py
-# ... repeat for other services
+# ... repeat for other services (2)
 ```
 
 ## Developer Guide
@@ -97,7 +97,7 @@ pytest agent-*/tests/
 
 ## API Reference
 
-### Agent Bridge
+### Agent Bridge — API Reference
 
 #### Register Bridge
 
@@ -126,7 +126,7 @@ Content-Type: application/json
 }
 ```
 
-### Agent Registry
+### Agent Registry — API Reference
 
 #### Register Agent
 
@@ -192,27 +192,27 @@ Content-Type: application/json
 GET /api/v1/trading/history/{agent_id}
 ```
 
-## Configuration
+## Configuration — Run all service tests
 
-### Agent Bridge
+### Agent Bridge — Configuration
 
 - `AGENT_BRIDGE_ENDPOINT`: Bridge service endpoint
 - `AGENT_BRIDGE_API_KEY`: API key for authentication
 - `BRIDGE_PROTOCOLS`: Supported communication protocols
 
-### Agent Registry
+### Agent Registry — Configuration
 
 - `REGISTRY_DATABASE_URL`: Database connection string
 - `REGISTRY_CACHE_TTL`: Cache time-to-live
 - `REGISTRY_SYNC_INTERVAL`: Sync interval for agent updates
 
-### Agent Compliance
+### Agent Compliance — Configuration
 
 - `COMPLIANCE_RULES_PATH`: Path to compliance rules
 - `COMPLIANCE_CHECK_INTERVAL`: Interval for compliance checks
 - `COMPLIANCE_ALERT_THRESHOLD`: Threshold for compliance alerts
 
-### Agent Trading
+### Agent Trading — Configuration
 
 - `TRADING_FEE_PERCENTAGE`: Trading fee percentage
 - `TRADING_MIN_ORDER_SIZE`: Minimum order size

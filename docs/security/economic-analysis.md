@@ -210,7 +210,7 @@ This document analyzes the token economics and potential economic attack vectors
 - Check for dominant strategies
 - Verify incentive compatibility
 
-### Potential Issues
+### Potential Issues — Game Theory Analysis
 
 - **Prisoner's dilemma scenarios:** Individual rationality leads to collective harm
 - **Tragedy of the commons:** Overuse of shared resources

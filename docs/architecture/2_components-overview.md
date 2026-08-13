@@ -6,7 +6,7 @@ Overview of all components in the AITBC platform, their status, and documentatio
 
 ### Blockchain Node
 
-<span class="component-status live">● Live</span>
+● Live
 
 PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
 
@@ -14,7 +14,7 @@ PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehen
 
 ### Coordinator API
 
-<span class="component-status live">● Live</span>
+● Live
 
 FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.
 
@@ -22,7 +22,7 @@ FastAPI service for job submission, miner registration, and receipt management. 
 
 ### Marketplace Web
 
-<span class="component-status live">● Live</span>
+● Live
 
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
@@ -30,7 +30,7 @@ Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and m
 
 ### Blockchain Explorer
 
-<span class="component-status live">● Live</span>
+● Live
 
 Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8016.
 
@@ -38,7 +38,7 @@ Agent-first Python FastAPI blockchain explorer with complete API and built-in HT
 
 ### Wallet Daemon
 
-<span class="component-status live">● Live</span>
+● Live
 
 Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.
 
@@ -46,7 +46,7 @@ Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and r
 
 ### Trade Exchange
 
-<span class="component-status live">● Live</span>
+● Live
 
 Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
 
@@ -54,7 +54,7 @@ Bitcoin-to-AITBC exchange with QR payments, user management, and real-time tradi
 
 ### ZK Circuits Engine
 
-<span class="component-status live">● Live</span>
+● Live
 
 Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inference verification, training verification, and cryptographic proof generation using Groth16.
 
@@ -62,7 +62,7 @@ Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inf
 
 ### FHE Service
 
-<span class="component-status live">● Live</span>
+● Live
 
 Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support.
 
@@ -70,7 +70,7 @@ Fully Homomorphic Encryption service for encrypted computation on sensitive ML d
 
 ### Enhanced Edge GPU
 
-<span class="component-status live">● Live</span>
+● Live
 
 Consumer GPU optimization with dynamic discovery, latency measurement, and edge-aware scheduling. Supports Turing, Ampere, and Ada Lovelace architectures.
 
@@ -128,9 +128,9 @@ The AITBC platform consists of 7 core components working together to provide a c
 
 ## Status Legend
 
-- <span class="component-status live">● Live</span> - Production ready and deployed
-- <span class="component-status beta">● Beta</span> - In testing, limited availability
-- <span class="component-status dev">● Development</span> - Under active development
+- ● Live - Production ready and deployed
+- ● Beta - In testing, limited availability
+- ● Development - Under active development
 
 ## Deployment Information
 

@@ -14,7 +14,7 @@ This directory contains comprehensive architecture documentation for the AITBC p
 6. **[6_trade-exchange.md](./6_trade-exchange.md)** - Trade exchange and matching engine
 7. **[7_wallet.md](./7_wallet.md)** - Wallet architecture and key management
 8. **[8_codebase-structure.md](./8_codebase-structure.md)** - Codebase organization and module structure
-9. **[9_full-technical-reference.md](./9_full-technical-reference.md)** - Complete technical reference
+9. **[9_full-technical-reference.md](../archive/architecture/9_full-technical-reference.md)** - Complete technical reference (archived)
 
 ### **Specialized Architecture**
 
@@ -38,7 +38,7 @@ Focus on these documents:
 
 1. [3_coordinator-api.md](./3_coordinator-api.md) - API architecture
 2. [4_blockchain-node.md](./4_blockchain-node.md) - Blockchain architecture
-3. [9_full-technical-reference.md](./9_full-technical-reference.md) - Complete technical details
+3. [9_full-technical-reference.md](../archive/architecture/9_full-technical-reference.md) - Complete technical details (archived)
 
 ### **For Infrastructure Engineers**
 

@@ -176,8 +176,8 @@ bool verified = verifier.verifyAndRecord(
 
 ## Documentation
 
-- [ZK Technology Comparison](#technology-comparison)
-- [Circuit Design](#zk-circuit-design)
+- ZK Technology Comparison
+- Circuit Design
 - [Development Guide](./5_zk-proofs.md)
 - [API Documentation](../architecture/3_coordinator-api.md)
 
@@ -189,7 +189,7 @@ The modular design allows for gradual adoption and future enhancements, making i
 
 ---
 
-## Overview
+## Overview — ZK Receipt Attestation Implementation Summary
 
 This document outlines the design for adding zero-knowledge proof capabilities to the AITBC receipt attestation system, enabling privacy-preserving settlement flows while maintaining verifiability.
 
@@ -385,7 +385,7 @@ contract SettlementVerifier {
 }
 ```
 
-## Privacy Levels
+## Privacy Levels — ZK Receipt Attestation Implementation Summary
 
 ### Level 1: Basic Privacy
 
@@ -458,7 +458,7 @@ contract SettlementVerifier {
 
 ---
 
-## Overview
+## ZK Receipt Attestation Technology Options Overview
 
 Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing on practical considerations for integration with existing infrastructure.
 
@@ -590,7 +590,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 - Settlement layer: Minimal impact (fast verification)
 - Storage: Negligible increase
 
-## Security Considerations
+## Security Considerations — ZK Receipt Attestation Implementation Summary
 
 ### Trusted Setup Risks
 
@@ -647,7 +647,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 - Security review
 - Performance optimization
 
-## Next Steps
+## Next Steps — ZK Receipt Attestation Implementation Summary
 
 1. **Immediate**: Set up development environment
 2. **Research**: Deep dive into circom best practices
