@@ -1,199 +1,84 @@
 # AITBC Apps Documentation
 
-**Level**: Intermediate<br>
-**Prerequisites**: Familiarity with the AITBC service layout<br>
-**Estimated Time**: 15-25 minutes<br>
-**Last Updated**: 2026-04-27<br>
-**Version**: 1.1 (April 2026 Update - docs compliance remediation)
+**Level**: Intermediate
+**Prerequisites**: Familiarity with the AITBC service layout
+**Estimated Time**: 15-25 minutes
+**Last Updated**: 2026-08-13
+**Version**: 2.0 (Refreshed to current apps/ tree)
 
-## 🧭 **Navigation Path:**
-**🏠 [Documentation Home](../README.md)** → **📦 Apps** → *You are here*
+## Navigation Path
 
-**breadcrumb**: Home → Apps → Overview
+**[Documentation Home](../README.md)** → **Apps** → *You are here*
 
----
+## See Also
 
-## 🎯 **See Also:**
-- **📖 About Documentation** - Template standard and audit checklist
-- **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
-- **📁 Project Documentation** - Project-level overview
-- **🚀 [Deployment Documentation](../deployment/README.md)** - Operational rollout guidance
+- [Documentation Template Standard](../meta/DOCUMENTATION_TEMPLATE_STANDARD.md)
+- [Master Index](../MASTER_INDEX.md) — full catalog
+- [Getting Started](../getting-started/) — install and configure a node
+- [Service Ports Reference](../reference/SERVICE_PORTS.md) — authoritative ports
 
 ---
 
-Complete documentation for all AITBC applications and services.
+Source code lives under `apps/` in the repository. Each app has its own `README.md` with status, node type, GPU requirements, systemd services, and source layout.
 
-## Categories
+## App catalog
 
-### Blockchain
-- [Blockchain](blockchain/) - Blockchain node, event bridge, and explorer
-  - **Features**: Block validation, transaction processing, consensus, event bridge integration
-  - **Quick Start**: Deploy a blockchain node with `aitbc blockchain-node start`, configure chain settings in `blockchain.env`, and monitor via the RPC API at port 8202
+| App | Status | Node Type | GPU | Service(s) | Core | Source |
+|-----|--------|-----------|-----|------------|------|--------|
+| [agent-coordinator](../../apps/agent-coordinator/README.md) | active | island, hub | no | 1 systemd service(s): aitbc-agent-coordinator.service | no | src/ directory with 61 Python file(s) |
+| [ai-engine](../../apps/ai-engine/README.md) | under development | island, hub | Yes | 4 systemd service(s): aitbc-ai.service, aitbc-learning.service, aitbc-modality-optimization.service, aitbc-multimodal.service | no | src/ directory with 2 Python file(s) |
+| [api-gateway](../../apps/api-gateway/README.md) | under development | all | no | 1 systemd service(s): aitbc-api-gateway.service | yes | src/ directory with 2 Python file(s) |
+| [blockchain-event-bridge](../../apps/blockchain-event-bridge/README.md) | active | hub | no | 1 systemd service(s): aitbc-blockchain-event-bridge.service | no | src/ directory with 16 Python file(s) |
+| [blockchain-explorer](../../apps/blockchain-explorer/README.md) | Agent-First API Service - Pure JSON API for blockchain data access. | — | — | 1 systemd service: aitbc-blockchain-explorer.service | — | — |
+| [blockchain-node](../../apps/blockchain-node/README.md) | active | all | no | 4 systemd service(s): aitbc-blockchain-node.service, aitbc-blockchain-p2p.service, aitbc-blockchain-rpc.service, aitbc-blockchain-sync.service | yes | src/ directory with 89 Python file(s) |
+| [bridge-monitor](../../apps/bridge-monitor/README.md) | active | hub | no | 1 systemd service(s): aitbc-bridge-monitor.service | no | src/ directory with 3 Python file(s) |
+| [coordinator-api](../../apps/coordinator-api/README.md) | active | all | no | 1 systemd service(s): aitbc-coordinator-api.service | yes | src/ directory with 508 Python file(s) |
+| [edge](../../apps/edge/README.md) | active | island | Optional | 1 systemd service(s): aitbc-edge.service | no | src/ directory with 25 Python file(s) |
+| [exchange](exchange/) ([exchange](../../apps/exchange/README.md)) | active | shop | no | 1 systemd service: aitbc-exchange.service (port 8106) | no | simple_exchange/ — stdlib HTTP server with handler mixins: |
+| [ffmpeg](../../apps/ffmpeg/README.md) | active | island | Optional | 1 systemd service(s): aitbc-ffmpeg.service | no | main.py entry point |
+| [governance](../../apps/governance/README.md) | active | hub | no | 1 systemd service(s): aitbc-governance.service | no | src/ directory with 7 Python file(s) |
+| [gpu](../../apps/gpu/README.md) | active | hub, island | Yes | 1 systemd service(s): aitbc-gpu.service | no | src/ directory with 9 Python file(s) |
+| [marketplace](marketplace/) ([marketplace](../../apps/marketplace/README.md)) | active | shop, hub | no | 1 systemd service(s): aitbc-marketplace.service | no | src/ directory with 9 Python file(s) |
+| [miner](../../apps/miner/README.md) | active | island | Yes | 1 systemd service(s): aitbc-miner.service | no | production_miner.py entry point |
+| [pool-hub](../../apps/pool-hub/README.md) | active | hub | no | No systemd service file | no | src/ directory with 37 Python file(s) |
+| [shared-core](../../apps/shared-core/README.md) | shared library | n/a | no | No systemd service file — imported as a library by other apps. | no | src/ directory with 6 Python file(s) |
+| [shared-domain](../../apps/shared-domain/README.md) | shared library | n/a | no | No systemd service file — imported as a library by other apps. | no | src/ directory with 1 Python file(s) |
+| [trading](../../apps/trading/README.md) | active | shop | no | 1 systemd service(s): aitbc-trading.service | no | src/ directory with 7 Python file(s) |
+| [wallet](wallet/) ([wallet](../../apps/wallet/README.md)) | active | all | no | 1 systemd service(s): aitbc-wallet.service | yes | src/ directory with 29 Python file(s) |
+| [whisper](../../apps/whisper/README.md) | active | island | Optional | 1 systemd service(s): aitbc-whisper.service | no | main.py entry point |
+| [zk-circuits](../../apps/zk-circuits/README.md) | experimental — and specifically, the trusted setup is development-only. | hub, island | no | No systemd service file | no | Circom circuits with Python compilation scripts |
 
-### Coordinator
-- [Coordinator](coordinator/) - Coordinator API and agent coordination
-  - **Features**: Job submission and lifecycle tracking, miner matching, marketplace endpoints, explorer data endpoints, signed receipts support
-  - **Quick Start**: Start the coordinator API with `aitbc coordinator-api start`, submit jobs via REST API at port 8000, and monitor job status through the dashboard
-- [Agent Coordinator](agent-coordinator/) - Agent coordination and management
-  - **Features**: Agent lifecycle management, swarm coordination, task distribution
-  - **Quick Start**: Launch with `aitbc agent-coordinator start`, register agents via the `/agents/register` endpoint, and view swarm status at `/swarms`
+## Concept and topic docs
 
-### Agents
-- [Agents](agents/) - Agent services and AI engine
-  - **Features**: Agent communication protocols, agent compliance checking, agent registry and discovery, agent trading capabilities
-  - **Quick Start**: Initialize an agent with `aitbc agent init`, configure agent identity in `agent.yaml`, and start with `aitbc agent start`
-- [AI Engine](ai-engine/) - AI engine for autonomous agent operations
-  - **Features**: LLM inference, model management, AI job processing
-  - **Quick Start**: Start the AI engine with `aitbc ai-engine start`, load models via the `/models` API, and submit inference jobs to `/inference`
-- [Agent Services](agent-services/) - Shared libraries for agent bridge, compliance, protocols, registry, and trading
-  - [Agent Protocols](agent-services/agent-protocols/) - Communication protocols for agent interactions
-    - **Features**: Agent communication standards, protocol specifications, interoperability guidelines
-    - **Quick Start**: Import protocol schemas from `aitbc_agent.protocols`, implement message handlers, and register with the agent bridge
-  - [Agent Registry](agent-services/agent-registry/) - Agent registration and discovery capabilities
-    - **Features**: Agent registration, service discovery, agent metadata management
-    - **Quick Start**: Query the registry via `/agents/list`, register new agents with `/agents/register`, and discover services by capability
+These directories cover cross-cutting concerns rather than a single app:
 
-### Exchange
-- [Exchange](exchange/) - Exchange services and trading infrastructure
-  - **Features**: Cross-chain exchange, order matching and execution, price tickers, health monitoring, multi-chain support
-  - **Quick Start**: Start the exchange with `aitbc exchange start`, configure trading pairs in `exchange.yaml`, and access the trading API at port 8001
-- [Trading Service](trading-service/) - Trading engine for order matching and exchange operations
-  - **Features**: Order matching, trade execution, price discovery
-  - **Quick Start**: Launch with `aitbc trading-service start`, submit orders via `/orders`, and monitor trade history at `/trades`
+- [agents](agents/)
+- [blockchain](blockchain/)
+- [clients](clients/)
+- [compliance](compliance/)
+- [coordinator](coordinator/)
+- [crypto](crypto/)
+- [explorer](explorer/)
+- [global-ai](global-ai/)
+- [infrastructure](infrastructure/)
+- [openclaw](openclaw/)
 
-### Marketplace
-- [Marketplace](marketplace/) - Marketplace and pool hub
-  - **Quick Start**: Access the marketplace web UI, browse available GPU resources, and submit rental requests through the portal
-- [Marketplace Service](marketplace-service/) - GPU marketplace for compute resource trading
-  - **Features**: Resource listing and discovery, bidding and offer management, transaction processing
-  - **Quick Start**: Start with `aitbc marketplace-service start`, list resources via `/resources`, and submit bids at `/bids`
-- [GPU Service](gpu-service/) - GPU compute resources for the AITBC marketplace
-  - **Features**: GPU resource management, compute job scheduling, performance monitoring
-  - **Quick Start**: Launch with `aitbc gpu-service start`, register GPU resources via `/register`, and monitor job status at `/jobs`
+## Notes
 
-### Wallet
-- [Wallet](wallet/) - Multi-chain wallet services
-  - **Features**: Multi-chain support, transaction signing, balance tracking, address management
-  - **Quick Start**: Initialize a wallet with `aitbc wallet init`, import or generate keys, and manage addresses via the CLI or REST API at port 8003
+- Start services with `systemctl start aitbc-<app>.service`, not the `aitbc` CLI.
+- For authoritative port numbers, health endpoints, and binding addresses, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+- `shared-core` and `shared-domain` are libraries consumed by other apps; they do not have their own systemd services.
+- `ai-engine`, `api-gateway`, and `zk-circuits` are experimental or under development; see [Release Status](../releases/STATUS.md).
 
-### Infrastructure
-- [Infrastructure](infrastructure/) - Monitoring, load balancing, and infrastructure
-  - **Features**: System monitoring, health checks, load balancing, multi-region support
-  - **Quick Start**: Deploy infrastructure components with `aitbc infra deploy`, configure monitoring endpoints in `infra.yaml`, and access the dashboard at port 9000
-- [Monitoring Service](monitoring-service/) - System monitoring and alerting capabilities
-  - **Features**: System health monitoring, performance metrics, alert management
-  - **Quick Start**: Start with `aitbc monitoring-service start`, configure alert rules via `/alerts`, and view metrics at `/metrics`
+## Related Resources
 
-### Crypto
-- [Crypto](crypto/) - Cryptographic services (zk-circuits)
-  - **Features**: Zero-knowledge proofs, FHE integration, privacy-preserving computations
-  - **Quick Start**: Initialize crypto services with `aitbc crypto init`, configure circuit parameters in `crypto.yaml`, and generate proofs via the `/prove` endpoint
-
-### Compliance
-- [Compliance](compliance/) - Compliance services
-  - **Features**: Compliance verification, regulatory checks, audit logging
-  - **Quick Start**: Start compliance service with `aitbc compliance start`, configure rules in `compliance.yaml`, and check agent status via `/compliance/check`
-- [Governance Service](governance-service/) - Governance and DAO operations for the the network
-  - **Features**: Proposal management, voting mechanisms, DAO operations
-  - **Quick Start**: Launch with `aitbc governance-service start`, submit proposals via `/proposals`, and vote on governance matters at `/vote`
-
-### Mining
-- [Mining](miner/) - Mining services
-  - **Features**: Block mining, proof of authority consensus, block validation
-  - **Quick Start**: Start mining with `aitbc miner start`, configure mining parameters in `miner.yaml`, and monitor mining status at `/mining/status`
-
-### Global AI
-- [Global AI](global-ai/) - Global AI agents
-  - **Features**: Cross-region AI coordination, distributed AI operations, global agent discovery
-  - **Quick Start**: Initialize global AI with `aitbc global-ai init`, configure regional endpoints in `global-ai.yaml`, and discover agents via `/agents/discover`
-- [Global AI Agents](global-ai-agents/) - Global AI agent coordination and management
-  - **Features**: Global agent network, cross-region coordination, AI agent orchestration
-  - **Quick Start**: Start with `aitbc global-ai-agents start`, register regional agents via `/register`, and coordinate tasks at `/orchestrate`
-
-### Explorer
-- [Explorer](explorer/) - Blockchain explorer services
-  - **Features**: Block exploration, transaction search, address tracking
-  - **Quick Start**: Start the explorer with `aitbc explorer start`, access the web UI at port 8080, and search blocks/transactions via the search bar
-
-### Clients
-- [Clients](clients/) - Client documentation for GPU computing power rental
-  - **Reading Order**: Quick start, job submission, job lifecycle, wallet management, pricing and billing, API reference
-  - **Quick Start**: Install the client SDK with `pip install aitbc-client`, configure credentials in `~/.aitbc/config.yaml`, and submit your first compute job
-
-## Migration Status
-
-- [Microservices Migration](../infrastructure/migration/microservices-migration-status.md) - Track migration from monolithic coordinator to microservices architecture
-
-## Quick Links
-
-- Blockchain Node - Production-ready blockchain node
-- [Coordinator API](coordinator/coordinator-api.md) - Job coordination service
-- [Marketplace](marketplace/marketplace.md) - GPU marketplace
-- [Wallet](wallet/wallet.md) - Multi-chain wallet
-
-## Documentation Standards
-
-Each app documentation includes:
-- Overview and architecture
-- Quick start guide (end users)
-- Developer guide
-- API reference
-- Configuration
-- Troubleshooting
-- Security notes
-
-## Status
-
-- **Total Apps**: 23 non-empty apps
-- **Documented**: 23/23 (100%)
-- **Last Updated**: 2026-04-27
+- [Getting Started](../getting-started/README.md) — pick a hub/shop/client path
+- [CLI README](../../cli/README.md) — command reference
+- [Release Status](../releases/STATUS.md) — what is complete vs. in flight
+- [Master Index](../MASTER_INDEX.md) — complete documentation catalog
 
 ---
 
-## 🔗 **Related Resources**
-
-### 📚 **Further Reading:**
-- **Main Docs**: [Documentation Home](../README.md) - Complete documentation overview
-- **About Docs**: About Documentation - Template standard and audit checklist
-- **Project Docs**: Project Documentation - Project-level overview
-- **Deployment Docs**: [Deployment Documentation](../deployment/README.md) - Operational rollout guidance
-
-### 🆘 **Help & Support:**
-- **Documentation Issues**: [Report Doc Issues](https://github.com/oib/AITBC/issues)
-- **Community Forum**: [AITBC Forum](https://forum.aitbc.net)
-- **Technical Support**: [AITBC Support](https://support.aitbc.net)
-
----
-
-## 📊 **Quality Metrics**
-
-### **🎯 Quality Score: 10/10 (Perfect)**
-
-**Quality Breakdown:**
-- **Structure**: 10/10 - Clear service catalog with template-aligned sections.
-- **Content**: 10/10 - Comprehensive app directory overview and quick links.
-- **Accessibility**: 10/10 - Easy navigation to categories and support resources.
-- **Cross-References**: 10/10 - Strong links to main docs and adjacent project docs.
-- **User Experience**: 10/10 - Professional applications hub.
-
-### **✅ Validation Checklist:**
-- [x] Template compliance achieved
-- [x] Consistent heading structure
-- [x] Complete metadata included
-- [x] Navigation breadcrumbs implemented
-- [x] Cross-references integrated
-- [x] Quality metrics established
-
-### **🎯 Success Metrics:**
-- **100% template compliance** across apps documentation
-- **Zero broken links** in apps cross-references
-- **Consistent metadata** for all app docs
-- **Professional user experience** for app navigation
-- **Clear discovery path** for service-specific documentation
-
----
-
-*Last updated: 2026-05-03*<br>
-*Version: 1.2*<br>
-*Status: Apps documentation hub*<br>
-*Tags: apps, services, documentation, overview*
+*Last updated: 2026-08-13*
+*Version: 2.0*
+*Status: Apps documentation hub*
