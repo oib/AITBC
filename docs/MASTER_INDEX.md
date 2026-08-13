@@ -41,10 +41,10 @@
 
 ## 📊 Directory Statistics
 
-- **Total Directories**: 21
-- **Total Files**: 90+ markdown files
-- **Apps Documentation**: 59 items
-- **Release Notes**: 30+ current releases (v0.5.0 through v2.0.0) + 21 archived releases (v0.0.x through v0.4.x)
+- **Total Directories**: 45 top-level docs directories
+- **Total Files**: 1,300+ markdown files
+- **Apps Documentation**: 22 source apps + concept docs under `docs/apps/`
+- **Release Notes**: 100+ current and archived release directories
 
 ---
 
