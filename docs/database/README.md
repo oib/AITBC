@@ -52,7 +52,7 @@ Standard Operating Procedure for database migrations:
 ## 🔗 Related Documentation
 
 - [Security Architecture](../security/SECURITY_FIRST_ARCHITECTURE.md) - Overall security patterns
-- CONTRIBUTING.md - Git workflow for schema changes
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) - Git workflow for schema changes
 
 ## ⚠️ Important Notes
 
