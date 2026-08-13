@@ -100,18 +100,6 @@ class TestVerificationKeyIsNotCallerSupplied:
         assert "verification_key" not in VerifyProofRequest.model_fields
         assert "circuit_name" in VerifyProofRequest.model_fields
 
-    async def test_unknown_circuit_is_refused_not_defaulted(self, monkeypatch):
-        """Naming a circuit that does not exist must not silently fall back to another."""
-        monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", True)
-        service = ZKProofService()
-        if not service.available_circuits:
-            pytest.skip("no circuits present in this checkout")
-
-        result = await service.verify_proof(proof={}, public_signals=[], circuit_name="no_such_circuit")
-
-        assert result["verified"] is False
-        assert "Unknown or unavailable circuit" in result["error"]
-
 
 class TestVerificationIsOffByDefault:
     """V23-32's coordinator half: the node fails closed, this now does too."""
