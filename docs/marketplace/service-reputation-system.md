@@ -226,7 +226,7 @@ aitbc market sync-ratings --remote-url https://aitbc3.aitbc.bubuit.net/api --lim
 
 ## Cross-Node Synchronization
 
-### Architecture
+### Architecture — Cross-Node Synchronization
 
 The reputation system supports cross-node rating synchronization between the hub's local marketplace and the aitbc3 software service registry.
 

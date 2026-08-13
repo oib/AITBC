@@ -128,7 +128,7 @@ iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8082 -j MASQUERA
 
 ## Configuration
 
-### Blockchain Node
+### Blockchain Node — Configuration
 
 Location: `/opt/blockchain-node/.env`
 
@@ -137,7 +137,7 @@ Location: `/opt/blockchain-node/.env`
 - P2P Port: 7070
 - Auto-sync: enabled
 
-### Explorer
+### Explorer — Configuration
 
 Location: `/opt/blockchain-explorer/index.html`
 

@@ -6,7 +6,7 @@
 **Authentication:** API Key (Bearer token)
 
 > **Note:** The legacy coordinator-api (port 8203) is deprecated. Use port 8102 directly or 8201 via the API gateway.
-
+>
 > **⚠️ DEPRECATION NOTICE (v0.4.7)**: GPU-only marketplace with bids has been deprecated. The marketplace now focuses on hardware+software bundles with fixed pricing. The bid endpoint described below is no longer supported.
 
 ## Overview
@@ -603,7 +603,7 @@ aitbc market escrow refund <bid_id>
 
 See the full [Escrow API Reference](./escrow-api.md) for direct RPC access.
 
-## Service Architecture
+## Service Architecture — Refund to buyer
 
 | Service | Port | Role |
 |---|---|---|

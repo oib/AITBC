@@ -117,13 +117,13 @@ curl http://localhost/rpc/network-info
 ### Test HTTPS Access (After SSL Configuration)
 
 ```bash
-# Test API Gateway
+# Test API Gateway (2)
 curl https://localhost/api/health
 
-# Test Blockchain RPC
+# Test Blockchain RPC (2)
 curl https://localhost/rpc/health
 
-# Test Coordinator API
+# Test Coordinator API (2)
 curl https://localhost/c/health
 ```
 
@@ -170,7 +170,7 @@ server {
 }
 ```
 
-### Verification
+### Verification — Critical: HTTP→HTTPS Redirect Must Preserve POST Method
 
 ```bash
 # Check what redirect code your nginx returns for POST

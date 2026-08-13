@@ -4,7 +4,7 @@
 
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
-<span class="component-status live">● Live</span>
+● Live
 
 ## Overview
 

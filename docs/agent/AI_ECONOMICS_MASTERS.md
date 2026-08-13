@@ -90,14 +90,14 @@ agent agent --agent main --session-id $SESSION_ID \
 
 ### **💰 Marketplace Strategy Agent**
 
-#### **Core Capabilities**
+#### **Core Capabilities** — **💰 Marketplace Strategy Agent**
 
 - **Dynamic Pricing**: Real-time price optimization based on market conditions
 - **Competitive Analysis**: Market positioning and competitive intelligence
 - **Customer Acquisition**: Cost-effective customer acquisition strategies
 - **Revenue Optimization**: Comprehensive revenue enhancement strategies
 
-#### **Usage Examples**
+#### **Usage Examples** — **💰 Marketplace Strategy Agent**
 
 ```bash
 # Marketplace strategy session
@@ -107,7 +107,7 @@ agent agent --agent main --session-id $SESSION_ID \
     --thinking high
 ```
 
-#### **Performance Metrics**
+#### **Performance Metrics** — Marketplace strategy session
 
 - **Market Share**: >25% AI service marketplace target
 - **Revenue Growth**: >50% month-over-month growth
@@ -115,14 +115,14 @@ agent agent --agent main --session-id $SESSION_ID \
 
 ### **📈 Investment Strategy Agent**
 
-#### **Core Capabilities**
+#### **Core Capabilities** — **📈 Investment Strategy Agent**
 
 - **Portfolio Management**: AI service investment portfolio optimization
 - **Market Prediction**: Advanced market trend forecasting
 - **Risk Management**: Investment risk assessment and hedging
 - **Performance Tracking**: Investment performance monitoring and optimization
 
-#### **Usage Examples**
+#### **Usage Examples** — **📈 Investment Strategy Agent**
 
 ```bash
 # Investment strategy session
@@ -132,7 +132,7 @@ agent agent --agent main --session-id $SESSION_ID \
     --thinking high
 ```
 
-#### **Performance Metrics**
+#### **Performance Metrics** — Investment strategy session
 
 - **Portfolio ROI**: >200% return on investments
 - **Risk Management**: <5% economic volatility

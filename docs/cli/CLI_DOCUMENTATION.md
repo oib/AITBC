@@ -303,7 +303,7 @@ curl -s http://localhost:11434/api/tags
 ./aitbc-cli ai results --job-id latest
 ```
 
-### Marketplace Operations
+### Marketplace Operations — 5. Get results
 
 ```bash
 # 1. Create service listing

@@ -15,39 +15,6 @@ Complete technical documentation for the AI Training & Blockchain Computing Plat
 - **Phase 4.4**: Pending (Enterprise Integration)
 - **Multi-Chain**: 100% Complete (7-layer architecture)
 
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Architecture](#architecture)
-  - [Multi-Chain Architecture](#multi-chain-architecture)
-  - [Core Components](#core-components)
-  - [Data Flow](#data-flow)
-  - [Consensus Mechanism](#consensus)
-- [AI-Powered Features](#ai-powered-features)
-  - [AI Trading Engine](#ai-trading-engine)
-  - [Advanced Analytics](#advanced-analytics)
-  - [AI Surveillance](#ai-surveillance)
-- [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Quick Start](#quick-start)
-  - [Configuration](#configuration)
-- [APIs](#apis)
-  - [Coordinator API](#coordinator-api)
-  - [Blockchain RPC](#blockchain-rpc)
-  - [Wallet API](#wallet-api)
-  - [Exchange APIs](#exchange-apis)
-- [Components](#components)
-  - [Blockchain Node](#blockchain-node)
-  - [Coordinator Service](#coordinator-service)
-  - [AI Services](#ai-services)
-  - [Exchange Integration](#exchange-integration)
-  - [Multi-Chain Services](#multi-chain-services)
-- [Guides](#guides)
-  - [Trader Guide](#trader-guide)
-  - [Miner Guide](#miner-guide)
-  - [Developer Guide](#developer-guide)
-  - [System Administrator Guide](#system-administrator-guide)
-
 ## Introduction
 
 AITBC (AI Training & Blockchain Computing) is a comprehensive blockchain platform that combines AI-powered trading, advanced analytics, multi-chain support, and enterprise-grade security. The platform has evolved from its original AI agent focus to become a full-featured blockchain ecosystem supporting real-world trading, surveillance, and compliance requirements.
@@ -228,16 +195,16 @@ aitbc ai-surveillance patterns
 aitbc ai-surveillance risk-profile --user <username>
 ```
 
+```text
        │                     │                     │
        ▼                     ▼                     ▼
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │   Wallet    │     │   Pool Hub   │     │   Miners    │
 │   Daemon    │     │              │     │             │
 └─────────────┘     └──────────────┘     └─────────────┘
-
 ```
 
-### Data Flow
+### Data Flow — AI-Powered Features
 
 1. Client submits job to Coordinator API
 2. Coordinator creates blockchain transaction
@@ -246,7 +213,7 @@ aitbc ai-surveillance risk-profile --user <username>
 5. Result submitted with cryptographic proof
 6. Payment processed and receipt generated
 
-### Consensus Mechanism
+### Consensus Mechanism — AI-Powered Features
 
 AITBC uses a hybrid Proof-of-Authority/Proof-of-Stake consensus:
 
@@ -350,7 +317,7 @@ Base URL: `http://localhost:26657`
 
 Base URL: `http://localhost:18002`
 
-#### Endpoints
+#### Endpoints — Wallet API
 
 - `POST /v1/wallet/create` - Create wallet
 - `POST /v1/wallet/import` - Import wallet

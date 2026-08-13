@@ -47,7 +47,7 @@ If validation fails, returns HTTP 413 (Payload Too Large):
 
 ## Error Handler Middleware
 
-### Purpose
+### Purpose — Error Handler Middleware
 
 Standardizes error responses across all endpoints with consistent format and logging.
 
@@ -80,7 +80,7 @@ All errors are logged with context:
 
 ## Request ID Correlation
 
-### Purpose
+### Purpose — Request ID Correlation
 
 Adds a unique request ID to each request for correlation across distributed systems.
 
@@ -100,11 +100,11 @@ logger = logger.bind(request_id=request_id)
 
 ## Performance Logging
 
-### Purpose
+### Purpose — Performance Logging
 
 Tracks request timing and performance metrics.
 
-### Implementation
+### Implementation — Performance Logging
 
 - Logs request duration in milliseconds
 - Adds `X-Process-Time` header to responses
@@ -172,7 +172,7 @@ async def endpoint(request: Request):
     return {"status": "ok"}
 ```
 
-## Configuration
+## Configuration — Request Validation Patterns
 
 Middleware can be configured in `main.py`:
 

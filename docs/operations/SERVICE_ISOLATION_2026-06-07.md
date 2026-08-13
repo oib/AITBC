@@ -262,7 +262,7 @@ All isolated services are responding correctly:
 
 ## Pending Service Isolation
 
-### Services Still Running as Root
+### Services Still Running as Root — Pending Service Isolation
 
 **Remaining Root Services (14):**
 

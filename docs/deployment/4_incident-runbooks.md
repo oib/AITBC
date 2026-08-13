@@ -112,7 +112,7 @@ curl -X GET http://localhost:8203/v1/jobs -H "X-API-Key: test-key"
 
 ### Based on Chaos Test: `chaos_test_network.py`
 
-### Symptoms
+### Symptoms — Runbook: Network Partition
 
 - Blockchain nodes not communicating
 - Consensus stalled
@@ -159,7 +159,7 @@ ping -c 3 <peer-node-ip>
    nslookup blockchain-node
    ```
 
-### Recovery Actions
+### Recovery Actions — 3. Check network connectivity
 
 1. **Remove Problematic Network Rules**
 
@@ -182,7 +182,7 @@ ping -c 3 <peer-node-ip>
    systemctl restart aitbc-blockchain-node
    ```
 
-### Verification
+### Verification — 3. Check network connectivity
 
 ```bash
 # Wait for consensus to resume
@@ -196,7 +196,7 @@ curl -s http://localhost:8202/rpc/peers | jq '. | length'
 
 ### Based on Chaos Test: `chaos_test_database.py`
 
-### Symptoms
+### Symptoms — Runbook: Database Failure
 
 - Database connection errors
 - Service degradation
@@ -239,7 +239,7 @@ systemctl status postgresql
    -u postgres psql -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE state = 'active' AND now() - pg_stat_activity.query_start > interval '5 minutes';"
    ```
 
-### Recovery Actions
+### Recovery Actions — 3. Check replica lag (if using replication)
 
 1. **Kill Idle Connections**
 
@@ -260,7 +260,7 @@ systemctl status postgresql
    -u postgres pg_ctl promote -D /var/lib/postgresql/data
    ```
 
-### Verification
+### Verification — 3. Check replica lag (if using replication)
 
 ```bash
 # Test database connectivity
@@ -272,16 +272,16 @@ curl -f http://localhost:8203/v1/health
 
 ## Runbook: Redis Failure
 
-### Symptoms
+### Symptoms — Runbook: Redis Failure
 
 - Caching failures
 - Session loss
 - Increased database load
 - Slow response times
 
-### MTTR Target: 2 minutes
+### MTTR Target: 2 minutes — Runbook: Redis Failure
 
-### Immediate Actions (0-2 minutes)
+### Immediate Actions (0-2 minutes) — Runbook: Redis Failure
 
 ```bash
 # 1. Check Redis status
@@ -314,7 +314,7 @@ redis-cli info clients | grep connected_clients
    redis-cli --bigkeys
    ```
 
-### Recovery Actions
+### Recovery Actions — 3. Check connection count
 
 1. **Clear Expired Keys**
 
@@ -335,7 +335,7 @@ redis-cli info clients | grep connected_clients
    systemctl edit redis
    ```
 
-### Verification
+### Verification — 3. Check connection count
 
 ```bash
 # Test Redis connectivity
@@ -347,16 +347,16 @@ curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8203/v1/health
 
 ## Runbook: High CPU/Memory Usage
 
-### Symptoms
+### Symptoms — Runbook: High CPU/Memory Usage
 
 - Slow response times
 - Service crashes
 - OOM errors
 - System degradation
 
-### MTTR Target: 5 minutes
+### MTTR Target: 5 minutes — Runbook: High CPU/Memory Usage
 
-### Immediate Actions (0-5 minutes)
+### Immediate Actions (0-5 minutes) — Runbook: High CPU/Memory Usage
 
 ```bash
 # 1. Check resource usage
@@ -371,7 +371,7 @@ ps aux --sort=-%mem | head -10
 dmesg | grep -i "killed process"
 ```
 
-### Investigation (5-15 minutes)
+### Investigation (5-15 minutes) — 3. Check for OOM kills
 
 1. **Analyze Resource Usage**
 
@@ -394,7 +394,7 @@ dmesg | grep -i "killed process"
    curl http://localhost:8203/metrics | grep -E "(cpu|memory)"
    ```
 
-### Recovery Actions
+### Recovery Actions — 3. Check for OOM kills
 
 1. **Restart Affected Services**
 
@@ -417,7 +417,7 @@ dmesg | grep -i "killed process"
    # Review application logs for patterns
    ```
 
-### Verification
+### Verification — 3. Check for OOM kills
 
 ```bash
 # Monitor resource usage
@@ -429,7 +429,7 @@ curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8203/v1/health
 
 ## Runbook: Storage Issues
 
-### Symptoms
+### Symptoms — Runbook: Storage Issues
 
 - Disk space warnings
 - Write failures
@@ -474,7 +474,7 @@ journalctl --vacuum-time=7d
    logrotate -d /etc/logrotate.conf
    ```
 
-### Recovery Actions
+### Recovery Actions — 3. Clean up logs
 
 1. **Expand Storage**
 
@@ -499,7 +499,7 @@ journalctl --vacuum-time=7d
    systemctl restart postgresql
    ```
 
-### Verification
+### Verification — 3. Clean up logs
 
 ```bash
 # Check disk space

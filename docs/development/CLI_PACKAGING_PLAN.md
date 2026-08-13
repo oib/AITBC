@@ -77,7 +77,7 @@ cli/
 
 ## Target State
 
-### Package Structure
+### Package Structure — Target State
 
 ```
 cli/
@@ -115,7 +115,7 @@ cli/
 └── README.md
 ```
 
-### Entry Points
+### Entry Points — Target State
 
 - Single console script: `aitbc-cli` pointing to `aitbc_cli.main:cli`
 - Backward compatibility symlinks for legacy commands
@@ -433,7 +433,7 @@ Attempted Option 1 (Package aitbc first, then CLI) but encountered additional bl
    - Package structure breaks these assumptions
    - Would require extensive refactoring of CLI internals
 
-### Current State
+### Current State — Implementation Attempt Results
 
 - **aitbc package**: Successfully installed with models.chain moved to aitbc.models
 - **CLI package**: Depends on aitbc>=0.6.0

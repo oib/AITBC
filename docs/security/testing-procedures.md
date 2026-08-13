@@ -419,7 +419,7 @@ npx hardhat test test/test_aitoken_constructor.js
 
 ## Staging Environment Tests
 
-### Prerequisites
+### Prerequisites — Staging Environment Tests
 
 - Staging environment deployed
 - Environment variables configured

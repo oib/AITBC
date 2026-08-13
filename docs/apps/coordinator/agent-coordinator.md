@@ -203,7 +203,7 @@ Authorization: Bearer <jwt_token>
 }
 ```
 
-## Configuration
+## Configuration — Run with coverage
 
 ### Environment Variables
 
