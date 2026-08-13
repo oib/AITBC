@@ -125,5 +125,12 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 | `docs/README.md` / `MASTER_INDEX.md` | rewritten post-cleanup | done |
 | `CONTRIBUTING.md` | created project-specific root guide | done |
 | Dead CONTRIBUTING.md / SDK links | fixed across README and docs | done |
-| Port single-source-of-truth cleanup | replace inline old ports with links | pending |
-| Remaining stale current docs | e.g. agents, cli, testing, infrastructure | pending |
+| `docs/agent-coordinator/` | normalized port 9001 -> 8107 | done |
+| `docs/apps/openclaw/` | deleted (no matching app) | done |
+| `docs/cli/CLI_ARCHITECTURE.md` | archived to `docs/archive/cli/` | done |
+| `docs/agents/AGENT_COMMUNICATION.md` / `AGENT_WORKFLOWS.md` | archived to `docs/archive/agents/` | done |
+| `docs/features/*.md` | repaired corrupted links and lint-cleaned | done |
+| Markdown formatting | `npx markdownlint-cli --fix docs/` applied | done |
+| Port single-source-of-truth cleanup | `docs/reference/SERVICE_PORTS.md` still needs app path refresh | in progress |
+| Remaining stale current docs | e.g. `MICROSERVICES_TESTING_GUIDE.md`, `SYSTEMD_SERVICES.md` | pending |
+| Whole-tree markdownlint | down from ~15,096 to 586 remaining | pending |
