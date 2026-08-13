@@ -8,9 +8,9 @@
 **Goal**: Mature the agent-coordinator service into a production-ready coordination layer for AI agents. Add chain_id/island_id awareness to agent registration and task submission, implement blockchain payment escrow for task execution, and harden the service for production.
 
 > **Scope constraint**: This release targets `apps/agent-coordinator/` (flat router structure, ~10K lines). The separate `apps/coordinator-api/` (bounded contexts) is NOT the target. This release does NOT add reputation scoring (v0.6.7), compute marketplace (v0.6.6), or bridge functionality (v0.7.0).
-
+>
 > **Prerequisites**: [v0.5.16](../v0.5.16/change.log) (chain_id-aware transaction submission — Bug 15/16 fixed), [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support), [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island). v0.5.16 fixes verified in codebase. v0.6.4 in progress.
-
+>
 > **Risk**: Medium. Adding chain_id/island_id to models is backward compatible (optional fields). Payment escrow adds blockchain transaction overhead. Mitigated by: (1) optional chain_id (defaults to DEFAULT_CHAIN_ID), (2) payment escrow feature-flagged, (3) all changes in agent-coordinator app only.
 
 ---

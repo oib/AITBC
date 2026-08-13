@@ -104,7 +104,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
   cd apps/blockchain-node && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Apps, Infrastructure & Docs
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

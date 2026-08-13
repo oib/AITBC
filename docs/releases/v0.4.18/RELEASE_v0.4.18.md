@@ -228,11 +228,11 @@ def process_data(data: str) -> str:
 **Optional Parameters**
 
 ```python
-# Before
+# Before (2)
 def process(data: str = None):
     pass
 
-# After
+# After (2)
 def process(data: str | None = None):
     pass
 ```
@@ -240,13 +240,13 @@ def process(data: str | None = None):
 **Union Types**
 
 ```python
-# Before
+# Before (3)
 def handle_response(response):
     if isinstance(response, str):
         return response.upper()
     return response
 
-# After
+# After (3)
 def handle_response(response: str | dict) -> str | dict:
     if isinstance(response, str):
         return response.upper()

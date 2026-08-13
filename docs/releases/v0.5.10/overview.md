@@ -10,7 +10,7 @@
 This is the step-by-step runbook for migrating the **hub node** to v0.5.10. The hub is the PoA authority — all follower nodes sync from it. The hub must migrate first; followers re-sync afterwards.
 
 > **Breaking change.** All nodes must run v0.5.10 code. A node still on v0.5.9 will reject fee=36 transactions and vice versa.
-
+>
 > **Lessons learned.** This runbook was updated after the actual migration on 2026-06-23. Key findings:
 >
 > - **Hub has more services than expected** — `aitbc-blockchain-rpc` is a separate service from `aitbc-blockchain-node` and must be stopped/restarted too. See Step 2 and Step 8.

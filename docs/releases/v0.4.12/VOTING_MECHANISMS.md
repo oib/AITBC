@@ -30,7 +30,7 @@ voting_power = token_balance + staked_tokens * 2
 
 ## Quadratic Voting
 
-### CLI Command
+### CLI Command — Quadratic Voting
 
 ```bash
 aitbc governance vote --proposal-id prop_... --vote yes --quadratic --credits 100
@@ -43,7 +43,7 @@ vote_cost = vote_count^2
 total_credits = sqrt(token_balance)
 ```
 
-### Features
+### Features — Quadratic Voting
 
 - **Prevents concentration**: Reduces influence of large token holders
 - **Encourages participation**: Incentivizes broader participation
@@ -65,7 +65,7 @@ aitbc governance delegate --to 0x... --amount 1000
 aitbc governance vote --proposal-id prop_... --vote yes --as-delegate
 ```
 
-### Features
+### Features — Vote on behalf of delegators
 
 - **Proxy voting**: Delegate voting power to trusted addresses
 - **Expertise**: Delegate to experts in specific areas
@@ -79,7 +79,7 @@ aitbc governance vote --proposal-id prop_... --vote yes --as-delegate
 # Vote on proposal
 aitbc governance vote --proposal-id prop_abc123 --vote yes
 
-# Delegate voting power
+# Delegate voting power (2)
 aitbc governance delegate --to 0x... --amount 1000
 
 # View voting power

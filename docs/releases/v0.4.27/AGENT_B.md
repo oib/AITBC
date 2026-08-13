@@ -168,17 +168,17 @@ grep -r "BEGIN PRIVATE KEY" dev/
 **Estimated effort**: 1 hour
 **Risk**: Low
 
-### Problem
+### Problem — Task 2: CI Alignment — Install Project Dependencies 🛡️
 
 GitHub CI (`.github/workflows/ci.yml:18,51`) installs only tools (ruff, mypy, pytest) but not project dependencies before running checks. This means CI doesn't validate the actual project state.
 
-### Files Involved
+### Files Involved — Task 2: CI Alignment — Install Project Dependencies 🛡️
 
 - `.github/workflows/ci.yml` — GitHub Actions workflow
 - `pyproject.toml` — project dependencies
 - `requirements.txt` or `poetry.lock` — dependency lock file
 
-### Steps
+### Steps — Task 2: CI Alignment — Install Project Dependencies 🛡️
 
 #### 2.1: Read current CI workflow
 
@@ -247,14 +247,14 @@ mypy aitbc/ apps/
 pytest tests/ --collect-only
 ```
 
-### Acceptance Criteria
+### Acceptance Criteria — Run the checks
 
 - [ ] CI installs project dependencies before running checks
 - [ ] CI uses the same package manager as local development
 - [ ] CI passes with dependency installation step
 - [ ] No false negatives from missing dependencies
 
-### Verification
+### Verification — Run the checks
 
 ```bash
 # Push a test commit to verify CI works
@@ -273,18 +273,18 @@ git push
 **Estimated effort**: 1 hour
 **Risk**: Low
 
-### Problem
+### Problem — Task 3: ShellCheck in CI 🔧
 
 Shell scripts have various issues (missing quoting, `cd` without checks). ShellCheck should be added to CI to catch these automatically.
 
-### Files Involved
+### Files Involved — Task 3: ShellCheck in CI 🔧
 
 - `.github/workflows/ci.yml` — GitHub Actions workflow
 - `scripts/service-management/stop-services.sh`
 - `scripts/service-management/fix-services.sh`
 - `scripts/workflow/*.sh` — various workflow scripts
 
-### Steps
+### Steps — Task 3: ShellCheck in CI 🔧
 
 #### 3.1: Install ShellCheck in CI
 
@@ -339,21 +339,21 @@ service_name="$1"
 Add error handling after cd:
 
 ```bash
-# BEFORE
+# BEFORE (2)
 cd /opt/aitbc
 
-# AFTER
+# AFTER (2)
 cd /opt/aitbc || exit 1
 ```
 
-### Acceptance Criteria
+### Acceptance Criteria — AFTER
 
 - [ ] ShellCheck added to CI workflow
 - [ ] All shell scripts pass ShellCheck
 - [ ] Shell scripts have proper error handling
 - [ ] Variables are properly quoted
 
-### Verification
+### Verification — AFTER
 
 ```bash
 # Install ShellCheck locally
@@ -374,7 +374,7 @@ shellcheck scripts/**/*.sh
 **Risk**: Low
 **Dependency**: Should be done with Task 3
 
-### Problem
+### Problem — Task 4: Fix Shell Scripts 🔧
 
 Shell scripts have various issues that need to be fixed. This is the actual fixing work, while Task 3 adds the CI gate.
 
@@ -383,10 +383,10 @@ Shell scripts have various issues that need to be fixed. This is the actual fixi
 | Script | Issues | Fix |
 |--------|--------|-----|
 | `scripts/service-management/stop-services.sh` | Missing quoting | Add `"$var"` |
-| `scripts/service-management/fix-services.sh` | `cd` without check | Add `|| exit` |
+| `scripts/service-management/fix-services.sh` | `cd` without check | Add "\|\| exit" |
 | `scripts/workflow/*.sh` | Various quoting | Batch fix |
 
-### Steps
+### Steps — Task 4: Fix Shell Scripts 🔧
 
 #### 4.1: Add standard header to all scripts
 
@@ -411,10 +411,10 @@ grep -n '\$[a-zA-Z_][a-zA-Z0-9_]*' scripts/**/*.sh
 #### 4.3: Add error handling after cd
 
 ```bash
-# BEFORE
+# BEFORE (3)
 cd /opt/aitbc
 
-# AFTER
+# AFTER (3)
 cd /opt/aitbc || exit 1
 ```
 
@@ -427,14 +427,14 @@ bash -n scripts/service-management/stop-services.sh  # Syntax check
 bash scripts/service-management/stop-services.sh --help  # Runtime check
 ```
 
-### Acceptance Criteria
+### Acceptance Criteria (2)
 
 - [ ] All shell scripts have `set -euo pipefail`
 - [ ] All variables are quoted
 - [ ] All `cd` commands have error handling
 - [ ] Scripts pass syntax check (`bash -n`)
 
-### Verification
+### Verification (2)
 
 ```bash
 # Syntax check all scripts
@@ -452,16 +452,16 @@ shellcheck scripts/**/*.sh
 **Estimated effort**: 30 minutes
 **Risk**: Low
 
-### Problem
+### Problem — Task 5: detect-secrets in CI 🔒
 
 No automated secret scanning in CI. Commits may contain secrets that should be caught before merging.
 
-### Files Involved
+### Files Involved — Task 5: detect-secrets in CI 🔒
 
 - `.github/workflows/ci.yml` — GitHub Actions workflow
 - `.secrets.baseline` — detect-secrets baseline (if exists)
 
-### Steps
+### Steps — Task 5: detect-secrets in CI 🔒
 
 #### 5.1: Install detect-secrets in CI
 
@@ -532,14 +532,14 @@ Create `.secrets.baseline` configuration:
 }
 ```
 
-### Acceptance Criteria
+### Acceptance Criteria — Task 5: detect-secrets in CI 🔒
 
 - [ ] detect-secrets added to CI workflow
 - [ ] Initial baseline created
 - [ ] CI fails on new secrets
 - [ ] False positives excluded in baseline
 
-### Verification
+### Verification — Task 5: detect-secrets in CI 🔒
 
 ```bash
 # Test locally
@@ -560,16 +560,16 @@ rm test_file.txt
 **Estimated effort**: 1 hour
 **Risk**: Low
 
-### Problem
+### Problem — Task 6: Fix Ruff Warnings 🧹
 
 Ruff has remaining warnings in non-excluded files. These should be fixed to improve code quality.
 
-### Files Involved
+### Files Involved — Task 6: Fix Ruff Warnings 🧹
 
 - `pyproject.toml` — ruff configuration
 - All Python files in `aitbc/`, `apps/`, `cli/`, `packages/`
 
-### Steps
+### Steps — Task 6: Fix Ruff Warnings 🧹
 
 #### 6.1: Run ruff to see current warnings
 
@@ -621,14 +621,14 @@ ignore = [
 ]
 ```
 
-### Acceptance Criteria
+### Acceptance Criteria — Exclude specific rules
 
 - [ ] Ruff check passes with zero warnings
 - [ ] No unused imports
 - [ ] No unused variables
 - [ ] Code is clean and consistent
 
-### Verification
+### Verification — Exclude specific rules
 
 ```bash
 # Run ruff check
@@ -645,7 +645,7 @@ ruff check aitbc/ apps/ cli/ packages/
 **Estimated effort**: 1 hour
 **Risk**: Low
 
-### Problem
+### Problem — Task 7: Refresh Architecture Docs 📚
 
 Architecture docs don't match current codebase:
 
@@ -653,13 +653,13 @@ Architecture docs don't match current codebase:
 - Documents apps like `marketplace-web`, `wallet-daemon`, `trade-exchange` that don't match current checkout
 - `docs/architecture/active_apps.md:3` says v0.4.26 while root version is 0.6.0
 
-### Files Involved
+### Files Involved — Task 7: Refresh Architecture Docs 📚
 
 - `docs/architecture/8_codebase-structure.md`
 - `docs/architecture/active_apps.md`
 - `pyproject.toml` — to check current version
 
-### Steps
+### Steps — Task 7: Refresh Architecture Docs 📚
 
 #### 7.1: Inventory actual apps
 
@@ -687,14 +687,14 @@ ls -la apps/
 
 If there's a way to generate this from repo metadata, do that instead of manual updates.
 
-### Acceptance Criteria
+### Acceptance Criteria — Task 7: Refresh Architecture Docs 📚
 
 - [ ] Architecture docs match current codebase
 - [ ] No references to non-existent directories
 - [ ] App list is accurate
 - [ ] Version references are correct
 
-### Verification
+### Verification — Task 7: Refresh Architecture Docs 📚
 
 ```bash
 # Check docs match reality

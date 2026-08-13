@@ -101,7 +101,7 @@ ls .harness-manifest.yml .harness-sync.json
 ### From pre-v2.7.0 (legacy .sync-exclude)
 
 ```bash
-# 1. Initialize sync metadata
+# 1. Initialize sync metadata (2)
 ./scripts/sync-claude-harness.sh init
 
 # 2. Generate manifest

@@ -8,9 +8,9 @@
 **Goal**: Enable the blockchain node to validate transactions in parallel within a block, dramatically increasing throughput. The key insight: most transactions touch different accounts, so they can be validated independently. Conflicting transactions (same sender/recipient) are serialized. A feature flag allows toggling between parallel and sequential execution for safety.
 
 > **Scope constraint**: This release parallelizes **transaction validation within a single block**. Parallel block validation (multiple blocks at once) is deferred — it requires pipelining across block boundaries and is lower priority. The parallel execution must produce **identical state roots** to the sequential path — this is a hard consensus requirement.
-
+>
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) (DB & Network Optimization — batch-fetching, incremental state root, connection pooling). The v0.6.0 batch-fetching in `poa.py:276-305` (all accounts pre-fetched into `account_map`) is the foundation for parallel execution.
-
+>
 > **Risk**: High. Changes to consensus-critical code. Mitigated by: (1) feature flag defaulting to sequential, (2) determinism tests comparing parallel vs sequential output, (3) fallback to sequential on conflict threshold exceeded.
 
 ---

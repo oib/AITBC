@@ -8,9 +8,9 @@
 **Goal**: Finish the cleanup and correctness work started in v0.10.3–v0.10.5. v0.10.4 migrated pool-hub billing and trading pricing/bid engines to Decimal; v0.10.6 extends that to wallet, trading domain models, marketplace, and the remaining pool-hub float fields. v0.10.5 consolidated auth; v0.10.6 consolidates the remaining infrastructure duplicates (circuit breakers, address validators, config classes, health endpoints, DB helpers) and deletes the 7 dead `aitbc/` modules that survived v0.10.4's dead-code sweep.
 
 > **Scope**: 22 tasks across 6 categories. All P0 (Decimal migration completion), P1 (performance — blocking I/O, N+1, missing indexes), P2 (duplicate consolidation — circuit breakers, address validation, config, health, DB helpers), and P3 (dead code deletion + port/URL sweep) findings from the post-v0.10.5 audit.
-
+>
 > **Prerequisites**: [v0.10.5](../v0.10.5/change.log) (complete — JWT/auth consolidated to `aitbc/auth/`).
-
+>
 > **Risk**: Medium-High. The Decimal migration requires DB schema migrations (Float→Numeric columns) and touches wallet/trading/marketplace/pool-hub models. Circuit breaker consolidation touches consensus-critical code. Mitigated by: (1) comprehensive test suite, (2) live testing on shop node, (3) rollback plan for schema migrations, (4) incremental task completion with verification at each step.
 
 ---
@@ -44,7 +44,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Delete 7 dead `aitbc/` modules + orphan tests (~1,570 lines) | 🟢 P3 | `aitbc/tracing_opentelemetry.py`, `aitbc/tracing.py`, `aitbc/distributed_tracing.py`, `aitbc/blue_green_deployment.py`, `aitbc/dependency_scanner.py`, `aitbc/api_versioning.py`, `aitbc/database_service.py` + corresponding tests | ✅ | |
+| A1 | Delete 7 dead `aitbc/` modules + orphan tests (~1,570 lines) | 🟢 P3 | `aitbc/tracing_opentelemetry.py`, `aitbc/tracing.py`, `aitbc/distributed_tracing.py`, `aitbc/blue_green_deployment.py`, `aitbc/dependency_scanner.py`, `aitbc/api_versioning.py`, `aitbc/database_service.py` + corresponding tests | ✅ |
 | A2 | Sweep stale port 8006 references → 8202 | 🟢 P3 | `cli/config_data/__init__.py:41`, `cli/advanced_wallet.py:15`, `apps/coordinator-api/.../dao_governance_service.py:24`, `apps/coordinator-api/.../developer_platform_service.py:186`, `apps/coordinator-api/.../settlement/bridges/base.py:193` | ✅ |
 | A3 | Consolidate address validation (4-5 implementations → 1 canonical) | 🟡 P2 | `aitbc/utils/validation.py`, `aitbc/security/validators.py`, `aitbc/crypto/crypto.py`, `cli/utils/error_handling.py`, `cli/aitbc_cli/utils/error_handling.py` | ✅ |
 | A4 | Replace wallet's duplicate `RateLimiter` with `aitbc/security/rate_limiter` | 🟢 P3 | `apps/wallet/src/app/security.py` | ✅ |
@@ -224,7 +224,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Complex Fixes (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

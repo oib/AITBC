@@ -8,9 +8,9 @@
 **Goal**: Transform the scaffolding MultiValidatorPoA and PBFT implementations into production-grade consensus, satisfying all gating criteria from the [security review](../v0.7.4/security-review-multivalidator-poa.md), then remove the RuntimeError guards and activate multi-validator consensus.
 
 > **Prerequisites**: [v0.7.4](../v0.7.4/change.log) ✅ (Agent A `feat(v0.7.4-a)`, Agent B pending — but v0.7.5 Agent A only needs v0.7.2/v0.7.3 which are ✅).
-
+>
 > **Risk**: High. Consensus bugs = chain splits. All changes must be tested with multi-node integration tests before activation. Testnet soak test (≥48h) is a mandatory operational requirement before mainnet activation.
-
+>
 > **Not on the critical path**: v0.8.x (trading) and v0.9.0 (atomic settlement) do not depend on v0.7.5. Single-validator PoA remains active until v0.7.5 ships.
 
 ---
@@ -250,7 +250,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_
 cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:aitbc ./venv/bin/python -m pytest apps/blockchain-node/tests/consensus/ -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

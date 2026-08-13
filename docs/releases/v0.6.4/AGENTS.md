@@ -8,9 +8,9 @@
 **Goal**: Enable an island to host multiple parallel block streams (chains), each producing blocks independently with its own genesis, block height, state, and mempool — but sharing the same island identity, P2P network, and validator set. Wire up the existing dead-code `MultiChainManager`, make `IslandMembership` hold multiple chain_ids, and activate multi-chain block production within a single island.
 
 > **Scope constraint**: This release activates multi-chain per island only. It does NOT activate `MultiValidatorPoA`/`PBFT` (those stay in THRESHOLD state — separate security review required). It does NOT add bridge functionality (v0.7.0) or inter-chain trading (v0.8.0).
-
+>
 > **Prerequisites**: [v0.6.1](../v0.6.1/change.log) (Parallel Processing — multiple proposers as parallel tasks), [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support — island-to-chain registry infrastructure). All complete.
-
+>
 > **Risk**: High. The `join_island()` signature change is a breaking change across 5 repos / 8 call sites. Any mismatch crashes island join. Mitigated by: (1) backward compat adapter (`chain_id: str | list[str]`), (2) atomic refactor in single commit, (3) grep verification before merge.
 
 ---
@@ -430,7 +430,7 @@ Export from `aitbc/utils/__init__.py` as `ChainConfigParser` (add to existing ex
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
@@ -807,7 +807,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
 # Requires: validator rotation, slashing, multi-validator consensus audit
 # Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
 # See: v0.7.x security releases for activation plan
-# ════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════ (2)
 ```
 
 Add runtime guard in `__init__` (line 36):
@@ -827,12 +827,12 @@ def __init__(self, chain_id: str):
 **`consensus/pbft.py`** — add after module docstring (line 4):
 
 ```python
-# ════════════════════════════════════════════════════════════════
-# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
-# Requires: validator rotation, slashing, multi-validator consensus audit
-# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
-# See: v0.7.x security releases for activation plan
-# ════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════ (3)
+# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW (2)
+# Requires: validator rotation, slashing, multi-validator consensus audit (2)
+# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release) (2)
+# See: v0.7.x security releases for activation plan (2)
+# ════════════════════════════════════════════════════════════════ (4)
 ```
 
 Add runtime guard in `__init__` (line 51):

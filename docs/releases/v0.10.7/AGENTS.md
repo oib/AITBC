@@ -8,9 +8,9 @@
 **Goal**: Eliminate dead code identified by vulture static analysis and consolidate duplicate code identified by targeted duplicate detection. This is a mechanical cleanup release following v0.10.6's more complex Decimal migration and performance fixes.
 
 > **Scope**: 45 tasks across 13 categories. All P2 (dead code deletion) and P3 (duplicate consolidation) findings from the comprehensive codebase scan.
-
+>
 > **Prerequisites**: [v0.10.6](../v0.10.6/change.log) (in progress — dead code elimination, Decimal migration completion, duplicate consolidation).
-
+>
 > **Risk**: Medium. Dead code deletion is mechanical and low-risk. Duplicate consolidation requires careful testing of the consolidated implementations. The agent-management collapse requires deciding whether to deprecate the service entirely or keep it as a thin wrapper. Mitigated by: (1) comprehensive test suite, (2) incremental task completion with verification at each step, (3) git history for rollback.
 
 ---
@@ -183,7 +183,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Duplicate Consolidation (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

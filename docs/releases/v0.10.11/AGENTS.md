@@ -8,9 +8,9 @@
 **Goal**: Continue the code quality work established in v0.10.10, focusing on completing stub implementations, migrating to Pydantic v2, standardizing SQLAlchemy patterns, adding concurrency safety, and addressing all security, performance, and reliability issues identified in the bug hunt.
 
 > **Scope**: 12 focus areas across 2 agents + bug hunt. (1) Complete stub implementations, (2) Pydantic v2 migration, (3) SQLAlchemy pattern standardization, (4) Type safety improvements, (5) Method/field name corrections, (6) Analytics service implementation, (7) Blockchain service expansion, (8) Code formatting, (9) Phase 2 bug hunt (20 fixes), (10) Phase 3 async race conditions (11 services), (11) Phase 3 input validation (4 areas), (12) Phase 3.5 mypy type inference (1 fix).
-
+>
 > **Prerequisites**: [v0.10.10](../v0.10.10/change.log) (✅ complete — Code Quality & Testing Roadmap).
-
+>
 > **Risk**: Low. This release focuses on bug fixes and code quality improvements with no breaking changes. All changes are backward-compatible.
 
 ---
@@ -105,7 +105,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
-# Expected: all tests pass
+# Expected: all tests pass (2)
 ```
 
 **Estimated impact**: 49 files, ~300 lines. Consistent query patterns, improved type safety.
@@ -126,7 +126,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check .
-# Expected: no errors
+# Expected: no errors (2)
 ```
 
 **Estimated impact**: 20 files, ~60 lines. Cleaner code, better type safety.
@@ -145,7 +145,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check .
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Infrastructure & Apps (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
@@ -173,7 +173,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
-# Expected: all tests pass
+# Expected: all tests pass (3)
 ```
 
 **Estimated impact**: 8 files, ~50 lines. Fixes runtime errors and type issues.
@@ -194,7 +194,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
-# Expected: all tests pass
+# Expected: all tests pass (4)
 ```
 
 **Estimated impact**: 1 new file (~340 lines) + router wiring. Proper service architecture.
@@ -215,7 +215,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
-# Expected: all tests pass
+# Expected: all tests pass (5)
 ```
 
 **Estimated impact**: Blockchain service expansion (~100 lines) + router wiring. Complete on-chain operation support.
@@ -236,7 +236,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
-# Expected: all tests pass
+# Expected: all tests pass (6)
 ```
 
 **Estimated impact**: 2 files, ~10 lines. Prevents race conditions in concurrent updates.

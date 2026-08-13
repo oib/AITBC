@@ -13,13 +13,13 @@
 > - ➡️ v0.7.2: Time-locks (value-tiered), audit trail (cryptographic chaining), light client verification, Merkle proof verification, finality thresholds, oracle stub
 >
 > This rescoping aligns with the existing v0.7.2 change.log which already covers Merkle proof verification + block header verification + validator set tracking. Moving validator set tracking to v0.7.1 (where it's needed for multi-sig) and keeping Merkle proof verification in v0.7.2 (where it's needed for release path unfencing) gives a cleaner separation: v0.7.1 establishes the trust foundation (who are validators, how do they sign), v0.7.2 builds the verification layer on top.
-
+>
 > **No external security audit**: All development is in-house. The change.log's "External security audit required before merge" (line 15) and success criterion "External security audit passed" (line 252) are **dropped**. Internal code review + comprehensive test coverage replaces the external audit gate.
-
+>
 > **Scope constraint**: This release does NOT unfence the bridge release path. `BRIDGE_RELEASE_ENABLED=false` (config.py:285-290) remains in place. The confirm/release path stays gated until v0.7.2 completes Merkle proof verification. v0.7.1 adds multi-sig validation to the proof verification path, but the release fence is a separate safety layer that stays until cryptographic proof verification (not just signature verification) is complete.
-
+>
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) — Bridge Basics. v0.7.0 Agent A (shared bridge SDK) is ✅ committed (`35b029852`). v0.7.0 Agent B (RPC endpoints, CLI, monitoring, tests) exists in the working tree but is **uncommitted** — Agent B must commit v0.7.0 work before starting v0.7.1. [v0.5.16](../v0.5.16/change.log) ✅ (bridge proof hardening + release fence).
-
+>
 > **Risk**: Medium-High. This release touches consensus-critical code (block header signing) and the bridge proof verification path. The `BRIDGE_RELEASE_ENABLED=false` fence prevents unauthorized fund release even if multi-sig has bugs. Block header signature changes are backward-compatible (new optional field, old blocks have empty signature).
 
 ---
@@ -578,7 +578,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v071_bridge_security.py -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

@@ -163,7 +163,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Legacy Removal
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

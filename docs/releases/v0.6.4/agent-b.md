@@ -392,7 +392,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
 # Requires: validator rotation, slashing, multi-validator consensus audit
 # Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
 # See: v0.7.x security releases for activation plan
-# ════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════ (2)
 ```
 
 Add runtime guard in `__init__` (line 36):
@@ -412,12 +412,12 @@ def __init__(self, chain_id: str):
 **`consensus/pbft.py`** — add after module docstring (line 4):
 
 ```python
-# ════════════════════════════════════════════════════════════════
-# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
-# Requires: validator rotation, slashing, multi-validator consensus audit
-# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
-# See: v0.7.x security releases for activation plan
-# ════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════ (3)
+# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW (2)
+# Requires: validator rotation, slashing, multi-validator consensus audit (2)
+# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release) (2)
+# See: v0.7.x security releases for activation plan (2)
+# ════════════════════════════════════════════════════════════════ (4)
 ```
 
 Add runtime guard in `__init__` (line 51):
