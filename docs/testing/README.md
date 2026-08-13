@@ -31,7 +31,7 @@ It covers unit tests, integration tests, end-to-end tests, security tests, and l
 
 ### **Document Index**
 
-- **[MICROSERVICES_TESTING_GUIDE.md](./MICROSERVICES_TESTING_GUIDE.md)** — Testing procedures for the microservices architecture (post-Coordinator-API monolith breakup)
+- **[MICROSERVICES_TESTING_GUIDE.md](../archive/testing/MICROSERVICES_TESTING_GUIDE.md)** — Historical testing procedures for the post-Coordinator-API monolith breakup (archived; app names reflect the old layout)
 - **[TEST_COVERAGE_REQUIREMENTS.md](./TEST_COVERAGE_REQUIREMENTS.md)** — Coverage targets and service-specific requirements
 - **[e2e-test-environment.md](./e2e-test-environment.md)** — E2E test environment setup
 - **[e2e-test-execution.md](./e2e-test-execution.md)** — E2E test execution guide
