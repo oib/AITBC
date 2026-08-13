@@ -55,101 +55,101 @@ systematically identify threats and their mitigations.
 
 | Threat                    | Description                     | Likelihood | Impact | Mitigations                                                                            |
 | ------------------------- | ------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------- |
-| Proof Forgery             | Attacker creates fake ZK proofs | Medium     | High   | ✅ Groth16 soundness property<br>✅ Verification on-chain<br>⚠️ Trusted setup security |
-| Identity Spoofing         | Miner impersonates another      | Low        | Medium | ✅ Miner registration with KYC<br>✅ Cryptographic signatures                          |
-| Coordinator Impersonation | Fake coordinator services       | Low        | High   | ✅ TLS certificates<br>⚠️ DNSSEC recommended                                           |
+| Proof Forgery             | Attacker creates fake ZK proofs | Medium     | High   | ✅ Groth16 soundness property / ✅ Verification on-chain / ⚠️ Trusted setup security |
+| Identity Spoofing         | Miner impersonates another      | Low        | Medium | ✅ Miner registration with KYC / ✅ Cryptographic signatures                          |
+| Coordinator Impersonation | Fake coordinator services       | Low        | High   | ✅ TLS certificates / ⚠️ DNSSEC recommended                                           |
 
 #### Confidential Transactions
 
 | Threat                | Description                       | Likelihood | Impact | Mitigations                                        |
 | --------------------- | --------------------------------- | ---------- | ------ | -------------------------------------------------- |
-| Key Spoofing          | Fake public keys for participants | Medium     | High   | ✅ HSM-protected keys<br>✅ Certificate validation |
-| Authorization Forgery | Fake audit authorization          | Low        | High   | ✅ Signed tokens<br>✅ Short expiration times      |
+| Key Spoofing          | Fake public keys for participants | Medium     | High   | ✅ HSM-protected keys / ✅ Certificate validation |
+| Authorization Forgery | Fake audit authorization          | Low        | High   | ✅ Signed tokens / ✅ Short expiration times      |
 
 ### 2. Tampering
 
-#### ZK Receipt Attestation
+#### ZK Receipt Attestation — 2. Tampering
 
 | Threat                    | Description                         | Likelihood | Impact   | Mitigations                                                            |
 | ------------------------- | ----------------------------------- | ---------- | -------- | ---------------------------------------------------------------------- |
-| Circuit Modification      | Malicious changes to circom circuit | Low        | Critical | ✅ Open-source circuits<br>✅ Circuit hash verification                |
-| Proof Manipulation        | Altering proofs during transmission | Medium     | High     | ✅ End-to-end encryption<br>✅ On-chain verification                   |
-| Setup Parameter Poisoning | Compromise trusted setup            | Low        | Critical | ⚠️ Multi-party ceremony needed<br>⚠️ Secure destruction of toxic waste |
+| Circuit Modification      | Malicious changes to circom circuit | Low        | Critical | ✅ Open-source circuits / ✅ Circuit hash verification                |
+| Proof Manipulation        | Altering proofs during transmission | Medium     | High     | ✅ End-to-end encryption / ✅ On-chain verification                   |
+| Setup Parameter Poisoning | Compromise trusted setup            | Low        | Critical | ⚠️ Multi-party ceremony needed / ⚠️ Secure destruction of toxic waste |
 
-#### Confidential Transactions
+#### Confidential Transactions — 2. Tampering
 
 | Threat                | Description                       | Likelihood | Impact | Mitigations                                                     |
 | --------------------- | --------------------------------- | ---------- | ------ | --------------------------------------------------------------- |
-| Data Tampering        | Modify encrypted transaction data | Medium     | High   | ✅ AES-GCM authenticity<br>✅ Immutable audit logs              |
-| Key Substitution      | Swap public keys in transit       | Low        | High   | ✅ Certificate pinning<br>✅ HSM key validation                 |
-| Access Control Bypass | Override authorization checks     | Low        | High   | ✅ Role-based access control<br>✅ Audit logging of all changes |
+| Data Tampering        | Modify encrypted transaction data | Medium     | High   | ✅ AES-GCM authenticity / ✅ Immutable audit logs              |
+| Key Substitution      | Swap public keys in transit       | Low        | High   | ✅ Certificate pinning / ✅ HSM key validation                 |
+| Access Control Bypass | Override authorization checks     | Low        | High   | ✅ Role-based access control / ✅ Audit logging of all changes |
 
 ### 3. Repudiation
 
-#### ZK Receipt Attestation
+#### ZK Receipt Attestation — 3. Repudiation
 
 | Threat                     | Description                       | Likelihood | Impact | Mitigations                                                 |
 | -------------------------- | --------------------------------- | ---------- | ------ | ----------------------------------------------------------- |
-| Denial of Proof Generation | Miner denies creating proof       | Low        | Medium | ✅ On-chain proof records<br>✅ Signed proof metadata       |
-| Receipt Denial             | Party denies transaction occurred | Medium     | Medium | ✅ Immutable blockchain ledger<br>✅ Cryptographic receipts |
+| Denial of Proof Generation | Miner denies creating proof       | Low        | Medium | ✅ On-chain proof records / ✅ Signed proof metadata       |
+| Receipt Denial             | Party denies transaction occurred | Medium     | Medium | ✅ Immutable blockchain ledger / ✅ Cryptographic receipts |
 
-#### Confidential Transactions
+#### Confidential Transactions — 3. Repudiation
 
 | Threat                | Description                   | Likelihood | Impact | Mitigations                                                  |
 | --------------------- | ----------------------------- | ---------- | ------ | ------------------------------------------------------------ |
-| Access Denial         | User denies accessing data    | Low        | Medium | ✅ Comprehensive audit logs<br>✅ Non-repudiation signatures |
-| Key Generation Denial | Deny creating encryption keys | Low        | Medium | ✅ HSM audit trails<br>✅ Key rotation logs                  |
+| Access Denial         | User denies accessing data    | Low        | Medium | ✅ Comprehensive audit logs / ✅ Non-repudiation signatures |
+| Key Generation Denial | Deny creating encryption keys | Low        | Medium | ✅ HSM audit trails / ✅ Key rotation logs                  |
 
 ### 4. Information Disclosure
 
-#### ZK Receipt Attestation
+#### ZK Receipt Attestation — 4. Information Disclosure
 
 | Threat               | Description                           | Likelihood | Impact   | Mitigations                                                           |
 | -------------------- | ------------------------------------- | ---------- | -------- | --------------------------------------------------------------------- |
-| Witness Extraction   | Extract private inputs from proof     | Low        | Critical | ✅ Zero-knowledge property<br>✅ No knowledge of witness              |
-| Setup Parameter Leak | Expose toxic waste from trusted setup | Low        | Critical | ⚠️ Secure multi-party setup<br>⚠️ Parameter destruction               |
-| Side-Channel Attacks | Timing/power analysis                 | Low        | Medium   | ✅ Constant-time implementations<br>⚠️ Needs hardware security review |
+| Witness Extraction   | Extract private inputs from proof     | Low        | Critical | ✅ Zero-knowledge property / ✅ No knowledge of witness              |
+| Setup Parameter Leak | Expose toxic waste from trusted setup | Low        | Critical | ⚠️ Secure multi-party setup / ⚠️ Parameter destruction               |
+| Side-Channel Attacks | Timing/power analysis                 | Low        | Medium   | ✅ Constant-time implementations / ⚠️ Needs hardware security review |
 
-#### Confidential Transactions
+#### Confidential Transactions — 4. Information Disclosure
 
 | Threat                 | Description                     | Likelihood | Impact   | Mitigations                                               |
 | ---------------------- | ------------------------------- | ---------- | -------- | --------------------------------------------------------- |
-| Private Key Extraction | Steal keys from HSM             | Low        | Critical | ✅ HSM security controls<br>✅ Hardware tamper resistance |
-| Decryption Key Leak    | Expose DEKs                     | Medium     | High     | ✅ Per-transaction DEKs<br>✅ Encrypted key storage       |
-| Metadata Analysis      | Infer data from access patterns | Medium     | Medium   | ✅ Access logging<br>⚠️ Differential privacy needed       |
+| Private Key Extraction | Steal keys from HSM             | Low        | Critical | ✅ HSM security controls / ✅ Hardware tamper resistance |
+| Decryption Key Leak    | Expose DEKs                     | Medium     | High     | ✅ Per-transaction DEKs / ✅ Encrypted key storage       |
+| Metadata Analysis      | Infer data from access patterns | Medium     | Medium   | ✅ Access logging / ⚠️ Differential privacy needed       |
 
 ### 5. Denial of Service
 
-#### ZK Receipt Attestation
+#### ZK Receipt Attestation — 5. Denial of Service
 
 | Threat               | Description                 | Likelihood | Impact | Mitigations                                                   |
 | -------------------- | --------------------------- | ---------- | ------ | ------------------------------------------------------------- |
-| Proof Generation DoS | Overwhelm proof service     | High       | Medium | ✅ Rate limiting<br>✅ Queue management<br>⚠️ Need monitoring |
-| Verification Spam    | Flood verification contract | High       | High   | ✅ Gas costs limit spam<br>⚠️ Need circuit optimization       |
+| Proof Generation DoS | Overwhelm proof service     | High       | Medium | ✅ Rate limiting / ✅ Queue management / ⚠️ Need monitoring |
+| Verification Spam    | Flood verification contract | High       | High   | ✅ Gas costs limit spam / ⚠️ Need circuit optimization       |
 
-#### Confidential Transactions
+#### Confidential Transactions — 5. Denial of Service
 
 | Threat             | Description                  | Likelihood | Impact | Mitigations                                    |
 | ------------------ | ---------------------------- | ---------- | ------ | ---------------------------------------------- |
-| Key Exhaustion     | Deplete HSM key slots        | Medium     | Medium | ✅ Key rotation<br>✅ Resource monitoring      |
-| Database Overload  | Saturate with encrypted data | High       | Medium | ✅ Connection pooling<br>✅ Query optimization |
-| Audit Log Flooding | Fill audit storage           | Medium     | Medium | ✅ Log rotation<br>✅ Storage monitoring       |
+| Key Exhaustion     | Deplete HSM key slots        | Medium     | Medium | ✅ Key rotation / ✅ Resource monitoring      |
+| Database Overload  | Saturate with encrypted data | High       | Medium | ✅ Connection pooling / ✅ Query optimization |
+| Audit Log Flooding | Fill audit storage           | Medium     | Medium | ✅ Log rotation / ✅ Storage monitoring       |
 
 ### 6. Elevation of Privilege
 
-#### ZK Receipt Attestation
+#### ZK Receipt Attestation — 6. Elevation of Privilege
 
 | Threat                 | Description               | Likelihood | Impact   | Mitigations                                         |
 | ---------------------- | ------------------------- | ---------- | -------- | --------------------------------------------------- |
-| Setup Privilege        | Gain trusted setup access | Low        | Critical | ⚠️ Multi-party ceremony<br>⚠️ Independent audits    |
-| Coordinator Compromise | Full system control       | Medium     | Critical | ✅ Multi-sig controls<br>✅ Regular security audits |
+| Setup Privilege        | Gain trusted setup access | Low        | Critical | ⚠️ Multi-party ceremony / ⚠️ Independent audits    |
+| Coordinator Compromise | Full system control       | Medium     | Critical | ✅ Multi-sig controls / ✅ Regular security audits |
 
-#### Confidential Transactions
+#### Confidential Transactions — 6. Elevation of Privilege
 
 | Threat                    | Description              | Likelihood | Impact   | Mitigations                                                  |
 | ------------------------- | ------------------------ | ---------- | -------- | ------------------------------------------------------------ |
-| HSM Takeover              | Gain HSM admin access    | Low        | Critical | ✅ HSM access controls<br>✅ Dual authorization              |
-| Access Control Escalation | Bypass role restrictions | Medium     | High     | ✅ Principle of least privilege<br>✅ Regular access reviews |
+| HSM Takeover              | Gain HSM admin access    | Low        | Critical | ✅ HSM access controls / ✅ Dual authorization              |
+| Access Control Escalation | Bypass role restrictions | Medium     | High     | ✅ Principle of least privilege / ✅ Regular access reviews |
 
 ## Risk Matrix
 
@@ -166,7 +166,7 @@ systematically identify threats and their mitigations.
 
 ## Implemented Mitigations
 
-### ZK Receipt Attestation
+### ZK Receipt Attestation — Implemented Mitigations
 
 - ✅ Groth16 soundness and zero-knowledge properties
 - ✅ On-chain verification prevents tampering
@@ -174,7 +174,7 @@ systematically identify threats and their mitigations.
 - ✅ Rate limiting on proof generation
 - ✅ Comprehensive audit logging
 
-### Confidential Transactions
+### Confidential Transactions — Implemented Mitigations
 
 - ✅ AES-256-GCM provides confidentiality and authenticity
 - ✅ HSM-backed key management prevents key extraction

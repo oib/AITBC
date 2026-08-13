@@ -73,7 +73,7 @@ forge test -vvv
 
 ## Service Tests
 
-### Running Tests
+### Running Tests — Service Tests
 
 ```bash
 cd /opt/aitbc/apps/governance
@@ -96,7 +96,7 @@ pytest tests/
 - test_delegate_voting_power ✅ (v0.4.12)
 - test_execute_proposal ✅ (v0.4.12)
 
-### Running Specific Tests
+### Running Specific Tests — Service Tests
 
 ```bash
 # Run specific test file
@@ -108,7 +108,7 @@ pytest tests/test_main.py::test_health_check
 # Run with coverage
 pytest --cov=governance_service tests/
 
-# Run with verbosity
+# Run with verbosity (2)
 pytest -v tests/
 ```
 

@@ -211,7 +211,7 @@ The modular design allows for incremental improvements and ensures the system ca
 
 ---
 
-## Overview
+## Overview — Confidential Transactions Implementation Summary
 
 Design for opt-in confidential transaction support in AITBC, enabling participants to encrypt sensitive transaction data while maintaining selective disclosure and audit capabilities.
 
@@ -386,7 +386,7 @@ class KeyManager:
         self._reencrypt_transactions(participant_id, new_key_pair)
 ```
 
-### Access Control
+### Access Control — Implementation Details
 
 ```python
 class AccessController:
@@ -511,7 +511,7 @@ class ConfidentialAccessLog(BaseModel):
 - Deduplicate common encrypted patterns
 - Use column-level encryption for databases
 
-## Migration Strategy
+## Migration Strategy — Special audit key escrow
 
 ### Phase 1: Opt-in Support
 
@@ -571,7 +571,7 @@ class ConfidentialAccessLog(BaseModel):
 - NIST Cybersecurity Framework
 - PCI DSS for payment data
 
-## Next Steps
+## Next Steps — Special audit key escrow
 
 1. Implement core encryption service
 2. Create key management infrastructure

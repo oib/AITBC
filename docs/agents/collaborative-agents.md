@@ -486,7 +486,7 @@ aitbc agent consensus configure research_team \
 - Use appropriate consensus mechanisms for your use case
 - Implement proper error handling and recovery mechanisms
 
-### Performance Optimization
+### Performance Optimization — Best Practices
 
 - Monitor network metrics continuously
 - Optimize communication patterns to reduce overhead

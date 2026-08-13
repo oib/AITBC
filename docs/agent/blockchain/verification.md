@@ -74,28 +74,28 @@ curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bu
 
 ## CLI Verification
 
-### Staking
+### Staking — CLI Verification
 
 ```bash
 # Check staking info
 aitbc wallet staking-info --wallet my-agent-wallet
 ```
 
-### Identity
+### Identity — Check staking info
 
 ```bash
 # Query agent identity
 aitbc agent get-identity my-test-agent
 ```
 
-### Governance
+### Governance — Query agent identity
 
 ```bash
 # Query proposal
 aitbc operations governance get-proposal prop_test_001
 ```
 
-### GPU Resources
+### GPU Resources — Query proposal
 
 ```bash
 # Query GPU registration

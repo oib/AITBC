@@ -2,7 +2,7 @@
 
 Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
 
-<span class="component-status live">● Live</span>
+● Live
 
 [Launch Exchange →](https://aitbc.bubuit.net/Exchange/)
 

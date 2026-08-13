@@ -177,7 +177,7 @@ Content-Type: application/json
 }
 ```
 
-## Configuration
+## Configuration — Run risk manager tests
 
 ### Environment Variables
 

@@ -50,7 +50,7 @@ aitbc exchange monitor --pair AITBC/BTC
 - `exchange start-trading` - Start trading
 - `exchange stop-trading` - Stop trading
 
-### Market Operations
+### Market Operations — 📋 **Exchange Commands**
 
 - `exchange status` - Exchange status
 - `exchange balances` - Account balances
@@ -75,7 +75,7 @@ aitbc exchange market-maker --pair AITBC/BTC --spread 0.5 --depth 10
 aitbc exchange config --max-order-size 1000 --min-order-size 10
 ```
 
-### Oracle Integration
+### Oracle Integration — Set trading parameters
 
 ```bash
 # Configure price oracle

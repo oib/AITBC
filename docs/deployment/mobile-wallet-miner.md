@@ -117,11 +117,11 @@ class BiometricAuthManager {
 
 ## ⛏️ One-Click Miner
 
-### Overview
+### Overview — ⛏️ One-Click Miner
 
 A user-friendly mining application that simplifies AITBC blockchain mining with automated setup, optimization, and monitoring.
 
-### Features
+### Features — ⛏️ One-Click Miner
 
 #### 🚀 Easy Setup
 
@@ -155,7 +155,7 @@ A user-friendly mining application that simplifies AITBC blockchain mining with 
 - **Auto-Restart**: Automatic crash recovery
 - **Update Management**: Automatic software updates
 
-### Technical Architecture
+### Technical Architecture — ⛏️ One-Click Miner
 
 #### Mining Engine
 
@@ -426,13 +426,13 @@ Consensus & Network
 
 ## 📱 Platform Support
 
-### Mobile Wallet
+### Mobile Wallet — 📱 Platform Support
 
 - **iOS**: iPhone 8+, iOS 14+
 - **Android**: Android 8.0+, API 26+
 - **App Store**: Apple App Store, Google Play Store
 
-### One-Click Miner
+### One-Click Miner — 📱 Platform Support
 
 - **Desktop**: Windows 10+, macOS 10.15+, Ubuntu 20.04+
 - **Hardware**: NVIDIA GTX 1060+, AMD RX 580+

@@ -45,7 +45,7 @@ This document describes the implementation of wallet-coordinator integration for
 
 ### ✅ 5. Refund Mechanism
 
-#### Features
+#### Features — ✅ 5. Refund Mechanism
 
 - Automatic refund for failed/cancelled jobs
 - Refund to specified address
@@ -53,7 +53,7 @@ This document describes the implementation of wallet-coordinator integration for
 
 ### ✅ 6. Payment Receipt Generation
 
-#### Features
+#### Features — ✅ 6. Payment Receipt Generation
 
 - Detailed payment receipts with verification status
 - Transaction hash inclusion

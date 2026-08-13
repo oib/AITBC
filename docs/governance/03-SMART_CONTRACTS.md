@@ -98,15 +98,15 @@ Get total voting power for an address.
 
 ## AITBCVoting.sol
 
-### Description
+### Description — AITBCVoting.sol
 
 Proposal creation, voting, and execution contract with quorum requirements and execution delays.
 
-### Location
+### Location — AITBCVoting.sol
 
 `/opt/aitbc/contracts/governance/src/AITBCVoting.sol`
 
-### Features
+### Features — AITBCVoting.sol
 
 - **Proposal Creation:** Configurable voting periods (1-30 days)
 - **Token-Weighted Voting:** Voting power from token contract
@@ -114,7 +114,7 @@ Proposal creation, voting, and execution contract with quorum requirements and e
 - **Execution Delay:** 1 day after voting ends
 - **Proposal Types:** parameter_change, spending, contract_upgrade, emergency, other
 
-### Key Functions
+### Key Functions — AITBCVoting.sol
 
 #### createProposal(type, title, description, value, votingPeriod)
 
@@ -207,7 +207,7 @@ Check if an address has voted on a proposal.
 
 - `bool`: True if voted, False otherwise
 
-### State Variables
+### State Variables — AITBCVoting.sol
 
 | Variable | Type | Description |
 |----------|------|-------------|
@@ -246,7 +246,7 @@ struct Proposal {
 - Rejected
 - Executed
 
-### Test Coverage
+### Test Coverage — AITBCVoting.sol
 
 **7/7 tests passing:**
 

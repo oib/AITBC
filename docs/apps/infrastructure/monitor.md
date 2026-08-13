@@ -194,7 +194,7 @@ Content-Type: application/json
 GET /api/v1/monitor/logs/stats?service=blockchain-node
 ```
 
-## Configuration
+## Configuration — Run alert manager tests
 
 ### Environment Variables
 

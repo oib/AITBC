@@ -8,7 +8,7 @@ This document describes operational features for managing AITBC blockchain synch
 
 ## Auto Sync
 
-### Overview
+### Overview — Auto Sync
 
 Automatic bulk sync is implemented in the blockchain node to automatically detect and resolve block gaps without manual intervention.
 
@@ -53,7 +53,7 @@ Implementation is located in:
 
 ## Force Sync
 
-### Overview
+### Overview — Force Sync
 
 Force synchronization allows manual triggering of blockchain data synchronization between nodes.
 
@@ -90,11 +90,11 @@ curl -X POST http://localhost:8202/rpc/force_sync \
 
 ## Export
 
-### Overview
+### Overview — Export
 
 Export blockchain data for backup, migration, or analysis purposes.
 
-### API Endpoints
+### API Endpoints — Export
 
 #### Export Blocks
 
@@ -122,7 +122,7 @@ Content-Type: application/json
 }
 ```
 
-### Usage
+### Usage — Export
 
 Export blocks to file:
 
@@ -135,11 +135,11 @@ curl -X POST http://localhost:8202/rpc/export/blocks \
 
 ## Import
 
-### Overview
+### Overview — Import
 
 Import blockchain data from exported files for node initialization or recovery.
 
-### API Endpoints
+### API Endpoints — Import
 
 #### Import Blocks
 
@@ -165,7 +165,7 @@ Content-Type: application/json
 }
 ```
 
-### Usage
+### Usage — Import
 
 Import blocks from file:
 

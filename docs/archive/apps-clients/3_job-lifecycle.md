@@ -96,13 +96,13 @@ Results are stored after job completion. This guide covers downloading and manag
 
 ## Download Results
 
-### Using CLI
+### Using CLI — Download Results
 
 ```bash
 aitbc client download --job-id <JOB_ID> --output ./results
 ```
 
-### Using API
+### Using API — Download Results
 
 ```python
 import requests
@@ -186,7 +186,7 @@ sha256sum -c output.sha256
 aitbc client delete --job-id <JOB_ID>
 ```
 
-## Next Steps
+## Next Steps — Verify
 
 - [Job Status](./3_job-lifecycle.md) - Understanding job states
 - [Job Submission](./2_job-submission.md) - Submitting jobs
@@ -253,7 +253,7 @@ Shows:
 - Average completion time
 - Total spent
 
-## Next Steps
+## Next Steps — Export to CSV
 
 - [Job Status](./3_job-lifecycle.md) - Understanding job states
 - [Job Cancellation](./3_job-lifecycle.md) - Canceling jobs
@@ -288,7 +288,7 @@ aitbc client cancel --job-id <JOB_ID> --force
 - Partial results may be available
 - Charges apply for resources used
 
-## Next Steps
+## Next Steps — Job Lifecycle Summary
 
 - [Job Submission](./2_job-submission.md) - Submitting jobs
 - [Job History](./3_job-lifecycle.md) - Viewing past jobs

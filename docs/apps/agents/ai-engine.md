@@ -161,7 +161,7 @@ Content-Type: application/json
 }
 ```
 
-## Configuration
+## Configuration — Run with GPU support
 
 ### Environment Variables
 
