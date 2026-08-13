@@ -4,7 +4,9 @@ Advertise edge GPU capabilities to marketplace
 
 - **Status**: ✅
 - **Release**: v0.6.6
+
 ## Implementation Details
+
 - `apps/marketplace/src/marketplace_service/domain/marketplace.py` — Software service registry for marketplace (migrated from plugin service)
 - `apps/edge/src/aitbc_edge/services/gpu_service.py` — GPU service for Edge API Service
 - `apps/edge/src/aitbc_edge/routers/gpu.py` — GPU operations router for Edge API Service
@@ -13,6 +15,7 @@ Advertise edge GPU capabilities to marketplace
 - `Marketplace` exposes `POST /v1/marketplace/edge-advertise` (operation `edge_advertise_v1_marketplace_edge_advertise_post`) — Edge Advertise
 - `Marketplace` exposes `GET /v1/marketplace/edge-advertise` (operation `list_edge_nodes_v1_marketplace_edge_advertise_get`) — List Edge Nodes
 - `Blockchain Node` exposes `POST /rpc/edge/register` (operation `register_edge_node_rpc_edge_register_post`) — Register edge node on-chain
+
 ## Examples
 
 - `POST /advertise` (`advertise_to_marketplace` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
@@ -23,5 +26,7 @@ Advertise edge GPU capabilities to marketplace
 - `POST /v1/marketplace/edge-advertise` (`edge_advertise_v1_marketplace_edge_advertise_post`) on `Marketplace`
 - `GET /v1/marketplace/edge-advertise` (`list_edge_nodes_v1_marketplace_edge_advertise_get`) on `Marketplace`
 - `POST /rpc/edge/register` (`register_edge_node_rpc_edge_register_post`) on `Blockchain Node`
+
 ## Operational Notes
+
 - **Status / Release:** `✅` / `v0.6.6`

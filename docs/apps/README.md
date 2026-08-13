@@ -60,7 +60,6 @@ These directories cover cross-cutting concerns rather than a single app:
 - [explorer](explorer/)
 - [global-ai](global-ai/)
 - [infrastructure](infrastructure/)
-- [openclaw](openclaw/)
 
 ## Notes
 
