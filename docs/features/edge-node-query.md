@@ -4,8 +4,10 @@ Query edge node registration from blockchain
 
 - **Status**: ✅
 - **Release**: v0.10.1
+
 ## Implementation Details
-- `aitbc/marketplace/blockchain_rpc.py` — from __future__ import annotations import logging from typing import Any, cast import httpx logger =...
+
+- `aitbc/marketplace/blockchain_rpc.py` — from **future** import annotations import logging from typing import Any, cast import httpx logger =...
 - `apps/pool-hub/src/poolhub/clients/blockchain.py` — Return the exact bytes that are hashed and signed for a transaction.
 - `apps/edge/src/aitbc_edge/clients/blockchain_rpc.py` — Blockchain RPC client for Edge API Service
 - `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` — blockchain-p2p service wrapper
@@ -13,6 +15,7 @@ Query edge node registration from blockchain
 - `Blockchain Node` exposes `GET /rpc/edge/info/{node_id}` (operation `get_edge_node_rpc_edge_info__node_id__get`) — Query edge node registration
 - `Blockchain Node` exposes `GET /rpc/gpu/info/{gpu_id}` (operation `get_gpu_rpc_gpu_info__gpu_id__get`) — Query GPU registration
 - `Blockchain Node` exposes `POST /rpc/edge/register` (operation `register_edge_node_rpc_edge_register_post`) — Register edge node on-chain
+
 ## Examples
 
 - `POST /graphs/{graph_id}/nodes` (`contribute_knowledge` in `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py`)
@@ -23,5 +26,7 @@ Query edge node registration from blockchain
 - `GET /rpc/edge/info/{node_id}` (`get_edge_node_rpc_edge_info__node_id__get`) on `Blockchain Node`
 - `GET /rpc/gpu/info/{gpu_id}` (`get_gpu_rpc_gpu_info__gpu_id__get`) on `Blockchain Node`
 - `POST /rpc/edge/register` (`register_edge_node_rpc_edge_register_post`) on `Blockchain Node`
+
 ## Operational Notes
+
 - **Status / Release:** `✅` / `v0.10.1`
