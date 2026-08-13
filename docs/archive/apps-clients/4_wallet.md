@@ -1,5 +1,7 @@
 # Wallet Management
 
+> **Archived.** This guide is preserved for historical reference. It may describe CLI commands or endpoints that have changed. For current wallet documentation, see [CLI README](../../cli/README.md) and [Getting Started](../../getting-started/README.md).
+
 Manage your the wallet and tokens.
 
 ## Create Wallet

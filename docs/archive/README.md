@@ -75,6 +75,7 @@ git add docs/archive/ && git commit -m "docs(archive): archive OLD-GUIDE.md -- s
 | [README-TEMPLATE.md](./README-TEMPLATE.md) | Original README template used during repository setup. | Superseded -- `README.md` is complete and maintained directly. |
 | [SOCIAL-MEDIA-SETUP.md](./SOCIAL-MEDIA-SETUP.md) | Guide for configuring GitHub social preview cards and sharing metadata. | Project-internal -- setup instructions specific to the original project, not the template. |
 | [USER-JOURNEY-VALIDATION-REPORT.md](./USER-JOURNEY-VALIDATION-REPORT.md) | Validation report assessing the new-user journey through repository documentation (2025-10-08). | Completed deliverable -- findings were addressed; report preserved for reference. |
+| [apps-clients/](./apps-clients/) | Old client quick-start and job submission guides. | Superseded by `docs/getting-started/` and contained non-existent CLI commands. |
 
 ## What NOT to Archive
 
