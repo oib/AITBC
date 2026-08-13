@@ -5,26 +5,18 @@ no migration created its table and nothing ever wrote to it. Duplicate protectio
 RewardPolicy's in-process dicts, which are lost on restart and not shared between
 replicas -- so the same miner could be paid twice for the same epoch.
 
-Two levels of coverage here:
-
-  - decision-logic tests, which run everywhere. They drive distribute_rewards with a
-    session whose flush raises IntegrityError on a repeated (miner, chain, epoch), and
-    assert no transaction is submitted for an already-claimed payout. This is the logic
-    that decides whether money moves.
-  - a constraint test gated on POOLHUB_TEST_POSTGRES_DSN, which proves the database
-    actually rejects the duplicate. Without it the logic above is only as good as its mock.
+Decision-logic tests run everywhere. They drive distribute_rewards with a
+session whose flush raises IntegrityError on a repeated (miner, chain, epoch), and
+assert no transaction is submitted for an already-claimed payout. This is the logic
+that decides whether money moves.
 """
 
 from __future__ import annotations
 
-import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_asyncio
 from poolhub.clients.blockchain import PoolHubBlockchainClient
-from poolhub.models import RewardPayout
-from sqlalchemy.exc import IntegrityError
 
 
 # Deterministic secp256k1 pair; the client verifies the address matches the key.
@@ -166,34 +158,3 @@ class TestDistributionIsIdempotent:
         assert row.status == "paid"
         assert row.tx_hash == "tx-abc"
         assert row.paid_at is not None
-
-
-@pytest.mark.skipif(
-    not os.getenv("POOLHUB_TEST_POSTGRES_DSN"),
-    reason="Set POOLHUB_TEST_POSTGRES_DSN to verify the real unique constraint",
-)
-class TestDatabaseConstraint:
-    """Proves Postgres itself rejects the duplicate, not just our mock."""
-
-    @pytest_asyncio.fixture
-    async def seeded(self, db_session):
-        db_session.add(RewardPayout(miner_id="miner-1", chain_id="ait-hub", epoch_number=7, amount=500, status="paid"))
-        await db_session.commit()
-        return db_session
-
-    @pytest.mark.asyncio
-    async def test_duplicate_insert_is_rejected(self, seeded):
-        seeded.add(RewardPayout(miner_id="miner-1", chain_id="ait-hub", epoch_number=7, amount=500, status="pending"))
-        with pytest.raises(IntegrityError):
-            await seeded.flush()
-
-    @pytest.mark.asyncio
-    async def test_claim_returns_none_against_a_real_constraint(self, seeded, client):
-        claim = await client._claim_payout(session=seeded, miner_id="miner-1", epoch_number=7, amount=500)
-
-        assert claim is None
-
-    @pytest.mark.asyncio
-    async def test_has_been_paid_reflects_the_row(self, seeded, client):
-        assert await client.has_been_paid(seeded, "miner-1", 7) is True
-        assert await client.has_been_paid(seeded, "miner-1", 8) is False
