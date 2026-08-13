@@ -137,7 +137,7 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 ### Tools & SDKs
 
-- [Python SDK](../builders/sdk-reference.md) — `packages/py/aitbc-sdk`
+- Builder SDK reference — `packages/py/aitbc-sdk`
 - [Python Agent SDK](../agent-sdk/README.md) — `packages/py/aitbc-agent-sdk`
 - [Getting Started](../getting-started/README.md)
 
