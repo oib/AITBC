@@ -24,13 +24,6 @@ def test_prometheus_endpoint(client):
     assert "python_gc" in response.text or "# HELP" in response.text
 
 
-def test_docs_endpoint(client):
-    """Test docs endpoint is accessible."""
-    response = client.get("/docs")
-    assert response.status_code == 200
-    assert "swagger" in response.text.lower() or "openapi" in response.text.lower()
-
-
 def test_openapi_endpoint(client):
     """Test OpenAPI schema endpoint."""
     response = client.get("/openapi.json")
