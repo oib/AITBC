@@ -10,40 +10,38 @@
 
 > **Decentralized marketplace for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
-AITBC lets GPU providers offer compute, AI agents discover and rent it, and clients submit inference or training jobs that are paid, executed, and settled on a multi-island blockchain network. A public hub is already running.
+Welcome to AITBC. This repo is a Python 3.13 monorepo of FastAPI microservices, a CLI, and shared libraries for running a multi-island blockchain network where GPU providers sell compute and clients submit AI jobs that are paid, executed, and settled on-chain.
+
+You can participate in three ways:
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    Client    │────▶│ Coordinator  │◀────│    Miner     │
-│ (job submit) │     │   (dispatch) │     │(GPU provider)│
-└──────────────┘     └──────┬───────┘     └──────────────┘
-                            │
-           ┌────────────────┼────────────────┐
-           ▼                ▼                ▼
-    ┌──────────┐     ┌──────────┐     ┌──────────┐
-    │Marketplace│     │Blockchain│     │  Wallet  │
-    │  (offers) │     │(settle)  │     │ (escrow) │
-    └──────────┘     └──────────┘     └──────────┘
+     ┌─────────────┐          ┌─────────────┐
+     │   Client    │          │    Shop     │
+     │ (uses jobs) │          │(sells GPUs) │
+     └──────┬──────┘          └──────┬──────┘
+            │                        │
+            └──────────┬─────────────┘
+                       ▼
+                ┌─────────────┐
+                │     Hub     │
+                │ (coordinator│
+                │ + chain)    │
+                └─────────────┘
 ```
 
-## What works today
+| Role | What it is | What it does | Typical profile |
+|------|------------|--------------|-----------------|
+| **Hub** | `BLOCKCHAIN_MODE=hub` | Produces/broadcasts blocks, runs the coordinator, exchange, and public discovery endpoints. | `hub` (full services + dev deps) |
+| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, marketplace, and mining services; lists compute offers and executes jobs. | `provider-gpu` (GPU) or `server-no-gpu` (no GPU) |
+| **Client** | `MARKET_ROLE=customer` | Consumes compute: submits jobs, queries results, trades, and syncs as a follower. | `customer-no-gpu` (lightweight follower) |
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Blockchain node (PoA, sync, gossip, multi-island) | ✅ | MultiValidatorPoA/PBFT gated for soak testing |
-| Agent coordinator & job dispatch | ✅ | JWT + API-key auth, rate limiting |
-| GPU marketplace & offer matching | ✅ | Listing, booking, dynamic pricing, edge advertise |
-| Wallet & escrow | ✅ | Server-side encrypted wallets; HTLC settlement wired |
-| Bridge & cross-chain settlement | ✅ | Multi-sig, Merkle proofs, block-header finality |
-| CLI (`aitbc_cli`) | ✅ | 50+ command groups |
-| Public hub | ✅ | `http://hub.aitbc.bubuit.net` |
-| Test suite | 🚧 | Target 85% coverage; core green, B2–B4 tests in flight |
+A single node can combine roles — a hub can also be a shop, and a follower can be a client or a shop. Services are selected by the two independent axes `BLOCKCHAIN_MODE` and `MARKET_ROLE`. See [Service Selection](docs/getting-started/setup-service-selection.md) for the full matrix.
 
-For the full release roadmap, see [docs/releases/STATUS.md](docs/releases/STATUS.md).
+For a component-by-component status check, see [docs/releases/STATUS.md](docs/releases/STATUS.md).
 
 ## Join the public network
 
-A public AITBC island is running at **http://hub.aitbc.bubuit.net/**:
+A public AITBC island is already running at **http://hub.aitbc.bubuit.net/**:
 
 - **Island ID**: `ait-public`
 - **Chain ID**: `ait-public`
@@ -85,29 +83,41 @@ PYTHONPATH=src poetry run uvicorn coordinator_api.main:app --reload
 
 For detailed setup, see [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md).
 
-## Run an end-to-end GPU inference job
+## Run an end-to-end AI job
 
-See [`examples/gpu_inference_miner.py`](examples/gpu_inference_miner.py) and [`examples/gpu_inference_client.py`](examples/gpu_inference_client.py) for a self-contained miner/client pair that uses Ollama (or a mock fallback) to execute inference jobs.
+On a **shop** node, list a GPU offer:
 
 ```bash
-# Terminal 1 — start a GPU-capable miner
-python examples/gpu_inference_miner.py --api-key "$MINER_API_KEY" --miner-id my-miner
-
-# Terminal 2 — submit a job and poll for the result
-python examples/gpu_inference_client.py \
-  --jwt-secret "$JWT_SECRET" \
-  --coordinator http://localhost:8203 \
-  --prompt "Explain zero-knowledge proofs in one paragraph."
+aitbc market offer --gpu-id gpu-0 --memory 24 --price 100
 ```
+
+On a **client** node, submit a job to the hub's coordinator:
+
+```bash
+aitbc ai submit --wallet my-wallet --type text-generation \
+  --prompt "Explain zero-knowledge proofs in one paragraph." \
+  --payment 10
+```
+
+Check the result:
+
+```bash
+aitbc ai status --job-id <job-id>
+aitbc ai results --job-id <job-id>
+```
+
+See the [CLI README](cli/README.md) for the full command reference and the [customer↔hub end-to-end scenario](docs/scenarios/34_hub_customer_node_e2e.md) for a cross-network walkthrough.
 
 ## Documentation
 
-- [Master Index](docs/MASTER_INDEX.md) — every doc, scenario, and reference file
-- [Documentation Home](docs/README.md) — learning paths and navigation
-- [Release Status](docs/releases/STATUS.md) — what is complete vs. in flight
-- [Setup Guide](docs/getting-started/SETUP.md) — installation and configuration
-- [API Examples](docs/api/examples/) — curl, Python SDK, and JavaScript snippets
-- [Agent SDK Examples](docs/agent-sdk/examples/) — agent identity and compute agents
+| I want to... | Start here |
+|--------------|------------|
+| Understand the platform and pick a node profile | [docs/getting-started/README.md](docs/getting-started/README.md) |
+| Install and configure a node | [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md) |
+| Learn the CLI | [cli/README.md](cli/README.md) |
+| Find every doc, scenario, and reference | [docs/MASTER_INDEX.md](docs/MASTER_INDEX.md) |
+| Check what is complete vs. in flight | [docs/releases/STATUS.md](docs/releases/STATUS.md) |
+| Read the architecture and security deep dives | [docs/blockchain/](docs/blockchain/) and [docs/security/](docs/security/) |
 
 ## Key features
 
