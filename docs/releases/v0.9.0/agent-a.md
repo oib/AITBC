@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.2 Agent A ✅, v0.8.0 Agent A ✅, v0.8.2 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/settlement/ aitbc/trading/ && ./venv/bin/python -m ruff check aitbc/settlement/ aitbc/trading/ tests/unit/test_settlement_sdk.py && ./venv/bin/python -m pytest tests/unit/test_settlement_sdk.py -q -o addopts=""
 ```
@@ -304,6 +305,7 @@ def dict_to_proof(data: dict[str, Any]) -> EscrowProof: ...
 ## A5: Extend Trading Types
 
 Extend `aitbc/trading/types.py`:
+
 - Add `SettlementPhase` enum: `NONE`, `ESCROW_CREATED`, `ESCROW_LOCKED`, `LOCK_VERIFIED`, `TRADE_EXECUTED`, `SETTLED`, `REFUNDED`, `DISPUTED`
 - Add settlement fields to `InterChainTradeData`:
   - `escrow_id: str = ""`
@@ -318,6 +320,7 @@ Extend `aitbc/trading/types.py`:
 ## A6: Unit Tests
 
 `tests/unit/test_settlement_sdk.py` — tests for:
+
 - HTLC: secret generation (32 bytes, unique), hashlock computation, secret verification, timelock calculation (source > dest), timelock validation, state machine transitions
 - Types: CrossChainEscrow defaults, EscrowProof fields, SettlementConfig defaults, EscrowStatus/HTLCState/ProofType enums
 - Proof chaining: proof hash computation, chain building, chain verification (valid, broken link, wrong order, non-increasing heights)

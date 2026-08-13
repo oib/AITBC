@@ -12,6 +12,7 @@
 **Prerequisite**: Agent A A1-A3 complete. v0.7.0-v0.7.2 complete (bridge RPC endpoints available).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/ cli/aitbc_cli/commands/trade.py
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v080_inter_chain.py -q -o addopts="" --timeout=30
@@ -37,6 +38,7 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 ## B1: Trading Service Config
 
 Create `apps/trading/src/trading_service/config.py`:
+
 ```python
 class Settings(BaseSettings):
     blockchain_rpc_url: str = "http://localhost:8202"  # NOT 8006
@@ -55,6 +57,7 @@ Note: The trading service port needs to be verified from the systemd service fil
 ## B2: Inter-Chain Domain Models
 
 Create `apps/trading/src/trading_service/domain/inter_chain.py`:
+
 ```python
 class InterChainTrade(SQLModel, table=True):
     """Inter-chain trade between AITBC chains."""
@@ -93,9 +96,11 @@ Add Alembic migration under `apps/trading/alembic/versions/`.
 ## B3: Blockchain/Bridge RPC Client
 
 Create `apps/trading/src/trading_service/clients/blockchain.py`:
+
 - `BlockchainRPCClient` — wraps blockchain node RPC for chain health, balance queries
 
 Create `apps/trading/src/trading_service/clients/bridge.py`:
+
 - `BridgeClient` — wraps bridge RPC for lock/confirm/status operations (use Agent A's `TradingBridgeClient` from A3)
 
 ---
@@ -103,6 +108,7 @@ Create `apps/trading/src/trading_service/clients/bridge.py`:
 ## B4: Chain Discovery
 
 Create `apps/trading/src/trading_service/services/chain_discovery.py`:
+
 - Island registry sync loop (periodic task)
 - Chain health monitoring
 - Register/list/health endpoints in `main.py`
@@ -112,6 +118,7 @@ Create `apps/trading/src/trading_service/services/chain_discovery.py`:
 ## B5: Inter-Chain Trade Lifecycle
 
 Create `apps/trading/src/trading_service/services/inter_chain_service.py`:
+
 - Create inter-chain trade
 - List trades
 - Get trade by ID
@@ -119,6 +126,7 @@ Create `apps/trading/src/trading_service/services/inter_chain_service.py`:
 - Trade history endpoint
 
 Add endpoints to `main.py`:
+
 - `POST /v1/trading/inter-chain/create`
 - `GET /v1/trading/inter-chain`
 - `GET /v1/trading/inter-chain/{id}`
@@ -130,6 +138,7 @@ Add endpoints to `main.py`:
 ## B6: Basic Matching Engine
 
 Create `apps/trading/src/trading_service/services/matching_engine.py`:
+
 - Price-time priority across chains
 - Match trades against offers
 - Return `TradeMatchResult` from Agent A's types
@@ -139,6 +148,7 @@ Create `apps/trading/src/trading_service/services/matching_engine.py`:
 ## B7: CLI Trade Command Group
 
 Create `cli/aitbc_cli/commands/trade.py`:
+
 - `aitbc trade create --source-chain --dest-chain --sender --recipient --amount`
 - `aitbc trade list [--status]`
 - `aitbc trade chains`
@@ -157,6 +167,7 @@ Uses Agent A's `TradingClient` (A2) and `TradingBridgeClient` (A3).
 ## B8: Integration Tests
 
 Create `apps/trading/tests/test_v080_inter_chain.py`:
+
 - Test inter-chain trade lifecycle (create, list, get, status, history)
 - Test chain discovery (register, list, health)
 - Test matching engine (price-time priority)

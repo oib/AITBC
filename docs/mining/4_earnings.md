@@ -1,4 +1,5 @@
 # Earnings & Payouts
+
 Track and manage your mining earnings.
 
 ## Earnings Overview
@@ -8,6 +9,7 @@ aitbc miner earnings
 ```
 
 Shows:
+
 - Total earned
 - Pending balance
 - Last payout
@@ -46,6 +48,7 @@ aitbc miner stats
 ```
 
 Shows:
+
 - Success rate
 - Average completion time
 - Total jobs completed

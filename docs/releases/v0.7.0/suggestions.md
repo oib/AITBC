@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.7.0 Suggestions
 
 ## Status
+
 **CLAIMS CONFIRMED + FULLY INVESTIGATED** — Bridge code exists (887 lines across 3 files), RPC endpoints partially implemented (4 of 10), CLI broken (calls non-existent endpoints), monitoring missing. All findings verified by 3 subagent investigations on 2026-06-29.
 
 ## Confirmed Gaps (verified in /opt/aitbc)

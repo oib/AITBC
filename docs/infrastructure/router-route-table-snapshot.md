@@ -5,6 +5,7 @@
 **Total Routes:** 58
 
 ## Block Routes (5)
+
 - `GET /genesis_allocations` - Get genesis allocations from blockchain
 - `GET /head` - Get current chain head
 - `GET /blocks/{height}` - Get block by height
@@ -12,12 +13,14 @@
 - `POST /importBlock` - Import a block
 
 ## Transaction Routes (3)
+
 - `POST /transaction` - Submit transaction
 - `GET /mempool` - Get pending transactions
 - `POST /transactions/marketplace` - Submit marketplace transaction
 - `GET /transactions` - Query transactions
 
 ## Account Routes (5)
+
 - `GET /account/{address}` - Get account information
 - `GET /accounts/{address}` - Get account information (alias)
 - `POST /register-account` - Create/register a new account
@@ -26,6 +29,7 @@
 - `GET /balance/{address}/reconcile` - Reconcile balance
 
 ## Dispute Routes (9)
+
 - `POST /disputes/file` - File a new dispute
 - `POST /disputes/evidence` - Submit evidence for a dispute
 - `POST /disputes/verify-evidence` - Verify evidence (arbitrator only)
@@ -40,6 +44,7 @@
 - `GET /disputes/{dispute_id}/votes` - Get arbitration votes for a dispute
 
 ## Contract Routes (11)
+
 - `POST /contracts/deploy/messaging` - Deploy messaging contract
 - `GET /contracts` - List deployed contracts
 - `POST /contracts/deploy` - Deploy a smart contract
@@ -56,14 +61,17 @@
 - `POST /messaging/messages/{message_id}/moderate` - Moderate message
 
 ## Sync Routes (3)
+
 - `GET /export-chain` - Export full chain state
 - `POST /import-chain` - Import chain state
 - `POST /force-sync` - Force reorg to specified peer
 
 ## Gossip Routes (1)
+
 - `POST /eth_getLogs` - Query smart contract event logs
 
 ## Island Routes (5)
+
 - `POST /islands/join` - Join an island
 - `POST /islands/leave` - Leave an island
 - `GET /islands` - List all islands
@@ -71,20 +79,24 @@
 - `POST /islands/bridge` - Request a bridge to another island
 
 ## Bridge Routes (3)
+
 - `POST /bridge/lock` - Lock funds for cross-chain transfer
 - `POST /bridge/confirm` - Confirm and release cross-chain transfer
 - `GET /bridge/transfer/{transfer_id}` - Get transfer status
 - `GET /bridge/pending` - List pending bridge transfers
 
 ## Staking Routes (3)
+
 - `POST /staking/stake` - Stake tokens
 - `POST /staking/unstake` - Unstake tokens
 - `GET /staking/{address}` - Get staking info
 
 ## Faucet Routes (1)
+
 - `POST /faucet` - Request test tokens from faucet
 
 ## Notes
+
 - Total routes: 58 endpoints
 - Duplicate path `/accounts/{address}` was removed (now only alias endpoint remains)
 - Routes are grouped by domain for planned extraction

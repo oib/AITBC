@@ -40,10 +40,12 @@ The following are typically out of scope unless they directly impact the securit
 ### How to Report
 
 **Primary Method**: Send an email to our security team
+
 - **Email**: security@aitbc.dev
 - **PGP Key**: Available upon request for encrypted communications
 
 **Alternative Method**: Use GitHub's private vulnerability reporting
+
 - Visit: https://github.com/oib/AITBC/security/advisories/new
 - Select "Report a vulnerability privately"
 
@@ -194,6 +196,7 @@ This security policy is provided under the same license as the AITBC project.
 ## Security Advisories
 
 Past security advisories and vulnerability disclosures are available at:
+
 - https://github.com/oib/AITBC/security/advisories
 - https://docs.aitbc.dev/security/advisories
 

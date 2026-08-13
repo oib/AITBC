@@ -34,6 +34,7 @@ Expanded `.agents/skills/` from 3 to 18. These skills are discovered by Codex CL
 ### Enriched Codex Configuration (SAW-29)
 
 `.codex/config.toml` now includes:
+
 - MCP server definitions (Linear + Confluence)
 - Multi-agent configuration (max_threads=6)
 - Agent profiles (architect, developer, reviewer)
@@ -42,6 +43,7 @@ Expanded `.agents/skills/` from 3 to 18. These skills are discovered by Codex CL
 ### Codex Dark Factory Integration (SAW-30)
 
 New guide and tmux template for running Codex agent teams in Dark Factory:
+
 - `dark-factory/docs/CODEX-DARK-FACTORY-GUIDE.md`
 - `dark-factory/templates/codex-factory.sh`
 
@@ -53,6 +55,7 @@ New guide and tmux template for running Codex agent teams in Dark Factory:
 ### SAFe PI Planning Templates (PR #30)
 
 Comprehensive Program Increment planning artifacts:
+
 - Markdown format (version control, agent consumption)
 - XLSX format (spreadsheet-native teams)
 - Covers all 10 standard SAFe PI Planning sections
@@ -87,12 +90,14 @@ See [v2.9.0 Upgrade Guide](UPGRADE.md) for full migration instructions including
 New top-level README section documents both upgrade paths:
 
 **Automated** (`.claude/` directory, manifest-aware):
+
 ```bash
 ./scripts/sync-claude-harness.sh manifest init --yes
 ./scripts/sync-claude-harness.sh sync --version v2.9.0
 ```
 
 **Manual** (full release, all providers):
+
 ```bash
 git fetch harness main --tags
 git checkout harness/main -- .codex/agents/ .agents/skills/ .cursor/mcp.json

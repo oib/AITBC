@@ -67,6 +67,7 @@ systemctl is-active aitbc-miner aitbc-edge aitbc-blockchain-rpc aitbc-coordinato
 ```
 
 **Expected output:**
+
 ```
 active
 active
@@ -88,6 +89,7 @@ journalctl -u aitbc-miner -n 10 --no-pager | grep "Heartbeat sent"
 ```
 
 **Expected output:**
+
 ```
 Environment="COORDINATOR_URL=http://localhost:8203"
 Jul 05 14:27:26 aitbc3 aitbc-miner[999]: [INFO] [production_miner] Heartbeat sent (GPU: 19%)
@@ -108,12 +110,14 @@ journalctl -u aitbc-edge --since "10 sec ago" --no-pager | grep -E "register|blo
 ```
 
 **Expected output:**
+
 ```
 Jul 05 14:28:13 aitbc3 python[50134]: [INFO] [httpx] HTTP Request: POST http://localhost:8202/rpc/edge/register "HTTP/1.1 200 OK"
 Jul 05 14:28:13 aitbc3 python[50134]: [INFO] [aitbc_edge.main] Edge node registered on blockchain: edge-aitbc3
 ```
 
 If the blockchain RPC is unavailable, you should see a WARNING (not a silent failure):
+
 ```
 Jul 05 11:37:28 aitbc3 python[2207]: [WARNING] [aitbc_edge.main] Failed to register edge node on blockchain: All connection attempts failed
 ```
@@ -129,6 +133,7 @@ curl -s http://localhost:8202/rpc/bridge/health
 ```
 
 **Expected output:**
+
 ```json
 {"status":"healthy","service":"edge-api","version":"0.1.0"}
 

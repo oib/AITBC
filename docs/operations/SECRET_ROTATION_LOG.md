@@ -89,6 +89,7 @@ If a rotation fails or causes issues:
 ### When to Add an Entry
 
 Add an entry to this log whenever:
+
 - A secret is rotated following the procedures in SECRETS.md
 - A secret is compromised and requires emergency rotation
 - A service is migrated to use a new secret management system
@@ -106,18 +107,21 @@ Add an entry to this log whenever:
 ### Version Naming Convention
 
 Use semantic versioning for secret versions:
+
 - v1: Initial secret
 - v2: First rotation
 - v3: Second rotation
 - etc.
 
 For emergency rotations, use:
+
 - v2-emergency: Emergency rotation after compromise
 - v2-rollback: Rollback to previous version
 
 ### Audit Trail
 
 This log serves as an audit trail for:
+
 - Compliance with secret rotation policies
 - Security incident investigation
 - Secret lifecycle management

@@ -58,7 +58,7 @@ When HTTP clients are created but not properly closed (e.g., not used as a conte
 
 ## Step-by-Step Workflow
 
-### Step 1: Test BridgeClient __del__ Warning (A14)
+### Step 1: Test BridgeClient **del** Warning (A14)
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -c "
@@ -100,6 +100,7 @@ with warnings.catch_warnings(record=True) as w:
 ```
 
 **Expected output:**
+
 ```
 Test 1: BridgeClient without close...
 PASS: __del__ warning emitted for unclosed BridgeClient
@@ -145,6 +146,7 @@ with warnings.catch_warnings(record=True) as w:
 ```
 
 **Expected output:**
+
 ```
 Test 1: BlockchainRPCClient without close...
 PASS: __del__ warning emitted
@@ -153,7 +155,7 @@ Test 2: BlockchainRPCClient with context manager...
 PASS: no warning when using context manager
 ```
 
-### Step 3: Verify CLI HTTP Client __del__ Warning (A13)
+### Step 3: Verify CLI HTTP Client **del** Warning (A13)
 
 Run any CLI command and check for the `AITBCHTTPClient was not properly closed` warning:
 
@@ -162,6 +164,7 @@ aitbc agent list 2>&1 | grep "not properly closed"
 ```
 
 **Expected output:**
+
 ```
 /opt/aitbc/cli/aitbc_cli/utils/chain_id.py:90: UserWarning: AITBCHTTPClient was not properly closed
 ```
@@ -181,6 +184,7 @@ echo "FDs after 200 requests: $(ls /proc/$EDGE_PID/fd 2>/dev/null | wc -l)"
 ```
 
 **Expected output:**
+
 ```
 FDs before: 16
 FDs after 200 requests: 16
@@ -192,7 +196,7 @@ FDs after 200 requests: 16
 
 ## Code Examples
 
-### __del__ Safety Net (A12/A13/A14)
+### **del** Safety Net (A12/A13/A14)
 
 All HTTP clients now have a `__del__` method that warns if the client wasn't properly closed:
 

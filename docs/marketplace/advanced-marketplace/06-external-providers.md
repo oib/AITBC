@@ -7,16 +7,19 @@ The ExternalProviderService enables integration with external GPU providers (AWS
 ## Features
 
 ### Provider Registration
+
 - Register AWS, GCP, or Azure providers
 - API key/secret management
 - Sync interval configuration
 
 ### Resource Synchronization
+
 - Fetch external GPU resources
 - Map to internal GPU registry
 - Sync status tracking
 
 ### Resource Mapping
+
 - Bidirectional resource mapping
 - Automatic internal resource creation
 - Mapping persistence

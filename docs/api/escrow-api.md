@@ -26,6 +26,7 @@ created → funded → job_started → job_completed → released
 Lock buyer funds for a marketplace job.
 
 **Request Body:**
+
 ```json
 {
   "job_id": "bid-abc123",
@@ -43,6 +44,7 @@ Lock buyer funds for a marketplace job.
 | `amount` | number | ✅ | AIT tokens to lock in escrow |
 
 **Response `200 OK`:**
+
 ```json
 {
   "success": true,
@@ -64,9 +66,11 @@ Lock buyer funds for a marketplace job.
 Query the current state of an escrow contract.
 
 **Path Parameters:**
+
 - `job_id` — Job/bid ID used when creating the escrow
 
 **Response `200 OK`:**
+
 ```json
 {
   "job_id": "bid-abc123",
@@ -97,6 +101,7 @@ Query the current state of an escrow contract.
 | `expired` | Contract expired without completion |
 
 **Response `404 Not Found`:**
+
 ```json
 {
   "detail": "No escrow found for job_id=bid-abc123"
@@ -112,11 +117,13 @@ Query the current state of an escrow contract.
 Release locked funds to the provider after job completion.
 
 **Path Parameters:**
+
 - `job_id` — Job/bid ID of the escrow to release
 
 **Request Body:** empty `{}`
 
 **Response `200 OK`:**
+
 ```json
 {
   "success": true,
@@ -136,9 +143,11 @@ Release locked funds to the provider after job completion.
 Refund locked funds back to the buyer.
 
 **Path Parameters:**
+
 - `job_id` — Job/bid ID of the escrow to refund
 
 **Request Body:**
+
 ```json
 {
   "reason": "buyer_requested"
@@ -146,6 +155,7 @@ Refund locked funds back to the buyer.
 ```
 
 **Response `200 OK`:**
+
 ```json
 {
   "success": true,

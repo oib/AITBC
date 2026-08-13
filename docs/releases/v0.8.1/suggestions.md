@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.8.1 Suggestions
 
 ## Status
+
 **RE-VERIFIED 2026-06-29** — All 5 original claims CONFIRMED. Prerequisite status corrected (v0.8.0 is not "Concept Plan" — trading service exists, Agent A complete).
 
 ## Stale Claims Corrected

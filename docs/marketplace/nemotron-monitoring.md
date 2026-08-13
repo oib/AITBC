@@ -6,6 +6,7 @@
 ## Step 3: Monitor Usage and Costs
 
 ### Check Transaction Status
+
 ```bash
 # Monitor escrow status
 aitbc wallet escrow-status $ESCROW_TX
@@ -18,6 +19,7 @@ aitbc wallet history
 ```
 
 ### Cost Calculation
+
 - **Price**: 0.01 AIT per 1,000 tokens
 - **Example**: 500 tokens × 0.01 AIT/1000 = 0.005 AIT
 - **Billing**: Automatic deduction from escrow after completion

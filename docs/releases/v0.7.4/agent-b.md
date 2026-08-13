@@ -12,6 +12,7 @@
 **Prerequisite**: Agent A A1-A4 complete. v0.7.3 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/governance/src/ apps/pool-hub/src/ apps/blockchain-node/src/aitbc_chain/consensus/ cli/aitbc_cli/commands/governance.py
 cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytest apps/governance/tests/test_v074_deferred.py -q -o addopts="" --timeout=30
@@ -38,6 +39,7 @@ cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytes
 ## B1: Oracle Config
 
 Add to `apps/blockchain-node/src/aitbc_chain/config.py`:
+
 ```python
 bridge_oracle_endpoints: list[str] = []  # External oracle endpoints
 bridge_verification_mode: str = "in_process"  # "in_process" or "oracle"
@@ -49,6 +51,7 @@ bridge_oracle_health_check_interval: int = 60  # seconds
 ## B2: Cross-Chain Governance Endpoints
 
 Add to `apps/governance/src/governance_service/main.py`:
+
 - `POST /v1/governance/proposals/{id}/propagate` — propagate proposal to all chains
 - `POST /v1/governance/proposals/{id}/aggregate-votes` — aggregate votes from all chains
 - `POST /v1/governance/proposals/{id}/execute-cross-chain` — execute on all chains
@@ -60,6 +63,7 @@ Use Agent A's `propagate_proposal()`, `aggregate_votes()`, `execute_cross_chain(
 ## B3: Pool-Hub Parameter API
 
 Add governance-triggered parameter change endpoint to pool-hub:
+
 - `POST /v1/poolhub/parameters/apply` — apply governance-approved parameter change
 - Validate: parameter change must have approved proposal ID
 - Apply: update service config based on ParameterChangeSchema
@@ -69,6 +73,7 @@ Add governance-triggered parameter change endpoint to pool-hub:
 ## B4: Marketplace Parameter API
 
 Add governance-triggered parameter change endpoint to marketplace:
+
 - `POST /v1/marketplace/parameters/apply` — apply governance-approved parameter change
 - Similar validation and apply logic as pool-hub
 
@@ -77,6 +82,7 @@ Add governance-triggered parameter change endpoint to marketplace:
 ## B5: Emergency Proposal Handling
 
 Add to `apps/governance/src/governance_service/services/governance_service.py`:
+
 - Detect emergency proposal type (`ProposalType.EMERGENCY`)
 - Apply accelerated timelock (e.g., 1 hour instead of 24 hours)
 - Fast-track execution — skip additional checks for emergency proposals
@@ -87,6 +93,7 @@ Add to `apps/governance/src/governance_service/services/governance_service.py`:
 ## B6: Coordinator-API Bridge Integration
 
 Refactor `apps/coordinator-api/src/app/contexts/cross_chain/`:
+
 - Replace `CrossChainBridgeService` with `BridgeClient` from `aitbc.bridge.client`
 - Remove duplicate bridge service code
 - Update all cross-chain operations to use `BridgeClient`
@@ -107,13 +114,16 @@ Refactor `apps/coordinator-api/src/app/contexts/cross_chain/`:
 ## B8: CLI Commands
 
 Extend `cli/aitbc_cli/commands/governance.py`:
+
 - `aitbc governance propagate <proposal_id>` — propagate proposal to all chains
 - `aitbc governance aggregate-votes <proposal_id>` — aggregate votes from all chains
 
 Extend `cli/aitbc_cli/commands/bridge.py`:
+
 - `aitbc bridge oracle-status` — check external oracle health
 
 Extend `cli/aitbc_cli/commands/chain.py`:
+
 - `aitbc chain validators` — list active validators
 - `aitbc chain consensus-status` — show consensus mode and status
 
@@ -122,6 +132,7 @@ Extend `cli/aitbc_cli/commands/chain.py`:
 ## B9: Integration Tests
 
 `apps/governance/tests/test_v074_deferred.py` — tests for:
+
 - Cross-chain governance endpoints
 - Parameter change APIs (pool-hub, marketplace)
 - Emergency proposal handling

@@ -76,6 +76,7 @@ aitbc messaging send \
 ```
 
 **Expected output:**
+
 ```
 Message Sent
 status       sent
@@ -105,6 +106,7 @@ aitbc messaging list
 ```
 
 **Expected output (when RPC is available):**
+
 ```
 Messages
 [
@@ -131,6 +133,7 @@ aitbc messaging topic \
 ```
 
 **Expected output:**
+
 ```
 Topic Created
 topic_id      topic_xyz789
@@ -149,6 +152,7 @@ aitbc agent send "Job completed: inference result ready" \
 ```
 
 **Expected output:**
+
 ```
 Message sent via Agent Coordinator
 status      sent
@@ -164,6 +168,7 @@ aitbc agent receive --limit 20
 ```
 
 **Expected output:**
+
 ```
 Messages:
 [
@@ -187,6 +192,7 @@ aitbc agent peers
 ```
 
 **Expected output:**
+
 ```
 Agent Coordinator Peers:
 [
@@ -206,6 +212,7 @@ aitbc agent ping --agent hub-coordinator --timeout 10
 ```
 
 **Expected output:**
+
 ```
 Connecting to ws://localhost:8107/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
@@ -229,6 +236,7 @@ aitbc agent request-coins --wallet my-agent-wallet --amount 100
 ```
 
 **Expected output:**
+
 ```
 Connecting to ws://localhost:8107/api/v1/agent/messages/stream?agent_id=follower
 REQUEST_COINS sent (100 AIT to aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2)
@@ -277,6 +285,7 @@ asyncio.run(main())
 ```
 
 **Expected output:**
+
 ```
 Message sent: True
 ```

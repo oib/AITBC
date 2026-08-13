@@ -12,6 +12,7 @@
 **Prerequisite**: Agent A A1-A3 complete (settlement types + HTLC utilities + client). v0.8.2 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/cross_chain/ apps/trading/src/trading_service/ cli/aitbc_cli/commands/trade.py
 cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:apps/trading/src:aitbc ./venv/bin/python -m pytest apps/blockchain-node/tests/test_settlement.py tests/integration/test_atomic_settlement.py -q -o addopts="" --timeout=30
@@ -41,6 +42,7 @@ cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:apps/trading/src:aitbc ./ve
 ## B1: Escrow Config
 
 Add to `apps/blockchain-node/src/aitbc_chain/config.py`:
+
 ```python
 # Cross-chain settlement (v0.9.0)
 escrow_enabled: bool = False
@@ -59,6 +61,7 @@ escrow_large_trade_threshold: int = 10000  # trades above this use large timeout
 ## B2: Escrow Tables
 
 Add to `apps/blockchain-node/src/aitbc_chain/base_models.py`:
+
 ```python
 class CrossChainEscrowRecord(SQLModel, table=True):
     """Cross-chain escrow record for atomic settlement (v0.9.0)."""
@@ -125,6 +128,7 @@ Add Alembic migration under `apps/blockchain-node/alembic/versions/` (if exists)
 Create `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py`:
 
 This is the core settlement service that orchestrates the escrow lifecycle:
+
 - `create_escrow()` — create escrow record, generate HTLC secret/hashlock, calculate timelocks
 - `lock_escrow()` — call bridge `lock()` on source chain, store lock proof
 - `verify_lock()` — verify lock proof on destination chain via oracle (v0.7.2)
@@ -143,6 +147,7 @@ Uses Agent A's `aitbc.settlement.htlc` for HTLC utilities, `aitbc.settlement.pro
 ## B4: HTLC Contract Integration
 
 Replace the stub `_execute_htlc_swap()` / `_create_htlc_contract()` / `_complete_htlc()` in `bridge_enhanced.py` with real contract interaction:
+
 - Use Agent A's `generate_secret()` / `compute_hashlock()` for HTLC parameters
 - Call the deployed `CrossChainAtomicSwap.sol` contract via web3.py or the blockchain node's contract execution RPC
 - `initiate_swap()` → calls contract `initiateSwap(hashlock, timelock)`
@@ -155,6 +160,7 @@ Replace the stub `_execute_htlc_swap()` / `_create_htlc_contract()` / `_complete
 ## B5: Settlement RPC Endpoints
 
 Add to `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`:
+
 - `POST /bridge/settlement/create` — create escrow
 - `POST /bridge/settlement/{id}/lock` — lock escrow
 - `POST /bridge/settlement/{id}/verify` — verify lock proof
@@ -174,6 +180,7 @@ Register routes in `rpc/router.py`.
 ## B6: Trading Service Settlement Endpoints
 
 Add to `apps/trading/src/trading_service/main.py`:
+
 - `POST /v1/trading/trades/{id}/lock-escrow` — initiate escrow lock for a trade
 - `POST /v1/trading/trades/{id}/settle` — settle a trade
 - `GET /v1/trading/trades/{id}/settlement-status` — get settlement status
@@ -185,6 +192,7 @@ These wrap the blockchain-node settlement RPC (Agent B B5) via Agent A's `Settle
 ## B7: Extend InterChainTrade Model
 
 Add to `apps/trading/src/trading_service/domain/inter_chain.py`:
+
 - `escrow_id: str | None = None`
 - `settlement_phase: str = "none"`  # SettlementPhase value
 - `secret_hash: str = ""`
@@ -200,6 +208,7 @@ Add Alembic migration for new columns.
 Create `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py`:
 
 This is the orchestrator that runs the full settlement lifecycle:
+
 ```
 1. create_escrow(trade_id, ...) → escrow_id
 2. lock_escrow(escrow_id) → source chain locked, lock proof generated
@@ -211,6 +220,7 @@ This is the orchestrator that runs the full settlement lifecycle:
 ```
 
 The coordinator handles:
+
 - **Happy path**: lock → verify → execute → settle (both chains)
 - **Timeout path**: lock → verify → timeout → refund (both chains)
 - **Failure path**: lock → verify fails → refund source chain only
@@ -223,6 +233,7 @@ Runs as a background asyncio task that monitors pending escrows and advances the
 ## B9: CLI Commands
 
 Add to `cli/aitbc_cli/commands/trade.py`:
+
 - `aitbc trade lock-escrow --trade-id <id> [--timeout <seconds>]` — lock escrow for a trade
 - `aitbc trade settle --trade-id <id> --secret <secret>` — settle a trade
 - `aitbc trade settlement-status --trade-id <id>` — get settlement status
@@ -235,6 +246,7 @@ Uses Agent A's `SettlementClient` (A3) to call settlement RPC endpoints.
 ## B10: Enable Bridge Confirm Path
 
 Wire v0.7.2 proof verification into `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py:confirm_transfer()`:
+
 - Replace the trivial `_validate_proof()` (lines 244-257) with real verification using `InProcessVerifier` from `aitbc.bridge.oracle`
 - Verify proposer signature, Merkle proof, and finality
 - Remove the `BRIDGE_RELEASE_ENABLED` gate (set to True by default)
@@ -247,6 +259,7 @@ This is a prerequisite for atomic settlement — the confirm path must be secure
 ## B11: Chaos Testing Infrastructure
 
 Create `tests/harness/settlement_chaos.py`:
+
 - `SettlementChaosHarness` — extends MultiNodeHarness with settlement-specific scenarios:
   - `simulate_partition_during_lock()` — partition source/dest mid-lock
   - `simulate_partition_during_settle()` — partition mid-settle
@@ -261,6 +274,7 @@ Create `tests/harness/settlement_chaos.py`:
 ## B12: Integration Tests
 
 Create `apps/blockchain-node/tests/test_settlement.py`:
+
 - `test_create_escrow` — escrow record created with correct HTLC params
 - `test_lock_escrow` — funds locked on source chain, lock proof generated
 - `test_verify_lock` — lock proof verified on destination chain
@@ -274,6 +288,7 @@ Create `apps/blockchain-node/tests/test_settlement.py`:
 - `test_timelock_validation` — invalid timelocks rejected
 
 Create `tests/integration/test_atomic_settlement.py`:
+
 - `test_full_settlement_lifecycle` — end-to-end with 2 blockchain nodes
 - `test_settlement_under_partition` — partition mid-settle, verify refund
 - `test_settlement_under_reorg` — reorg after lock, verify cancel

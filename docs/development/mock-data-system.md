@@ -226,6 +226,7 @@ All methods include fallback to default data when the coordinator API is unavail
 ### For Existing Code
 
 1. **Replace hardcoded chain lists**:
+
    ```python
    # Old
    chains = ['ait-devnet', 'ait-testnet']
@@ -237,6 +238,7 @@ All methods include fallback to default data when the coordinator API is unavail
    ```
 
 2. **Use data layer for data fetching**:
+
    ```python
    # Old
    response = await client.get(f"{rpc_url}/rpc/transactions")
@@ -249,6 +251,7 @@ All methods include fallback to default data when the coordinator API is unavail
    ```
 
 3. **Use testing utilities in tests**:
+
    ```python
    # Old
    mock_address = "0x1234567890abcdef"

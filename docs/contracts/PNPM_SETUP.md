@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📜 Contracts** → **⚙️ pnpm Setup**
 
 **breadcrumb**: Home → Contracts → pnpm Setup
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📦 Smart Contract Deployment**: [SMART_CONTRACT_DEPLOYMENT.md](../deployment/SMART_CONTRACT_DEPLOYMENT.md) - Deployment guide using pnpm
 - **🔧 Development Guidelines**: [DEVELOPMENT_GUIDELINES.md](../development/DEVELOPMENT_GUIDELINES.md) - General development setup
 - **📜 Contracts Overview**: [contracts/README.md](README.md) - Contract documentation index
@@ -23,6 +25,7 @@
 ## 📦 **Overview**
 
 AITBC uses **pnpm** as the package manager for smart contract development:
+
 - `/opt/aitbc/contracts/` - Main Hardhat project (JavaScript-based)
 
 pnpm provides faster installations, better disk efficiency, and stricter dependency management compared to npm.
@@ -32,6 +35,7 @@ pnpm provides faster installations, better disk efficiency, and stricter depende
 ### `.npmrc`
 
 **contracts/ directory:**
+
 ```ini
 auto-install-peers=false
 strict-peer-dependencies=true
@@ -40,17 +44,20 @@ shamefully-hoist=true
 ```
 
 **Settings explained:**
+
 - **auto-install-peers=false**: Don't automatically install peer dependencies - requires explicit installation
 - **strict-peer-dependencies=true**: Fail if peer dependency requirements aren't met
 - **prefer-frozen-lockfile=true**: Use exact versions from lockfile (recommended for CI)
 - **shamefully-hoist=true**: Hoist dependencies to node_modules root for compatibility with older Hardhat
 
 ### `pnpm-lock.yaml`
+
 The lockfile is automatically generated and should be committed to version control. It ensures reproducible installs across environments.
 
 ## 🚀 **Common Commands**
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/contracts
 pnpm install
@@ -59,6 +66,7 @@ pnpm install
 ### Development Commands
 
 **contracts/ (JavaScript-based):**
+
 ```bash
 cd /opt/aitbc/contracts
 pnpm hardhat compile
@@ -68,6 +76,7 @@ pnpm hardhat verify --network mainnet <ADDRESS> <CONSTRUCTOR_ARGS>
 ```
 
 ### CI/CD Commands
+
 ```bash
 # Install with frozen lockfile (recommended for CI)
 pnpm install --frozen-lockfile
@@ -78,17 +87,20 @@ pnpm install --frozen-lockfile
 If you're migrating from npm to pnpm:
 
 1. **Delete npm artifacts**:
+
    ```bash
    rm package-lock.json
    rm -rf node_modules
    ```
 
 2. **Install pnpm** (if not already installed):
+
    ```bash
    npm install -g pnpm
    ```
 
 3. **Install dependencies with pnpm**:
+
    ```bash
    pnpm install
    ```
@@ -105,19 +117,25 @@ If you're migrating from npm to pnpm:
 ## 🛠️ **Troubleshooting**
 
 ### Build scripts fail
+
 If you encounter build script errors, you may need to approve specific packages:
+
 ```bash
 pnpm approve-builds <package-name>
 ```
 
 ### Peer dependency errors
+
 If strict peer dependency checking causes issues, you can temporarily disable it:
+
 ```bash
 pnpm install --strict-peer-dependencies=false
 ```
 
 ### Cache issues
+
 Clear the pnpm cache if you encounter unexpected behavior:
+
 ```bash
 pnpm store prune
 ```
@@ -125,6 +143,7 @@ pnpm store prune
 ## 🔄 **CI/CD Integration**
 
 All CI workflows have been updated to use pnpm:
+
 - `smart-contract-tests.yml` - Tests contracts/
 - `deploy-testnet.yml` - Testnet deployment
 - `deploy-mainnet.yml` - Mainnet deployment

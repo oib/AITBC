@@ -74,6 +74,7 @@ print(token)
 ```
 
 **Expected output:**
+
 ```
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItYjEyIiw...
 ```
@@ -90,12 +91,14 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8203/v1/jobs \
 ```
 
 **Expected output:**
+
 ```json
 {"job_id":"cfe204e2ed3c4a2b8b0571b1ded74bc7","state":"QUEUED","assigned_miner_id":null,"requested_at":"2026-07-05T14:36:28.926270","expires_at":"2026-07-05T14:51:28.926270","error":null,"payment_id":null,"payment_status":"skipped"}
 HTTP 201
 ```
 
 Key observations:
+
 - HTTP 201 (job created successfully)
 - `payment_status: "skipped"` (payment failed, job proceeded without it)
 - `payment_id: null` (no orphaned payment record)
@@ -107,6 +110,7 @@ journalctl -u aitbc-coordinator-api --since "1 min ago" --no-pager | grep -iE "P
 ```
 
 **Expected output:**
+
 ```
 Jul 05 14:36:29 aitbc3 aitbc-coordinator-api[51036]: [WARNING] [app.contexts.infrastructure.routers.client] Payment creation failed for job cfe204e2ed3c4a2b8b0571b1ded74bc7, proceeding without payment: 1 validation error for JobPaymentCreate
 ```
@@ -118,6 +122,7 @@ curl -s http://localhost:8203/v1/jobs/<job_id> -H "Authorization: Bearer $TOKEN"
 ```
 
 **Expected output:**
+
 ```json
 {"job_id":"cfe204e2ed3c4a2b8b0571b1ded74bc7","state":"COMPLETED","payment_id":null,"payment_status":"skipped"}
 ```

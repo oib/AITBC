@@ -37,7 +37,7 @@ HARDWARE_PROFILE=nogpu  # or: gpu
 EOF
 ```
 
-### Configuration Options:
+### Configuration Options
 
 - **NODE_ID**: Your node's unique identifier (e.g., your domain name)
 - **NODE_ROLE**: Set to `follower` for follower nodes

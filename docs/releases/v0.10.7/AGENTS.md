@@ -35,6 +35,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -68,6 +69,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 11. `apps/coordinator-api/src/app/utils/cache_management.py` (203 lines)
 
 **Verification** (run before deleting):
+
 ```bash
 # Each module should show zero importers outside itself
 for mod in trading_marketplace/amm agent_coordination/portfolio reputation/cross_chain_aggregator infrastructure/distributed_framework repositories/confidential marketplace/marketplace_enhanced marketplace/marketplace_enhanced_simple marketplace/marketplace_scaler marketplace/marketplace_cache_optimizer governance/dao_governance_service utils/cache_management; do
@@ -88,6 +90,7 @@ done
 **Evidence**: `WalletMigrationService` is only mentioned in `cli/FILE_ORGANIZATION_SUMMARY.md` (a docs file). No production code imports it.
 
 **Verification**:
+
 ```bash
 grep -rln "wallet_migration_service\|WalletMigrationService" --include="*.py" cli | grep -v "wallet_migration_service.py"
 # Expected: no output
@@ -98,6 +101,7 @@ grep -rln "wallet_migration_service\|WalletMigrationService" --include="*.py" cl
 #### A3: Delete 5 dead aitbc/ re-export shims
 
 **Files**:
+
 1. `aitbc/access_control.py` (~50 lines) — only `tests/test_access_control.py` + old docs import it
 2. `aitbc/crypto/password.py` (~20 lines) — zero importers
 3. `aitbc/security_hardening.py` (~30 lines) — docs only
@@ -105,6 +109,7 @@ grep -rln "wallet_migration_service\|WalletMigrationService" --include="*.py" cl
 5. `aitbc/log_utils/logging.py` (~40 lines) — only `tests/test_imports.py`
 
 **Verification** (run before deleting):
+
 ```bash
 for mod in access_control crypto/password security_hardening metrics log_utils/logging; do
   echo "=== $mod ==="
@@ -114,6 +119,7 @@ done
 ```
 
 **Fix**:
+
 1. Delete all 5 files.
 2. Delete orphan tests: `tests/test_access_control.py`, `tests/test_metrics.py`, and update `tests/test_imports.py` if it imports `log_utils/logging`.
 3. **IMPORTANT**: AGENTS.md documents `aitbc/log_utils/logging.py` as an intentional re-export shim. Confirm with the user before deleting this one specifically.
@@ -131,6 +137,7 @@ done
 7. `apps/coordinator-api/src/app/contexts/security/services/quota_enforcement.py` — `QuotaMiddleware` (33 lines)
 
 **Verification** (run before deleting):
+
 ```bash
 for class in TaskDecompositionEngine EthereumBridge MockHSMStorage HSMProviderInterface AutoOptimizer ModalityOptimizationManager RedisMessageBroker WebSocketHandler QuotaMiddleware; do
   echo "=== $class ==="
@@ -146,12 +153,14 @@ done
 #### A5: Delete orphan tests for dead modules
 
 **Files**:
+
 - `tests/test_access_control.py` (if `aitbc/access_control.py` is deleted)
 - `tests/test_metrics.py` (if `aitbc/metrics.py` is deleted)
 - Update `tests/test_imports.py` if it imports `log_utils/logging`
 - Any other tests that import the deleted modules
 
 **Verification**:
+
 ```bash
 # Run tests after deletion to ensure no broken imports
 ./venv/bin/python -m pytest tests/unit -q -o addopts=""
@@ -168,6 +177,7 @@ done
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -207,6 +217,7 @@ Also duplicate routers (`submit_service_job` = identical 70-line function) and `
 **Problem**: agent-management duplicates coordinator-api's agent_coordination context almost entirely. agent-management has no systemd unit deployed (only a wrapper script), while coordinator-api is deployed.
 
 **Fix** (requires decision from user):
+
 1. **Option A (deprecate agent-management)**: Delete agent-management services, update any external references to use coordinator-api's agent_coordination context. Delete the agent-management app entirely.
 2. **Option B (thin wrapper)**: Keep agent-management as a thin re-export wrapper around coordinator-api's agent_coordination context. Delete the duplicate implementations, replace with imports from coordinator-api.
 3. **Option C (keep both)**: If agent-management has a distinct purpose not captured by coordinator-api, document the divergence and keep both.
@@ -216,12 +227,14 @@ Also duplicate routers (`submit_service_job` = identical 70-line function) and `
 #### B2: Create shared blockchain RPC client
 
 **Files**:
+
 - `apps/trading/src/trading_service/clients/blockchain.py` (91 lines)
 - `apps/governance/src/governance_service/clients/blockchain.py` (183 lines)
 
 **Similarity**: Both implement `__init__(rpc_url, timeout)` with httpx.AsyncClient, `get_block_height(chain_id)`, `get_balance/get_account_balance(address, chain_id)`. Governance version adds transaction signing (`submit_governance_tx`).
 
 **Fix**:
+
 1. Create `aitbc/blockchain/rpc_client.py` with base `BlockchainClient` class.
 2. Implement common methods: `__init__`, `get_block_height`, `get_balance`, `get_account_balance`.
 3. Governance client extends base with signing methods.
@@ -230,6 +243,7 @@ Also duplicate routers (`submit_service_job` = identical 70-line function) and `
 6. Update imports in trading and governance services.
 
 **Verification**:
+
 ```bash
 # Verify both services still work after migration
 cd apps/trading && ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -239,17 +253,20 @@ cd apps/governance && ../../venv/bin/python -m pytest tests -q -o addopts=""
 #### B3: Merge CLI error handling
 
 **Files**:
+
 - `cli/utils/error_handling.py` (194 lines)
 - `cli/aitbc_cli/utils/error_handling.py` (305 lines)
 
 **Similarity**: Both define `CLIError`, `NetworkError`, `ConfigurationError`, `ValidationError`, `APIError`, `handle_cli_error`, `handle_async_cli_error` decorators, `safe_execute`, `validate_required_fields`, `validate_address`. The `aitbc_cli` version is enhanced with `abort()` function, Click integration, JSON/YAML output support.
 
 **Fix**:
+
 1. Deprecate `cli/utils/error_handling.py` as a re-export shim to `cli/aitbc_cli/utils/error_handling.py`.
 2. Ensure all CLI imports use the `aitbc_cli` version.
 3. Update any imports from `cli.utils.error_handling` to `cli.aitbc_cli.utils.error_handling`.
 
 **Verification**:
+
 ```bash
 # Verify all CLI commands still work
 ./venv/bin/python -m pytest tests/cli -q -o addopts=""
@@ -258,6 +275,7 @@ cd apps/governance && ../../venv/bin/python -m pytest tests -q -o addopts=""
 #### B4: Consolidate DB init modules
 
 **Files**:
+
 - `apps/agent-management/src/app/core/database.py` (44 lines)
 - `apps/shared-core/src/app/core/database.py` (70 lines)
 - `apps/pool-hub/src/poolhub/database.py` (53 lines)
@@ -265,12 +283,14 @@ cd apps/governance && ../../venv/bin/python -m pytest tests -q -o addopts=""
 **Similarity**: agent-management and shared-core are near-identical (both implement `get_engine`, `get_sessionmaker`, `get_db`). pool-hub is an async-only variant.
 
 **Fix**:
+
 1. Verify shared-core's `database.py` exports cover agent-management's needs.
 2. Replace agent-management's `database.py` with a re-export from shared-core, or delete it and update imports.
 3. For pool-hub, verify shared-core's async support covers its needs, or keep pool-hub's async variant if it has specific requirements.
 4. Update all `from app.core.database import ...` in agent-management to use shared-core.
 
 **Verification**:
+
 ```bash
 # Verify agent-management and pool-hub still work
 cd apps/agent-management && ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -280,6 +300,7 @@ cd apps/pool-hub && ../../venv/bin/python -m pytest tests -q -o addopts=""
 #### B5: Adopt ServiceSettings across 5 services
 
 **Files** (5 services define their own `Settings(BaseSettings)` with similar fields):
+
 - `apps/trading/src/trading_service/config.py` (80 lines)
 - `apps/governance/src/governance_service/config.py` (64 lines)
 - `apps/marketplace/src/marketplace_service/config.py` (42 lines)
@@ -289,6 +310,7 @@ cd apps/pool-hub && ../../venv/bin/python -m pytest tests -q -o addopts=""
 **Problem**: Services re-implement config fields (bind_host, bind_port, blockchain_rpc_url) instead of subclassing `ServiceSettings` from `aitbc_shared/core/config.py` (violates AGENTS.md convention).
 
 **Fix**:
+
 1. Read `packages/aitbc-shared/aitbc_shared/core/config.py` to understand `ServiceSettings` and `DatabaseConfig`.
 2. For each service, change `class Settings(BaseSettings)` to `class Settings(ServiceSettings)`.
 3. Remove redundant fields if they're already in `ServiceSettings`.
@@ -296,6 +318,7 @@ cd apps/pool-hub && ../../venv/bin/python -m pytest tests -q -o addopts=""
 5. Update imports to use `from aitbc_shared.core.config import ServiceSettings`.
 
 **Verification**:
+
 ```bash
 # Verify all services still start with new config
 for service in trading governance marketplace gpu blockchain-event-bridge; do
@@ -308,6 +331,7 @@ done
 #### B6: Consolidate security utils
 
 **Files**:
+
 - `apps/coordinator-api/src/app/utils/security.py` (144 lines) — InputValidator, RequestSigner, APIKeyRotator
 - `cli/utils/security.py` (259 lines) — encryption, password validation, multisig
 - `apps/wallet/src/app/security.py` (23 lines) — validate_password_rules, wipe_buffer
@@ -315,6 +339,7 @@ done
 **Similarity**: Overlapping password validation but different implementations. CLI version has comprehensive encryption (PBKDF2+Fernet). Coordinator-api version has input validation (SQL injection, XSS). Wallet version has minimal password rules.
 
 **Fix**:
+
 1. Move coordinator-api's InputValidator to `aitbc/security/validators.py`.
 2. Move CLI's encryption to `aitbc/security/encryption.py`.
 3. Consolidate password validation to single implementation in `aitbc/security/`.
@@ -322,6 +347,7 @@ done
 5. Update all imports.
 
 **Verification**:
+
 ```bash
 # Verify security utils still work
 ./venv/bin/python -m pytest tests/unit -q -o addopts=""
@@ -331,6 +357,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 #### B7: Eliminate small copy-pastes
 
 **Patterns**:
+
 1. **Health endpoints** — `HealthResponse` + `/health` handler copy-pasted in 6 services
 2. **CORS setup** — CORSMiddleware setup block in 27 files
 3. **Decimal helpers** — `_to_decimal` duplicated in exchange handlers
@@ -338,6 +365,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 5. **GlobalMarketplaceOffer** — diverged copies in marketplace service (Decimal) vs coordinator-api (float)
 
 **Fix**:
+
 1. **Health endpoints**: Add `create_health_endpoint(service_name)` decorator to `aitbc/health_checks.py`. Services use decorator instead of redefining.
 2. **CORS setup**: Create `aitbc/middleware/cors.py` with `setup_cors()` function. Services call `setup_cors(app, settings.allow_origins)`.
 3. **Decimal helpers**: Add `to_decimal()` to `aitbc/utils/decimal.py`. Deprecate local implementations.
@@ -345,6 +373,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 5. **GlobalMarketplaceOffer**: Handle in B8 (Decimal gap fix).
 
 **Verification**:
+
 ```bash
 # Verify services still work
 ./venv/bin/python -m pytest tests/unit -q -o addopts=""
@@ -353,6 +382,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 #### B8: Fix GlobalMarketplaceOffer Decimal inconsistency
 
 **Files**:
+
 - `apps/marketplace/src/marketplace_service/domain/global_marketplace.py` (uses `Decimal` for base_price)
 - `apps/coordinator-api/src/app/contexts/marketplace/domain/global_marketplace.py` (uses `float` for base_price)
 - `packages/aitbc-shared/aitbc_shared/models/marketplace.py` (has MarketplaceOffer, not GlobalMarketplaceOffer)
@@ -360,12 +390,14 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 **Problem**: Diverged copies of GlobalMarketplaceOffer with inconsistent types (Decimal vs float). This is a Decimal migration gap that v0.10.6 should have addressed.
 
 **Fix**:
+
 1. Add GlobalMarketplaceOffer to `packages/aitbc-shared/aitbc_shared/models/marketplace.py` with Decimal for money fields.
 2. Deprecate both app-specific versions (re-export shims).
 3. Update imports in marketplace service and coordinator-api to use aitbc-shared version.
 4. Fix type inconsistency (standardize on Decimal for money).
 
 **Verification**:
+
 ```bash
 # Verify Decimal migration doesn't break tests
 cd apps/marketplace && ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -379,6 +411,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 ### No coordination required
 
 Agent A and Agent B tasks are independent:
+
 - Agent A deletes dead code (no business logic impact)
 - Agent B consolidates duplicates (requires business logic understanding but doesn't touch files Agent A deletes)
 

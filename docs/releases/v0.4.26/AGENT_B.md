@@ -7,6 +7,7 @@
 **Current state**: Security headers, CSP, HSTS, XSS protection, content sniffing, frame options, all in one module.
 
 **Actual architecture implemented**:
+
 ```
 aitbc/security/
   __init__.py           # Re-exports for backward compatibility
@@ -18,12 +19,14 @@ aitbc/security/
 **Note**: The actual file content was security validation, audit logging, and rate limiting rather than middleware headers/CSP/HSTS. The `SecurityHeadersMiddleware` already lives in `aitbc/middleware.py`.
 
 **Migration steps completed**:
+
 1. Created `aitbc/security/` subpackage
 2. Moved `SecurityValidator` to `validators.py`
 3. Moved `SecurityAuditLog` and `SecurityAuditor` to `audit.py`
 4. Created `RateLimiter` in `rate_limiter.py`
 5. Updated `__init__.py` exports
 6. Converted `security_hardening.py` to deprecation shim:
+
    ```python
    # DEPRECATED: Use aitbc.security
    from aitbc.security import SecurityValidator, SecurityAuditLog, SecurityAuditor, RateLimiter
@@ -32,6 +35,7 @@ aitbc/security/
    ```
 
 **Classes/Functions Migrated** (from `aitbc/security_hardening.py`):
+
 - `SecurityValidator` class → `validators.py`
 - `SecurityAuditLog` class + `SecurityAuditor` class → `audit.py`
 - `RateLimiter` class → `rate_limiter.py` (new addition)
@@ -48,6 +52,7 @@ aitbc/security/
 **Current state**: Agent registration, discovery, health tracking, and metadata management all in one file.
 
 **Target architecture**:
+
 ```
 aitbc/agent_registry/src/
   registration.py       # Core registration API (shrunk)
@@ -57,6 +62,7 @@ aitbc/agent_registry/src/
 ```
 
 **Migration steps**:
+
 1. Extract discovery, health, and metadata into separate modules:
    - Agent discovery logic → `discovery.py`
    - Health tracking → `health.py`
@@ -65,6 +71,7 @@ aitbc/agent_registry/src/
 3. Update `aitbc/agent_registry/src/__init__.py` exports
 
 **Classes/Functions to Migrate** (from `aitbc/agent_registry/src/registration.py`):
+
 - `AgentRegistry` class with registration methods (lines ~30-200)
 - Discovery logic: `discover_agents()`, `find_agent()`, `list_agents()` (lines ~202-300)
 - Health tracking: `AgentHealth`, `check_health()`, `heartbeat()` (lines ~302-380)
@@ -81,6 +88,7 @@ aitbc/agent_registry/src/
 **Current state**: Training environment configuration, validation, hardware detection, dependency checking, and dataset management.
 
 **Actual architecture implemented**:
+
 ```
 aitbc/training_setup/
   __init__.py           # Re-exports for backward compatibility
@@ -93,6 +101,7 @@ aitbc/training_setup/
 **Note**: The actual file content was blockchain/wallet setup (genesis allocation, faucet setup, messaging auth) rather than ML training hardware/dataset management. The module name is historical.
 
 **Migration steps completed**:
+
 1. Split into focused modules:
    - Core environment config and prerequisites → `environment.py` (shrunk)
    - Genesis allocation and faucet setup → `blockchain.py`
@@ -101,6 +110,7 @@ aitbc/training_setup/
 2. Updated `aitbc/training_setup/__init__.py` exports
 
 **Classes/Functions Migrated** (from `aitbc/training_setup/environment.py`):
+
 - `TrainingEnvironment` class → `environment.py` (shrunk)
 - Genesis allocation, faucet setup → `blockchain.py`
 - Messaging authentication → `messaging.py`
@@ -118,6 +128,7 @@ aitbc/training_setup/
 **Current state**: Test fixtures, mock generators, assertion helpers, and test utilities all in one file.
 
 **Actual architecture implemented**:
+
 ```
 aitbc/testing/
   __init__.py           # Re-exports for backward compatibility
@@ -130,6 +141,7 @@ aitbc/testing/
 **Note**: The actual file content had factory classes, mock classes, assertion helpers, and test decorators rather than pytest fixtures. `decorators.py` was created instead of `fixtures.py`.
 
 **Migration steps completed**:
+
 1. Split into utilities package:
    - MockFactory, TestDataGenerator → `factories.py`
    - MockResponse, MockDatabase, MockCache → `mocks.py`
@@ -138,6 +150,7 @@ aitbc/testing/
 2. Updated `aitbc/testing/__init__.py` exports
 
 **Classes/Functions Migrated** (from `aitbc/testing/testing.py`):
+
 - `MockFactory` class + `TestDataGenerator` class → `factories.py`
 - `MockResponse` class + `MockDatabase` class + `MockCache` class → `mocks.py`
 - `TestHelpers` class → `assertions.py`
@@ -155,6 +168,7 @@ aitbc/testing/
 **Current state**: Task queue, job scheduler, worker pool, priority queue, debounce/throttle decorators all in one file.
 
 **Actual architecture implemented**:
+
 ```
 aitbc/queues/
   __init__.py           # Re-exports for backward compatibility
@@ -167,6 +181,7 @@ aitbc/queues/
 **Note**: Minor naming differences from initial plan (`task.py` instead of `queue.py`, `worker.py` singular instead of `workers.py`).
 
 **Migration steps completed**:
+
 1. Split into components:
    - `Job` + `JobStatus` + `JobPriority` + `TaskQueue` → `task.py`
    - `JobScheduler` → `scheduler.py`
@@ -175,6 +190,7 @@ aitbc/queues/
 2. Updated `aitbc/queues/__init__.py` exports
 
 **Classes/Functions Migrated** (from `aitbc/queues/queue_manager.py`):
+
 - `Job` dataclass + `JobStatus` + `JobPriority` enums + `TaskQueue` class → `task.py`
 - `JobScheduler` class → `scheduler.py`
 - `BackgroundTaskManager` class + `WorkerPool` class → `worker.py`
@@ -192,12 +208,14 @@ aitbc/queues/
 ### SQLAlchemy Table Conflicts (High Priority — Sprint 1)
 
 **Problem**: 4 coordinator API test files fail collection due to duplicate ORM model definitions:
+
 - `MarketplaceBid` — defined in `apps/marketplace` and `apps/coordinator-api`
 - `JobPayment` / `PaymentEscrow` — defined in `apps/payments` and `apps/coordinator-api`
 
 **Error**: `sqlalchemy.exc.InvalidRequestError: Table 'marketplace_bid' is already defined for this MetaData instance`
 
 **Solution**: Create shared models package
+
 ```
 packages/aitbc-shared/
   models/
@@ -208,6 +226,7 @@ packages/aitbc-shared/
 ```
 
 **Migration steps**:
+
 1. Create `packages/aitbc-shared/` with shared ORM models:
    - `packages/aitbc-shared/models/marketplace.py` — `MarketplaceBid`, `MarketplaceOffer`
    - `packages/aitbc-shared/models/payments.py` — `JobPayment`, `PaymentEscrow`
@@ -232,6 +251,7 @@ packages/aitbc-shared/
 **Problem**: `from starlette.testclient import TestClient as StarletteTestClient` triggers deprecation warning
 
 **Fix**: Migrate to `httpx.AsyncClient` with ASGI transport
+
 ```python
 # Old (lines 14-16)
 from starlette.testclient import TestClient as StarletteTestClient
@@ -245,6 +265,7 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 ```
 
 **Migration steps**:
+
 1. Replace `StarletteTestClient` with `httpx.AsyncClient` in `tests/cli/test_cli_integration.py`
 2. Update all test functions to use `await client.get()` / `client.post()` pattern
 3. Update context manager usage from `with TestClient()` to `async with AsyncClient()`
@@ -252,6 +273,7 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 5. Add `pytest-asyncio` marker if needed
 
 **Files to update**:
+
 - `tests/cli/test_cli_integration.py` (main file)
 - Any other test files using `StarletteTestClient`
 
@@ -266,6 +288,7 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 **Target**: `apps/` has 42 directories - many inactive/experimental
 
 **Known Active Apps** (by service logs, CI, test references):
+
 - `agent-coordinator` ✅
 - `coordinator-api` ✅
 - `blockchain-node` ✅
@@ -277,7 +300,9 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 - `governance` ✅
 
 **Steps**:
+
 1. Audit script: check git activity (last 6 months), CI workflow references, service logs
+
    ```bash
    # Check git activity
    for app in apps/*/; do
@@ -285,12 +310,16 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
      git log --oneline -5 -- "$app" 2>/dev/null || echo "No git history"
    done
    ```
+
 2. Move inactive apps to `apps/archive/`
+
    ```bash
    mkdir -p apps/archive
    mv apps/inactive-app apps/archive/
    ```
+
 3. Document active apps in `docs/architecture/active_apps.md`:
+
    ```markdown
    # Active AITBC Applications
 
@@ -309,7 +338,7 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 
 ---
 
-## Common Requirements for All Agent B Tasks:
+## Common Requirements for All Agent B Tasks
 
 1. **Tests first**: Add tests to new modules before removing old code
    - Target: 80%+ coverage on new modules
@@ -320,6 +349,7 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
    - Document migration path in shim docstrings
 
 3. **Run test suite** after changes:
+
    ```bash
    pytest tests/ --ignore=tests/test_coordinator_api*.py -x -q
    ```
@@ -330,24 +360,28 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 
 ---
 
-## Execution Order for Agent B:
+## Execution Order for Agent B
 
 All sprints have been completed successfully.
 
 ### Sprint 1 (Week 1-2): High Priority ✅ COMPLETED
+
 1. **SQLAlchemy conflicts** — Create shared models package ✅
 2. **httpx2 migration** — CLI test fix ✅
 
 ### Sprint 2 (Week 2-3): Refactoring ✅ COMPLETED
+
 1. **security_hardening.py** — 1 day ✅
 2. **agent_registry/src/registration.py** — 1 day ✅
 
 ### Sprint 3 (Week 3-4): More Refactoring ✅ COMPLETED
+
 1. **training_setup/environment.py** — 0.5-1 day ✅
 2. **testing/testing.py** — 0.5-1 day ✅
 3. **queues/queue_manager.py** — 0.5-1 day ✅
 
 ### Sprint 4 (Week 4): Cleanup ✅ COMPLETED
+
 1. **Apps audit & archive** — 2-3 days ✅
 2. **Documentation update** — `docs/architecture/active_apps.md` ✅
 

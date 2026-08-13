@@ -13,6 +13,7 @@ This document describes the service isolation configuration implemented for AITB
 ### User Strategy
 
 **Streamlined User Categories:**
+
 - **aitbc-public** - Public exposure services (0.0.0.0 binding)
 - **aitbc-internal** - Internal services (127.0.0.1 binding)
 - **aitbc-blockchain** - Blockchain services (P2P, RPC, node)
@@ -20,6 +21,7 @@ This document describes the service isolation configuration implemented for AITB
 - **aitbc-wallet** - Wallet service (keystore access)
 
 **User Count Reduction:**
+
 - **Before**: 8 individual users + 18 root services = 26 users
 - **After**: 5 users for 26 services
 - **Reduction**: ~80% reduction in user count
@@ -55,6 +57,7 @@ This document describes the service isolation configuration implemented for AITB
 ### Services Still Running as Root
 
 **Remaining Root Services (2):**
+
 - aitbc-agent-management.service - Agent management
 - aitbc-miner.service - Miner service
 
@@ -67,11 +70,13 @@ This document describes the service isolation configuration implemented for AITB
 ### Public Services (aitbc-public user)
 
 **Services:**
+
 - **aitbc-api-gateway.service** - API Gateway (0.0.0.0:8201)
 - **aitbc-edge.service** - Edge API (0.0.0.0:8111)
 - **aitbc-whisper.service** - Whisper transcription (0.0.0.0:8110)
 
 **Service File Configuration:**
+
 ```ini
 [Service]
 Type=simple
@@ -81,12 +86,14 @@ WorkingDirectory=/opt/aitbc/apps/<service>
 ```
 
 **File Permissions:**
+
 - `/opt/aitbc/apps/api-gateway`: `aitbc-public:aitbc-services 750`
 - `/opt/aitbc/apps/edge`: `aitbc-public:aitbc-services 750`
 - `/opt/aitbc/apps/whisper`: `aitbc-public:aitbc-services 750`
 - `/var/lib/aitbc/whisper-cache`: `aitbc-public:aitbc-services`
 
 **Additional Groups:**
+
 - `video` - Added for GPU access (whisper)
 - `audio` - Added for audio device access (whisper)
 
@@ -95,11 +102,13 @@ WorkingDirectory=/opt/aitbc/apps/<service>
 ### Internal Services (aitbc-internal user)
 
 **Services:**
+
 - **aitbc-marketplace.service** - Marketplace (127.0.0.1:8102)
 - **aitbc-agent.service** - Agent messaging (127.0.0.1:8107)
 - **aitbc-agent-coordinator.service** - Agent coordinator (127.0.0.1:8107)
 
 **Service File Configuration:**
+
 ```ini
 [Service]
 Type=simple
@@ -109,6 +118,7 @@ WorkingDirectory=/opt/aitbc/apps/<service>
 ```
 
 **File Permissions:**
+
 - `/opt/aitbc/apps/marketplace`: `aitbc-internal:aitbc-services 750`
 - `/opt/aitbc/apps/agent`: `aitbc-internal:aitbc-services 750`
 - `/opt/aitbc/apps/agent-coordinator`: `aitbc-internal:aitbc-services 750`
@@ -118,11 +128,13 @@ WorkingDirectory=/opt/aitbc/apps/<service>
 ### Blockchain Services (aitbc-blockchain user)
 
 **Services:**
+
 - **aitbc-blockchain-node.service** - Blockchain node
 - **aitbc-blockchain-p2p.service** - P2P network (0.0.0.0:8200)
 - **aitbc-blockchain-rpc.service** - Blockchain RPC (127.0.0.1:8202)
 
 **Service File Configuration:**
+
 ```ini
 [Service]
 Type=simple
@@ -132,11 +144,13 @@ WorkingDirectory=/opt/aitbc
 ```
 
 **File Permissions:**
+
 - `/opt/aitbc/apps/blockchain-node`: `aitbc-blockchain:aitbc-services 750`
 - `/var/lib/aitbc/data`: `aitbc-blockchain:aitbc-services`
 - `/var/lib/aitbc/keystore`: `aitbc-blockchain:aitbc-services`
 
 **Special Configuration:**
+
 - Removed `ProtectHome=true` for service user compatibility
 - Database access configured for blockchain user
 
@@ -145,6 +159,7 @@ WorkingDirectory=/opt/aitbc
 ### GPU Service (aitbc-gpu user)
 
 **Service File:** `/etc/systemd/system/aitbc-gpu.service`
+
 ```ini
 [Service]
 Type=simple
@@ -154,10 +169,12 @@ WorkingDirectory=/opt/aitbc/apps/gpu
 ```
 
 **File Permissions:**
+
 - `/opt/aitbc/apps/gpu`: `aitbc-gpu:aitbc-services 750`
 - Database: `aitbc-gpu:aitbc-services`
 
 **Additional Groups:**
+
 - `video` - Added for GPU access
 
 **Status:** ✅ Running as aitbc-gpu user
@@ -165,6 +182,7 @@ WorkingDirectory=/opt/aitbc/apps/gpu
 ### Wallet Service (aitbc-wallet user)
 
 **Service File:** `/etc/systemd/system/aitbc-wallet.service`
+
 ```ini
 [Service]
 Type=simple
@@ -175,12 +193,14 @@ Environment=WALLET_DIR=/var/lib/aitbc/wallets
 ```
 
 **File Permissions:**
+
 - `/opt/aitbc/apps/wallet`: `aitbc-wallet:aitbc-services 750`
 - `/var/lib/aitbc/wallets`: `aitbc-wallet:aitbc-services`
 - `/var/lib/aitbc/keystore`: `aitbc-wallet:aitbc-services`
 - `/var/lib/aitbc/data`: `aitbc-wallet:aitbc-services`
 
 **Wrapper Script Changes:**
+
 - `/opt/aitbc/apps/wallet/aitbc-wallet-wrapper.py`: Added WALLET_DIR environment variable support
 - `/opt/aitbc/apps/wallet/src/app/main.py`: Updated to use WALLET_DIR environment variable
 
@@ -191,6 +211,7 @@ Environment=WALLET_DIR=/var/lib/aitbc/wallets
 ### Process Verification
 
 **Services Running as Dedicated Users:**
+
 ```bash
 # Public services (aitbc-public)
 aitbc-p+  149308  /opt/aitbc/venv/bin/python -m uvicorn api_gateway.main:app
@@ -215,6 +236,7 @@ aitbc-w+  145313  /opt/aitbc/venv/bin/python -m uvicorn wallet_app.main:app (wal
 ### Health Check Verification
 
 All isolated services are responding correctly:
+
 - ✅ API Gateway (8201): healthy
 - ✅ Edge API (8111): healthy
 - ✅ Whisper (8110): healthy
@@ -228,6 +250,7 @@ All isolated services are responding correctly:
 ### User Distribution Summary
 
 **Current User Distribution:**
+
 - **aitbc-public**: 6 services (API Gateway, Edge, Whisper, AI, Event Bridge, FFmpeg)
 - **aitbc-internal**: 10 services (Marketplace, Agent, Agent Coordinator, Coordinator API, Exchange, Governance, Trading, Learning, Modality, Multimodal, Plugin, Monitoring)
 - **aitbc-blockchain**: 3 services (Node, P2P, RPC)
@@ -242,6 +265,7 @@ All isolated services are responding correctly:
 ### Services Still Running as Root
 
 **Remaining Root Services (14):**
+
 - `aitbc-agent-management.service` - Agent management
 - `aitbc-ai.service` - AI service (0.0.0.0:8005)
 - `aitbc-blockchain-event-bridge.service` - Event Bridge (0.0.0.0:8205)
@@ -260,10 +284,12 @@ All isolated services are responding correctly:
 ### Recommended Migrations
 
 **Migrate to aitbc-public:**
+
 - `aitbc-ai.service` - AI service (0.0.0.0:8005)
 - `aitbc-blockchain-event-bridge.service` - Event Bridge (0.0.0.0:8205)
 
 **Migrate to aitbc-internal:**
+
 - `aitbc-coordinator-api.service` - Coordinator API (127.0.0.1:8203)
 - `aitbc-exchange.service` - Exchange service (127.0.0.1:8106)
 - `aitbc-governance.service` - Governance service (127.0.0.1:8105)
@@ -274,6 +300,7 @@ All isolated services are responding correctly:
 - `aitbc-trading.service` - Trading service (127.0.0.1:8104)
 
 **Keep as Root (Special Requirements):**
+
 - `aitbc-agent-management.service` - Agent management
 - `aitbc-ffmpeg.service` - FFmpeg operations
 - `aitbc-miner.service` - Mining operations
@@ -282,12 +309,14 @@ All isolated services are responding correctly:
 ### Challenges for Remaining Services
 
 **Permission Requirements:**
+
 - Some services require root for network operations
 - Database access may need additional permissions
 - Some services bind to privileged ports
 - File system access restrictions
 
 **Configuration Requirements:**
+
 - Additional group memberships needed
 - Capability dropping configuration
 - File system namespace configuration
@@ -298,21 +327,25 @@ All isolated services are responding correctly:
 ### Implemented Security Improvements
 
 **Principle of Least Privilege:**
+
 - Services run with minimal required permissions
 - No shell access for service users
 - Dedicated users for each service category
 
 **Process Isolation:**
+
 - Services run as non-root users
 - Compromised service has limited system access
 - Reduced attack surface
 
 **File System Security:**
+
 - Service-specific file ownership
 - Restricted file permissions (750)
 - Separated data directories
 
 **User Strategy Benefits:**
+
 - **Reduced User Count**: 5 users for 26 services (vs 8 individual users + 18 root)
 - **Clear Security Boundaries**: Public vs internal vs specialized services
 - **Easier Management**: Grouped by exposure level
@@ -321,12 +354,14 @@ All isolated services are responding correctly:
 ### Security Limitations
 
 **Current Limitations:**
+
 - 11/26 services isolated (42%)
 - Root access still required for 15 services
 - No capability dropping implemented
 - No seccomp filters configured
 
 **Recommendations:**
+
 - Complete service isolation for remaining services
 - Implement capability dropping
 - Configure seccomp filters
@@ -337,6 +372,7 @@ All isolated services are responding correctly:
 ### Adding Service Isolation to a New Service
 
 **Steps:**
+
 1. Create dedicated user (if not exists)
 2. Set file ownership and permissions
 3. Update service file with User/Group directives
@@ -346,6 +382,7 @@ All isolated services are responding correctly:
 7. Verify service is running correctly
 
 **Example:**
+
 ```bash
 # Create user
 useradd -r -s /bin/false -g aitbc-services aitbc-newservice
@@ -367,18 +404,21 @@ systemctl restart aitbc-newservice.service
 ### Troubleshooting Service Isolation
 
 **Service won't start as dedicated user:**
+
 - Check file permissions: `ls -la /opt/aitbc/apps/<service>`
 - Check group membership: `groups <username>`
 - Review service logs: `journalctl -u <service-name> -f`
 - Verify user has required capabilities
 
 **Permission denied errors:**
+
 - Check file ownership: `stat <file>`
 - Verify group membership: `groups <username>`
 - Check ACL permissions: `getfacl <file>`
 - Add required supplementary groups
 
 **Database access issues:**
+
 - Check database file permissions
 - Verify user has read/write access to data directory
 - Check database configuration for user restrictions
@@ -388,6 +428,7 @@ systemctl restart aitbc-newservice.service
 ### Current Implementation
 
 ✅ **Implemented:**
+
 - 5 services running as dedicated users
 - Service users with no shell access
 - Proper file permissions (750)
@@ -395,11 +436,13 @@ systemctl restart aitbc-newservice.service
 - Group-based access control
 
 ⚠️ **Partially Implemented:**
+
 - Service isolation (5/26 services)
 - Capability dropping (not implemented)
 - Seccomp filters (not implemented)
 
 ❌ **Not Implemented:**
+
 - File system namespaces
 - Network namespaces
 - Capability dropping for all services
@@ -408,6 +451,7 @@ systemctl restart aitbc-newservice.service
 ### Recommended Practices
 
 **For Service Isolation:**
+
 1. Complete isolation for all services
 2. Implement capability dropping
 3. Configure seccomp filters
@@ -415,6 +459,7 @@ systemctl restart aitbc-newservice.service
 5. Regularly audit user permissions
 
 **For Security:**
+
 1. Regularly review service user permissions
 2. Monitor for privilege escalation attempts
 3. Audit file permissions regularly
@@ -426,11 +471,13 @@ systemctl restart aitbc-newservice.service
 ### Current Monitoring
 
 **User Monitoring:**
+
 - Service user creation and modification
 - Group membership changes
 - Permission changes
 
 **Service Monitoring:**
+
 - Service startup failures
 - Permission denied errors
 - File access errors
@@ -438,12 +485,14 @@ systemctl restart aitbc-newservice.service
 ### Recommended Monitoring
 
 **Security Events:**
+
 - Privilege escalation attempts
 - Unauthorized file access
 - Service running as root unexpectedly
 - Permission changes to critical files
 
 **Tools:**
+
 - Systemd journal for service logs
 - Auditd for system call monitoring
 - Custom security logging
@@ -468,6 +517,7 @@ systemctl restart aitbc-newservice.service
 ### Production Readiness
 
 **Before Production:**
+
 - [ ] Complete service isolation for all services
 - [ ] Implement capability dropping
 - [ ] Configure seccomp filters
@@ -496,6 +546,7 @@ systemctl restart aitbc-newservice.service
 ### Contact
 
 For questions or issues related to service isolation:
+
 - **Documentation**: `/opt/aitbc/docs/operations/`
 - **Service Logs**: `journalctl -u aitbc-*.service`
 - **User Management**: System user administration

@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.6.4 Suggestions
 
 ## Status
+
 **ALL 4 CLAIMS CONFIRMED** — Dead code verified, join_island caller inventory complete (8 call sites). All suggestions incorporated into change.log.
 
 ## Confirmed Gaps (verified in /opt/aitbc)
@@ -40,19 +42,19 @@
 
 ## Additional Suggestions (incorporated into change.log)
 
-5. **Per-chain port allocation spec** — `CHAIN_PORT_OFFSETS` config with base port + offset per chain. Conflict detection on startup. Default: all chains share base ports (backward compat).
+1. **Per-chain port allocation spec** — `CHAIN_PORT_OFFSETS` config with base port + offset per chain. Conflict detection on startup. Default: all chains share base ports (backward compat).
    — ✅ Added to change.log "Per-Chain Port Allocation" section.
 
-6. **CLI command routing** — `aitbc chain start/stop` delegates to `node/chain.py` implementations. Single source of truth, no duplicate logic. `--island` flag added to `chain list`.
+2. **CLI command routing** — `aitbc chain start/stop` delegates to `node/chain.py` implementations. Single source of truth, no duplicate logic. `--island` flag added to `chain list`.
    — ✅ Added to change.log "CLI Command Routing" section with verified file paths.
 
-7. **CHAIN_CONFIG_ parsing validator** — `field_validator` in config.py parses `CHAIN_CONFIG_*` env vars into typed `ChainConfig` objects. Fail fast on malformed entries.
+3. **CHAIN_CONFIG_ parsing validator** — `field_validator` in config.py parses `CHAIN_CONFIG_*` env vars into typed `ChainConfig` objects. Fail fast on malformed entries.
    — ✅ Added to change.log config section with full validator spec.
 
-8. **Island leave cleanup test** — Explicit test: leave island with 3 chains → verify all 3 databases closed, proposers stopped, gossip unsubscribed.
+4. **Island leave cleanup test** — Explicit test: leave island with 3 chains → verify all 3 databases closed, proposers stopped, gossip unsubscribed.
    — ✅ Added to change.log "Island Registry Testing" section.
 
-9. **Backward compat test matrix** — 5-row matrix covering single-chain config, make_genesis --chain-id, join_island single string, IslandMembership.chain_id access, block_production_chains default.
+5. **Backward compat test matrix** — 5-row matrix covering single-chain config, make_genesis --chain-id, join_island single string, IslandMembership.chain_id access, block_production_chains default.
    — ✅ Added to change.log "Backward Compatibility Testing" section.
 
 ## Quick Wins (incorporated into change.log)

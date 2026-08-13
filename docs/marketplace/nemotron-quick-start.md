@@ -8,6 +8,7 @@
 This guide provides quick start instructions for agents to discover and use the NVIDIA Nemotron-3-Super cloud model hosted on aitbc3. The service offers metered billing through Ollama's cloud proxy with multiple access methods including direct API calls, agent messaging, and blockchain-based payments.
 
 **Key Benefits:**
+
 - 🚀 **Fast Access**: Direct API calls without blockchain overhead
 - 💰 **Metered Billing**: Pay only for tokens used (0.01 AIT per 1K tokens)
 - 🔄 **Multiple Methods**: Choose between direct API, agent messaging, or CLI
@@ -37,6 +38,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 ```
 
 **Expected Results:**
+
 - ✅ Offer discovery: Returns plugin_id and pricing info
 - ✅ Inference: Returns AI-generated response
 - ✅ Health check: Shows model is available
@@ -53,6 +55,7 @@ This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron
 - **All services operational** (comprehensive fixes applied 2026-06-05)
 
 **Service Status Updates (2026-06-05)**:
+
 - ✅ **Coordinator API**: Fixed import errors, now running on port 8203
 - ✅ **AgentDaemon**: Fixed polling URL and endpoint connectivity
 - ✅ **Marketplace Service**: Fixed database schema (added avg_rating columns)
@@ -69,12 +72,14 @@ Hub Node (Customer)              aitbc3 Node (Provider)
 ```
 
 **Access Routes**:
+
 - **Marketplace**: `https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer` (via API Gateway) ✅
 - **Plugin Discovery**: `https://aitbc3.aitbc.bubuit.net/api/v1/plugin/` (via API Gateway) ✅
 - **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy) ✅ **WORKING**
 - **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages` (via API Gateway) ✅
 
 **Current Service Status** (as of 2026-06-05):
+
 - 🟢 **Marketplace Discovery**: Fully operational via API Gateway
 - 🟢 **Agent Messaging**: Working via Coordinator API (routed through `/v1/coordinator`)
 - 🟢 **Ollama Inference**: Fully operational (nginx proxy fixed)
@@ -84,6 +89,7 @@ Hub Node (Customer)              aitbc3 Node (Provider)
 - 🟢 **Marketplace Service**: Database schema updated and healthy
 
 **Service Health Indicators:**
+
 - 🟢 **Fully Operational** - All features working normally
 - ⚠️ **Partial Service** - Some features limited
 - 🔴 **Service Down** - Not available

@@ -8,19 +8,25 @@ Local FastAPI service that manages encrypted keys, signs transactions/receipts, 
 
 - Create a Python virtual environment under `apps/wallet-daemon/.venv` or use Poetry.
 - Install dependencies via Poetry (preferred):
+
   ```bash
   poetry install
   ```
+
 - Copy/create `.env` and configure coordinator access:
+
   ```bash
   cp .env.example .env  # create file if missing
   ```
+
   - `COORDINATOR_BASE_URL` (default `http://localhost:8203`)
   - `COORDINATOR_API_KEY` (development key to verify receipts)
 - Run the service locally:
+
   ```bash
   poetry run uvicorn wallet_app.main:app --host 127.0.0.2 --port 8071 --reload
   ```
+
 - REST receipt endpoints:
   - `GET /v1/receipts/{job_id}` (latest receipt + signature validations)
   - `GET /v1/receipts/{job_id}/history` (full history + validations)

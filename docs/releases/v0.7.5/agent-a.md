@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.2 Agent A ✅, v0.7.3 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/crypto/ aitbc/consensus/ && ./venv/bin/python -m ruff check aitbc/crypto/ aitbc/consensus/ tests/unit/test_consensus_signing.py && ./venv/bin/python -m pytest tests/unit/test_consensus_signing.py -q -o addopts=""
 ```
@@ -122,6 +123,7 @@ Create `aitbc/consensus/__init__.py` exporting these types.
 ## A3: Unit Tests
 
 `tests/unit/test_consensus_signing.py` — tests for:
+
 - `sign_consensus_message()` + `verify_consensus_message()` round-trip (valid signature)
 - Verification fails with wrong sender
 - Verification fails with tampered message

@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/apps/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/marketplace/tests/ apps/gpu/tests/ -q -o addopts="" --timeout=60
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ apps/edge/
@@ -35,6 +36,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ app
 ## B1: Marketplace config
 
 Create `apps/marketplace/src/marketplace_service/config.py`:
+
 ```python
 from __future__ import annotations
 
@@ -72,6 +74,7 @@ Update `services/marketplace_service.py:208` to use `settings.blockchain_rpc_url
 ## B2: GPU service config
 
 Create `apps/gpu/src/gpu_service/config.py`:
+
 ```python
 from __future__ import annotations
 
@@ -104,6 +107,7 @@ Update `main.py:280` to use `settings.default_chain_id` instead of `os.getenv("C
 ## B3: Marketplace integration
 
 In `services/marketplace_service.py`:
+
 - Import `BlockchainRPCClient` and `OfferFSM` from `aitbc.marketplace`
 - Initialize `BlockchainRPCClient(settings.blockchain_rpc_url)` in service init
 - Replace direct RPC calls with `BlockchainRPCClient.query_offers(chain_id=settings.default_chain_id)`
@@ -115,6 +119,7 @@ In `services/marketplace_service.py`:
 ## B4: GPU service integration
 
 In `main.py` and `domain/gpu_marketplace.py`:
+
 - Import `BlockchainRPCClient` and `OfferFSM` from `aitbc.marketplace`
 - Initialize `BlockchainRPCClient(settings.blockchain_rpc_url)` in main
 - Use `settings.default_chain_id` for all blockchain transactions
@@ -126,23 +131,28 @@ In `main.py` and `domain/gpu_marketplace.py`:
 ## B5: Edge service fixes
 
 Fix schema mismatches:
+
 - In `schemas/gpu.py`: align field names with `services/gpu_service.py` (use `gpu_id`, `model` instead of `listing_id`, `gpu_type`)
 - In `schemas/serve.py`: align `result` field with `services/serve_service.py` (use `output_data` or update service to use `result`)
 - Remove `# type: ignore[attr-defined]` comments after fixing
 
 Add payment verification:
+
 - In `routers/serve.py`: before serving, call `BlockchainRPCClient.verify_escrow(escrow_id)` to confirm payment
 - Add feature flag `payment_verification_enabled` in config
 
 Add marketplace advertising:
+
 - Create endpoint `POST /v1/edge/capabilities` to advertise GPU models, capacity to marketplace
 - Call marketplace RPC to register edge node capabilities
 
 Add coordinator health reporting:
+
 - Add periodic heartbeat to agent-coordinator `/health` endpoint
 - Report edge node status (GPU availability, active tasks)
 
 Remove dead code:
+
 - Remove unused JWT config from `config.py` (lines 38-40)
 
 ---
@@ -150,6 +160,7 @@ Remove dead code:
 ## B6: Marketplace matching
 
 In `services/matching_service.py`:
+
 - Implement price-time priority matching: sort offers by (price, timestamp)
 - Integrate with agent-coordinator: when match is found, submit task to `/tasks/submit`
 - Add `agent_coordinator_url` to config (already in B1)
@@ -160,12 +171,14 @@ In `services/matching_service.py`:
 ## B7: Integration tests
 
 Create `apps/marketplace/tests/test_v066_marketplace.py`:
+
 - `test_offer_lifecycle_with_fsm` — AVAILABLE → RESERVED → IN_USE → AVAILABLE
 - `test_chain_id_filter_in_queries` — offers filtered by chain_id
 - `test_price_time_matching` — offers sorted by price then time
 - `test_agent_coordinator_task_submission` — match submits task to coordinator
 
 Create `apps/gpu/tests/test_v066_gpu.py`:
+
 - `test_gpu_registration_with_chain_id` — GPU registered with correct chain_id
 - `test_gpu_offer_fsm_transitions` — GPU offer status follows FSM
 - `test_gpu_allocation_on_blockchain` — allocation recorded on blockchain
@@ -175,6 +188,7 @@ Create `apps/gpu/tests/test_v066_gpu.py`:
 ## B8: Verify full test suite
 
 Run full test suite for marketplace and GPU:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/marketplace/tests/ apps/gpu/tests/ -q -o addopts="" --timeout=60
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ apps/edge/

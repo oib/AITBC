@@ -60,6 +60,7 @@ Every completed job generates a receipt containing:
 ### Explorer
 
 Visit [Explorer → Receipts](https://aitbc.bubuit.net/explorer/#/receipts) to see:
+
 - All recent receipts on the network
 - Filter by your address to see your history
 - Click any receipt for full details
@@ -113,6 +114,7 @@ See [Bitcoin Wallet Setup](../architecture/6_trade-exchange.md) for detailed ins
 ### Via Mining
 
 Earn AITBC by providing GPU compute:
+
 - See [Miner Documentation](../architecture/4_blockchain-node.md)
 
 ## Verifying Receipts
@@ -132,6 +134,7 @@ print(f"Receipt valid: {is_valid}")
 ### On-Chain Verification
 
 Receipts can be anchored on-chain for permanent proof:
+
 - ZK proofs enable privacy-preserving verification
 - See [ZK Applications](../reference/5_zk-proofs.md)
 

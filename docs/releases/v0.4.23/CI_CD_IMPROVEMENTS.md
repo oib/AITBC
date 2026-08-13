@@ -46,11 +46,13 @@ addopts = "--cov-fail-under=50"
 ```
 
 ### 3. Add Integration Tests for Cross-Service Flows
+
 - coordinator → blockchain → hermes
 - wallet → marketplace → settlement
 - agent-management → agent-coordinator → execution
 
 ### 4. Create CI Pipeline Stages
+
 - Stage 1: Unit tests (fast, must pass)
 - Stage 2: Integration tests (slower, must pass)
 - Stage 3: E2E tests (slowest, can be optional for PRs)

@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/marketplace/ && ./venv/bin/python -m ruff check aitbc/marketplace/ tests/unit/test_offer_fsm.py tests/unit/test_blockchain_rpc.py && ./venv/bin/python -m pytest tests/unit/test_offer_fsm.py tests/unit/test_blockchain_rpc.py -q -o addopts=""
 ```
@@ -101,6 +102,7 @@ class OfferFSM:
 ```
 
 Export from `aitbc/marketplace/__init__.py`:
+
 ```python
 from .offer_fsm import OfferFSM, OfferStatus
 
@@ -244,6 +246,7 @@ class BlockchainRPCClient:
 ```
 
 Update `aitbc/marketplace/__init__.py`:
+
 ```python
 from .blockchain_rpc import BlockchainRPCClient
 from .offer_fsm import OfferFSM, OfferStatus
@@ -256,6 +259,7 @@ __all__ = ["BlockchainRPCClient", "OfferFSM", "OfferStatus"]
 ## A3: Unit tests
 
 **`tests/unit/test_offer_fsm.py`**:
+
 - `test_initial_status` — default is AVAILABLE
 - `test_valid_transition_available_to_reserved` — AVAILABLE → RESERVED
 - `test_valid_transition_reserved_to_in_use` — RESERVED → IN_USE
@@ -274,6 +278,7 @@ __all__ = ["BlockchainRPCClient", "OfferFSM", "OfferStatus"]
 - `test_from_string_invalid_raises` — "unknown" raises ValueError
 
 **`tests/unit/test_blockchain_rpc.py`** (mock httpx with respx or unittest.mock.AsyncMock):
+
 - `test_query_offers_with_chain_id` — verifies chain_id in request params
 - `test_query_offers_without_chain_id` — no chain_id param when None
 - `test_query_offers_client_side_filter_gpu_model` — filters by model

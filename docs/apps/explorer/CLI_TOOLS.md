@@ -28,6 +28,7 @@ aitbc blockchain transaction <TX_ID>
 ### Advanced Block Exploration
 
 #### Block Listing and Filtering
+
 ```bash
 # List latest blocks
 aitbc blockchain blocks --limit 20
@@ -47,6 +48,7 @@ aitbc blockchain blocks --show-transactions
 ```
 
 #### Block Details
+
 ```bash
 # Get block by height
 aitbc blockchain block 12345
@@ -64,6 +66,7 @@ aitbc blockchain block 12345 --validator-info
 ### Transaction Exploration
 
 #### Transaction Search and Details
+
 ```bash
 # Get transaction by hash
 aitbc blockchain transaction 0x1234567890abcdef...
@@ -79,6 +82,7 @@ aitbc blockchain transaction <TX_ID> --block-info
 ```
 
 #### Transaction Filtering and Search
+
 ```bash
 # Search transactions by address
 aitbc blockchain transactions --address <ADDRESS>
@@ -102,6 +106,7 @@ aitbc blockchain transactions --limit 50 --offset 100
 ### Address Exploration
 
 #### Address Information and Balance
+
 ```bash
 # Get address balance
 aitbc blockchain balance <ADDRESS>
@@ -117,6 +122,7 @@ aitbc blockchain address <ADDRESS> --tx-count
 ```
 
 #### Address Analytics
+
 ```bash
 # Get address transaction history
 aitbc blockchain transactions --address <ADDRESS>
@@ -134,6 +140,7 @@ aitbc blockchain address <ADDRESS> --tokens
 ### Validator Exploration
 
 #### Validator Information
+
 ```bash
 # List all validators
 aitbc blockchain validators
@@ -149,6 +156,7 @@ aitbc blockchain validator <VALIDATOR_ADDRESS> --rewards
 ```
 
 #### Validator Analytics
+
 ```bash
 # List active validators
 aitbc blockchain validators --status active
@@ -166,6 +174,7 @@ aitbc blockchain validator <VALIDATOR_ADDRESS> --uptime
 ### Network Exploration
 
 #### Network Status and Health
+
 ```bash
 # Get network overview
 aitbc blockchain network
@@ -181,6 +190,7 @@ aitbc blockchain network --health
 ```
 
 #### Peer Management
+
 ```bash
 # List connected peers
 aitbc blockchain peers
@@ -198,6 +208,7 @@ aitbc blockchain peers --test
 ### Advanced Search and Analytics
 
 #### Custom Queries
+
 ```bash
 # Search blocks with custom criteria
 aitbc blockchain search --type block --validator <ADDRESS> --limit 10
@@ -213,6 +224,7 @@ aitbc blockchain search --type event --event <EVENT_NAME>
 ```
 
 #### Analytics and Reporting
+
 ```bash
 # Generate blockchain analytics report
 aitbc blockchain analytics --period 24h
@@ -230,6 +242,7 @@ aitbc blockchain analytics --type network --period 1h
 ## 📊 Real-time Monitoring
 
 ### Live Blockchain Monitoring
+
 ```bash
 # Monitor new blocks in real-time
 aitbc blockchain monitor blocks
@@ -245,6 +258,7 @@ aitbc blockchain monitor validator <VALIDATOR_ADDRESS>
 ```
 
 ### Real-time Filtering
+
 ```bash
 # Monitor blocks with filtering
 aitbc blockchain monitor blocks --validator <ADDRESS>
@@ -259,6 +273,7 @@ aitbc blockchain monitor transactions --alert --threshold 100.0
 ## 🔧 Configuration and Customization
 
 ### Explorer Configuration
+
 ```bash
 # Set default explorer settings
 aitbc blockchain config set default-limit 20
@@ -273,6 +288,7 @@ aitbc blockchain config reset
 ```
 
 ### Output Formatting
+
 ```bash
 # Format output as JSON
 aitbc blockchain blocks --output json
@@ -290,6 +306,7 @@ aitbc blockchain transaction <TX_ID> --format custom --template "Hash: {hash}, A
 ## 🌐 Integration with Web Explorer
 
 ### Synchronization with Web Explorer
+
 ```bash
 # Sync CLI data with web explorer
 aitbc blockchain sync --explorer https://explorer.aitbc.dev
@@ -302,6 +319,7 @@ aitbc blockchain import --source https://explorer.aitbc.dev/api
 ```
 
 ### API Integration
+
 ```bash
 # Use CLI as API proxy
 aitbc blockchain api --port 8080
@@ -316,6 +334,7 @@ aitbc blockchain api --test
 ## 📝 Advanced Usage Examples
 
 ### Research and Analysis
+
 ```bash
 # Analyze transaction patterns
 aitbc blockchain analytics --type patterns --period 7d
@@ -331,6 +350,7 @@ aitbc blockchain validators --sort performance --descending --limit 10
 ```
 
 ### Auditing and Compliance
+
 ```bash
 # Audit trail for address
 aitbc blockchain address <ADDRESS> --full --audit
@@ -346,6 +366,7 @@ aitbc blockchain aml --address <ADDRESS> --report
 ```
 
 ### Development and Testing
+
 ```bash
 # Test blockchain connectivity
 aitbc blockchain test --full
@@ -363,6 +384,7 @@ aitbc blockchain debug --transaction <TX_ID>
 ## 🔍 Search Patterns and Examples
 
 ### Common Search Patterns
+
 ```bash
 # Find all transactions from an address
 aitbc blockchain transactions --address <ADDRESS> --type sent
@@ -381,6 +403,7 @@ aitbc blockchain transactions --type smart_contract --since "1 hour ago"
 ```
 
 ### Complex Queries
+
 ```bash
 # Find blocks with specific validator and high transaction count
 aitbc blockchain search --blocks --validator <ADDRESS> --min-tx 100
@@ -398,6 +421,7 @@ aitbc blockchain analytics --type volume --period 1d --output csv --file daily_v
 ## 🚀 Performance and Optimization
 
 ### Caching and Performance
+
 ```bash
 # Enable caching for faster queries
 aitbc blockchain cache enable
@@ -413,6 +437,7 @@ aitbc blockchain benchmark --query "transactions --address <ADDRESS>"
 ```
 
 ### Batch Operations
+
 ```bash
 # Batch transaction lookup
 aitbc blockchain batch-transactions --file tx_hashes.txt
@@ -427,6 +452,7 @@ aitbc blockchain batch-blocks --file block_heights.txt
 ## 📱 Mobile and Remote Access
 
 ### Remote Blockchain Access
+
 ```bash
 # Connect to remote blockchain node
 aitbc blockchain remote --node https://node.aitbc.dev
@@ -439,6 +465,7 @@ aitbc blockchain tunnel --ssh user@server --port 8202
 ```
 
 ### Mobile Optimization
+
 ```bash
 # Mobile-friendly output
 aitbc blockchain blocks --mobile --limit 5
@@ -453,6 +480,7 @@ aitbc blockchain status --quick
 ## 🔗 Integration with Other Tools
 
 ### Data Export and Integration
+
 ```bash
 # Export to CSV for Excel
 aitbc blockchain transactions --output csv --file transactions.csv
@@ -468,6 +496,7 @@ aitbc blockchain export --elasticsearch --url http://localhost:9200
 ```
 
 ### Scripting and Automation
+
 ```bash
 #!/bin/bash
 # Script to monitor large transactions
@@ -486,6 +515,7 @@ done
 ## 🛠️ Troubleshooting and Debugging
 
 ### Common Issues and Solutions
+
 ```bash
 # Check blockchain connectivity
 aitbc blockchain test --connectivity
@@ -504,6 +534,7 @@ aitbc blockchain api --status
 ```
 
 ### Performance Issues
+
 ```bash
 # Check query performance
 aitbc blockchain benchmark --query "blocks --limit 100"
@@ -519,6 +550,7 @@ aitbc blockchain monitor --resources
 ## 📚 Best Practices
 
 ### For Researchers
+
 1. **Use filters effectively** to narrow down search results
 2. **Export data** for offline analysis
 3. **Use caching** for repeated queries
@@ -526,6 +558,7 @@ aitbc blockchain monitor --resources
 5. **Document queries** for reproducibility
 
 ### For Developers
+
 1. **Use JSON output** for programmatic access
 2. **Test connectivity** before running complex queries
 3. **Use batch operations** for multiple lookups
@@ -533,6 +566,7 @@ aitbc blockchain monitor --resources
 5. **Handle errors gracefully** in scripts
 
 ### For Analysts
+
 1. **Use analytics commands** for insights
 2. **Export to CSV/Excel** for reporting
 3. **Set up monitoring** for ongoing analysis
@@ -555,6 +589,7 @@ If you're transitioning from the web-based explorer:
 ## 📞 Support and Help
 
 ### Command Help
+
 ```bash
 # General help
 aitbc blockchain --help
@@ -566,6 +601,7 @@ aitbc blockchain search --help
 ```
 
 ### Troubleshooting
+
 ```bash
 # Check system status
 aitbc blockchain status --full

@@ -28,16 +28,19 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [ReputationDTO](./agent-a.md#a1-reputationdto)
 - [Unit tests](./agent-a.md#a2-unit-tests-for-reputationdto)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Certification Refactor](./agent-b.md#b1-certification-refactor)

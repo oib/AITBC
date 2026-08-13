@@ -12,6 +12,7 @@
 **Prerequisite**: v0.8.0 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && ./venv/bin/python -m ruff check aitbc/trading/ tests/unit/test_offer_sync.py && ./venv/bin/python -m pytest tests/unit/test_offer_sync.py -q -o addopts=""
 ```
@@ -32,6 +33,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && 
 ## A1: Offer Sync Types
 
 Create `aitbc/trading/offer_types.py`:
+
 - `OfferSyncStatus` enum — fresh, stale, syncing, error
 - `SyncedOffer` dataclass — cached offer with sync metadata
 - `OfferSyncConfig` dataclass — per-chain sync intervals + staleness thresholds
@@ -43,6 +45,7 @@ Create `aitbc/trading/offer_types.py`:
 ## A2: Offer Sync Client
 
 Create `aitbc/trading/offer_client.py`:
+
 - `OfferSyncClient` — async HTTP client for offer sync endpoints
 - `discover_offers(filters)` — discover offers across chains
 - `sync_offers(chain_id)` — trigger sync for a specific chain
@@ -54,6 +57,7 @@ Create `aitbc/trading/offer_client.py`:
 ## A3: Offer Cache
 
 Create `aitbc/trading/offer_cache.py`:
+
 - `OfferCache` — wraps RedisCache for offer-specific caching
 - `get_offer(offer_id)` — get cached offer
 - `set_offer(offer_id, offer, ttl)` — cache offer with TTL
@@ -69,6 +73,7 @@ Create `aitbc/trading/offer_cache.py`:
 ## A4: Unit Tests
 
 `tests/unit/test_offer_sync.py` — tests for:
+
 - Offer sync types serialization
 - Offer sync client HTTP methods (mocked httpx)
 - Offer cache get/set/delete

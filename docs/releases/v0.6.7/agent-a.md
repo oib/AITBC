@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/rewards/ aitbc/crypto/transaction_service.py && ./venv/bin/python -m ruff check aitbc/rewards/ aitbc/crypto/transaction_service.py tests/unit/test_reward_policy.py && ./venv/bin/python -m pytest tests/unit/test_reward_policy.py -q -o addopts=""
 ```
@@ -230,6 +231,7 @@ class RewardPolicy:
 ```
 
 Export from `aitbc/rewards/__init__.py`:
+
 ```python
 from .policy import (
     BASE_BLOCK_REWARD,
@@ -267,12 +269,14 @@ __all__ = [
 In `aitbc/crypto/transaction_service.py`, fix lines 41-42:
 
 **Before:**
+
 ```python
 self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
 self.chain_id = os.getenv("CHAIN_ID", "")
 ```
 
 **After:**
+
 ```python
 self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 self.chain_id = os.getenv("CHAIN_ID", "ait-hub")
@@ -285,6 +289,7 @@ This is a minimal fix — just changing two default values. The port 8202 matche
 ## A3: Unit tests
 
 **`tests/unit/test_reward_policy.py`**:
+
 - `test_calculate_block_reward_genesis` — height 0 → BASE_BLOCK_REWARD
 - `test_calculate_block_reward_after_first_halving` — height 210000 → BASE_BLOCK_REWARD / 2
 - `test_calculate_block_reward_after_second_halving` — height 420000 → BASE_BLOCK_REWARD / 4

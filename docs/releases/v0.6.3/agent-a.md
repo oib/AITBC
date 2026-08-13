@@ -10,6 +10,7 @@ Create generic sync source resolution and island registry parsing utilities. The
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -174,6 +175,7 @@ Export from `aitbc/network/__init__.py` as `IslandRegistry`, `IslandRegistryEntr
 ### A3: Unit tests
 
 **`tests/unit/test_sync_source_resolver.py`**:
+
 - `test_empty_sources_uses_default` — empty string, default URL returned
 - `test_single_source` — one chain mapped
 - `test_multiple_sources` — multiple chains mapped
@@ -186,6 +188,7 @@ Export from `aitbc/network/__init__.py` as `IslandRegistry`, `IslandRegistryEntr
 - `test_get_all_sources` — returns copy of sources dict
 
 **`tests/unit/test_island_registry.py`**:
+
 - `test_empty_registry` — empty string → no entries
 - `test_single_entry` — one island parsed correctly
 - `test_multiple_entries` — multiple islands
@@ -332,6 +335,7 @@ class SubscriptionManager:
 Export from `aitbc/network/__init__.py` as `SubscriptionManager`, `SubscriptionEntry`, `SubscriptionClientProtocol` (add to existing exports).
 
 **`tests/unit/test_subscription_manager.py`**:
+
 - `test_add_subscription` — add one client
 - `test_add_duplicate_raises` — adding same chain_id twice raises ValueError
 - `test_remove_subscription` — remove and verify task cancelled

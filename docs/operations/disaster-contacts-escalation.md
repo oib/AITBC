@@ -48,24 +48,28 @@ This document defines contact information and escalation procedures for disaster
 ### Severity Levels (Template)
 
 #### P1 - Critical (System Down)
+
 - **Definition:** Complete system outage affecting all users
 - **Response Time:** 15 minutes (customize)
 - **Escalation Path:** On-call Engineer → Engineering Lead → CTO (customize)
 - **Communication:** Immediate stakeholder notification
 
 #### P2 - Major (Service Degradation)
+
 - **Definition:** Critical functionality impaired, partial outage
 - **Response Time:** 30 minutes (customize)
 - **Escalation Path:** On-call Engineer → Engineering Lead (customize)
 - **Communication:** Stakeholder notification within 1 hour
 
 #### P3 - Minor (Limited Impact)
+
 - **Definition:** Non-critical functionality impaired, limited users affected
 - **Response Time:** 1 hour (customize)
 - **Escalation Path:** On-call Engineer (customize)
 - **Communication:** Stakeholder notification within 4 hours
 
 #### P4 - Low (Minimal Impact)
+
 - **Definition:** Cosmetic issues, documentation errors
 - **Response Time:** 4 hours (customize)
 - **Escalation Path:** Team Lead (customize)

@@ -11,6 +11,7 @@ AITBC v0.4.8 focuses on critical infrastructure fixes and improvements to the bl
 ## 🎯 Release Highlights
 
 ### Blockchain Node Service Fixes
+
 - ✅ Fixed virtual environment recreation and dependency installation
 - ✅ Fixed blockchain-node service secrets loading via centralized service
 - ✅ Fixed blockchain-p2p service missing dependencies (sqlalchemy, psycopg2)
@@ -18,18 +19,21 @@ AITBC v0.4.8 focuses on critical infrastructure fixes and improvements to the bl
 - ✅ Enabled aitbc-load-secrets service for centralized secrets management
 
 ### Logging System Improvements
+
 - ✅ Changed blockchain-node logging from JSON to human-readable text format
 - ✅ Removed duplicate timestamps (systemd already provides timestamps)
 - ✅ Fixed Redis client log message to show URL instead of object representation
 - ✅ Replaced `__main__` logger name with `aitbc_chain.main` for clarity
 
 ### Subscription Management
+
 - ✅ Added CLI commands for follower node subscription management
 - ✅ Fixed subscription endpoint from `/rpc/subscription/register` to `/rpc/subscribe`
 - ✅ Fixed lease tracker startup to work on all nodes (not just hub nodes)
 - ✅ Added default values for node-id and chain-id from environment files
 
 ### WebSocket Migration
+
 - ✅ Moved WebSocket listener from Coordinator API to Agent Coordinator
 - ✅ Updated Hermes polling daemon to use WebSocket instead of HTTP polling
 - ✅ Updated nginx routing for WebSocket connections to Agent Coordinator
@@ -40,17 +44,20 @@ AITBC v0.4.8 focuses on critical infrastructure fixes and improvements to the bl
 ### Blockchain Node Service Fixes
 
 #### Virtual Environment Recreation
+
 - Recreated `/opt/aitbc/venv` with Python 3.13
 - Installed missing dependencies: redis, cryptography, sqlalchemy, psycopg2-binary, sqlmodel, alembic, aiosqlite, asyncpg
 - Fixed Python executable paths in service files
 
 #### Secrets Loading
+
 - Enabled `aitbc-load-secrets.service` to run `load-keystore-secrets.sh` at boot
 - Updated `aitbc-blockchain-node.service` to depend on secrets service
 - Removed duplicate `ExecStartPre` script execution
 - Fixed environment file loading order
 
 #### Service Dependencies
+
 - Fixed blockchain-p2p service to use correct Python interpreter
 - Started blockchain-rpc service (was inactive)
 - Fixed lease tracker initialization on follower nodes
@@ -58,19 +65,23 @@ AITBC v0.4.8 focuses on critical infrastructure fixes and improvements to the bl
 ### Logging System Improvements
 
 #### Text Format Logging
+
 Changed from JSON to human-readable text format:
 
 **Before (JSON):**
+
 ```json
 {"timestamp": "2026-06-06T10:03:23.224545+00:00Z", "level": "INFO", "logger": "aitbc_chain.lease_tracker", "message": "Redis client created: <redis.client.Redis(...)>"}
 ```
 
 **After (Text):**
+
 ```
 INFO aitbc_chain.lease_tracker Redis client created: connected to redis://127.0.0.1:6379
 ```
 
 #### Logger Name Fixes
+
 - Changed `__main__` to `aitbc_chain.main` in main.py
 - Removed duplicate timestamps (systemd provides them)
 - Fixed Redis client log to show URL instead of object representation
@@ -78,6 +89,7 @@ INFO aitbc_chain.lease_tracker Redis client created: connected to redis://127.0.
 ### Subscription Management
 
 #### CLI Commands
+
 Added new network commands for subscription management:
 
 ```bash
@@ -95,23 +107,27 @@ aitbc network subscribers --chain-id <chain>
 ```
 
 #### Default Values
+
 - `node-id`: Defaults from `NODE_ID` in `/etc/aitbc/node.env`
 - `chain-id`: Defaults from `SUPPORTED_CHAINS` in `/etc/aitbc/node.env`
 - `transport`: Defaults to `websocket`
 - `duration`: Defaults to 300 seconds
 
 #### Lease Tracker Fix
+
 Modified `app.py` to start lease tracker on all nodes (not just hub nodes) when subscription is enabled. This allows follower nodes to register subscriptions with the hub.
 
 ### WebSocket Migration
 
 #### Agent Coordinator Integration
+
 - Moved WebSocket listener from Coordinator API (port 8203) to Agent Coordinator (port 8107)
 - Updated Hermes polling daemon to connect via WebSocket
 - Added nginx upstream configuration for agent_coordinator
 - Configured WebSocket upgrade headers and timeouts
 
 #### Nginx Configuration
+
 ```nginx
 upstream agent_coordinator {
     server localhost:8107;
@@ -138,6 +154,7 @@ location /api/v1/agent/messages/stream {
 ### v0.4.7 → v0.4.8
 
 1. **Update Virtual Environment**
+
    ```bash
    # Virtual environment is recreated automatically
    systemctl restart aitbc-blockchain-node
@@ -145,6 +162,7 @@ location /api/v1/agent/messages/stream {
    ```
 
 2. **Enable Secrets Service**
+
    ```bash
    systemctl enable aitbc-load-secrets.service
    systemctl start aitbc-load-secrets.service
@@ -163,6 +181,7 @@ location /api/v1/agent/messages/stream {
 ## 🧪 Testing
 
 ### Service Startup Testing
+
 - ✅ blockchain-node service starts successfully
 - ✅ blockchain-rpc service starts successfully
 - ✅ blockchain-p2p service starts successfully
@@ -170,18 +189,21 @@ location /api/v1/agent/messages/stream {
 - ✅ Secrets loading service works correctly
 
 ### Logging Testing
+
 - ✅ Text format logs are readable
 - ✅ No duplicate timestamps
 - ✅ Logger names are descriptive
 - ✅ Redis client logs show URL
 
 ### Subscription Testing
+
 - ✅ Follower can register subscription
 - ✅ Heartbeat extends lease
 - ✅ Lease status check works
 - ✅ Subscriber list shows active subscriptions
 
 ### WebSocket Testing
+
 - ✅ WebSocket connection to Agent Coordinator works
 - ✅ Message streaming works
 - ✅ Nginx proxy handles WebSocket upgrades
@@ -196,6 +218,7 @@ location /api/v1/agent/messages/stream {
 ## 🚀 Dependencies
 
 ### Updated Dependencies
+
 - Python 3.13 virtual environment
 - redis (latest)
 - cryptography (latest)
@@ -221,6 +244,7 @@ location /api/v1/agent/messages/stream {
 - **WebSocket**: Direct connection to Agent Coordinator reduces latency
 
 ### Performance Metrics
+
 - Service startup time: <5s
 - Log parsing: Human-readable, no JSON parsing overhead
 - Subscription registration: <100ms
@@ -238,12 +262,14 @@ location /api/v1/agent/messages/stream {
 ## 🚀 Next Steps
 
 ### v0.4.9 Planning
+
 - Add automatic lease renewal for follower nodes
 - Implement WebSocket reconnection logic
 - Add subscription monitoring dashboard
 - Implement subscription analytics
 
 ### v0.5.0 Planning
+
 - Multi-chain subscription support
 - Advanced WebSocket features (binary messages, compression)
 - Subscription load balancing

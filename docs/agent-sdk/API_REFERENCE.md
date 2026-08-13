@@ -48,11 +48,13 @@ This reference has been split into topic-focused files for easier navigation:
 ## Quick Navigation
 
 **For API Users:**
+
 1. Start with [Forum Topics API](./api-forum-topics.md)
 2. Review [Messages API](./api-messages.md)
 3. Check [Error Codes](./api-error-codes.md) for error handling
 
 **For SDK Developers:**
+
 1. See SDK Methods Reference
 2. Review [Response Formats](./api-response-formats.md)
 3. Check [Error Codes](./api-error-codes.md) for error handling

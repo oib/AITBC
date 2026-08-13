@@ -5,6 +5,7 @@ AITBC uses two main configuration files located in `/etc/aitbc/`:
 ## /etc/aitbc/blockchain.env
 
 Contains blockchain-specific environment variables:
+
 - Chain ID and network configuration
 - RPC and P2P binding settings
 - Database and Redis connections
@@ -14,6 +15,7 @@ Contains blockchain-specific environment variables:
 ## /etc/aitbc/node.env
 
 Contains node-specific environment variables:
+
 - Node ID and island ID
 - Node role (genesis/follower)
 - P2P port configuration

@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📖 About** → **✅ Compliance Audit** → *You are here*
 
 **breadcrumb**: Home → About → Compliance Audit
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Required metadata and structure
 - **🎯 10/10 Roadmap** - Quality goals and remediation themes
 - **📊 Organization Analysis** - Historical structure review
@@ -37,6 +39,7 @@ This checklist tracks the current remediation target:
 ## ✅ **Top-Level Index Coverage**
 
 ### Required directory indexes
+
 - [x] `about/README.md`
 - [x] `agent-sdk/README.md`
 - [x] `analytics/README.md`
@@ -68,6 +71,7 @@ This checklist tracks the current remediation target:
 - [x] `workflows/README.md`
 
 ### Documented exceptions
+
 - [x] `cli/` is a special external technical entry point with a compliant landing page
 - [x] `testing/` is a special external documentation entry point with a compliant landing page
 
@@ -76,6 +80,7 @@ This checklist tracks the current remediation target:
 ## ✅ **Priority Document Checks**
 
 ### Core docs entry points
+
 - [x] `docs/README.md` has `Level`, `Prerequisites`, `Estimated Time`, `Last Updated`, `Version`
 - [x] `docs/README.md` has a navigation path and breadcrumb
 - [x] `docs/README.md` links to `MASTER_INDEX.md` and the core learning paths
@@ -84,6 +89,7 @@ This checklist tracks the current remediation target:
 - [x] `docs/about/README.md` links to the template standard and audit checklist
 
 ### Historical or special content
+
 - [x] `docs/archive/README.md` clearly marks archive content as historical
 - [x] `docs/archive/completed/README.md` clearly marks completed work as historical
 - [x] `docs/implementation/README.md` remains intentionally lightweight until a future cleanup pass

@@ -19,15 +19,15 @@
 - [ ] All feature branches merged to `main`
 - [ ] `bash -n scripts/sync-claude-harness.sh` — syntax check passes
 - [ ] All test suites pass (list each with count):
-  - [ ] `test-manifest-loader.sh`: ___/___
-  - [ ] `test-rename-diff.sh`: ___/___
-  - [ ] `test-substitutions.sh`: ___/___
-  - [ ] `test-protected-files.sh`: ___/___
-  - [ ] `test-preflight.sh`: ___/___
-  - [ ] `test-fork-sync.sh`: ___/___
-  - [ ] `test-patch-generation.sh`: ___/___
-  - [ ] `test-manifest-init.sh`: ___/___
-  - [ ] Total: ___/___ (zero failures)
+  - [ ] `test-manifest-loader.sh`: _**/**_
+  - [ ] `test-rename-diff.sh`: _**/**_
+  - [ ] `test-substitutions.sh`: _**/**_
+  - [ ] `test-protected-files.sh`: _**/**_
+  - [ ] `test-preflight.sh`: _**/**_
+  - [ ] `test-fork-sync.sh`: _**/**_
+  - [ ] `test-patch-generation.sh`: _**/**_
+  - [ ] `test-manifest-init.sh`: _**/**_
+  - [ ] Total: _**/**_ (zero failures)
 - [ ] No merge conflict markers in any file: `grep -r '<<<<<<' . --include='*.sh' --include='*.md' --include='*.json' --include='*.toml' --include='*.yml'`
 - [ ] `shellcheck scripts/*.sh` — no new warnings (document pre-existing)
 - [ ] **E2E exit-gate suites** (manual — ABS-143). These are excluded from the
@@ -35,8 +35,8 @@
   the release owner runs them by hand and records pass/fail. They are the epic
   exit gate (ORCHESTRATOR_SOP §"epic exit gate", ABS-80) and drive the real
   `scripts/orchestrator.sh` against the mock tracker + stub spawn (no live model):
-  - [ ] `bash tests/e2e-orchestrator-dryrun.sh` (v1/v2 lifecycle — ABS-55): ___ pass / ___ fail
-  - [ ] `bash tests/e2e-workflow-v3.sh` (v3 full-team scenarios — ABS-80): ___ pass / ___ fail
+  - [ ] `bash tests/e2e-orchestrator-dryrun.sh` (v1/v2 lifecycle — ABS-55): ___pass /___ fail
+  - [ ] `bash tests/e2e-workflow-v3.sh` (v3 full-team scenarios — ABS-80): ___pass /___ fail
   - [ ] Any failure investigated and either fixed or documented in Notes/Errata before tagging.
 - [ ] **Suite-budget re-measurement** (ABS-603 AC5). The tentpole `tests/tooling/test-orchestrator.sh`
   grows with every epic that adds a `tests/orchestrator.d` fixture, shrinking its reserve against

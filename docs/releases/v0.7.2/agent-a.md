@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.1 Agent A ✅ (committed `1fcf1e829`). v0.7.1 Agent B ✅ (committed `a4ea61295` — provides `BridgeValidator` table + block header `signature` field that the types mirror).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && ./venv/bin/python -m ruff check aitbc/bridge/ tests/unit/test_bridge_verification.py && ./venv/bin/python -m pytest tests/unit/test_bridge_verification.py tests/unit/test_bridge_security.py tests/unit/test_bridge_sdk.py -q -o addopts=""
 ```
@@ -358,6 +359,7 @@ async def oracle_status(self) -> dict[str, Any]:
 ```
 
 **`tests/unit/test_bridge_verification.py`** — unit tests for A1-A4:
+
 - `test_bridge_block_header_dataclass` — all fields
 - `test_bridge_block_header_defaults` — signature="", finality_confirmed=False
 - `test_finality_config_defaults` — min_confirmations=3, finality_blocks=6, etc.

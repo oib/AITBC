@@ -324,6 +324,7 @@ The following Ruff rules are enforced for logging (via `G` and `LOG` rules):
 - `LOG` - logging best practices
 
 **Migration Status**: ✅ Complete (v0.4.22+)
+
 - All files migrated from `import logging` to `from aitbc.aitbc_logging import get_logger`
 - G001 and G002 rules now enforced across codebase
 - Logging infrastructure centralized in `aitbc/aitbc_logging.py`

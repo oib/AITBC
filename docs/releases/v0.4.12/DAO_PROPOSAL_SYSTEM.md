@@ -11,31 +11,37 @@ AITBC v0.4.12 introduces a comprehensive DAO proposal system for governance, inc
 ## Proposal Types
 
 ### Marketplace Rule
+
 - Change marketplace rules or standards
 - Update service requirements
 - Modify marketplace policies
 
 ### Fee Structure
+
 - Adjust escrow fees, bridge fees, trading fees
 - Modify fee percentages
 - Update fee calculation methods
 
 ### Service Approval
+
 - Approve/reject software service types
 - Add new service categories
 - Remove deprecated services
 
 ### Protocol Upgrade
+
 - Upgrade marketplace protocol or contracts
 - Implement new features
 - Fix critical bugs
 
 ### Dispute Resolution
+
 - Resolve marketplace disputes
 - Arbitrate conflicts
 - Enforce decisions
 
 ### Parameter Change
+
 - Adjust system parameters (timeouts, limits)
 - Update configuration values
 - Modify system constants
@@ -71,26 +77,31 @@ aitbc governance propose --type marketplace_rule --title "Adjust escrow fee" --d
 ## Proposal Lifecycle
 
 ### 1. Draft
+
 - Proposal created, not yet submitted
 - Can be edited before submission
 - Not visible to community
 
 ### 2. Active
+
 - Voting period open
 - Community can vote
 - Cannot be edited
 
 ### 3. Passed
+
 - Quorum met, majority yes
 - Ready for execution
 - Execution delay applies
 
 ### 4. Rejected
+
 - Quorum not met or majority no
 - Cannot be executed
 - Can be resubmitted
 
 ### 5. Executed
+
 - Proposal changes applied
 - Changes live on network
 - Cannot be reversed

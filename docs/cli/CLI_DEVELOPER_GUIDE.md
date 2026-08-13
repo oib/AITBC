@@ -49,7 +49,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
     mycommand_action_parser.set_defaults(handler=ctx.handle_mycommand_action)
 ```
 
-### Step 2: Register Parser in __init__.py
+### Step 2: Register Parser in **init**.py
 
 Add your parser to the import list and registration function:
 

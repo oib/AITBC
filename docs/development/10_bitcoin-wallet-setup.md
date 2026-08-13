@@ -1,17 +1,20 @@
 # Bitcoin Wallet Integration for AITBC Trade Exchange
 
 ## Overview
+
 The AITBC Trade Exchange now supports Bitcoin payments for purchasing the network tokens. Users can send Bitcoin to a generated address and receive the network tokens after confirmation.
 
 ## Current Implementation
 
 ### Frontend Features
+
 - **Payment Request Generation**: Users enter the amount of AITBC they want to buy
 - **Dynamic QR Code**: A QR code is generated with the Bitcoin address and amount
 - **Payment Monitoring**: The system automatically checks for payment confirmation
 - **Real-time Updates**: Users see payment status updates in real-time
 
 ### Backend Features
+
 - **Payment API**: `/api/exchange/create-payment` creates payment requests
 - **Status Tracking**: `/api/exchange/payment-status/{id}` checks payment status
 - **Exchange Rates**: `/api/exchange/rates` provides current BTC/AITBC rates
@@ -19,6 +22,7 @@ The AITBC Trade Exchange now supports Bitcoin payments for purchasing the networ
 ## Configuration
 
 ### Bitcoin Settings
+
 ```python
 BITCOIN_CONFIG = {
     'testnet': True,                    # Using Bitcoin testnet
@@ -30,6 +34,7 @@ BITCOIN_CONFIG = {
 ```
 
 ### Environment Variables
+
 ```bash
 BITCOIN_TESTNET=true
 BITCOIN_ADDRESS=tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
@@ -65,11 +70,13 @@ BTC_TO_AITBC_RATE=100000
 ## Security Considerations
 
 ### Current (Demo) Implementation
+
 - Uses a fixed Bitcoin testnet address
 - No private key integration
 - Manual payment confirmation for demo
 
 ### Production Requirements
+
 - HD wallet for unique address generation
 - Blockchain API integration (Blockstream, BlockCypher, etc.)
 - Webhook signatures for payment notifications
@@ -79,6 +86,7 @@ BTC_TO_AITBC_RATE=100000
 ## API Endpoints
 
 ### Create Payment Request
+
 ```http
 POST /api/exchange/create-payment
 {
@@ -89,11 +97,13 @@ POST /api/exchange/create-payment
 ```
 
 ### Check Payment Status
+
 ```http
 GET /api/exchange/payment-status/{payment_id}
 ```
 
 ### Get Exchange Rates
+
 ```http
 GET /api/exchange/rates
 ```
@@ -101,12 +111,14 @@ GET /api/exchange/rates
 ## Testing
 
 ### Testnet Bitcoin
+
 - Use Bitcoin testnet for testing
 - Get testnet Bitcoin from faucets:
   - https://testnet-faucet.mempool.co/
   - https://coinfaucet.eu/en/btc-testnet/
 
 ### Demo Mode
+
 - Currently running in demo mode
 - Payments are simulated
 - Use admin API to manually confirm payments
@@ -136,6 +148,7 @@ GET /api/exchange/rates
 ## Support
 
 For issues or questions:
+
 - Check the logs: `journalctl -u aitbc-coordinator -f`
 - API documentation: `https://aitbc.bubuit.net/api/docs`
 - Admin panel: `https://aitbc.bubuit.net/admin/stats`

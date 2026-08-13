@@ -18,10 +18,12 @@ Mypy was unable to infer return types for validator functions in the `coordinato
 ### Solution
 
 **File**: `src/coordinator_api/validators/py.typed` (new file)
+
 - Added empty `py.typed` marker file to the validators module
 - This tells mypy that the module is typed and should be analyzed for type correctness
 
 **Files Modified**:
+
 - `src/coordinator_api/contexts/agent_identity/domain/agent_identity.py` - Removed file-level and method-level `# type: ignore[no-any-return]` comments (16 instances)
 - `src/coordinator_api/contexts/wallet/domain/wallet.py` - Removed file-level and method-level `# type: ignore[no-any-return]` comments (4 instances)
 - `src/coordinator_api/validators/__init__.py` - Removed duplicate `@classmethod` decorator on ValidatorMixin.strip_strings
@@ -29,17 +31,21 @@ Mypy was unable to infer return types for validator functions in the `coordinato
 ### Verification
 
 **Mypy**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api
 PYTHONPATH=src python -m mypy --show-error-codes src/coordinator_api/contexts/agent_identity/domain/agent_identity.py src/coordinator_api/contexts/wallet/domain/wallet.py
 ```
+
 **Result**: ✅ Success - no issues found in 2 source files
 
 **Pytest**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api
 PYTHONPATH=src python -m pytest tests/ -q -o addopts="" --tb=short
 ```
+
 **Result**: ✅ 260 passed, 14 skipped, 3 warnings in 10.88s
 
 ### Impact

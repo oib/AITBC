@@ -10,6 +10,7 @@ aitbc agent validate --type swarm_coordinator --prerequisites
 ```
 
 **Required Capabilities:**
+
 - Analytical capabilities
 - Collaboration skills
 - Network connectivity

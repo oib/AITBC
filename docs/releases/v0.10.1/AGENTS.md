@@ -35,6 +35,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/marketplace/ aitbc/governance/ && ./venv/bin/python -m ruff check aitbc/marketplace/ aitbc/governance/ tests/unit/test_blockchain_rpc_client.py tests/unit/test_governance_types.py && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -66,6 +67,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/marketplace/
 **Problem**: `ParameterChangeSchema` has a comment saying "Parameter automation (actually applying the change to the target service) is deferred to v0.8.x" — but v0.8.x never implemented it. The schema lacks fields needed for the governance service to know which target service to call.
 
 **Fix**:
+
 - Remove the "deferred" comment
 - Add `target_service: str` field (values: `"poolhub"`, `"marketplace"`, `"blockchain"`)
 - Add `parameter_name: str` field (the parameter key to set)
@@ -79,6 +81,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/marketplace/
 **Files**: `tests/unit/test_blockchain_rpc_client.py` (new), `tests/unit/test_governance_types.py` (new)
 
 Write unit tests for:
+
 1. `BlockchainRPCClient.verify_escrow()` — verify it calls the correct endpoint with `job_id`
 2. `ParameterChangeSchema` — verify new fields are present and validated
 3. Backward compatibility — verify old callers still work
@@ -94,6 +97,7 @@ Run `mypy`, `ruff`, `pytest` clean for all `aitbc/` changes.
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy --show-error-codes apps/blockchain-node/src/aitbc_chain/ apps/marketplace/ apps/edge/ apps/pool-hub/ apps/governance/ apps/trading/ apps/coordinator-api/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -128,6 +132,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B1: CLI endpoint path fixes (v0.6.2) — Low risk
 
 **Files**:
+
 - `cli/aitbc_cli/commands/sync.py` — lines 117, 120: add `/rpc/` prefix to `/head` → `/rpc/head`, `/network-info` → `/rpc/network-info`
 - `cli/aitbc_cli/commands/chain.py` — lines 584, 612, 667, 693, 719: add `/rpc/` prefix to `/network-info`, `/head`, `/chains/start`, `/chains/stop`, `/chains`
 - `cli/aitbc_cli/commands/node/island.py` — lines 167, 204, 240: add `/rpc/` prefix to `/islands`, `/islands/{island_id}`
@@ -137,6 +142,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B2: Island ID config fix (v0.6.3) — Low risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/config.py` — add `@model_validator(mode='after')` to `ChainSettings` that defaults `supported_chains` to `chain_id` when empty
 - `apps/blockchain-node/src/aitbc_chain/app.py` — line 126: add fallback `or settings.chain_id` to island_id construction: `default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{(settings.supported_chains.split(',')[0].strip() or settings.chain_id)}-island")`
 - `/etc/aitbc/blockchain.env` — add `SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net`
@@ -146,6 +152,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B3: Node CLI context key fix (v0.6.3) — Low risk
 
 **Files** (replace `ctx.obj.get("output_format", "table")` with `ctx.obj.get("output", "table")` in all):
+
 - `cli/aitbc_cli/commands/node/island.py` — ~9 occurrences
 - `cli/aitbc_cli/commands/node/__init__.py` — ~6 occurrences + fix duplicate "list" command (rename first to `list-islands` explicitly)
 - `cli/aitbc_cli/commands/node/bridge.py` — ~4 occurrences
@@ -157,6 +164,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B4: HTTP RPC compression (v0.6.0) — Low risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/app.py` — add `from fastapi.middleware.gzip import GZipMiddleware` and `app.add_middleware(GZipMiddleware, minimum_size=1000)` in `create_app()`
 - `apps/blockchain-node/src/aitbc_chain/sync.py` — add `headers={"Accept-Encoding": "gzip, deflate"}` to `httpx.AsyncClient.get()` calls in `fetch_blocks_range()` (~line 309) and remote head fetch (~line 347)
 
@@ -167,6 +175,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B5: P2P→sync peer registration wiring (v0.6.2) — Medium risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/main.py` — after ChainSync creation, call `p2p_network.set_peer_capability_callback(sync.register_sync_peer)` to populate `PeerCapabilityTracker` from P2P handshakes. This requires the P2P service to be started in the same process or accessible via callback.
 
 **Verification**: With P2P peers connected, `sync._peer_tracker.get_all_peers()` returns >0 peers. Parallel sync activates when `sync_parallel_enabled=True` (B6) and peers >1.
@@ -174,6 +183,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B6: Enable sync/gossip feature flags (v0.6.2) — Low risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/config.py` — change defaults: `sync_delta_enabled: bool = True`, `sync_parallel_enabled: bool = True`, `gossip_priority_enabled: bool = True`
 - `/etc/aitbc/blockchain.env` — add explicit flag settings for documentation: `SYNC_DELTA_ENABLED=true`, `SYNC_PARALLEL_ENABLED=true`, `GOSSIP_PRIORITY_ENABLED=true`
 
@@ -182,7 +192,9 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B7: MultiChainManager init in RPC service (v0.6.4) — Medium risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/app.py` — add MultiChainManager init in lifespan (after island manager init, ~line 130):
+
   ```python
   try:
       from .network.multi_chain_manager import create_multi_chain_manager
@@ -204,6 +216,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B8: Edge-advertise endpoint (v0.6.6) — Medium risk
 
 **Files**:
+
 - `apps/marketplace/src/marketplace_service/main.py` — add `POST /v1/marketplace/edge-advertise` endpoint that accepts GPU capabilities from edge nodes (node_id, endpoint, gpu_models, gpu_count, total_vram, region, capabilities) and stores them in the marketplace database
 
 **Verification**: `curl -X POST http://localhost:8102/v1/marketplace/edge-advertise -H "Content-Type: application/json" -d '{"node_id":"edge-1","gpu_models":["RTX 4060"],"gpu_count":1,"total_vram":16,"region":"eu"}'` returns success
@@ -213,6 +226,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 **Depends on**: Agent A's A1 task (fixes `BlockchainRPCClient.verify_escrow()`)
 
 **Files**:
+
 - `apps/edge/src/aitbc_edge/routers/serve.py` — update escrow verification call to pass `job_id` instead of `escrow_id`
 - `apps/edge/src/aitbc_edge/schemas/serve.py` — add `job_id: str | None` field to `SubmitComputeRequest`
 
@@ -221,6 +235,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B10: Edge node registration on blockchain (v0.6.6) — Medium risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/state/gpu_resources.py` — add `EdgeNodeRegistration` SQLModel (node_id, endpoint, region, gpu_count, total_vram, capabilities, registered_at, status)
 - `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py` — add `POST /rpc/edge/register` and `GET /rpc/edge/info/{node_id}` endpoints
 - `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — register new edge endpoints
@@ -231,6 +246,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B11: Edge health monitoring integration (v0.6.6) — Medium risk
 
 **Files**:
+
 - `apps/marketplace/src/marketplace_service/main.py` — add `GET /v1/marketplace/edge/{node_id}/health` endpoint
 - `apps/marketplace/src/marketplace_service/domain/marketplace.py` — populate `health_score` and `last_health_check` from coordinator-api heartbeat data (query coordinator-api `/v1/agents/heartbeat` or similar)
 
@@ -239,6 +255,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B12: Service payment flow wiring (v0.6.6) — Medium risk
 
 **Files**:
+
 - `apps/edge/src/aitbc_edge/config.py` — enable `require_payment_verification=True`
 - `apps/edge/src/aitbc_edge/routers/serve.py` — ensure escrow `job_id` is passed from marketplace matching flow
 - `apps/marketplace/src/marketplace_service/services/matching_service.py` — pass `job_id` to edge service when assigning tasks
@@ -248,6 +265,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B13: Pool join/leave endpoints (v0.6.7) — Medium risk
 
 **Files**:
+
 - `apps/pool-hub/src/app/routers/pools.py` — add:
   - `POST /{pool_id}/join` — accepts `miner_id`, `capabilities`, registers miner in pool
   - `POST /{pool_id}/leave` — accepts `miner_id`, removes miner from pool
@@ -257,6 +275,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B14: Mining RPC endpoints wired to coordinator (v0.6.7) — Medium risk
 
 **Files**:
+
 - `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — replace stub mining endpoints with HTTP calls to coordinator-api:
   - `GET /rpc/mining/miners` → query `COORDINATOR_API_URL/v1/miners`
   - `GET /rpc/mining/status` → aggregate status from coordinator-api
@@ -270,6 +289,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 **Depends on**: Agent A's A2 task (updates `ParameterChangeSchema` with `target_service`, `parameter_name`, `parameter_value`)
 
 **Files**:
+
 - `apps/governance/src/governance_service/services/governance_service.py` — in `execute_proposal()`, after on-chain tx submission, call target service parameter API based on `target_service`:
   - `"poolhub"` → `POST {POOLHUB_URL}/v1/poolhub/parameters/apply` with `{"parameter_name": ..., "parameter_value": ...}`
   - `"marketplace"` → `POST {MARKETPLACE_URL}/v1/marketplace/parameters/apply` with `{"parameter_name": ..., "parameter_value": ...}`
@@ -281,6 +301,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B16: Remove duplicate bridge implementation (v0.7.4) — Medium risk
 
 **Files**:
+
 - `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` — remove or mark as deprecated
 - `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge.py` — remove or mark as deprecated
 - All routers/services that import `CrossChainBridgeService` — migrate to `BridgeClientAdapter`
@@ -291,6 +312,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B17: Deploy trading service (v0.8.0–v0.8.2) — Low risk
 
 **Files**:
+
 - `scripts/utils/link-systemd.sh` — add `aitbc-trading` to hub service list
 - Run: `link-systemd.sh`, `systemctl daemon-reload`, `systemctl enable --now aitbc-trading`
 - Verify: `curl http://localhost:8104/health` returns OK
@@ -300,6 +322,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B18: Trading service gossip integration (v0.8.2) — Medium risk
 
 **Files**:
+
 - `apps/trading/src/trading_service/config.py` — add gossip backend config fields: `gossip_backend: str = "redis"`, `gossip_broadcast_url: str = "redis://localhost:6379"`
 - `apps/trading/src/trading_service/main.py` — initialize gossip broker connection on startup, create `GossipBroker` instance
 - `apps/trading/src/trading_service/services/offer_subscription_service.py` — replace in-memory `asyncio.Queue` mock with actual `gossip_broker.subscribe(f"offers.{chain_id}")` call. Handle incoming gossip events and push to WebSocket subscribers.
@@ -309,6 +332,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B19: Lease tracker integration (v0.8.2) — Medium risk
 
 **Files**:
+
 - `apps/trading/src/trading_service/services/offer_subscription_service.py` — integrate with Redis lease tracker for subscription auth:
   - On subscribe: create lease in Redis with key `lease:offer_subscriber:{node_id}`, TTL = heartbeat interval × 3
   - On heartbeat: renew lease
@@ -320,6 +344,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 #### B20: Polling fallback for offer subscription (v0.8.2) — Medium risk
 
 **Files**:
+
 - `apps/trading/src/trading_service/services/offer_subscription_service.py` — implement automatic fallback to `OfferSyncService` polling when gossip subscription fails:
   - If gossip subscription disconnects or is silent for `subscription_silent_threshold_multiplier` × heartbeat interval → switch to polling
   - Periodically attempt to re-establish gossip subscription (every 60s)

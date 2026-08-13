@@ -1,11 +1,13 @@
 # AITBC Blockchain Node Deployment Summary
 
 ## Overview
+
 Successfully deployed two independent AITBC blockchain nodes on the same server for testing and development.
 
 ## Node Configuration
 
 ### Node 1
+
 - **Location**: `/opt/blockchain-node`
 - **P2P Port**: 7070
 - **RPC Port**: 8082
@@ -14,6 +16,7 @@ Successfully deployed two independent AITBC blockchain nodes on the same server 
 - **Chain Height**: 717,593+ (actively producing blocks)
 
 ### Node 2
+
 - **Location**: `/opt/blockchain-node-2`
 - **P2P Port**: 7071
 - **RPC Port**: 8081
@@ -24,6 +27,7 @@ Successfully deployed two independent AITBC blockchain nodes on the same server 
 ## Services
 
 ### Systemd Services
+
 ```bash
 # Node 1
 systemctl status blockchain-node    # Consensus node
@@ -35,12 +39,14 @@ systemctl status blockchain-rpc-2   # RPC API
 ```
 
 ### API Endpoints
+
 - Node 1 RPC: `http://127.0.0.1:8082/docs`
 - Node 2 RPC: `http://127.0.0.1:8081/docs`
 
 ## Testing
 
 ### Test Scripts
+
 1. **Basic Test**: `/opt/test_blockchain_simple.py`
    - Verifies node responsiveness
    - Tests faucet functionality
@@ -51,6 +57,7 @@ systemctl status blockchain-rpc-2   # RPC API
    - Currently shows nodes operating independently
 
 ### Running Tests
+
 ```bash
 cd /opt/blockchain-node
 source .venv/bin/activate
@@ -61,6 +68,7 @@ python test_blockchain_final.py
 ## Current Status
 
 ### ✅ Working
+
 - Both nodes are running and producing blocks
 - RPC APIs are responsive
 - Faucet (minting) is functional
@@ -68,6 +76,7 @@ python test_blockchain_final.py
 - Block production active (2s block time)
 
 ### ⚠️ Limitations
+
 - Nodes are running independently (not connected)
 - Using memory gossip backend (no cross-node communication)
 - Different chain heights (expected for independent nodes)
@@ -77,23 +86,28 @@ python test_blockchain_final.py
 To connect nodes in a production network:
 
 ### 1. Network Configuration
+
 - Deploy nodes on separate servers
 - Configure proper firewall rules
 - Ensure P2P ports are accessible
 
 ### 2. Gossip Backend
+
 - Use Redis for distributed gossip:
+
   ```env
   GOSSIP_BACKEND=memory
   GOSSIP_BROADCAST_URL=redis://redis-server:6379/0
   ```
 
 ### 3. Peer Discovery
+
 - Configure peer list in each node
 - Use DNS seeds or static peer configuration
 - Implement proper peer authentication
 
 ### 4. Security
+
 - Use TLS for P2P communication
 - Implement node authentication
 - Configure proper access controls
@@ -101,11 +115,13 @@ To connect nodes in a production network:
 ## Troubleshooting
 
 ### Common Issues
+
 1. **Port Conflicts**: Ensure ports 7070/7071 and 8081/8082 are available
 2. **Permission Issues**: Check file permissions in `/opt/blockchain-node*`
 3. **Database Issues**: Remove/rename database to reset chain
 
 ### Logs
+
 ```bash
 # Node logs
 journalctl -u blockchain-node -f
@@ -127,16 +143,19 @@ journalctl -u blockchain-rpc-2 -f
 ## Files Created/Modified
 
 ### Deployment Scripts
+
 - `/opt/aitbc/scripts/deployment/deploy-first-node.sh`
 - `/opt/aitbc/scripts/deployment/deploy-second-node.sh`
 - `/opt/aitbc/scripts/deployment/setup-gossip-relay.sh`
 
 ### Test Scripts
+
 - `/opt/aitbc/tests/test_blockchain_nodes.py`
 - `/opt/aitbc/tests/test_blockchain_simple.py`
 - `/opt/aitbc/tests/test_blockchain_final.py`
 
 ### Configuration Files
+
 - `/opt/blockchain-node/.env`
 - `/opt/blockchain-node-2/.env`
 - `/etc/systemd/system/blockchain-node*.service`
@@ -151,6 +170,7 @@ journalctl -u blockchain-rpc-2 -f
 ⚠️ Nodes not connected (expected for current configuration)
 
 The deployment provides a solid foundation for:
+
 - Development and testing
 - Multi-node network simulation
 - Production deployment preparation

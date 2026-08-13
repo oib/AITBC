@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,16 +9,21 @@
 # v0.5.18 Suggestions
 
 ## Status
+
 **BLOCKCHAIN-NODE TEST SUITE IS RED — 64 FAILED + 8 ERRORS (72 total), ALL PRE-EXISTING.** The `apps/blockchain-node/tests/` suite has 72 broken tests across 16 files. Verified via git worktree that the **identical 64 failed + 8 errors exist at commit `3d94338c2`** (the bulk v0.5.16 security fix, before the v0.5.16-closure/v0.5.17 session). This session's work added 67 passing tests (202→269 passed) but did **not** introduce or fix any of the 72 failures. The suite also **hangs** without a per-test timeout (Redis/Postgres connection retries).
 
 ## Why this was missed until now
+
 `pyproject.toml` `[tool.pytest.ini_options].testpaths` is:
+
 ```toml
 testpaths = ["tests/unit", "tests/integration", "tests/e2e", "tests/security"]
 ```
+
 `apps/blockchain-node/tests/` is **NOT** in `testpaths`. So the default `pytest` invocation never collects the blockchain-node suite. v0.5.17's change.log measured only 3 hand-picked blockchain-node files (`test_bridge_suite`, `test_v0516_regression`, `test_signing_round_trip` — all green) and declared the suite healthy. The other 333 blockchain-node tests (269 pass / 64 fail / 8 error) were never in the gate.
 
 ## Blockers (for v0.6.0)
+
 - **v0.6.0 is Database & Network Optimization** — it will heavily refactor exactly the areas these red tests cover: `mempool.py`, `sync.py`, gossip backends, `rpc/router.py`. Starting v0.6.0 on a red suite means there is no reliable baseline to detect regressions.
 - The suite **hangs** in CI without a default timeout — at least one test blocks >20s on a Redis/Postgres connection retry.
 
@@ -58,11 +64,13 @@ All 72 failures trace to the v0.5.16 API/schema changes (secp256k1/0x address mi
 > **Note:** A `RuntimeError: Genesis file required but not found for chain test-chain (.../var/lib/aitbc/data/test-chain/genesis.json)` appears 2× — likely in `test_consensus.py` and/or `test_models.py`. Those tests need a genesis-file fixture (or a `requires_genesis` skip). Classify during implementation.
 
 ## Environment facts
+
 - `pytest-timeout` 2.4.0 **is installed** but no default `timeout` is configured → suite can hang.
 - `--strict-markers` and `--strict-config` are **on** → any new marker must be registered in `pyproject.toml` `[tool.pytest.ini_options].markers` before use, or collection errors.
 - `fakeredis` is **NOT installed**. Prefer marker-based auto-skip over adding a new dependency for this small patch. If an in-process Redis fake is later wanted, add `fakeredis` as a separate, deliberate change (pin a version published >7 days ago).
 
 ## Recommendations
+
 - **Keep this patch small and test-only.** No production `aitbc_chain` source changes — every failure is a stale test or a missing skip-guard. If any "stale test" turns out to expose a real behavioral regression (watch `test_staking`, `test_consensus`, `test_guardian_contract`), STOP and escalate rather than weakening the assertion to make it pass.
 - **Order matters (`--strict-markers`):** register the new markers + default `timeout` FIRST, then apply them, then fix the stale tests, then (last) add `apps/blockchain-node/tests` to `testpaths` so the suite is actually gated going forward.
 - **Add a default per-test `timeout`** (e.g. 60s) to prevent CI hangs.

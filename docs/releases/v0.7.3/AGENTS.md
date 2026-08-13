@@ -8,6 +8,7 @@
 **Goal**: Wire the existing governance service (991 lines, `apps/governance/src/`) to the blockchain so proposals and votes are on-chain transactions. Replace local-only voting power with on-chain AIT balance snapshots. Add governance transaction types to blockchain-node. Defer cross-chain governance to v0.8.x (requires v0.7.2 verification + v0.7.1 multi-sig).
 
 > **Rescope from original change.log**: The original v0.7.3 change.log bundled on-chain proposals + voting + parameter automation + cross-chain governance into one release. Cross-chain governance requires v0.7.2 bridge verification (in-process Merkle proofs) to be operational and tested, plus v0.7.1 multi-sig for secure proposal propagation. v0.7.2 Agent B is still in progress. Per the release-planning analysis, v0.7.3 is now scoped to **same-chain governance only**:
+>
 > - ✅ v0.7.3: On-chain proposals/votes (GOVERNANCE_PROPOSE/VOTE/EXECUTE tx types), on-chain balance snapshot for voting power, parameter change schema, timelock execution, CLI
 > - ➡️ v0.8.x: Cross-chain governance (proposal propagation via bridge, cross-chain vote aggregation) — deferred until v0.7.2 verification is operational and audited
 > - ➡️ v0.8.x: Parameter automation (pool-hub/marketplace parameter APIs) — deferred until target services expose parameter change endpoints
@@ -37,10 +38,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Governance types](./agent-a.md#a1-governance-types)
@@ -49,6 +52,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a4-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Governance config](./agent-b.md#b1-governance-config)
@@ -182,6 +186,7 @@ This release documentation has been split into topic-focused files:
 **Prerequisite**: v0.7.1 ✅, v0.7.2 Agent A ✅. v0.7.2 Agent B is in progress but v0.7.3 is same-chain only — no bridge dependency.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/governance/ && ./venv/bin/python -m ruff check aitbc/governance/ tests/unit/test_governance_sdk.py && ./venv/bin/python -m pytest tests/unit/test_governance_sdk.py -q -o addopts=""
 ```
@@ -302,6 +307,7 @@ def validate_governance_payload(tx_type: GovernanceTxType, payload: dict[str, An
 **Prerequisite**: Agent A A1-A3 complete. v0.7.2 Agent B complete (for consensus path stability).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/governance/src/ apps/blockchain-node/src/aitbc_chain/consensus/poa.py cli/aitbc_cli/commands/governance.py
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/governance/tests/test_v073_governance.py -q -o addopts="" --timeout=30
@@ -325,6 +331,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/governance/tests/test_v073_gov
 #### B1: Governance Service Config
 
 Create `apps/governance/src/governance_service/config.py`:
+
 ```python
 class Settings(BaseSettings):
     blockchain_rpc_url: str = "http://localhost:8202"  # NOT 8006
@@ -339,6 +346,7 @@ class Settings(BaseSettings):
 #### B2: Blockchain RPC Client
 
 Create `apps/governance/src/governance_service/clients/blockchain.py` — wraps `AITBCHTTPClient` (or `httpx.AsyncClient`) for:
+
 - `get_balance(address, chain_id)` → `GET /rpc/account/{address}`
 - `submit_transaction(tx_data)` → `POST /rpc/transactions`
 - `get_block_height(chain_id)` → `GET /rpc/chain/{chain_id}/height`
@@ -346,6 +354,7 @@ Create `apps/governance/src/governance_service/clients/blockchain.py` — wraps 
 #### B3-B5: On-Chain Proposals, Voting, Execution
 
 Wire the governance service to submit GOVERNANCE_* transactions:
+
 - **B3**: `create_proposal()` → build GOVERNANCE_PROPOSE tx (using A3 `build_proposal_tx`) → submit to blockchain-node → store tx_hash + block_height
 - **B4**: `cast_vote()` → query voter's on-chain balance at snapshot block → build GOVERNANCE_VOTE tx → submit → store tx_hash
 - **B5**: `execute_proposal()` → check timelock expired → build GOVERNANCE_EXECUTE tx → submit → store tx_hash
@@ -359,6 +368,7 @@ Add Alembic migration.
 #### B7: Blockchain-Node Tx Type Validation
 
 In `consensus/poa.py` (line 348 area), add validation for GOVERNANCE_* tx types:
+
 - Check that GOVERNANCE_PROPOSE payloads have required fields (proposal_id, title, proposer)
 - Check that GOVERNANCE_VOTE payloads have required fields (proposal_id, voter, vote_type)
 - Check that GOVERNANCE_EXECUTE payloads have required fields (proposal_id, executor)
@@ -367,6 +377,7 @@ In `consensus/poa.py` (line 348 area), add validation for GOVERNANCE_* tx types:
 #### B8: CLI + Integration Tests
 
 CLI: `cli/aitbc_cli/commands/governance.py` — command group:
+
 - `aitbc governance propose --title "..." --type parameter_change --params ...`
 - `aitbc governance vote --proposal-id prop_xxx --vote for`
 - `aitbc governance list [--status active]`

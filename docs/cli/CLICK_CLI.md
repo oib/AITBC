@@ -12,6 +12,7 @@ The AITBC CLI has a single entry point (`aitbc-cli`) that delegates to two comma
 ## Single Entry Point
 
 ### Location
+
 - Entry point: `/opt/aitbc/aitbc-cli` → `/opt/aitbc/cli/aitbc_cli.py`
 - Command groups: `/opt/aitbc/cli/commands/`
 
@@ -31,14 +32,17 @@ aitbc-cli [COMMAND] --help
 The main entry point automatically delegates commands based on type:
 
 **Production Commands (Parser/Handler):**
+
 - wallet, blockchain, account, messaging, network, market, ai, analytics, script, mining, system, economics, cluster, performance, security, compliance, simulate, agent, agent, workflow, resource, genesis, pool-hub, bridge, contract
 
 **Click Commands (Agent Operations):**
+
 - agent, ipfs, oracle, swarm, arbitrage, validator, plugin, database, island, edge, ai, monitor, governance, staking, compliance
 
 ### Available Commands
 
 #### IPFS Commands
+
 ```bash
 aitbc-cli ipfs upload --file <path> [--pin] [--name <name>]
 aitbc-cli ipfs download <cid> [--output <path>]
@@ -47,6 +51,7 @@ aitbc-cli ipfs list
 ```
 
 #### Oracle Commands
+
 ```bash
 aitbc-cli oracle store --cid <cid> --price <price> [--description <desc>]
 aitbc-cli oracle announce --cid <cid> --price <price>
@@ -56,6 +61,7 @@ aitbc-cli oracle listings --wallet <wallet>
 ```
 
 #### Agent Commands
+
 ```bash
 # Main agent commands
 aitbc-cli agent create --name <name> --description <desc>
@@ -73,6 +79,7 @@ aitbc-cli agent dispute file --title <title> --description <desc> --evidence <ev
 ```
 
 #### Swarm Commands
+
 ```bash
 aitbc-cli swarm create --name <name> --max-agents <count>
 aitbc-cli swarm discover --swarm-id <id> [--capability <cap>]
@@ -156,6 +163,7 @@ result = executor.execute_command("ipfs", ["upload", "--file", "path"])
 ## Implementation Status
 
 ### Implemented CLI Commands
+
 - ✅ IPFS (upload, download, pin, list)
 - ✅ Oracle (store, announce, listen, retrieve, listings)
 - ✅ Agent (create, list, execute, status)

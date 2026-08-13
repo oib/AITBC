@@ -8,6 +8,7 @@
 **Goal**: Build a cross-chain offer synchronization layer on top of the v0.8.0 trading service. Enable agents to discover offers on other AITBC chains, keep offer state synchronized across the network via polling, detect stale offers, and resolve conflicts. Defer subscription-based sync (WebSocket) and external search index (Elasticsearch) to future releases.
 
 > **Rescope from original change.log**: The original v0.8.1 change.log bundled polling-based sync + subscription-based sync + real-time WebSocket + external search index into one release. Per the user's analysis (confirmed) and codebase investigation:
+>
 > - ✅ v0.8.1: Polling-based sync, local offer cache (Redis), staleness detection, conflict resolution, CLI discover/sync/sync-status commands
 > - ➡️ Future (v0.8.2+): Subscription-based sync (WebSocket), real-time offer notifications, external search index (Elasticsearch/Meilisearch)
 > - The user's recommendation to start with polling-only sync is adopted — subscription adds WebSocket complexity (auth, reconnection, backpressure) that can be deferred.
@@ -33,10 +34,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Offer sync types](./agent-a.md#a1-offer-sync-types)
@@ -45,6 +48,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a4-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Offer sync config](./agent-b.md#b1-offer-sync-config)
@@ -188,6 +192,7 @@ This release documentation has been split into topic-focused files:
 **Prerequisite**: v0.8.0 Agent A ✅ (`939bb066f`). v0.8.0 Agent B should be complete (for InterChainTrade + IslandRegistryEntry models).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && ./venv/bin/python -m ruff check aitbc/trading/ tests/unit/test_offer_sync_sdk.py && ./venv/bin/python -m pytest tests/unit/test_offer_sync_sdk.py -q -o addopts=""
 ```
@@ -315,6 +320,7 @@ class OfferCache:
 **Prerequisite**: Agent A A1-A3 complete. v0.8.0 Agent B complete (InterChainTrade + IslandRegistryEntry + CLI trade.py).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/ cli/aitbc_cli/commands/trade.py
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v081_offer_sync.py -q -o addopts="" --timeout=30
@@ -336,6 +342,7 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 #### B1: Offer Sync Config
 
 Extend `apps/trading/src/trading_service/config.py` (from v0.8.0 B1):
+
 ```python
 # Offer sync settings
 offer_sync_enabled: bool = True
@@ -350,6 +357,7 @@ offer_per_chain_staleness: dict[str, int] = {}
 #### B2: OfferSyncService
 
 Create `apps/trading/src/trading_service/services/offer_sync_service.py`:
+
 - `OfferSyncService` — background polling loop per registered chain
 - Uses `BlockchainRPCClient` from `aitbc.marketplace` to query offers per chain
 - Uses `OfferCache` from `aitbc.trading.offer_cache` (A3) for caching
@@ -361,6 +369,7 @@ Create `apps/trading/src/trading_service/services/offer_sync_service.py`:
 #### B3: Offer Discovery Endpoint
 
 Add to `main.py`:
+
 - `POST /v1/trading/offers/discover` — query OfferCache with filters (service_type, price range, region, gpu_model)
 - If cached offers are stale, trigger on-demand sync before returning
 - Return `OfferDiscoveryResult` (from A1) with ranked, deduplicated offers
@@ -368,12 +377,14 @@ Add to `main.py`:
 #### B4: Offer Sync Endpoints
 
 Add to `main.py`:
+
 - `POST /v1/trading/offers/sync` — trigger sync for specific chain or all chains
 - `GET /v1/trading/offers/sync-status` — get sync status per chain (last_sync, offer_count, stale_count)
 
 #### B5: CLI Commands
 
 Extend `cli/aitbc_cli/commands/trade.py` (from v0.8.0 B7):
+
 - `aitbc trade discover --source-chain <chain> --dest-chain <chain> --service-type <type>` — discover offers
 - `aitbc trade sync --all-chains / --chain-id <chain> / --service-type <type>` — trigger sync
 - `aitbc trade sync-status` — show sync status
@@ -383,6 +394,7 @@ Use `OfferSyncClient` from A2 for all RPC calls.
 #### B6: Integration Tests
 
 `apps/trading/tests/test_v081_offer_sync.py` — tests for:
+
 - OfferSyncService polling loop (mocked BlockchainRPCClient)
 - Offer discovery with filters
 - Staleness detection and refresh

@@ -10,6 +10,7 @@ Restructure the AITBC CLI into a proper installable Python package to eliminate 
 ## Current State
 
 ### Entry Points
+
 - `/opt/aitbc/cli/aitbc_cli.py` - Main entrypoint (symlinked from `/opt/aitbc/aitbc-cli`)
 - `/opt/aitbc/cli/click_cli.py` - Legacy Click entrypoint
 - `/opt/aitbc/cli/unified_cli.py` - Unified nested command hierarchy
@@ -17,6 +18,7 @@ Restructure the AITBC CLI into a proper installable Python package to eliminate 
 - `/opt/aitbc/cli/variants/main_minimal.py` - Minimal variant
 
 ### Package Structure
+
 ```
 cli/
 ├── __init__.py
@@ -65,6 +67,7 @@ cli/
 ```
 
 ### Issues
+
 1. Multiple entrypoints with overlapping functionality
 2. sys.path manipulation in every entrypoint
 3. No proper package installation (run directly from source)
@@ -75,6 +78,7 @@ cli/
 ## Target State
 
 ### Package Structure
+
 ```
 cli/
 ├── pyproject.toml (new)
@@ -112,10 +116,12 @@ cli/
 ```
 
 ### Entry Points
+
 - Single console script: `aitbc-cli` pointing to `aitbc_cli.main:cli`
 - Backward compatibility symlinks for legacy commands
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/cli
 pip install -e .
@@ -126,6 +132,7 @@ pip install -e .
 ### Phase 1: Create Package Structure
 
 1. **Create pyproject.toml**
+
    ```toml
    [build-system]
    requires = ["setuptools>=61.0", "wheel"]
@@ -171,6 +178,7 @@ pip install -e .
 ### Phase 2: Consolidate Entry Points
 
 1. **Create unified main.py**
+
    ```python
    # cli/src/aitbc_cli/main.py
    import click
@@ -276,27 +284,32 @@ pip install -e .
 ## Migration Strategy
 
 ### Step 1: Create New Package (Non-Breaking)
+
 - Create `cli/src/aitbc_cli/` structure alongside existing
 - Implement new entrypoint in parallel
 - Test new package without affecting existing CLI
 
 ### Step 2: Test New Package
+
 - Install new package in venv: `pip install -e cli/`
 - Test `aitbc-cli` command
 - Verify all commands work
 - Run test suite
 
 ### Step 3: Update Symlinks
+
 - Update `/opt/aitbc/aitbc-cli` to point to new entrypoint
 - Test with existing systemd services
 - Rollback if issues
 
 ### Step 4: Deprecate Old Files
+
 - Add deprecation warnings to legacy entrypoints
 - Document deprecation timeline
 - Keep for 1-2 release cycles
 
 ### Step 5: Remove Legacy Files
+
 - Remove `cli/click_cli.py`
 - Remove `cli/miner_cli.py`
 - Remove `cli/unified_cli.py`
@@ -358,23 +371,27 @@ During implementation, a critical architectural dependency was discovered:
 Given this blocking issue, the CLI packaging approach needs reconsideration:
 
 ### Option 1: Package aitbc first
+
 - Package the `aitbc` module as a standalone library
 - Then package CLI with aitbc as a dependency
 - Requires significant refactoring of aitbc package structure
 
 ### Option 2: Accept sys.path as necessary
+
 - Keep CLI running from monorepo
 - Accept sys.path manipulation as acceptable for monorepo CLI
 - Focus on reducing but not eliminating sys.path usage
 - Document as architectural decision
 
 ### Option 3: Minimal CLI package
+
 - Create a minimal CLI package that only contains command definitions
 - Use PYTHONPATH environment variable for all imports
 - CLI becomes a thin wrapper over monorepo code
 - Still requires environment setup
 
 ### Option 4: Abandon CLI packaging
+
 - Accept that CLI is monorepo-specific
 - Focus on other cleanup tasks
 - Document CLI as requiring monorepo context
@@ -428,11 +445,13 @@ Attempted Option 1 (Package aitbc first, then CLI) but encountered additional bl
 **Switch to Option 2: Accept sys.path as necessary**
 
 The CLI was designed as a monorepo-specific tool with:
+
 - Internal core modules
 - Relative import structure
 - Tight coupling to monorepo layout
 
 Packaging it as a standalone package requires:
+
 - Refactoring all internal imports
 - Moving CLI-specific code to aitbc (inappropriate)
 - Breaking backward compatibility

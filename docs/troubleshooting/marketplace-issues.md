@@ -5,11 +5,13 @@ This guide covers marketplace service problems including offer matching, trading
 ## Offers Not Matching
 
 **Symptoms:**
+
 - GPU offers not matched with jobs
 - Jobs remain unassigned
 - Marketplace not updating
 
 **Diagnosis:**
+
 ```bash
 # Check marketplace status
 curl http://localhost:8102/health
@@ -22,18 +24,22 @@ journalctl -u aitbc-marketplace -n 50
 ```
 
 **Solutions:**
+
 1. Check offer constraints
+
 ```bash
 # Verify offer constraints
 curl http://localhost:8102/v1/offers | jq '.[].constraints'
 ```
 
-2. Restart matching engine
+1. Restart matching engine
+
 ```bash
 systemctl restart aitbc-marketplace
 ```
 
-3. Clear offer cache
+1. Clear offer cache
+
 ```bash
 # Clear Redis cache
 redis-cli FLUSHALL

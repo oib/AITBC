@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **🏛️ Governance** → *You are here*
 
 **breadcrumb**: Home → Governance → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📋 [Policies](../../security/policies/README.md)** - Operational policy documentation
 - **🔒 Security Documentation** - Security-related guidance
 - **📚 About Documentation** - Documentation standards and analysis

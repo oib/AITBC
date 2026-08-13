@@ -8,12 +8,14 @@
 ### ✅ Implemented Features
 
 #### 1. Basic Marketplace Offers
+
 - **Endpoint**: `GET /marketplace/offers`
 - **Service**: `MarketplaceService.list_offers()`
 - **Status**: ✅ Implemented (returns mock data)
 - **Notes**: Returns hardcoded mock offers, not from database
 
 #### 2. Marketplace Statistics
+
 - **Endpoint**: `GET /marketplace/stats`
 - **Service**: `MarketplaceService.get_stats()`
 - **Status**: ✅ Implemented
@@ -24,12 +26,14 @@
   - Active bids count
 
 #### 3. Marketplace Bids
+
 - **Endpoint**: `POST /marketplace/bids`
 - **Service**: `MarketplaceService.create_bid()`
 - **Status**: ✅ Implemented
 - **Features**: Create bids with provider, capacity, price, and notes
 
 #### 4. Miner Offer Synchronization
+
 - **Endpoint**: `POST /marketplace/sync-offers`
 - **Service**: Creates offers from registered miners
 - **Status**: ✅ Implemented (admin only)
@@ -39,6 +43,7 @@
   - Creates offers with pricing, GPU model, memory, etc.
 
 #### 5. Miner Offers List
+
 - **Endpoint**: `GET /marketplace/miner-offers`
 - **Service**: Lists offers created from miners
 - **Status**: ✅ Implemented
@@ -49,6 +54,7 @@
 **ALL FEATURES ARE NOW IMPLEMENTED** as of April 13, 2026.
 
 #### 1. GPU-Specific Endpoints ✅ IMPLEMENTED
+
 All GPU marketplace endpoints are fully implemented in `/opt/aitbc/apps/coordinator-api/src/app/routers/marketplace_gpu.py`:
 
 - `POST /v1/marketplace/gpu/register` - Register GPU in marketplace ✅
@@ -60,27 +66,32 @@ All GPU marketplace endpoints are fully implemented in `/opt/aitbc/apps/coordina
 - `POST /v1/marketplace/gpu/{gpu_id}/reviews` - Add GPU review ✅
 
 #### 2. GPU Booking System ✅ IMPLEMENTED
+
 - **Status**: ✅ Fully implemented
 - **Implementation**: GPUBooking SQLModel with booking duration tracking, status management, and automatic refund calculation on release
 - **Location**: `/opt/aitbc/apps/coordinator-api/src/app/domain/gpu_marketplace.py`
 
 #### 3. GPU Reviews System ✅ IMPLEMENTED
+
 - **Status**: ✅ Fully implemented
 - **Implementation**: GPUReview SQLModel with automatic rating aggregation and review-per-gpu association
 - **Location**: `/opt/aitbc/apps/coordinator-api/src/app/domain/gpu_marketplace.py`
 
 #### 4. GPU Registry ✅ IMPLEMENTED
+
 - **Status**: ✅ Fully implemented
 - **Implementation**: GPURegistry SQLModel with individual GPU registration, specifications storage, status tracking (available, booked, offline), and average rating aggregation
 - **Location**: `/opt/aitbc/apps/coordinator-api/src/app/domain/gpu_marketplace.py`
 
 #### 5. Order Management ✅ IMPLEMENTED
+
 - **Status**: ✅ Fully implemented
 - **CLI expects**: `GET /v1/marketplace/orders`
 - **Implementation**: Orders endpoint returns booking history with GPU model, miner ID, duration, cost, and status
 - **Location**: `/opt/aitbc/apps/coordinator-api/src/app/routers/marketplace_gpu.py`
 
 #### 6. Pricing Information ✅ IMPLEMENTED
+
 - **Status**: ✅ Fully implemented with dynamic pricing
 - **CLI expects**: `GET /v1/marketplace/pricing/{model}`
 - **Implementation**: Dynamic pricing engine with market balance strategy, demand-based pricing, and confidence scoring
@@ -91,7 +102,9 @@ All GPU marketplace endpoints are fully implemented in `/opt/aitbc/apps/coordina
 **RESOLVED** - All data models are now properly implemented.
 
 #### 1. MarketplaceOffer Model Limitations ✅ RESOLVED
+
 GPU-specific data is now properly structured in dedicated GPURegistry model:
+
 ```python
 class GPURegistry(SQLModel, table=True):
     id: str  # Unique GPU identifier
@@ -109,6 +122,7 @@ class GPURegistry(SQLModel, table=True):
 ```
 
 **All GPU-specific fields are present**:
+
 - `id`: Unique GPU identifier ✅
 - `model`: GPU model name ✅
 - `memory_gb`: GPU memory in GB ✅
@@ -117,7 +131,9 @@ class GPURegistry(SQLModel, table=True):
 - `total_reviews`: Number of reviews ✅
 
 #### 2. Booking/Order Models ✅ RESOLVED
+
 All required models are now implemented:
+
 - `GPUBooking`: Track GPU reservations ✅ (in gpu_marketplace.py)
 - `GPUOrder`: Bookings serve as orders ✅
 - `GPUReview`: Store GPU reviews ✅ (in gpu_marketplace.py)
@@ -144,31 +160,37 @@ All required models are now implemented:
 All phases of the recommended implementation plan have been completed:
 
 #### Phase 1: Core GPU Marketplace ✅ COMPLETE
+
 1. **GPU Registry Model** ✅ Implemented in `/opt/aitbc/apps/coordinator-api/src/app/domain/gpu_marketplace.py`
 2. **GPU Endpoints** ✅ Implemented in `/opt/aitbc/apps/coordinator-api/src/app/routers/marketplace_gpu.py`
 3. **Booking System** ✅ GPUBooking model implemented with full booking/unbooking logic
 
 #### Phase 2: Reviews and Ratings ✅ COMPLETE
+
 1. **Review System** ✅ GPUReview model implemented in `/opt/aitbc/apps/coordinator-api/src/app/domain/gpu_marketplace.py`
 2. **Rating Aggregation** ✅ Automatic rating aggregation on GPURegistry with average_rating and total_reviews fields
 
 #### Phase 3: Orders and Pricing ✅ COMPLETE
+
 1. **Order Management** ✅ Bookings serve as orders with full tracking in `/v1/marketplace/orders` endpoint
 2. **Dynamic Pricing** ✅ Sophisticated dynamic pricing engine implemented in `/opt/aitbc/apps/coordinator-api/src/app/services/dynamic_pricing_engine.py`
 
 ### 🔍 Integration Points
 
 #### 1. Miner Registration ✅
+
 - GPU entries can be created via `/v1/marketplace/gpu/register` endpoint
 - GPU capabilities are stored in GPURegistry model
 - GPU status can be updated based on miner heartbeat
 
 #### 2. Job Assignment ✅
+
 - GPU availability checked via `/v1/marketplace/gpu/list` endpoint
 - GPU booking handled via `/v1/marketplace/gpu/{gpu_id}/book` endpoint
 - GPU release handled via `/v1/marketplace/gpu/{gpu_id}/release` endpoint
 
 #### 3. Billing Integration ✅
+
 - Costs calculated automatically based on booking duration and dynamic pricing
 - Orders tracked via `/v1/marketplace/orders` endpoint
 - Refunds calculated automatically (50% refund on release)
@@ -196,6 +218,7 @@ All phases of the recommended implementation plan have been completed:
 ### 💡 Implementation Summary
 
 **ALL FEATURES IMPLEMENTED** - The GPU marketplace backend is fully functional with:
+
 - Complete router at `/v1/marketplace/gpu/` with all CLI-expected endpoints
 - Full SQLModel database models (GPURegistry, GPUBooking, GPUReview)
 - Dynamic pricing engine with market balance strategy
@@ -226,6 +249,7 @@ Agent GPU Resource Discovery
 ```
 
 **Implementation Locations:**
+
 - **Resource Discovery API Endpoint**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:45`
 - **Service Layer Call**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:52`
 - **Agent Preference Matching**: `/opt/aitbc/apps/marketplace-service/src/matching.py:78`
@@ -255,6 +279,7 @@ Agent-to-Agent Transaction Execution
 ```
 
 **Implementation Locations:**
+
 - **Bid Submission Endpoint**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:120`
 - **Transaction Creation**: `/opt/aitbc/cli/aitbc_cli/commands/transactions.py:34`
 - **Blockchain Submission**: `/opt/aitbc/cli/aitbc_cli/commands/transactions.py:56`
@@ -285,6 +310,7 @@ Reputation & Trust System
 ```
 
 **Implementation Locations:**
+
 - **Reputation Calculation**: `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:23`
 - **On-Chain Update**: `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:41`
 - **Trust-Based Filtering**: `/opt/aitbc/apps/marketplace-service/src/matching.py:112`
@@ -315,6 +341,7 @@ Dynamic Pricing System
 ```
 
 **Implementation Locations:**
+
 - **Market Data Collection**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:18`
 - **Price Calculation**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:35`
 - **Price Update**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:52`

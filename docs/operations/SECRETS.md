@@ -37,6 +37,7 @@ This document catalogs all secrets and sensitive configuration in the AITBC mono
 | `apps/agent-coordinator/src/app/routers/auth.py:38` | `"user": ... or "user123"` | Fallback to hardcoded `user123` | **✅ Fixed** |
 
 **Fix applied**:
+
 - `training_setup/cli.py`: Removed default, added `prompt=True, hide_input=True` for interactive password entry
 - `training_setup/blockchain.py` & `environment.py`: Removed default `="training123"`, now raises `ValueError` if password is None
 - `agent-coordinator/auth.py`: Removed all hardcoded fallbacks. Now requires `ADMIN_PASSWORD` env var; returns 500 if not configured. `OPERATOR_PASSWORD` and `USER_PASSWORD` also read from env without fallbacks.
@@ -51,6 +52,7 @@ This document catalogs all secrets and sensitive configuration in the AITBC mono
 | `apps/coordinator-api/migrations/003_data_migration.py:197` | Default password `aitbc` in migration script | Default used if --database-url not provided | **✅ Fixed** |
 
 **Fix applied**:
+
 - `storage.py`: Removed default connection string. Now raises `ValueError("AI_SERVICE_DATABASE_URL environment variable must be set")` if missing.
 - `003_data_migration.py`: Changed `--database-url` from `default=` to `required=True`.
 
@@ -113,10 +115,12 @@ This document catalogs all secrets and sensitive configuration in the AITBC mono
 ### Phase 1: Remove Plaintext Secrets from Service Files (P0)
 
 **Files to fix:**
+
 1. `apps/blockchain-node/aitbc-blockchain-p2p.service`
 2. `apps/governance/aitbc-governance.service`
 
 **Steps:**
+
 ```bash
 # 1. Create secret env files on target systems (NOT in Git)
 sudo mkdir -p /etc/aitbc/secrets
@@ -133,6 +137,7 @@ sudo chmod 600 /etc/aitbc/aitbc-blockchain-p2p.env /etc/aitbc/aitbc-governance.e
 ```
 
 **Verification:**
+
 ```bash
 # Confirm no secrets in service files
 grep -rn "password\|_pass\|secret" --include="*.service" apps/ scripts/
@@ -144,12 +149,14 @@ grep -rn "password\|_pass\|secret" --include="*.service" apps/ scripts/
 ### Phase 2: Remove Hardcoded Defaults from Python Code (P1)
 
 **Files to fix:**
+
 1. `aitbc/training_setup/cli.py:124` — remove `default="training123"`
 2. `aitbc/training_setup/blockchain.py:111` — remove default password
 3. `aitbc/training_setup/environment.py:150` — remove default password
 4. `apps/agent-coordinator/src/app/routers/auth.py:36-38` — remove fallback defaults
 
 **Pattern for each:**
+
 ```python
 # BEFORE (INSECURE)
 password: str = "training123"
@@ -162,6 +169,7 @@ if not password:
 ```
 
 For agent-coordinator auth:
+
 ```python
 # BEFORE (INSECURE)
 "admin": os.getenv("TEST_ADMIN_PASSWORD") or os.getenv("DEMO_ADMIN_PASSWORD") or "admin123",
@@ -177,10 +185,12 @@ if not password:
 ### Phase 3: Remove Default Passwords from Database URLs (P1)
 
 **Files to fix:**
+
 1. `apps/ai-engine/examples/src/aitbc_ai/storage.py:11`
 2. `apps/coordinator-api/migrations/003_data_migration.py:197`
 
 **Pattern:**
+
 ```python
 # BEFORE (INSECURE)
 DATABASE_URL = os.getenv("AI_SERVICE_DATABASE_URL", "postgresql+asyncpg://aitbc_ai:password@localhost:5432/aitbc_ai")
@@ -196,10 +206,12 @@ if not DATABASE_URL:
 ### Phase 4: Scripts Should Write to Files, Not stdout (P2)
 
 **Files to fix:**
+
 1. `apps/blockchain-node/scripts/create_genesis_wallet.py:91-92`
 2. `apps/blockchain-node/scripts/keystore.py:105-134`
 
 **Pattern:**
+
 ```python
 # BEFORE (INSECURE)
 print(f"Private key: {private_key_bytes.hex()}")
@@ -220,12 +232,14 @@ print(f"Private key written to: {secret_file}")
 **Goal**: All services use `EnvironmentFile=/etc/aitbc/%N.env` for secrets.
 
 **Current status:**
+
 - ✅ `aitbc-blockchain-node.service` uses `/run/aitbc/secrets/.env` (good but not standard)
 - ✅ `aitbc-coordinator-api.service` uses `/run/aitbc/secrets/.env` (good but not standard)
 - ✅ `aitbc-edge.service` uses `/etc/aitbc/secrets/jwt_secret` (good)
 - 🔴 Most services use `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env` (shared, not per-service)
 
 **Migration:**
+
 ```bash
 # Create per-service env files
 for service in aitbc-coordinator-api aitbc-blockchain-node aitbc-agent-coordinator aitbc-marketplace; do
@@ -243,6 +257,7 @@ done
 ## Secret Rotation Policy (v0.5.0+)
 
 ### Principles
+
 1. **No secret lives forever**: All secrets must be rotatable without downtime.
 2. **No plaintext in Git**: Secrets must never be committed.
 3. **No shared secrets**: Each service gets its own credentials.
@@ -266,11 +281,13 @@ done
 **Impact**: Affects coordinator-api authentication tokens.
 
 **Prerequisites:**
+
 - Access to `/run/aitbc/secrets/.env` or `/etc/aitbc/coordinator-api.env`
 - Service restart capability
 - Token expiration time knowledge (default: 24-48 hours)
 
 **Procedure:**
+
 ```bash
 # 1. Generate new JWT secret
 NEW_JWT_SECRET=$(openssl rand -hex 32)
@@ -303,6 +320,7 @@ rm /run/aitbc/secrets/.env.backup
 ```
 
 **Rollback:**
+
 ```bash
 # If issues occur, restore backup
 cp /run/aitbc/secrets/.env.backup /run/aitbc/secrets/.env
@@ -314,11 +332,13 @@ systemctl reload aitbc-coordinator-api
 **Impact**: Affects API key authentication and hashing.
 
 **Prerequisites:**
+
 - Access to `/run/aitbc/secrets/.env` or `/etc/aitbc/coordinator-api.env`
 - Service restart capability
 - Knowledge of API key expiration times
 
 **Procedure:**
+
 ```bash
 # 1. Generate new API key hash secret
 NEW_API_KEY_SECRET=$(openssl rand -hex 32)
@@ -354,6 +374,7 @@ rm /run/aitbc/secrets/.env.backup
 ```
 
 **Rollback:**
+
 ```bash
 # If issues occur, restore backup
 cp /run/aitbc/secrets/.env.backup /run/aitbc/secrets/.env
@@ -365,12 +386,14 @@ systemctl reload aitbc-coordinator-api
 **Impact**: Affects blockchain node keystore access for block signing.
 
 **Prerequisites:**
+
 - Access to keystore password file (typically `/run/aitbc/secrets/keystore_password` or `/etc/aitbc/%N.env`)
 - Access to keystore files
 - Blockchain node restart capability
 - Backup of keystore files
 
 **Procedure:**
+
 ```bash
 # 1. Generate new keystore password
 NEW_KEYSTORE_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
@@ -406,6 +429,7 @@ rm -rf "$BACKUP_DIR"
 ```
 
 **Rollback:**
+
 ```bash
 # If issues occur, restore keystore files
 systemctl stop aitbc-blockchain-node
@@ -426,6 +450,7 @@ systemctl start aitbc-blockchain-node
 ### Rotation Tracking
 
 Document all rotations in `docs/operations/SECRET_ROTATION_LOG.md`:
+
 ```markdown
 | Date | Secret | Old Version | New Version | Performed By | Notes |
 |------|--------|-------------|-------------|--------------|-------|
@@ -433,6 +458,7 @@ Document all rotations in `docs/operations/SECRET_ROTATION_LOG.md`:
 ```
 
 ### Rotation Procedure
+
 1. Generate new secret
 2. Update `/etc/aitbc/%N.env` on target host
 3. `sudo systemctl daemon-reload`
@@ -461,6 +487,7 @@ Before deploying to production, verify:
 ## Tools
 
 ### Security Scanning
+
 ```bash
 # Run bandit for hardcoded passwords
 bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
@@ -473,6 +500,7 @@ grep -rn "password\|_pass\|secret_key\|api_key" --include="*.service" apps/ scri
 ```
 
 ### Verification Script
+
 ```bash
 #!/usr/bin/env bash
 # scripts/check-production-readiness.sh

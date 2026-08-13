@@ -1,14 +1,17 @@
 # Trading Engine
 
 ## Status
+
 ✅ Operational
 
 ## Overview
+
 High-performance trading engine for order matching, execution, and trade settlement with support for multiple order types and trading strategies.
 
 ## Architecture
 
 ### Core Components
+
 - **Order Matching Engine**: Real-time order matching algorithm
 - **Trade Executor**: Executes matched trades
 - **Risk Manager**: Risk assessment and position management
@@ -19,19 +22,23 @@ High-performance trading engine for order matching, execution, and trade settlem
 ## Quick Start (End Users)
 
 ### Prerequisites
+
 - Python 3.13+
 - PostgreSQL database
 - Redis for caching
 - Access to exchange APIs
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/apps/trading-engine
 .venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
+
 Set environment variables in `.env`:
+
 ```bash
 DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/trading
 REDIS_URL=redis://localhost:6379
@@ -40,6 +47,7 @@ RISK_LIMITS_ENABLED=true
 ```
 
 ### Running the Service
+
 ```bash
 .venv/bin/python main.py
 ```
@@ -47,6 +55,7 @@ RISK_LIMITS_ENABLED=true
 ## Developer Guide
 
 ### Development Setup
+
 1. Clone the repository
 2. Create virtual environment: `python -m venv .venv`
 3. Install dependencies: `pip install -r requirements.txt`
@@ -55,6 +64,7 @@ RISK_LIMITS_ENABLED=true
 6. Run tests: `pytest tests/`
 
 ### Project Structure
+
 ```
 trading-engine/
 ├── src/
@@ -69,6 +79,7 @@ trading-engine/
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
@@ -85,6 +96,7 @@ pytest tests/test_risk.py
 ### Order Management
 
 #### Submit Order
+
 ```http
 POST /api/v1/trading/orders
 Content-Type: application/json
@@ -101,11 +113,13 @@ Content-Type: application/json
 ```
 
 #### Cancel Order
+
 ```http
 DELETE /api/v1/trading/orders/{order_id}
 ```
 
 #### Get Order Status
+
 ```http
 GET /api/v1/trading/orders/{order_id}
 ```
@@ -113,11 +127,13 @@ GET /api/v1/trading/orders/{order_id}
 ### Trade Execution
 
 #### Get Trade History
+
 ```http
 GET /api/v1/trading/trades?symbol=BTC_AIT&limit=100
 ```
 
 #### Get User Trades
+
 ```http
 GET /api/v1/trading/users/{user_id}/trades
 ```
@@ -125,6 +141,7 @@ GET /api/v1/trading/users/{user_id}/trades
 ### Risk Management
 
 #### Check Risk Limits
+
 ```http
 POST /api/v1/trading/risk/check
 Content-Type: application/json
@@ -136,6 +153,7 @@ Content-Type: application/json
 ```
 
 #### Get User Risk Profile
+
 ```http
 GET /api/v1/trading/users/{user_id}/risk-profile
 ```
@@ -143,11 +161,13 @@ GET /api/v1/trading/users/{user_id}/risk-profile
 ### Settlement
 
 #### Get Settlement Status
+
 ```http
 GET /api/v1/trading/settlement/{trade_id}
 ```
 
 #### Trigger Settlement
+
 ```http
 POST /api/v1/trading/settlement/trigger
 Content-Type: application/json
@@ -160,6 +180,7 @@ Content-Type: application/json
 ## Configuration
 
 ### Environment Variables
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string
 - `EXCHANGE_API_KEY`: Exchange API key
@@ -169,12 +190,14 @@ Content-Type: application/json
 - `LIQUIDATION_THRESHOLD`: Liquidation threshold
 
 ### Order Types
+
 - **Limit Order**: Execute at specified price or better
 - **Market Order**: Execute immediately at market price
 - **Stop Order**: Trigger when price reaches stop price
 - **Stop-Limit**: Limit order triggered by stop price
 
 ### Risk Parameters
+
 - **Position Limits**: Maximum position sizes
 - **Margin Requirements**: Required margin for leverage
 - **Liquidation Threshold**: Price at which positions are liquidated

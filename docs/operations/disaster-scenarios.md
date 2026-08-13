@@ -12,6 +12,7 @@ This document defines disaster scenarios and their corresponding recovery proced
 ## Disaster Scenarios
 
 ### 1. Database Corruption
+
 - **Description:** PostgreSQL database corruption due to hardware failure, software bug, or malicious attack
 - **Impact:** Loss of job data, marketplace offers/bids, user sessions, configuration
 - **RTO:** 1-4 hours (customize based on deployment requirements)
@@ -19,6 +20,7 @@ This document defines disaster scenarios and their corresponding recovery proced
 - **Recovery Strategy:** Restore from latest PostgreSQL backup
 
 ### 2. Service Failure
+
 - **Description:** Critical service failure (coordinator-api, blockchain-node, marketplace, exchange)
 - **Impact:** Service unavailability, transaction processing halt
 - **RTO:** 30 minutes (customize based on service criticality)
@@ -26,6 +28,7 @@ This document defines disaster scenarios and their corresponding recovery proced
 - **Recovery Strategy:** Restart services, failover to standby instances
 
 ### 3. Network Partition
+
 - **Description:** Network connectivity loss between components or regions
 - **Impact:** Distributed system inconsistency, service degradation
 - **RTO:** 1-4 hours (customize based on network topology)
@@ -33,6 +36,7 @@ This document defines disaster scenarios and their corresponding recovery proced
 - **Recovery Strategy:** Restore network connectivity, resynchronize state
 
 ### 4. Data Center Outage
+
 - **Description:** Complete data center failure (power, cooling, network)
 - **Impact:** Complete system unavailability
 - **RTO:** 4-8 hours (customize based on failover strategy)
@@ -40,6 +44,7 @@ This document defines disaster scenarios and their corresponding recovery proced
 - **Recovery Strategy:** Failover to alternate data center
 
 ### 5. Security Breach
+
 - **Description:** Unauthorized access, data breach, ransomware attack
 - **Impact:** Data compromise, service disruption, reputational damage
 - **RTO:** Variable (depends on breach severity)
@@ -47,6 +52,7 @@ This document defines disaster scenarios and their corresponding recovery proced
 - **Recovery Strategy:** Contain breach, restore from pre-breach backup, patch vulnerabilities
 
 ### 6. Ransomware Attack
+
 - **Description:** Malicious encryption of data/systems
 - **Impact:** Data unavailability, service disruption
 - **RTO:** 8-24 hours (customize based on system complexity)
@@ -107,6 +113,7 @@ curl -s http://localhost:8203/v1/health
 ```
 
 **Verification Steps:**
+
 1. Check database connectivity
 2. Verify job data integrity
 3. Test API endpoints
@@ -134,6 +141,7 @@ curl -s http://localhost:[port]/v1/health
 ```
 
 **Verification Steps:**
+
 1. Check pod status
 2. Verify service endpoints
 3. Test critical functionality
@@ -160,6 +168,7 @@ curl -s http://[service-name]:[port]/v1/health
 ```
 
 **Verification Steps:**
+
 1. Verify network connectivity
 2. Test DNS resolution
 3. Check service communication
@@ -187,6 +196,7 @@ curl -s https://api.aitbc.io/v1/health
 ```
 
 **Verification Steps:**
+
 1. Verify alternate cluster health
 2. Test DNS propagation
 3. Verify service availability
@@ -222,6 +232,7 @@ systemctl start [affected-service]
 ```
 
 **Verification Steps:**
+
 1. Verify breach containment
 2. Validate patch application
 3. Verify data integrity
@@ -258,6 +269,7 @@ systemctl start --all
 ```
 
 **Verification Steps:**
+
 1. Verify system cleanliness
 2. Validate data integrity
 3. Test all services

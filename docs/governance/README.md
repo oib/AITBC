@@ -25,12 +25,14 @@ AITBC v0.4.12 introduces comprehensive governance capabilities for the the netwo
 ## Quick Start
 
 ### Service Status
+
 ```bash
 sudo systemctl status aitbc-governance
 curl http://localhost:8105/health
 ```
 
 ### CLI Commands
+
 ```bash
 aitbc governance --help
 aitbc governance stake --address 0x123... --amount 1000 --lock-days 30
@@ -38,12 +40,14 @@ aitbc governance voting-power <address>
 ```
 
 ### Database Migrations
+
 ```bash
 cd /opt/aitbc/apps/governance
 /opt/aitbc/venv/bin/alembic upgrade head
 ```
 
 ### Smart Contract Tests
+
 ```bash
 cd /opt/aitbc/contracts/governance
 forge test

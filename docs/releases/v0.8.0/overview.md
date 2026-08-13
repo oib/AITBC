@@ -10,6 +10,7 @@
 > **Rescope from original change.log**: The original v0.8.0 change.log claimed "No trading service exists" — this is **FALSE**. `apps/trading/` exists with 1011 lines (FastAPI app, domain models, service layer, SQLite storage). However, it only has P2P agent-to-agent models (TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement, TradeFeedback) with NO inter-chain fields (source_chain, dest_chain). v0.8.0 extends this existing service with inter-chain capabilities rather than creating a new app from scratch.
 
 > **Prerequisite correction**: The user's analysis claimed v0.7.1 and v0.7.2 are "not done" — this is **FALSE**. Both are complete and committed:
+>
 > - v0.7.1 (Bridge Security): Agent A `1fcf1e829` + Agent B `a4ea61295` — multi-sig, validator sets, block header sigs, CLI commands
 > - v0.7.2 (Bridge Verification): Agent A `9a7b17a34` + Agent B `09fa64342` — Merkle proofs, block headers, finality, oracle status, release unfenced
 > - Bridge release is now **unfenced** (`bridge_release_enabled: bool = True` in `config.py:292`)
@@ -36,12 +37,14 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Already Fixed / Exists](#already-fixed--exists-verified--no-work-needed)
 - [Architecture](#architecture-inter-chain-trading-v080)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Trading Types](./agent-a.md#a1-trading-types)
@@ -50,6 +53,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a4-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Trading Service Config](./agent-b.md#b1-trading-service-config)

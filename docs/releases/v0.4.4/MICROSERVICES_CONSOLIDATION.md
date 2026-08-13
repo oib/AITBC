@@ -13,6 +13,7 @@ AITBC v0.4.4 consolidates the GPU service microservice back into the monolithic 
 ### GPU Service Removal
 
 #### Deleted Components
+
 - GPU service directory with all configuration files
 - Systemd service definitions
 - Database setup scripts

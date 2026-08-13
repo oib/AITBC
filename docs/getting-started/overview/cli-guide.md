@@ -9,11 +9,13 @@
 ## 🚀 **Quick Start**
 
 ### Prerequisites
+
 - Linux system (Debian 13+ recommended)
 - Python 3.13+ installed
 - System access (for initial setup)
 
 ### Installation
+
 ```bash
 # 1. Navigate to AITBC directory
 cd /opt/aitbc
@@ -29,6 +31,7 @@ systemctl list-units --state=running | grep aitbc
 ## 🔧 **Development Environment Setup**
 
 ### Permission Configuration
+
 ```bash
 # Fix permissions (one-time setup)
 /opt/aitbc/scripts/clean-permissions-fix.sh
@@ -38,6 +41,7 @@ systemctl list-units --state=running | grep aitbc
 ```
 
 ### Environment Variables
+
 ```bash
 # Activate Python virtual environment
 source /opt/aitbc/venv/bin/activate
@@ -49,6 +53,7 @@ source /opt/aitbc/venv/bin/activate
 ## 📋 **Basic Operations**
 
 ### Wallet Management
+
 ```bash
 # Create new wallet
 /opt/aitbc/aitbc-cli create --name "my-wallet" --password "password123"
@@ -61,6 +66,7 @@ source /opt/aitbc/venv/bin/activate
 ```
 
 ### Exchange Operations
+
 ```bash
 # Note: Exchange operations may require additional setup
 # Check exchange status via API
@@ -68,6 +74,7 @@ curl -s http://localhost:8001/health
 ```
 
 ### Blockchain Operations
+
 ```bash
 # Get blockchain info
 /opt/aitbc/aitbc-cli chain
@@ -82,6 +89,7 @@ curl -s http://localhost:8001/health
 ## 🛠️ **Advanced Usage**
 
 ### Output Formats
+
 ```bash
 # Table output (default)
 /opt/aitbc/aitbc-cli list
@@ -91,6 +99,7 @@ curl -s http://localhost:8001/health
 ```
 
 ### Debug Mode
+
 ```bash
 # Enable debug output (if supported)
 /opt/aitbc/aitbc-cli --debug chain
@@ -105,6 +114,7 @@ curl -s http://localhost:8203/health
 ### Common Issues
 
 #### Permission Denied
+
 ```bash
 # Fix permissions
 /opt/aitbc/scripts/fix-permissions.sh
@@ -114,6 +124,7 @@ curl -s http://localhost:8203/health
 ```
 
 #### Service Not Running
+
 ```bash
 # Check service status
 systemctl list-units --state=running | grep aitbc
@@ -126,6 +137,7 @@ journalctl -u aitbc-blockchain-node.service -f
 ```
 
 #### Command Not Found
+
 ```bash
 # Check CLI installation
 ls -la /opt/aitbc/aitbc-cli
@@ -138,6 +150,7 @@ source /opt/aitbc/venv/bin/activate
 ```
 
 #### API Connection Issues
+
 ```bash
 # Check service endpoints
 curl -s http://localhost:8202/health
@@ -151,18 +164,21 @@ systemctl status aitbc-coordinator-api.service
 ## 📚 **Next Steps**
 
 ### Explore Features
+
 1. **Wallet Operations**: Try creating and managing wallets
 2. **Exchange Integration**: Register with exchanges and start trading
 3. **Blockchain Operations**: Explore blockchain features
 4. **Compliance**: Set up KYC/AML verification
 
 ### Advanced Topics
+
 1. **Market Making**: Configure automated trading
 2. **Oracle Integration**: Set up price feeds
 3. **Security**: Implement multi-sig and time-lock
 4. **Development**: Build custom tools and integrations
 
 ### Documentation
+
 - Complete CLI Reference
 - Testing Procedures
 - [Permission Setup](../../cli/permission-setup.md)
@@ -171,6 +187,7 @@ systemctl status aitbc-coordinator-api.service
 ## 🎯 **Tips and Best Practices**
 
 ### Development Workflow
+
 ```bash
 # 1. Navigate to AITBC directory
 cd /opt/aitbc
@@ -189,6 +206,7 @@ systemctl list-units --state=running | grep aitbc
 ```
 
 ### Security Best Practices
+
 - Use strong passwords for wallet encryption
 - Enable multi-sig for large amounts
 - Keep API keys secure
@@ -196,6 +214,7 @@ systemctl list-units --state=running | grep aitbc
 - Monitor compliance requirements
 
 ### Performance Tips
+
 - Use appropriate output formats for automation
 - Leverage test mode for development
 - Cache frequently used data

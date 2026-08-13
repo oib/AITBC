@@ -1,11 +1,11 @@
 # AITBC __init__.py Refactoring Plan
 
-**Date**: 2026-06-17
-**Last Updated**: 2026-06-17
-**Goal**: Split monolithic `aitbc/__init__.py` (247 lines, 150+ lazy exports) into logical submodules
-**Status**: 🔄 Phase 1 Complete (10/15 submodules)
-**Estimated Remaining Effort**: 2-4 hours
-**Risk Level**: Low (most submodules already complete)
+__Date__: 2026-06-17
+__Last Updated__: 2026-06-17
+__Goal__: Split monolithic `aitbc/__init__.py` (247 lines, 150+ lazy exports) into logical submodules
+__Status__: 🔄 Phase 1 Complete (10/15 submodules)
+__Estimated Remaining Effort__: 2-4 hours
+__Risk Level__: Low (most submodules already complete)
 
 ---
 
@@ -37,21 +37,23 @@
 | `aitbc.utils` | 📋 Not Started | `utils/` directory | 42 utility functions | Low |
 
 ### Current `__init__.py` State
-- **File**: `/opt/aitbc/aitbc/__init__.py`
-- **Lines**: 247
-- **Direct imports**: 37 items (logging, constants, exceptions, middleware, env utils, path utils)
-- **Lazy exports**: 150+ items via `_LAZY_EXPORTS` dict
-- **Lazy loading mechanism**: `__getattr__` function
+
+- __File__: `/opt/aitbc/aitbc/__init__.py`
+- __Lines__: 247
+- __Direct imports__: 37 items (logging, constants, exceptions, middleware, env utils, path utils)
+- __Lazy exports__: 150+ items via `_LAZY_EXPORTS` dict
+- __Lazy loading mechanism__: `__getattr__` function
 
 ---
 
 ## Phase 1: Low-Risk Submodules ✅ COMPLETE
 
-**Status**: ✅ Complete (2026-06-17)
-**Effort**: 6-8 hours
-**Result**: 10 submodules created and working
+__Status__: ✅ Complete (2026-06-17)
+__Effort__: 6-8 hours
+__Result__: 10 submodules created and working
 
 ### Completed Work
+
 1. ✅ Created `aitbc/api` submodule with 25 API utility functions
 2. ✅ Created `aitbc.async_helpers` submodule with 8 async utility functions
 3. ✅ Created `aitbc.blockchain` submodule with 3 blockchain service classes
@@ -65,6 +67,7 @@
 11. ✅ Created `aitbc.data_layer` submodule with 4 data layer classes/functions
 
 ### Lessons Learned
+
 - ✅ Single-file submodule approach works well
 - ✅ Backward compatibility aliases are important
 - ✅ Existing directory structures (crypto, database, network, utils) can be leveraged
@@ -74,16 +77,16 @@
 
 ## Phase 2: Medium-Risk Submodules (1-2 hours)
 
-**Status**: 📋 Not Started
-**Priority**: HIGH (core infrastructure)
-**Risk**: Medium (security-critical and core infrastructure)
+__Status__: 📋 Not Started
+__Priority__: HIGH (core infrastructure)
+__Risk__: Medium (security-critical and core infrastructure)
 
 ### 2.1 Create `aitbc.crypto` Submodule
-**Risk**: MEDIUM (security-critical, already exists as directory)
-**Target file**: `/opt/aitbc/aitbc/crypto/__init__.py`
-**Source**: Existing `aitbc/crypto/` directory
-**Approach**: Ensure proper exports from existing directory structure
-**Lazy mapping**: Update to use consolidated crypto exports
+__Risk__: MEDIUM (security-critical, already exists as directory)
+__Target file__: `/opt/aitbc/aitbc/crypto/__init__.py`
+__Source__: Existing `aitbc/crypto/` directory
+__Approach__: Ensure proper exports from existing directory structure
+__Lazy mapping__: Update to use consolidated crypto exports
 
 ```python
 # /opt/aitbc/aitbc/crypto/__init__.py
@@ -111,11 +114,11 @@ __all__ = [
 ```
 
 ### 2.2 Create `aitbc.database` Submodule
-**Risk**: MEDIUM (core infrastructure)
-**Target file**: `/opt/aitbc/aitbc/database/__init__.py`
-**Source**: Existing `aitbc/database/` directory + `aitbc.database_service.py`
-**Approach**: Consolidate existing database directory with service exports
-**Lazy mapping**: `database` → `aitbc.database`, `database_service` → `aitbc.database`
+__Risk__: MEDIUM (core infrastructure)
+__Target file__: `/opt/aitbc/aitbc/database/__init__.py`
+__Source__: Existing `aitbc/database/` directory + `aitbc.database_service.py`
+__Approach__: Consolidate existing database directory with service exports
+__Lazy mapping__: `database` → `aitbc.database`, `database_service` → `aitbc.database`
 
 ```python
 # /opt/aitbc/aitbc/database/__init__.py
@@ -135,11 +138,11 @@ __all__ = [
 ```
 
 ### 2.3 Create `aitbc.network` Submodule
-**Risk**: LOW (already exists as directory)
-**Target file**: `/opt/aitbc/aitbc/network/__init__.py`
-**Source**: Existing `aitbc/network/` directory
-**Approach**: Ensure proper exports from existing directory structure
-**Lazy mapping**: `network` → `aitbc.network` (already correct)
+__Risk__: LOW (already exists as directory)
+__Target file__: `/opt/aitbc/aitbc/network/__init__.py`
+__Source__: Existing `aitbc/network/` directory
+__Approach__: Ensure proper exports from existing directory structure
+__Lazy mapping__: `network` → `aitbc.network` (already correct)
 
 ```python
 # /opt/aitbc/aitbc/network/__init__.py
@@ -156,14 +159,14 @@ __all__ = [
 
 ## Phase 3: Utils Consolidation (1 hour)
 
-**Status**: 📋 Not Started
-**Priority**: MEDIUM (utility reorganization)
-**Risk**: LOW (already exists as directory)
+__Status__: 📋 Not Started
+__Priority__: MEDIUM (utility reorganization)
+__Risk__: LOW (already exists as directory)
 
 ### 3.1 Create `aitbc.utils` Submodule
-**Risk**: LOW (already exists as directory)
-**Target**: Ensure `aitbc/utils/__init__.py` properly exports all utility functions
-**Lazy mapping**: Already correct (`utils.json_utils`, `utils.time_utils`, `utils.validation`, `utils.env`, `utils.paths`)
+__Risk__: LOW (already exists as directory)
+__Target__: Ensure `aitbc/utils/__init__.py` properly exports all utility functions
+__Lazy mapping__: Already correct (`utils.json_utils`, `utils.time_utils`, `utils.validation`, `utils.env`, `utils.paths`)
 
 ```python
 # /opt/aitbc/aitbc/utils/__init__.py
@@ -227,11 +230,12 @@ __all__ = [
 
 ## Phase 4: Update Import Patterns (30 minutes)
 
-**Status**: 📋 Not Started
-**Priority**: HIGH (ensure backward compatibility)
-**Risk**: LOW (minimal changes needed)
+__Status__: 📋 Not Started
+__Priority__: HIGH (ensure backward compatibility)
+__Risk__: LOW (minimal changes needed)
 
 ### 4.1 Update Lazy Export Mappings
+
 Update `_LAZY_EXPORTS` in `__init__.py` to point to new submodules:
 
 ```python
@@ -277,6 +281,7 @@ for _name in (
 ```
 
 ### 4.2 Verification
+
 - Run MyPy on all new submodules
 - Test service wrapper imports
 - Run smoke tests for affected services
@@ -285,11 +290,12 @@ for _name in (
 
 ## Phase 5: Remove Lazy Loading (30 minutes)
 
-**Status**: 📋 Not Started
-**Priority**: MEDIUM (cleanup)
-**Risk**: LOW (after all imports verified)
+__Status__: 📋 Not Started
+__Priority__: MEDIUM (cleanup)
+__Risk__: LOW (after all imports verified)
 
 ### 5.1 Remove Lazy Export Mechanism
+
 After all imports are updated, remove the lazy loading system:
 
 ```python
@@ -300,6 +306,7 @@ After all imports are updated, remove the lazy loading system:
 ```
 
 ### 5.2 Final __init__.py Structure
+
 Clean, minimal __init__.py with only core exports:
 
 ```python
@@ -394,6 +401,7 @@ __all__ = [
 ## Success Criteria
 
 ### Must Have
+
 - ✅ All 15 submodules created with `__init__.py`
 - ✅ All existing imports continue to work
 - ✅ Zero breaking changes to public API
@@ -402,12 +410,14 @@ __all__ = [
 - ✅ MyPy checks pass with no new errors
 
 ### Should Have
+
 - ✅ Reduced `__init__.py` complexity (target: <100 lines)
 - ✅ Clear submodule organization
 - ✅ Improved import performance (lazy loading maintained during transition)
 - ✅ Better code organization and maintainability
 
 ### Nice to Have
+
 - ✅ Documentation updates for new submodule structure
 - ✅ Import migration guide for developers
 - ✅ Performance benchmarks for import changes
@@ -424,16 +434,16 @@ __all__ = [
 | Phase 3: Utils consolidation | 1 hour | P1 | 📋 Not Started |
 | Phase 4: Update import patterns | 30 minutes | P1 | 📋 Not Started |
 | Phase 5: Remove lazy loading | 30 minutes | P2 | 📋 Not Started |
-| **Total Remaining** | **3-4 hours** | - | 📋 Not Started |
+| __Total Remaining__ | __3-4 hours__ | - | 📋 Not Started |
 
 ---
 
 ## Risk Mitigation
 
-- **Backward compatibility**: Keep main `__init__.py` with re-exports during transition
-- **Testing**: Run full test suite after each submodule
-- **Rollback**: Maintain git branch `backup/v0.4.23-pre-refactor`
-- **Incremental**: Complete one submodule at a time, verify, then commit
+- __Backward compatibility__: Keep main `__init__.py` with re-exports during transition
+- __Testing__: Run full test suite after each submodule
+- __Rollback__: Maintain git branch `backup/v0.4.23-pre-refactor`
+- __Incremental__: Complete one submodule at a time, verify, then commit
 
 ---
 
@@ -441,6 +451,6 @@ __all__ = [
 
 The refactoring is 67% complete (10/15 submodules). The remaining work involves consolidating existing directory structures (crypto, database, network, utils) into proper submodule exports, updating lazy export mappings, and removing the lazy loading mechanism. The estimated remaining effort is 3-4 hours with low risk.
 
-**Release Manager**: Development Team
-**Reviewers**: Development Team
-**Target Release**: v0.4.24
+__Release Manager__: Development Team
+__Reviewers__: Development Team
+__Target Release__: v0.4.24

@@ -1,4 +1,5 @@
 # Miner API Reference
+
 Complete API reference for miner operations.
 
 ## Endpoints

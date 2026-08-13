@@ -7,11 +7,13 @@ The ZK Circuits Engine provides zero-knowledge proof capabilities for privacy-pr
 ## Architecture
 
 ### Circuit Library
+
 - **ml_inference_verification.circom**: Verifies neural network inference correctness
 - **ml_training_verification.circom**: Verifies gradient descent training without revealing data
 - **receipt_simple.circom**: Basic receipt verification (existing)
 
 ### Proof System
+
 - **Groth16**: Primary proving system for efficiency
 - **Trusted Setup**: Powers-of-tau ceremony for circuit-specific keys
 - **Verification Keys**: Pre-computed for each circuit
@@ -47,6 +49,7 @@ template MLInferenceVerification(INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE) {
 ```
 
 **Features:**
+
 - Matrix multiplication verification
 - ReLU activation function verification
 - Hash-based privacy preservation
@@ -69,6 +72,7 @@ template GradientDescentStep(PARAM_COUNT) {
 ```
 
 **Features:**
+
 - Gradient descent verification
 - Parameter update correctness
 - Training data privacy preservation
@@ -77,6 +81,7 @@ template GradientDescentStep(PARAM_COUNT) {
 ## API Integration
 
 ### Proof Generation
+
 ```bash
 POST /v1/ml-zk/prove/inference
 {
@@ -94,6 +99,7 @@ POST /v1/ml-zk/prove/inference
 ```
 
 ### Proof Verification
+
 ```bash
 POST /v1/ml-zk/verify/inference
 {
@@ -106,6 +112,7 @@ POST /v1/ml-zk/verify/inference
 ## Development Workflow
 
 ### Circuit Development
+
 1. Write Circom circuit with templates
 2. Compile with `circom circuit.circom --r1cs --wasm --sym --c -o build/`
 3. Generate trusted setup with `snarkjs`
@@ -113,6 +120,7 @@ POST /v1/ml-zk/verify/inference
 5. Integrate with ZKProofService
 
 ### Testing
+
 - Unit tests for circuit compilation
 - Integration tests for proof generation/verification
 - Performance benchmarks for proof time

@@ -5,6 +5,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Core Services
 
 ### Agent Coordinator
+
 **Path**: `apps/agent-coordinator`
 **Status**: active
 **Purpose**: Agent lifecycle management
@@ -13,6 +14,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Coordinator API
+
 **Path**: `apps/coordinator-api`
 **Status**: active
 **Purpose**: Main REST API for AITBC platform
@@ -21,6 +23,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Blockchain Node
+
 **Path**: `apps/blockchain-node`
 **Status**: active
 **Purpose**: Blockchain node with RPC, P2P, and sync services
@@ -31,6 +34,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## AI/ML Services
 
 ### GPU Service
+
 **Path**: `apps/gpu`
 **Status**: active
 **Purpose**: GPU resource management and marketplace
@@ -39,6 +43,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### AI Engine
+
 **Path**: `apps/ai-engine`
 **Status**: under development
 **Purpose**: AI model training and inference
@@ -47,6 +52,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Whisper
+
 **Path**: `apps/whisper`
 **Status**: active
 **Purpose**: Speech-to-text transcription service
@@ -54,6 +60,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### FFmpeg
+
 **Path**: `apps/ffmpeg`
 **Status**: active
 **Purpose**: Video transcoding service
@@ -63,6 +70,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Marketplace & Trading
 
 ### Marketplace
+
 **Path**: `apps/marketplace`
 **Status**: active
 **Purpose**: GPU and compute resource marketplace
@@ -71,6 +79,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Exchange
+
 **Path**: `apps/exchange`
 **Status**: active
 **Purpose**: Cross-chain exchange and trading
@@ -79,6 +88,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Trading
+
 **Path**: `apps/trading`
 **Status**: active
 **Purpose**: Trading and order management
@@ -86,6 +96,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Pool Hub
+
 **Path**: `apps/pool-hub`
 **Status**: active
 **Purpose**: Liquidity pool management
@@ -95,6 +106,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Infrastructure Services
 
 ### Wallet
+
 **Path**: `apps/wallet`
 **Status**: active
 **Purpose**: Wallet management service
@@ -103,6 +115,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Governance
+
 **Path**: `apps/governance`
 **Status**: active
 **Purpose**: Governance and voting mechanisms
@@ -111,6 +124,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Agent Management
+
 **Path**: `apps/agent-management`
 **Status**: active
 **Purpose**: Agent SDK and management
@@ -119,6 +133,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Miner
+
 **Path**: `apps/miner`
 **Status**: active
 **Purpose**: Mining operations
@@ -129,6 +144,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Network Services
 
 ### Blockchain Event Bridge
+
 **Path**: `apps/blockchain-event-bridge`
 **Status**: active
 **Purpose**: Cross-chain event bridging
@@ -137,6 +153,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Blockchain Explorer
+
 **Path**: `apps/blockchain-explorer`
 **Status**: active
 **Purpose**: Blockchain explorer interface
@@ -145,6 +162,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Bridge Monitor
+
 **Path**: `apps/bridge-monitor`
 **Status**: active
 **Purpose**: Cross-chain bridge monitoring
@@ -152,6 +170,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Edge
+
 **Path**: `apps/edge`
 **Status**: active
 **Purpose**: Edge computing service
@@ -159,6 +178,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### API Gateway
+
 **Path**: `apps/api-gateway`
 **Status**: under development
 **Purpose**: API gateway for external access
@@ -169,6 +189,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Shared Libraries
 
 ### Shared Core
+
 **Path**: `apps/shared-core`
 **Status**: shared library
 **Purpose**: Shared core utilities for applications
@@ -176,6 +197,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Shared Domain
+
 **Path**: `apps/shared-domain`
 **Status**: shared library
 **Purpose**: Shared domain models for applications
@@ -185,6 +207,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Experimental
 
 ### ZK Circuits
+
 **Path**: `apps/zk-circuits`
 **Status**: experimental
 **Purpose**: Zero-knowledge circuit implementations
@@ -194,6 +217,7 @@ This document lists all active AITBC applications as of v0.5.0.
 ## Archived Applications
 
 ### PeerTube Transcoder
+
 **Path**: `apps/archive/peertube-transcoder`
 **Status**: archived
 **Reason**: Planned for reactivation after v0.5
@@ -209,6 +233,7 @@ This document lists all active AITBC applications as of v0.5.0.
 - **Archived**: 1
 
 All active applications have recent git activity (within the last 6 months) and are either:
+
 - Referenced in CI workflows
 - Have systemd service files
 - Are core services required for platform operation

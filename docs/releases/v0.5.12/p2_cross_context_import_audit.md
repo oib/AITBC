@@ -134,15 +134,15 @@ Only 3 of 36 contexts have their own `domain/` subdirectory with actual model fi
 
 ### P3 (READMEs + `__all__`)
 
-3. Add `__all__` to each `app/domain/*.py` to declare public API surface.
-4. Add `README.md` to each context explaining its domain ownership and dependencies.
+1. Add `__all__` to each `app/domain/*.py` to declare public API surface.
+2. Add `README.md` to each context explaining its domain ownership and dependencies.
 
 ### P4 (boundary decision)
 
-5. Decide: move domain models into owning context's `domain/` subdir, or keep flat `app/domain/` as a shared kernel?
+1. Decide: move domain models into owning context's `domain/` subdir, or keep flat `app/domain/` as a shared kernel?
    - **Option A (move):** Each context owns its models. Cross-context deps become explicit imports. 40 imports to repoint. High effort, clean result.
    - **Option B (shared kernel):** Keep flat `app/domain/` as intentional shared layer. Fix broken imports, remove `type: ignore`, document the shared kernel contract. Low effort, accepts coupling.
 
 ### P5 (restructure — gated on P4)
 
-6. Execute the chosen boundary decision. Only after P4 is decided.
+1. Execute the chosen boundary decision. Only after P4 is decided.

@@ -65,6 +65,7 @@ curl -s http://localhost:8203/v1/marketplace/orders
 ```
 
 **Expected output:**
+
 ```json
 []
 ```
@@ -86,6 +87,7 @@ else:
 ```
 
 **Expected output:**
+
 ```
 PASS: B14 fix deployed — batch-fetch with WHERE IN is present in list_orders()
 ```
@@ -103,6 +105,7 @@ for gpu in gpus[:3]:
 ```
 
 **Expected output:**
+
 ```
 GPUs available: 6
   gpu_c15daa9a: Unknown GPU — available

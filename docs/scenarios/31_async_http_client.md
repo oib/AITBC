@@ -65,6 +65,7 @@ cd /opt/aitbc && grep -n "httpx.AsyncClient\|run_in_executor" aitbc/network/clie
 ```
 
 **Expected output:**
+
 ```
 8:import httpx
 412:            async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -101,6 +102,7 @@ asyncio.run(test())
 ```
 
 **Expected output:**
+
 ```
 Result: {'success': True, 'status': 'healthy', 'bridge_initialized': True, ...}
 Elapsed: 0.079s

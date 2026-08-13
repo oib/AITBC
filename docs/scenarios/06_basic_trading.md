@@ -75,6 +75,7 @@ aitbc exchange-island rates
 ```
 
 **Expected output:**
+
 ```
 Exchange Rates
 ==============
@@ -93,6 +94,7 @@ aitbc exchange-island orderbook AIT/BTC --limit 10
 ```
 
 **Expected output:**
+
 ```
 Sell Orders (Asks) - AIT/BTC
 ============================
@@ -121,6 +123,7 @@ aitbc exchange-island buy 100 BTC --max-price 0.00001260
 ```
 
 **Expected output:**
+
 ```
 Buy order created successfully!
 Order ID: exchange_buy_20260625143012_a1b2c3d4
@@ -147,6 +150,7 @@ aitbc exchange-island sell 50 ETH --min-price 0.00023400
 ```
 
 **Expected output:**
+
 ```
 Sell order created successfully!
 Order ID: exchange_sell_20260625143105_e5f6a7b8
@@ -176,6 +180,7 @@ aitbc exchange-island orders --pair AIT/ETH --user a1b2c3d4e5f67890...
 ```
 
 **Expected output:**
+
 ```
 Exchange Orders (island_abc123def456...)
 Order ID                Pair      Side   Amount        Price          Status    User
@@ -192,6 +197,7 @@ aitbc exchange-island cancel exchange_buy_20260625143012_a1b2c3d4
 ```
 
 **Expected output:**
+
 ```
 Order exchange_buy_20260625143012_a1b2c3d4 cancelled successfully!
 ```

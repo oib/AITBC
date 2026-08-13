@@ -49,6 +49,7 @@ aitbc blockchain diagnose --network
 ```
 
 **Solutions:**
+
 ```bash
 # Enhanced CLI port check
 aitbc blockchain diagnose --network --check-ports
@@ -93,6 +94,7 @@ aitbc blockchain sync --watch
 ```
 
 **Solutions:**
+
 ```bash
 # Enhanced CLI peer management
 aitbc blockchain peers add --peer <MULTIADDR> --validate
@@ -128,6 +130,7 @@ aitbc blockchain metrics --history 24h
 ```
 
 **Solutions:**
+
 ```bash
 # Optimize configuration
 aitbc blockchain config set max_peers 50
@@ -157,6 +160,7 @@ aitbc blockchain diagnose --network --full
 ```
 
 **Solutions:**
+
 ```bash
 # Add reliable peers
 aitbc blockchain peers add --bootstrap <MULTIADDR>
@@ -188,6 +192,7 @@ aitbc blockchain validators --metrics
 ```
 
 **Solutions:**
+
 ```bash
 # Re-register as validator
 aitbc blockchain validators register --stake 1000

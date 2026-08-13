@@ -18,6 +18,7 @@ aitbc governance propose --type service_approval --title "Add image generation s
 ```
 
 ### Features
+
 - **Community approval**: Service types require community vote
 - **Quality control**: Ensures service quality standards
 - **Flexibility**: Easy to add new service types
@@ -32,6 +33,7 @@ aitbc governance propose --type fee_structure --title "Reduce escrow fee" --valu
 ```
 
 ### Features
+
 - **Transparent**: All fee changes require community vote
 - **Flexible**: Easy to adjust fees based on market conditions
 - **Accountable**: Fee changes are publicly recorded
@@ -46,6 +48,7 @@ aitbc governance propose --type dispute_resolution --title "Resolve dispute job_
 ```
 
 ### Features
+
 - **Fair resolution**: Community-based dispute resolution
 - **Transparent**: All disputes and resolutions are public
 - **Binding**: DAO decisions are binding
