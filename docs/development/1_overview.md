@@ -5,264 +5,140 @@ description: Introduction to developing on the AITBC platform
 
 # Developer Overview
 
-Welcome to the AITBC developer documentation! This guide will help you understand how to build applications and services on the AITBC blockchain platform.
+Welcome to the AITBC developer documentation. This guide explains how to build applications and services on the AITBC network.
 
-## What You Can Build on AITBC
+> **Status:** AITBC is under active development. Core blockchain, coordinator, wallet, marketplace, and CLI services are implemented. Some application categories below are designed capabilities — they are marked as such.
 
-### AI/ML Applications
-- **Inference Services**: Deploy and monetize AI models
-- **Training Services**: Offer distributed model training
-- **Data Processing**: Build data pipelines with verifiable computation
+## What AITBC provides today
 
-### DeFi Applications
-- **Prediction Markets**: Create markets for AI predictions
-- **Computational Derivatives**: Financial products based on AI outcomes
-- **Staking Pools**: Earn rewards by providing compute resources
+- **Multi-island PoA blockchain** — each island is an independent chain with hub/follower nodes.
+- **Coordinator API** — FastAPI service for job submission, miner matching, marketplace offers, and payments.
+- **CLI (`aitbc`)** — wallet, blockchain, network, AI jobs, marketplace, mining, and agent operations.
+- **Wallet daemon** — multi-chain wallet, escrow, and transaction signing.
+- **GPU marketplace** — providers list compute offers; clients submit AI inference and training jobs.
+- **Agent messaging** — PING/PONG, message routing, and discovery via the Agent Coordinator.
 
-### NFT & Gaming
-- **Generative Art**: Create AI-powered NFT generators
-- **Dynamic NFTs**: NFTs that evolve based on AI computations
-- **AI Gaming**: Games with AI-driven mechanics
+## What you can build
 
-### Infrastructure Tools
-- **Oracles**: Bridge real-world data to blockchain
-- **Monitoring Tools**: Track network performance
-- **Development Tools**: SDKs, frameworks, and utilities
+### Today (implemented)
 
-## Architecture Overview
+- **Client tooling** — submit AI jobs, query results, and manage wallets.
+- **Miner/provider tooling** — register GPU offers, run inference, and earn tokens.
+- **Hub/shop node operations** — run a public or private island with blockchain, coordinator, and marketplace services.
+- **Integration scripts** — call the Coordinator API and blockchain RPC directly.
+
+### Designed / in progress
+
+- **Prediction markets** and **computational derivatives** based on AI outcomes.
+- **AI gaming** and **dynamic NFTs** that use on-chain computation receipts.
+- **Oracles** bridging real-world data into AITBC smart contracts.
+- **Cross-chain DeFi primitives** beyond the current exchange.
+
+For a component-by-component view of what is implemented, see [Release Status](../releases/STATUS.md).
+
+## Architecture
 
 ```mermaid
 graph TB
-    subgraph "Developer Tools"
-        A[Python SDK] --> E[Coordinator API]
-        B[CLI Tools] --> E
-        C[Smart Contracts] --> F[Blockchain]
+    subgraph "Client Tools"
+        A[AITBC CLI] --> E[Coordinator API]
+        B[Python SDK packages/py] --> E
     end
 
     subgraph "AITBC Platform"
-        E --> G[Marketplace]
-        F --> H[Miners/Validators]
+        E --> G[Marketplace / GPU]
+        F[Blockchain Node] --> H[Miners / Shops]
         G --> I[Job Execution]
     end
 
-    subgraph "External Services"
+    subgraph "External"
         J[AI Models] --> I
-        K[Storage] --> I
-        L[Oracles] --> F
+        K[Storage / IPFS] --> I
     end
 ```
 
-## Key Concepts
+## Key concepts
 
 ### Jobs
-Jobs are the fundamental unit of computation on AITBC. They represent AI tasks that need to be executed by miners.
 
-### Smart Contracts
-AITBC uses smart contracts for:
-- Marketplace operations
-- Payment processing
-- Dispute resolution
-- Governance
+A job is a unit of AI compute (inference, training, transcoding, etc.) submitted by a customer node and executed by a miner. Jobs are paid, executed, and settled through the coordinator and blockchain.
 
-### Proofs & Receipts
-All computations generate cryptographic proofs:
-- **Execution Proofs**: Verify correct computation
-- **Receipts**: Proof of job completion
-- **Attestations**: Multiple validator signatures
+### Roles
 
-### Tokens & Economics
-- **the network token**: Native utility token
-- **Job Payments**: Pay for computation
-- **Staking**: Secure the network
-- **Rewards**: Earn for providing services
+| Role | Config | What it does |
+|------|--------|--------------|
+| **Hub** | `BLOCKCHAIN_MODE=hub` | Produces blocks, runs coordinator and public discovery endpoints. |
+| **Shop** | `MARKET_ROLE=shop` | Provides GPU/edge compute and marketplace offers. |
+| **Client** | `MARKET_ROLE=customer` | Consumes compute and submits jobs. |
 
-## Development Stack
+See [Getting Started](../getting-started/README.md) for the role selection guide.
 
-### Core Technologies
-- **Blockchain**: Custom PoS consensus
-- **Smart Contracts**: Solidity-compatible
-- **APIs**: RESTful with OpenAPI specs
-- **WebSockets**: Real-time updates
+### Tokens & economics
 
-### Languages & Frameworks
-- **Python**: Primary SDK and ML support
-- **JavaScript/TypeScript**: Web and Node.js support
-- **Rust**: High-performance components
-- **Go**: Infrastructure services
+- **AIT** — the native utility token.
+- **Job payments** — paid in AIT through the marketplace/escrow flow.
+- **Staking** — required for certain network operations.
+- **Rewards** — miners and shops earn rewards for completed jobs.
 
-### Tools & Libraries
-- **Docker**: Containerization
-- **Kubernetes**: Orchestration
-- **Prometheus**: Monitoring
-- **Grafana**: Visualization
+## Development stack
 
-## Getting Started
+- **Blockchain**: Custom multi-island PoA consensus (`apps/blockchain-node`).
+- **Smart contracts**: Solidity contracts in `contracts/`, primarily for ZK receipt verification.
+- **APIs**: FastAPI / REST, OpenAPI specs in `docs/openapi/`.
+- **WebSockets**: Real-time agent messaging and block subscription.
+- **Language**: Python 3.13 (Poetry-managed monorepo).
 
-### 1. Set Up Development Environment
+## Getting started as a developer
+
+### 1. Install and set up a local node
 
 ```bash
-# Install AITBC CLI
-pip install aitbc-cli
+# From the monorepo root
+sudo ./scripts/deployment/setup.sh \
+  --open-island https://hub.aitbc.bubuit.net \
+  --node-id <unique-node-id>
 
-# Initialize project
-aitbc init my-project
-cd my-project
-
-# Start local development
-aitbc dev start
+# Verify the CLI
+aitbc --version
+aitbc --help
 ```
 
-### 2. Choose Your Path
+### 2. Run tests and lint
 
-#### AI/ML Developer
-- Focus on model integration
-- Learn about job specifications
-- Understand proof generation
-
-#### DApp Developer
-- Study smart contract patterns
-- Master the SDKs
-- Build user interfaces
-
-#### Infrastructure Developer
-- Run a node or miner
-- Build tools and utilities
-- Contribute to core protocol
-
-### 3. Build Your First Application
-
-Choose a tutorial based on your interest:
-
-- [AI Inference Service](./12_marketplace-extensions.md)
-- [Marketplace Bot](./4_examples.md)
-- [Miner Quick Start](../getting-started/mining/miner-quick-start.md)
-
-## Developer Resources
-
-### Documentation
-- API Reference
-- [SDK Guides](4_examples.md)
-- [Examples](4_examples.md)
-- [Best Practices](5_developer-guide.md)
-
-### Tools
-- AITBC CLI
-- [IDE Plugins](15_ecosystem-initiatives.md)
-- [Testing Framework](../releases/v0.4.13/17_windsurf-testing.md)
-
-### Community
-- [Discord](https://discord.gg/aitbc)
-- [GitHub Discussions](https://github.com/oib/AITBC/discussions)
-- [Stack Overflow](https://stackoverflow.com/questions/tagged/aitbc)
-
-## Development Workflow
-
-### 1. Local Development
 ```bash
-# Start local testnet
-aitbc dev start
-
-# Run tests
-aitbc test
-
-# Deploy locally
-aitbc deploy --local
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit -q
 ```
 
-### 2. Testnet Deployment
-```bash
-# Configure for testnet
-aitbc config set network testnet
+### 3. Choose a path
 
-# Deploy to testnet
-aitbc deploy --testnet
+- **Client / customer** — [Node Quick Start](../getting-started/node-quickstart.md), [CLI](../cli/README.md).
+- **Shop / miner** — [Miner Quick Start](../getting-started/mining/miner-quick-start.md).
+- **Hub operator** — [Service Selection](../getting-started/setup-service-selection.md).
+- **Protocol developer** — [apps/blockchain-node](../../apps/blockchain-node/README.md), [apps/coordinator-api](../../apps/coordinator-api/README.md).
 
-# Verify deployment
-aitbc status
-```
+## Developer resources
 
-### 3. Production Deployment
-```bash
-# Configure for mainnet
-aitbc config set network mainnet
+- [CLI README](../cli/README.md) — command reference.
+- [API OpenAPI specs](../openapi/) — generated API documentation.
+- [AITBC App Catalog](../apps/) — per-service documentation.
+- [Release Status](../releases/STATUS.md) — what is implemented vs. planned.
 
-# Deploy to production
-aitbc deploy --mainnet
+## Security considerations
 
-# Monitor deployment
-aitbc monitor
-```
+- Never commit private keys or `blockchain-secrets.env`.
+- Use the keystore at `/var/lib/aitbc/keystore/` with `600` permissions.
+- Validate all inputs at trust boundaries.
+- Use `Decimal` for all financial calculations — never `float`.
 
-## Security Considerations
+## Contributing
 
-### Smart Contract Security
-- Follow established patterns
-- Use audited libraries
-- Test thoroughly
-- Consider formal verification
+Areas where contributions are welcome:
 
-### API Security
-- Use API keys properly
-- Implement rate limiting
-- Validate inputs
-- Use HTTPS everywhere
+- Bug fixes and test coverage.
+- App-specific migrations and documentation.
+- CLI command polish.
+- Performance and observability improvements.
 
-### Key Management
-- Never commit private keys
-- Use hardware wallets
-- Implement multi-sig
-- Regular key rotation
-
-## Performance Optimization
-
-### Job Optimization
-- Minimize computation overhead
-- Use efficient data formats
-- Batch operations when possible
-- Profile and benchmark
-
-### Cost Optimization
-- Optimize resource usage
-- Use spot instances when possible
-- Implement caching
-- Monitor spending
-
-## Contributing to AITBC
-
-We welcome contributions! Areas where you can help:
-
-### Core Protocol
-- Consensus improvements
-- New cryptographic primitives
-- Performance optimizations
-- Bug fixes
-
-### Developer Tools
-- SDK improvements
-- New language support
-- Better documentation
-- Tooling enhancements
-
-### Ecosystem
-- Sample applications
-- Tutorials and guides
-- Community support
-- Integration examples
-
-See our [Contributing Guide](3_contributing.md) for details.
-
-## Support
-
-- 📖 [Documentation](../)
-- 💬 [Discord](https://discord.gg/aitbc)
-- 🐛 [Issue Tracker](https://github.com/oib/AITBC/issues)
-- 📧 [dev-support@aitbc.io](mailto:dev-support@aitbc.io)
-
-## Next Steps
-
-1. [Set up your environment](2_setup.md)
-2. [Learn about authentication](6_api-authentication.md)
-3. [Choose an SDK](4_examples.md)
-4. [Build your first app](4_examples.md)
-
-Happy building!
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for branch and commit conventions.
