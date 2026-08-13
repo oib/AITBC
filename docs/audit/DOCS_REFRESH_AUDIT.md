@@ -85,7 +85,8 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 
 2. **Next slices**:
    - Enforce port single-source-of-truth by replacing inline port lists with links to `docs/reference/SERVICE_PORTS.md`.
-   - Continue refreshing other stale docs surfaced by the inventory (e.g., `docs/testing/MICROSERVICES_TESTING_GUIDE.md`, `docs/infrastructure/migration/microservices-migration-status.md`, `docs/agents/AGENT_COMMUNICATION.md`, `docs/cli/CLI_ARCHITECTURE.md`).
+   - Continue refreshing other stale current docs surfaced by the inventory (e.g., `docs/testing/MICROSERVICES_TESTING_GUIDE.md`, `docs/infrastructure/migration/microservices-migration-status.md`, `docs/agents/AGENT_COMMUNICATION.md`, `docs/cli/CLI_ARCHITECTURE.md`).
+   - Remove remaining root boilerplate artifacts from `.gitignore` / CI references if needed.
 
 3. **Continuous validation**:
    - Re-run `bash scripts/validate_docs.sh` after every slice.
@@ -107,5 +108,7 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 | `docs/development/1_overview.md` | rewrite to current stack and mark designed features | done |
 | `docs/apps/<missing>/README.md` | created 19 app landing pages | done |
 | `docs/apps/README.md` | regenerated catalog to use new app docs | done |
+| Boilerplate docs and root files | deleted from repo | done |
+| `docs/README.md` / `MASTER_INDEX.md` | rewritten post-cleanup | done |
 | Port single-source-of-truth cleanup | replace inline old ports with links | pending |
 | Remaining stale current docs | e.g. agents, cli, testing, infrastructure | pending |

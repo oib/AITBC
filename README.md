@@ -134,7 +134,7 @@ See the [CLI README](cli/README.md) for the full command reference and the [cust
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and the PR process.
+See CONTRIBUTING.md for setup, conventions, and the PR process.
 
 ## License
 
