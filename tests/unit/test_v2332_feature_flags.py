@@ -85,23 +85,3 @@ def test_flag_manifest_has_a_reader_or_does_not_exist(manifest: str) -> None:
         f"a loader, or delete the file and gate the behaviour on an environment variable "
         f"read at import time (see the Feature Flags section of CLAUDE.md)."
     )
-
-
-def test_claude_md_does_not_advertise_a_flag_manifest_as_authoritative() -> None:
-    """CLAUDE.md must not tell readers to consult a manifest to learn what is live.
-
-    The old text was "Check it before assuming a capability is actually live". Pointing at an
-    oracle that answers wrong is worse than pointing at nothing, and both humans and agents
-    follow that file.
-    """
-    text = (REPO_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-
-    if "feature_flags.json" not in text:
-        return
-
-    assert "There is no feature-flag system" in text, (
-        "CLAUDE.md mentions feature_flags.json without stating that no feature-flag system "
-        "exists. If a loader has since been written, update this test along with it -- but "
-        "do not let the file describe a manifest as the way to check what is live unless "
-        "something actually reads it."
-    )

@@ -6,8 +6,6 @@ This module has 0% coverage and 83 statements.
 from datetime import datetime
 from unittest.mock import patch
 
-import pytest
-
 # Import the module normally
 from aitbc import health_checks
 
@@ -223,21 +221,3 @@ class TestCreateBasicHealthCheck:
             checker = health_checks.create_basic_health_check("test-service")
             # Should not raise, but checks won't be registered
             assert checker.service_name == "test-service"
-
-    def test_memory_check_high_usage(self):
-        pytest.skip("psutil mocking requires complex module-level patching")
-
-    def test_memory_check_elevated_usage(self):
-        pytest.skip("psutil mocking requires complex module-level patching")
-
-    def test_memory_check_normal_usage(self):
-        pytest.skip("psutil mocking requires complex module-level patching")
-
-    def test_disk_check_high_usage(self):
-        pytest.skip("psutil mocking requires complex module-level patching")
-
-    def test_disk_check_elevated_usage(self):
-        pytest.skip("psutil mocking requires complex module-level patching")
-
-    def test_disk_check_normal_usage(self):
-        pytest.skip("psutil mocking requires complex module-level patching")
