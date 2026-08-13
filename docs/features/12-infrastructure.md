@@ -18,7 +18,7 @@
 | Runtime Directories | Directory structure for runtime data | [docs/infrastructure/RUNTIME_DIRECTORIES.md](../infrastructure/RUNTIME_DIRECTORIES.md) | ✅ | — |
 | Logs Organization | Log file organization and management | [docs/infrastructure/LOGS_ORGANIZATION.md](../infrastructure/LOGS_ORGANIZATION.md) | ✅ | — |
 | Network Security | Network security recommendations | [docs/infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md](../infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md) | ✅ | — |
-| Microservices Migration | Status of microservices migration | [docs/infrastructure/migration/microservices-migration-status.md](../infrastructure/migration/microservices-migration-status.md) | ✅ | — |
+| Microservices Migration | Status of microservices migration | [docs/archive/infrastructure/migration/microservices-migration-status.md](../archive/infrastructure/migration/microservices-migration-status.md) | ✅ | — |
 
 ### Monitoring
 
