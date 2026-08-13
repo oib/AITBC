@@ -47,6 +47,7 @@ sudo -u postgres psql -f apps/gpu-service/scripts/setup-database.sql
 ```
 
 Expected output:
+
 ```
 CREATE DATABASE
 CREATE ROLE
@@ -78,6 +79,7 @@ sudo -u postgres psql -l
 ```
 
 Expected databases:
+
 - aitbc_gpu
 - aitbc_marketplace
 - aitbc_trading
@@ -170,6 +172,7 @@ curl http://localhost:8101/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -184,6 +187,7 @@ curl http://localhost:8101/gpu/status
 ```
 
 Expected response:
+
 ```json
 {
   "status": "operational",
@@ -199,6 +203,7 @@ curl http://localhost:8101/v1/marketplace/edge-gpu/profiles
 ```
 
 Expected response:
+
 ```json
 [
   {
@@ -223,6 +228,7 @@ curl http://localhost:8102/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -237,6 +243,7 @@ curl http://localhost:8102/v1/marketplace/offers
 ```
 
 Expected response:
+
 ```json
 []
 ```
@@ -250,6 +257,7 @@ curl http://localhost:8104/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -264,6 +272,7 @@ curl http://localhost:8104/v1/trading/requests
 ```
 
 Expected response:
+
 ```json
 []
 ```
@@ -277,6 +286,7 @@ curl http://localhost:8105/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -291,6 +301,7 @@ curl http://localhost:8105/v1/governance/proposals
 ```
 
 Expected response:
+
 ```json
 []
 ```
@@ -304,6 +315,7 @@ curl http://localhost:8080/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -318,6 +330,7 @@ curl http://localhost:8080/services
 ```
 
 Expected response:
+
 ```json
 {
   "services": [
@@ -356,6 +369,7 @@ curl http://localhost:8080/gpu/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -368,6 +382,7 @@ curl http://localhost:8080/gpu/v1/marketplace/edge-gpu/profiles
 ```
 
 Expected response:
+
 ```json
 [
   {
@@ -390,6 +405,7 @@ curl http://localhost:8080/marketplace/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -404,6 +420,7 @@ curl http://localhost:8080/trading/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -418,6 +435,7 @@ curl http://localhost:8080/governance/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -449,6 +467,7 @@ Expected response:
 **Issue:** Service fails to start with database connection error
 
 **Solution:**
+
 ```bash
 # Verify database exists
 sudo -u postgres psql -l
@@ -465,6 +484,7 @@ sudo journalctl -u <service-name> -n 50
 **Issue:** Gateway returns connection refused when proxying to service
 
 **Solution:**
+
 ```bash
 # Verify service is running
 curl http://localhost:<port>/health
@@ -480,6 +500,7 @@ curl http://localhost:8080/services
 **Issue:** Service fails with "could not connect to server" error
 
 **Solution:**
+
 ```bash
 # Verify PostgreSQL is running
 sudo systemctl status postgresql
@@ -496,6 +517,7 @@ sudo -u postgres psql -d aitbc_<service>
 **Issue:** Service fails to start with "Address already in use" error
 
 **Solution:**
+
 ```bash
 # Find process using the port
 sudo lsof -i :<port>

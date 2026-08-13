@@ -7,6 +7,7 @@ Consolidated blockchain explorer UI from `apps/blockchain-explorer` to `website/
 ## Changes Made
 
 ### 1. Created New Explorer UI
+
 - **File**: `/opt/aitbc/website/explorer.html`
 - **Purpose**: Human-facing blockchain explorer interface
 - **Features**:
@@ -18,6 +19,7 @@ Consolidated blockchain explorer UI from `apps/blockchain-explorer` to `website/
 - **API Integration**: Consumes blockchain-explorer API at `http://localhost:8100`
 
 ### 2. Removed HTML from Blockchain Explorer
+
 - **File**: `/opt/aitbc/apps/blockchain-explorer/main.py`
 - **Changes**:
   - Removed `HTML_TEMPLATE` (828 lines of HTML/JS)
@@ -27,6 +29,7 @@ Consolidated blockchain explorer UI from `apps/blockchain-explorer` to `website/
 - **Result**: Pure agent-first API service
 
 ### 3. Updated Documentation
+
 - **File**: `/opt/aitbc/apps/blockchain-explorer/README.md`
 - **Changes**: Updated to reflect API-only architecture
 - **File**: `/opt/aitbc/website/README.md`
@@ -37,6 +40,7 @@ Consolidated blockchain explorer UI from `apps/blockchain-explorer` to `website/
 ## Architecture
 
 ### Before (Dual UI)
+
 ```
 apps/blockchain-explorer/
 ├── main.py (FastAPI + HTML Template)
@@ -51,6 +55,7 @@ website/
 ```
 
 ### After (Consolidated)
+
 ```
 apps/blockchain-explorer/
 ├── main.py (FastAPI - API Only)
@@ -76,11 +81,13 @@ website/
 ## Access
 
 ### For Humans
+
 - **Explorer UI**: `http://hub.aitbc.bubuit.net/explorer.html`
 - **Marketing**: `http://hub.aitbc.bubuit.net/index.html`
 - **Exchange**: `http://hub.aitbc.bubuit.net/exchange.html`
 
 ### For Agents
+
 - **API Base**: `http://localhost:8100` (or configured port)
 - **Endpoints**: All under `/api/*` prefix
 - **Example**: `http://localhost:8100/api/chain/head`
@@ -88,6 +95,7 @@ website/
 ## API Endpoints (Unchanged)
 
 All existing API endpoints remain functional:
+
 - `/api/chains` - List supported chains
 - `/api/chain/head` - Get current chain head
 - `/api/blocks/{height}` - Get block by height

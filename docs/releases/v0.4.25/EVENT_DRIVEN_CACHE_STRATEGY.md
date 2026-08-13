@@ -63,6 +63,7 @@ Booking/Cancellation Event
 **Solution**: Real-time event-driven invalidation using Redis pub/sub for immediate propagation.
 
 **Critical Data Types**:
+
 - GPU availability status
 - GPU pricing information
 - Order book data
@@ -71,12 +72,14 @@ Booking/Cancellation Event
 ### 2. Multi-Tier Cache Architecture
 
 **L1 Cache (Memory)**:
+
 - Fastest access (sub-millisecond)
 - Limited size (1000-5000 entries)
 - Shorter TTL (30-60 seconds)
 - Immediate invalidation on events
 
 **L2 Cache (Redis)**:
+
 - Distributed across all edge nodes
 - Larger capacity (GBs)
 - Longer TTL (5-60 minutes)
@@ -85,11 +88,13 @@ Booking/Cancellation Event
 ### 3. Distributed Edge Node Coordination
 
 **Node Identification**:
+
 - Unique node IDs for each edge node
 - Regional grouping for optimization
 - Network tier classification (edge/regional/global)
 
 **Event Propagation**:
+
 - Pub/sub for real-time events
 - Event queuing for reliability
 - Automatic failover and recovery
@@ -253,6 +258,7 @@ services:
 ### Cache Hit Ratios
 
 **Target Performance**:
+
 - L1 Cache Hit Ratio: >80%
 - L2 Cache Hit Ratio: >95%
 - Event Propagation Latency: <100ms

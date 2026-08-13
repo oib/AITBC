@@ -12,6 +12,7 @@
 **Prerequisite**: Agent A A1-A3 complete. v0.7.2 Agent B in progress.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/governance/src/ apps/blockchain-node/src/aitbc_chain/consensus/ cli/aitbc_cli/commands/governance.py
 cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytest apps/governance/tests/test_v073_governance.py -q -o addopts="" --timeout=30
@@ -38,6 +39,7 @@ cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytes
 ## B1: Governance Config
 
 Create `apps/governance/src/governance_service/config.py`:
+
 - `Settings` class with `blockchain_rpc_url: str = "http://localhost:8202"`
 - `default_chain_id: str = "ait-hub"`
 - Voting params: `voting_quorum_threshold: float = 0.5`, `timelock_hours: int = 24`
@@ -47,6 +49,7 @@ Create `apps/governance/src/governance_service/config.py`:
 ## B2: Blockchain Client
 
 Create `apps/governance/src/governance_service/services/blockchain_client.py`:
+
 - `BlockchainClient` — wraps `AITBCHTTPClient` from `aitbc.blockchain.blockchain_service`
 - `get_account_balance(address)` — query balance for vote weight snapshot
 - `submit_transaction(tx_data)` — submit GOVERNANCE_* txs to blockchain-node
@@ -56,6 +59,7 @@ Create `apps/governance/src/governance_service/services/blockchain_client.py`:
 ## B3: On-Chain Proposals
 
 Extend `apps/governance/src/governance_service/services/governance_service.py`:
+
 - `create_proposal_on_chain(proposal_data)` — create proposal + submit GOVERNANCE_PROPOSE tx
 - Store `tx_hash`, `block_height` in Proposal model
 - Use Agent A's `build_proposal_tx()` from A3
@@ -65,6 +69,7 @@ Extend `apps/governance/src/governance_service/services/governance_service.py`:
 ## B4: On-Chain Voting
 
 Extend `apps/governance/src/governance_service/services/governance_service.py`:
+
 - `cast_vote_on_chain(vote_data)` — cast vote + submit GOVERNANCE_VOTE tx
 - Vote weight = on-chain balance at snapshot block (query via B2)
 - Store `tx_hash`, `block_height` in Vote model
@@ -75,6 +80,7 @@ Extend `apps/governance/src/governance_service/services/governance_service.py`:
 ## B5: Timelock Execution
 
 Extend `apps/governance/src/governance_service/services/governance_service.py`:
+
 - `execute_proposal_on_chain(proposal_id)` — execute after timelock expires
 - Submit GOVERNANCE_EXECUTE tx
 - Record `tx_hash` in ProposalExecutionLog
@@ -85,6 +91,7 @@ Extend `apps/governance/src/governance_service/services/governance_service.py`:
 ## B6: Tests
 
 `apps/governance/tests/test_v073_governance.py` — tests for:
+
 - Proposal → vote → execute flow
 - On-chain balance snapshot for vote weight
 - Timelock enforcement
@@ -95,6 +102,7 @@ Extend `apps/governance/src/governance_service/services/governance_service.py`:
 ## B7: Governance Tx Types
 
 Extend `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
+
 - Add GOVERNANCE_PROPOSE, GOVERNANCE_VOTE, GOVERNANCE_EXECUTE to tx type handling
 - Store tx type in block (already handled by existing code)
 - Add governance-specific state transitions
@@ -104,6 +112,7 @@ Extend `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
 ## B8: Governance Tx Payload Validation
 
 Extend `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
+
 - Use Agent A's `validate_governance_payload()` from A3
 - Validate governance tx payloads before processing
 
@@ -112,6 +121,7 @@ Extend `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
 ## B9: CLI Commands
 
 Create `cli/aitbc_cli/commands/governance.py`:
+
 - `aitbc governance propose` — submit proposal
 - `aitbc governance vote` — cast vote
 - `aitbc governance list` — list proposals

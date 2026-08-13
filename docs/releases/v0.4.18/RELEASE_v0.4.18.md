@@ -13,6 +13,7 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 **⚠️ Important:** This document previously contained aspirational/target state rather than actual verified state. The following corrections have been made to reflect the actual current state after verification.
 
 **Note:** This is part of the three-phase type safety graduation plan:
+
 - Phase 1 (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
 - Phase 2 (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ✅ COMPLETE
   - v0.4.18: coordinator-api MyPy clean ✅, agent-coordinator 1 error ⚠️
@@ -25,6 +26,7 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 ### MyPy Gradual Migration Plan
 
 **Current State (Final - v0.4.20 Complete)**
+
 - 2 files with `# mypy: ignore-errors` across apps (down from 151 after v0.4.18 work, completed in v0.4.19-20)
 - coordinator-api: 0 MyPy errors (360 files checked, 148 excluded by pyproject.toml pattern)
 - blockchain-node: 0 MyPy errors (16 files fixed, all per-file ignores removed)
@@ -50,15 +52,17 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
   - blockchain-node: 0 errors
 
 **v0.4.18 Target (Partially Achieved)**
+
 - ✅ coordinator-api: 0 MyPy errors (360 files checked, 148 excluded by config)
 - ⚠️ agent-coordinator: 1 error (11 per-file ignores) - Mostly clean
 - ⚠️ Test coverage: 16.71% (target was 29.82%, fails 20% gate)
 - ✅ Installed types-psutil for better type coverage
-- ✅ Fixed prometheus_metrics.py _make_key calls
+- ✅ Fixed prometheus_metrics.py_make_key calls
 - ⚠️ G004 globally ignored in pyproject.toml (866 errors deferred)
 - Maintain backward compatibility
 
 **Priority Order for Migration (In Progress)**
+
 1. ✅ **agent-coordinator** (1 error, 11 per-file ignores) - Mostly clean
 2. ✅ **coordinator-api** (0 errors, 71 per-file ignores) - MyPy clean (360 files checked, 148 excluded by config)
 3. ⚠️ **hermes** (25 errors, 0 per-file ignores) - Per-file ignores removed, errors remain
@@ -71,21 +75,24 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 ### Planned Changes
 
 **MyPy Fixes (Completed)**
+
 - ✅ Fixed agent-coordinator: 0 errors (49 source files)
 - ✅ Fixed coordinator-api: 0 errors (360 files checked, 148 excluded by config)
 - ✅ Installed types-psutil for better type coverage
 - ✅ Added per-file ignores to 11 agent-coordinator files with external library type issues
-- ✅ Fixed prometheus_metrics.py _make_key calls (keyword argument unpacking)
+- ✅ Fixed prometheus_metrics.py_make_key calls (keyword argument unpacking)
 - ✅ Fixed unused type: ignore comment for psutil import
 - ⚠️ G004 globally ignored in pyproject.toml (866 logging f-string errors deferred)
 - ⚠️ v0.4.19: Removed per-file ignores from hermes (1), edge (6), pool-hub (6), wallet (8) - MyPy errors remain in all apps
 
 **Test Coverage (Not Achieved)**
+
 - ⚠️ Test coverage: 16.71% (target was 29.82%, fails 20% gate)
-- ✅ Fixed prometheus_metrics.py _make_key calls to allow tests to run
+- ✅ Fixed prometheus_metrics.py_make_key calls to allow tests to run
 - ⚠️ 1 test failed, 1 test skipped
 
 **Documentation**
+
 - Update type checking guide with migration progress
 - Document common type patterns and fixes
 - Update developer guidelines
@@ -95,6 +102,7 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 ### Modified Files (Planned)
 
 **MyPy Fixes (Completed)**
+
 - `apps/coordinator-api/src/app/contexts/hermes/routers/hermes_enhanced_app.py` - Removed unused type: ignore
 - `apps/agent-coordinator/src/app/auth/jwt_handler.py` - Added per-file ignore (bcrypt type issues)
 - `apps/agent-coordinator/src/app/auth/middleware.py` - Added per-file ignore
@@ -109,20 +117,23 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 - `apps/agent-coordinator/src/app/storage/message_storage.py` - Added per-file ignore
 
 **Documentation**
+
 - `docs/development/TYPE_CHECKING_GUIDE.md` - Update with v0.4.18 progress
 - `docs/releases/RELEASE_v0.4.18.md` - This file
 
 ## 📈 Impact Summary
 
 ### Type Safety Improvements
+
 - ✅ coordinator-api: 0 MyPy errors (360 files checked, 148 excluded by config)
 - ⚠️ agent-coordinator: 1 MyPy error (49 source files, message_types.py:83)
 - ✅ Installed types-psutil for better type coverage
-- ✅ Fixed prometheus_metrics.py _make_key calls
+- ✅ Fixed prometheus_metrics.py_make_key calls
 - ⚠️ blockchain-node: ~477 errors (excluded from MyPy checks)
 - ⚠️ G004 globally ignored in pyproject.toml (866 errors deferred)
 
 ### Code Quality
+
 - ✅ Better IDE support with type hints (coordinator-api and agent-coordinator)
 - ✅ Reduced runtime type errors (coordinator-api MyPy clean, agent-coordinator 1 error)
 - ✅ Improved code maintainability (coordinator-api and agent-coordinator)
@@ -130,6 +141,7 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 - ⚠️ Test coverage at 16.71% (fails 20% gate, target was 29.82%)
 
 ### Backward Compatibility
+
 - ✅ 100% backward compatible
 - ✅ No breaking changes
 - ✅ Runtime behavior unchanged
@@ -137,6 +149,7 @@ AITBC v0.4.18 focuses on Phase 2 of the MyPy gradual migration plan (v0.4.18 - v
 ## 🗄️ System Status
 
 ### MyPy Configuration
+
 ```toml
 [tool.mypy]
 python_version = "3.13"
@@ -156,6 +169,7 @@ warn_unused_ignores = true
 ### Graduated Apps Status
 
 **Apps with MyPy Errors (Actual State)**
+
 - coordinator-api: 0 errors (360 files checked, 71 per-file ignores) ✅ Clean
 - agent-coordinator: 1 error (49 source files, 11 per-file ignores) ⚠️ message_types.py
 - blockchain-node: ~477 errors (excluded from MyPy checks via pyproject.toml, 31 per-file ignores) ⚠️ Excluded
@@ -166,6 +180,7 @@ warn_unused_ignores = true
 - hermes: 25 errors (0 per-file ignores) ⚠️ Per-file ignore removed
 
 **Apps Without Per-File Ignores**
+
 - shared-domain (29 files)
 - bridge-monitor
 - governance
@@ -178,13 +193,15 @@ warn_unused_ignores = true
 ## 🚀 Benefits Achieved
 
 ### Improved Type Safety
+
 - ✅ coordinator-api MyPy clean (360 files checked, 148 excluded by config)
 - ⚠️ agent-coordinator: 1 MyPy error (49 source files, message_types.py:83)
 - ✅ Installed types-psutil for better type coverage
-- ✅ Fixed prometheus_metrics.py _make_key calls
+- ✅ Fixed prometheus_metrics.py_make_key calls
 - ✅ Foundation for strict enforcement (both target apps clean)
 
 ### Better Developer Experience
+
 - ✅ Enhanced autocomplete in IDEs (coordinator-api and agent-coordinator)
 - ✅ Clearer function signatures (coordinator-api and agent-coordinator)
 - ✅ Better documentation through types (both target apps)
@@ -197,6 +214,7 @@ warn_unused_ignores = true
 **Fixing Common Type Errors**
 
 **Missing Return Type**
+
 ```python
 # Before
 def process_data(data: str):
@@ -208,6 +226,7 @@ def process_data(data: str) -> str:
 ```
 
 **Optional Parameters**
+
 ```python
 # Before
 def process(data: str = None):
@@ -219,6 +238,7 @@ def process(data: str | None = None):
 ```
 
 **Union Types**
+
 ```python
 # Before
 def handle_response(response):
@@ -234,6 +254,7 @@ def handle_response(response: str | dict) -> str | dict:
 ```
 
 **Removing Per-File Ignores**
+
 1. Remove `# mypy: ignore-errors` from file header
 2. Run MyPy to identify specific errors
 3. Fix errors one at a time
@@ -243,11 +264,13 @@ def handle_response(response: str | dict) -> str | dict:
 ## ⚠️ Deprecation Timeline
 
 ### Phase 1: Per-File Ignores (v0.4.17)
+
 - ✅ Complex files suppressed with per-file ignores
 - ✅ Clean files fully type-safe
 - ✅ Foundation established for gradual migration
 
 ### Phase 2: Gradual Migration (v0.4.18 - v0.4.20)
+
 - 📅 v0.4.18: Remove 20-30 per-file ignores (simplest files)
 - 📅 v0.4.19: Remove 30-40 per-file ignores (moderate complexity)
 - 📅 v0.4.20: Remove remaining per-file ignores (complex files)
@@ -255,6 +278,7 @@ def handle_response(response: str | dict) -> str | dict:
 - 📅 Improve type coverage
 
 ### Phase 3: Strict Enforcement (v0.5.0)
+
 - 📅 Remove all per-file ignores
 - 📅 Enforce strict type checking
 - 📅 Require 100% type safety
@@ -262,12 +286,14 @@ def handle_response(response: str | dict) -> str | dict:
 ## 🔍 Testing Recommendations
 
 ### Type Checking
+
 - 📅 Run MyPy on modified files before commits
 - 📅 Fix type errors in new code
 - 📅 Add return type annotations to new functions
 - 📅 Use per-file ignores only when necessary
 
 ### Integration Testing
+
 - 📅 Test all apps after type changes
 - 📅 Verify runtime behavior unchanged
 - 📅 Check for type-related runtime errors
@@ -276,6 +302,7 @@ def handle_response(response: str | dict) -> str | dict:
 ## 🎯 Next Steps
 
 ### Immediate (v0.4.18) - COMPLETED
+
 1. ✅ Fixed MyPy errors in agent-coordinator (0 errors, 11 per-file ignores)
 2. ✅ Fixed MyPy errors in coordinator-api (0 errors, 360 files checked, 148 excluded by config)
 3. ⚠️ Test coverage: 16.71% (target was 29.82%, fails 20% gate)
@@ -284,11 +311,13 @@ def handle_response(response: str | dict) -> str | dict:
 6. ⚠️ G004 globally ignored in pyproject.toml (866 errors deferred)
 
 ### Short-term (v0.4.18 - v0.4.19)
+
 1. 🔴 Improve test coverage from 16.71% to pass 20% gate
 2. 📅 Investigate MyPy errors in pool-hub, edge, wallet, agent-management, hermes
 3. 📅 Consider removing blockchain-node from MyPy exclude pattern to fix errors
 
 ### Long-term (v0.5.0)
+
 1. 📅 Gradually remove per-file ignores from simplest files
 2. 📅 Enforce strict type checking on new code
 3. 📅 Require 100% type safety for new features

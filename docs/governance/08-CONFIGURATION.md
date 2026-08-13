@@ -39,6 +39,7 @@ The Governance Service can be configured via environment variables, configuratio
 Location: `/opt/aitbc/apps/governance/alembic.ini`
 
 **Database URL Configuration:**
+
 ```ini
 # SQLite (default)
 sqlalchemy.url = sqlite:////var/lib/aitbc/data/governance_service.db
@@ -52,6 +53,7 @@ sqlalchemy.url = sqlite:////var/lib/aitbc/data/governance_service.db
 Location: User's home directory
 
 **CLI Configuration:**
+
 ```toml
 [governance]
 service_url = "http://localhost:8105"
@@ -66,16 +68,19 @@ chain_id = "ait-hub.aitbc.bubuit.net"
 ### SQLite (Default)
 
 **Configuration:**
+
 ```bash
 export DB_TYPE=sqlite
 ```
 
 **Database Location:**
+
 ```
 /var/lib/aitbc/data/governance_service.db
 ```
 
 **Setup:**
+
 ```bash
 mkdir -p /var/lib/aitbc/data
 ```
@@ -83,6 +88,7 @@ mkdir -p /var/lib/aitbc/data
 ### PostgreSQL (Production)
 
 **Configuration:**
+
 ```bash
 export DB_TYPE=postgresql
 export DB_HOST=localhost
@@ -93,6 +99,7 @@ export DB_PASS=your_password
 ```
 
 **Database Setup:**
+
 ```bash
 sudo -u postgres psql
 CREATE DATABASE aitbc_governance;
@@ -102,6 +109,7 @@ GRANT ALL PRIVILEGES ON DATABASE aitbc_governance TO aitbc_governance;
 ```
 
 **Update alembic.ini:**
+
 ```ini
 sqlalchemy.url = postgresql://aitbc_governance:your_password@localhost:5432/aitbc_governance
 ```
@@ -111,11 +119,13 @@ sqlalchemy.url = postgresql://aitbc_governance:your_password@localhost:5432/aitb
 ### Port Configuration
 
 **Environment Variable:**
+
 ```bash
 export GOVERNANCE_PORT=8105
 ```
 
 **Or modify main.py:**
+
 ```python
 if __name__ == "__main__":
     import uvicorn
@@ -125,6 +135,7 @@ if __name__ == "__main__":
 ### Host Configuration
 
 **Environment Variable:**
+
 ```bash
 export GOVERNANCE_HOST=0.0.0.0
 ```
@@ -132,11 +143,13 @@ export GOVERNANCE_HOST=0.0.0.0
 ### Logging Configuration
 
 **Environment Variable:**
+
 ```bash
 export LOG_LEVEL=INFO
 ```
 
 **Or modify main.py:**
+
 ```python
 configure_logging(level="DEBUG")
 ```
@@ -148,6 +161,7 @@ configure_logging(level="DEBUG")
 Location: `/etc/systemd/system/aitbc-governance.service`
 
 **Configuration:**
+
 ```ini
 [Unit]
 Description=AITBC Governance Service
@@ -186,6 +200,7 @@ sudo systemctl restart aitbc-governance
 Location: `/etc/nginx/sites-available/governance`
 
 **Configuration:**
+
 ```nginx
 server {
     listen 80;
@@ -214,11 +229,13 @@ sudo systemctl reload nginx
 ### Service URL
 
 **Environment Variable:**
+
 ```bash
 export GOVERNANCE_SERVICE_URL=http://localhost:8105
 ```
 
 **Or in config.toml:**
+
 ```toml
 [governance]
 service_url = "http://localhost:8105"
@@ -227,6 +244,7 @@ service_url = "http://localhost:8105"
 ### Wallet Configuration
 
 **Wallet Directory:**
+
 ```bash
 export AITBC_WALLET_DIR=/opt/aitbc/wallets
 ```
@@ -238,16 +256,19 @@ export AITBC_WALLET_DIR=/opt/aitbc/wallets
 ### Deployment Configuration
 
 **RPC URL:**
+
 ```bash
 export RPC_URL=https://mainnet.example.com
 ```
 
 **Private Key:**
+
 ```bash
 export PRIVATE_KEY=0x...
 ```
 
 **Contract Addresses:**
+
 ```bash
 export GOVERNANCE_TOKEN_ADDRESS=0x...
 export VOTING_CONTRACT_ADDRESS=0x...
@@ -274,6 +295,7 @@ aitbc governance --help
 ### Database Connection Failed
 
 **Check:**
+
 ```bash
 # SQLite: Check file permissions
 ls -la /var/lib/aitbc/data/governance_service.db
@@ -285,6 +307,7 @@ psql -h localhost -U aitbc_governance -d aitbc_governance
 ### Service Won't Start
 
 **Check:**
+
 ```bash
 # Check systemd logs
 sudo journalctl -u aitbc-governance -n 50
@@ -296,6 +319,7 @@ systemctl show aitbc-governance --property=Environment
 ### CLI Can't Connect
 
 **Check:**
+
 ```bash
 # Check service URL
 echo $GOVERNANCE_SERVICE_URL

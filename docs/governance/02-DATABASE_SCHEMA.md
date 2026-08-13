@@ -133,39 +133,47 @@ Governance analytics reports.
 14 indexes for performance optimization:
 
 ### Proposal Indexes
+
 - `idx_proposals_status` - Status filtering
 - `idx_proposals_voting_period` - Voting period queries
 - `idx_proposals_proposer` - Proposer queries
 
 ### Vote Indexes
+
 - `idx_votes_proposal` - Proposal vote queries
 - `idx_votes_voter` - Voter history queries
 
 ### Delegation Indexes
+
 - `idx_delegations_delegator` - Delegator queries
 - `idx_delegations_delegate` - Delegate queries
 
 ### Token Indexes
+
 - `idx_tokens_holder` - Holder queries
 - `idx_tokens_voting_power` - Voting power queries
 
 ### Stake Indexes
+
 - `idx_stakes_staker` - Staker queries
 - `idx_stakes_unstakes_at` - Unstake scheduling
 
 ### Execution Log Indexes
+
 - `idx_execution_log_proposal` - Proposal execution history
 - `idx_execution_log_status` - Status filtering
 
 ## Database Types
 
 ### SQLite (Default)
+
 - **Location:** `/var/lib/aitbc/data/governance_service.db`
 - **Use Case:** Development and testing
 - **Advantages:** No setup required, portable
 - **Limitations:** Single-writer, limited concurrency
 
 ### PostgreSQL (Production)
+
 - **Database:** `aitbc_governance`
 - **User:** `aitbc_governance`
 - **Use Case:** Production deployment
@@ -185,6 +193,7 @@ governance_tokens (1) ──< (N) delegations (as delegate)
 ## Migration History
 
 ### Migration 001: Initial Governance Schema
+
 - Created all 9 tables
 - Added 14 indexes
 - Set up foreign key relationships

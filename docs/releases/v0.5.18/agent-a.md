@@ -8,6 +8,7 @@
 **Scope**: pytest markers, default timeout, reusable auto-skip fixtures, and the final `testpaths` inclusion. No test-logic changes.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --collect-only -q 2>&1 | tail -5
 ```
@@ -28,11 +29,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --colle
 
 - In `pyproject.toml` `[tool.pytest.ini_options]`:
   - Append to `markers`:
+
     ```toml
     "requires_redis: test needs a reachable Redis instance (auto-skipped if absent)",
     "requires_postgres: test needs a reachable PostgreSQL instance (auto-skipped if absent)",
     "requires_genesis: test needs an on-disk genesis file fixture (auto-skipped if absent)",
     ```
+
   - Add `timeout = 60` (seconds). `pytest-timeout` is already installed. This prevents CI hangs.
 - **Verify**: `pytest apps/blockchain-node/tests/ --collect-only -q` shows no "unknown marker" errors once B applies them.
 - **Sequencing**: A1 must merge **before** B5 (B applies these markers). `--strict-markers` will error otherwise.

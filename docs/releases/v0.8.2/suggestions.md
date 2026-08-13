@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,11 +9,13 @@
 # v0.8.2 Suggestions
 
 ## Status
+
 **PLANNED 2026-06-29** — v0.8.2 created to track items deferred from v0.8.1. NOT on the critical path (v0.9.0 does not depend on v0.8.2). All infrastructure verified as existing and reusable.
 
 ## Origin
 
 v0.8.1 was rescoped to polling-based sync only. The following items were deferred to "v0.8.2+":
+
 - Subscription-based sync (WebSocket)
 - Real-time offer notifications
 - External search index (Elasticsearch/Meilisearch)

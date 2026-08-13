@@ -25,6 +25,7 @@ incus config device add aitbc <device-name> proxy listen=tcp:0.0.0.0:<host-port>
 ```
 
 Example:
+
 ```bash
 incus config device add aitbc my-service proxy listen=tcp:0.0.0.0:8204 connect=tcp:192.168.100.10:8204
 ```
@@ -36,6 +37,7 @@ incus config device remove aitbc <device-name>
 ```
 
 Example:
+
 ```bash
 incus config device remove aitbc api-gateway
 ```
@@ -50,6 +52,7 @@ server custom aitbc tcp/8204 default accept
 ```
 
 Then restart firehol:
+
 ```bash
 firehol restart
 ```
@@ -57,16 +60,19 @@ firehol restart
 ## Verify Port Forwarding
 
 Check if the proxy device is active:
+
 ```bash
 incus config device show aitbc
 ```
 
 Check if the port is listening on the host:
+
 ```bash
 ss -lntup | grep :<port>
 ```
 
 Test connectivity from host:
+
 ```bash
 curl http://localhost:<port>
 ```

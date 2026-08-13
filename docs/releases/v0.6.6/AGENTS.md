@@ -28,12 +28,14 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Already Fixed](./overview.md#already-fixed-verified--no-work-needed)
 - [Architecture: Compute Marketplace with Chain Awareness](./overview.md#architecture-compute-marketplace-with-chain-awareness)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [OfferFSM](./agent-a.md#a1-offerfsm)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Marketplace config](./agent-b.md#b1-marketplace-config)
@@ -149,6 +152,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/marketplace/ && ./venv/bin/python -m ruff check aitbc/marketplace/ tests/unit/test_offer_fsm.py tests/unit/test_blockchain_rpc.py && ./venv/bin/python -m pytest tests/unit/test_offer_fsm.py tests/unit/test_blockchain_rpc.py -q -o addopts=""
 ```
@@ -238,6 +242,7 @@ class OfferFSM:
 ```
 
 Export from `aitbc/marketplace/__init__.py`:
+
 ```python
 from .offer_fsm import OfferFSM, OfferStatus
 
@@ -379,6 +384,7 @@ class BlockchainRPCClient:
 ```
 
 Update `aitbc/marketplace/__init__.py`:
+
 ```python
 from .blockchain_rpc import BlockchainRPCClient
 from .offer_fsm import OfferFSM, OfferStatus
@@ -389,6 +395,7 @@ __all__ = ["BlockchainRPCClient", "OfferFSM", "OfferStatus"]
 #### A3: Unit tests
 
 **`tests/unit/test_offer_fsm.py`**:
+
 - `test_initial_status` — default is AVAILABLE
 - `test_valid_transition_available_to_reserved` — AVAILABLE → RESERVED
 - `test_valid_transition_reserved_to_in_use` — RESERVED → IN_USE
@@ -407,6 +414,7 @@ __all__ = ["BlockchainRPCClient", "OfferFSM", "OfferStatus"]
 - `test_from_string_invalid_raises` — "unknown" raises ValueError
 
 **`tests/unit/test_blockchain_rpc.py`** (mock httpx with respx or unittest.mock.AsyncMock):
+
 - `test_query_offers_with_chain_id` — verifies chain_id in request params
 - `test_query_offers_without_chain_id` — no chain_id param when None
 - `test_query_offers_client_side_filter_gpu_model` — filters by model
@@ -432,6 +440,7 @@ __all__ = ["BlockchainRPCClient", "OfferFSM", "OfferStatus"]
 **Working directory**: `/opt/aitbc/apps/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/marketplace/tests/ apps/gpu/tests/ -q -o addopts="" --timeout=60
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ apps/edge/
@@ -455,6 +464,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ app
 #### B1: Marketplace config
 
 Create `apps/marketplace/src/marketplace_service/config.py`:
+
 ```python
 from __future__ import annotations
 
@@ -490,6 +500,7 @@ Update `services/marketplace_service.py:208` to use `settings.blockchain_rpc_url
 #### B2: GPU service config
 
 Create `apps/gpu/src/gpu_service/config.py`:
+
 ```python
 from __future__ import annotations
 
@@ -522,6 +533,7 @@ Update `main.py:298` to use `settings.blockchain_rpc_url` instead of `os.getenv(
 #### B3: Marketplace — BlockchainRPCClient + OfferFSM integration
 
 In `services/marketplace_service.py`:
+
 - Replace the direct httpx call (lines 206-276) with `BlockchainRPCClient.query_offers(chain_id=...)`.
 - Import: `from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus`.
 - Initialize the client in `__init__` or as a module-level singleton.
@@ -529,18 +541,21 @@ In `services/marketplace_service.py`:
 - Pass `chain_id` to `query_offers()`.
 
 In `domain/marketplace.py`:
+
 - Add `chain_id: str | None = Field(None, index=True)` to `MarketplaceOffer` (via aitbc_shared or local override).
 - Wire `OfferFSM` into `update_offer_status()`: validate transitions using `OfferFSM.from_string(current_status).transition(OfferFSM.from_string(new_status))`.
 
 #### B4: GPU service — BlockchainRPCClient + OfferFSM
 
 In `main.py`:
+
 - Import `from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus`.
 - Replace direct httpx blockchain calls with `BlockchainRPCClient` methods.
 - Use `BlockchainRPCClient.register_gpu()` for GPU registration.
 - Use `BlockchainRPCClient.submit_transaction()` for transaction submission.
 
 In `domain/gpu_marketplace.py`:
+
 - Map `GPURegistry.status` values to `OfferStatus`:
   - "available" → `OfferStatus.AVAILABLE`
   - "booked" → `OfferStatus.RESERVED` (or `IN_USE` depending on context)
@@ -559,6 +574,7 @@ In `domain/gpu_marketplace.py`:
 **Payment verification** (🔴 P0):
 
 In `routers/serve.py` — update `submit_compute_request`:
+
 ```python
 @router.post("/requests")
 async def submit_compute_request(request: SubmitComputeRequest) -> dict[str, Any]:
@@ -579,6 +595,7 @@ Add to `config.py` Settings: `require_payment_verification: bool = False`.
 **Marketplace advertising** (Medium):
 
 In `services/gpu_service.py` — add `advertise_to_marketplace()` method:
+
 ```python
 async def advertise_to_marketplace(self) -> dict[str, Any]:
     """Advertise this edge node's GPU capabilities to the marketplace."""
@@ -591,6 +608,7 @@ Add `MARKETPLACE_URL` to edge config.
 **Coordinator health reporting** (Medium):
 
 In `main.py` lifespan — add periodic heartbeat to agent-coordinator:
+
 ```python
 async def report_health():
     while True:
@@ -606,6 +624,7 @@ Remove `jwt_secret_key`, `jwt_algorithm`, `jwt_expiration_hours` from `config.py
 #### B6: Marketplace matching — price-time priority + agent-coordinator integration
 
 In `services/matching_service.py`:
+
 - Implement price-time priority: sort offers by price (ascending), then by registration time (oldest first).
 - Add `match_and_assign()` method that:
   1. Finds best match via `find_best_match()`
@@ -614,6 +633,7 @@ In `services/matching_service.py`:
   4. Returns the match + task_id + escrow_id
 
 In `main.py` — add endpoint:
+
 ```python
 @router.post("/v1/marketplace/match")
 async def match_request(request: MatchRequest) -> dict[str, Any]:
@@ -630,6 +650,7 @@ async def match_request(request: MatchRequest) -> dict[str, Any]:
 #### B7: Integration tests
 
 **`apps/marketplace/tests/test_v066_marketplace.py`**:
+
 1. `test_offer_fsm_available_to_reserved` — OfferFSM transition
 2. `test_offer_fsm_invalid_transition_raises` — AVAILABLE → IN_USE raises
 3. `test_marketplace_config_blockchain_rpc_url` — config field exists, defaults to 8202
@@ -643,6 +664,7 @@ async def match_request(request: MatchRequest) -> dict[str, Any]:
 11. `test_matching_service_match_and_assign` — match → reserve → task submit
 
 **`apps/gpu/tests/test_v066_gpu.py`**:
+
 1. `test_gpu_config_default_chain_id` — config field exists, defaults to "ait-hub"
 2. `test_gpu_config_blockchain_rpc_url` — config field exists, defaults to 8202
 3. `test_gpu_registry_has_chain_id` — GPURegistry model has chain_id field

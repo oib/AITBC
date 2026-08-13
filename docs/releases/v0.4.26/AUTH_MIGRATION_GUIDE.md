@@ -59,6 +59,7 @@ Migrate routers from API key auth to JWT auth incrementally:
 ### Phase 3: Deprecation
 
 After all routers are migrated:
+
 1. Add deprecation warnings to API key auth
 2. Document migration deadline
 3. Remove API key auth after grace period
@@ -68,11 +69,13 @@ After all routers are migrated:
 ### Step 1: Update Router Imports
 
 **Before**:
+
 ```python
 from ..deps import require_client_key
 ```
 
 **After**:
+
 ```python
 from ..auth import ClientDep
 ```
@@ -80,6 +83,7 @@ from ..auth import ClientDep
 ### Step 2: Update Route Dependencies
 
 **Before**:
+
 ```python
 @router.get("/jobs")
 async def list_jobs(api_key: str = Depends(require_client_key())):
@@ -87,6 +91,7 @@ async def list_jobs(api_key: str = Depends(require_client_key())):
 ```
 
 **After**:
+
 ```python
 @router.get("/jobs")
 async def list_jobs(user: dict = ClientDep):
@@ -98,12 +103,14 @@ async def list_jobs(user: dict = ClientDep):
 ### Step 3: Update Token Generation
 
 **Before**:
+
 ```python
 # API key from environment
 api_key = os.getenv("CLIENT_API_KEY")
 ```
 
 **After**:
+
 ```python
 from ..auth import create_access_token
 
@@ -117,12 +124,14 @@ token = create_access_token(
 ### Step 4: Update Client Code
 
 **Before**:
+
 ```python
 headers = {"X-Api-Key": "your-api-key"}
 response = requests.get(url, headers=headers)
 ```
 
 **After**:
+
 ```python
 headers = {"Authorization": f"Bearer {token}"}
 response = requests.get(url, headers=headers)
@@ -171,6 +180,7 @@ role = payload["role"]
 Tokens expire after `JWT_EXPIRATION_HOURS` (default: 24 hours).
 
 Refresh tokens can be implemented by:
+
 1. Issuing a new token before expiration
 2. Using refresh tokens (not implemented yet)
 3. Re-authenticating with credentials
@@ -287,6 +297,7 @@ Monitor the following during migration:
 ## Questions?
 
 For questions about the migration:
+
 1. Review this guide
 2. Check `docs/releases/v0.4.26/GOAL_36_AUTH_PLAN.md`
 3. Consult with the security team

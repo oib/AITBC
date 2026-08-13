@@ -1,4 +1,5 @@
 # Monitoring & Alerts
+
 Monitor your miner performance and set up alerts.
 
 ## Real-time Monitoring
@@ -10,6 +11,7 @@ aitbc miner dashboard
 ```
 
 Shows:
+
 - GPU utilization
 - Memory usage
 - Temperature
@@ -98,6 +100,7 @@ aitbc miner health --detailed
 ```
 
 Shows:
+
 - GPU health
 - Driver status
 - Network connectivity

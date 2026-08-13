@@ -360,6 +360,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 **Agent B Goal 13**: Optional routers behind flags
 
 **Coordination Points**:
+
 1. Auth normalization should happen BEFORE optional router flags
 2. Security matrix should account for optional routers
 3. JWT auth should work with feature flags

@@ -7,16 +7,19 @@ The ResourceMatcher service provides intelligent resource matching with ML-based
 ## Features
 
 ### Advanced Search
+
 - Multi-factor filtering (memory, model, region, price, capabilities)
 - ML-based ranking of results
 - Search history tracking for personalization
 
 ### Recommendations
+
 - Personalized GPU recommendations based on user profile
 - Popular GPUs fallback for new users
 - Preference learning from search history
 
 ### Similarity Search
+
 - Vector embeddings for GPU resources
 - Cosine similarity-based recommendations
 - Real-time embedding generation

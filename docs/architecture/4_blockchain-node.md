@@ -25,12 +25,15 @@ The AITBC Blockchain Node is the core infrastructure component that maintains th
 The blockchain node is built with a modular architecture separating concerns for consensus, storage, networking, and API layers.
 
 #### Consensus Engine
+
 Hybrid PoA/PoS with proposer rotation and validator sets
 
 #### Storage Layer
+
 SQLModel with SQLite/PostgreSQL support
 
 #### Networking
+
 Two distinct networking layers:
 
 1. **Internal gossip** (Redis pub/sub) — Used by the blockchain node process to broadcast blocks/transactions to other services on the same machine (wallet, marketplace, etc.) via `GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379`
@@ -44,10 +47,13 @@ Two distinct networking layers:
 3. **Gossip relay** (`aitbc-blockchain-p2p`, port 7070, hub-only) — A Starlette WebSocket server that bridges the internal Redis gossip to external peers. Followers do **not** connect to this service; they use the subscription system over the hub's RPC endpoint.
 
 #### Observability
+
 Prometheus metrics + structured logging
 
 #### Unit System
+
 The blockchain uses compute-seconds as the base unit:
+
 - **1 AIT = 3600 seconds** (1 hour of compute)
 - All on-chain values (balances, amounts, fees) are stored as integer seconds
 - User-facing interfaces (CLI, APIs, explorer) convert seconds → AIT for display
@@ -136,6 +142,7 @@ docker run -d \
 Available at `http://localhost:9090/metrics`
 
 Key metrics:
+
 - `blockchain_blocks_total` - Total blocks produced
 - `blockchain_transactions_total` - Total transactions processed
 - `blockchain_consensus_rounds` - Consensus rounds completed

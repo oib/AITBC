@@ -29,6 +29,7 @@ To enable on a node:
 
 1. Add `auto_sync_enabled=true` to `/etc/aitbc/blockchain.env`
 2. Restart the blockchain node service:
+
    ```bash
    systemctl restart aitbc-blockchain-p2p.service
    ```
@@ -36,6 +37,7 @@ To enable on a node:
 ### Sync Triggers
 
 Automatic sync triggers when:
+
 - A block arrives via gossip
 - Import fails due to gap detection
 - Gap exceeds `auto_sync_threshold`
@@ -44,6 +46,7 @@ Automatic sync triggers when:
 ### Code Location
 
 Implementation is located in:
+
 - `apps/blockchain-node/src/aitbc_chain/config.py` - Configuration
 - `apps/blockchain-node/src/aitbc_chain/main.py` - Main loop
 - `apps/blockchain-node/src/aitbc_chain/sync.py` - Sync logic
@@ -191,6 +194,7 @@ Content-Type: application/json
 **Symptoms**: Block gaps not detected or sync not starting.
 
 **Solutions**:
+
 - Verify `auto_sync_enabled=true` in `/etc/aitbc/blockchain.env`
 - Check `auto_sync_threshold` is appropriate for your network
 - Verify blockchain node service is running
@@ -201,6 +205,7 @@ Content-Type: application/json
 **Symptoms**: Force sync returns error or times out.
 
 **Solutions**:
+
 - Verify target node is accessible
 - Check chain_id matches target node
 - Verify height range is valid
@@ -212,6 +217,7 @@ Content-Type: application/json
 **Symptoms**: Export returns error or incomplete data.
 
 **Solutions**:
+
 - Verify sufficient disk space
 - Check chain_id exists
 - Verify height range is valid
@@ -222,6 +228,7 @@ Content-Type: application/json
 **Symptoms**: Import returns error or data not persisted.
 
 **Solutions**:
+
 - Verify export file exists and is valid JSON
 - Check chain_id matches
 - Verify file format matches expected structure

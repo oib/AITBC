@@ -7,6 +7,7 @@ The DynamicPricingEngine has been extended with four new pricing strategies in a
 ## New Strategies
 
 ### TIME_BASED
+
 - **Description:** Peak/off-peak pricing with time-based adjustments
 - **Configuration:**
   - `peak_hours_multiplier`: 1.3 (default)
@@ -16,6 +17,7 @@ The DynamicPricingEngine has been extended with four new pricing strategies in a
 - **Use Case:** Adjust prices based on time of day and day of week
 
 ### REPUTATION_BASED
+
 - **Description:** Pricing adjusted based on provider reputation and performance
 - **Configuration:**
   - `reputation_weight`: 0.6 (default)
@@ -24,6 +26,7 @@ The DynamicPricingEngine has been extended with four new pricing strategies in a
 - **Use Case:** Reward high-reputation providers with premium pricing
 
 ### MULTI_FACTOR
+
 - **Description:** Weighted combination of multiple pricing factors
 - **Configuration:**
   - `demand_weight`: 0.25
@@ -35,6 +38,7 @@ The DynamicPricingEngine has been extended with four new pricing strategies in a
 - **Use Case:** Balanced pricing considering all market factors
 
 ### PREDICTIVE
+
 - **Description:** ML-based price forecasting with confidence intervals
 - **Configuration:**
   - `forecast_weight`: 0.5

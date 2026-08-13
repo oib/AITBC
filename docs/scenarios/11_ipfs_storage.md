@@ -84,6 +84,7 @@ print(cid)
 ```
 
 **Expected output:**
+
 ```
 QmXzZf7p9k3... (a CID string)
 ```
@@ -130,6 +131,7 @@ print(announcement_id)
 ```
 
 **Expected output:**
+
 ```
 ann_8f3a... (an announcement id, falling back to the cid)
 ```

@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/apps/agent-coordinator/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/agent-coordinator/tests/ -q -o addopts="" --timeout=60
 ```
@@ -57,6 +58,7 @@ agent_cleanup_interval_seconds: int = 60
 ## B2: Add chain_id/island_id to agent models
 
 **`apps/agent-coordinator/src/app/models.py`** — update `AgentRegistrationRequest` (line 6):
+
 ```python
 class AgentRegistrationRequest(BaseModel):
     agent_id: str = Field(..., description="Unique agent identifier")
@@ -71,6 +73,7 @@ class AgentRegistrationRequest(BaseModel):
 ```
 
 **`apps/agent-coordinator/src/app/routing/agent_discovery.py`** — update `AgentInfo` (line 53):
+
 ```python
 @dataclass
 class AgentInfo:
@@ -86,6 +89,7 @@ Update `from_dict()` (line 88) to parse `chain_id` and `island_id`.
 Update `create_agent_info()` in `routers/agents.py` (line 25) to pass `chain_id` and `island_id` from the request.
 
 Update `discover_agents()` filter logic in `agent_discovery.py` (around line 198) to filter by `chain_id` and `island_id`:
+
 ```python
 if "chain_id" in query:
     chain_id = query["chain_id"]
@@ -100,6 +104,7 @@ if "island_id" in query:
 ## B3: Add chain_id/payment to task models + escrow integration
 
 **`apps/agent-coordinator/src/app/models.py`** — update `TaskSubmission` (line 18):
+
 ```python
 class TaskSubmission(BaseModel):
     task_data: dict[str, Any] = Field(..., description="Task data")
@@ -116,6 +121,7 @@ class TaskPayment(BaseModel):
 ```
 
 In `routers/tasks.py`:
+
 - Import `PaymentEscrow` from `aitbc.crypto.payment_escrow`
 - Initialize `PaymentEscrow` with blockchain RPC callbacks
 - In task submission, if `payment` is present and `task_payment_escrow_enabled=True`:
@@ -126,6 +132,7 @@ In `routers/tasks.py`:
 - On task timeout, refund via `payment_escrow.refund()`
 
 In `routing/load_balancer.py`:
+
 - Add per-chain task queues (optional for v0.6.5, can defer to v0.6.6)
 - Pass chain_id to agent selection logic
 
@@ -134,10 +141,12 @@ In `routing/load_balancer.py`:
 ## B4: Add chain_id to swarm + workflow models
 
 In `routers/swarm.py`:
+
 - Add `chain_id` field to swarm models
 - Update swarm creation/lookup to filter by chain_id
 
 In `routers/workflow.py`:
+
 - Add `chain_id` field to workflow models
 - Update workflow execution to use chain_id for blockchain transactions
 
@@ -146,6 +155,7 @@ In `routers/workflow.py`:
 ## B5: Make agent TTL configurable
 
 In `routing/agent_discovery.py`:
+
 - Replace hardcoded `max_heartbeat_age=120` with `settings.agent_heartbeat_timeout_seconds`
 - Replace hardcoded `cleanup_interval=60` with `settings.agent_cleanup_interval_seconds`
 
@@ -154,6 +164,7 @@ In `routing/agent_discovery.py`:
 ## B6: Integration tests
 
 Create `apps/agent-coordinator/tests/test_v065_agent_coordination.py`:
+
 - `test_agent_registration_with_chain_id` — register agent with chain_id, verify stored
 - `test_agent_discovery_filters_by_chain_id` — discover agents filtered by chain_id
 - `test_agent_discovery_filters_by_island_id` — discover agents filtered by island_id
@@ -170,6 +181,7 @@ Create `apps/agent-coordinator/tests/test_v065_agent_coordination.py`:
 ## B7: Verify full test suite
 
 Run full test suite for agent-coordinator:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/agent-coordinator/tests/ -q -o addopts="" --timeout=60
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/agent-coordinator/src/

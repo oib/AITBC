@@ -17,6 +17,7 @@ This document describes the security hardening measures implemented for AITBC se
 Dedicated service users have been created for AITBC services to follow the principle of least privilege:
 
 **Created Users:**
+
 - `aitbc-api` - API Gateway service
 - `aitbc-blockchain` - Blockchain services
 - `aitbc-coordinator` - Coordinator API service
@@ -27,9 +28,11 @@ Dedicated service users have been created for AITBC services to follow the princ
 - `aitbc-agent` - Agent services
 
 **Group:**
+
 - `aitbc-services` - Common group for all service users
 
 **User Configuration:**
+
 - Shell: `/bin/false` (no shell access)
 - Home directory: Created but not used
 - Group: All users belong to `aitbc-services` group
@@ -45,6 +48,7 @@ Rate limiting is already implemented across AITBC services using multiple mechan
 #### SlowAPI Integration
 
 **File**: `/opt/aitbc/apps/api-gateway/src/api_gateway/main.py`
+
 - **Library**: slowapi 0.1.9
 - **Implementation**: IP-based rate limiting
 - **Default Limits**: Configurable per endpoint
@@ -53,6 +57,7 @@ Rate limiting is already implemented across AITBC services using multiple mechan
 #### Custom Rate Limiting Module
 
 **File**: `/opt/aitbc/aitbc/rate_limiting.py`
+
 - **Features**:
   - Decorator-based rate limiting (`@rate_limit`)
   - Middleware-based rate limiting (`RateLimitMiddleware`)
@@ -61,6 +66,7 @@ Rate limiting is already implemented across AITBC services using multiple mechan
   - Rate limit headers support
 
 **Usage Example:**
+
 ```python
 from aitbc.rate_limiting import rate_limit
 
@@ -72,6 +78,7 @@ def protected_endpoint():
 #### Rate Limiting in Services
 
 **Services with Rate Limiting:**
+
 - API Gateway: SlowAPI-based rate limiting
 - Agent Coordinator: RateLimitMiddleware (100 req/60s)
 - Blockchain RPC: RateLimitMiddleware
@@ -87,6 +94,7 @@ A comprehensive access control module has been created for authentication and au
 #### Access Control Module
 
 **File**: `/opt/aitbc/aitbc/access_control.py`
+
 - **Features**:
   - JWT token creation and verification
   - Role-based access control (RBAC)
@@ -95,11 +103,13 @@ A comprehensive access control module has been created for authentication and au
   - Security headers generation
 
 **Classes:**
+
 - `AccessController` - Main access control class
 - `APIKeyAuth` - API key authentication
 - `SecureHeaders` - Security headers generator
 
 **Usage Example:**
+
 ```python
 from aitbc.access_control import get_access_controller, require_role
 
@@ -113,6 +123,7 @@ def admin_function():
 #### Security Configuration
 
 **File**: `/etc/aitbc/security.env`
+
 - **JWT Configuration**: Secret key, algorithm, token expiry
 - **API Key Configuration**: Valid API keys
 - **RBAC Configuration**: Role permissions
@@ -120,6 +131,7 @@ def admin_function():
 - **Rate Limiting**: Default limits and periods
 
 **Configuration Options:**
+
 ```bash
 JWT_SECRET_KEY=change-this-secret-key-in-production
 JWT_ALGORITHM=HS256
@@ -133,6 +145,7 @@ ENABLE_SECURITY_HEADERS=true
 #### Role-Based Access Control
 
 **Defined Roles:**
+
 - `admin` - Full access (*)
 - `operator` - read, write, execute
 - `user` - read only
@@ -140,6 +153,7 @@ ENABLE_SECURITY_HEADERS=true
 - `guest` - read only
 
 **Permission System:**
+
 - Decorator-based permission checking
 - Role-based permission inheritance
 - Custom permission definitions
@@ -151,6 +165,7 @@ ENABLE_SECURITY_HEADERS=true
 Standard security headers are available through the `SecureHeaders` class:
 
 **Headers:**
+
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
 - `X-XSS-Protection: 1; mode=block`
@@ -166,6 +181,7 @@ Standard security headers are available through the `SecureHeaders` class:
 **Status**: 24/26 services isolated (92%)
 
 **What's Done:**
+
 - ✅ Service users created (5 users: aitbc-public, aitbc-internal, aitbc-blockchain, aitbc-gpu, aitbc-wallet)
 - ✅ Service group created (aitbc-services)
 - ✅ User permissions configured
@@ -181,12 +197,14 @@ Standard security headers are available through the `SecureHeaders` class:
 - ✅ Database authentication fixed for blockchain P2P service
 
 **What's Pending:**
+
 - 📋 Remaining services configured to run as dedicated users (2 services: agent daemon, agent management)
 - 📋 Capability dropping implementation
 - 📋 Seccomp filters configuration
 - 📋 File system namespaces implementation
 
 **Challenges:**
+
 - Services currently require root for certain operations
 - File permissions need to be adjusted
 - Database access needs to be configured for service users
@@ -199,6 +217,7 @@ Standard security headers are available through the `SecureHeaders` class:
 **Reason:** Firewall rules are configured at the host level, not in the incus container. This should be handled by the system administrator at the host level.
 
 **Recommended Host-Level Measures:**
+
 - Configure ufw/iptables firewall rules
 - Restrict service access to localhost where appropriate
 - Implement rate limiting at network level
@@ -210,6 +229,7 @@ Standard security headers are available through the `SecureHeaders` class:
 **Status**: Planned
 
 **Future Enhancements:**
+
 - Mutual TLS for service-to-service communication
 - Certificate-based authentication
 - Network-level encryption
@@ -238,6 +258,7 @@ None (security modules are new additions)
 ### Current Implementation
 
 ✅ **Implemented:**
+
 - Service user creation (users created, not yet applied)
 - Application-level rate limiting
 - JWT-based authentication framework
@@ -246,9 +267,11 @@ None (security modules are new additions)
 - API key authentication framework
 
 ⚠️ **Partially Implemented:**
+
 - Service isolation (users created, services not yet configured)
 
 ❌ **Not Implemented (Host-Level):**
+
 - Firewall rules (configured at host level)
 - Network-level rate limiting
 - Network segmentation
@@ -256,6 +279,7 @@ None (security modules are new additions)
 ### Recommended Practices
 
 **For Service Isolation:**
+
 1. Configure services to run as dedicated users
 2. Set minimal file permissions for service users
 3. Implement capability dropping
@@ -263,6 +287,7 @@ None (security modules are new additions)
 5. Configure seccomp filters for system call restrictions
 
 **For Access Control:**
+
 1. Enable JWT authentication for sensitive endpoints
 2. Implement API key rotation
 3. Use strong secrets in production
@@ -270,6 +295,7 @@ None (security modules are new additions)
 5. Regularly audit access logs
 
 **For Rate Limiting:**
+
 1. Configure appropriate limits per endpoint
 2. Implement rate limiting at multiple levels
 3. Monitor rate limit violations
@@ -281,11 +307,13 @@ None (security modules are new additions)
 ### Current Monitoring
 
 **Rate Limiting:**
+
 - Logs rate limit violations
 - Tracks blocked requests
 - Monitors API key usage
 
 **Access Control:**
+
 - Logs authentication failures
 - Tracks authorization failures
 - Monitors token usage
@@ -293,6 +321,7 @@ None (security modules are new additions)
 ### Recommended Monitoring
 
 **Security Events:**
+
 - Authentication failures
 - Authorization failures
 - Rate limit violations
@@ -300,6 +329,7 @@ None (security modules are new additions)
 - API key abuse
 
 **Tools:**
+
 - Journalctl for service logs
 - Custom security logging
 - Audit trail implementation
@@ -310,12 +340,14 @@ None (security modules are new additions)
 ### Testing Procedures
 
 **Rate Limiting:**
+
 ```bash
 # Test rate limiting
 for i in {1..150}; do curl http://localhost:8201/health; done
 ```
 
 **Access Control:**
+
 ```python
 # Test JWT authentication
 from aitbc.access_control import get_access_controller
@@ -326,6 +358,7 @@ claims = controller.verify_token(token)
 ```
 
 **Service Isolation:**
+
 ```bash
 # Test service user permissions
 sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
@@ -349,6 +382,7 @@ sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
 ### Production Readiness
 
 **Before Production:**
+
 - [ ] Change default JWT secret key
 - [ ] Configure valid API keys
 - [ ] Enable authentication for sensitive endpoints
@@ -363,12 +397,14 @@ sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
 ### Service Isolation Issues
 
 **Service won't start as dedicated user:**
+
 - Check file permissions: `ls -la /opt/aitbc`
 - Check database permissions
 - Review service logs: `journalctl -u <service-name> -f`
 - Ensure user has required capabilities
 
 **Permission denied errors:**
+
 - Check file ownership: `stat <file>`
 - Verify group membership: `groups aitbc-api`
 - Check ACL permissions: `getfacl <file>`
@@ -376,6 +412,7 @@ sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
 ### Rate Limiting Issues
 
 **Rate limiting not working:**
+
 - Verify slowapi is installed: `pip list | grep slowapi`
 - Check middleware configuration
 - Review rate limit configuration
@@ -384,12 +421,14 @@ sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
 ### Access Control Issues
 
 **JWT verification failing:**
+
 - Check secret key matches
 - Verify token hasn't expired
 - Check algorithm configuration
 - Review token claims
 
 **Authorization failing:**
+
 - Check user roles
 - Verify role permissions
 - Review permission decorators
@@ -414,6 +453,7 @@ sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
 ### Contact
 
 For questions or issues related to security hardening:
+
 - **Documentation**: `/opt/aitbc/docs/operations/`
 - **Security Config**: `/etc/aitbc/security.env`
 - **Service Logs**: `journalctl -u aitbc-*.service`

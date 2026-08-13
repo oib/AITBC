@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.2 Agent A ✅, v0.7.3 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ aitbc/governance/ && ./venv/bin/python -m ruff check aitbc/bridge/ aitbc/governance/ tests/unit/test_v074_deferred.py && ./venv/bin/python -m pytest tests/unit/test_v074_deferred.py -q -o addopts=""
 ```
@@ -33,6 +34,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ aitb
 ## A1: ExternalOracleClient
 
 Extend `aitbc/bridge/oracle.py:228-262`:
+
 - Replace `NotImplementedError` in `verify_proof()` with external oracle API call (httpx)
 - Replace `NotImplementedError` in `check_finality()` with external oracle API call
 - Add `__init__(endpoints: list[str], timeout: int = 30)` — takes oracle endpoints
@@ -43,6 +45,7 @@ Extend `aitbc/bridge/oracle.py:228-262`:
 ## A2: Oracle Fallback Policy
 
 Add to `aitbc/bridge/oracle.py` or `aitbc/bridge/proof.py`:
+
 - `OracleFallbackPolicy` class — manages oracle → in-process fallback
 - `verify_with_fallback()` — try oracle first, fall back to in-process on failure
 - Health check loop — periodically check oracle health
@@ -53,10 +56,12 @@ Add to `aitbc/bridge/oracle.py` or `aitbc/bridge/proof.py`:
 ## A3: Cross-Chain Governance Utilities
 
 Extend `aitbc/governance/onchain.py`:
+
 - `build_proposal_propagation_tx(proposal_data, target_chain)` — bridge tx to propagate proposal
 - `build_vote_aggregation_tx(votes, source_chain)` — bridge tx to aggregate votes
 
 Extend `aitbc/governance/client.py`:
+
 - `propagate_proposal(proposal_id, target_chains)` — propagate proposal to islands
 - `aggregate_votes(proposal_id)` — aggregate votes from all chains
 - `execute_cross_chain(proposal_id)` — execute on all chains after approval
@@ -66,6 +71,7 @@ Extend `aitbc/governance/client.py`:
 ## A4: Parameter Change Execution
 
 Extend `aitbc/governance/onchain.py`:
+
 - `build_parameter_apply_tx(parameter_change)` — tx to apply parameter change to target service
 - `validate_parameter_change(parameter_change, target_service_config)` — validate before applying
 

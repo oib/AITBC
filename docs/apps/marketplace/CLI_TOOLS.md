@@ -28,6 +28,7 @@ aitbc marketplace gpu list --max-price 0.05
 ### GPU Offer Management
 
 #### Create GPU Offer
+
 ```bash
 # Basic GPU offer
 aitbc marketplace offer create \
@@ -55,6 +56,7 @@ aitbc marketplace offer create \
 ```
 
 #### List and Manage Offers
+
 ```bash
 # List your offers
 aitbc marketplace offers --miner-id gpu_miner_123
@@ -80,6 +82,7 @@ aitbc marketplace offer delete --offer-id offer_789
 ### GPU Rental Operations
 
 #### Rent GPU
+
 ```bash
 # Basic GPU rental
 aitbc marketplace gpu rent \
@@ -102,6 +105,7 @@ aitbc marketplace gpu rent \
 ```
 
 #### Manage Rentals
+
 ```bash
 # List active rentals
 aitbc marketplace rentals --status active
@@ -206,6 +210,7 @@ aitbc marketplace global analytics --period 7d
 ## 🔍 Search and Filtering
 
 ### Advanced Search
+
 ```bash
 # Search GPUs by multiple criteria
 aitbc marketplace gpu list \
@@ -225,6 +230,7 @@ aitbc marketplace gpu list --performance-tier standard
 ```
 
 ### Filtering and Sorting
+
 ```bash
 # Sort by price (lowest first)
 aitbc marketplace gpu list --sort price
@@ -242,6 +248,7 @@ aitbc marketplace gpu list --min-duration 4h
 ## 📊 Analytics and Reporting
 
 ### Usage Analytics
+
 ```bash
 # Personal usage statistics
 aitbc marketplace analytics personal
@@ -257,6 +264,7 @@ aitbc marketplace analytics performance --gpu-id gpu_789
 ```
 
 ### Marketplace Analytics
+
 ```bash
 # Overall marketplace statistics
 aitbc marketplace analytics market
@@ -274,6 +282,7 @@ aitbc marketplace analytics prices --period 7d
 ## ⚙️ Configuration and Preferences
 
 ### Marketplace Configuration
+
 ```bash
 # Set default preferences
 aitbc marketplace config set default-region us-west
@@ -288,6 +297,7 @@ aitbc marketplace config reset
 ```
 
 ### Notification Settings
+
 ```bash
 # Enable notifications
 aitbc marketplace notifications enable --type price-alerts
@@ -309,6 +319,7 @@ aitbc marketplace alerts create \
 ## 🔧 Advanced Operations
 
 ### Batch Operations
+
 ```bash
 # Batch offer creation from file
 aitbc marketplace batch-offers create --file offers.json
@@ -321,6 +332,7 @@ aitbc marketplace batch-prices update --file price_updates.json
 ```
 
 ### Automation Scripts
+
 ```bash
 # Auto-renew rentals
 aitbc marketplace auto-renew enable --max-budget 10.0
@@ -333,6 +345,7 @@ aitbc marketplace auto-price enable --strategy market-based
 ```
 
 ### Integration Tools
+
 ```bash
 # Export data for analysis
 aitbc marketplace export --format csv --file marketplace_data.csv
@@ -347,6 +360,7 @@ aitbc marketplace sync --source external_marketplace
 ## 🌍 Global Marketplace Features
 
 ### Multi-Region Operations
+
 ```bash
 # List available regions
 aitbc marketplace global regions
@@ -359,6 +373,7 @@ aitbc marketplace global arbitrage --source-region us-west --target-region europ
 ```
 
 ### Cross-Chain Operations
+
 ```bash
 # List supported chains
 aitbc marketplace global chains
@@ -376,6 +391,7 @@ aitbc marketplace global transfer \
 ## 🛡️ Security and Trust
 
 ### Trust Management
+
 ```bash
 # Check trust score
 aitbc marketplace trust score --miner-id gpu_miner_123
@@ -391,6 +407,7 @@ aitbc marketplace report \
 ```
 
 ### Dispute Resolution
+
 ```bash
 # Create dispute
 aitbc marketplace dispute create \
@@ -411,12 +428,14 @@ aitbc marketplace dispute respond \
 Escrow is automatically created when you accept a bid (`market accept`). Use the `market escrow` subgroup to manage escrow manually.
 
 ### Check Escrow State
+
 ```bash
 # Show on-chain escrow state for a job
 aitbc market escrow status <job_id>
 ```
 
 Example output:
+
 ```json
 {
   "job_id": "bid-abc123",
@@ -432,12 +451,14 @@ Example output:
 ```
 
 ### Release Escrow (Provider Receives Payment)
+
 ```bash
 # Release escrowed funds to provider after job completion
 aitbc market escrow release <job_id>
 ```
 
 ### Refund Escrow (Buyer Gets Refund)
+
 ```bash
 # Refund escrowed funds back to buyer
 aitbc market escrow refund <job_id>
@@ -449,6 +470,7 @@ aitbc market escrow refund <job_id> --reason "provider_failed"
 ### Escrow Lifecycle
 
 When you run `aitbc market accept <bid_id>`:
+
 1. Blockchain transaction is submitted
 2. Escrow is **automatically created** on the blockchain node
 3. Funds are locked until `escrow release` or `escrow refund` is called
@@ -474,18 +496,21 @@ market escrow      market escrow
 ## �📝 Best Practices
 
 ### For Miners
+
 1. **Competitive Pricing**: Use `aitbc marketplace analytics prices` to set competitive rates
 2. **High Availability**: Keep offers active and update availability regularly
 3. **Good Reviews**: Provide excellent service to build reputation
 4. **Performance Monitoring**: Use `aitbc marketplace analytics performance` to track GPU performance
 
 ### For Renters
+
 1. **Price Comparison**: Use `aitbc marketplace gpu list --sort price` to find best deals
 2. **Review Check**: Use `aitbc marketplace reviews --miner-id` before renting
 3. **Budget Management**: Set spending limits and track usage with analytics
 4. **Rental Planning**: Use auto-renew for longer projects
 
 ### For Both
+
 1. **Security**: Enable two-factor authentication and monitor account activity
 2. **Notifications**: Set up alerts for important events
 3. **Data Backup**: Regularly export transaction history
@@ -494,6 +519,7 @@ market escrow      market escrow
 ## 🔗 Integration Examples
 
 ### Script Integration
+
 ```bash
 #!/bin/bash
 # Find best GPU for specific requirements
@@ -513,6 +539,7 @@ aitbc marketplace gpu rent \
 ```
 
 ### API Integration
+
 ```bash
 # Export marketplace data for external processing
 aitbc marketplace gpu list --output json > gpu_data.json
@@ -538,6 +565,7 @@ If you're transitioning from legacy marketplace commands:
 ## 📞 Support and Help
 
 ### Command Help
+
 ```bash
 # General help
 aitbc marketplace --help
@@ -548,6 +576,7 @@ aitbc marketplace offer create --help
 ```
 
 ### Troubleshooting
+
 ```bash
 # Check marketplace status
 aitbc marketplace status

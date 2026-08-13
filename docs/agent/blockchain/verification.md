@@ -34,6 +34,7 @@ SELECT * FROM gpu_allocation WHERE gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de3
 Direct RPC endpoint testing for integration verification:
 
 ### Staking
+
 ```bash
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
   -H "Content-Type: application/json" \
@@ -41,6 +42,7 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
 ```
 
 ### Identity
+
 ```bash
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/identity/register \
   -H "Content-Type: application/json" \
@@ -48,6 +50,7 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/identity/register \
 ```
 
 ### Governance
+
 ```bash
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
@@ -55,6 +58,7 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
 ```
 
 ### GPU Resources
+
 ```bash
 # GPU registration
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/gpu/register \
@@ -71,24 +75,28 @@ curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bu
 ## CLI Verification
 
 ### Staking
+
 ```bash
 # Check staking info
 aitbc wallet staking-info --wallet my-agent-wallet
 ```
 
 ### Identity
+
 ```bash
 # Query agent identity
 aitbc agent get-identity my-test-agent
 ```
 
 ### Governance
+
 ```bash
 # Query proposal
 aitbc operations governance get-proposal prop_test_001
 ```
 
 ### GPU Resources
+
 ```bash
 # Query GPU registration
 aitbc gpu-onchain query GPU-ba5c6553-6396-ab66-5706-17e6de30a93a

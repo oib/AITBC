@@ -25,19 +25,25 @@ This directory contains comprehensive architecture documentation for the AITBC p
 ## 🎯 **Quick Start**
 
 ### **For New Developers**
+
 Start with these documents in order:
+
 1. [2_components-overview.md](./2_components-overview.md) - Understand the big picture
 2. [1_system-flow.md](./1_system-flow.md) - Learn how data flows through the system
 3. [8_codebase-structure.md](./8_codebase-structure.md) - Navigate the codebase
 
 ### **For System Architects**
+
 Focus on these documents:
+
 1. [3_coordinator-api.md](./3_coordinator-api.md) - API architecture
 2. [4_blockchain-node.md](./4_blockchain-node.md) - Blockchain architecture
 3. [9_full-technical-reference.md](./9_full-technical-reference.md) - Complete technical details
 
 ### **For Infrastructure Engineers**
+
 Review these documents:
+
 1. [edge_gpu_setup.md](./edge_gpu_setup.md) - Edge computing setup
 2. [6_trade-exchange.md](./6_trade-exchange.md) - Exchange infrastructure
 3. [7_wallet.md](./7_wallet.md) - Wallet infrastructure
@@ -82,6 +88,7 @@ Review these documents:
 ### **Unit System**
 
 The AITBC blockchain uses a compute-seconds based unit system:
+
 - **1 AIT = 3600 seconds** (1 hour of compute)
 - All on-chain values are stored as integer seconds
 - User interfaces convert seconds → AIT for display

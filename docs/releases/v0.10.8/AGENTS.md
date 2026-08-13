@@ -33,6 +33,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -58,10 +59,12 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 | `aitbc/async_helpers/async_helpers.py` | `retry_async()` | ~28 (lines 129-156) | 0 production, 9 test usages |
 
 **Keep** (do NOT delete):
+
 - `aitbc/network/retry_policy.py` — `RetryPolicy` class (5 production importers, used by `SharedHttpClient`)
 - `aitbc/utils/time_utils.py:284` — `retry_until_deadline()` (different pattern: deadline-based, not count-based; used in `aitbc/utils/__init__.py`)
 
 **Fix**:
+
 1. Delete `retry_with_backoff()` from `cli/utils/__init__.py`.
 2. Delete `retry()` decorator from `aitbc/decorators/decorators.py`. Keep the file if it has other decorators; remove only the `retry` function and its imports if now unused.
 3. Delete `retry_async()` from `aitbc/async_helpers/async_helpers.py`. Keep the file if it has other helpers.
@@ -72,6 +75,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
    - `tests/core/test_decorators_module.py` — remove tests for `retry` if present
 
 **Verification**:
+
 ```bash
 # Verify no broken imports after deletion
 grep -rn "retry_with_backoff\|from aitbc.decorators.*retry\|from aitbc.async_helpers.*retry_async" --include="*.py" . | grep -v __pycache__ | grep -v "test_" | grep -v "retry_policy" | grep -v "retry_until_deadline"
@@ -90,6 +94,7 @@ grep -rn "retry_with_backoff\|from aitbc.decorators.*retry\|from aitbc.async_hel
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -109,11 +114,13 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: `aitbc/config.py` (105 lines) is shadowed by the `aitbc/config/` package directory. Python imports the package, not the file. The `__init__.py` uses importlib hackery (lines 25-38) to load the shadowed file as `aitbc._legacy_config` and re-export its classes. This is fragile and confusing.
 
 **Current state**:
+
 - `aitbc/config.py` (105 lines) — `BaseAITBCConfig` (Pydantic BaseSettings), `AITBCConfig` (subclass). Has a broken import on line 89 (`from .redis_cache import get_cache` — should be `from .caching.redis_cache import get_cache`).
 - `aitbc/config/hierarchical_config.py` (350 lines) — `HierarchicalConfig` (file loader), `ValidatedAITBCConfig` (Pydantic BaseSettings with more validators), `load_config()`, `create_config_template()`.
 - `aitbc/config/__init__.py` (47 lines) — importlib hack to load shadowed `config.py`, exports both sets of classes.
 
 **Importers** (all use `from aitbc.config import ...` — the package, not the file):
+
 | File | Line | What it imports |
 |------|------|-----------------|
 | `apps/coordinator-api/src/app/config.py` | 13 | `BaseAITBCConfig` |
@@ -128,6 +135,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Fix**:
 
 **Step 1**: Add missing fields to `ValidatedAITBCConfig` in `aitbc/config/hierarchical_config.py`:
+
 ```python
 database_max_overflow: int = Field(default=20, description="Maximum overflow connections")
 database_pool_recycle: int = Field(default=3600, description="Connection recycle time in seconds")
@@ -141,11 +149,13 @@ allow_origins: list[str] = Field(default_factory=list, description="CORS allowed
 ```
 
 **Step 2**: Add missing methods to `ValidatedAITBCConfig`:
+
 - `validate_secrets()` — copy from `BaseAITBCConfig`
 - `validate_secret_length()` field_validator — copy from `BaseAITBCConfig`
 - `get_redis_cache()` — copy from `BaseAITBCConfig` but fix the import path (`from aitbc.caching.redis_cache import get_cache`)
 
 **Step 3**: Add `AITBCConfig` subclass to `hierarchical_config.py` (matching the one in `config.py`):
+
 ```python
 class AITBCConfig(ValidatedAITBCConfig):
     """Main AITBC configuration."""
@@ -154,6 +164,7 @@ class AITBCConfig(ValidatedAITBCConfig):
 ```
 
 **Step 4**: Simplify `aitbc/config/__init__.py` — remove importlib hackery:
+
 ```python
 from .hierarchical_config import (
     AITBCConfig,
@@ -181,6 +192,7 @@ __all__ = [
 **Step 6**: Verify all importers still work — no changes needed to importers since they all use `from aitbc.config import ...` which resolves to the package.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -195,6 +207,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: 11 services have copy-pasted simple health endpoint handlers that return `{"status": "healthy", "service": "<name>"}` with minor variations. The existing `HealthChecker` class in `aitbc/health_checks.py` is overkill for services that just need a static health response.
 
 **Current patterns** (11 services):
+
 | Service | File | Pattern |
 |---------|------|---------|
 | edge-api | `apps/edge/src/aitbc_edge/main.py:92` | `{"status": "healthy", "service": "edge-api", "version": "0.1.0"}` |
@@ -214,6 +227,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Fix**:
 
 **Step 1**: Add `create_simple_health_response()` to `aitbc/health_checks.py`:
+
 ```python
 def create_simple_health_response(
     service_name: str,
@@ -239,9 +253,11 @@ def create_simple_health_response(
 ```
 
 **Step 2**: Update the 7 services with the simplest pattern (static response):
+
 - edge-api, api-gateway, trading, gpu, governance, marketplace, coordinator-api (core/app.py)
 
 Replace their inline health handlers with:
+
 ```python
 from aitbc.health_checks import create_simple_health_response
 
@@ -251,6 +267,7 @@ async def health() -> dict[str, Any]:
 ```
 
 **Step 3**: For the 4 services with dynamic checks (blockchain-explorer, blockchain-event-bridge, ffmpeg, whisper), use `create_simple_health_response()` as the base and add their specific checks via `extra_fields`:
+
 ```python
 @app.get("/health")
 async def health() -> dict[str, Any]:
@@ -260,6 +277,7 @@ async def health() -> dict[str, Any]:
 **Step 4**: Export `create_simple_health_response` from `aitbc/health_checks.py` `__all__`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 # Verify health endpoints still return expected fields
@@ -275,6 +293,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ### No coordination required
 
 Agent A and Agent B tasks are independent:
+
 - Agent A deletes dead retry helpers (no business logic impact, zero production importers)
 - Agent B consolidates config (1 production importer) and adds health helper (additive)
 

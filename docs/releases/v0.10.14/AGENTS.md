@@ -31,6 +31,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ cli/
 cd /opt/aitbc && ./venv/bin/python -m ruff check aitbc/ cli/
@@ -54,6 +55,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/cli -q -o addopts=""
 **Problem**: `cli/aitbc/` defines a minimal `AITBCHTTPClient`, exceptions, and constants that shadow the canonical `aitbc/` package. The project's mypy configuration acknowledges this shadowing. Installing the CLI can include this shadow package, causing incorrect imports.
 
 **Fix**:
+
 - Delete `cli/aitbc/` directory entirely.
 - Update `cli/setup.py` to explicitly exclude the shadow package (use `packages=find_packages(exclude=["aitbc"])` or list packages explicitly).
 - Update `cli/` imports to use the canonical `aitbc` package from the root.
@@ -61,6 +63,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/cli -q -o addopts=""
 - Verify CLI imports work with the canonical package.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -c "import sys; sys.path.insert(0, 'cli'); from aitbc import AITBCHTTPClient; print('canonical import ok')"
 cd /opt/aitbc/cli && ../venv/bin/python -c "from aitbc import AITBCHTTPClient; print('cli import ok')"
@@ -72,18 +75,21 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/cli -q -o addopts=""
 #### A2: Resolve agent registry duplication
 
 **Problem**: Two agent registry implementations exist:
+
 - Standalone FastAPI/SQLite service in `aitbc/agent_registry/src/app.py`
 - In-process Redis-backed registry in `apps/agent-coordinator/src/agent_app/routing/agent_discovery.py`
 
 The shared `aitbc.agent_bridge` points to an undeployed `localhost:8013` registry service, causing connection failures.
 
 **Fix**:
+
 - Choose one implementation as canonical (recommend the Redis-backed in-process registry for now).
 - If standalone service is canonical: deploy it, update `aitbc.agent_bridge` endpoints, delete the in-process registry.
 - If in-process registry is canonical: delete `aitbc/agent_registry/` standalone service, update `aitbc.agent_bridge` to use coordinator API endpoints, remove stale `localhost:8013` references.
 - Update documentation to reflect the chosen architecture.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k agent_registry
 cd /opt/aitbc && ./venv/bin/python -c "from aitbc.agent_bridge import AgentBridgeClient; print('bridge client ok')"
@@ -94,6 +100,7 @@ cd /opt/aitbc && ./venv/bin/python -c "from aitbc.agent_bridge import AgentBridg
 #### A3: Consolidate shared bridge implementations
 
 **Problem**: Multiple bridge implementations exist:
+
 - Canonical `aitbc.bridge.BridgeClient` in shared core
 - Deprecated `bridge_enhanced.py` in coordinator-api (explicitly marked as superseded by `BridgeClientAdapter`)
 - `BridgeClientAdapter` wrapping the canonical client
@@ -101,12 +108,14 @@ cd /opt/aitbc && ./venv/bin/python -c "from aitbc.agent_bridge import AgentBridg
 The coordinator-api cross-chain router still imports and instantiates the deprecated `bridge_enhanced.py`.
 
 **Fix**:
+
 - Ensure `BridgeClientAdapter` is the only bridge abstraction used in coordinator-api.
 - Delete or reduce `bridge_enhanced.py` to only the necessary SQLModel persistence layer if still needed.
 - Update `apps/coordinator-api/src/coordinator_api/contexts/cross_chain/routers/cross_chain_integration.py` to use `BridgeClientAdapter` exclusively.
 - Remove deprecation comments once migration is complete.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k bridge
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordinator_api/contexts/cross_chain/
@@ -117,12 +126,14 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordi
 #### A4: Consolidate shared agent identity/wallet types
 
 **Problem**: Two agent identity/wallet stacks exist:
+
 - Flat `coordinator_api.agent_identity` package with legacy `wallet_adapter.py` (returns fake data)
 - Enhanced `wallet_adapter_enhanced.py` with actual RPC operations
 
 The bounded-context agent identity router imports the old flat package, which uses the legacy fake adapter.
 
 **Fix**:
+
 - Select one wallet abstraction as canonical (recommend the enhanced adapter).
 - Migrate the agent identity manager into the bounded context (`contexts/agent_identity/`).
 - Remove the legacy fake adapter `wallet_adapter.py`.
@@ -130,6 +141,7 @@ The bounded-context agent identity router imports the old flat package, which us
 - Update imports to use the canonical location.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k wallet
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordinator_api/contexts/agent_identity/
@@ -144,6 +156,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordi
 **Working directory**: `/opt/aitbc/`
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -172,12 +185,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 **Problem**: The normal FHE router (`/v1/fhe`) is correctly disabled and returns `501`. However, a separate active route `/v1/ml-zk/fhe/inference` bypasses this protection, has no auth dependency, and uses `MockFHEProvider` which serializes plaintext JSON instead of encrypting it.
 
 **Fix**:
+
 - Remove the `/v1/ml-zk/fhe/inference` route from `ml_zk_proofs.py`.
 - Alternatively, add the same authentication dependency as `/v1/fhe` and require a vetted FHE provider (not the mock).
 - If removing, also remove the route mount from `main.py`.
 - Update the bounded-context README to reflect that FHE is fully disabled until a vetted library is integrated.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -c "from coordinator_api.main import app; print([r.path for r in app.routes])" | grep -v "ml-zk/fhe"
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k fhe
@@ -188,18 +203,21 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 #### B2: Gate or disable simulated orchestration
 
 **Problem**: The workflow endpoint actively executes workflows but the implementation is a simulator:
+
 - ZK verification falls back to ordinary checks with a TODO for SNARK/STARK integration
 - Inference returns `"simulated_result"`
 - Training returns fake loss and `"model_updated": True`
 - Data-processing and custom steps return fabricated counts/results
 
 **Fix**:
+
 - Add a feature flag `ENABLE_ORCHESTRATION_SIMULATION` defaulting to `false`.
 - When disabled, return `501 Not Implemented` for workflow execution endpoints.
 - Document in the bounded-context README that orchestration is not production-ready.
 - Alternatively, implement real ZK verification and actual task execution before removing the simulation flag.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k orchestrator
 # Test that disabled flag returns 501
@@ -210,6 +228,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 #### B3: Disable settlement until implementation is complete
 
 **Problem**: The settlement bounded-context README explicitly identifies it as a stub. The active router:
+
 - Uses module-level in-memory storage
 - Creates a new `BridgeManager` for every request
 - Does not initialize any bridge adapter
@@ -218,6 +237,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 - LayerZero target addresses and signer addresses are `"0x..."` placeholders
 
 **Fix**:
+
 - Remove the settlement router mount from `main.py` or return `501` for all settlement endpoints.
 - Delete the in-memory storage and per-request `BridgeManager` creation.
 - Implement proper bridge initialization, signature verification, and provider configuration before re-enabling.
@@ -225,6 +245,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 - Remove placeholder addresses and implement actual signing.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -c "from coordinator_api.main import app; print([r.path for r in app.routes])" | grep -v "settlement"
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k settlement
@@ -237,12 +258,14 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: `rotate_keys()` calls `_reencrypt_transactions()`, but that method only logs `"Would re-encrypt transactions"` and executes `pass`. The HTTP endpoint returns a successful new version without actually re-encrypting any records.
 
 **Fix**:
+
 - Implement `_reencrypt_transactions()` to actually re-encrypt all affected transaction records with the new key.
 - Make the rotation transactional — if re-encryption fails, roll back the key version.
 - Add proper error handling and logging.
 - If implementation is not ready, return `501 Not Implemented` instead of reporting successful rotation.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k key_rotation
 # Test that rotation actually re-encrypts data
@@ -255,12 +278,14 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: `get_transaction_status()` calls `_update_transaction_status()`, which is empty (`pass`). A separate `_update_transaction_status_v2()` exists with the actual implementation, but the caller does not use it.
 
 **Fix**:
+
 - Replace the old `_update_transaction_status()` with the v2 implementation.
 - Delete the duplicate `_update_transaction_status_v2()` method.
 - Update all callers to use the unified method.
 - Add tests to verify transaction status updates work correctly.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k transaction_status
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordinator_api/contexts/cross_chain/services/multi_chain_transaction_manager.py
@@ -273,11 +298,13 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordi
 **Problem**: The GPU marketplace router mounts `/tasks/ollama`, but the handler only validates booking and returns a generated task ID plus the request payload. It does not submit or persist a task. The route has no authentication.
 
 **Fix**:
+
 - Implement real queue/job dispatch for Ollama tasks with persistence.
 - Add authentication to the route.
 - If implementation is not ready, return `501 Not Implemented` or remove the route entirely.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k ollama
 # Test that tasks are actually queued and persisted
@@ -290,12 +317,14 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: The `poolhub_legacy` package is explicitly marked as deprecated since v0.6.7, with `poolhub/` being the canonical implementation. Despite this, the active application imports and mounts the legacy pools router. The legacy registry uses in-memory dictionaries, while the canonical implementation has SQLAlchemy models and PostgreSQL/Redis-backed repositories.
 
 **Fix**:
+
 - Remove the import and mount of `poolhub_legacy.routers.pools` from `poolhub/app/main.py`.
 - Delete the entire `poolhub_legacy/` directory.
 - Ensure all pool/miner/job operations use the canonical repositories.
 - Update documentation to reflect that the legacy implementation is removed.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/pool-hub && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/pool-hub/src/poolhub/
@@ -306,6 +335,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/pool-hub/src/poolhub/
 #### B8: Consolidate governance implementations
 
 **Problem**: Three governance routers exist:
+
 - `governance.py` with `/governance` (SQLModel-backed)
 - `governance_flat.py` with `/governance` (in-memory service)
 - `governance_enhanced.py` with `/governance-enhanced`
@@ -313,6 +343,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/pool-hub/src/poolhub/
 The main application mounts `governance_flat` and `governance_enhanced`, while `governance.py` is imported but not mounted. This causes confusion and potential conflicts.
 
 **Fix**:
+
 - Keep the database-backed implementation (`governance.py`) as canonical.
 - Remove the in-memory flat implementation (`governance_flat.py`).
 - Standardize route names and auth across implementations.
@@ -320,6 +351,7 @@ The main application mounts `governance_flat` and `governance_enhanced`, while `
 - Update `main.py` to mount only the canonical router(s).
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k governance
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordinator_api/contexts/governance/
@@ -332,12 +364,14 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordi
 **Problem**: A real service registry model and predefined service catalog exist, but the active legacy service router creates `MockServiceRegistry.get_service()`, which always returns `None`. The endpoint itself says it is deprecated and should use `/v1/registry/services/{service_id}`, but no corresponding production registry router is wired.
 
 **Fix**:
+
 - Either wire the real registry with a proper router implementation, or
 - Remove the deprecated endpoint and its dead models entirely.
 - If keeping the registry, implement the missing `/v1/registry/services/{service_id}` router.
 - Update documentation to reflect the decision.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" -k registry
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordinator_api/contexts/infrastructure/
@@ -348,17 +382,20 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordi
 #### B10: Remove duplicate coordinator app factory
 
 **Problem**: Two coordinator application factories exist:
+
 - Canonical in `coordinator_api.main.py` (entry point for uvicorn)
 - Duplicate in `coordinator_api/core/app.py` with its own middleware and router registration stack
 
 The second stack is only referenced internally by `coordinator_api.core`, not by the deployed service.
 
 **Fix**:
+
 - Remove the unused factory stack from `core/app.py`.
 - Alternatively, convert it into a thin re-export of `main.create_app` if needed for internal imports.
 - Update `core/__init__.py` to not reference the duplicate factory.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -c "from coordinator_api.main import app; print('main app ok')"
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/coordinator-api/src/coordinator_api/core/
@@ -384,6 +421,7 @@ When both agents need to touch shared files or adjacent code paths, follow this 
 ## Acceptance Criteria
 
 ### Agent A
+
 - [x] CLI `aitbc` shadow package removed; all CLI imports use canonical `aitbc/`
 - [x] Agent registry consolidation complete; no duplicate implementations remain
 - [x] Bridge implementations consolidated; only `BridgeClientAdapter` used in coordinator-api
@@ -391,6 +429,7 @@ When both agents need to touch shared files or adjacent code paths, follow this 
 - [x] All tests pass: `mypy aitbc/ cli/`, `ruff check aitbc/ cli/`, `pytest tests/unit tests/cli`
 
 ### Agent B
+
 - [x] ML-ZK FHE route bypass removed or properly authenticated with real provider
 - [x] Orchestration simulation gated behind feature flag or disabled
 - [x] Settlement endpoints disabled until implementation is complete
@@ -404,6 +443,7 @@ When both agents need to touch shared files or adjacent code paths, follow this 
 - [x] All tests pass: `ruff check apps/`, `pytest apps/coordinator-api/tests tests/unit`
 
 ### Release Notes
+
 - [x] Document all breaking changes (disabled endpoints, removed legacy routers)
 - [x] Update `docs/releases/README.md` to mark v0.10.14 as in progress
 - [x] Update root `AGENTS.md` to set v0.10.14 as current in-flight plan

@@ -7,6 +7,7 @@ Understanding AITBC's parallel chain management system.
 ## Overview
 
 AITBC supports running multiple blockchain chains simultaneously through the MultiChainManager. This enables:
+
 - **Horizontal scaling**: Separate chains for different use cases
 - **Isolation**: Chain-specific databases prevent cross-contamination
 - **Flexibility**: Support for DEFAULT, BILATERAL, and MICRO chain types
@@ -15,16 +16,19 @@ AITBC supports running multiple blockchain chains simultaneously through the Mul
 ## Chain Types
 
 ### DEFAULT Chain
+
 - **Purpose**: Main chain for the island/network
 - **Behavior**: Always running, initialized at startup
 - **Use case**: Primary blockchain for production transactions
 
 ### BILATERAL Chain
+
 - **Purpose**: Chain between two specific parties
 - **Behavior**: Started on-demand, can be stopped
 - **Use case**: Private trading channels, settlement chains
 
 ### MICRO Chain
+
 - **Purpose**: Small chain for specific use cases
 - **Behavior**: Started on-demand, can be stopped
 - **Use case**: Temporary workspaces, test chains, isolated transactions
@@ -207,27 +211,32 @@ await consensus.test_consensus_mechanism()
 ## Implementation
 
 The multi-chain system is implemented in:
+
 - `apps/blockchain-node/src/aitbc_chain/network/multi_chain_manager.py` - Core MultiChainManager
 - `apps/blockchain-node/src/aitbc_chain/cross_chain.py` - Cross-chain sync and consensus
 
 ## Use Cases
 
 ### 1. Development and Testing
+
 - Separate testnet chain for development
 - Isolated micro-chains for feature testing
 - Parallel testing without affecting mainnet
 
 ### 2. Private Trading Channels
+
 - Bilateral chains for OTC trading
 - Isolated settlement chains
 - Privacy-preserving transactions
 
 ### 3. Multi-Tenant Architecture
+
 - Separate chains per organization
 - Tenant-specific micro-chains
 - Resource isolation and security
 
 ### 4. Geographic Distribution
+
 - Regional chains for low latency
 - Cross-region sync via gossip
 - Local compliance and regulation
@@ -243,16 +252,19 @@ The multi-chain system is implemented in:
 ## Troubleshooting
 
 ### Chain fails to start
+
 - Check database path permissions
 - Verify base ports are not in use
 - Review error logs: `journalctl -u aitbc-blockchain-node -f`
 
 ### Chain in ERROR state
+
 - Check `error_message` in ChainInstance
 - Verify database integrity
 - Restart chain after fixing issue
 
 ### Sync issues between chains
+
 - Verify gossip backend (Redis) is running
 - Check network connectivity between nodes
 - Review chain health status

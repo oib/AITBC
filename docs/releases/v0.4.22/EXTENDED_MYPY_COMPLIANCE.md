@@ -24,31 +24,38 @@ AITBC v0.4.22 extended MyPy compliance across 9 more applications, fixing ~250 a
 
 ## Fix Techniques Applied
 
-### 1. [type-arg] — Added type arguments to bare generics:
+### 1. [type-arg] — Added type arguments to bare generics
+
 - `dict` → `dict[str, Any]`, `list` → `list[Any]`, `set` → `set[str]`
 - `tuple` → `tuple[int, ...]`, `Callable` → `Callable[..., Any]`
 
 ### 2. [unused-ignore] — Removed 30+ stale `# type: ignore` comments whose errors no longer exist
 
-### 3. [attr-defined] — eth_utils:
+### 3. [attr-defined] — eth_utils
+
 - `from eth_utils import to_checksum_address` → `from eth_utils.address import to_checksum_address`
 
-### 4. [attr-defined] — cryptography union types (agent-coordinator):
+### 4. [attr-defined] — cryptography union types (agent-coordinator)
+
 - Added `isinstance(key, RSAPublicKey)` / `isinstance(key, RSAPrivateKey)` narrowing before calling `.encrypt()`, `.decrypt()`, `.sign()`, `.verify()`
 
-### 5. [attr-defined] — SQLAlchemy columns typed as Python primitives:
+### 5. [attr-defined] — SQLAlchemy columns typed as Python primitives
+
 - `Model.column.desc()` (where column typed as `int`) → `text("column DESC")`
 - `Model.column.isnot(None)` (where typed as `float | None`) → `col(Model.column).isnot(None)`
 - `where(Model.bool_column)` → `where(col(Model.bool_column) == True)`
 
-### 6. [import-untyped] — Added `py.typed` marker files to declare packages as typed:
+### 6. [import-untyped] — Added `py.typed` marker files to declare packages as typed
+
 - `apps/blockchain-node/src/aitbc_chain/py.typed` (resolves bridge + multi-chain errors)
 - `packages/py/aitbc-sdk/src/aitbc_sdk/py.typed` (resolves wallet errors)
 
-### 7. [arg-type] — Decimal fields:
+### 7. [arg-type] — Decimal fields
+
 - `float` passed to SQLModel `Decimal` fields in `persistent_spending_tracker.py` → wrapped with `# type: ignore[arg-type]` (SQLAlchemy typing limitation)
 
-### 8. Architecture fixes:
+### 8. Architecture fixes
+
 - Removed empty `apps/blockchain-node/src/__init__.py` that caused duplicate module names
 - Added missing `_record_detection()` method to `EconomicSecurityMonitor`
 - Fixed `ScalarResult[str].scalars()` double-call → single `.scalars()` in agent_router.py

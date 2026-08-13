@@ -28,10 +28,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Consensus Signing Utilities](./agent-a.md#a1-consensus-signing-utilities)
@@ -39,6 +41,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Config](./agent-b.md#b1-config)
@@ -115,6 +118,7 @@ This release documentation has been split into topic-focused files:
 **Prerequisite**: v0.7.2 Agent A ✅, v0.7.3 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/crypto/ aitbc/consensus/ && ./venv/bin/python -m ruff check aitbc/crypto/ aitbc/consensus/ tests/unit/test_consensus_signing.py && ./venv/bin/python -m pytest tests/unit/test_consensus_signing.py -q -o addopts=""
 ```
@@ -219,6 +223,7 @@ Create `aitbc/consensus/__init__.py` exporting these types.
 #### A3: Unit Tests
 
 `tests/unit/test_consensus_signing.py` — tests for:
+
 - `sign_consensus_message()` + `verify_consensus_message()` round-trip (valid signature)
 - Verification fails with wrong sender
 - Verification fails with tampered message
@@ -239,6 +244,7 @@ Create `aitbc/consensus/__init__.py` exporting these types.
 **Prerequisite**: Agent A A1 complete (consensus signing utilities). v0.7.3 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/consensus/ apps/blockchain-node/src/aitbc_chain/config.py apps/blockchain-node/src/aitbc_chain/base_models.py cli/aitbc_cli/commands/chain.py
 cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:aitbc ./venv/bin/python -m pytest apps/blockchain-node/tests/consensus/ -q -o addopts="" --timeout=30
@@ -268,6 +274,7 @@ cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:aitbc ./venv/bin/python -m 
 #### B1: Config
 
 Add to `apps/blockchain-node/src/aitbc_chain/config.py` (`ChainSettings` class):
+
 ```python
 # Multi-validator consensus (v0.7.5)
 multi_validator_consensus_enabled: bool = False  # master toggle
@@ -323,11 +330,13 @@ Use Agent A's `verify_block_signature()` from A1. Follow the pattern in `poa.py:
 #### B4: C2 + C6 — Slashing + Conflicting Message Rejection
 
 **C6 fix** — `record_prepare()` (lines 171-188):
+
 - When a conflicting message is detected (same round, different block_hash), **reject it** (return False) instead of recording it and returning True
 - Call `detect_byzantine_behavior()` immediately after detecting the conflict
 - Trigger slashing via `SlashingManager.apply_slashing()`
 
 **C2 fix** — wire `SlashingManager`:
+
 - Add `self._slashing_manager = SlashingManager()` to `__init__`
 - In `detect_byzantine_behavior()`, when Byzantine behavior is detected:
   1. Call `self._slashing_manager.detect_double_sign(validator, block_hash1, block_hash2, height)`
@@ -339,6 +348,7 @@ Use Agent A's `verify_block_signature()` from A1. Follow the pattern in `poa.py:
 #### B5: C3 — Validator Rotation
 
 Wire `ValidatorRotation` into MultiValidatorPoA:
+
 - Add `self._rotation = ValidatorRotation(self, rotation_config)` to `__init__`
 - Add `maybe_rotate(current_height)` method — called on each block boundary
 - If `self._rotation.should_rotate(current_height)`: call `self._rotation.rotate_validators(current_height)`
@@ -349,6 +359,7 @@ Wire `ValidatorRotation` into MultiValidatorPoA:
 #### B6: C4 — PBFT Message Signatures
 
 Extend `pbft.py`:
+
 - In `pre_prepare_phase()`, `prepare_phase()`, `commit_phase()`: sign each created `PBFTMessage` with the sender's private key using `sign_consensus_message()` from Agent A A1
 - Add `_verify_message_signature(message: PBFTMessage) -> bool` method — verifies the signature matches the claimed sender
 - In `prepare_phase()` and `commit_phase()`: call `_verify_message_signature()` on incoming messages, reject if invalid
@@ -358,6 +369,7 @@ Extend `pbft.py`:
 #### B7: C5 — PBFT Network Transport
 
 Replace `_send_to_validator()` no-op with gossip-based transport:
+
 - Add `self._gossip_backend: GossipBackend | None = None` to `__init__`
 - Add `set_gossip_backend(backend: GossipBackend)` method — called during node startup
 - `_send_to_validator()`: publish message to gossip topic `f"pbft.{message.message_type.value}.{chain_id}"`
@@ -368,6 +380,7 @@ Replace `_send_to_validator()` no-op with gossip-based transport:
 - In node startup: subscribe to PBFT gossip topics, wire `handle_incoming_message` as the callback
 
 Gossip topic naming:
+
 - `pbft.pre_prepare.{chain_id}`
 - `pbft.prepare.{chain_id}`
 - `pbft.commit.{chain_id}`
@@ -376,6 +389,7 @@ Gossip topic naming:
 #### B8: H1 — Real Consensus in attempt_consensus()
 
 Replace `attempt_consensus()` (lines 152-169) with real PBFT delegation:
+
 - Create a `PBFTConsensus` instance (if not already created)
 - Call `pbft.pre_prepare_phase(proposer, block_hash)` → `prepare_phase()` → `commit_phase()` → `execute_phase()`
 - Return True only if all phases complete with quorum
@@ -385,11 +399,13 @@ Replace `attempt_consensus()` (lines 152-169) with real PBFT delegation:
 #### B9: H2 + H3 — Real Transaction Validation + Block Creation
 
 **H2** — `validate_transaction_async()` (lines 141-150):
+
 - Remove `asyncio.sleep(0.001)` and `hasattr(transaction, "tx_id")` check
 - Delegate to the existing PoA transaction validation: call `get_state_transition().apply_transaction()` in a dry-run mode (or call the existing `_validate_transaction_admission()` from `rpc/transactions.py`)
 - Check: sender account exists, sufficient balance, valid nonce, valid chain_id
 
 **H3** — `create_block()` (lines 234-242):
+
 - Remove `len(self.validators)` as block height — accept `height` and `parent_hash` parameters
 - Compute block hash using the same formula as PoA: `sha256(chain_id|height|parent_hash|timestamp|sorted_tx_hashes)`
 - Include parent_hash, transactions, state_root in the block dict
@@ -399,17 +415,20 @@ Replace `attempt_consensus()` (lines 152-169) with real PBFT delegation:
 #### B10: H4 + H5 + H6 — PBFT Fault Tolerance, View Change, Timeout
 
 **H4** — dynamic fault tolerance:
+
 - Recalculate `fault_tolerance` and `required_messages` at the start of each consensus round, not just in `__init__`
 - `self.fault_tolerance = max(1, len(self.consensus.get_consensus_participants()) // 3)`
 - `self.required_messages = 2 * self.fault_tolerance + 1`
 
 **H5** — safe view change:
+
 - `handle_view_change()` must NOT clear `prepared_messages` and `committed_messages` blindly
 - Preserve prepared certificates: messages for sequences ≤ `current_sequence` (already committed) are kept
 - Only clear messages for sequences > `current_sequence` (uncommitted, need re-proposal)
 - Store the prepared certificate for the last committed block to prove it was committed before the view change
 
 **H6** — view change timeout:
+
 - Add `self._consensus_timer: asyncio.Task | None = None`
 - Start a timer when a consensus round begins; if it fires before completion, trigger `handle_view_change(current_view + 1)`
 - Timer duration: `settings.consensus_view_change_timeout_seconds` (default 30s)
@@ -419,6 +438,7 @@ Replace `attempt_consensus()` (lines 152-169) with real PBFT delegation:
 #### B11: Consensus State Persistence
 
 Add `ConsensusState` SQLModel to `base_models.py`:
+
 ```python
 class ConsensusState(SQLModel, table=True):
     """Persisted consensus state for MultiValidatorPoA + PBFT."""
@@ -440,6 +460,7 @@ Add `save_state()` / `load_state()` methods to `MultiValidatorPoA` using `sessio
 #### B12: Consensus Metrics
 
 Add Prometheus metrics for consensus:
+
 - `consensus_validators_active` — gauge, active validator count
 - `consensus_validators_total` — gauge, total validator count
 - `consensus_rounds_total` — counter, consensus rounds attempted
@@ -454,6 +475,7 @@ Register in `apps/blockchain-node/src/aitbc_chain/observability/`.
 #### B13: CLI Commands
 
 Add to `cli/aitbc_cli/commands/chain.py`:
+
 - `aitbc consensus validators` — list active validators (address, stake, reputation, role, last_proposed)
 - `aitbc consensus status` — show consensus mode (single/multi), current view, sequence, epoch, fault tolerance
 - `aitbc consensus slashing-history` — show slashing events (validator, condition, amount, block height)
@@ -463,6 +485,7 @@ These call blockchain-node RPC endpoints that return consensus state.
 #### B14: Comprehensive Test Suite
 
 **Extend** `apps/blockchain-node/tests/consensus/test_multi_validator_poa.py`:
+
 - `test_validate_block_rejects_forged_signature` — block with invalid signature is rejected (C1)
 - `test_validate_block_accepts_valid_signature` — block with valid signature is accepted (C1)
 - `test_record_prepare_rejects_conflicting` — conflicting prepare message returns False (C6)
@@ -476,6 +499,7 @@ These call blockchain-node RPC endpoints that return consensus state.
 - `test_validate_transaction_delegates_to_state_transition` — real validation (H2)
 
 **Create** `apps/blockchain-node/tests/consensus/test_pbft.py`:
+
 - `test_pre_prepare_with_signature` — pre-prepare message is signed (C4)
 - `test_prepare_with_signature` — prepare message is signed (C4)
 - `test_commit_with_signature` — commit message is signed (C4)
@@ -491,6 +515,7 @@ These call blockchain-node RPC endpoints that return consensus state.
 - `test_gossip_transport_receives` — incoming gossip messages handled (C5)
 
 **Create** `apps/blockchain-node/tests/consensus/test_consensus_integration.py`:
+
 - `test_full_consensus_round` — pre-prepare → prepare → commit → execute with 4 validators
 - `test_byzantine_validator_slashed` — 1 Byzantine validator equivocates, gets slashed, consensus continues
 - `test_block_forgery_rejected` — forged block (invalid signature) rejected by validate_block
@@ -508,6 +533,7 @@ These call blockchain-node RPC endpoints that return consensus state.
 Agent A owns `aitbc/crypto/consensus_signing.py` (new) and `aitbc/consensus/` (new). Agent B owns `apps/blockchain-node/` and `cli/`. No file conflicts.
 
 Agent B imports from Agent A's modules:
+
 - `from aitbc.crypto.consensus_signing import sign_consensus_message, verify_consensus_message, sign_block_hash, verify_block_signature`
 - `from aitbc.consensus.types import PBFTMessageData, ConsensusConfig, ValidatorInfo`
 
@@ -567,6 +593,7 @@ Only after all checkboxes are met: remove the RuntimeError guards, set `multi_va
 ### Rollback Plan
 
 If issues are found post-activation:
+
 1. Set `multi_validator_consensus_enabled = false` in config
 2. Restart blockchain-node — RuntimeError guard re-activates, single-validator PoA resumes
 3. Investigate and fix issues

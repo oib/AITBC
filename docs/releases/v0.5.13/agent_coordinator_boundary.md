@@ -70,6 +70,7 @@ The CLI (`cli/aitbc_cli/commands/agent_sdk.py`) calls agent-coordinator directly
 ## What folding in WOULD require (cost analysis)
 
 If we were to fold agent-coordinator into coordinator-api:
+
 1. Migrate 61 .py files + 103 endpoints into `contexts/agent_coordination/`
 2. Merge the coin_requests SQLite DB into coordinator-api's SQLAlchemy DB (schema migration)
 3. Repoint CLI from `localhost:9001` to `localhost:8203/v1/agents/*`

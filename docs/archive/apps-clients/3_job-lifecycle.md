@@ -247,6 +247,7 @@ aitbc client stats
 ```
 
 Shows:
+
 - Total jobs submitted
 - Success rate
 - Average completion time

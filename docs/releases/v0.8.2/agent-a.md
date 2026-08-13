@@ -12,6 +12,7 @@
 **Prerequisite**: v0.8.1 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && ./venv/bin/python -m ruff check aitbc/trading/ tests/unit/test_offer_subscription.py && ./venv/bin/python -m pytest tests/unit/test_offer_subscription.py -q -o addopts=""
 ```
@@ -32,6 +33,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && 
 ## A1: Offer Event Types
 
 Extend `aitbc/trading/offer_types.py`:
+
 - `OfferEventType` enum — created, updated, deleted
 - `OfferEvent` dataclass — event_type, offer_id, chain_id, offer (SyncedOffer), timestamp, source
 - `OfferSubscription` dataclass — subscription_id, node_id, chain_id, filters, status
@@ -42,6 +44,7 @@ Extend `aitbc/trading/offer_types.py`:
 ## A2: Offer Subscription Client
 
 Create `aitbc/trading/offer_subscription_client.py`:
+
 - `OfferSubscriptionClient` — WebSocket client for offer subscription endpoints
 - `subscribe(filters)` — subscribe to offer events with filters
 - `unsubscribe()` — unsubscribe from offer events
@@ -54,6 +57,7 @@ Create `aitbc/trading/offer_subscription_client.py`:
 ## A3: Search Index Integration (Optional)
 
 Create `aitbc/trading/search_index.py`:
+
 - `MeilisearchClient` — client for Meilisearch search index
 - `index_offer(offer)` — index an offer
 - `search_offers(query, filters)` — search offers with filters
@@ -65,6 +69,7 @@ Create `aitbc/trading/search_index.py`:
 ## A4: Unit Tests
 
 `tests/unit/test_offer_subscription.py` — tests for:
+
 - Offer event types serialization
 - Offer subscription client WebSocket methods (mocked websockets)
 - Subscription status tracking

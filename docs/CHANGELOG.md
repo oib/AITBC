@@ -10,6 +10,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 ### Release Notes Splitting
 
 **v0.6.4 Release Notes**
+
 - Split `docs/releases/v0.6.4/AGENTS.md` into topic-focused files:
   - `overview.md` - Release overview, status baseline, architecture
   - `agent-a.md` - Shared core implementation (PortAllocator, ChainConfigParser)
@@ -19,6 +20,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 - Added standardized footer with documentation version, last updated date, release name, and agent assignment
 
 **v0.6.3 Release Notes**
+
 - Split `docs/releases/v0.6.3/AGENTS.md` into topic-focused files:
   - `overview.md` - Release overview, status baseline, architecture
   - `agent-a.md` - Shared core implementation (SyncSourceResolver, IslandRegistry, SubscriptionManager)
@@ -28,6 +30,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 - Added standardized footer with documentation version, last updated date, release name, and agent assignment
 
 **v0.5.10 Migration Runbook**
+
 - Split `docs/releases/v0.5.10/migrate-hub.md` into topic-focused files:
   - `overview.md` - Migration overview
   - `pre-flight-checks.md` - Pre-migration verification (P1-P7)
@@ -42,6 +45,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 ### Documentation Standardization
 
 **Footer Format**
+
 - Standardized footer format across all split release notes files
 - Footer includes:
   - Documentation Version
@@ -50,6 +54,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
   - Agent assignment (for agent-specific files)
 
 **Quick-Start Summaries**
+
 - Added quick-start summaries to all app categories in `docs/apps/README.md`:
   - Blockchain - Deploy node, configure settings, monitor via RPC
   - Coordinator - Start API, submit jobs, monitor dashboard
@@ -78,11 +83,13 @@ This changelog tracks all structural and content changes to the AITBC documentat
 ### Navigation Improvements
 
 **Quick Navigation Sections**
+
 - Added quick navigation sections to all split release notes files
 - Navigation includes links to major headings within each document
 - Enables rapid access to specific sections without scrolling
 
 **Cross-References**
+
 - Added "Related Topics" sections to all split files
 - Links between overview, agent-specific, and procedure documents
 - Maintains context across split documentation
@@ -90,12 +97,14 @@ This changelog tracks all structural and content changes to the AITBC documentat
 ## Previous Documentation Changes
 
 ### 2026-04-27 - Apps Documentation Hub
+
 - Created comprehensive apps documentation index
 - Consolidated 23 app documentation entries
 - Added quick links and quality metrics
 - Established template compliance standards
 
 ### 2026-04-XX - Documentation Template Standardization
+
 - Established documentation template standards
 - Added navigation breadcrumbs
 - Implemented quality metrics tracking
@@ -104,6 +113,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 ## Future Planned Changes
 
 ### Pending Tasks
+
 - Add code examples to agent-sdk API reference
 - Add request/response examples for each endpoint
 - Create Quick Reference section for common commands

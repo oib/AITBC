@@ -438,6 +438,7 @@ aitbc agent network opportunities research_team \
 ### Common Network Issues
 
 **Coordination Failures**
+
 ```bash
 # Diagnose coordination issues
 aitbc agent network diagnose research_team \
@@ -451,6 +452,7 @@ aitbc agent network reset research_team \
 ```
 
 **Communication Breakdowns**
+
 ```bash
 # Check communication health
 aitbc agent network health research_team \
@@ -463,6 +465,7 @@ aitbc agent network repair research_team \
 ```
 
 **Consensus Deadlocks**
+
 ```bash
 # Resolve consensus deadlock
 aitbc agent consensus resolve research_team \
@@ -478,16 +481,19 @@ aitbc agent consensus configure research_team \
 ## Best Practices
 
 ### Network Design
+
 - Start with simple coordination patterns and gradually increase complexity
 - Use appropriate consensus mechanisms for your use case
 - Implement proper error handling and recovery mechanisms
 
 ### Performance Optimization
+
 - Monitor network metrics continuously
 - Optimize communication patterns to reduce overhead
 - Scale resources based on actual demand
 
 ### Security Considerations
+
 - Implement end-to-end encryption for sensitive communications
 - Use proper access control mechanisms
 - Regularly audit network security

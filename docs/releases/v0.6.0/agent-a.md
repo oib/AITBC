@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -55,6 +56,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 - **Problem**: 6 files in blockchain-node create `httpx.AsyncClient` per-request (no connection reuse). Agent B will replace them, but needs a shared pool utility to wire up.
 - **Fix**: Create `aitbc/network/http_pool.py` with:
+
   ```python
   class SharedHttpClient:
       """Singleton async HTTP client with connection pooling."""
@@ -63,6 +65,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
       async def post(self, url, **kwargs) -> httpx.Response: ...
       async def close(self): ...
   ```
+
   - Uses a single `httpx.AsyncClient` with `httpx.Limits(max_connections=..., max_keepalive_connections=...)`
   - Lazy-init: client created on first use, reused thereafter
   - Export from `aitbc/network/__init__.py`
@@ -74,12 +77,14 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 - **Problem**: Zero compression for block/tx propagation. JSON payloads are large.
 - **Fix**: Create `aitbc/network/compression.py` with:
+
   ```python
   def compress(data: bytes | str, algorithm: str = "gzip") -> bytes: ...
   def decompress(data: bytes, algorithm: str = "gzip") -> bytes: ...
   def compress_json(obj: Any, algorithm: str = "gzip") -> bytes: ...
   def decompress_json(data: bytes, algorithm: str = "gzip") -> Any: ...
   ```
+
   - Support `gzip` (stdlib `gzip`) and `zstd` (if `zstandard` package available, else fall back to gzip)
   - `compress_json`: `json.dumps(separators=(",", ":"))` → encode → compress
   - `decompress_json`: decompress → decode → `json.loads`
@@ -91,6 +96,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 ## A5: Benchmarking helpers
 
 - Create `aitbc/benchmark.py` with:
+
   ```python
   @contextmanager
   def timed(label: str): ...  # logs elapsed time
@@ -99,6 +105,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
   class CacheMetrics: ...  # tracks hit/miss counts
   ```
+
 - Keep it simple — no external dependencies. Used by Agent B's benchmarks (B8).
 
 ---

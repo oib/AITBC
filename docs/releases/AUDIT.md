@@ -38,6 +38,7 @@ After recovering the signer address, check it against the validator set register
 
 **Regression tests:**
 `tests/test_bridge_security_audit_fixes.py::TestBug3ProposerSignatureValidatorSetMembership`
+
 - `test_non_member_signature_rejected_when_vset_registered` — non-member sig rejected
 - `test_member_signature_accepted_when_vset_registered` — member sig accepted
 - `test_any_valid_signature_accepted_without_vset` — dev mode backward compat
@@ -70,6 +71,7 @@ Added a new config flag `bridge_require_merkle_proof` (default `False` for backw
 
 **Regression tests:**
 `tests/test_bridge_security_audit_fixes.py::TestBug4MerkleProofEnforcement`
+
 - `test_proof_without_merkle_rejected_when_required` — rejected when flag is True
 - `test_proof_without_merkle_accepted_when_not_required` — accepted when flag is False
 - `test_proof_with_valid_merkle_accepted_when_required` — valid proof accepted when flag is True

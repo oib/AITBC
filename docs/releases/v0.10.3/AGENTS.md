@@ -35,6 +35,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -63,6 +64,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A1: Remove deprecated shim modules
 
 **Files**:
+
 - `aitbc/cache.py` (re-exports from caching)
 - `aitbc/cache_decorators.py` (re-exports from caching)
 - `aitbc/redis_cache.py` (re-exports from caching)
@@ -72,10 +74,13 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Deprecated shims clutter the codebase and may confuse developers.
 
 **Fix**:
+
 1. Search for all imports of these modules across the codebase:
+
    ```bash
    grep -r "from aitbc.cache\|from aitbc.cache_decorators\|from aitbc.redis_cache\|from aitbc.network.http_client\|from aitbc.crypto.security" . --include="*.py"
    ```
+
 2. Update imports to use new locations:
    - `aitbc.cache` → `aitbc.caching`
    - `aitbc.cache_decorators` → `aitbc.caching.decorators`
@@ -92,6 +97,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A2: Fix CLI coordinator_url AttributeError
 
 **Files**:
+
 - `cli/aitbc_cli/config.py` — add property
 - `cli/aitbc_cli/commands/simulate.py` — lines 352, 379, 399
 - `cli/aitbc_cli/commands/agent_sdk.py` — lines 61, 84, 702-764
@@ -101,13 +107,16 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: `CLIConfig` only has `agent_coordinator_url`, but commands reference `config.coordinator_url`.
 
 **Fix**:
+
 1. Add property to `CLIConfig` in `cli/aitbc_cli/config.py`:
+
    ```python
    @property
    def coordinator_url(self) -> str:
        """Deprecated alias for agent_coordinator_url"""
        return self.agent_coordinator_url
    ```
+
 2. Update all call sites to use `agent_coordinator_url` directly (find-replace):
    - `config.coordinator_url` → `config.agent_coordinator_url`
 
@@ -118,6 +127,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A3: Fix CLI and service port mismatches
 
 **Files**:
+
 - `cli/aitbc_cli/config.py` — line 44 (edge_api_port)
 - `apps/miner/production_miner.py` — line 15 (COORDINATOR_URL)
 - `apps/edge/src/aitbc_edge/config.py` — line 41 (agent_coordinator_url)
@@ -125,15 +135,21 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Port defaults don't match actual service ports.
 
 **Fix**:
+
 1. Update `cli/aitbc_cli/config.py` line 44:
+
    ```python
    edge_api_port: int = Field(default=8111, description="Edge API port")
    ```
+
 2. Update `apps/miner/production_miner.py` line 15:
+
    ```python
    COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")
    ```
+
 3. Update `apps/edge/src/aitbc_edge/config.py` line 41:
+
    ```python
    agent_coordinator_url: str = "http://localhost:8107"
    ```
@@ -149,11 +165,15 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Default `secret_key="default_secret_key_change_in_production"` is insecure.
 
 **Fix**:
+
 1. Remove default, make field required:
+
    ```python
    secret_key: str = Field(..., description="JWT secret key (required)")
    ```
+
 2. Add validation in production mode:
+
    ```python
    @model_validator(mode='after')
    def validate_secret_key(self):
@@ -173,13 +193,16 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Hardcoded passwords `"Aitbc-Import-Pass1"`, `"Aitbc-Password-123"`.
 
 **Fix**:
+
 1. Remove defaults
 2. Require passwords via environment variables:
+
    ```python
    WALLET_IMPORT_PASSWORD = os.environ.get("WALLET_IMPORT_PASSWORD")
    if not WALLET_IMPORT_PASSWORD:
        raise RuntimeError("WALLET_IMPORT_PASSWORD must be set")
    ```
+
 3. Apply same pattern for wallet password
 
 **Verification**: Test that wallet service fails without passwords.
@@ -189,20 +212,25 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A6: Fix hardcoded blockchain RPC URLs
 
 **Files**:
+
 - `apps/coordinator-api/src/app/settlement/hooks.py` — line 166
 - `apps/coordinator-api/src/app/contexts/governance/services/governance_service.py` — line 283
 
 **Problem**: Hardcoded `http://localhost:8202` instead of using `settings.blockchain_rpc_url`.
 
 **Fix**:
+
 1. In `settlement/hooks.py` line 166:
+
    ```python
    # Before
    url = "http://localhost:8202/rpc/chain"
    # After
    url = f"{settings.blockchain_rpc_url}/rpc/chain"
    ```
+
 2. In `governance_service.py` line 283:
+
    ```python
    # Before
    url = "http://localhost:8202"
@@ -221,11 +249,14 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Commands call `/rpc/pool_hub/*` on blockchain node instead of pool-hub service.
 
 **Fix**:
+
 1. Change base URL to pool-hub service:
+
    ```python
    pool_hub_url = "http://localhost:8203"
    response = requests.post(f"{pool_hub_url}/api/pools/join", ...)
    ```
+
 2. Update endpoint paths to match pool-hub API
 
 **Verification**: Test CLI pool-hub commands work.
@@ -239,9 +270,11 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Commands call `/rpc/mining/*` endpoints that may not exist.
 
 **Fix**:
+
 1. Verify blockchain-node RPC exposes these endpoints by checking `apps/blockchain-node/src/aitbc_chain/rpc/router.py`
 2. If endpoints exist, no change needed
 3. If not, update to correct paths or add error message:
+
    ```python
    try:
        response = requests.post(f"{node_url}/rpc/mining/submit", ...)
@@ -258,22 +291,28 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A9: Add database indexes for performance
 
 **Files**:
+
 - `apps/coordinator-api/src/app/contexts/infrastructure/domain/user.py` — lines 39, 59, 58
 - `apps/exchange/models.py` — line 50
 
 **Problem**: Frequently filtered columns lack indexes.
 
 **Fix**:
+
 1. In `user.py`, add `index=True` to columns:
+
    ```python
    balance = Column(Numeric(18, 8), index=True)
    amount = Column(Numeric(18, 8), index=True)
    status = Column(String, index=True)
    ```
+
 2. In `exchange/models.py`, add index:
+
    ```python
    status = Column(String, index=True)
    ```
+
 3. Create database migration for exchange (coordinator-api uses SQLModel metadata.create_all):
 
 **Verification**: Run `EXPLAIN` on queries to verify index usage.
@@ -287,12 +326,16 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: All service methods catch `Exception` and return generic error dict, losing stack traces.
 
 **Fix**:
+
 1. Add logger import at top of file:
+
    ```python
    import logging
    logger = logging.getLogger(__name__)
    ```
+
 2. Update each exception handler to log full traceback:
+
    ```python
    except Exception as e:
        logger.exception("Service call failed: %s", service_name)
@@ -310,19 +353,26 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: Background rotation thread mutates `self.secrets` without locking.
 
 **Fix**:
+
 1. Add import at top:
+
    ```python
    import threading
    ```
+
 2. In `__init__`, add lock:
+
    ```python
    self._lock = threading.Lock()
    ```
+
 3. Protect all `self.secrets` access in the class:
+
    ```python
    with self._lock:
        self.secrets[key] = value
    ```
+
 4. Update `cleanup_expired_secrets()` to use lock
 
 **Verification**: Run existing tests (no new test needed for this simple change).
@@ -332,13 +382,16 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A12: Fix unclosed HTTP clients in edge apps
 
 **Files**:
+
 - `apps/edge/src/aitbc_edge/clients/blockchain_rpc.py` — lines 14-15
 - `apps/edge/src/aitbc_edge/clients/gpu_service.py` — lines 14-15
 
 **Problem**: AsyncClient created in `__init__` but not closed.
 
 **Fix** (same pattern for both files):
+
 1. Add async context manager protocol:
+
    ```python
    async def __aenter__(self):
        return self
@@ -347,7 +400,9 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
        if self._client:
            await self._client.aclose()
    ```
+
 2. Add `__del__` with warning:
+
    ```python
    def __del__(self):
        if hasattr(self, '_client') and self._client is not None:
@@ -366,7 +421,9 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: `httpx.Client` created in `__init__` but never closed.
 
 **Fix**:
+
 1. Add context manager protocol:
+
    ```python
    def __enter__(self):
        return self
@@ -374,7 +431,9 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
    def __exit__(self, exc_type, exc_val, exc_tb):
        self.close()
    ```
+
 2. Add `__del__` with warning:
+
    ```python
    def __del__(self):
        if hasattr(self, '_client') and self._client is not None:
@@ -389,6 +448,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 #### A14: Fix unclosed HTTP clients in bridge/trading (mechanical pattern)
 
 **Files**:
+
 - `aitbc/bridge/client.py` — lines 60-66
 - `aitbc/trading/offer_client.py` — lines 60-63
 - `aitbc/trading/subscription_client.py` — line 416
@@ -396,8 +456,10 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Problem**: `_ensure_client()` creates `httpx.AsyncClient` without guaranteed cleanup.
 
 **Fix** (same pattern for all three files):
+
 1. Make `_ensure_client()` private by renaming to `_ensure_client_internal()`
 2. Add public async context manager methods:
+
    ```python
    async def __aenter__(self):
        await self._ensure_client_internal()
@@ -406,13 +468,16 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
    async def __aexit__(self, exc_type, exc_val, exc_tb):
        await self.close()
    ```
+
 3. Add `__del__` with warning:
+
    ```python
    def __del__(self):
        if hasattr(self, '_client') and self._client is not None:
            import warnings
            warnings.warn(f"{self.__class__.__name__} was not properly closed")
    ```
+
 4. Update docstring to document context manager requirement
 
 **Verification**: Run unit tests for these modules.
@@ -426,6 +491,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ apps/coordinator-api/ apps/blockchain-node/src/aitbc_chain/ aitbc/network/ aitbc/database/ aitbc/bridge/ && ./venv/bin/python -m ruff check apps/exchange/ apps/coordinator-api/ apps/blockchain-node/ aitbc/network/ aitbc/database/ aitbc/bridge/ && ./venv/bin/python -m pytest tests/unit apps/exchange/tests/ -q -o addopts=""
 ```
@@ -459,7 +525,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 **Problem**: `try_match_order()` queries and updates orders without row locking. Concurrent requests can match the same orders twice, causing double-spending.
 
 **Fix**:
+
 1. Add `.with_for_update()` to matching order query to lock rows:
+
    ```python
    matching_orders = (
        db.query(Order)
@@ -469,7 +537,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
        .all()
    )
    ```
+
 2. Wrap entire matching logic in try/except with rollback:
+
    ```python
    try:
        # ... matching logic ...
@@ -479,7 +549,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
        logger.exception("Order matching failed")
        raise
    ```
+
 3. Change `trade_hash` from timestamp to uuid4 to prevent collisions:
+
    ```python
    import uuid
    trade_hash = f"trade_{uuid.uuid4()}"
@@ -492,13 +564,16 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 #### B2: Migrate exchange Float columns to Numeric
 
 **Files**:
+
 - `apps/exchange/models.py` — lines 45-49, 76-78, 103-106
 - Create alembic migration script
 
 **Problem**: Float arithmetic on balances causes accounting drift due to floating-point precision errors.
 
 **Fix**:
+
 1. Update model definitions in `models.py`:
+
    ```python
    from sqlalchemy import Numeric
    amount = Column(Numeric(18, 8), nullable=False)
@@ -508,17 +583,23 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
    remaining = Column(Numeric(18, 8), nullable=False)
    # ... same for Trade and Balance models
    ```
+
 2. Create alembic migration:
+
    ```bash
    cd apps/exchange
    alembic revision -autogenerate -m "migrate float to numeric"
    ```
+
 3. Edit migration to use `ALTER TYPE` with `USING` clause to preserve data:
+
    ```python
    op.alter_column('orders', 'amount', type_=Numeric(18, 8), postgresql_using='amount::numeric(18,8)')
    # ... repeat for all columns
    ```
+
 4. Update Python code to use `Decimal`:
+
    ```python
    from decimal import Decimal
    order.amount = Decimal("10.5")
@@ -535,12 +616,16 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 **Problem**: `get_db_session()` returns session with `finally: pass`, never closing connections.
 
 **Fix**:
+
 1. Delete the `get_db_session()` function entirely
 2. Search for all usages:
+
    ```bash
    grep -r "get_db_session" apps/exchange/
    ```
+
 3. Update all endpoints to use the existing `get_db()` generator:
+
    ```python
    # Before
    db: Session = Depends(get_db_session)
@@ -560,12 +645,16 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 **Problem**: Tokens are `sha256(f"{user_id}:{timestamp}")` — guessable within seconds. Stored in in-memory dict (lost on restart, breaks multi-worker).
 
 **Fix**:
+
 1. Change token generation:
+
    ```python
    import secrets
    token = secrets.token_urlsafe(32)
    ```
+
 2. Replace in-memory dict with Redis:
+
    ```python
    import redis
    import json
@@ -578,7 +667,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
    }
    redis_client.setex(f"session:{token}", 86400, json.dumps(session_data))
    ```
+
 3. Add config option for Redis URL with fallback to in-memory for dev:
+
    ```python
    class ExchangeSettings(BaseSettings):
        redis_url: str = Field(default="redis://localhost:6379/0")
@@ -596,8 +687,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 **Problem**: `AsyncAITBCHTTPClient` wraps sync `requests` in `run_in_executor`, blocking thread pool threads and defeating async benefits.
 
 **Fix**:
+
 1. Replace `requests` import with `httpx`
 2. Change all methods to async/await:
+
    ```python
    async def get(self, path: str, **kwargs) -> Response:
        async with httpx.AsyncClient() as client:
@@ -609,11 +702,14 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
            response = await client.post(f"{self.base_url}{path}", **kwargs)
            return response
    ```
+
 3. Remove `run_in_executor` wrapper from all methods
 4. Search for all call sites across the codebase:
+
    ```bash
    grep -r "AsyncAITBCHTTPClient" apps/ --include="*.py"
    ```
+
 5. Update all call sites to await the methods
 
 **Verification**: Ensure all call sites use await. Run unit tests. Verify no blocking calls in async context.
@@ -639,7 +735,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 **Problem**: `_get_connection()` creates connections and appends to list without auto-cleanup, causing connection leaks.
 
 **Fix**:
+
 1. Implement connection pooling using SQLAlchemy's built-in pooling:
+
    ```python
    from sqlalchemy.pool import StaticPool
 
@@ -651,12 +749,16 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
        max_overflow=10,
    )
    ```
+
 2. Add `__del__` to close all connections:
+
    ```python
    def __del__(self):
        self.close()
    ```
+
 3. Add context manager protocol:
+
    ```python
    async def __aenter__(self):
        return self
@@ -672,6 +774,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 #### B8-B11: Add error handling to fire-and-forget tasks
 
 **Files**: 78+ bare `asyncio.create_task()` calls converted across 40+ files in:
+
 - `apps/blockchain-node/src/aitbc_chain/` (18 files: app, chain_sync, combined_main, consensus/pbft, consensus/poa, contracts/upgrades, cross_chain/settlement_coordinator, gossip/broker, lease_tracker, network/*, p2p_network, subscription_client)
 - `apps/agent-coordinator/src/app/` (4 files: protocols/communication, monitoring/alerting, workflow/orchestrator, routing/agent_discovery)
 - `apps/coordinator-api/src/app/` (13 files: analytics, agent_coordination, blockchain, cross_chain, infrastructure, marketplace, security, multimodal, settlement, trading)
@@ -697,6 +800,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 **Problem**: Payment creation failure doesn't rollback job insert, leaving orphaned jobs in database.
 
 **Fix**:
+
 ```python
 try:
     job = create_job(...)
@@ -726,6 +830,7 @@ except Exception as e:
 **Problem**: Endpoints accept raw `dict` request bodies without validation. `chain_id` has no whitelist validation.
 
 **Fix**:
+
 1. Pydantic models were added in the initial B13 commit for all 7 request bodies (lock, confirm, unlock, batch, validator register, block header).
 2. Added `_validate_chain_id()` helper to the bridge router that calls the existing `validate_chain_id()` from `rpc/utils.py` (checks against `settings.supported_chains`).
 3. Applied validation to all 7 endpoints that accept a `chain_id`:
@@ -749,7 +854,9 @@ except Exception as e:
 **Problem**: GPU orders list fetches each `GPURegistry` individually in a loop per booking, causing N+1 queries.
 
 **Fix**:
+
 1. Use SQLAlchemy's `selectinload` to fetch related GPUs in a single query:
+
    ```python
    from sqlalchemy.orm import selectinload
 
@@ -760,6 +867,7 @@ except Exception as e:
        .all()
    )
    ```
+
 2. Remove the individual `session.get(GPURegistry, b.gpu_id)` calls in the loop
 
 **Verification**: Run query with logging enabled to verify single query. Measure performance improvement.
@@ -773,7 +881,9 @@ except Exception as e:
 **Problem**: Eviction uses `-received_at` tie-breaker, evicting newest low-fee transactions instead of oldest.
 
 **Fix**:
+
 1. Change eviction key from `(fee, -received_at)` to `(fee, received_at)`:
+
    ```python
    # Before
    eviction_key = (tx.fee, -tx.received_at)
@@ -781,6 +891,7 @@ except Exception as e:
    # After
    eviction_key = (tx.fee, tx.received_at)
    ```
+
 2. This ensures oldest lowest-fee transactions are evicted first
 
 **Verification**: Write unit test to verify eviction order. Test with multiple transactions having same fee.
@@ -790,6 +901,7 @@ except Exception as e:
 ## Coordination Notes
 
 No coordination required between Agent A and Agent B in this release. All tasks are independent:
+
 - Agent A's mechanical fixes are isolated to specific files
 - Agent B's complex tasks are in different domains
 - No shared file conflicts

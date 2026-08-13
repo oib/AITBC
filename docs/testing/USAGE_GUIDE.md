@@ -163,6 +163,7 @@ pytest --cov=aitbc_cli.commands.agent --cov-report=term-missing
 ### **Common Issues**
 
 **Import errors:**
+
 ```bash
 # Check python path
 python -c "import sys; print(sys.path)"
@@ -172,6 +173,7 @@ PYTHONPATH=cli pytest
 ```
 
 **Test discovery issues:**
+
 ```bash
 # Check what tests are discovered
 pytest --collect-only
@@ -181,6 +183,7 @@ python -c "import pytest; print(pytest.config.getini('testpaths'))"
 ```
 
 **Coverage issues:**
+
 ```bash
 # Check coverage configuration
 pytest --cov=aitbc_cli --cov-report=term-missing --debug
@@ -192,11 +195,13 @@ python -c "import coverage; print(coverage.Coverage().source)"
 ### **Migration from Shell Script**
 
 **Before:**
+
 ```bash
 ./tests/run_all_tests.sh
 ```
 
 **After:**
+
 ```bash
 pytest
 # or

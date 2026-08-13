@@ -46,6 +46,7 @@ Enable a follower node to sync chains from different hubs on different islands s
 The v0.6.2 release already implemented dual-subscribe: `main.py:149-159` subscribes to both `transactions.{chain_id}` (v2) and legacy `transactions` (v1) when `gossip_backward_compat=true`. The v0.6.3 release adds the **migration window management** to phase out v1:
 
 **Migration config** (added in B1 config section):
+
 ```bash
 GOSSIP_TX_TOPIC_V1=transactions
 GOSSIP_TX_TOPIC_V2_TEMPLATE=transactions.{chain_id}
@@ -54,6 +55,7 @@ GOSSIP_LOG_V1_WARNINGS=true
 ```
 
 **v1 warning logging** — in `process_txs()` (main.py:169), when a transaction is received on the legacy v1 topic:
+
 ```python
 if gossip_log_v1_warnings and source_topic == settings.gossip_tx_topic_v1:
     logger.warning(
@@ -63,6 +65,7 @@ if gossip_log_v1_warnings and source_topic == settings.gossip_tx_topic_v1:
 ```
 
 **Migration timeline**:
+
 1. **Days 0-30** (dual-subscribe): Both v1 and v2 topics active. v1 messages logged as warnings. All transactions processed correctly.
 2. **After 30 days**: Set `GOSSIP_BACKWARD_COMPAT=false`. Drop v1 subscription. Hard-require `chain_id` in topic name. v1 peers rejected at P2P handshake (already implemented in v0.6.2 via `gossip_backward_compat` flag).
 

@@ -5,11 +5,13 @@ This guide covers blockchain node problems including sync issues, forks, and P2P
 ## Node Won't Sync
 
 **Symptoms:**
+
 - Block height not increasing
 - Sync status shows "syncing" indefinitely
 - Peers not connecting
 
 **Diagnosis:**
+
 ```bash
 # Check sync status
 curl http://localhost:8080/v1/network
@@ -22,7 +24,9 @@ journalctl -u aitbc-blockchain -n 50
 ```
 
 **Solutions:**
+
 1. Add bootstrap peers
+
 ```bash
 # Edit configuration
 echo "BOOTSTRAP_PEERS=peer1.example.com:8080,peer2.example.com:8080" >> /etc/aitbc/blockchain.env
@@ -31,7 +35,8 @@ echo "BOOTSTRAP_PEERS=peer1.example.com:8080,peer2.example.com:8080" >> /etc/ait
 systemctl restart aitbc-blockchain
 ```
 
-2. Check network connectivity
+1. Check network connectivity
+
 ```bash
 # Test peer connectivity
 telnet peer.example.com 8080
@@ -40,7 +45,8 @@ telnet peer.example.com 8080
 ufw status
 ```
 
-3. Reset blockchain state
+1. Reset blockchain state
+
 ```bash
 # Stop service
 systemctl stop aitbc-blockchain
@@ -55,11 +61,13 @@ systemctl start aitbc-blockchain
 ## Fork Detected
 
 **Symptoms:**
+
 - Multiple blockchain branches
 - Consensus failures
 - Invalid blocks
 
 **Diagnosis:**
+
 ```bash
 # Check blockchain height
 curl http://localhost:8080/v1/blocks/head
@@ -69,7 +77,9 @@ curl http://localhost:8080/v1/blocks/forks
 ```
 
 **Solutions:**
+
 1. Choose correct fork
+
 ```bash
 # Revert to correct height
 curl -X POST http://localhost:8080/v1/admin/revert \
@@ -77,7 +87,8 @@ curl -X POST http://localhost:8080/v1/admin/revert \
   -d '{"height": 12345}'
 ```
 
-2. Restart with clean state
+1. Restart with clean state
+
 ```bash
 # Stop service
 systemctl stop aitbc-blockchain

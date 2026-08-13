@@ -66,6 +66,7 @@ aitbc agent list
 ```
 
 **Expected output:**
+
 ```
 No local agents found
 ```
@@ -81,6 +82,7 @@ aitbc pool-hub status
 ```
 
 **Expected output:**
+
 ```
 Pool Hub Status (Simulated)
 ===========================
@@ -103,6 +105,7 @@ aitbc mining status
 ```
 
 **Expected output:**
+
 ```
 Error getting mining status: HTTP error: Client error '401 Unauthorized' for url 'http://localhost:8202/rpc/mining/status'
 ```
@@ -118,6 +121,7 @@ aitbc edge gpu list-gpus
 ```
 
 **Expected output:**
+
 ```
 Error listing GPUs: Client error '422 Unprocessable Content' for url 'http://localhost:8111/v1/gpu/'
 ```

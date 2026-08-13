@@ -32,6 +32,7 @@ Agent B is responsible for **Infrastructure, Tooling & Operations** tasks in v0.
 
 1. Read `dev/validator_keys.json` to understand its structure
 2. Create `dev/validator_keys.json.template` with placeholder values:
+
    ```json
    {
      "validator_keys": [
@@ -42,7 +43,9 @@ Agent B is responsible for **Infrastructure, Tooling & Operations** tasks in v0.
      ]
    }
    ```
+
 3. Create `dev/generate_validator_keys.py` script:
+
    ```python
    #!/usr/bin/env python3
    """Generate validator keys for development."""
@@ -94,8 +97,10 @@ Agent B is responsible for **Infrastructure, Tooling & Operations** tasks in v0.
    if __name__ == "__main__":
        main()
    ```
+
 4. Delete the actual `dev/validator_keys.json` file
 5. Add to `.gitignore`:
+
    ```
    # Generated validator keys
    dev/validator_keys.json
@@ -105,6 +110,7 @@ Agent B is responsible for **Infrastructure, Tooling & Operations** tasks in v0.
 #### 1.2: Add ignore rules for generated files
 
 Update `.gitignore`:
+
 ```
 # Generated cache files
 contracts/cache/solidity-files-cache.json
@@ -118,15 +124,19 @@ __pycache__/
 #### 1.3: Check git history for real keys
 
 1. Check if real keys were ever committed:
+
    ```bash
    git log --all --full-history -- dev/validator_keys.json
    ```
+
 2. If real keys were found, they must be removed from history:
+
    ```bash
    git filter-branch --force --index-filter \
      "git rm --cached --ignore-unmatch dev/validator_keys.json" \
      --prune-empty --tag-name-filter cat -- --all
    ```
+
    **WARNING**: This rewrites history. Coordinate with team before doing this.
 
 ### Acceptance Criteria
@@ -173,6 +183,7 @@ GitHub CI (`.github/workflows/ci.yml:18,51`) installs only tools (ruff, mypy, py
 #### 2.1: Read current CI workflow
 
 Read `.github/workflows/ci.yml` to understand current setup:
+
 - Look for steps that install tools
 - Check if there's a step that installs project dependencies
 - Identify where to add the dependency installation step
@@ -182,6 +193,7 @@ Read `.github/workflows/ci.yml` to understand current setup:
 Add a step before running ruff/mypy/tests:
 
 **If using pip**:
+
 ```yaml
 - name: Install project dependencies
   run: |
@@ -191,6 +203,7 @@ Add a step before running ruff/mypy/tests:
 ```
 
 **If using Poetry**:
+
 ```yaml
 - name: Install Poetry
   run: pip install poetry
@@ -200,6 +213,7 @@ Add a step before running ruff/mypy/tests:
 ```
 
 **If using uv**:
+
 ```yaml
 - name: Install uv
   run: pip install uv
@@ -211,6 +225,7 @@ Add a step before running ruff/mypy/tests:
 #### 2.3: Verify the package manager
 
 Check which package manager the project uses:
+
 - Look for `pyproject.toml` with `[tool.poetry]` section → Poetry
 - Look for `poetry.lock` file → Poetry
 - Look for `uv.lock` file → uv
@@ -219,6 +234,7 @@ Check which package manager the project uses:
 #### 2.4: Test locally
 
 Before committing, test the CI workflow locally:
+
 ```bash
 # Simulate CI environment
 python -m pip install --upgrade pip
@@ -273,6 +289,7 @@ Shell scripts have various issues (missing quoting, `cd` without checks). ShellC
 #### 3.1: Install ShellCheck in CI
 
 Add to `.github/workflows/ci.yml`:
+
 ```yaml
 - name: Install ShellCheck
   run: |
@@ -288,24 +305,29 @@ Add to `.github/workflows/ci.yml`:
 #### 3.2: Fix shell script issues
 
 **For `scripts/service-management/stop-services.sh`**:
+
 - Add quoting around variables: `"$var"` instead of `$var`
 
 **For `scripts/service-management/fix-services.sh`**:
+
 - Add error handling after `cd`: `cd /path || exit 1`
 
 **For `scripts/workflow/*.sh`**:
+
 - Fix various quoting issues
 - Add `set -euo pipefail` at the top of each script
 
 #### 3.3: Common shell script fixes
 
 Add this shebang and options to all scripts:
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 ```
 
 Quote all variable expansions:
+
 ```bash
 # BEFORE
 service_name=$1
@@ -315,6 +337,7 @@ service_name="$1"
 ```
 
 Add error handling after cd:
+
 ```bash
 # BEFORE
 cd /opt/aitbc
@@ -368,6 +391,7 @@ Shell scripts have various issues that need to be fixed. This is the actual fixi
 #### 4.1: Add standard header to all scripts
 
 Add this to the top of every shell script:
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -376,6 +400,7 @@ set -euo pipefail
 #### 4.2: Quote all variables
 
 Search and replace:
+
 ```bash
 # Find unquoted variables
 grep -n '\$[a-zA-Z_][a-zA-Z0-9_]*' scripts/**/*.sh
@@ -396,6 +421,7 @@ cd /opt/aitbc || exit 1
 #### 4.4: Test each script
 
 After fixing, test each script:
+
 ```bash
 bash -n scripts/service-management/stop-services.sh  # Syntax check
 bash scripts/service-management/stop-services.sh --help  # Runtime check
@@ -440,6 +466,7 @@ No automated secret scanning in CI. Commits may contain secrets that should be c
 #### 5.1: Install detect-secrets in CI
 
 Add to `.github/workflows/ci.yml`:
+
 ```yaml
 - name: Install detect-secrets
   run: pip install detect-secrets
@@ -460,6 +487,7 @@ Add to `.github/workflows/ci.yml`:
 #### 5.2: Create initial baseline
 
 Run locally to create baseline:
+
 ```bash
 pip install detect-secrets
 detect-secrets scan > .secrets.baseline
@@ -470,6 +498,7 @@ Review the baseline and remove any actual secrets that should not be committed.
 #### 5.3: Configure detect-secrets
 
 Create `.secrets.baseline` configuration:
+
 ```json
 {
   "version": "1.0",
@@ -551,6 +580,7 @@ ruff check aitbc/ apps/ cli/ packages/
 #### 6.2: Categorize warnings
 
 Common ruff warnings:
+
 - `F401` — unused imports
 - `F841` — unused variables
 - `E501` — line too long
@@ -573,6 +603,7 @@ ruff check --fix aitbc/ apps/ cli/ packages/
 #### 6.4: Manually fix remaining issues
 
 For issues that can't be auto-fixed:
+
 - Remove unused imports
 - Remove unused variables
 - Break long lines
@@ -581,6 +612,7 @@ For issues that can't be auto-fixed:
 #### 6.5: Update ruff configuration if needed
 
 If certain warnings are not relevant, update `pyproject.toml`:
+
 ```toml
 [tool.ruff]
 # Exclude specific rules
@@ -616,6 +648,7 @@ ruff check aitbc/ apps/ cli/ packages/
 ### Problem
 
 Architecture docs don't match current codebase:
+
 - `docs/architecture/8_codebase-structure.md:28` mentions top-level `systemd/` directory (doesn't exist)
 - Documents apps like `marketplace-web`, `wallet-daemon`, `trade-exchange` that don't match current checkout
 - `docs/architecture/active_apps.md:3` says v0.4.26 while root version is 0.6.0
@@ -631,6 +664,7 @@ Architecture docs don't match current codebase:
 #### 7.1: Inventory actual apps
 
 List actual apps in the repository:
+
 ```bash
 ls -la apps/
 ```
@@ -688,6 +722,7 @@ grep version pyproject.toml  # Compare with docs
 ### Testing
 
 After each task, run:
+
 ```bash
 # CI checks
 ruff check aitbc/ apps/ cli/ packages/
@@ -701,6 +736,7 @@ shellcheck scripts/**/*.sh
 ### Git Workflow
 
 After each task:
+
 ```bash
 git add -A
 git commit -m "fix: [task description]"
@@ -709,6 +745,7 @@ git commit -m "fix: [task description]"
 ### Documentation
 
 Update `docs/releases/v0.4.27/change.log` as tasks are completed:
+
 - Mark tasks as ✅ done
 - Add notes about any issues encountered
 - Update acceptance criteria checkboxes

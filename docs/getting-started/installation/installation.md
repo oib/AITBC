@@ -23,6 +23,7 @@
 ```
 
 **Security Status**: 🛡️ AUDITED & HARDENED
+
 - **0 vulnerabilities** in smart contracts (35 OpenZeppelin warnings only)
 - **90 CVEs** fixed in dependencies (target achieved)
 - **95/100 system hardening** index achieved (target metric)
@@ -52,6 +53,7 @@ aitbc blockchain status
 ```
 
 Expected output:
+
 ```
 AITBC CLI v0.1.0
 Platform: Linux/MacOS
@@ -64,6 +66,7 @@ Architecture: x86_64/arm64
 ### Coordinator API
 
 Create `apps/coordinator-api/.env`:
+
 ```env
 JWT_SECRET=<YOUR_JWT_SECRET>
 DATABASE_URL=sqlite:///./data/coordinator.db   # or postgresql://user:<DB_PASSWORD>@localhost/aitbc
@@ -73,6 +76,7 @@ LOG_LEVEL=INFO
 ### Blockchain Node
 
 Create `apps/blockchain-node/.env`:
+
 ```env
 CHAIN_ID=ait-devnet
 RPC_BIND_HOST=0.0.0.0

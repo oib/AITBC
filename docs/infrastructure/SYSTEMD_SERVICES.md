@@ -15,17 +15,20 @@ This guide covers SystemD service management for AITBC following the infrastruct
 > **✅ All Core Services Operational**: Recent stability fixes have resolved startup and connectivity issues.
 
 ### 🟢 **Operational Services**
+
 - **aitbc-coordinator-api.service**: Running on port 8203 with agent endpoints
 - **aitbc-marketplace.service**: Database schema updated and healthy
 - **aitbc-blockchain-node.service**: Blockchain operations normal
 - **aitbc-api-gateway.service**: Routing and proxy functionality working
 
 ### 🔧 **Recent Fixes Applied (2026-06-05)**
+
 - **Coordinator API**: Fixed deprecated schema imports and missing dependencies
 - **Marketplace Service**: Added missing database columns and restored service unit file
 - **Dependencies**: Installed missing `ipfshttpclient` and other required packages
 
 ### 📋 **Service Health Verification**
+
 ```bash
 # Check all critical services
 systemctl status aitbc-coordinator-api.service aitbc-marketplace.service
@@ -40,6 +43,7 @@ curl -s http://localhost:8102/health | jq '.status'
 > **Note:** The service fixes described below represent designed configuration. Actual service availability depends on deployment state. Verify current status using the verification commands in this document.
 
 ### ✅ Fixed Services (34+ services updated)
+
 - **Python Interpreter**: Changed from non-existent venvs to `/usr/bin/python3`
 - **Working Directories**: Updated to correct paths
 - **Environment Files**: Created missing `.env` files
@@ -50,6 +54,7 @@ curl -s http://localhost:8102/health | jq '.status'
 > **Note:** Port assignments below represent designed configuration. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 #### Core Services
+
 - `aitbc-coordinator-api.service` - Central API (Port 8203)
 - `aitbc-blockchain-node.service` - Blockchain node (Port 8005)
 - `aitbc-exchange-api.service` - Exchange API (Port 8001)
@@ -57,14 +62,17 @@ curl -s http://localhost:8102/health | jq '.status'
 - `aitbc-adaptive-learning.service` - Adaptive Learning (Port 8010)
 
 #### Agent Services
+
 - `aitbc-agent-coordinator.service` - Task coordination
 - `aitbc-edge.service` - Edge API services
 
 #### Blockchain Services
+
 - `aitbc-blockchain-node.service` - Blockchain Node with P2P (Port 8005)
 - `aitbc-blockchain-rpc.service` - RPC API (Port 8202), bundled inside blockchain-node src/
 
 #### Supporting Services
+
 - `aitbc-explorer.service` - Blockchain explorer
 - `aitbc-gpu-miner.service` - GPU mining
 - `aitbc-marketplace.service` - Marketplace
@@ -93,6 +101,7 @@ systemctl status aitbc-blockchain-rpc.service
 ```
 
 ### Active Services (as of 2026-03-29)
+
 ```bash
 ✅ Port 8001 - Exchange API (aitbc-exchange-api.service)
 ✅ Port 8015 - Wallet Service (aitbc-wallet.service)
@@ -103,6 +112,7 @@ systemctl status aitbc-blockchain-rpc.service
 ```
 
 ### Service Dependencies
+
 ```bash
 Coordinator API → Wallet Service → Exchange API
 Blockchain RPC ← Blockchain Node (with P2P)
@@ -112,6 +122,7 @@ Adaptive Learning → Coordinator API
 ## 🛠️ Service Management Commands
 
 ### Basic Operations
+
 ```bash
 # List all AITBC services
 systemctl list-units --all | grep aitbc
@@ -136,6 +147,7 @@ systemctl disable aitbc-coordinator-api.service
 ```
 
 ### Bulk Operations
+
 ```bash
 # Start all core services
 systemctl start aitbc-coordinator-api aitbc-blockchain-node aitbc-exchange-api aitbc-wallet
@@ -150,6 +162,7 @@ systemctl status aitbc-*
 ## 📊 Service Monitoring
 
 ### Health Checks
+
 ```bash
 # Real-time monitoring
 watch -n 5 'systemctl status aitbc-* --no-pager'
@@ -162,6 +175,7 @@ journalctl -f | grep aitbc
 ```
 
 ### Performance Monitoring
+
 ```bash
 # Resource usage
 systemctl status aitbc-* | grep -E "(CPU|Memory)"
@@ -178,6 +192,7 @@ systemctl list-dependencies aitbc-coordinator-api.service
 ### Common Issues
 
 #### Service Not Starting
+
 ```bash
 # Check recent logs
 journalctl -u aitbc-service-name.service -n 20
@@ -190,6 +205,7 @@ ls -la /path/to/working/directory
 ```
 
 #### Python Module Errors
+
 ```bash
 # Check PYTHONPATH
 systemctl cat aitbc-service-name.service | grep PYTHONPATH
@@ -202,6 +218,7 @@ pip3 install missing-package
 ```
 
 #### Permission Issues
+
 ```bash
 # Check file permissions
 ls -la /var/lib/aitbc/keystore/
@@ -214,6 +231,7 @@ chown root:root /var/lib/aitbc/keystore/
 ### Service-Specific Fixes
 
 #### Coordinator API
+
 ```bash
 # Check environment files
 ls -la /opt/aitbc/apps/coordinator-api/.env
@@ -227,6 +245,7 @@ PYTHONPATH=/opt/aitbc/apps/coordinator-api/src python3 -m uvicorn coordinator_ap
 ```
 
 #### Blockchain Node
+
 ```bash
 # Check data directory
 ls -la /var/lib/aitbc/data/
@@ -242,6 +261,7 @@ python3 -m aitbc_chain.main --help
 ## 🔄 Service Dependencies
 
 ### Startup Order
+
 ```
 1. aitbc-agent-coordinator.service
 2. aitbc-coordinator-api.service
@@ -252,6 +272,7 @@ python3 -m aitbc_chain.main --help
 ```
 
 ### Dependency Chain
+
 ```
 network.target
 ├── aitbc-agent-coordinator.service
@@ -265,6 +286,7 @@ network.target
 ## 🛠️ Service Configuration
 
 ### Standard Service Template
+
 ```ini
 [Unit]
 Description=AITBC Service Name
@@ -287,6 +309,7 @@ WantedBy=multi-user.target
 ```
 
 ### Environment Variables
+
 ```bash
 # Common environment variables
 PYTHONPATH=/path/to/src
@@ -298,6 +321,7 @@ LOG_PATH=/var/lib/aitbc/logs
 ## 📋 Maintenance Procedures
 
 ### Regular Tasks
+
 ```bash
 # Weekly service health check
 for service in $(systemctl list-units --all | grep aitbc | awk '{print $1}'); do
@@ -327,6 +351,7 @@ systemctl status aitbc-* --no-pager
 ## 🚨 Emergency Procedures
 
 ### Service Recovery
+
 ```bash
 # Emergency restart all services
 systemctl restart aitbc-*
@@ -339,6 +364,7 @@ systemctl start aitbc-service-name.service --ignore-dependencies
 ```
 
 ### Disaster Recovery
+
 ```bash
 # Restore from backup
 cp /backup/systemd/aitbc-*.service /etc/systemd/system/
@@ -350,6 +376,7 @@ systemctl start aitbc-*
 ---
 
 **Related Documentation**:
+
 - [Runtime Directories Guide](RUNTIME_DIRECTORIES.md)
 - [Security Hardening Guide](../releases/v0.4.23/SECURITY_HARDENING.md)
 - [Infrastructure Overview](README.md)

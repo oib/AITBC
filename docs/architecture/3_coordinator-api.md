@@ -22,15 +22,19 @@ The Coordinator API is the central orchestration layer that manages job distribu
 The Coordinator API follows a clean architecture with separation of concerns for domain models, API routes, and business logic.
 
 #### API Layer
+
 FastAPI routers for clients, miners, admin, and users
 
 #### Domain Models
+
 SQLModel definitions for jobs, miners, receipts, users
 
 #### Business Logic
+
 Service layer handling job orchestration
 
 #### Persistence
+
 SQLite database with Alembic migrations
 
 ## API Reference

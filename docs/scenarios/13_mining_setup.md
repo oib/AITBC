@@ -74,6 +74,7 @@ aitbc mining start miner-wallet --threads 4
 ```
 
 **Expected output:**
+
 ```
 Mining started with wallet 'miner-wallet'
 Miner address: 0x1a2b3c4d5e6f...
@@ -96,6 +97,7 @@ aitbc mining status
 ```
 
 **Expected output:**
+
 ```json
 {
   "enabled": true,
@@ -116,6 +118,7 @@ aitbc mining list
 ```
 
 **Expected output:**
+
 ```json
 {
   "miners": [
@@ -139,6 +142,7 @@ aitbc mining stop
 ```
 
 **Expected output:**
+
 ```
 Mining stopped
 Status: stopped
@@ -149,6 +153,7 @@ Verify it stopped:
 ```bash
 aitbc mining status
 ```
+
 ```json
 {
   "enabled": false,

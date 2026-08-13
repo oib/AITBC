@@ -24,6 +24,7 @@ Stores blockchain blocks.
 | `state_root` | VARCHAR | NULLABLE | State root hash |
 
 **Relationships:**
+
 - `transactions` → Transaction (one-to-many)
 - `receipts` → Receipt (one-to-many)
 
@@ -42,6 +43,7 @@ Stores transactions.
 | `created_at` | DATETIME | INDEX | Creation timestamp |
 
 **Relationships:**
+
 - `block` → Block (many-to-one)
 
 ### Receipt
@@ -61,6 +63,7 @@ Stores job completion receipts.
 | `recorded_at` | DATETIME | INDEX | Recording timestamp |
 
 **Relationships:**
+
 - `block` → Block (many-to-one)
 
 ### Account
@@ -125,6 +128,7 @@ See: https://github.com/tiangolo/sqlmodel/issues/52
 ### Hex Validation
 
 The following fields should be validated as hex strings before insertion:
+
 - `Block.hash`
 - `Block.parent_hash`
 - `Block.state_root`

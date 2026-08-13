@@ -63,16 +63,19 @@ This guide has been split into topic-focused files for easier navigation:
 ## Quick Navigation
 
 **For New Users:**
+
 1. Start with [Quick Start](./setup-quick-start.md)
 2. Review [Service Selection](./setup-service-selection.md) for your node type
 3. Configure [Subscription System](./setup-subscription.md) if joining as follower
 
 **For Configuration:**
+
 1. Check [Configuration](./setup-configuration.md) for runtime directories
 2. Review [Security](./setup-security.md) for service user setup
 3. See [Reference](./setup-reference.md) for common commands
 
 **For Troubleshooting:**
+
 - See [Reference](./setup-reference.md#troubleshooting) for common issues and solutions
 
 ## Follower Node Quick Setup
@@ -88,6 +91,7 @@ sudo /opt/aitbc/scripts/deployment/setup.sh \
 Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the sync code appends `/rpc/head` at runtime. To re-run setup on an existing install, add `--force`.
 
 `setup.sh` now:
+
 - Sets `DEFAULT_PEER_RPC_URL` to the hub for follower profiles.
 - Creates missing `/etc/aitbc/<unit>.env` files required by `EnvironmentFile=/etc/aitbc/%N.env`.
 - Installs the `filelock` package if the selected profile omits it.

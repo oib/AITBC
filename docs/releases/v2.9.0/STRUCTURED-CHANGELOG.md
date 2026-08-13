@@ -63,6 +63,7 @@ Expanded `.agents/skills/` from 3 to 18 skills. Each skill has a `SKILL.md` with
 These skills are shared across all IDE providers (Claude Code, Codex CLI, Cursor IDE).
 
 New skills added (15):
+
 - `api-patterns`, `agent-coordination`, `confluence-docs`, `deployment-sop`
 - `frontend-patterns`, `git-advanced`, `linear-sop`, `migration-patterns`
 - `orchestration-patterns`, `release-patterns`, `rls-patterns`, `safe-workflow`
@@ -71,6 +72,7 @@ New skills added (15):
 ## SAW-29: Codex Config Enrichment (3 pts)
 
 Enriched `.codex/config.toml` (242 lines) with:
+
 - `[mcp_servers]` — Linear + Confluence MCP server definitions
 - `[agents]` — max_threads=6, multi_agent=true
 - `[features]` — shell_snapshot, web_search, shell_tool, unified_exec

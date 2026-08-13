@@ -13,6 +13,7 @@ This is the step-by-step runbook for migrating the **hub node** to v0.5.10. The 
 > **Breaking change.** All nodes must run v0.5.10 code. A node still on v0.5.9 will reject fee=36 transactions and vice versa.
 
 > **Lessons learned.** This runbook was updated after the actual migration on 2026-06-23. Key findings:
+>
 > - **Hub has more services than expected** — `aitbc-blockchain-rpc` is a separate service from `aitbc-blockchain-node` and must be stopped/restarted too. See Step 2 and Step 8.
 > - **Follower nodes must wipe chain.db** — flushing Redis alone is not enough. The local DB has stale pre-fork data and the node will think it's "up to date" by comparing against itself. See Follower Node Instructions.
 > - **Follower `default_peer_rpc_url` must point to the hub** — if it points to `localhost`, the follower syncs from itself and never receives the migrated state. See Follower Node Instructions.
@@ -37,6 +38,7 @@ This migration runbook has been split into topic-focused files:
 ## Quick Navigation
 
 ### Pre-flight Checks
+
 - [P1. Code is deployed](./pre-flight-checks.md#p1-code-is-deployed)
 - [P2. Services are currently running](./pre-flight-checks.md#p2-services-are-currently-running)
 - [P3. Database is accessible and has data](./pre-flight-checks.md#p3-database-is-accessible-and-has-data)
@@ -46,6 +48,7 @@ This migration runbook has been split into topic-focused files:
 - [P7. Notify follower operators](./pre-flight-checks.md#p7-notify-follower-operators)
 
 ### Migration Steps
+
 - [Step 1. Announce maintenance start](./migration-steps.md#step-1-announce-maintenance-start)
 - [Step 2. Stop all services](./migration-steps.md#step-2-stop-all-services)
 - [Step 3. Manual backup](./migration-steps.md#step-3-manual-backup-in-addition-to-script-backup)
@@ -59,6 +62,7 @@ This migration runbook has been split into topic-focused files:
 - [Step 11. Announce migration complete](./migration-steps.md#step-11-announce-migration-complete)
 
 ### Related Topics
+
 - [Follower Instructions](./follower-instructions.md) - Follower node procedures
 - [Troubleshooting](./troubleshooting.md) - Common issues and solutions
 - [Rollback](./rollback.md) - Rollback procedures
@@ -234,6 +238,7 @@ python3 scripts/migration/scale_balances_3600x.py \
 ```
 
 **Expected output:**
+
 ```
 🚀 Starting v0.5.10 hard fork migration for chain: ait-hub.aitbc.bubuit.net
 💾 Creating backups...
@@ -429,6 +434,7 @@ echo "[$(date -u)] v0.5.10 hub migration COMPLETED. State root: $(curl -s http:/
 Followers do **NOT** run the migration script. They wipe their local chain.db and re-sync from the hub.
 
 > **Critical lessons from the 2026-06-23 migration:**
+>
 > 1. **Followers MUST wipe chain.db** — flushing Redis alone is not enough. The local DB has stale pre-fork data and the node will think it's "up to date" by comparing against itself.
 > 2. **`default_peer_rpc_url` must point to the hub** — if it points to `http://127.0.0.1:8202`, the follower syncs from itself. Check `/etc/aitbc/blockchain.env` and fix if needed.
 > 3. **`aitbc-blockchain-rpc` must be restarted** — it's a separate service that caches DB connections. If not restarted, it will return stale height/state root even after the node has synced the new chain.
@@ -562,6 +568,7 @@ sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
 
 **RPC returns stale height/state root after sync:**
 The `aitbc-blockchain-rpc` service has a cached DB connection. Restart it:
+
 ```bash
 systemctl restart aitbc-blockchain-rpc
 sleep 3
@@ -573,9 +580,11 @@ Check `default_peer_rpc_url` in `/etc/aitbc/blockchain.env`. If it points to `ht
 
 **Node is not syncing at all:**
 Check logs for errors:
+
 ```bash
 journalctl -u aitbc-blockchain-node --since "5 minutes ago" --no-pager | grep -E "Error|error|WARN|Failed|failed"
 ```
+
 Verify the hub is reachable: `curl -s https://hub.aitbc.bubuit.net/rpc/head | python3 -m json.tool`
 
 ---
@@ -631,6 +640,7 @@ curl -s http://localhost:8202/rpc/head | python3 -m json.tool
 ### Migration script fails with "database is locked"
 
 The blockchain node or RPC server is still running and holding a DB connection:
+
 ```bash
 # Stop ALL services that might hold a DB connection
 systemctl stop aitbc-blockchain-rpc 2>/dev/null || true
@@ -653,6 +663,7 @@ ps aux | grep aitbc_chain | grep -v grep
 ### Migration script fails with "near 'transaction': syntax error"
 
 This was a bug in the migration script where the `transaction` table name (a SQL reserved keyword) was not quoted. **Fixed in commit `ff2176b6a`** — ensure you have the latest version:
+
 ```bash
 cd /opt/aitbc
 git pull
@@ -665,6 +676,7 @@ grep 'UPDATE "transaction"' scripts/migration/scale_balances_3600x.py
 The state root reported by the migration script (`2d64cfa9...`) will differ from the state root reported by the running node (`0x5aee7550...`). This is expected — the migration script uses a simplified SHA-256 hash, while the node uses its real Merkle Patricia Trie implementation. **The node's state root is authoritative.**
 
 To verify the migration is correct, check that:
+
 1. Account balances are multiples of 3600
 2. Transaction fees are multiples of 3600
 3. No sub-AIT balances exist (`balance > 0 AND balance < 3600` → 0 rows)
@@ -675,6 +687,7 @@ To verify the migration is correct, check that:
 The `aitbc-blockchain-rpc` service runs a separate uvicorn process with its own database connection pool. If it was not stopped during Step 2, or not restarted during Step 8, it will return stale pre-migration data.
 
 **Fix:** Restart the RPC service:
+
 ```bash
 systemctl restart aitbc-blockchain-rpc
 sleep 3
@@ -683,6 +696,7 @@ curl -s http://localhost:8202/rpc/head | python3 -m json.tool
 ```
 
 **Verify the DB directly if RPC still looks wrong:**
+
 ```bash
 sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
   'SELECT height, state_root FROM block ORDER BY height DESC LIMIT 1;'
@@ -694,6 +708,7 @@ sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
 If followers report sync errors or show wrong state root after the hub migrates:
 
 1. **Check `default_peer_rpc_url`** in `/etc/aitbc/blockchain.env`:
+
    ```bash
    grep default_peer_rpc_url /etc/aitbc/blockchain.env
    # Must be: https://hub.aitbc.bubuit.net
@@ -701,12 +716,14 @@ If followers report sync errors or show wrong state root after the hub migrates:
    ```
 
 2. **Confirm follower is running v0.5.10 code:**
+
    ```bash
    grep "fee.*=.*36" /opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/transactions.py
    # Expected: fee: int = 36
    ```
 
 3. **Wipe local chain.db and re-sync from scratch** (the most reliable fix):
+
    ```bash
    systemctl stop aitbc-blockchain-rpc 2>/dev/null || true
    systemctl stop aitbc-blockchain-node
@@ -726,6 +743,7 @@ If followers report sync errors or show wrong state root after the hub migrates:
    ```
 
 4. **Verify sync completed:**
+
    ```bash
    # Compare state roots
    curl -s "http://localhost:8202/rpc/state/snapshot?chain_id=ait-hub.aitbc.bubuit.net" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state_root'))"
@@ -736,6 +754,7 @@ If followers report sync errors or show wrong state root after the hub migrates:
 ### Follower RPC returns stale data after sync
 
 Same as the hub issue — `aitbc-blockchain-rpc` caches DB connections. Restart it:
+
 ```bash
 systemctl restart aitbc-blockchain-rpc
 sleep 3
@@ -816,6 +835,7 @@ Follower/shop nodes may not have `aitbc-agent-coordinator`, `aitbc-bridge-monito
 ### What happened
 
 **Hub migration** (performed on `hub.aitbc.bubuit.net`):
+
 - Migration script ran successfully after fixing the `transaction` table quoting bug
 - 11 accounts, 116 transactions, 10 escrows, 6 stakes scaled by 3600
 - Mempool cleared, state root recalculated
@@ -823,6 +843,7 @@ Follower/shop nodes may not have `aitbc-agent-coordinator`, `aitbc-bridge-monito
 - All services restarted successfully
 
 **Follower migration** (performed on `aitbc3` / shop node):
+
 - Initial attempt with just Redis flush + restart failed — node synced from itself (`default_peer_rpc_url=http://127.0.0.1:8202`)
 - Fixed `default_peer_rpc_url` to `https://hub.aitbc.bubuit.net` in `/etc/aitbc/blockchain.env`
 - Wiped chain.db, flushed Redis, restarted — node bulk-synced 34,284 blocks from hub

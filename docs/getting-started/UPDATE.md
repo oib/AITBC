@@ -7,6 +7,7 @@ merged to `main`. For first-time installation, see
 [SETUP.md](./SETUP.md) instead.
 
 > **TL;DR**
+>
 > ```bash
 > sudo /opt/aitbc/scripts/deployment/update.sh
 > ```

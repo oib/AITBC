@@ -7,6 +7,7 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 ## Components Implemented
 
 ### 1. ZK Circuits (`apps/zk-circuits/`)
+
 - **Basic Circuit**: Receipt hash preimage proof in circom
 - **Advanced Circuit**: Full receipt validation with pricing (WIP)
 - **Build System**: npm scripts for compilation, setup, and proving
@@ -14,17 +15,20 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 - **Benchmarking**: Performance measurement tools
 
 ### 2. Proof Service (`apps/coordinator-api/src/app/services/zk_proofs.py`)
+
 - **ZKProofService**: Handles proof generation and verification
 - **Privacy Levels**: Basic (hide computation) and Enhanced (hide amounts)
 - **Integration**: Works with existing receipt signing system
 - **Error Handling**: Graceful fallback when ZK unavailable
 
 ### 3. Receipt Integration (`apps/coordinator-api/src/app/services/receipts.py`)
+
 - **Async Support**: Updated create_receipt to support async ZK generation
 - **Optional Privacy**: ZK proofs generated only when requested
 - **Backward Compatibility**: Existing receipts work unchanged
 
 ### 4. Verification Contract (`contracts/ZKReceiptVerifier.sol`)
+
 - **On-Chain Verification**: Groth16 proof verification with snarkjs-generated verifier
 - **Security Features**: Double-spend prevention, timestamp validation
 - **Authorization**: Controlled access to verification functions
@@ -32,6 +36,7 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 - **Batch Support**: Efficient batch verification
 
 ### 5. Settlement Integration (`apps/coordinator-api/aitbc/settlement/hooks.py`)
+
 - **Privacy Options**: Settlement requests can specify privacy level
 - **Proof Inclusion**: ZK proofs included in settlement messages
 - **Bridge Support**: Works with existing cross-chain bridges
@@ -39,16 +44,19 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 ## Key Features
 
 ### Privacy Levels
+
 1. **Basic**: Hide computation details, reveal settlement amount
 2. **Enhanced**: Hide all amounts, prove correctness mathematically
 
 ### Performance Metrics
+
 - **Proof Size**: ~200 bytes (Groth16)
 - **Generation Time**: 5-15 seconds
 - **Verification Time**: <5ms on-chain
 - **Gas Cost**: ~200k gas
 
 ### Security Measures
+
 - Trusted setup requirements documented
 - Circuit audit procedures defined
 - Gradual rollout strategy
@@ -57,17 +65,20 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 ## Testing Coverage
 
 ### Unit Tests
+
 - Proof generation with various inputs
 - Verification success/failure scenarios
 - Privacy level validation
 - Error handling
 
 ### Integration Tests
+
 - Receipt creation with ZK proofs
 - Settlement flow with privacy
 - Cross-chain bridge integration
 
 ### Benchmarks
+
 - Proof generation time measurement
 - Verification performance
 - Memory usage tracking
@@ -76,6 +87,7 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 ## Usage Examples
 
 ### Creating Private Receipt
+
 ```python
 receipt = await receipt_service.create_receipt(
     job=job,
@@ -87,6 +99,7 @@ receipt = await receipt_service.create_receipt(
 ```
 
 ### Cross-Chain Settlement with Privacy
+
 ```python
 settlement = await settlement_hook.initiate_manual_settlement(
     job_id="job-123",
@@ -97,6 +110,7 @@ settlement = await settlement_hook.initiate_manual_settlement(
 ```
 
 ### On-Chain Verification
+
 ```solidity
 bool verified = verifier.verifyAndRecord(
     proof.a,
@@ -109,6 +123,7 @@ bool verified = verifier.verifyAndRecord(
 ## Current Status
 
 ### Completed ✅
+
 1. Research and technology selection (Groth16)
 2. Development environment setup
 3. Basic circuit implementation
@@ -119,6 +134,7 @@ bool verified = verifier.verifyAndRecord(
 8. Performance benchmarking
 
 ### Pending ⏳
+
 1. Trusted setup ceremony (production requirement)
 2. Circuit security audit
 3. Full receipt validation circuit
@@ -127,16 +143,19 @@ bool verified = verifier.verifyAndRecord(
 ## Next Steps for Production
 
 ### Immediate (Week 1-2)
+
 1. Run end-to-end tests with real data
 2. Performance optimization based on benchmarks
 3. Security review of implementation
 
 ### Short Term (Month 1)
+
 1. Plan and execute trusted setup ceremony
 2. Complete advanced circuit with signature verification
 3. Third-party security audit
 
 ### Long Term (Month 2-3)
+
 1. Production deployment with gradual rollout
 2. Monitor performance and gas costs
 3. Consider PLONK for universal setup
@@ -144,11 +163,13 @@ bool verified = verifier.verifyAndRecord(
 ## Risks and Mitigations
 
 ### Technical Risks
+
 - **Trusted Setup**: Mitigate with multi-party ceremony
 - **Performance**: Optimize circuits and use batch verification
 - **Complexity**: Maintain clear documentation and examples
 
 ### Operational Risks
+
 - **User Adoption**: Provide clear UI indicators for privacy
 - **Gas Costs**: Optimize proof size and verification
 - **Regulatory**: Ensure compliance with privacy regulations
@@ -184,12 +205,14 @@ This document outlines the design for adding zero-knowledge proof capabilities t
 ### Current Receipt System
 
 The existing system has:
+
 - Receipt signing with coordinator private key
 - Optional coordinator attestations
 - History retrieval endpoints
 - Cross-chain settlement hooks
 
 Receipt structure includes:
+
 - Job ID and metadata
 - Computation results
 - Pricing information
@@ -269,6 +292,7 @@ template ReceiptAttestation() {
 ## Implementation Plan
 
 ### Phase 1: Research & Prototyping
+
 1. **Library Selection**
    - snarkjs for development (JavaScript/TypeScript)
    - circomlib2 for standard circuits
@@ -280,6 +304,7 @@ template ReceiptAttestation() {
    - Basic arithmetic operations
 
 ### Phase 2: Integration
+
 1. **Coordinator API Updates**
    - Add ZK proof generation endpoint
    - Integrate with existing receipt signing
@@ -291,6 +316,7 @@ template ReceiptAttestation() {
    - Maintain backward compatibility
 
 ### Phase 3: Optimization
+
 1. **Performance**
    - Trusted setup for Groth16
    - Batch proof generation
@@ -362,16 +388,19 @@ contract SettlementVerifier {
 ## Privacy Levels
 
 ### Level 1: Basic Privacy
+
 - Hide computation amounts
 - Prove pricing correctness
 - Reveal participant identities
 
 ### Level 2: Enhanced Privacy
+
 - Hide all amounts
 - Zero-knowledge participant proofs
 - Anonymous settlement
 
 ### Level 3: Full Privacy
+
 - Complete transaction privacy
 - Ring signatures or similar
 - Confidential transfers
@@ -440,6 +469,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 **Examples**: Groth16, PLONK, Halo2
 
 **Pros**:
+
 - **Small proof size**: ~200 bytes for Groth16
 - **Fast verification**: Constant time, ~3ms on-chain
 - **Mature ecosystem**: circom, snarkjs, bellman, arkworks
@@ -447,6 +477,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 - **Industry adoption**: Used by Aztec, Tornado Cash, Zcash
 
 **Cons**:
+
 - **Trusted setup**: Required for Groth16 (toxic waste problem)
 - **Longer proof generation**: 10-30 seconds depending on circuit size
 - **Complex setup**: Ceremony needs multiple participants
@@ -457,12 +488,14 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 **Examples**: STARKEx, Winterfell, gnark
 
 **Pros**:
+
 - **No trusted setup**: Transparent setup process
 - **Post-quantum secure**: Resistant to quantum attacks
 - **Faster proving**: Often faster than SNARKs for large circuits
 - **Transparent**: No toxic waste, fully verifiable setup
 
 **Cons**:
+
 - **Larger proofs**: ~45KB for typical circuits
 - **Higher verification cost**: ~500k-1M gas on-chain
 - **Newer ecosystem**: Fewer tools and libraries
@@ -494,6 +527,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 ### Phase 1: Groth16 for MVP
 
 **Rationale**:
+
 1. **Proven technology**: Battle-tested in production
 2. **Small proofs**: Essential for cost-effective on-chain verification
 3. **Fast verification**: Critical for settlement performance
@@ -501,6 +535,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 5. **Community knowledge**: Extensive documentation and examples
 
 **Mitigations for trusted setup**:
+
 - Multi-party ceremony with >100 participants
 - Public documentation of process
 - Consider PLONK for Phase 2 if setup becomes bottleneck
@@ -508,6 +543,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 ### Phase 2: Evaluate PLONK
 
 **Rationale**:
+
 - Universal trusted setup (one-time for all circuits)
 - Slightly larger proofs but acceptable
 - More flexible for circuit updates
@@ -516,6 +552,7 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 ### Phase 3: Consider STARKs
 
 **Rationale**:
+
 - If quantum resistance becomes priority
 - If proof size optimizations improve
 - If gas costs become less critical
@@ -525,12 +562,14 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 ### Circuit Complexity Analysis
 
 **Basic Receipt Circuit**:
+
 - Hash verification: ~50 constraints
 - Signature verification: ~10,000 constraints
 - Arithmetic operations: ~100 constraints
 - Total: ~10,150 constraints
 
 **With Privacy Features**:
+
 - Range proofs: ~1,000 constraints
 - Merkle proofs: ~1,000 constraints
 - Additional checks: ~500 constraints
@@ -539,12 +578,14 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 ### Performance Estimates
 
 **Groth16**:
+
 - Setup time: 2-5 hours
 - Proving time: 5-15 seconds
 - Verification: 3ms
 - Proof size: 200 bytes
 
 **Infrastructure Impact**:
+
 - Coordinator: Additional 5-15s per receipt
 - Settlement layer: Minimal impact (fast verification)
 - Storage: Negligible increase
@@ -577,26 +618,31 @@ Analysis of zero-knowledge proof systems for AITBC receipt attestation, focusing
 ## Development Plan
 
 ### Week 1-2: Environment Setup
+
 - Install circom and snarkjs
 - Create basic test circuit
 - Benchmark proof generation
 
 ### Week 3-4: Basic Circuit
+
 - Implement receipt hash verification
 - Add signature verification
 - Test with sample receipts
 
 ### Week 5-6: Integration
+
 - Add to coordinator API
 - Create verification contract
 - Test settlement flow
 
 ### Week 7-8: Trusted Setup
+
 - Plan ceremony logistics
 - Prepare ceremony software
 - Execute multi-party setup
 
 ### Week 9-10: Testing & Audit
+
 - End-to-end testing
 - Security review
 - Performance optimization

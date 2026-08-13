@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.6.5 Suggestions
 
 ## Status
+
 **CLAIMS VERIFIED** — All gaps confirmed in codebase. v0.5.16 Bug 15/16 fixes confirmed in place. Port direction corrected: **8202 is the correct blockchain RPC port** (per `apps/blockchain-node/src/aitbc_chain/config.py:89: rpc_bind_port: int = 8202`), **8006 is stale legacy**.
 
 ## Verified Gaps
@@ -47,9 +49,11 @@
 | **8006** | ❌ STALE — legacy port, should not be used | Leftover from old port scheme, never cleaned up |
 
 Files fixed from 8006→8202 in v0.6.5:
+
 - `apps/agent-coordinator/src/app/websocket/agent_stream.py:361` — default RPC URL
 
 Files already correct (8202):
+
 - `apps/gpu/src/gpu_service/main.py:298` — uses 8202 (NOT a bug, despite original suggestion claiming otherwise)
 - `apps/agent-coordinator/src/app/config.py` — `blockchain_rpc_url` default 8202 (added in B1)
 

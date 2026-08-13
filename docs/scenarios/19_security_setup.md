@@ -69,6 +69,7 @@ aitbc security audit
 ```
 
 **Expected output:**
+
 ```
 Security Audit
 
@@ -86,6 +87,7 @@ aitbc security scan
 ```
 
 **Expected output:**
+
 ```
 Security Scan
 
@@ -103,6 +105,7 @@ aitbc security patch
 ```
 
 **Expected output:**
+
 ```
 Security Patch
 
@@ -131,6 +134,7 @@ echo "=== Security workflow complete ==="
 ```
 
 **Expected output:**
+
 ```
 === Running Security Audit ===
 Security Audit

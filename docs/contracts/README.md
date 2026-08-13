@@ -59,7 +59,6 @@ Production Solidity contracts live in `contracts/contracts/`:
 | `TreasuryManager` | [TreasuryManager.sol](../../contracts/contracts/TreasuryManager.sol) |
 | `ZKReceiptVerifier` | [ZKReceiptVerifier.sol](../../contracts/contracts/ZKReceiptVerifier.sol) |
 
-
 ### Governance contracts
 
 | Contract | Source |

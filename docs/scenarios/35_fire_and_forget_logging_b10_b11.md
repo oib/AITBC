@@ -68,12 +68,14 @@ A hub operator restarts the agent-coordinator and coordinator-api services after
 ### Step 1: Verify B10 — Agent-Coordinator Uses TaskRegistry
 
 On the **hub node**:
+
 ```bash
 # Confirm the agent-coordinator lifespan uses TaskRegistry
 grep -n "TaskRegistry\|_task_registry\|create_task" /opt/aitbc/apps/agent-coordinator/src/app/lifespan.py
 ```
 
 **Expected output:**
+
 ```
 10:from aitbc.async_tasks import TaskRegistry
 18:_task_registry = TaskRegistry()
@@ -92,6 +94,7 @@ journalctl -u aitbc-agent-coordinator --since "1 hour ago" --no-pager | grep "St
 ```
 
 **Expected output:**
+
 ```
 Jul 05 15:47:18 hub.aitbc.bubuit.net aitbc-agent-coordinator[246938]: [INFO] [aitbc.async_tasks] Started background task: task_distribution
 Jul 05 15:47:18 hub.aitbc.bubuit.net aitbc-agent-coordinator[246938]: [INFO] [aitbc.async_tasks] Started background task: message_processing
@@ -108,6 +111,7 @@ sed -n '44,60p' /opt/aitbc/aitbc/async_tasks.py
 ```
 
 **Expected output:**
+
 ```python
         async def _wrapped() -> Any:
             while True:
@@ -125,6 +129,7 @@ sed -n '44,60p' /opt/aitbc/aitbc/async_tasks.py
 ```
 
 **Interpretation:**
+
 - `asyncio.CancelledError` → logged at INFO, re-raised (clean shutdown)
 - Any other `Exception` → logged at ERROR with full traceback (`exc_info=True`)
 - If `restart=True`, the task auto-restarts after a delay; otherwise it re-raises
@@ -142,6 +147,7 @@ grep -rn "create_task_with_logging" /opt/aitbc/apps/coordinator-api/src/app/cont
 ```
 
 **Expected output:**
+
 ```
 apps/coordinator-api/src/app/contexts/analytics/services/ai_analytics/advanced_learning.py:16:from aitbc.async_tasks import create_task_with_logging
 apps/coordinator-api/src/app/contexts/analytics/services/ai_analytics/advanced_learning.py:189:        create_task_with_logging(self._monitor_learning_sessions(), name="monitor_learning_sessions")
@@ -161,6 +167,7 @@ apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/dynam
 ```
 
 **Interpretation:** B11 is deployed across two service domains:
+
 - **Analytics**: 4 background tasks (learning session monitoring, federated learning, model optimization, session cleanup)
 - **Trading**: 6 background tasks (market data collection, aggregation, cleanup, market conditions, price volatility, strategy optimization)
 
@@ -172,6 +179,7 @@ sed -n '113,140p' /opt/aitbc/aitbc/async_tasks.py
 ```
 
 **Expected output:**
+
 ```python
 def create_task_with_logging(coro: Any, *, name: str) -> asyncio.Task[Any]:
     """Create a fire-and-forget background task with exception logging."""
@@ -210,6 +218,7 @@ journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -iE "
 ```
 
 **Expected output (no errors):**
+
 ```
 === Agent-coordinator task errors ===
 (no output)
@@ -258,6 +267,7 @@ print('Synthetic test complete — check for ERROR lines above')
 ```
 
 **Expected output:**
+
 ```
 [ERROR] Background task synthetic_b11_test failed: Synthetic B11 test failure
 Traceback (most recent call last):
@@ -273,6 +283,7 @@ Synthetic test complete — check for ERROR lines above
 ```
 
 **Interpretation:**
+
 - `create_task_with_logging` (B11 pattern) logged the exception via the done-callback
 - `TaskRegistry.create_task` (B10 pattern) logged the exception via the try/except wrapper
 - Both include full tracebacks (`exc_info=True`)

@@ -28,17 +28,20 @@ AITBC services run as the `aitbc` system user (created by `setup.sh`). Additiona
 ### User Configuration
 
 All service users:
+
 - Shell: `/bin/false` (no shell access)
 - Group: `aitbc-services` (common group)
 - Home directory: Created but not used
 
 **Special Groups:**
+
 - `aitbc-gpu`: Added to `video` group for GPU access
 - `aitbc-public`: Added to `video` and `audio` groups for whisper
 
 ### Service Isolation Status
 
 **Currently Isolated:** 11/26 services (42%)
+
 - Public services: 3/26
 - Internal services: 3/26
 - Blockchain services: 3/26

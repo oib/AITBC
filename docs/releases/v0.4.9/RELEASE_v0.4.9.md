@@ -11,12 +11,14 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 ## 🎯 Release Highlights
 
 ### External Blockchain Exchange
+
 - ✅ Trading pair: ETH-AIT (initial release)
 - ✅ Bridge integration with Ethereum (Mainnet, Sepolia testnet)
 - ✅ Oracle-based pricing (Chainlink, Band Protocol)
 - ✅ Simple swap operations (deposit ETH → receive AIT)
 
 ### Bridge Operations
+
 - ✅ Deposit ETH via bridge
 - ✅ Withdraw AIT to Ethereum
 - ✅ Bridge transaction monitoring and status tracking
@@ -24,6 +26,7 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 - ✅ Multi-sig bridge contract security
 
 ### Exchange API
+
 - ✅ REST API for swap operations (deposit, withdraw, get price)
 - ✅ Real-time price feeds from oracles
 - ✅ Bridge status monitoring
@@ -31,6 +34,7 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 - ✅ Rate limiting
 
 ### Website Update
+
 - ✅ Modern responsive design with mobile support
 - ✅ Real-time blockchain explorer integration
 - ✅ Interactive block visualization
@@ -39,6 +43,7 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 - ✅ Network status dashboard
 
 ### CLI Enhancements
+
 - ✅ `aitbc exchange deposit` — deposit ETH
 - ✅ `aitbc exchange withdraw` — withdraw AIT to Ethereum
 - ✅ `aitbc exchange swap` — swap ETH for AIT
@@ -48,10 +53,12 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 ## 📋 Detailed Features
 
 ### Supported External Chains
+
 - **Ethereum**: Mainnet, Sepolia testnet (initial release)
 - **Future**: Polygon, Arbitrum, BTC (planned for later releases)
 
 ### Bridge Architecture
+
 - **No full node required**: Hub uses RPC endpoints to interact with external chains
 - **Wallet-only approach**: Hub generates wallet addresses on external chains to receive deposits
 - **RPC providers**: Use public RPC endpoints (Infura, Alchemy, QuickNode) or self-hosted RPC
@@ -59,6 +66,7 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 - **Bridge contracts**: Deployed on each supported chain for asset locking/unlocking
 
 ### Wallet-Only Bridge Flow
+
 1. User deposits ETH to hub's wallet address on Ethereum
 2. Bridge service monitors wallet via RPC/webhook for incoming transactions
 3. Deposit detected → verify transaction on Ethereum
@@ -66,7 +74,9 @@ AITBC v0.4.9 introduces external blockchain exchange integration, enabling users
 5. Update bridge status and notify user
 
 ### Bridge Contracts
+
 Each supported chain has a bridge contract for:
+
 - Asset locking (external chain)
 - Asset minting/unlocking (AITBC chain)
 - Cross-chain message passing
@@ -75,11 +85,13 @@ Each supported chain has a bridge contract for:
 ### Oracle-Based Pricing
 
 #### Price Feeds
+
 ```bash
 aitbc exchange price --pair ETH-AIT
 ```
 
 **Price Response:**
+
 ```json
 {
   "pair": "ETH-AIT",
@@ -91,6 +103,7 @@ aitbc exchange price --pair ETH-AIT
 ```
 
 #### Supported Oracles
+
 - Chainlink (primary)
 - Band Protocol (backup)
 - CoinGecko API (fallback)
@@ -98,11 +111,13 @@ aitbc exchange price --pair ETH-AIT
 ### Bridge Operations
 
 #### Deposit ETH
+
 ```bash
 aitbc exchange deposit --chain ethereum --amount 0.1
 ```
 
 **Deposit Process:**
+
 1. User sends ETH to hub's Ethereum wallet address
 2. Bridge service monitors wallet via RPC/webhook
 3. Deposit detected → verify transaction on Ethereum
@@ -110,11 +125,13 @@ aitbc exchange deposit --chain ethereum --amount 0.1
 5. Transaction completed
 
 #### Withdraw AIT to Ethereum
+
 ```bash
 aitbc exchange withdraw --chain ethereum --amount 100
 ```
 
 **Withdraw Process:**
+
 1. User locks AIT on AITBC chain
 2. Bridge transaction relayed to Ethereum
 3. ETH released to user at oracle price
@@ -122,11 +139,13 @@ aitbc exchange withdraw --chain ethereum --amount 100
 5. Transaction completed
 
 #### Bridge Status
+
 ```bash
 aitbc exchange status --tx-id 0x...
 ```
 
 **Status Response:**
+
 ```json
 {
   "tx_id": "0x...",
@@ -144,6 +163,7 @@ aitbc exchange status --tx-id 0x...
 ### Exchange API
 
 #### REST Endpoints
+
 ```
 GET  /v1/exchange/pairs           # List trading pairs
 GET  /v1/exchange/price/{pair}    # Get oracle price
@@ -154,6 +174,7 @@ GET  /v1/exchange/history         # Get transaction history
 ```
 
 #### WebSocket Streams
+
 ```
 ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/price/{pair}
 ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
@@ -162,6 +183,7 @@ ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
 ### Website Update
 
 #### New Features
+
 - **Responsive Design**: Mobile-first approach with Tailwind CSS
 - **Blockchain Explorer**: Real-time block and transaction visualization
 - **Network Dashboard**: Live node status and network health metrics
@@ -170,12 +192,14 @@ ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
 - **Developer Portal**: Quick start guides and tutorials
 
 #### Technical Stack
+
 - Frontend: React 18, TypeScript, Tailwind CSS
 - Backend: FastAPI, WebSocket support
 - Visualization: D3.js, Chart.js
 - Deployment: Static site with CDN
 
 #### Website Sections
+
 - Home: Project overview and quick links
 - Explorer: Block explorer with search and filters
 - Exchange: ETH-AIT swap interface
@@ -187,6 +211,7 @@ ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
 ### CLI Commands
 
 #### Exchange Commands
+
 ```bash
 # Deposit ETH
 aitbc exchange deposit --chain ethereum --amount 0.1
@@ -217,12 +242,14 @@ aitbc exchange history --chain ethereum
 ### v0.4.8 → v0.4.9
 
 1. **Deploy Bridge Contract**
+
    ```bash
    # Deploy on Ethereum
    aitbc exchange deploy-bridge --chain ethereum
    ```
 
 2. **Configure Exchange Service**
+
    ```bash
    # /etc/aitbc/exchange.env
    EXCHANGE_ENABLED=true
@@ -232,11 +259,13 @@ aitbc exchange history --chain ethereum
    ```
 
 3. **Start Exchange Service**
+
    ```bash
    systemctl start aitbc-exchange-api
    ```
 
 4. **Update CLI Usage**
+
    ```bash
    # Deposit ETH
    aitbc exchange deposit --chain ethereum --amount 0.1
@@ -253,6 +282,7 @@ aitbc exchange history --chain ethereum
 ## 🧪 Testing
 
 ### ETH-AIT Exchange Testing
+
 - ✅ ETH to AIT swapping
 - ✅ Bridge contract deployment on Ethereum
 - ✅ Bridge transaction monitoring
@@ -260,6 +290,7 @@ aitbc exchange history --chain ethereum
 - ✅ AIT minting/burning
 
 ### Exchange API Testing
+
 - ✅ REST API endpoints
 - ✅ WebSocket streams
 - ✅ Price feeds (ETH-AIT)
@@ -267,6 +298,7 @@ aitbc exchange history --chain ethereum
 - ✅ Transaction history
 
 ### Website Testing
+
 - ✅ Responsive design on mobile/tablet/desktop
 - ✅ Blockchain explorer functionality
 - ✅ Real-time data updates
@@ -274,6 +306,7 @@ aitbc exchange history --chain ethereum
 - ✅ API documentation interactivity
 
 ### Test Coverage
+
 - ETH-AIT exchange: 90%
 - Exchange API: 90%
 - Bridge operations: 85%
@@ -291,6 +324,7 @@ aitbc exchange history --chain ethereum
 ## 🚀 Dependencies
 
 ### New Dependencies
+
 - Web3.py (blockchain interaction)
 - Ethers.js (bridge contract interaction)
 - Chainlink (price feeds)
@@ -300,6 +334,7 @@ aitbc exchange history --chain ethereum
 - D3.js (data visualization)
 
 ### Updated Dependencies
+
 - Exchange service v0.4.9+
 - Software marketplace v0.4.9+
 - Escrow service v0.4.9+
@@ -328,6 +363,7 @@ aitbc exchange history --chain ethereum
 - **Real-time updates**: WebSocket for live data
 
 ### Performance Metrics
+
 - Swap latency: <30s (ETH → AIT)
 - Bridge transaction: <2min confirmation
 - API response: <100ms
@@ -349,6 +385,7 @@ aitbc exchange history --chain ethereum
 ## 🚀 Next Steps
 
 ### v0.5.0 Planning
+
 - Additional chain support (Polygon, Arbitrum)
 - Advanced AMM features (concentrated liquidity)
 - Cross-chain arbitrage bots
@@ -356,6 +393,7 @@ aitbc exchange history --chain ethereum
 - Website mobile app (React Native)
 
 ### v0.5.1 Planning
+
 - BTC bridge support
 - Decentralized exchange (DEX) full implementation
 - Cross-chain governance

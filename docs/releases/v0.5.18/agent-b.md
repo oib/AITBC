@@ -8,6 +8,7 @@
 **Scope**: Update the 16 stale/infra test files to current APIs and apply Agent A's markers. No production source changes.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```

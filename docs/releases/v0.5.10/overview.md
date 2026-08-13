@@ -12,6 +12,7 @@ This is the step-by-step runbook for migrating the **hub node** to v0.5.10. The 
 > **Breaking change.** All nodes must run v0.5.10 code. A node still on v0.5.9 will reject fee=36 transactions and vice versa.
 
 > **Lessons learned.** This runbook was updated after the actual migration on 2026-06-23. Key findings:
+>
 > - **Hub has more services than expected** — `aitbc-blockchain-rpc` is a separate service from `aitbc-blockchain-node` and must be stopped/restarted too. See Step 2 and Step 8.
 > - **Follower nodes must wipe chain.db** — flushing Redis alone is not enough. The local DB has stale pre-fork data and the node will think it's "up to date" by comparing against itself. See Follower Node Instructions.
 > - **Follower `default_peer_rpc_url` must point to the hub** — if it points to `localhost`, the follower syncs from itself and never receives the migrated state. See Follower Node Instructions.
@@ -31,6 +32,7 @@ This migration runbook has been split into topic-focused files:
 ## Quick Navigation
 
 ### Pre-flight Checks
+
 - [P1. Code is deployed](./pre-flight-checks.md#p1-code-is-deployed)
 - [P2. Services are currently running](./pre-flight-checks.md#p2-services-are-currently-running)
 - [P3. Database is accessible and has data](./pre-flight-checks.md#p3-database-is-accessible-and-has-data)
@@ -40,6 +42,7 @@ This migration runbook has been split into topic-focused files:
 - [P7. Notify follower operators](./pre-flight-checks.md#p7-notify-follower-operators)
 
 ### Migration Steps
+
 - [Step 1. Announce maintenance start](./migration-steps.md#step-1-announce-maintenance-start)
 - [Step 2. Stop all services](./migration-steps.md#step-2-stop-all-services)
 - [Step 3. Manual backup](./migration-steps.md#step-3-manual-backup-in-addition-to-script-backup)
@@ -50,6 +53,7 @@ This migration runbook has been split into topic-focused files:
 - [Step 8. Verify post-migration state](./migration-steps.md#step-8-verify-post-migration-state)
 
 ### Related Topics
+
 - [Follower Instructions](./follower-instructions.md) - Follower node procedures
 - [Troubleshooting](./troubleshooting.md) - Common issues and solutions
 - [Rollback](./rollback.md) - Rollback procedures

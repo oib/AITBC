@@ -11,6 +11,7 @@
 AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy expansion to additional apps using parallel agent execution. This release builds on v0.4.18's success with coordinator-api MyPy clean and agent-coordinator's near-clean state (1 error), shifting focus to test coverage (primary goal) and MyPy expansion to pool-hub, edge, and agent-management (secondary goal).
 
 **Note:** This is part of the three-phase type safety graduation plan:
+
 - Phase 1 (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
 - Phase 2 (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ✅ COMPLETE
   - v0.4.18: coordinator-api and agent-coordinator MyPy clean ✅
@@ -23,6 +24,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ### v0.4.18 Baseline
 
 **Completed:**
+
 - ✅ coordinator-api: 0 MyPy errors (360 files checked, 148 excluded by config)
 - ✅ agent-coordinator: 0 MyPy errors (49 source files)
 - ✅ Ruff G004: 0 errors (all logging f-strings converted)
@@ -30,6 +32,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - ⚠️ Test coverage: 16.68% (fails 20% gate)
 
 **Remaining Issues:**
+
 - Test coverage below 20% gate (needs +3.32% minimum)
 - Per-file ignores by app (verified):
   - coordinator-api: 81 files
@@ -45,10 +48,12 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ### v0.4.19 Targets
 
 **Primary Goal (Agent 1):**
+
 - Test coverage: ≥20% (passes gate)
 - Target modules: communication, load_balancer, config, auth, consensus, routers
 
 **Secondary Goal (Agent 2):**
+
 - MyPy clean for at least 1 additional app (edge preferred)
 - MyPy investigation complete for pool-hub, edge, agent-management
 - Reduced per-file ignore count
@@ -62,6 +67,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 **Focus:** High-impact, low-effort modules in agent-coordinator
 
 **Phase 1: Quick Wins (Week 1)**
+
 - [x] Create `tests/agent/test_load_balancer.py` - Load balancing tests (20 tests)
   - Test LoadMetrics, TaskAssignment, AgentWeight dataclasses
   - Test LoadBalancer initialization and strategy setting
@@ -80,6 +86,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - [x] Run coverage report to verify +2-3% gain (achieved +6.74%)
 
 **Phase 2: Medium Effort (Week 2)**
+
 - [x] Create `tests/agent/test_alerting.py` - Alerting tests (14 tests)
   - Test AlertSeverity, AlertStatus, NotificationChannel enums
   - Test Alert, AlertRule dataclasses
@@ -99,10 +106,12 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - [x] Run coverage report to verify +1-2% gain (achieved +2.42%)
 
 **Phase 3: Final Push (Week 3, if needed)**
+
 - [x] Run full test suite to verify ≥20% coverage (achieved 23.42%)
 - [x] Update RELEASE_v0.4.19.md with coverage results (in progress)
 
 **Final Coverage Results:**
+
 - Starting coverage: 16.71% (fails 20% gate)
 - Final coverage: 23.42% (passes 20% gate)
 - Improvement: +6.71%
@@ -116,6 +125,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
   - test_routers_ai.py: 6 tests
 
 **Success Criteria for Agent 1:**
+
 - ✅ Test coverage ≥ 20% (passes gate)
 - ✅ All existing tests still pass (276+ tests)
 - ✅ New tests are maintainable and well-documented
@@ -128,6 +138,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 **Focus:** pool-hub, edge, agent-management (defer wallet, hermes, blockchain-node)
 
 **Phase 1: Investigation (Week 1)**
+
 - [x] Investigate pool-hub (17 per-file ignores)
   - Run `mypy apps/pool-hub/src` with current config
   - Document actual error count and types
@@ -146,6 +157,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - [x] Create investigation report with recommendations
 
 **Investigation Results (Verified):**
+
 - **hermes:** 1 file with per-file ignore - FIXED ✅
   - Removed per-file ignore
   - Added type: ignore for relative import (mypy can't resolve relative imports without full project context)
@@ -167,6 +179,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
   - Higher complexity, requires more investigation
 
 **Phase 2: Fixes (Week 2)**
+
 - [x] Fix MyPy errors in hermes (smallest scope) - COMPLETED ✅
   - Removed per-file ignore from ai_approval.py
   - Added type: ignore for relative import
@@ -208,12 +221,14 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - [ ] Run full MyPy check on all apps to verify no regressions
 
 **Phase 3: Documentation (Week 3)**
+
 - [x] Update TYPE_CHECKING_GUIDE.md with v0.4.19 progress
 - [x] Update per-file ignore counts in documentation
 - [x] Document any patterns discovered during fixes
 - [x] Update RELEASE_v0.4.19.md with MyPy results
 
 **Success Criteria for Agent 2:**
+
 - ✅ MyPy investigation complete for pool-hub, edge, agent-management, wallet
 - ✅ Removed per-file ignores from 5 additional apps (hermes, edge, pool-hub, wallet, agent-management) - ACHIEVED
 - ✅ Documentation updated with findings
@@ -222,16 +237,19 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ## 🤝 Coordination Between Agents
 
 **Independent Work:**
+
 - Agent 1 and Agent 2 work in parallel on separate goals
 - No dependencies between test coverage and MyPy expansion
 - Both agents can commit to git independently
 
 **Weekly Sync Points:**
+
 - End of Week 1: Share progress, adjust priorities if needed
 - End of Week 2: Verify no conflicts, prepare for final push
 - End of Week 3: Final integration and release notes
 
 **Git Workflow:**
+
 - Each agent works on separate branches: `feature/test-coverage-v0.4.19`, `feature/mypy-expansion-v0.4.19`
 - Merge to main after completion
 - No merge conflicts expected (different file areas)
@@ -239,6 +257,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ## 🔧 Files Changed
 
 ### Test Files (Agent 1)
+
 - `tests/agent/test_load_balancer.py` - Load balancing tests (20 tests)
 - `tests/agent/test_agent_stream.py` - WebSocket tests (7 tests)
 - `tests/agent/test_orchestrator.py` - Workflow tests (13 tests)
@@ -248,6 +267,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - `tests/agent/test_routers_ai.py` - AI router tests (6 tests)
 
 ### MyPy Fixes (Agent 2)
+
 - `apps/hermes/src/hermes_service/handlers/strategies/ai_approval.py` - Removed per-file ignore, added type: ignore for relative import
 - `apps/edge/src/aitbc_edge/routers/gpu.py` - Removed per-file ignore, added return type annotations, type: ignore for FastAPI decorators
 - `apps/edge/src/aitbc_edge/routers/serve.py` - Removed per-file ignore, added return type annotations, type: ignore for FastAPI decorators
@@ -272,12 +292,14 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - `apps/agent-management/src/app/routers/services.py` - Removed per-file ignore, added type annotation to validation_result, type: ignore for relative imports
 
 ### Documentation
+
 - `docs/development/TYPE_CHECKING_GUIDE.md` - Update with v0.4.19 progress
 - `docs/releases/RELEASE_v0.4.19.md` - This file
 
 ### Patterns Discovered During MyPy Fixes
 
 **Common Type Issues:**
+
 1. **Missing return type annotations** - Most functions lacked explicit return type annotations
 2. **Relative import resolution** - Many internal relative imports require `type: ignore[import-not-found]`
 3. **FastAPI decorator typing** - FastAPI route handlers often need `type: ignore` for decorator interactions
@@ -285,6 +307,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 5. **Any returns from typed functions** - Functions returning `Any` from typed functions need `type: ignore[no-any-return]`
 
 **Fix Strategies:**
+
 1. **Return type annotations** - Add explicit return types (e.g., `-> dict`, `-> list`, `-> bool`)
 2. **Specific type ignores** - Use specific error codes instead of per-file ignores
 3. **Circular imports** - Use `Any` type hint to break circular dependencies
@@ -294,6 +317,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ## 📈 Impact Summary
 
 ### Type Safety Improvements
+
 - ✅ Removed per-file ignores from hermes (1 file, 25 MyPy errors remain)
 - ✅ Removed per-file ignores from edge (6 files, 30 MyPy errors remain)
 - ✅ Removed per-file ignores from pool-hub (16 files, 92 MyPy errors remain)
@@ -304,12 +328,14 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - Reduced per-file ignore count by 22 files (hermes: 1, edge: 6, pool-hub: 16, wallet: 8, agent-management: 1)
 
 ### Code Quality
+
 - ✅ Test coverage: 23.42% (passes 20% gate, up from 16.71%)
 - ✅ Better test coverage on critical modules (load_balancer, orchestrator, alerting, ai modules)
 - ✅ Improved test maintainability (79 new tests across 7 test files)
 - ✅ Function signature improvements in hermes and edge (7 files)
 
 ### Backward Compatibility
+
 - 100% backward compatible
 - No breaking changes
 - Runtime behavior unchanged
@@ -317,6 +343,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 ## 🎯 Success Criteria
 
 ### Minimum Viable v0.4.19
+
 - ✅ Test coverage ≥20% (achieved 23.42%)
 - ✅ All existing tests still pass
 - ✅ Removed per-file ignores from 5 additional apps (hermes, edge, pool-hub, wallet, agent-management)
@@ -324,6 +351,7 @@ AITBC v0.4.19 focuses on test coverage improvement to pass the 20% gate and MyPy
 - ✅ Documentation updated
 
 ### Stretch Goals
+
 - ✅ Test coverage ≥ 22% (achieved 23.42%)
 - MyPy clean for pool-hub - 92 errors remain
 - MyPy clean for agent-management - 1 per-file ignore remains

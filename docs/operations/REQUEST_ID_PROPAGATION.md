@@ -13,6 +13,7 @@ Request ID propagation is not currently implemented in the AITBC codebase. The c
 ### 1. Add Request ID Middleware
 
 Create a middleware that:
+
 - Generates a UUID for each incoming request if X-Request-ID header is not present
 - Uses the existing X-Request-ID header if present
 - Adds the request_id to the logging context
@@ -21,6 +22,7 @@ Create a middleware that:
 ### 2. Forward Request ID to Outbound Calls
 
 Update outbound call sites to:
+
 - Include X-Request-ID header in HTTP requests
 - Include request_id in Redis operations
 - Include request_id in blockchain RPC calls
@@ -28,6 +30,7 @@ Update outbound call sites to:
 ### 3. Integration Points
 
 Key integration points:
+
 - Blockchain RPC calls (apps/blockchain-node)
 - Redis operations (RedisStateManager)
 - HTTP client calls (AITBCHTTPClient)
@@ -83,6 +86,7 @@ async def make_blockchain_rpc(request_id: str, method: str, params: list):
 ## Priority
 
 This is a medium-priority enhancement that should be implemented:
+
 - After v0.5.0 release
 - Before v0.6.0 release
 - As part of observability depth improvements

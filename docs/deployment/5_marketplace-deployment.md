@@ -4,7 +4,8 @@
 
 ## ✅ Successfully Deployed to Remote Server (aitbc-cascade)
 
-### What was deployed:
+### What was deployed
+
 1. **New router file**: `/opt/coordinator-api/src/app/routers/marketplace_gpu.py`
    - 9 GPU-specific endpoints implemented
    - In-memory storage for quick testing
@@ -15,7 +16,8 @@
    - Added router to main app with `/v1` prefix
    - Service restarted successfully
 
-### Available Endpoints:
+### Available Endpoints
+
 - `POST /v1/marketplace/gpu/register` - Register GPU
 - `GET /v1/marketplace/gpu/list` - List GPUs
 - `GET /v1/marketplace/gpu/{gpu_id}` - Get GPU details
@@ -26,7 +28,8 @@
 - `GET /v1/marketplace/orders` - List orders
 - `GET /v1/marketplace/pricing/{model}` - Get pricing
 
-### Test Results:
+### Test Results
+
 1. **GPU Registration**: ✅
    - Successfully registered RTX 4060 Ti (16GB)
    - GPU ID: gpu_001
@@ -45,24 +48,28 @@
    - Orders tracked
    - Status: active
 
-### Current GPU Inventory:
+### Current GPU Inventory
+
 1. RTX 4090 (24GB) - $0.50/hr - Available
 2. RTX 3080 (16GB) - $0.35/hr - Available
 3. A100 (40GB) - $1.20/hr - Booked
 4. **RTX 4060 Ti (16GB) - $0.30/hr - Available** (newly registered)
 
-### Service Status:
+### Service Status
+
 - Coordinator API: Running on port 8203
 - Service: active (running)
 - Last restart: Feb 12, 2026 at 16:14:11 UTC
 
-### Next Steps:
+### Next Steps
+
 1. Update CLI to use remote server URL (http://aitbc-cascade:8203)
 2. Test full CLI workflow against remote server
 3. Consider persistent storage implementation
 4. Add authentication/authorization for production
 
-### Notes:
+### Notes
+
 - Current implementation uses in-memory storage
 - Data resets on service restart
 - No authentication required (test API key works)

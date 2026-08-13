@@ -12,6 +12,7 @@
 **Prerequisite**: Agent B must commit v0.7.0 work (currently uncommitted in working tree) before starting v0.7.1.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/config.py apps/blockchain-node/src/aitbc_chain/base_models.py apps/blockchain-node/src/aitbc_chain/consensus/poa.py apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py apps/blockchain-node/src/aitbc_chain/rpc/bridge.py cli/aitbc_cli/commands/bridge.py aitbc/constants.py
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v071_bridge_security.py -q -o addopts="" --timeout=30
@@ -43,6 +44,7 @@ Create `docs/architecture/bridge-threat-model.md` — see Phase 0 section in ove
 ## B2: Bridge Security Config + Constants
 
 In `aitbc/constants.py`, add:
+
 ```python
 # Bridge multi-sig defaults (v0.7.1)
 BRIDGE_MULTISIG_DEFAULT_THRESHOLD = 3    # M-of-N: minimum signatures
@@ -53,6 +55,7 @@ BRIDGE_BLOCK_SIGNATURE_REQUIRED = True   # require block header signatures
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/config.py`, add to `ChainSettings` (near existing `bridge_release_enabled` at line 285):
+
 ```python
     # Bridge multi-sig configuration (v0.7.1)
     bridge_multisig_enabled: bool = False          # require multi-sig for confirm
@@ -68,6 +71,7 @@ In `apps/blockchain-node/src/aitbc_chain/config.py`, add to `ChainSettings` (nea
 ## B3: Block Header Signatures
 
 In `apps/blockchain-node/src/aitbc_chain/base_models.py`, add `signature` field to `Block` model (line 25-76):
+
 ```python
     # Block header signature (v0.7.1) — secp256k1 signature over the block hash
     # by the proposer. Empty for legacy blocks (pre-v0.7.1). Verified by PoA
@@ -76,6 +80,7 @@ In `apps/blockchain-node/src/aitbc_chain/base_models.py`, add `signature` field 
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
+
 - On block proposal: sign the block hash with the proposer's private key, set `block.signature`
 - On block validation: when `bridge_block_signature_required=True`, verify `block.signature` recovers to `block.proposer` using `aitbc.crypto.crypto.recover_signer()`
 - Backward compatibility: if `block.signature == ""`, skip verification (legacy block)
@@ -87,6 +92,7 @@ In `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
 ## B4: BridgeValidator SQLModel Table
 
 Create a `BridgeValidator` SQLModel table for persisting validator registrations:
+
 ```python
 class BridgeValidator(SQLModel, table=True):
     """Bridge validator registration (v0.7.1)."""

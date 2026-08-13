@@ -30,10 +30,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [ExternalOracleClient](./agent-a.md#a1-externaloracleclient)
@@ -43,6 +45,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a5-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Oracle Config](./agent-b.md#b1-oracle-config)
@@ -117,6 +120,7 @@ This release documentation has been split into topic-focused files:
 **Prerequisite**: v0.7.2 Agent A ✅, v0.7.3 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ aitbc/governance/ && ./venv/bin/python -m ruff check aitbc/bridge/ aitbc/governance/ tests/unit/test_v074_deferred.py && ./venv/bin/python -m pytest tests/unit/test_v074_deferred.py -q -o addopts=""
 ```
@@ -136,6 +140,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ aitb
 #### A1: ExternalOracleClient
 
 Extend `aitbc/bridge/oracle.py:228-262`:
+
 - Replace `NotImplementedError` in `verify_proof()` with external oracle API call (httpx)
 - Replace `NotImplementedError` in `check_finality()` with external oracle API call
 - Add `__init__(endpoints: list[str], timeout: int = 30)` — takes oracle endpoints
@@ -144,6 +149,7 @@ Extend `aitbc/bridge/oracle.py:228-262`:
 #### A2: Oracle Fallback Policy
 
 Add to `aitbc/bridge/oracle.py` or `aitbc/bridge/proof.py`:
+
 - `OracleFallbackPolicy` class — manages oracle → in-process fallback
 - `verify_with_fallback()` — try oracle first, fall back to in-process on failure
 - Health check loop — periodically check oracle health
@@ -152,10 +158,12 @@ Add to `aitbc/bridge/oracle.py` or `aitbc/bridge/proof.py`:
 #### A3: Cross-Chain Governance Utilities
 
 Extend `aitbc/governance/onchain.py`:
+
 - `build_proposal_propagation_tx(proposal_data, target_chain)` — bridge tx to propagate proposal
 - `build_vote_aggregation_tx(votes, source_chain)` — bridge tx to aggregate votes
 
 Extend `aitbc/governance/client.py`:
+
 - `propagate_proposal(proposal_id, target_chains)` — propagate proposal to islands
 - `aggregate_votes(proposal_id)` — aggregate votes from all chains
 - `execute_cross_chain(proposal_id)` — execute on all chains after approval
@@ -163,6 +171,7 @@ Extend `aitbc/governance/client.py`:
 #### A4: Parameter Change Execution
 
 Extend `aitbc/governance/onchain.py`:
+
 - `build_parameter_apply_tx(parameter_change)` — tx to apply parameter change to target service
 - `validate_parameter_change(parameter_change, target_service_config)` — validate before applying
 
@@ -181,6 +190,7 @@ Extend `aitbc/governance/onchain.py`:
 **Prerequisite**: Agent A A1-A4 complete. v0.7.3 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/governance/src/ apps/pool-hub/src/ apps/blockchain-node/src/aitbc_chain/consensus/ cli/aitbc_cli/commands/governance.py
 cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytest apps/governance/tests/test_v074_deferred.py -q -o addopts="" --timeout=30
@@ -205,6 +215,7 @@ cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytes
 #### B1: Oracle Config
 
 Add to `apps/blockchain-node/src/aitbc_chain/config.py`:
+
 ```python
 bridge_oracle_endpoints: list[str] = []  # External oracle endpoints
 bridge_verification_mode: str = "in_process"  # "in_process" or "oracle"
@@ -214,6 +225,7 @@ bridge_oracle_health_check_interval: int = 60  # seconds
 #### B2: Cross-Chain Governance Endpoints
 
 Add to `apps/governance/src/governance_service/main.py`:
+
 - `POST /v1/governance/proposals/{id}/propagate` — propagate proposal to all chains
 - `POST /v1/governance/proposals/{id}/aggregate-votes` — aggregate votes from all chains
 - `POST /v1/governance/proposals/{id}/execute-cross-chain` — execute on all chains
@@ -223,6 +235,7 @@ Use Agent A's `propagate_proposal()`, `aggregate_votes()`, `execute_cross_chain(
 #### B3: Pool-Hub Parameter API
 
 Add governance-triggered parameter change endpoint to pool-hub:
+
 - `POST /v1/poolhub/parameters/apply` — apply governance-approved parameter change
 - Validate: parameter change must have approved proposal ID
 - Apply: update service config based on ParameterChangeSchema
@@ -230,11 +243,13 @@ Add governance-triggered parameter change endpoint to pool-hub:
 #### B4: Marketplace Parameter API
 
 Add governance-triggered parameter change endpoint to marketplace:
+
 - `POST /v1/marketplace/parameters/apply` — apply governance-approved parameter change
 
 #### B5: Emergency Proposal Handling
 
 Extend `apps/governance/src/governance_service/services/governance_service.py`:
+
 - In `create_proposal()`: if type == EMERGENCY, set accelerated timelock (4h instead of 48h)
 - In `execute_proposal()`: if type == EMERGENCY, enforce 80% quorum, allow fast-track execution
 - Add `emergency_timelock_blocks` config (default: 7200 = 4h at 2s block time)
@@ -242,6 +257,7 @@ Extend `apps/governance/src/governance_service/services/governance_service.py`:
 #### B6: Coordinator-API Bridge Integration
 
 Refactor `apps/coordinator-api/src/app/contexts/cross_chain/`:
+
 - Replace `CrossChainBridgeService` with `aitbc.bridge.BridgeClient`
 - Route bridge requests through blockchain-node bridge RPC
 - Remove duplicate bridge implementation
@@ -252,6 +268,7 @@ Refactor `apps/coordinator-api/src/app/contexts/cross_chain/`:
 ⛔ **Security review complete — DO NOT ACTIVATE in v0.7.4.** See [security-review-multivalidator-poa.md](security-review-multivalidator-poa.md).
 
 The review found 6 Critical + 6 High findings:
+
 - No block signature verification (trivial forgery)
 - No slashing (Byzantine validators face no penalty)
 - No validator rotation (header requires it, not implemented)
@@ -266,19 +283,23 @@ See the security review doc for the full gating criteria checklist.
 #### B8: CLI Commands
 
 Add to `cli/aitbc_cli/commands/governance.py`:
+
 - `aitbc governance propagate --proposal-id <id>` — propagate proposal
 - `aitbc governance aggregate-votes --proposal-id <id>` — aggregate votes
 
 Add to `cli/aitbc_cli/commands/bridge.py`:
+
 - `aitbc bridge oracle-status` — oracle health + fallback status
 
 Add to `cli/aitbc_cli/commands/chain.py`:
+
 - `aitbc consensus validators` — list active validators
 - `aitbc consensus status` — show consensus mode
 
 #### B9: Integration Tests
 
 `apps/governance/tests/test_v074_deferred.py` — tests for:
+
 - Cross-chain proposal propagation
 - Vote aggregation
 - Parameter automation (pool-hub + marketplace)
@@ -327,20 +348,24 @@ v0.7.3 (governance SDK) ✅ Agent A
 ### Phasing Recommendation
 
 **Phase 1 (low-risk, ship first)**:
+
 - A4: Parameter change execution helper
 - B3: Pool-hub parameter API
 - B4: Marketplace parameter API
 - B5: Emergency proposal handling
 
 **Phase 2 (medium-risk)**:
+
 - A3: Cross-chain governance utilities
 - B2: Cross-chain governance endpoints
 - B8: CLI commands (governance propagate, aggregate-votes)
 
 **Phase 3 (higher-risk, ship later)**:
+
 - A1-A2: External oracle + fallback policy
 - B1: Oracle config
 - B6: Coordinator-api bridge integration
 
 **Phase 4 (highest-risk, gated on security review)**:
+
 - B7: MultiValidatorPoA activation

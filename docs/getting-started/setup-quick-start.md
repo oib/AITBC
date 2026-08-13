@@ -76,14 +76,17 @@ Each profile installs different dependency sets:
 During setup, you will be prompted to configure two independent axes that determine which services run:
 
 ### Axis 1: Blockchain Mode (`BLOCKCHAIN_MODE`)
+
 - **follower** (default) - Receives blocks from hub, runs periodic sync
 - **hub** - Produces and broadcasts blocks, runs lease tracker for subscription system
 
 ### Axis 2: Market Role (`MARKET_ROLE`)
+
 - **customer** (default) - Consumes GPU resources
 - **shop** - Provides GPU resources to the marketplace
 
 ### Hardware Profile (`HARDWARE_PROFILE`)
+
 - **nogpu** (default) - No GPU available
 - **gpu** - GPU available for compute
 

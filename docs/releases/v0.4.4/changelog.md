@@ -11,6 +11,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 ## 🎯 Release Highlights
 
 ### Port Architecture Reorganization
+
 - ✅ Blockchain RPC port updated from 8006 to 8202
 - ✅ Blockchain P2P port updated from 7070 to 8200
 - ✅ Agent Coordinator port updated from 8011 to 8107
@@ -22,6 +23,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 - ✅ SERVICE_PORTS.md updated as authoritative reference
 
 ### Microservices Consolidation
+
 - ✅ GPU service microservice removed
 - ✅ GPU functionality consolidated back to monolithic architecture
 - ✅ GPU registration via blockchain transactions (GPU_REGISTER)
@@ -29,6 +31,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 - ✅ GPU service directory and systemd definitions removed
 
 ### Wallet Daemon Enhancements
+
 - ✅ Balance endpoint added to wallet daemon REST API
 - ✅ Genesis wallet auto-import from node.env on startup
 - ✅ Wallet metadata merging improvements
@@ -36,6 +39,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 - ✅ CLI balance command prioritizes wallet daemon queries
 
 ### Hermes Messaging Updates
+
 - ✅ Port updated to 8103
 - ✅ Message endpoints updated to /api/v1/agent/messages
 - ✅ Database path fixes with environment variable loading
@@ -43,6 +47,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 - ✅ Polling daemon endpoint updates
 
 ### Agent Coordinator Integration
+
 - ✅ Port standardized to 8107
 - ✅ Agent messaging router added
 - ✅ Hermes integration for message handling
@@ -50,6 +55,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 - ✅ Microservices migration documentation updated
 
 ### Environment Configuration
+
 - ✅ blockchain.env for blockchain-specific settings
 - ✅ node.env for node-specific settings
 - ✅ Environment variable loading before module imports
@@ -57,6 +63,7 @@ AITBC v0.4.4 introduces a comprehensive infrastructure reorganization with port 
 - ✅ HERMES_DB_PATH configuration support
 
 ### Blockchain RPC Updates
+
 - ✅ /height endpoint added for block height queries
 - ✅ /network-info endpoint for network discovery
 - ✅ /force-sync endpoint for manual sync triggering
@@ -91,6 +98,7 @@ For detailed information on each topic, see the topic-specific documents:
 ### v0.4.3 → v0.4.4
 
 1. **Update Port Configurations**
+
    ```bash
    # Update blockchain RPC URL
    sed -i 's/:8006/:8202/g' /etc/aitbc/blockchain.env
@@ -102,6 +110,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 2. **Create Environment Files**
+
    ```bash
    # Create blockchain.env
    cat > /etc/aitbc/blockchain.env << EOF
@@ -120,6 +129,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 3. **Migrate GPU Registrations**
+
    ```bash
    # Export existing GPU registrations from local database
    aitbc gpu export > gpu_registrations.json
@@ -129,6 +139,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 4. **Stop GPU Service**
+
    ```bash
    systemctl stop aitbc-gpu-service
    systemctl disable aitbc-gpu-service
@@ -136,6 +147,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 5. **Update Systemd Services**
+
    ```bash
    # Reload systemd to pick up new service configurations
    systemctl daemon-reload
@@ -148,6 +160,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 6. **Update CLI Configuration**
+
    ```bash
    # Update CLI config with new ports
    aitbc config set blockchain_rpc_url http://localhost:8202
@@ -155,6 +168,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 7. **Verify Migration**
+
    ```bash
    # Check blockchain RPC
    curl http://localhost:8202/height
@@ -172,6 +186,7 @@ For detailed information on each topic, see the topic-specific documents:
 ## 🧪 Testing
 
 ### Port Migration Testing
+
 - ✅ Blockchain RPC accessible on port 8202
 - ✅ Blockchain P2P accessible on port 8200
 - ✅ Agent Coordinator accessible on port 8107
@@ -179,36 +194,42 @@ For detailed information on each topic, see the topic-specific documents:
 - ✅ All services respond to health checks
 
 ### GPU Consolidation Testing
+
 - ✅ GPU registration via blockchain transactions
 - ✅ GPU_REGISTER transaction payload validation
 - ✅ Dual storage (blockchain + local database)
 - ✅ GPU service removal verified
 
 ### Wallet Daemon Testing
+
 - ✅ Balance endpoint returns correct balance
 - ✅ Genesis wallet auto-import on startup
 - ✅ Metadata merging with non-dict types
 - ✅ CLI balance command uses wallet daemon
 
 ### Hermes Messaging Testing
+
 - ✅ Message send via /api/v1/agent/messages
 - ✅ Message poll via /api/v1/agent/messages
 - ✅ Database path configuration via HERMES_DB_PATH
 - ✅ Agent Coordinator integration
 
 ### Environment Configuration Testing
+
 - ✅ blockchain.env loaded correctly
 - ✅ node.env loaded correctly
 - ✅ Environment variables available before imports
 - ✅ Genesis wallet imported from node.env
 
 ### Blockchain RPC Testing
+
 - ✅ /height endpoint returns block height
 - ✅ /network-info endpoint returns network info
 - ✅ /force-sync triggers manual sync
 - ✅ GPU_REGISTER transaction submission
 
 ### Test Coverage
+
 - Port migration: 100%
 - GPU consolidation: 95%
 - Wallet daemon: 90%
@@ -227,9 +248,11 @@ For detailed information on each topic, see the topic-specific documents:
 ## 🚀 Dependencies
 
 ### Removed Dependencies
+
 - GPU service dependencies (consolidated to monolith)
 
 ### Updated Dependencies
+
 - Blockchain node v0.4.4+
 - CLI v0.4.4+
 - Wallet daemon v0.4.4+
@@ -253,6 +276,7 @@ For detailed information on each topic, see the topic-specific documents:
 - **Environment loading**: Faster startup with pre-loaded configuration
 
 ### Performance Metrics
+
 - Wallet balance query: <50ms (vs 200ms direct RPC)
 - GPU registration: <500ms (blockchain transaction)
 - Service startup: <30% faster with environment pre-loading
@@ -274,6 +298,7 @@ For detailed information on each topic, see the topic-specific documents:
 ## 🚀 Next Steps
 
 ### v0.5.1 Planning
+
 - Inter-chain trading (AITBC-to-AITBC)
 - External exchange (BTC/ETH → AIT)
 - Governance service integration

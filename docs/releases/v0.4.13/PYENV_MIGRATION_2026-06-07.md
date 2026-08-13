@@ -12,12 +12,14 @@ The AITBC project attempted migration from a system-linked virtual environment t
 ## Migration Summary
 
 ### Before Migration
+
 - **Python Version**: 3.13.5 (system-linked)
 - **Virtual Environment**: `/opt/aitbc/venv` (linked to `/usr/bin/python3`)
 - **Dependency Management**: System package manager
 - **Stability**: Affected by system updates
 
 ### After Migration (Final)
+
 - **Python Version**: 3.13.5 (system-linked)
 - **Virtual Environment**: `/opt/aitbc/venv` (system venv)
 - **Dependency Management**: pip + updated dependencies
@@ -25,6 +27,7 @@ The AITBC project attempted migration from a system-linked virtual environment t
 - **Security**: 0 vulnerabilities (pnpm migration retained)
 
 ### Issues Encountered
+
 - **Systemd Compatibility**: pyenv symlink structure caused systemd to fail with "Unable to locate executable"
 - **Service Failures**: Multiple services (aitbc-blockchain-node, aitbc-api-gateway) failed to start
 - **User Configuration**: aitbc-api-gateway.service referenced non-existent user 'aitbc'
@@ -33,6 +36,7 @@ The AITBC project attempted migration from a system-linked virtual environment t
 ## Migration Steps Completed
 
 ### 1. Installed pyenv ✅
+
 ```bash
 curl https://pyenv.run | bash
 export PYENV_ROOT="$HOME/.pyenv"
@@ -41,11 +45,13 @@ eval "$(pyenv init - bash)"
 ```
 
 ### 2. Installed Python 3.13.13 via pyenv ✅
+
 ```bash
 pyenv install 3.13.13
 ```
 
 ### 3. Created New Independent venv ✅ (Later reverted)
+
 ```bash
 # Backed up old venv
 mv /opt/aitbc/venv /opt/aitbc/venv.backup
@@ -55,6 +61,7 @@ $HOME/.pyenv/versions/3.13.13/bin/python -m venv /opt/aitbc/venv
 ```
 
 ### 4. Migrated Dependencies ✅
+
 ```bash
 # Updated pip and installed poetry
 /opt/aitbc/venv/bin/pip install --upgrade pip
@@ -71,17 +78,20 @@ cd /opt/aitbc
 ```
 
 ### 5. Updated Project Configuration ✅
+
 - Updated `pyproject.toml` Python version requirement
 - Updated mypy Python version to 3.13.13
 - Fixed torchvision compatibility issue
 
 ### 6. Tested New Setup ⚠️ (Systemd compatibility issues)
+
 - Verified Python version: 3.13.13 ✅
 - Tested key imports: fastapi, web3, cryptography, torch ✅
 - Verified AITBC import with poetry ✅
 - **Systemd services failed** with "Unable to locate executable" ❌
 
 ### 7. Reverted to System venv ✅
+
 ```bash
 # Stopped all services
 systemctl stop aitbc-*.service
@@ -103,12 +113,14 @@ systemctl start aitbc-*.service
 ```
 
 ### 8. Final Verification ✅
+
 - All systemd services running successfully
 - Python 3.13.5 (system-linked)
 - All dependencies installed
 - pnpm security improvements retained
 
 ### 9. pyenv Cleanup ✅
+
 ```bash
 # Stopped all services
 systemctl stop aitbc-*.service
@@ -131,18 +143,21 @@ systemctl start aitbc-*.service
 ## Benefits Achieved
 
 ### Security Improvements (Retained)
+
 - **0 vulnerabilities** in JavaScript/TypeScript dependencies (pnpm migration)
 - **Updated Python dependencies** with security patches
 - **Automated security scanning** in CI/CD workflows
 - **pyjwt upgraded** from 2.8.0 to 2.9.0
 
 ### System venv Benefits
+
 - **Systemd compatibility**: No symlink issues with systemd
 - **Stable service execution**: All services running successfully
 - **Simplified maintenance**: System-managed Python version
 - **Production reliability**: Proven configuration
 
 ### Lessons Learned
+
 - **Systemd and pyenv**: pyenv symlink structure incompatible with systemd ExecStart
 - **Service configuration**: Always verify user accounts exist in service files
 - **Migration testing**: Test systemd services before finalizing environment changes
@@ -153,6 +168,7 @@ systemctl start aitbc-*.service
 ### Using the Current venv (System-linked)
 
 #### Direct Python
+
 ```bash
 /opt/aitbc/venv/bin/python --version  # Python 3.13.5
 /opt/aitbc/venv/bin/python -c "import sys; print(sys.version)"
@@ -160,6 +176,7 @@ systemctl start aitbc-*.service
 ```
 
 #### Development
+
 ```bash
 cd /opt/aitbc
 /opt/aitbc/venv/bin/pip install -e .
@@ -167,6 +184,7 @@ cd /opt/aitbc
 ```
 
 #### Systemd Services
+
 ```bash
 systemctl status aitbc-*.service
 systemctl restart aitbc-*.service
@@ -183,6 +201,7 @@ systemctl restart aitbc-*.service
 ## Configuration Changes
 
 ### pyproject.toml
+
 ```toml
 # Python version requirement (retained for future compatibility)
 python = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"
@@ -193,7 +212,9 @@ python_version = "3.13.5"
 ```
 
 ### Service Configuration
+
 **aitbc-api-gateway.service** - Fixed user configuration:
+
 ```ini
 # Before (incorrect)
 User=aitbc
@@ -204,11 +225,13 @@ Group=root
 ```
 
 ### Environment Setup
+
 **Note**: pyenv configuration has been removed from `~/.bashrc` since pyenv was purged due to systemd incompatibility.
 
 ## Troubleshooting
 
 ### Systemd Services Not Starting
+
 ```bash
 # Check service status
 systemctl status aitbc-*.service
@@ -223,6 +246,7 @@ journalctl -u aitbc-*.service -n 50
 ```
 
 ### Dependencies Not Found
+
 ```bash
 cd /opt/aitbc
 /opt/aitbc/venv/bin/pip install -e .
@@ -230,6 +254,7 @@ cd /opt/aitbc
 ```
 
 ### Python Version Issues
+
 ```bash
 # Check current version
 /opt/aitbc/venv/bin/python --version
@@ -282,17 +307,20 @@ When new Python versions become available:
 ## Monitoring
 
 ### Check Python Version
+
 ```bash
 /opt/aitbc/venv/bin/python --version
 ```
 
 ### Check Dependencies
+
 ```bash
 cd /opt/aitbc
 /opt/aitbc/venv/bin/pip list
 ```
 
 ### Check Service Status
+
 ```bash
 systemctl status aitbc-*.service
 journalctl -u aitbc-*.service -f

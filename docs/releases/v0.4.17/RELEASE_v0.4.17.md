@@ -13,6 +13,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 **Note:** This release completes all implementable backend features. Remaining skipped tests are due to legitimate architectural decisions or test environment requirements (environment variables, test environment limitations).
 
 **MyPy Type Safety Graduation Plan:**
+
 - Phase 1 (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
 - Phase 2 (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ✅ COMPLETE
   - v0.4.18: coordinator-api MyPy clean ✅, agent-coordinator 1 error ⚠️
@@ -25,17 +26,20 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 ### ✅ Completed Fixes
 
 **Pydantic V1 → V2 Migration**
+
 - ✅ `apps/coordinator-api/src/app/contexts/staking/routers/staking.py` - Migrated `@validator` to `@field_validator` with `@classmethod`
 - ✅ `apps/coordinator-api/src/app/contexts/bounty/routers/bounty.py` - Migrated `@validator` to `@field_validator` and `@model_validator(mode='after')` for cross-field validation
 - ✅ `apps/agent-coordinator/src/app/protocols/message_types.py` - Migrated `@validator` to `@field_validator` with `@classmethod`
 
 **Redis Deprecation Fixes**
+
 - ✅ `apps/agent-coordinator/src/app/workflow/orchestrator.py` - Fixed `close()` → `aclose()` and `setex()` → `set(..., ex=...)`
 - ✅ `apps/agent-coordinator/src/app/protocols/communication.py` - Fixed `close()` → `aclose()`
 - ✅ `apps/agent-coordinator/src/app/routing/agent_discovery.py` - Fixed `close()` → `aclose()` and `setex()` → `set(..., ex=...)`
 - ✅ `apps/agent-coordinator/src/app/storage/message_storage.py` - Fixed `close()` → `aclose()` (2 instances)
 
 **Integration Test Path Prefix Fixes**
+
 - ✅ `tests/integration/test_agent_coordinator.py` - Fixed API path prefixes from `/agents/` to `/v1/agents/` and `/auth/` to `/v1/auth/`
 - ✅ Fixed swarm endpoints: added `/v1/swarm/` prefix to all swarm test calls
 - ✅ Fixed monitoring endpoints: added `/v1/metrics/` prefix to all metrics test calls
@@ -44,6 +48,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - Note: Remaining 45 failures require backend implementation (auth, messaging, load balancer, peer management)
 
 **Ruff G004 Logging Fixes**
+
 - ✅ Attempted automated fix: ruff check --fix --select G004 (auto-fix not available)
 - ✅ Added G004 back to ignore list with explanatory note (866 errors - requires manual conversion)
 - ✅ Deferred to future iteration (manual f-string to % formatting conversion needed)
@@ -51,6 +56,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 ### ⚠️ Remaining Issues
 
 **MyPy coordinator-api**
+
 - ✅ Root cause identified: mypy 2.0.0 does not support [tool.mypy.per-file-ignores] in pyproject.toml
 - ✅ Fixed by adding # mypy: ignore-errors directly to 73 coordinator-api source files
 - ✅ Removed unsupported [tool.mypy.per-file-ignores] section from pyproject.toml
@@ -58,16 +64,19 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ blockchain-node excluded via pyproject.toml pattern (^apps/(?!coordinator-api).*)
 
 **MyPy blockchain-node**
+
 - ✅ Already excluded from mypy checks via pyproject.toml exclude pattern (^apps/(?!coordinator-api).*)
 - ✅ No action needed (blockchain-node not in current type checking scope)
 
 **Pytest Collection Errors**
+
 - ✅ Fixed 3 test files with marker issues (test_blockchain_rpc_contract.py, test_job_lifecycle.py, test_confidential_transactions.py)
 - ✅ Added missing markers to pyproject.toml (e2e, security, contract)
 - ✅ Fixed skip decorator syntax in test_blockchain_rpc_contract.py
 - ✅ Added skip decorator to test_job_lifecycle.py
 
 **Pytest Hanging Issue**
+
 - ✅ Root cause identified: service_health_check fixture in tests/e2e/conftest.py waits 180s for external services
 - ✅ Reduced retries from 30 to 2 in service_health_check fixture
 - ✅ Skipped training_env prerequisites check in tests/conftest.py
@@ -75,6 +84,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Tests now complete successfully: 211 passed, 10 skipped in 39.21s
 
 **Integration Test Failures**
+
 - ✅ Fixed peer endpoint paths: `/peers/*` → `/api/v1/agent/messages/peers/*`
 - ✅ Fixed auth router prefix: added `/api/v1/auth` prefix to auth router
 - ✅ Updated all auth test paths from `/v1/auth/*` to `/api/v1/auth/*`
@@ -92,6 +102,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - Skipped tests require: environment config (5), auth middleware (1), test environment limitations (1), other architectural scope (5)
 
 **Router Architecture Documentation**
+
 - ✅ Created comprehensive router architecture documentation
 - ✅ Documented split between agents.py (core lifecycle) and messages.py (discovery/messaging)
 - ✅ Explained endpoint path patterns and prefix logic
@@ -99,6 +110,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - See: `docs/agent-coordinator/ROUTER_ARCHITECTURE.md`
 
 **Backend Implementation Roadmap**
+
 - ✅ Created comprehensive backend implementation roadmap
 - ✅ Documented 4 critical failures and 18 errors requiring backend work
 - ✅ Organized into 4 implementation phases with effort estimates
@@ -107,6 +119,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - See: `docs/agent-coordinator/BACKEND_IMPLEMENTATION_ROADMAP.md`
 
 **Backend Implementation Completion**
+
 - ✅ Redis storage backend with pagination - MessageStorage class with Redis async backend, hash-based storage, sorted set indexing, pagination support
 - ✅ Consensus system integration - DistributedConsensus class with multiple algorithms (majority_vote, supermajority, unanimous), node registration, proposal creation, voting
 - ✅ AI engine integration - AdvancedAIIntegration (ML models, neural networks), RealTimeLearningSystem (adaptive learning, predictive analytics)
@@ -124,17 +137,20 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 ### Modified Files (18)
 
 **Pydantic V2 Migration**
+
 - `apps/coordinator-api/src/app/contexts/staking/routers/staking.py` - Migrated `@validator` to `@field_validator`
 - `apps/coordinator-api/src/app/contexts/bounty/routers/bounty.py` - Migrated `@validator` to `@field_validator` and `@model_validator(mode='after')`
 - `apps/agent-coordinator/src/app/protocols/message_types.py` - Migrated `@validator` to `@field_validator`
 
 **Redis Deprecation Fixes**
+
 - `apps/agent-coordinator/src/app/workflow/orchestrator.py` - Fixed `close()` → `aclose()` and `setex()` → `set(..., ex=...)`
 - `apps/agent-coordinator/src/app/protocols/communication.py` - Fixed `close()` → `aclose()`
 - `apps/agent-coordinator/src/app/routing/agent_discovery.py` - Fixed `close()` → `aclose()` and `setex()` → `set(..., ex=...)`
 - `apps/agent-coordinator/src/app/storage/message_storage.py` - Fixed `close()` → `aclose()`
 
 **Integration Test Fixes**
+
 - `tests/integration/test_agent_coordinator.py` - Fixed API path prefixes from `/agents/` to `/v1/agents/` and `/auth/` to `/v1/auth/`
 - Fixed swarm endpoints: added `/v1/swarm/` prefix to all swarm test calls
 - Fixed monitoring endpoints: added `/v1/metrics/` prefix to all metrics test calls
@@ -144,6 +160,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - `tests/contract_tests/test_blockchain_rpc_contract.py` - Fixed BASE_URL (8202), hash format assertion, transaction endpoint, removed global skip
 
 **MyPy blockchain-node Fixes**
+
 - `apps/blockchain-node/src/aitbc_chain/p2p_network.py` - Added # mypy: ignore-errors
 - `apps/blockchain-node/src/aitbc_chain/main.py` - Added # mypy: ignore-errors
 - `apps/blockchain-node/src/aitbc_chain/app.py` - Added # mypy: ignore-errors
@@ -154,6 +171,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - `apps/blockchain-node/src/aitbc_chain/subscription_client.py` - Added # mypy: ignore-errors
 
 **Ruff G004 Logging Fixes (Automated + Manual)**
+
 - Created `fix_logging_fstrings.py` - AST transformer for automated f-string to % formatting conversion
 - Fixed 3,481 errors across 361 files (200 in aitbc/, 3,280 in apps/)
 - 1 manual fix in `apps/agent-coordinator/src/app/monitoring/alerting.py`
@@ -161,10 +179,10 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
   - CLI handlers (14 files): blockchain, contract, market, messaging, pool_hub, system, wallet, bridge, network, performance, resource, workflow, analytics, account
   - CLI core (5 files): agent_communication, chain_manager, marketplace, analytics, node_client
   - CLI commands (3 files): reputation, transactions, market
-  - CLI utils (3 files): kyc_aml_providers, blockchain, __init__
+  - CLI utils (3 files): kyc_aml_providers, blockchain, **init**
   - CLI security (1 file): translation_policy
   - Agent SDK (14 files): contract_integration, swarm_coordinator, agent, compute_provider, extended, knowledge, dispute, ipfs, zk, compute_consumer, data_oracle, command_executor, platform_builder, cli_contract_client
-  - GPU acceleration (6 files): gpu_miner_host, apple_silicon_provider, cpu_provider, cuda_provider, gpu_manager, __init__
+  - GPU acceleration (6 files): gpu_miner_host, apple_silicon_provider, cpu_provider, cuda_provider, gpu_manager, **init**
   - Plugins (2 files): ollama/miner_plugin, ollama/service
   - Docs/examples (2 files): oracle_agent, computing_agent
   - Scripts (4 files): monitoring (2 files), security_audit, chaos testing (2 files)
@@ -173,6 +191,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 ### Configuration Changes
 
 **pyproject.toml**
+
 - ✅ Removed unused MyPy module overrides (cv2.*, pandas.*, numpy.*) - cleaned up configuration
 - ⚠️ coordinator-api main.py added back to exclude (retains # mypy: ignore-errors due to 10 errors)
 - ⚠️ blockchain-node remains excluded (33 errors)
@@ -180,6 +199,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 ## 📈 Impact Summary
 
 ### Code Quality Improvements
+
 - ✅ Migrated 3 files to Pydantic V2 patterns (staking, bounty, message_types)
 - ✅ Fixed 7 Redis deprecation warnings across 4 files
 - ✅ Fixed integration test path prefixes (improved from 60 failed to 0 failed, 143 passed to 221 passed)
@@ -197,6 +217,7 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Total: 1,023 passed, 224 skipped, 0 failed (100% pass rate on non-skipped tests)
 
 ### Backend Implementation Completion
+
 - ✅ Redis storage backend with pagination - MessageStorage class, hash-based storage, sorted set indexing
 - ✅ Consensus system integration - DistributedConsensus with multiple algorithms, node registration, proposal voting
 - ✅ AI engine integration - AdvancedAIIntegration (ML models, neural networks), RealTimeLearningSystem (adaptive learning)
@@ -207,16 +228,19 @@ AITBC v0.4.17 focuses on improving code quality through targeted fixes for Pydan
 - ✅ Workflow orchestration - WorkflowOrchestrator with Redis persistence, multi-agent workflow execution
 
 ### Remaining Technical Debt
+
 - ⚠️ Ruff G004: Globally ignored in pyproject.toml (866 errors deferred, not manually fixed)
 - ⚠️ Integration tests: Limited to test_agent_coordinator.py for CI/CD (other integration tests have failures)
 
 ### Backward Compatibility
+
 - ✅ 100% backward compatible
 - ✅ No breaking changes
 
 ## 🗄️ System Status
 
 ### MyPy Configuration
+
 ```toml
 [tool.mypy]
 python_version = "3.13"
@@ -236,6 +260,7 @@ warn_unused_ignores = true
 ### Graduated Apps Status
 
 **Fully Type-Safe (0 errors)**
+
 - agent-coordinator (49 files)
 - blockchain-node (88 files)
 - shared-domain (29 files)
@@ -244,6 +269,7 @@ warn_unused_ignores = true
 - marketplace (already 0)
 
 **Graduated with Per-File Ignores (0 errors)**
+
 - shared-core (3 errors → 0)
 - pool-hub (171 errors → 0)
 - trading (30 errors → 0)
@@ -256,23 +282,27 @@ warn_unused_ignores = true
 - agent-management (383 errors → 0)
 
 **Pending (Low Priority)**
+
 - blockchain-event-bridge (import errors - missing dependency)
 
 ## 🚀 Benefits Achieved
 
 ### Improved Type Safety
+
 - ✅ Static type checking catches errors before runtime
 - ✅ Better IDE support with type hints
 - ✅ Reduced runtime type errors
 - ✅ Improved code maintainability
 
 ### Better Developer Experience
+
 - ✅ Enhanced autocomplete in IDEs
 - ✅ Clearer function signatures
 - ✅ Better documentation through types
 - ✅ Easier refactoring with type safety
 
 ### Foundation for Future Work
+
 - ✅ Established type checking baseline
 - ✅ Gradual migration path for complex files
 - ✅ Foundation for stricter type enforcement
@@ -283,6 +313,7 @@ warn_unused_ignores = true
 ### For Developers
 
 **Running MyPy**
+
 ```bash
 # Check specific app
 python -m mypy apps/<app-name>/src
@@ -293,6 +324,7 @@ python -m mypy apps/ --exclude "agent-management/examples"
 
 **Adding Per-File Ignores**
 For complex files that are difficult to type immediately:
+
 ```python
 # mypy: ignore-errors
 """Module description"""
@@ -303,6 +335,7 @@ For complex files that are difficult to type immediately:
 **Fixing Common Errors**
 
 **Missing Return Type**
+
 ```python
 # Before
 def process_data(data: str):
@@ -314,6 +347,7 @@ def process_data(data: str) -> str:
 ```
 
 **SQL Execute with Raw String**
+
 ```python
 # Before
 await session.execute("SELECT 1")
@@ -324,6 +358,7 @@ await session.execute(text("SELECT 1"))
 ```
 
 **Optional Parameters**
+
 ```python
 # Before
 def process(data: str = None):
@@ -337,16 +372,19 @@ def process(data: str | None = None):
 ## ⚠️ Deprecation Timeline
 
 ### Phase 1: Per-File Ignores (v0.4.17)
+
 - ✅ Complex files suppressed with per-file ignores
 - ✅ Clean files fully type-safe
 - ✅ Foundation established for gradual migration
 
 ### Phase 2: Gradual Migration (v0.4.18 - v0.4.20)
+
 - 📅 Gradually remove per-file ignores from files
 - 📅 Fix type issues in suppressed files
 - 📅 Improve type coverage
 
 ### Phase 3: Strict Enforcement (v0.5.0)
+
 - 📅 Remove all per-file ignores
 - 📅 Enforce strict type checking
 - 📅 Require 100% type safety
@@ -354,12 +392,14 @@ def process(data: str | None = None):
 ## 🔍 Testing Recommendations
 
 ### Type Checking
+
 - ✅ Run MyPy on all apps before commits
 - ✅ Fix type errors in new code
 - ✅ Add return type annotations to new functions
 - ✅ Use per-file ignores only when necessary
 
 ### Integration Testing
+
 - ✅ Test all apps after type changes
 - ✅ Verify runtime behavior unchanged
 - ✅ Check for type-related runtime errors
@@ -368,12 +408,14 @@ def process(data: str | None = None):
 ## 📊 Performance Impact
 
 ### Expected Improvements
+
 - ✅ No performance impact (static analysis only)
 - ✅ Better IDE performance with type hints
 - ✅ Reduced runtime type errors
 - ✅ Faster development with better autocomplete
 
 ### Monitoring
+
 - 📊 Monitor MyPy error counts
 - 📊 Track per-file ignore usage
 - 📊 Measure type coverage over time
@@ -382,18 +424,21 @@ def process(data: str | None = None):
 ## 🎯 Next Steps
 
 ### Immediate (v0.4.17)
+
 1. ✅ Deploy to production
 2. ✅ Monitor for type-related issues
 3. ✅ Update developer documentation
 4. ✅ Team training on MyPy
 
 ### Short-term (v0.4.18 - v0.4.20)
+
 1. 📅 Gradually remove per-file ignores
 2. 📅 Fix type issues in suppressed files
 3. 📅 Improve type coverage
 4. 📅 Add type annotations to new code
 
 ### Long-term (v0.5.0)
+
 1. 📅 Remove all per-file ignores
 2. 📅 Enforce strict type checking
 3. 📅 Require 100% type safety

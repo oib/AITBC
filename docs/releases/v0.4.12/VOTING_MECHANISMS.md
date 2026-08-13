@@ -23,6 +23,7 @@ voting_power = token_balance + staked_tokens * 2
 ```
 
 ### Features
+
 - **Simple**: Direct correlation between tokens and voting power
 - **Transparent**: Easy to understand voting power
 - **Standard**: Common governance mechanism
@@ -43,6 +44,7 @@ total_credits = sqrt(token_balance)
 ```
 
 ### Features
+
 - **Prevents concentration**: Reduces influence of large token holders
 - **Encourages participation**: Incentivizes broader participation
 - **Complex**: More complex voting mechanism
@@ -64,6 +66,7 @@ aitbc governance vote --proposal-id prop_... --vote yes --as-delegate
 ```
 
 ### Features
+
 - **Proxy voting**: Delegate voting power to trusted addresses
 - **Expertise**: Delegate to experts in specific areas
 - **Flexibility**: Can revoke delegation at any time

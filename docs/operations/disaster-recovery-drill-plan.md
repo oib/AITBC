@@ -30,6 +30,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 ### Drill Types
 
 #### 1. Tabletop Exercise
+
 - **Frequency:** Quarterly
 - **Duration:** 2 hours
 - **Participants:** Engineering, DevOps, Security, Product
@@ -37,6 +38,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 - **Objective:** Validate decision-making processes and communication
 
 #### 2. Service Failover
+
 - **Frequency:** Monthly
 - **Duration:** 1 hour
 - **Participants:** DevOps, Engineering
@@ -44,6 +46,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 - **Objective:** Validate automated failover mechanisms
 
 #### 3. Database Restore
+
 - **Frequency:** Monthly
 - **Duration:** 1 hour
 - **Participants:** DBA, DevOps
@@ -51,6 +54,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 - **Objective:** Validate backup integrity and restore procedures
 
 #### 4. Full System Recovery
+
 - **Frequency:** Quarterly
 - **Duration:** 4 hours
 - **Participants:** All teams
@@ -58,6 +62,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 - **Objective:** Validate end-to-end recovery procedures
 
 #### 5. Data Center Failover
+
 - **Frequency:** Annually
 - **Duration:** 8 hours
 - **Participants:** All teams
@@ -101,6 +106,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 ### During Drill Execution
 
 #### 1. Drill Kickoff (15 minutes)
+
 - Call to order and attendance check
 - Review drill scenario and objectives
 - Review roles and responsibilities
@@ -108,6 +114,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 - Start timer and begin drill
 
 #### 2. Drill Execution (Variable)
+
 - Execute according to scenario
 - Document all actions and timestamps
 - Record issues and blockers
@@ -115,6 +122,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 - Communicate progress per plan
 
 #### 3. Drill Completion (15 minutes)
+
 - Stop timer and conclude drill
 - Collect initial observations
 - Verify system state
@@ -123,6 +131,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 ### Post-Drill Activities
 
 #### Immediate Post-Drill (1 Hour)
+
 1. **Collect Metrics**
    - RTO achieved
    - RPO achieved
@@ -136,6 +145,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
    - Preliminary recommendations
 
 #### Post-Drill Review (1 Week)
+
 1. **Analyze Results**
    - Compare results to objectives
    - Identify gaps and weaknesses
@@ -157,6 +167,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
 ## Drill Scenarios
 
 ### Scenario 1: Database Corruption
+
 - **Type:** Database Restore
 - **Severity:** P1
 - **Components:** PostgreSQL
@@ -169,12 +180,14 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
   6. Verify system health
 
 **Success Criteria:**
+
 - Database restored within RTO (1 hour)
 - Data integrity verified
 - Services operational within 30 minutes post-restore
 - Zero data loss
 
 ### Scenario 2: Service Failure
+
 - **Type:** Service Failover
 - **Severity:** P2
 - **Components:** Coordinator API, Marketplace, Exchange
@@ -186,12 +199,14 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
   5. Verify data consistency
 
 **Success Criteria:**
+
 - Automatic failover within 5 minutes
 - Service health restored
 - Zero data loss
 - Error rate returns to normal
 
 ### Scenario 3: Network Partition
+
 - **Type:** Tabletop Exercise
 - **Severity:** P2
 - **Components:** All services
@@ -203,12 +218,14 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
   5. Document gaps
 
 **Success Criteria:**
+
 - Response procedures validated
 - Communication plan confirmed
 - Decision points identified
 - Gaps documented
 
 ### Scenario 4: Data Center Outage
+
 - **Type:** Data Center Failover
 - **Severity:** P1
 - **Components:** All services
@@ -221,12 +238,14 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
   6. Monitor system performance
 
 **Success Criteria:**
+
 - Alternate data center activated within 4 hours
 - Services operational
 - DNS propagation complete
 - Performance acceptable
 
 ### Scenario 5: Security Breach
+
 - **Type:** Tabletop Exercise
 - **Severity:** P1
 - **Components:** All services
@@ -238,6 +257,7 @@ This document outlines the disaster recovery drill schedule, procedures, and rep
   5. Document legal/compliance requirements
 
 **Success Criteria:**
+
 - Containment procedures validated
 - Forensic procedures confirmed
 - Communication plan tested
@@ -383,6 +403,7 @@ Plan → Execute → Review → Improve → Plan
 ## Roles and Responsibilities
 
 ### Drill Coordinator
+
 - Plan and schedule drills
 - Coordinate participants
 - Lead drill execution
@@ -390,18 +411,21 @@ Plan → Execute → Review → Improve → Plan
 - Track action items
 
 ### Drill Observer
+
 - Observe drill execution
 - Take detailed notes
 - Provide unbiased feedback
 - Identify improvement areas
 
 ### Drill Participants
+
 - Participate in drill execution
 - Follow drill procedures
 - Provide feedback
 - Complete action items
 
 ### Management
+
 - Approve drill schedule
 - Review drill results
 - Allocate resources
@@ -410,18 +434,21 @@ Plan → Execute → Review → Improve → Plan
 ## Training
 
 ### New Hire Training
+
 - **Content:** DR plan overview, drill procedures
 - **Frequency:** Onboarding
 - **Duration:** 1 hour
 - **Format:** Presentation + walkthrough
 
 ### Annual Refresher Training
+
 - **Content:** Full DR plan, recent drill results
 - **Frequency:** Annually
 - **Duration:** 2 hours
 - **Format:** Workshop
 
 ### Role-Specific Training
+
 - **DBA:** Database restore procedures
 - **DevOps:** Service failover procedures
 - **Security:** Incident response procedures
@@ -430,12 +457,14 @@ Plan → Execute → Review → Improve → Plan
 ## Compliance
 
 ### Regulatory Requirements
+
 - **SOC 2:** Annual DR testing
 - **ISO 27001:** Annual DR testing
 - **GDPR:** Data breach response testing
 - **PCI DSS:** Annual DR testing
 
 ### Audit Trail
+
 - Drill schedules
 - Drill reports
 - Action items
@@ -447,6 +476,7 @@ Plan → Execute → Review → Improve → Plan
 ### A. Drill Checklist
 
 #### Pre-Drill
+
 - [ ] Scenario defined
 - [ ] Objectives set
 - [ ] Participants notified
@@ -455,6 +485,7 @@ Plan → Execute → Review → Improve → Plan
 - [ ] Success criteria defined
 
 #### During Drill
+
 - [ ] Kickoff completed
 - [ ] Timeline tracked
 - [ ] Actions documented
@@ -463,6 +494,7 @@ Plan → Execute → Review → Improve → Plan
 - [ ] Metrics collected
 
 #### Post-Drill
+
 - [ ] Metrics analyzed
 - [ ] Report completed
 - [ ] Action items assigned
@@ -482,6 +514,7 @@ Plan → Execute → Review → Improve → Plan
 ### C. Quick Reference
 
 #### Emergency Drill Termination
+
 ```bash
 # If drill causes actual incident, terminate immediately
 systemctl start --all
@@ -492,6 +525,7 @@ systemctl start --all
 ```
 
 #### Drill Status Check
+
 ```bash
 # Check current drill status
 # View drill metrics

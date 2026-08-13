@@ -32,16 +32,19 @@ async def add_correlation_id(request: Request, call_next):
 ```
 
 ### 2. Add to aitbc_logging
+
 - Include correlation_id in structured log output
 - Add correlation_id to all log records
 - Update log format to include correlation_id field
 
 ### 3. Add HTTP Client Propagation
+
 - Update AITBCHTTPClient to include X-Request-ID header
 - Update AsyncAITBCHTTPClient to include X-Request-ID header
 - Add correlation_id to outgoing requests
 
 ### 4. Deploy to All Services
+
 - Add middleware to FastAPI apps
 - Update HTTP client usage
 - Test end-to-end propagation

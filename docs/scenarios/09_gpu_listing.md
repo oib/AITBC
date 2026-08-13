@@ -78,6 +78,7 @@ aitbc gpu discover
 ```
 
 **Expected output:**
+
 ```
 GPU discovery completed
 GPU ID      Model          Memory (GB)   CUDA Version   Driver Version
@@ -98,6 +99,7 @@ aitbc gpu register gpu-0 --specs '{"model": "RTX 4090", "memory_gb": 24, "cuda_v
 ```
 
 **Expected output:**
+
 ```
 GPU gpu-0 registered successfully
 GPU ID      Model        Memory (GB)   Price/Hour       Status
@@ -115,6 +117,7 @@ aitbc gpu update gpu-0 --pricing '{"price_per_hour": 0.075}' --status active
 ```
 
 **Expected output (list):**
+
 ```
 Local Registered GPUs
 =====================
@@ -142,6 +145,7 @@ aitbc gpu-onchain register \
 ```
 
 **Expected output:**
+
 ```json
 {
   "gpu_id": "gpu-0",
@@ -172,6 +176,7 @@ aitbc gpu-onchain allocations gpu-0
 ```
 
 **Expected output (list):**
+
 ```
 GPU ID      Model        Memory (GB)   Price/Hour       Status    Miner ID
 gpu-0       RTX 4090     24            0.0750 AIT       active    provider-agent-01
@@ -193,6 +198,7 @@ aitbc gpu-onchain allocate \
 ```
 
 **Expected output:**
+
 ```json
 {
   "gpu_id": "gpu-0",
@@ -214,6 +220,7 @@ aitbc gpu unregister gpu-1
 ```
 
 **Expected output:**
+
 ```
 GPU gpu-1 unregistered successfully
 ```

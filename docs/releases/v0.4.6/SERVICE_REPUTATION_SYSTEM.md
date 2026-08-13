@@ -22,6 +22,7 @@ aitbc reputation review --agent agent_abc123 --rating 5 --review "Excellent serv
 ```
 
 **Review Schema:**
+
 ```json
 {
   "review_id": "rev_<uuid>",
@@ -47,6 +48,7 @@ aitbc market list --sort-by reputation
 ```
 
 **Ranking Algorithm:**
+
 ```
 rank_score = reputation_score * activity_factor * recency_factor
 ```

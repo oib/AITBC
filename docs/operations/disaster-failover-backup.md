@@ -14,18 +14,21 @@ This document defines failover mechanisms and backup procedures for disaster rec
 ### Service Failover
 
 #### Kubernetes Pod Failover
+
 - **Mechanism:** Kubernetes automatically restarts failed pods
 - **Configuration:** Pod replicas set to 3+ for critical services
 - **Health Checks:** Liveness and readiness probes configured
 - **Failover Time:** <5 minutes
 
 #### Database Failover
+
 - **Mechanism:** PostgreSQL streaming replication
 - **Configuration:** Primary + 2 standby replicas
 - **Failover Trigger:** Automated via Patroni
 - **Failover Time:** <2 minutes
 
 #### Redis Failover
+
 - **Mechanism:** Redis Sentinel
 - **Configuration:** Master + 2 slaves + 3 sentinels
 - **Failover Trigger:** Automatic via Sentinel
@@ -34,12 +37,14 @@ This document defines failover mechanisms and backup procedures for disaster rec
 ### Geographic Failover
 
 #### Data Center Failover
+
 - **Mechanism:** Multi-region deployment
 - **Configuration:** Active-active or active-passive
 - **Failover Trigger:** Manual or automated (based on health checks)
 - **Failover Time:** <4 hours
 
 #### DNS Failover
+
 - **Mechanism:** Route53 health checks + DNS failover
 - **Configuration:** Multi-region DNS records
 - **Failover Trigger:** Automatic health checks
@@ -48,6 +53,7 @@ This document defines failover mechanisms and backup procedures for disaster rec
 ### Data Failover
 
 #### Blockchain State Synchronization
+
 - **Mechanism:** Peer-to-peer blockchain sync
 - **Configuration:** Multiple nodes in different regions
 - **Failover Trigger:** Automatic via consensus
