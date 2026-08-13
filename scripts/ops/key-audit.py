@@ -94,7 +94,11 @@ def _audit_env(path: Path, text: str) -> list[dict[str, Any]]:
         if not m:
             continue
         key_name, value = m.group(1), m.group(2)
-        if "PRIVATE_KEY" not in key_name.upper() and "WALLET_KEY" not in key_name.upper() and "PROPOSER_KEY" not in key_name.upper():
+        if (
+            "PRIVATE_KEY" not in key_name.upper()
+            and "WALLET_KEY" not in key_name.upper()
+            and "PROPOSER_KEY" not in key_name.upper()
+        ):
             continue
         derived = _derive_eth(value)
         if not derived:
