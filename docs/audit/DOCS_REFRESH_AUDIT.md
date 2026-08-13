@@ -1,6 +1,6 @@
 # AITBC Documentation Refresh Audit
 
-**Last Updated:** 2026-08-13
+**Last Updated:** 2026-08-14
 **Version:** 1.0
 **Baseline:** `main` at the current checkout
 
@@ -10,7 +10,7 @@ This audit covers the high-traffic `docs/` entry points that new visitors and no
 
 ## Method
 
-1. `bash scripts/validate_docs.sh` — 3,091 internal `.md` links checked, all valid.
+1. `bash scripts/validate_docs.sh` — 3,092 internal `.md` links checked, all valid.
 2. Targeted `grep` for stale markers across `docs/`:
    - `designed` / `not implemented` / `placeholder`
    - references to deleted `feature_flags.json`
@@ -93,44 +93,33 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
    - Run `npx markdownlint-cli docs/` on touched directories.
    - Keep this audit updated as remediation completes.
 
-## Current baseline (post-boilerplate removal, 2026-08-13)
+## Current baseline (post-cleanup, 2026-08-14)
 
-- Internal `.md` links: 2,839 valid.
-- Markdown lint errors in `docs/`: 15,096.
-- Stale markers in current `docs/` (excluding `docs/releases/`, `docs/archive/`, `docs/audit/`): 133 files, 513 hits.
-- Top directories by stale markers: `docs/development` (59), `docs/agent-coordinator` (50), `docs/testing` (46), `docs/security` (42), `docs/reference` (32), `docs/agents` (30), `docs/infrastructure` (30), `docs/infrastructure/migration` (24), `docs/cli` (21).
-- Top files by stale markers:
-  - `docs/development/mock-data-system.md` (67 designed/placeholder terms)
-  - `docs/testing/MICROSERVICES_TESTING_GUIDE.md` (28 old app names)
-  - `docs/infrastructure/migration/microservices-migration-status.md` (24)
-  - `docs/cli/CLI_ARCHITECTURE.md` (15)
-  - `docs/agents/AGENT_COMMUNICATION.md` (12)
+- Internal `.md` links: 3,092 valid (3 boilerplate-owned references skipped).
+- Markdown lint errors in `docs/`: 0 (`npx markdownlint-cli docs/` exits 0).
+- Stale markers in current `docs/` (excluding `docs/releases/`, `docs/archive/`, `docs/audit/`): 107 files, 351 hits.
+  - `designed` / `not implemented` / `placeholder` language: most hits (design/spec documents that are intentionally aspirational).
+  - Old port numbers: reduced in `docs/cli/`, `docs/governance/`, `docs/apps/`, `docs/getting-started/`, and `docs/reference/SERVICE_PORTS.md`.
+  - Old app names: reduced by archiving `MICROSERVICES_TESTING_GUIDE.md` and fixing `docs/apps/` catalog entries.
+- Top remaining stale files:
+  - `docs/development/mock-data-system.md` (35) — design doc, kept as specification
+  - `docs/reference/SERVICE_PORTS.md` (18) — authoritative port reference, still reconciling some service details
+  - `docs/security/audit-findings.md` (16) — historical audit record
+  - `docs/operations/PERFORMANCE_BASELINE.md` (11) — benchmark baseline with legacy ports
+  - `docs/infrastructure/SYSTEMD_SERVICES.md` (10) — services list needs port/app-name refresh
+- Python quality:
+  - `ruff check .`: passed
+  - `mypy --show-error-codes aitbc/`: passed
+- Pre-commit:
+  - `pre-commit run --all-files`: passed except for the `shell-strict-mode` hook, which flags pre-existing `set -euo pipefail` violations in 100+ untouched scripts (per V23-23 guidance, these are converted only when touched, not mass-fixed).
 
-## Remediation status
+## Exit criteria
 
-| File | Action | Status |
-|------|--------|--------|
-| `docs/README.md` | rewrite landing | done |
-| `docs/getting-started/README.md` | rewrite role-based paths | done |
-| `docs/getting-started/overview/introduction.md` | update to current code | done |
-| `docs/apps/README.md` | rewrite app catalog | done |
-| `docs/MASTER_INDEX.md` | update counts | done |
-| `docs/apps/clients/` | archived to `docs/archive/apps-clients/` | done |
-| `docs/QUICK_REFERENCE.md` | rewrite to current CLI and ports | done |
-| `docs/agent-coordinator/CLI.md` | rewrite to current `aitbc` CLI and port 8107 | done |
-| `docs/development/1_overview.md` | rewrite to current stack and mark designed features | done |
-| `docs/apps/<missing>/README.md` | created 19 app landing pages | done |
-| `docs/apps/README.md` | regenerated catalog to use new app docs | done |
-| Boilerplate docs and root files | deleted from repo | done |
-| `docs/README.md` / `MASTER_INDEX.md` | rewritten post-cleanup | done |
-| `CONTRIBUTING.md` | created project-specific root guide | done |
-| Dead CONTRIBUTING.md / SDK links | fixed across README and docs | done |
-| `docs/agent-coordinator/` | normalized port 9001 -> 8107 | done |
-| `docs/apps/openclaw/` | deleted (no matching app) | done |
-| `docs/cli/CLI_ARCHITECTURE.md` | archived to `docs/archive/cli/` | done |
-| `docs/agents/AGENT_COMMUNICATION.md` / `AGENT_WORKFLOWS.md` | archived to `docs/archive/agents/` | done |
-| `docs/features/*.md` | repaired corrupted links and lint-cleaned | done |
-| Markdown formatting | `npx markdownlint-cli --fix docs/` applied | done |
-| Port single-source-of-truth cleanup | `docs/reference/SERVICE_PORTS.md` still needs app path refresh | in progress |
-| Remaining stale current docs | e.g. `MICROSERVICES_TESTING_GUIDE.md`, `SYSTEMD_SERVICES.md` | pending |
-| Whole-tree markdownlint | down from ~15,096 to 586 remaining | pending |
+- [x] README is a welcoming hub/shop/client landing page.
+- [x] `CONTRIBUTING.md` and dead references repaired.
+- [x] `docs/features/` lint-clean and OpenClaw docs removed.
+- [x] Whole `docs/` tree is markdownlint-clean.
+- [x] Internal `.md` links are valid.
+- [x] Root boilerplate removed from `.gitignore`, `.github/pull_request_template.md`, `.github/WORKFLOW_PATTERNS.md`, and `.github/scripts/check-skills-parity.sh`.
+- [~] Service-port single source of truth refreshed; remaining reconciliations tracked above.
+- [~] Some stale current docs archived; remaining hits are predominantly design/spec language and a few port tables.
