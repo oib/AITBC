@@ -5,6 +5,7 @@ AITBC uses a centralized three-tier requirements management system.
 ## Tier 1: Core Production Dependencies (`requirements.txt`)
 
 Essential dependencies for all AITBC services in production:
+
 - Web framework (FastAPI, uvicorn, gunicorn)
 - Data validation (pydantic)
 - Database (SQLAlchemy, SQLModel, Alembic, aiosqlite, asyncpg)
@@ -16,6 +17,7 @@ Essential dependencies for all AITBC services in production:
 ## Tier 2: Development Dependencies (`requirements-dev.txt`)
 
 Development tools, testing frameworks, and code quality utilities:
+
 - Testing (pytest, pytest-asyncio, pytest-mock, pytest-cov, httpx)
 - Code quality (ruff, mypy, pre-commit)
 - CLI tools (click, rich, typer, tabulate, keyring)
@@ -24,6 +26,7 @@ Development tools, testing frameworks, and code quality utilities:
 ## Tier 3: Optional Modules (`requirements-optional/`)
 
 Specialized dependency sets for specific use cases:
+
 - `ai-ml.txt` - AI/ML and translation (torch, transformers, openai, spacy, nltk)
 - `security.txt` - Security and compliance (python-jose, passlib, sentry-sdk)
 - `testing.txt` - Testing and quality (references requirements-dev.txt)

@@ -10,6 +10,7 @@
 > **Rescope from original change.log**: The original v0.7.2 plan assumed external oracle infrastructure (`oracle1.aitbc.bubuit.net`, `oracle2.aitbc.bubuit.net`) that **does not exist**. No oracle client code, light client library, or deployed oracle network are present. v0.7.2 is rescoped to use **in-process cryptographic verification** with existing Merkle Patricia Trie infrastructure (`merkle_patricia_trie.verify_proof`). External oracle integration is deferred to v0.8.x or v0.9.x. A stub oracle client interface is included to allow future integration without breaking changes.
 
 > **Hard prerequisite**: v0.7.1 must be **complete and committed** before v0.7.2 implementation starts. v0.7.2's core verification depends on:
+>
 > - v0.7.1 Agent A: `ValidatorSetRegistry`, `verify_threshold_signatures`, `ValidatorSet`/`ValidatorInfo` types (✅ committed `1fcf1e829`)
 > - v0.7.1 Agent B: `BridgeValidator` SQLModel table, block header `signature` field, `_verify_threshold_signatures` in bridge.py, validator RPC endpoints (🔴 NOT STARTED — v0.7.0 Agent B is still uncommitted)
 >
@@ -38,6 +39,7 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Already Fixed / Exists](#already-fixed--exists-verified--no-work-needed)
 - [Hard Blockers](#hard-blockers-must-be-resolved-before-v072-implementation)
@@ -45,6 +47,7 @@ This release documentation has been split into topic-focused files:
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Extend Bridge Types](./agent-a.md#a1-extend-bridge-types)
@@ -53,6 +56,7 @@ This release documentation has been split into topic-focused files:
 - [BridgeClient Extensions + Unit Tests](./agent-a.md#a4-bridgeclient-extensions--unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Bridge Verification Config + Constants](./agent-b.md#b1-bridge-verification-config--constants)

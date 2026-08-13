@@ -202,15 +202,18 @@ Layer 13: Proof chain (v0.9.0 B3) ✅ — tamper-evident proof chain (lock → v
 ## 7. Testing Coverage
 
 ### Bridge Verification (v0.7.0–v0.7.2)
+
 - `tests/test_bridge_security_audit_fixes.py` — 6 tests (Bug #3 + Bug #4 regression)
 - `tests/test_v072_bridge_verification.py` — 32 tests (Merkle proofs, block headers, finality, validator sets)
 - `tests/test_v071_bridge_security.py` — 18 tests (multi-sig, validator registration, threshold)
 
 ### HTLC Settlement (v0.9.0)
+
 - `tests/test_htlc_contract.py` — 12 tests (initiate/complete/refund + settlement integration)
 - `tests/test_settlement.py` — 20+ tests (full escrow lifecycle, proof chain, timeout, refund)
 
 ### Pending Test Coverage
+
 - **Chaos testing**: Network partitions, timeout races, Byzantine validators on both chains
 - **Multi-node integration**: 3+ node testnet with HTLC settlement across nodes
 - **External audit**: Bridge security firm review of HTLC + proof verification

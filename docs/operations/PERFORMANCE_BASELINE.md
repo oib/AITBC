@@ -42,6 +42,7 @@ schedule:
 ```
 
 The load test job:
+
 - Starts coordinator API in test mode
 - Runs locust load tests for 60 seconds
 - Generates HTML reports
@@ -65,18 +66,21 @@ locust -f test_coordinator_api.py --headless --users 100 --spawn-rate 10 --run-t
 ### Load Test Profiles
 
 **Normal Load:**
+
 - Users: 100
 - Spawn rate: 10
 - Duration: 60s
 - Target: Simulate normal production traffic
 
 **Stress Load:**
+
 - Users: 500
 - Spawn rate: 50
 - Duration: 30s
 - Target: Test system under high load
 
 **Spike Load:**
+
 - Users: 1000
 - Spawn rate: 100
 - Duration: 20s
@@ -324,6 +328,7 @@ python scripts/performance/profile_db_queries.py
 ```
 
 This script:
+
 - Scans all router and service files
 - Detects queries inside loops (potential N+1 issues)
 - Reports total query counts and line numbers
@@ -332,6 +337,7 @@ This script:
 ### Current Findings
 
 As of v0.5.0:
+
 - `admin.py`: 8 session.execute calls (stats, list jobs)
 - `users.py`: 4 session.execute calls (register, login, profile)
 - No N+1 issues detected in current codebase
@@ -369,6 +375,7 @@ As of v0.5.0:
 **Symptoms:** API endpoints responding slowly (> 500ms)
 
 **Investigation:**
+
 ```bash
 # Check database query performance
 python scripts/performance/profile_db_queries.py
@@ -383,6 +390,7 @@ vmstat 1
 ```
 
 **Solutions:**
+
 - Add database indexes
 - Optimize queries
 - Increase connection pool size
@@ -394,6 +402,7 @@ vmstat 1
 **Symptoms:** 5xx errors increasing during load tests
 
 **Investigation:**
+
 ```bash
 # Check error logs
 journalctl -u aitbc-coordinator-api -f
@@ -406,6 +415,7 @@ curl http://localhost:8000/health
 ```
 
 **Solutions:**
+
 - Fix application errors
 - Increase timeout values
 - Add retry logic
@@ -417,6 +427,7 @@ curl http://localhost:8000/health
 **Symptoms:** Service crashes or OOM during load tests
 
 **Investigation:**
+
 ```bash
 # Check memory usage
 systemctl status aitbc-coordinator-api
@@ -430,6 +441,7 @@ python -m memory_profiler app.main
 ```
 
 **Solutions:**
+
 - Fix memory leaks
 - Optimize data structures
 - Increase memory limits

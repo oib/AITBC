@@ -169,6 +169,7 @@ None of these three prerequisites are met. This review is the audit; the other t
 **Existing tests**: `apps/blockchain-node/tests/consensus/test_multi_validator_poa.py` (1 test class, basic CRUD tests). No PBFT tests found.
 
 **Gaps**:
+
 - No test for Byzantine detection → slashing (slashing doesn't exist)
 - No test for block signature verification (verification doesn't exist)
 - No test for view change safety (view change clears state unsafely)
@@ -219,6 +220,7 @@ The RuntimeError guard at `multi_validator_poa.py:45-49` and `pbft.py:60-64` mus
 **Do not activate in v0.7.4.** The implementation is scaffolding with placeholder logic in every security-critical path. Fixing the 6 Critical + 6 High findings is a substantial engineering effort — likely a dedicated release (v0.7.5 or a v0.7.4 phase 4 that slips to a later release).
 
 **Suggested path forward**:
+
 1. Keep the RuntimeError guard in place.
 2. Split v0.7.4 B7 into a separate release (v0.7.5 "Consensus Activation") with the 12 must-fix items as its scope.
 3. Ship v0.7.4 with the low-risk items only (parameter automation, emergency proposals, cross-chain governance, coordinator-api bridge, external oracle).

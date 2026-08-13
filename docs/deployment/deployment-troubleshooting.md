@@ -5,10 +5,12 @@ This guide covers common deployment issues and their solutions.
 ## Service Won't Start
 
 **Symptoms:**
+
 - Services fail to start
 - Systemd shows "failed" status
 
 **Solutions:**
+
 ```bash
 # Check service logs
 journalctl -u aitbc-blockchain -n 50
@@ -23,10 +25,12 @@ systemctl restart aitbc-blockchain
 ## Database Connection Issues
 
 **Symptoms:**
+
 - Services cannot connect to database
 - Connection refused errors
 
 **Solutions:**
+
 ```bash
 # Check PostgreSQL status
 systemctl status postgresql
@@ -41,10 +45,12 @@ ufw status | grep 5432
 ## Port Conflicts
 
 **Symptoms:**
+
 - Services fail to bind to ports
 - Address already in use errors
 
 **Solutions:**
+
 ```bash
 # Check port usage
 netstat -tulpn | grep 8202
@@ -56,10 +62,12 @@ kill -9 $(lsof -t -i:8202)
 ## Permission Issues
 
 **Symptoms:**
+
 - File permission errors
 - Access denied errors
 
 **Solutions:**
+
 ```bash
 # Fix ownership
 chown -R aitbc:aitbc /opt/aitbc
@@ -71,6 +79,7 @@ chmod 600 /etc/aitbc/*.env
 ## Marketplace / RPC POST Returns 405 Behind Reverse Proxy
 
 **Symptoms:**
+
 - `POST /rpc/transactions/marketplace` returns `405 Method Not Allowed`
 - Marketplace offers or coin requests submitted over HTTP silently fail
 - Error: `400 Bad Request` or `405` when submitting blockchain transactions

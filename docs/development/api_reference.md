@@ -3,14 +3,17 @@
 ## Edge GPU Endpoints
 
 ### GET /v1/marketplace/edge-gpu/profiles
+
 Get consumer GPU profiles with filtering options.
 
 **Query Parameters:**
+
 - `architecture` (optional): Filter by GPU architecture (turing, ampere, ada_lovelace)
 - `edge_optimized` (optional): Filter for edge-optimized GPUs
 - `min_memory_gb` (optional): Minimum memory requirement
 
 **Response:**
+
 ```json
 {
   "profiles": [
@@ -30,9 +33,11 @@ Get consumer GPU profiles with filtering options.
 ```
 
 ### POST /v1/marketplace/edge-gpu/scan/{miner_id}
+
 Scan and register edge GPUs for a miner.
 
 **Response:**
+
 ```json
 {
   "miner_id": "miner_123",
@@ -43,20 +48,25 @@ Scan and register edge GPUs for a miner.
 ```
 
 ### GET /v1/marketplace/edge-gpu/metrics/{gpu_id}
+
 Get real-time edge GPU performance metrics.
 
 **Query Parameters:**
+
 - `hours` (optional): Time range in hours (default: 24)
 
 ### POST /v1/marketplace/edge-gpu/optimize/inference/{gpu_id}
+
 Optimize ML inference request for edge GPU.
 
 ## ML ZK Proof Endpoints
 
 ### POST /v1/ml-zk/prove/inference
+
 Generate ZK proof for ML inference correctness.
 
 **Request:**
+
 ```json
 {
   "inputs": {
@@ -73,12 +83,15 @@ Generate ZK proof for ML inference correctness.
 ```
 
 ### POST /v1/ml-zk/verify/inference
+
 Verify ZK proof for ML inference.
 
 ### POST /v1/ml-zk/fhe/inference
+
 Perform ML inference on encrypted data using FHE.
 
 **Request:**
+
 ```json
 {
   "scheme": "ckks",
@@ -92,16 +105,19 @@ Perform ML inference on encrypted data using FHE.
 ```
 
 ### GET /v1/ml-zk/circuits
+
 List available ML ZK circuits.
 
 ## Error Codes
 
 ### Edge GPU Errors
+
 - `400`: Invalid GPU parameters
 - `404`: GPU not found
 - `500`: GPU discovery failed
 
 ### ML ZK Errors
+
 - `400`: Invalid proof parameters
 - `404`: Circuit not found
 - `500`: Proof generation/verification failed

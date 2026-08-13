@@ -6,7 +6,7 @@
 
 ## Verdict
 
-> ### V0 — THE GUARD IS NOT WIRED IN THIS REPOSITORY. IT NEVER FIRES.
+> ### V0 — THE GUARD IS NOT WIRED IN THIS REPOSITORY. IT NEVER FIRES
 >
 > No obfuscation is needed to bypass it, because nothing invokes it. Claude Code
 > auto-loads **`.claude/settings.json`** — and that file **does not exist**: not in the

@@ -227,6 +227,7 @@
 ## Migration Priority
 
 ### Tier 1 — Quick wins (intra-context, just move the file + fix imports)
+
 1. **`certification.py`** → `contexts/certification/domain/` — ✅ DONE (8 importers fixed: 4 service files + 1 router + 3 test files)
 2. **`rewards.py`** → `contexts/rewards/domain/` — ✅ DONE (5 importers fixed: 3 inline in router + 1 top-level router import + 1 service file)
 3. **`amm.py`** + **`trading.py`** → `contexts/trading/domain/` — ✅ DONE (3 importers fixed: 1 amm service + 1 trading service + 1 trading router; also fixed duplicated `type: ignore` comment on trading.py)
@@ -236,14 +237,17 @@
 **Note**: The original audit undercounted importers because it only grepped `contexts/` for `from app.domain.*` (absolute) and `..domain.*` (1-2 dot relative). It missed: (a) test file imports in `tests/`, (b) router-level 4-dot relative imports (`....domain.*`), and (c) additional service files (`reward_service.py`, `bridge_enhanced.py`). The actual importer counts were higher than estimated for all 5 migrated models. Item 5 (`analytics.py`) was categorized as Tier 1 but is actually a shared-kernel situation — both `analytics` and `ai_analytics` contexts import from it. Ownership decision: `analytics` owns the model (canonical API-facing context with 22 routes), `ai_analytics` imports cross-context (known boundary violation, refactorable to service interface later).
 
 ### Tier 2 — Shared kernel decisions (require design)
+
 6. **`reputation.py`** → `contexts/reputation/domain/` — ✅ DONE (15 importers fixed: 2 intra-context, 5 cross-context from certification/rewards, 2 top-level app/reputation, 6 tests). Decision: `reputation` context owns the model (it already had services + router, just empty domain/). Certification and rewards import `AgentReputation` cross-context — known boundary violations, refactorable to service interface later.
-7. **`multi_chain_transaction.py`** → `contexts/cross_chain/domain/` — ✅ DONE (5 importers fixed: 1 intra-context cross_chain router, 2 cross-context marketplace, 1 top-level app/services, 1 top-level with alias). Decision: `cross_chain` context owns the model (it's about cross-chain transactions). Marketplace imports `TransactionPriority` cross-context (enum only). Approach A (move full model) chosen over Approach B (extract enums) — consistent with Tier 1 pattern, and marketplace still needs cross-context import either way.
+2. **`multi_chain_transaction.py`** → `contexts/cross_chain/domain/` — ✅ DONE (5 importers fixed: 1 intra-context cross_chain router, 2 cross-context marketplace, 1 top-level app/services, 1 top-level with alias). Decision: `cross_chain` context owns the model (it's about cross-chain transactions). Marketplace imports `TransactionPriority` cross-context (enum only). Approach A (move full model) chosen over Approach B (extract enums) — consistent with Tier 1 pattern, and marketplace still needs cross-context import either way.
 
 ### Tier 3 — Boundary violations (require ownership decisions)
+
 8. **`agent.py`** — imported by `agent_coordination`. Does it belong to `agent_coordination` or `agent_identity`?
-9. **`agent_performance.py`** — imported by `advanced_rl` + `multimodal`. No owning context exists. Create `contexts/agent_performance/` or assign to an existing context.
+2. **`agent_performance.py`** — imported by `advanced_rl` + `multimodal`. No owning context exists. Create `contexts/agent_performance/` or assign to an existing context.
 
 ### Already done (no action)
+
 - `global_marketplace.py` — in `contexts/marketplace/domain/`, all imports use `..domain.*`
 - `gpu_marketplace.py` — in `contexts/marketplace/domain/`, all imports use `..domain.*`
 - `agent_identity.py` — in `contexts/agent_identity/domain/`, import uses `..domain.*`

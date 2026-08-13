@@ -11,6 +11,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 ## 🚀 New Features
 
 ### 🖥️ Persistent GPU Marketplace
+
 - **SQLModel-Backed GPU Marketplace**: Replaced in-memory mock with persistent tables
 - **GPURegistry Model**: GPU profile database with architecture classification
 - **GPUBooking Model**: GPU booking and reservation management
@@ -22,6 +23,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 - **Test Coverage**: 22/22 GPU marketplace tests (`apps/coordinator-api/tests/test_gpu_marketplace.py`)
 
 ### 🧪 CLI Integration Tests
+
 - **End-to-end CLI → Coordinator Tests**: 24 tests in comprehensive integration test suite
 - **Proxy Client Shim**: _ProxyClient shim routes sync httpx.Client calls through Starlette TestClient
 - **API Key Validator**: APIKeyValidator monkey-patch bypasses stale key sets from cross-suite sys.modules flushes
@@ -29,6 +31,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 - **Test Results**: 208/208 tests pass when run together with billing + GPU marketplace + CLI unit tests
 
 ### 💰 Coordinator Billing Stubs
+
 - **Usage Tracking**: Usage tracking & tenant context implementation
 - **Tenant Context**: 21 tests in comprehensive billing test suite
 - **Billing Infrastructure**: Billing infrastructure for multi-tenant operations
@@ -38,6 +41,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 ## 🔧 Technical Implementation
 
 ### Persistent Marketplace Features
+
 - **Database Models**: SQLModel models for GPU registry, bookings, and reviews
 - **Session Management**: Proper database session management
 - **Transaction Support**: Transaction support for data integrity
@@ -46,6 +50,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 - **Validation**: Data validation and constraints
 
 ### GPU Registry Features
+
 - **GPU Profiles**: Comprehensive GPU profile management
 - **Architecture Classification**: GPU architecture classification (Turing, Ampere, Ada Lovelace)
 - **Dynamic Discovery**: Dynamic GPU discovery via nvidia-smi
@@ -54,6 +59,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 - **Pricing**: GPU pricing and cost tracking
 
 ### GPU Booking Features
+
 - **Booking Management**: GPU booking and reservation system
 - **Time Slots**: Time slot management
 - **Conflict Resolution**: Booking conflict resolution
@@ -62,6 +68,7 @@ AITBC v0.3.9 is a **major GPU marketplace persistence release** that introduces 
 - **Notifications**: Booking notifications
 
 ### GPU Review Features
+
 - **Review System**: GPU review and rating system
 - **Rating Metrics**: Comprehensive rating metrics
 - **Review Validation**: Review validation and moderation

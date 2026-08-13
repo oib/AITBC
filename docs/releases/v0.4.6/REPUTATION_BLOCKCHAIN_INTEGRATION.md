@@ -42,6 +42,7 @@ aitbc reputation query --agent agent_abc123 --chain ait-hub
 ```
 
 **Response:**
+
 ```json
 {
   "agent_id": "agent_abc123",

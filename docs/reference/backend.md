@@ -21,6 +21,7 @@
 ## Moved to Internal Storage
 
 The following auto-generated implementation analysis files have been moved to internal storage at `/root/aitbc/`:
+
 - Compliance & Regulation System → `backend_compliance_regulation_analysis.md`
 - Multi-Region Infrastructure → `backend_multi_region_infrastructure_analysis.md`
 - Global AI Agent Communication → `backend_global_agent_communication_analysis.md`
@@ -32,8 +33,8 @@ The following auto-generated implementation analysis files have been moved to in
 
 - [Backend Documentation](README.md)
 
-
 ## Category Overview
+
 This section contains all documentation related to backend documentation. The documented files have been automatically converted from completed planning analysis files.
 
 ---

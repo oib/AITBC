@@ -28,11 +28,13 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Architecture: Parallel Sync Approach](#architecture-parallel-sync-approach)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [PeerCapabilityTracker](./agent-a.md#a1-peercapabilitytracker)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests + verify clean](./agent-a.md#a4-unit-tests--verify-clean)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Add gossip + sync config](./agent-b.md#b1-add-gossip--sync-config)
@@ -102,6 +105,7 @@ This release documentation has been split into topic-focused files:
 ```
 
 **Why this works**:
+
 - **Parallel sync**: Divides the block range into sub-ranges, each fetched from a different peer. Results are merged by block height (deterministic). If a peer fails, re-request from another peer.
 - **Delta sync**: Instead of fetching all accounts, only fetch accounts that changed between `local_height` and `remote_height`. The peer computes the diff and sends only changed accounts. Falls back to full sync if delta > 50% of full state.
 - **Feature flags**: Both paths default to off. Sequential sync remains the default.

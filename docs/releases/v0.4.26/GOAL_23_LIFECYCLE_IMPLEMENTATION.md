@@ -7,6 +7,7 @@ Implemented comprehensive lifecycle management for async background tasks in the
 ## Problem
 
 The coordinator-api had background async tasks (job processor, GPU worker) that:
+
 - Lacked proper lifecycle management
 - Did not check for application shutdown state
 - Could hang indefinitely during shutdown
@@ -55,11 +56,13 @@ Created a lifecycle management system with:
 ### 4. Updated Background Services
 
 **JobProcessor** (`apps/coordinator-api/src/app/services/job_processor.py`):
+
 - Added lifecycle state checking in main loop
 - Uses `datetime.now(UTC)` for timezone-aware timestamps
 - Checks `is_shutting_down()` to exit gracefully
 
 **GPUWorker** (`apps/coordinator-api/src/app/services/gpu_worker.py`):
+
 - Added lifecycle state checking in main loop
 - Uses `datetime.now(UTC)` for timezone-aware timestamps
 - Checks `is_shutting_down()` to exit gracefully

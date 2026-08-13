@@ -3,12 +3,14 @@
 ## Overview
 
 The AITBC platform uses a dual-currency system:
+
 - **the network tokens**: For job payments and platform operations
 - **Bitcoin**: For purchasing the network tokens through the exchange
 
 ## Payment Flow
 
 ### 1. Job Payments (the network tokens)
+
 ```
 Client ──► Creates Job with AITBC Payment ──► Coordinator API
     │                                        │
@@ -23,6 +25,7 @@ Miner completes job ──► Release AITBC Escrow ──► Miner Wallet
 ```
 
 ### 2. Token Purchase (Bitcoin → AITBC)
+
 ```
 Client ──► Bitcoin Payment ──► Exchange API
     │                           │
@@ -36,6 +39,7 @@ Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,0
 ## Implementation Details
 
 ### Job Payment Structure
+
 ```json
 {
     "payload": {...},
@@ -46,10 +50,12 @@ Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,0
 ```
 
 ### Payment Methods
+
 - `aitbc_token`: Default for all job payments
 - `bitcoin`: Only used for exchange purchases
 
 ### Escrow System
+
 - **the network token Escrow**: Managed by Exchange API
   - Endpoint: `/api/v1/token/escrow/create`
   - Timeout: 1 hour default
@@ -62,18 +68,21 @@ Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,0
 ## API Endpoints
 
 ### Job Payment Endpoints
+
 - `POST /v1/jobs` - Create job with AITBC payment
 - `GET /v1/jobs/{id}/payment` - Get job payment status
 - `POST /v1/payments/{id}/release` - Release AITBC payment
 - `POST /v1/payments/{id}/refund` - Refund the network tokens
 
 ### Exchange Endpoints
+
 - `POST /api/exchange/purchase` - Buy AITBC with BTC
 - `GET /api/exchange/rate` - Get current rate (1 BTC = 100,000 AITBC)
 
 ## Database Schema
 
 ### Job Payments Table
+
 ```sql
 CREATE TABLE job_payments (
     id VARCHAR(255) PRIMARY KEY,
@@ -96,6 +105,7 @@ CREATE TABLE job_payments (
 ## Example Flow
 
 ### 1. Client Creates Job
+
 ```bash
 curl -X POST http://localhost:8203/v1/jobs \
   -H "X-Api-Key: ${CLIENT_API_KEY}" \
@@ -111,6 +121,7 @@ curl -X POST http://localhost:8203/v1/jobs \
 ```
 
 ### 2. Response with Payment
+
 ```json
 {
     "job_id": "abc123",
@@ -122,6 +133,7 @@ curl -X POST http://localhost:8203/v1/jobs \
 ```
 
 ### 3. Job Completion & Payment Release
+
 ```bash
 curl -X POST http://localhost:8203/v1/payments/pay456/release \
   -H "X-Api-Key: ${CLIENT_API_KEY}" \

@@ -7,6 +7,7 @@
 **Version**: 2.4
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📋 Releases** → *You are here*
 
 **breadcrumb**: Home → Releases → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **📚 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
 - **📖 About Documentation** - Standards and compliance context
@@ -26,6 +28,7 @@
 Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
+
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
 - **[v0.10.18](v0.10.18/change.log)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) ✅ complete
@@ -78,6 +81,7 @@ Read the release notes newest-first:
 - **[v0.5.0](v0.5.0/change.log)** - Production Infrastructure
 
 ### Legacy Releases (v0.4.x and earlier)
+>
 > **Note**: Legacy release files (v0.0.x through v0.4.x) have been archived to the `archive/` subdirectory. These releases use the old single-file format and are preserved for historical reference.
 
 - **[View Archived Releases](archive/)** - All v0.0.x through v0.4.x releases (archived 2026-06-30)

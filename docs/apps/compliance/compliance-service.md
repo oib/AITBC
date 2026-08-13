@@ -1,14 +1,17 @@
 # Compliance Service
 
 ## Status
+
 ✅ Operational
 
 ## Overview
+
 Compliance checking and regulatory services for ensuring AITBC operations meet regulatory requirements and industry standards.
 
 ## Architecture
 
 ### Core Components
+
 - **Compliance Checker**: Validates operations against compliance rules
 - **Rule Engine**: Manages and executes compliance rules
 - **Audit Logger**: Logs compliance-related events
@@ -18,18 +21,22 @@ Compliance checking and regulatory services for ensuring AITBC operations meet r
 ## Quick Start (End Users)
 
 ### Prerequisites
+
 - Python 3.13+
 - PostgreSQL database for audit logs
 - Compliance rule definitions
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/apps/compliance-service
 .venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
+
 Set environment variables in `.env`:
+
 ```bash
 DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/compliance
 RULES_PATH=/opt/aitbc/compliance/rules
@@ -38,6 +45,7 @@ REPORT_INTERVAL=86400
 ```
 
 ### Running the Service
+
 ```bash
 .venv/bin/python main.py
 ```
@@ -45,6 +53,7 @@ REPORT_INTERVAL=86400
 ## Developer Guide
 
 ### Development Setup
+
 1. Clone the repository
 2. Create virtual environment: `python -m venv .venv`
 3. Install dependencies: `pip install -r requirements.txt`
@@ -53,6 +62,7 @@ REPORT_INTERVAL=86400
 6. Run tests: `pytest tests/`
 
 ### Project Structure
+
 ```
 compliance-service/
 ├── src/
@@ -67,6 +77,7 @@ compliance-service/
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
@@ -83,6 +94,7 @@ pytest tests/test_rules.py
 ### Compliance Checking
 
 #### Check Compliance
+
 ```http
 POST /api/v1/compliance/check
 Content-Type: application/json
@@ -96,11 +108,13 @@ Content-Type: application/json
 ```
 
 #### Get Compliance Status
+
 ```http
 GET /api/v1/compliance/status/{entity_id}
 ```
 
 #### Batch Compliance Check
+
 ```http
 POST /api/v1/compliance/check/batch
 Content-Type: application/json
@@ -115,6 +129,7 @@ Content-Type: application/json
 ### Rule Management
 
 #### Add Rule
+
 ```http
 POST /api/v1/compliance/rules
 Content-Type: application/json
@@ -129,6 +144,7 @@ Content-Type: application/json
 ```
 
 #### Update Rule
+
 ```http
 PUT /api/v1/compliance/rules/{rule_id}
 Content-Type: application/json
@@ -140,6 +156,7 @@ Content-Type: application/json
 ```
 
 #### List Rules
+
 ```http
 GET /api/v1/compliance/rules?category=kyc|aml
 ```
@@ -147,11 +164,13 @@ GET /api/v1/compliance/rules?category=kyc|aml
 ### Audit Logging
 
 #### Get Audit Logs
+
 ```http
 GET /api/v1/compliance/audit?entity_id=string&limit=100
 ```
 
 #### Search Audit Logs
+
 ```http
 POST /api/v1/compliance/audit/search
 Content-Type: application/json
@@ -168,6 +187,7 @@ Content-Type: application/json
 ### Reporting
 
 #### Generate Compliance Report
+
 ```http
 POST /api/v1/compliance/reports/generate
 Content-Type: application/json
@@ -180,11 +200,13 @@ Content-Type: application/json
 ```
 
 #### Get Report
+
 ```http
 GET /api/v1/compliance/reports/{report_id}
 ```
 
 #### List Reports
+
 ```http
 GET /api/v1/compliance/reports?period=monthly
 ```
@@ -192,11 +214,13 @@ GET /api/v1/compliance/reports?period=monthly
 ### Policy Management
 
 #### Get Policy
+
 ```http
 GET /api/v1/compliance/policies/{policy_id}
 ```
 
 #### Update Policy
+
 ```http
 PUT /api/v1/compliance/policies/{policy_id}
 Content-Type: application/json
@@ -209,18 +233,21 @@ Content-Type: application/json
 ## Configuration
 
 ### Environment Variables
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `RULES_PATH`: Path to compliance rules
 - `AUDIT_LOG_ENABLED`: Enable audit logging
 - `REPORT_INTERVAL`: Report generation interval (default: 86400s)
 
 ### Compliance Categories
+
 - **KYC**: Know Your Customer verification
 - **AML**: Anti-Money Laundering checks
 - **Data Privacy**: Data protection compliance
 - **Financial**: Financial regulations
 
 ### Rule Parameters
+
 - **Conditions**: Rule conditions and logic
 - **Severity**: Rule severity level
 - **Actions**: Actions to take on rule violation

@@ -16,6 +16,7 @@ curl http://localhost:8109/plugins/whisper-base/offer   # latest offer_id only
 ```
 
 Latest confirmed offer on hub:
+
 ```
 offer_id : sw_offer_20260603125540_49d92c3c
 service  : whisper / base
@@ -86,6 +87,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 This exposes:
+
 - `http://aitbc3.aitbc.bubuit.net/whisper/transcribe` → `localhost:8110/transcribe`
 - `http://aitbc3.aitbc.bubuit.net/whisper/health` → `localhost:8110/health`
 - `http://aitbc3.aitbc.bubuit.net/ollama/api/generate` → `localhost:11434/api/generate`
@@ -113,6 +115,7 @@ Tell the hub agent:
 > "Use `aitbc market transcribe` with offer ID `sw_offer_20260603125540_49d92c3c` to transcribe my audio file. The provider is aitbc3 (`aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f`), running Whisper base on an RTX 4060 Ti. Price is 0.02 AIT per audio minute. Payment is metered via blockchain escrow and released automatically after transcription."
 
 The hub can also discover the offer programmatically:
+
 ```
 GET https://hub.aitbc.bubuit.net/v1/plugin/plugins?service_type=whisper
 ```

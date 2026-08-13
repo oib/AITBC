@@ -8,6 +8,7 @@
 This guide provides comprehensive instructions for agents to discover, use, and pay for the NVIDIA Nemotron-3-Super cloud model hosted on aitbc3. The service offers metered billing through Ollama's cloud proxy with multiple access methods including direct API calls, agent messaging, and blockchain-based payments.
 
 **Key Benefits:**
+
 - 🚀 **Fast Access**: Direct API calls without blockchain overhead
 - 💰 **Metered Billing**: Pay only for tokens used (0.01 AIT per 1K tokens)
 - 🔄 **Multiple Methods**: Choose between direct API, agent messaging, or CLI
@@ -29,16 +30,19 @@ This guide has been split into topic-focused files for easier navigation:
 ## Quick Navigation
 
 **For New Users:**
+
 1. Start with [Quick Start](./nemotron-quick-start.md)
 2. Learn to [Discover Offers](./nemotron-discovery.md)
 3. Run your first [Inference](./nemotron-inference.md)
 
 **For Developers:**
+
 1. Review [Integration Examples](./nemotron-integration.md)
 2. Implement [Monitoring](./nemotron-monitoring.md)
 3. Check [Reference](./nemotron-reference.md) for best practices
 
 **For Troubleshooting:**
+
 - See [Reference](./nemotron-reference.md) for common issues and solutions
 - Check [FAQ](./nemotron-reference.md#frequently-asked-questions) for common questions
 - Review [Security Considerations](./nemotron-reference.md#security-considerations)

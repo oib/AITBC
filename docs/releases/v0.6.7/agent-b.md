@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/apps/pool-hub/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/pool-hub/
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/pool-hub/tests/test_v067_rewards.py -q -o addopts="" --timeout=30
@@ -200,15 +201,18 @@ class PoolHubBlockchainClient:
 ## B3: Miner registration with chain_id
 
 In `apps/pool-hub/src/app/registry/miner_registry.py`:
+
 - Add `chain_id: str = "ait-hub"` to `MinerInfo` dataclass
 - Add `wallet_address: str | None = None` to `MinerInfo` (for reward payments)
 - In `register()` method, accept `chain_id` and `wallet_address` parameters
 
 In `apps/pool-hub/src/app/routers/miners.py`:
+
 - Add `chain_id` and `wallet_address` to the registration request model
 - After in-memory registration, call `PoolHubBlockchainClient.register_miner_on_chain()` (feature-flagged)
 
 In `apps/pool-hub/src/poolhub/models.py`:
+
 - Add `chain_id: Mapped[str] = mapped_column(String(64), default="ait-hub", index=True)` to `Miner`
 - Add `wallet_address: Mapped[str | None] = mapped_column(String(128), nullable=True)` to `Miner`
 

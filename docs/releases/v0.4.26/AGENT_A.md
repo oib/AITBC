@@ -7,6 +7,7 @@
 **Current state**: Single file containing all caching logic — in-memory LRU, TTL, Redis-backed cache, blockchain-specific cache, decorators, invalidation, and metrics.
 
 **Target architecture**:
+
 ```
 aitbc/cache/
   __init__.py          # Re-exports for backward compatibility
@@ -22,6 +23,7 @@ aitbc/cache/
 ```
 
 **Migration steps**:
+
 1. Create `aitbc/cache/` subpackage directory
 2. Move each class/function to its logical module:
    - `CacheEntry` dataclass → `core.py`
@@ -34,6 +36,7 @@ aitbc/cache/
    - `CacheMetrics` + `get_cache_metrics`, `get_blockchain_cache`, `get_cache` → `metrics.py`
    - Key generators (`_generate_cache_key`, `generate_cache_key`) → `utils.py`
 3. Update `aitbc/cache/__init__.py` to re-export everything for backward compatibility:
+
    ```python
    from .core import CacheEntry
    from .lru import LRUCache
@@ -45,16 +48,20 @@ aitbc/cache/
    from .metrics import CacheMetrics, get_cache_metrics, get_blockchain_cache, get_cache
    from .utils import _generate_cache_key, generate_cache_key
    ```
+
 4. Replace `aitbc/caching.py` with a shim importing from `aitbc/cache/`:
+
    ```python
    # DEPRECATED: Use aitbc.cache instead
    from aitbc.cache import *
    import warnings
    warnings.warn("aitbc.caching is deprecated, use aitbc.cache", DeprecationWarning, stacklevel=2)
    ```
+
 5. Deprecation cycle: keep shim for 1 release, then remove
 
 **Classes/Functions to Migrate** (from `aitbc/caching.py`):
+
 - `CacheEntry` dataclass (lines ~30-55)
 - `BlockchainCache` class (lines ~57-200)
 - `CacheMetrics` class (lines ~202-280)
@@ -82,6 +89,7 @@ aitbc/cache/
 **Current state**: Single file with HTTP client, circuit breaker, rate limiter, retry logic, caching layer, and both sync/async variants.
 
 **Target architecture**:
+
 ```
 aitbc/network/
   __init__.py           # Re-exports
@@ -93,6 +101,7 @@ aitbc/network/
 ```
 
 **Migration steps**:
+
 1. Split classes into separate modules:
    - `CircuitBreaker` class → `circuit_breaker.py`
    - `RateLimiter` class → `rate_limiter.py`
@@ -104,6 +113,7 @@ aitbc/network/
 4. Remove shim after 1 release
 
 **Classes/Functions to Migrate** (from `aitbc/network/http_client.py`):
+
 - `CircuitBreaker` class (lines ~30-120)
 - `RateLimiter` class (lines ~122-200)
 - `RetryPolicy` class (lines ~202-280)
@@ -122,6 +132,7 @@ aitbc/network/
 **Current state**: Encryption, hashing, key derivation, JWT handling, password validation, and secure random generation all in one file.
 
 **Target architecture**:
+
 ```
 aitbc/crypto/
   __init__.py          # Already exists
@@ -133,8 +144,10 @@ aitbc/crypto/
 ```
 
 **Migration steps**:
+
 1. Split into logical modules (crypto/ already exists)
 2. Update `__init__.py` exports:
+
    ```python
    from .encryption import EncryptionSuite
    from .hashing import hash_data, verify_hash, hmac_sign, hmac_verify
@@ -142,8 +155,9 @@ aitbc/crypto/
    from .jwt_handler import JWTHandler, encode_jwt, decode_jwt, validate_jwt
    from .password import validate_password, generate_password_hash, verify_password
    ```
-2. Update `__init__.py` exports
-3. Keep backward compat in `security.py` as shim:
+3. Update `__init__.py` exports
+4. Keep backward compat in `security.py` as shim:
+
    ```python
    # DEPRECATED: Use aitbc.crypto instead
    from aitbc.crypto import *
@@ -152,6 +166,7 @@ aitbc/crypto/
    ```
 
 **Classes/Functions to Migrate** (from `aitbc/crypto/security.py`):
+
 - `EncryptionSuite` class (lines ~30-150)
 - Hashing functions: `hash_data`, `verify_hash`, `hmac_sign`, `hmac_verify` (lines ~152-200)
 - Key functions: `generate_key`, `derive_key` (lines ~202-260)
@@ -164,7 +179,7 @@ aitbc/crypto/
 
 ---
 
-## Common Requirements for All Agent A Tasks:
+## Common Requirements for All Agent A Tasks
 
 1. **Tests first**: Write tests for new modules before deprecating shims
    - Target: 80%+ coverage on new modules
@@ -175,11 +190,13 @@ aitbc/crypto/
    - Document migration path in shim docstrings
 
 3. **Run full test suite** after each refactor:
+
    ```bash
    pytest tests/ --ignore=tests/test_coordinator_api*.py -x -q
    ```
 
-5. **Update imports**: Use `search_files` and `patch` to update internal imports across codebase:
+4. **Update imports**: Use `search_files` and `patch` to update internal imports across codebase:
+
    ```bash
    # Find all imports to update
    search_files(pattern="from aitbc.caching import", target="content")
@@ -187,13 +204,13 @@ aitbc/crypto/
    search_files(pattern="from aitbc.crypto.security import", target="content")
    ```
 
-6. **Document changes** in `docs/releases/v0.4.26/change.log`:
+5. **Document changes** in `docs/releases/v0.4.26/change.log`:
    - Add section for each refactored module
    - Note breaking changes and migration path
 
 ---
 
-## Execution Order:
+## Execution Order
 
 1. **Start with `crypto/security.py`** (lowest risk, crypto/ subpackage already exists)
    - Already has `aitbc/crypto/` directory with `__init__.py`

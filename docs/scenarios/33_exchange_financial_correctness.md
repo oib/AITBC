@@ -78,12 +78,14 @@ ss -ltnp | grep -E '8106|8205'
 ```
 
 **Expected output (current default deployment):**
+
 ```
 { path=/opt/aitbc/venv/bin/python ; argv[]=/opt/aitbc/venv/bin/python -m apps.exchange.simple_exchange.server --port 8106 ... }
 LISTEN 0  5  127.0.0.1:8106  0.0.0.0:*  users:(("python",pid=...,fd=3))
 ```
 
 **Interpretation:**
+
 - If `ExecStart` contains `simple_exchange.server` → the **simple_exchange** implementation is live. B1/B2/B3 backport fixes are active.
 - If `ExecStart` contains `exchange_api.py` → the **FastAPI** implementation is live. B1–B4 fixes are active.
 
@@ -95,11 +97,13 @@ grep -E "amount|price|total|filled|remaining" /opt/aitbc/apps/exchange/simple_ex
 ```
 
 **Expected output (post-backport):**
+
 ```
 9  (amount, price, total in trades + amount, price, total, filled, remaining in orders + price in both marketplace tables)
 ```
 
 **Verify the live database after restart:**
+
 ```bash
 # Find the exchange database
 DB_PATH=$(find /opt/aitbc /var/lib/aitbc -name "exchange.db" 2>/dev/null | head -1)
@@ -107,6 +111,7 @@ sqlite3 "$DB_PATH" "PRAGMA table_info(orders);" | grep -E "amount|price|total|fi
 ```
 
 **Expected output (post-backport, after service restart triggers init_db migration):**
+
 ```
 4|amount|TEXT|1||0
 5|price|TEXT|1||0
@@ -116,6 +121,7 @@ sqlite3 "$DB_PATH" "PRAGMA table_info(orders);" | grep -E "amount|price|total|fi
 ```
 
 > If columns still show `REAL`, restart the exchange service to trigger the automatic migration:
+>
 > ```bash
 > systemctl restart aitbc-exchange
 > ```
@@ -149,6 +155,7 @@ for order in book.get('buys', []):
 ```
 
 **Expected output (post-backport):**
+
 ```
 amount=0.1 price=0.3 stored_total=0.03
 computed=0.03 stored=0.03
@@ -198,6 +205,7 @@ for s in book.get('sells', []):
 ```
 
 **Expected output (post-backport):**
+
 ```
 BUY #0: HTTP 200 filled=10
 BUY #1: HTTP 200 filled=0
@@ -216,12 +224,14 @@ grep -c "finally:" /opt/aitbc/apps/exchange/simple_exchange/handlers/marketplace
 ```
 
 **Expected output (post-backport):**
+
 ```
 5  (get_recent_trades, get_orderbook, handle_place_order, match_orders, _match_orders_in_txn wrapper)
 8  (all marketplace handler methods)
 ```
 
 **Verify no connection leaks under load:**
+
 ```bash
 # Check open file descriptors before and after 100 requests
 ls /proc/$(pgrep -f simple_exchange.server)/fd | wc -l
@@ -242,16 +252,19 @@ grep "secrets.token_urlsafe" /opt/aitbc/apps/exchange/exchange_api.py
 ```
 
 **Expected output:**
+
 ```
 token = secrets.token_urlsafe(32)
 ```
 
 **Verify simple_exchange uses API-key auth (B4 N/A):**
+
 ```bash
 grep "_require_api_key\|EXCHANGE_API_KEY" /opt/aitbc/apps/exchange/simple_exchange/handlers/base.py
 ```
 
 **Expected output:**
+
 ```
 def _require_api_key(self) -> bool:
     expected = os.getenv("EXCHANGE_API_KEY")
@@ -259,6 +272,7 @@ def _require_api_key(self) -> bool:
 ```
 
 **Interpretation:** `simple_exchange` uses a static API key (`X-Api-Key` header), not session tokens. B4 doesn't apply. Ensure `EXCHANGE_API_KEY` is set in production:
+
 ```bash
 grep EXCHANGE_API_KEY /etc/aitbc/aitbc-exchange.env 2>/dev/null || echo "WARNING: EXCHANGE_API_KEY not set — auth is DISABLED"
 ```

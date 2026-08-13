@@ -7,6 +7,7 @@
 **Version**: 2.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📖 Meta** → *You are here*
 
 **breadcrumb**: Home → Meta → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Required structure for priority documents
 - **📝 [Writing Docs Guide](writing-docs.md)** - How to write, link, and validate AITBC docs
 - **📄 [Feature Template](feature-template.md)** - Standard layout for `docs/features/` stubs

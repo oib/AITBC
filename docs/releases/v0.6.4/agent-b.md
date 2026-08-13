@@ -10,6 +10,7 @@ Add multi-chain config fields, refactor IslandMembership for multiple chain_ids,
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -67,6 +68,7 @@ chain_shutdown_timeout: int = 10
 ```
 
 Add `field_validator` for `chain_configs`:
+
 ```python
 from aitbc.utils.chain_config import ChainConfigParser
 
@@ -101,6 +103,7 @@ def parse_chain_configs(cls, v: dict[str, str] | str) -> dict[str, str]:
 In `apps/blockchain-node/src/aitbc_chain/network/island_manager.py`:
 
 **IslandMembership** (lines 25-35) — change `chain_id: str` to `chain_ids: list[str]`:
+
 ```python
 @dataclass
 class IslandMembership:
@@ -119,6 +122,7 @@ class IslandMembership:
 ```
 
 **join_island()** (line 94) — accept `str | list[str]`:
+
 ```python
 def join_island(
     self, island_id: str, island_name: str, chain_id: str | list[str], is_hub: bool = False
@@ -145,6 +149,7 @@ def join_island(
 ```
 
 **leave_island()** (line 111) — add chain resource cleanup:
+
 ```python
 def leave_island(self, island_id: str) -> bool:
     """Leave an island. Cleans up all chain memberships."""
@@ -172,6 +177,7 @@ def leave_island(self, island_id: str) -> bool:
 ```
 
 **_initialize_default_island()** (line 64) — update to use `chain_ids`:
+
 ```python
 def _initialize_default_island(self) -> None:
     self.islands[self.default_island_id] = IslandMembership(
@@ -186,6 +192,7 @@ def _initialize_default_island(self) -> None:
 ```
 
 **approve_bridge_request()** (line 145) — update any `chain_id=` to `chain_ids=`:
+
 ```python
 # In approve_bridge_request, where it creates a new IslandMembership:
 chain_ids=[bridge_chain_id],  # ← was chain_id=bridge_chain_id
@@ -198,6 +205,7 @@ Update all 8 call sites in a **single commit**. The backward compat adapter in B
 **Files to update**:
 
 1. **`rpc/islands.py:16-23`** — Update `JoinIslandRequest`:
+
    ```python
    class JoinIslandRequest(BaseModel):
        island_id: str
@@ -206,9 +214,11 @@ Update all 8 call sites in a **single commit**. The backward compat adapter in B
        role: str = "compute-provider"
        is_hub: bool = False
    ```
+
    The call at line 75 (`island_manager.join_island(...)`) needs no change — it passes `chain_id=request.chain_id` which now accepts both types.
 
 2. **`main.py:329`** — Auto-join bridge islands. Change to pass list:
+
    ```python
    island_mgr.join_island(
        island_id=entry.island_id,
@@ -217,11 +227,13 @@ Update all 8 call sites in a **single commit**. The backward compat adapter in B
        is_hub=False,
    )
    ```
+
    No change needed — backward compat adapter handles single string.
 
 3. **`rpc/router.py:719`** — Pure route handler, forwards to `join_island()`. No change needed.
 
 4. **`apps/edge/src/aitbc_edge/routers/islands.py:13,45`** — Update `JoinIslandRequest`:
+
    ```python
    class JoinIslandRequest(BaseModel):
        island_id: str
@@ -232,6 +244,7 @@ Update all 8 call sites in a **single commit**. The backward compat adapter in B
    ```
 
 5. **`apps/edge/src/aitbc_edge/services/island_service.py:32`** — Update signature:
+
    ```python
    async def join_island(
        self, island_id: str, island_name: str, chain_id: str | list[str],
@@ -242,13 +255,16 @@ Update all 8 call sites in a **single commit**. The backward compat adapter in B
 6. **`cli/aitbc_cli/commands/node/island.py:39`** — No change needed (passes single string, backward compat adapter handles it).
 
 7. **`packages/py/aitbc-agent-sdk/src/aitbc_agent/edge_api_client.py:197`** — Update signature:
+
    ```python
    async def join_island(
        self, island_id: str, island_name: str, chain_id: str | list[str],
        role: str = "compute-provider", is_hub: bool = False
    ) -> dict[str, Any]:
    ```
+
    Update JSON body:
+
    ```python
    json={"island_id": island_id, "island_name": island_name, "chain_id": chain_id, "role": role, "is_hub": is_hub},
    ```
@@ -256,6 +272,7 @@ Update all 8 call sites in a **single commit**. The backward compat adapter in B
 8. **`apps/coordinator-api/src/app/contexts/infrastructure/routers/islands_proxy.py:50`** — Pure proxy, no change needed.
 
 **Verification** (run before committing B3):
+
 ```bash
 rg "join_island\(" --type=py apps/ cli/ packages/ | grep -v "def join_island" | grep -v __pycache__
 # Must show 8 results, all compatible with new signature
@@ -266,12 +283,14 @@ rg "join_island\(" --type=py apps/ cli/ packages/ | grep -v "def join_island" | 
 In `apps/blockchain-node/src/aitbc_chain/main.py`:
 
 1. Import `MultiChainManager` and `PortAllocator`:
+
    ```python
    from .network.multi_chain_manager import MultiChainManager
    from aitbc.network import PortAllocator
    ```
 
 2. In `BlockchainNode.start()`, after chain database init (line 297-301), add MultiChainManager setup:
+
    ```python
    # Parse ISLAND_CHAINS config
    island_chains_str = getattr(settings, "island_chains", "")
@@ -300,6 +319,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
    ```
 
 3. Add `_start_chains_sequentially` method:
+
    ```python
    async def _start_chains_sequentially(self, chain_ids: list[str]) -> None:
        """Start chains sequentially. Main chain fails fast, secondary chains retry."""
@@ -339,6 +359,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
    ```
 
 4. Update island manager join to pass chain_ids list:
+
    ```python
    # In the island manager auto-join section (line 329):
    island_mgr.join_island(
@@ -350,6 +371,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
    ```
 
 5. Update `MultiChainManager._chain_health_check()` to use configurable interval:
+
    ```python
    # In multi_chain_manager.py, line 264-274:
    async def _chain_health_check(self) -> None:
@@ -363,6 +385,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
 ### B5: Threshold guards
 
 **`consensus/multi_validator_poa.py`** — add after module docstring (line 4):
+
 ```python
 # ════════════════════════════════════════════════════════════════
 # THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
@@ -373,6 +396,7 @@ In `apps/blockchain-node/src/aitbc_chain/main.py`:
 ```
 
 Add runtime guard in `__init__` (line 36):
+
 ```python
 def __init__(self, chain_id: str):
     import os
@@ -386,6 +410,7 @@ def __init__(self, chain_id: str):
 ```
 
 **`consensus/pbft.py`** — add after module docstring (line 4):
+
 ```python
 # ════════════════════════════════════════════════════════════════
 # THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
@@ -396,6 +421,7 @@ def __init__(self, chain_id: str):
 ```
 
 Add runtime guard in `__init__` (line 51):
+
 ```python
 def __init__(self, consensus: MultiValidatorPoA):
     import os
@@ -409,6 +435,7 @@ def __init__(self, consensus: MultiValidatorPoA):
 ```
 
 **Note**: Existing tests in `consensus/test_multi_validator_poa.py` will need the env var set. Add a fixture or conftest.py entry:
+
 ```python
 # In tests/conftest.py or consensus/conftest.py:
 import os
@@ -439,6 +466,7 @@ def stop(ctx, chain_id):
 ```
 
 Add `--island` option to existing `list` command (line 26):
+
 ```python
 @chain.command(name="list")
 @click.option("--type", "chain_type", help="Filter by chain type")
@@ -457,6 +485,7 @@ def list_chains(ctx, chain_type, show_private, sort, island_id):
 **`cli/aitbc_cli/commands/node/chain.py`** — wire stubs to real RPC:
 
 Replace stub `start_chain_command` (lines 13-29) with RPC call:
+
 ```python
 def start_chain_command(ctx, chain_id, chain_type):
     """Start a new parallel chain instance"""
@@ -479,6 +508,7 @@ def start_chain_command(ctx, chain_id, chain_type):
 ```
 
 Replace stub `stop_chain_command` (lines 32-39) with RPC call:
+
 ```python
 def stop_chain_command(ctx, chain_id):
     """Stop a parallel chain instance"""
@@ -500,6 +530,7 @@ def stop_chain_command(ctx, chain_id):
 ```
 
 Replace stub `list_chains_command` (lines 42-53) with RPC call:
+
 ```python
 def list_chains_command(ctx):
     """List all active chain instances"""
@@ -523,6 +554,7 @@ def list_chains_command(ctx):
 In `apps/blockchain-node/scripts/make_genesis.py`:
 
 Add `--island-id` and `--chains` flags:
+
 ```python
 parser.add_argument(
     "--island-id",
@@ -542,6 +574,7 @@ parser.add_argument(
 ```
 
 Update `main()` to handle multi-genesis:
+
 ```python
 if args.island_id and args.chains:
     # Multi-genesis mode
@@ -566,6 +599,7 @@ else:
 Create `apps/blockchain-node/tests/test_v064_multi_chain.py`:
 
 **Test cases**:
+
 1. `test_island_membership_multiple_chains` — `IslandMembership.chain_ids` holds multiple chain_ids
 2. `test_join_island_with_list` — `join_island(chain_id=["chain-a", "chain-b"])` works
 3. `test_join_island_with_single_string_backward_compat` — `join_island(chain_id="chain-a")` still works

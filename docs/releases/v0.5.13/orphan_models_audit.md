@@ -3,6 +3,7 @@
 **Produced**: 2026-06-24 (follow-up to `context_import_audit.md`)
 **Scope**: The 17 models listed in `context_import_audit.md` §"Remaining `app/domain/` models" as having "zero context imports".
 **Method**: Grepped all importers across `apps/coordinator-api/` (src + tests) AND the full repo for each model, using multiple import patterns:
+
 - `from app.domain.<model> import` (absolute)
 - `from ..domain.<model> import` (2-dot relative)
 - `from ...domain.<model> import` (3-dot relative)

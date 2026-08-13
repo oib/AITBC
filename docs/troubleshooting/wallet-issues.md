@@ -5,11 +5,13 @@ This guide covers wallet daemon problems including unresponsive wallet, transact
 ## Wallet Not Responding
 
 **Symptoms:**
+
 - Wallet daemon unresponsive
 - Transactions not signing
 - Balance not updating
 
 **Diagnosis:**
+
 ```bash
 # Check wallet daemon status
 systemctl status aitbc-wallet
@@ -22,7 +24,9 @@ curl http://localhost:8071/health
 ```
 
 **Solutions:**
+
 1. Check wallet file integrity
+
 ```bash
 # Verify wallet file exists
 ls -la /var/lib/aitbc/wallet/
@@ -31,12 +35,14 @@ ls -la /var/lib/aitbc/wallet/
 chmod 600 /var/lib/aitbc/wallet/wallet.dat
 ```
 
-2. Restart wallet daemon
+1. Restart wallet daemon
+
 ```bash
 systemctl restart aitbc-wallet
 ```
 
-3. Check key derivation
+1. Check key derivation
+
 ```bash
 # Verify key derivation path
 python -c "from aitbc_crypto import Wallet; w = Wallet(); print(w.address)"
@@ -45,11 +51,13 @@ python -c "from aitbc_crypto import Wallet; w = Wallet(); print(w.address)"
 ## Transaction Signing Failed
 
 **Symptoms:**
+
 - Transactions fail to sign
 - Invalid signature errors
 - Key not found errors
 
 **Diagnosis:**
+
 ```bash
 # Check wallet keys
 curl http://localhost:8071/v1/keys
@@ -59,7 +67,9 @@ journalctl -u aitbc-wallet -n 50 | grep -i transaction
 ```
 
 **Solutions:**
+
 1. Verify private key
+
 ```bash
 # Check private key exists
 ls -la /var/lib/aitbc/wallet/private_key
@@ -68,7 +78,8 @@ ls -la /var/lib/aitbc/wallet/private_key
 curl -X POST http://localhost:8071/v1/keys/regenerate
 ```
 
-2. Check key permissions
+1. Check key permissions
+
 ```bash
 # Secure private key
 chmod 600 /var/lib/aitbc/wallet/private_key

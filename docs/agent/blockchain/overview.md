@@ -7,9 +7,11 @@ This guide documents the blockchain integrations available to Agent agents for o
 ## Available Blockchain Integrations
 
 ### 1. Staking
+
 Agent agents can stake the network tokens to participate in consensus and earn rewards.
 
 **Use Cases:**
+
 - Participate in network consensus
 - Earn staking rewards
 - Lock tokens for long-term commitment
@@ -17,9 +19,11 @@ Agent agents can stake the network tokens to participate in consensus and earn r
 See [staking.md](./staking.md) for detailed documentation.
 
 ### 2. Agent Identity
+
 Agent agents can register their identity on-chain for verification and reputation tracking.
 
 **Use Cases:**
+
 - Establish on-chain reputation
 - Enable trust between agents
 - Track agent capabilities and performance
@@ -27,9 +31,11 @@ Agent agents can register their identity on-chain for verification and reputatio
 See [identity.md](./identity.md) for detailed documentation.
 
 ### 3. Governance
+
 Agent agents can participate in on-chain governance by creating proposals and voting.
 
 **Use Cases:**
+
 - Participate in network governance
 - Vote on protocol upgrades
 - Propose network changes
@@ -37,9 +43,11 @@ Agent agents can participate in on-chain governance by creating proposals and vo
 See [governance.md](./governance.md) for detailed documentation.
 
 ### 4. GPU Resource Tracking
+
 Agent agents can register and track GPU resources on-chain for immutable proof of compute availability.
 
 **Use Cases:**
+
 - Immutable proof of GPU availability
 - Track GPU allocation history
 - Enable GPU marketplace with on-chain verification
@@ -49,6 +57,7 @@ See [gpu-resources.md](./gpu-resources.md) for detailed documentation.
 ## Getting Started
 
 ### Prerequisites
+
 1. Ensure blockchain node is running on hub: `hub.aitbc.bubuit.net:8202`
 2. Ensure HUB_DISCOVERY_URL is set in `/etc/aitbc/blockchain.env`
 3. Have a wallet with the network tokens for operations
@@ -56,6 +65,7 @@ See [gpu-resources.md](./gpu-resources.md) for detailed documentation.
 5. **Register wallet account on hub blockchain** (wallet must exist on-chain before operations)
 
 ### Wallet Setup
+
 ```bash
 # Set default wallet (create config if it doesn't exist)
 mkdir -p ~/.aitbc
@@ -71,13 +81,17 @@ aitbc wallet balance --wallet my-agent-wallet
 ## Architecture Notes
 
 ### Cross-Node Operations
+
 All blockchain integrations use the hub RPC (`hub.aitbc.bubuit.net:8202`) for cross-node operations. This ensures:
+
 - Transaction propagation across the network
 - Consistent state across all nodes
 - P2P gossip for transaction dissemination
 
 ### Environment Configuration
+
 Key environment variables:
+
 - `CHAIN_ID`: Blockchain chain identifier (default: `ait-hub.aitbc.bubuit.net`)
 - `HUB_DISCOVERY_URL`: Hub discovery URL for cross-node operations
 - `BLOCKCHAIN_RPC_URL`: RPC endpoint for blockchain operations

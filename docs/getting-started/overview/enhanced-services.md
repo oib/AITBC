@@ -11,6 +11,7 @@ This guide provides step-by-step instructions for implementing and deploying the
 ## 📋 Prerequisites
 
 ### System Requirements
+
 - **Operating System**: Debian 13 (Trixie) or Ubuntu 20.04+
 - **Python**: 3.13+ with virtual environment
 - **GPU**: NVIDIA GPU with CUDA 11.0+ (for GPU services)
@@ -18,6 +19,7 @@ This guide provides step-by-step instructions for implementing and deploying the
 - **Storage**: 10GB+ free disk space
 
 ### Dependencies
+
 ```bash
 # System dependencies
 apt update
@@ -34,6 +36,7 @@ pip install -r requirements.txt
 ## 🛠️ Installation Steps
 
 ### 1. Create AITBC User and Directories
+
 ```bash
 # Create AITBC user
 useradd -r -s /bin/false -d /opt/aitbc aitbc
@@ -48,6 +51,7 @@ chmod 755 /opt/aitbc
 ```
 
 ### 2. Deploy Application Code
+
 ```bash
 # Copy application files
 cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
@@ -59,6 +63,7 @@ chmod +x /opt/aitbc/apps/coordinator-api/*.sh
 ```
 
 ### 3. Install Python Dependencies
+
 ```bash
 # Activate virtual environment
 source /opt/aitbc/.venv/bin/activate
@@ -70,6 +75,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ```
 
 ### 4. Configure Services
+
 ```bash
 # Create environment file
 tee /opt/aitbc/.env > /dev/null <<EOF
@@ -87,6 +93,7 @@ chmod 600 /opt/aitbc/.env
 ```
 
 ### 5. Setup Database
+
 ```bash
 # Create database user and database
 -u postgres createuser aitbc
@@ -102,12 +109,14 @@ python -m alembic upgrade head
 ## 🚀 Deployment
 
 ### 1. Deploy Enhanced Services
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api
 ./deploy_services.sh
 ```
 
 ### 2. Enable Services
+
 ```bash
 # Enable all enhanced services
 ./manage_services.sh enable
@@ -117,6 +126,7 @@ cd /opt/aitbc/apps/coordinator-api
 ```
 
 ### 3. Verify Deployment
+
 ```bash
 # Check service status
 ./check_services.sh
@@ -141,6 +151,7 @@ cd /opt/aitbc/apps/coordinator-api
 | Geographic Load Balancer | 8017 | Geographic distribution | 1GB RAM, 100% CPU | ✅ |
 
 ### Health Check Endpoints
+
 ```bash
 # Check all services
 curl http://localhost:8010/health  # Multi-Modal
@@ -156,6 +167,7 @@ curl http://localhost:8017/health  # Geographic Load Balancer
 ## 🧪 Testing
 
 ### 1. Client-to-Miner Workflow Demo
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api
 source /opt/aitbc/.venv/bin/activate
@@ -163,6 +175,7 @@ python demo_client_miner_workflow.py
 ```
 
 ### 2. Multi-Modal Processing Test
+
 ```bash
 # Test text processing
 curl -X POST http://localhost:8010/process \
@@ -176,6 +189,7 @@ curl -X POST http://localhost:8010/process \
 ```
 
 ### 3. GPU Performance Test
+
 ```bash
 # Test GPU multi-modal service
 curl -X POST http://localhost:8105/process \
@@ -186,6 +200,7 @@ curl -X POST http://localhost:8105/process \
 ## 🔧 Management
 
 ### Service Management Commands
+
 ```bash
 # Start all services
 ./manage_services.sh start
@@ -210,6 +225,7 @@ curl -X POST http://localhost:8105/process \
 ```
 
 ### Monitoring
+
 ```bash
 # Check all services status
 ./check_services.sh
@@ -225,6 +241,7 @@ df -h
 ## 🔒 Security
 
 ### Service Security Features
+
 - **Process Isolation**: Each service runs as non-root user
 - **Resource Limits**: Memory and CPU quotas enforced
 - **Network Isolation**: Services bind to localhost only
@@ -232,6 +249,7 @@ df -h
 - **Temporary File Isolation**: Private tmp directories
 
 ### Security Best Practices
+
 ```bash
 # Check service permissions
 systemctl status aitbc-multimodal.service
@@ -248,6 +266,7 @@ systemctl status aitbc-marketplace.service --no-pager
 ### Common Issues
 
 #### 1. Service Won't Start
+
 ```bash
 # Check service logs
 ./manage_services.sh logs service-name
@@ -260,6 +279,7 @@ systemctl status postgresql redis-server
 ```
 
 #### 2. GPU Service Issues
+
 ```bash
 # Check GPU availability
 nvidia-smi
@@ -272,6 +292,7 @@ ls -la /dev/nvidia*
 ```
 
 #### 3. Port Conflicts
+
 ```bash
 # Check port usage
 netstat -tuln | grep :800
@@ -281,6 +302,7 @@ fuser -k 8010/tcp
 ```
 
 #### 4. Memory Issues
+
 ```bash
 # Check memory usage
 free -h
@@ -295,6 +317,7 @@ systemctl edit aitbc-learning.service
 ### Performance Optimization
 
 #### 1. GPU Optimization
+
 ```bash
 # Set GPU performance mode
 nvidia-smi -pm 1
@@ -305,6 +328,7 @@ export CUDA_LAUNCH_BLOCKING=1
 ```
 
 #### 2. Service Tuning
+
 ```bash
 # Adjust service resources
 systemctl edit aitbc-multimodal.service
@@ -317,12 +341,14 @@ systemctl edit aitbc-multimodal.service
 ## 📈 Performance Metrics
 
 ### Expected Performance
+
 - **Multi-Modal Processing**: 0.08s average response time
 - **GPU Acceleration**: 220x speedup for supported operations
 - **Concurrent Requests**: 100+ concurrent requests
 - **Accuracy**: 94%+ for standard benchmarks
 
 ### Monitoring Metrics
+
 ```bash
 # Response time metrics
 curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8010/health
@@ -337,6 +363,7 @@ nvidia-smi dmon -s u
 ## 🔄 Updates and Maintenance
 
 ### Service Updates
+
 ```bash
 # Update application code
 cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
@@ -349,6 +376,7 @@ cp -r apps/coordinator-api/* /opt/aitbc/apps/coordinator-api/
 ```
 
 ### Backup and Recovery
+
 ```bash
 # Backup configuration
 tar -czf aitbc-backup-$(date +%Y%m%d).tar.gz /opt/aitbc
@@ -364,12 +392,14 @@ tar -xzf aitbc-backup-YYYYMMDD.tar.gz -C /
 ## 📞 Support
 
 ### Getting Help
+
 - **Documentation**: [../](../)
 - **Issues**: [GitHub Issues](https://github.com/oib/AITBC/issues)
 - **Logs**: `./manage_services.sh logs service-name`
 - **Status**: `./check_services.sh`
 
 ### Emergency Procedures
+
 ```bash
 # Emergency stop all services
 ./manage_services.sh stop

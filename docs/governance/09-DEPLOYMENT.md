@@ -16,32 +16,38 @@ This document covers deployment procedures for the Governance Service, including
 ### Local Development
 
 1. **Clone repository:**
+
    ```bash
    cd /opt/aitbc
    ```
 
 2. **Install dependencies:**
+
    ```bash
    poetry install --with governance
    ```
 
 3. **Set up database:**
+
    ```bash
    mkdir -p /var/lib/aitbc/data
    ```
 
 4. **Run migrations:**
+
    ```bash
    cd /opt/aitbc/apps/governance
    /opt/aitbc/venv/bin/alembic upgrade head
    ```
 
 5. **Start service:**
+
    ```bash
    python -m governance_service.main
    ```
 
 6. **Verify:**
+
    ```bash
    curl http://localhost:8105/health
    ```
@@ -51,11 +57,13 @@ This document covers deployment procedures for the Governance Service, including
 ### Systemd Service Setup
 
 1. **Create service file:**
+
    ```bash
    sudo nano /etc/systemd/system/aitbc-governance.service
    ```
 
 2. **Add service configuration:**
+
    ```ini
    [Unit]
    Description=AITBC Governance Service
@@ -84,6 +92,7 @@ This document covers deployment procedures for the Governance Service, including
    ```
 
 3. **Enable and start service:**
+
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable aitbc-governance
@@ -91,6 +100,7 @@ This document covers deployment procedures for the Governance Service, including
    ```
 
 4. **Check status:**
+
    ```bash
    sudo systemctl status aitbc-governance
    ```
@@ -98,17 +108,20 @@ This document covers deployment procedures for the Governance Service, including
 ### PostgreSQL Setup
 
 1. **Install PostgreSQL:**
+
    ```bash
    sudo apt update
    sudo apt install postgresql postgresql-contrib
    ```
 
 2. **Create database and user:**
+
    ```bash
    sudo -u postgres psql
    ```
 
 3. **Run SQL commands:**
+
    ```sql
    CREATE DATABASE aitbc_governance;
    CREATE USER aitbc_governance WITH PASSWORD 'your_secure_password';
@@ -118,26 +131,31 @@ This document covers deployment procedures for the Governance Service, including
    ```
 
 4. **Configure PostgreSQL for remote access (optional):**
+
    ```bash
    sudo nano /etc/postgresql/*/main/postgresql.conf
    ```
 
    Add:
+
    ```ini
    listen_addresses = '*'
    ```
 
 5. **Configure pg_hba.conf:**
+
    ```bash
    sudo nano /etc/postgresql/*/main/pg_hba.conf
    ```
 
    Add:
+
    ```
    host    aitbc_governance    aitbc_governance    0.0.0.0/0    md5
    ```
 
 6. **Restart PostgreSQL:**
+
    ```bash
    sudo systemctl restart postgresql
    ```
@@ -145,22 +163,26 @@ This document covers deployment procedures for the Governance Service, including
 ### Database Migration
 
 1. **Update alembic.ini:**
+
    ```bash
    cd /opt/aitbc/apps/governance
    nano alembic/alembic.ini
    ```
 
    Update:
+
    ```ini
    sqlalchemy.url = postgresql://aitbc_governance:your_secure_password@localhost:5432/aitbc_governance
    ```
 
 2. **Run migrations:**
+
    ```bash
    /opt/aitbc/venv/bin/alembic upgrade head
    ```
 
 3. **Verify migration:**
+
    ```bash
    /opt/aitbc/venv/bin/alembic current
    ```
@@ -168,11 +190,13 @@ This document covers deployment procedures for the Governance Service, including
 ### Nginx Reverse Proxy (Optional)
 
 1. **Create Nginx configuration:**
+
    ```bash
    sudo nano /etc/nginx/sites-available/governance
    ```
 
 2. **Add configuration:**
+
    ```nginx
    server {
        listen 80;
@@ -194,6 +218,7 @@ This document covers deployment procedures for the Governance Service, including
    ```
 
 3. **Enable configuration:**
+
    ```bash
    sudo ln -s /etc/nginx/sites-available/governance /etc/nginx/sites-enabled/
    sudo nginx -t
@@ -201,6 +226,7 @@ This document covers deployment procedures for the Governance Service, including
    ```
 
 4. **Configure SSL (Let's Encrypt):**
+
    ```bash
    sudo apt install certbot python3-certbot-nginx
    sudo certbot --nginx -d governance.aitbc.bubuit.net
@@ -217,12 +243,14 @@ This document covers deployment procedures for the Governance Service, including
 ### Deployment Steps
 
 1. **Compile contracts:**
+
    ```bash
    cd /opt/aitbc/contracts/governance
    forge build
    ```
 
 2. **Deploy AITBCGovernanceToken:**
+
    ```bash
    forge create src/AITBCGovernanceToken.sol:AITBCGovernanceToken \
      --rpc-url $RPC_URL \
@@ -233,6 +261,7 @@ This document covers deployment procedures for the Governance Service, including
 3. **Note the contract address**
 
 4. **Deploy AITBCVoting:**
+
    ```bash
    forge create src/AITBCVoting.sol:AITBCVoting \
      --rpc-url $RPC_URL \
@@ -242,12 +271,14 @@ This document covers deployment procedures for the Governance Service, including
    ```
 
 5. **Verify deployment:**
+
    ```bash
    cast call <TOKEN_ADDRESS> "totalSupply()" --rpc-url $RPC_URL
    cast call <VOTING_ADDRESS> "governanceToken()" --rpc-url $RPC_URL
    ```
 
 6. **Update configuration:**
+
    ```bash
    export GOVERNANCE_TOKEN_ADDRESS=<TOKEN_ADDRESS>
    export VOTING_CONTRACT_ADDRESS=<VOTING_ADDRESS>
@@ -284,6 +315,7 @@ sudo journalctl -u aitbc-governance -f
 ### Service Configuration
 
 Service configuration is managed through:
+
 - Systemd unit files in `/etc/systemd/system/`
 - Environment files in `/etc/aitbc/`
 - Configuration via environment variables
@@ -353,11 +385,13 @@ cp governance_backup_20260607.db /var/lib/aitbc/data/governance_service.db
 ### Automated Backups
 
 Create cron job:
+
 ```bash
 sudo crontab -e
 ```
 
 Add:
+
 ```
 0 2 * * * sudo -u postgres pg_dump aitbc_governance > /backups/governance_$(date +\%Y\%m\%d).sql
 ```
@@ -372,6 +406,7 @@ Add:
    - Use shared database (PostgreSQL)
 
 2. **Load balancer configuration:**
+
    ```nginx
    upstream governance {
        server localhost:8105;

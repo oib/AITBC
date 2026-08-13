@@ -6,6 +6,7 @@
 ## Test Environment Setup
 
 ### Prerequisites
+
 - Node.js and npm installed
 - Circom compiler installed
 - Python 3.13+ with virtual environment
@@ -13,6 +14,7 @@
 - Access to staging environment (for ZK service tests)
 
 ### Installation Commands
+
 ```bash
 # Install Circom
 npm install -g circom
@@ -34,23 +36,27 @@ pip install -r requirements.txt
 **Fix Verified:** Learning rate constraint replaced with proper comparison circuits
 
 **Compilation Test:**
+
 ```bash
 cd /opt/aitbc/apps/zk-circuits
 circom ml_training_verification.circom --r1cs --wasm
 ```
 
 **Expected Result:**
+
 - Compilation succeeds without errors
 - R1CS and WASM files generated
 - No constraint validation errors
 
 **Constraint Verification:**
+
 ```bash
 # Check that LessThan and GreaterThan components are used
 grep -n "LessThan\|GreaterThan" ml_training_verification.circom
 ```
 
 **Expected Result:**
+
 - Lines showing LessThan component for learning_rate < 1
 - Lines showing GreaterThan component for learning_rate > 0
 
@@ -59,20 +65,24 @@ grep -n "LessThan\|GreaterThan" ml_training_verification.circom
 **Fix Verified:** Verification logic replaced with IsZero circuit
 
 **Compilation Test:**
+
 ```bash
 circom ml_inference_verification.circom --r1cs --wasm
 ```
 
 **Expected Result:**
+
 - Compilation succeeds
 - R1CS and WASM files generated
 
 **Verification Logic Check:**
+
 ```bash
 grep -n "IsZero" ml_inference_verification.circom
 ```
 
 **Expected Result:**
+
 - IsZero component used for diff == 0 check
 - No "1 - (diff * diff)" pattern present
 
@@ -81,20 +91,24 @@ grep -n "IsZero" ml_inference_verification.circom
 **Fix Verified:** Learning rate validation re-implemented
 
 **Compilation Test:**
+
 ```bash
 circom modular_ml_components.circom --r1cs --wasm
 ```
 
 **Expected Result:**
+
 - Compilation succeeds
 - R1CS and WASM files generated
 
 **Validation Check:**
+
 ```bash
 grep -A 10 "template LearningRateValidation" modular_ml_components.circom
 ```
 
 **Expected Result:**
+
 - LearningRateValidation template has constraints
 - LessThan and GreaterThan components present
 - Not empty (no "Removed constraint" comment)
@@ -104,21 +118,25 @@ grep -A 10 "template LearningRateValidation" modular_ml_components.circom
 **Fix Verified:** ECDSA verification placeholder removed, moved to API layer
 
 **Compilation Test:**
+
 ```bash
 circom receipt.circom --r1cs --wasm
 ```
 
 **Expected Result:**
+
 - Compilation succeeds
 - No ECDSA verification placeholder constraint
 - Security note about off-chain verification present
 
 **Placeholder Check:**
+
 ```bash
 grep -n "signature\[0\] \* signature\[1\]" receipt.circom
 ```
 
 **Expected Result:**
+
 - No placeholder constraint found
 - Security comment present
 
@@ -129,6 +147,7 @@ grep -n "signature\[0\] \* signature\[1\]" receipt.circom
 **Fix Verified:** Mock verification replaced with actual Groth16
 
 **Verification:**
+
 ```bash
 cd /opt/aitbc
 python -c "
@@ -147,6 +166,7 @@ print('Returns dict:', 'return {' in source)
 ```
 
 **Expected Result:**
+
 - Method signature includes verification_key parameter (optional)
 - Source contains snarkjs.groth16.verify call
 - Returns dict with verification results
@@ -157,6 +177,7 @@ print('Returns dict:', 'return {' in source)
 **Fix Verified:** Service disabled by default with enabled flag
 
 **Verification:**
+
 ```bash
 python -c "
 from apps.coordinator-api.src.app.services.zk_memory_verification import ZKMemoryVerificationService
@@ -174,6 +195,7 @@ print('Default value:', params['enabled'].default if 'enabled' in params else 'N
 ```
 
 **Expected Result:**
+
 - Constructor has enabled parameter
 - Default value is False
 - generate_memory_proof checks if enabled
@@ -183,6 +205,7 @@ print('Default value:', params['enabled'].default if 'enabled' in params else 'N
 **Fix Verified:** DEMO_MODE_ENABLED flag added, endpoints disabled by default
 
 **Verification:**
+
 ```bash
 python -c "
 import ast
@@ -202,6 +225,7 @@ for endpoint in demo_endpoints:
 ```
 
 **Expected Result:**
+
 - DEMO_MODE_ENABLED flag present
 - Default value is False
 - All demo endpoints have enabled check
@@ -214,18 +238,21 @@ for endpoint in demo_endpoints:
 **Fix Verified:** Supply cap and cooldown added
 
 **Compilation Test:**
+
 ```bash
 cd /opt/aitbc/contracts
 npx hardhat compile
 ```
 
 **Expected Result:**
+
 - Compilation succeeds
 - No compilation errors
 
 ### 3.2 Test Supply Cap
 
 **Test Script:**
+
 ```javascript
 // test/test_aitoken_supply_cap.js
 const { expect } = require("chai");
@@ -259,11 +286,13 @@ describe("AIToken Supply Cap", function () {
 ```
 
 **Run Test:**
+
 ```bash
 npx hardhat test test/test_aitoken_supply_cap.js
 ```
 
 **Expected Result:**
+
 - Tests pass
 - Minting beyond cap reverts with proper error
 - Minting within cap succeeds
@@ -271,6 +300,7 @@ npx hardhat test test/test_aitoken_supply_cap.js
 ### 3.3 Test Minting Cooldown
 
 **Test Script:**
+
 ```javascript
 // test/test_aitoken_cooldown.js
 const { expect } = require("chai");
@@ -311,17 +341,20 @@ describe("AIToken Minting Cooldown", function () {
 ```
 
 **Run Test:**
+
 ```bash
 npx hardhat test test/test_aitoken_cooldown.js
 ```
 
 **Expected Result:**
+
 - Immediate second mint fails with cooldown error
 - Mint after 1 day succeeds
 
 ### 3.4 Test Constructor Validation
 
 **Test Script:**
+
 ```javascript
 // test/test_aitoken_constructor.js
 const { expect } = require("chai");
@@ -346,17 +379,20 @@ describe("AIToken Constructor", function () {
 ```
 
 **Run Test:**
+
 ```bash
 npx hardhat test test/test_aitoken_constructor.js
 ```
 
 **Expected Result:**
+
 - Deployment with supply > MAX_SUPPLY fails
 - Deployment with supply <= MAX_SUPPLY succeeds
 
 ## Test Summary Checklist
 
 ### Circom Circuits
+
 - [ ] ml_training_verification.circom compiles
 - [ ] Learning rate constraint uses LessThan/GreaterThan
 - [ ] ml_inference_verification.circom compiles
@@ -367,6 +403,7 @@ npx hardhat test test/test_aitoken_constructor.js
 - [ ] No placeholder ECDSA constraint
 
 ### ZK Proof Services
+
 - [ ] zk_proofs.py uses Groth16 verification
 - [ ] zk_memory_verification.py has enabled flag (default False)
 - [ ] zk_applications.py has DEMO_MODE_ENABLED flag (default False)
@@ -374,6 +411,7 @@ npx hardhat test test/test_aitoken_constructor.js
 - [ ] Disabled endpoints return 503 error
 
 ### AIToken.sol
+
 - [ ] Contract compiles
 - [ ] Supply cap enforced
 - [ ] Minting cooldown enforced
@@ -382,6 +420,7 @@ npx hardhat test test/test_aitoken_constructor.js
 ## Staging Environment Tests
 
 ### Prerequisites
+
 - Staging environment deployed
 - Environment variables configured
 - DEMO_MODE_ENABLED can be set via environment
@@ -410,6 +449,7 @@ curl -X POST http://staging.aitbc.com/zk/membership/verify \
 ## Test Results Documentation
 
 After completing tests, document results in:
+
 - `docs/security/test-results.md`
 - Include test dates, results, any failures
 - Attach logs for failed tests
@@ -418,6 +458,7 @@ After completing tests, document results in:
 ## Rollback Plan
 
 If any test fails:
+
 1. Revert the specific change
 2. Re-run tests
 3. Document the failure and reason

@@ -90,9 +90,11 @@ Enable an island to host multiple parallel block streams (chains), each producin
 | 9 | `apps/coordinator-api/src/app/contexts/infrastructure/routers/islands_proxy.py` | 50 | Pure proxy (forwards body) | No change (forwards request body) |
 
 **Verification before merge**:
+
 ```bash
 rg "join_island\(" --type=py apps/ cli/ packages/ | grep -v "def join_island" | grep -v __pycache__
 ```
+
 Must show exactly 8 results, all compatible with new signature.
 
 ## Task Split Overview

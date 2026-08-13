@@ -15,6 +15,7 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 ### ✅ Completed (All Phases)
 
 **Phase 0: Critical Pre-Implementation Fixes**
+
 - Fixed HermesDAO.sol syntax error
 - Updated storage.py for PostgreSQL support with connection pooling
 - Added alembic dependency
@@ -23,29 +24,34 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 - Created Alembic migration infrastructure (migration 001 applied successfully)
 
 **Phase 2: Smart Contracts**
+
 - Created AITBCGovernanceToken.sol (ERC20 with staking, 2x voting power multiplier)
 - Created AITBCVoting.sol (proposal creation, voting, execution with quorum)
 - Installed Foundry (forge, cast, anvil, chisel) version 1.7.1
 - All smart contract tests passing (14/14 tests)
 
 **Phase 3: Governance Service Enhancements**
+
 - Token staking methods (stake_tokens, calculate_voting_power)
 - Delegation methods (delegate_voting_power)
 - Proposal execution with logging (execute_proposal)
 - New API endpoints: stake, delegate, execute, voting-power
 
 **Phase 4: CLI Commands**
+
 - `aitbc governance stake` - Stake tokens for enhanced voting power
 - `aitbc governance delegate` - Delegate voting power to another address
 - `aitbc governance execute` - Execute a passed proposal
 - `aitbc governance voting-power` - Get voting power for an address
 
 **Phase 5: Testing**
+
 - Endpoint tests for v0.4.12 features added
 - Smart contract tests: 7 tests for AITBCGovernanceToken, 7 tests for AITBCVoting
 - All tests passing
 
 **Phase 6: Documentation & Deployment**
+
 - README updated with v0.4.12 features and migration instructions
 - Release notes updated with implementation status
 - Service running on port 8105
@@ -53,6 +59,7 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 ## 🎯 Release Highlights
 
 ### Governance Service Integration
+
 - ✅ DAO proposal creation and submission
 - ✅ On-chain voting mechanisms (token-weighted, quadratic)
 - ✅ Proposal lifecycle management (draft, active, passed, rejected, executed)
@@ -60,6 +67,7 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 - ✅ Proposal execution with automatic enforcement
 
 ### Software Marketplace Governance
+
 - ✅ Marketplace rule proposals (pricing, standards, requirements)
 - ✅ Service approval/rejection voting
 - ✅ Fee structure governance (escrow fees, bridge fees)
@@ -67,6 +75,7 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 - ✅ Protocol upgrade proposals
 
 ### Governance Token System
+
 - ✅ Token distribution for marketplace participants
 - ✅ Voting power calculation (token holdings + staking)
 - ✅ Delegation mechanism for proxy voting
@@ -74,6 +83,7 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 - ✅ Governance token rewards for marketplace activity
 
 ### CLI Enhancements
+
 - ✅ `aitbc governance propose` — create governance proposal
 - ✅ `aitbc governance vote` — vote on active proposal
 - ✅ `aitbc governance list` — list proposals
@@ -81,6 +91,7 @@ AITBC v0.4.12 integrates the Governance service with the software marketplace to
 - ✅ `aitbc governance execute` — execute passed proposal
 
 ### Database Schema
+
 - ✅ Proposal table (proposals, voting status, execution state)
 - ✅ Vote table (votes, voters, voting power)
 - ✅ Delegation table (delegators, delegates, voting power)
@@ -115,6 +126,7 @@ For detailed information on each topic, see the topic-specific documents:
 ### v0.4.11 → v0.4.12
 
 #### Pre-Migration Checklist
+
 - [ ] Backup all databases (governance, marketplace, escrow)
 - [ ] Document current system state and configurations
 - [ ] Prepare rollback plan and test rollback procedures
@@ -125,6 +137,7 @@ For detailed information on each topic, see the topic-specific documents:
 #### Migration Steps
 
 1. **Deploy Governance Token Contract**
+
    ```bash
    # Deploy governance token contract
    aitbc governance deploy-token \
@@ -138,6 +151,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 2. **Deploy Voting Contract**
+
    ```bash
    # Deploy voting contract with token address
    aitbc governance deploy-voting \
@@ -148,6 +162,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 3. **Initialize Database Schema**
+
    ```bash
    # Run database migrations
    alembic upgrade head
@@ -157,6 +172,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 4. **Distribute Initial Tokens**
+
    ```bash
    # Distribute to existing participants
    aitbc governance distribute \
@@ -169,6 +185,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 5. **Configure Governance Service**
+
    ```bash
    # /etc/aitbc/governance.env
    GOVERNANCE_ENABLED=true
@@ -182,6 +199,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 6. **Start Governance Service**
+
    ```bash
    # Start governance service
    systemctl start aitbc-governance
@@ -194,6 +212,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 7. **Bootstrap Governance**
+
    ```bash
    # Create initial proposals for marketplace rules
    aitbc governance propose \
@@ -213,6 +232,7 @@ For detailed information on each topic, see the topic-specific documents:
 #### Post-Migration Verification
 
 1. **Service Health Check**
+
    ```bash
    # Check all services are running
    systemctl status aitbc-governance aitbc-marketplace aitbc-escrow
@@ -222,6 +242,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 2. **Database Integrity Check**
+
    ```bash
    # Verify database schema
    psql -d aitbc_governance -c "\d proposals"
@@ -233,6 +254,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 3. **Smart Contract Verification**
+
    ```bash
    # Verify contract addresses
    aitbc governance verify-token --address <token-address>
@@ -243,6 +265,7 @@ For detailed information on each topic, see the topic-specific documents:
    ```
 
 4. **Integration Testing**
+
    ```bash
    # Test proposal creation
    aitbc governance propose --type test --title "Test proposal"
@@ -259,6 +282,7 @@ For detailed information on each topic, see the topic-specific documents:
 If critical issues are detected during migration:
 
 1. **Immediate Rollback (0-30 minutes)**
+
    ```bash
    # Stop governance service
    systemctl stop aitbc-governance
@@ -272,6 +296,7 @@ If critical issues are detected during migration:
    ```
 
 2. **Partial Rollback (30 minutes - 2 hours)**
+
    ```bash
    # Disable governance features
    systemctl stop aitbc-governance
@@ -284,6 +309,7 @@ If critical issues are detected during migration:
    ```
 
 3. **Full Rollback (2+ hours)**
+
    ```bash
    # Complete system rollback
    # Follow detailed rollback plan in Risk Assessment section
@@ -292,6 +318,7 @@ If critical issues are detected during migration:
 ## 🧪 Testing
 
 ### Governance Service Testing
+
 - ✅ Proposal creation and submission
 - ✅ Proposal lifecycle management
 - ✅ Token-weighted voting
@@ -300,6 +327,7 @@ If critical issues are detected during migration:
 - ✅ Proposal execution
 
 ### Token System Testing
+
 - ✅ Token distribution
 - ✅ Token staking
 - ✅ Voting power calculation
@@ -307,18 +335,21 @@ If critical issues are detected during migration:
 - ✅ Token transfer
 
 ### Marketplace Governance Testing
+
 - ✅ Service approval voting
 - ✅ Fee structure voting
 - ✅ Dispute resolution
 - ✅ Protocol upgrade voting
 
 ### Integration Testing
+
 - ✅ Governance + software marketplace
 - ✅ Governance + escrow service
 - ✅ Governance + exchange service
 - ✅ End-to-end governance flow
 
 ### Test Coverage
+
 - Governance service: 90%
 - Voting mechanisms: 85%
 - Token system: 80%
@@ -336,10 +367,12 @@ If critical issues are detected during migration:
 ## 🚀 Dependencies
 
 ### New Dependencies
+
 - Governance token contract
 - Voting contract
 
 ### Updated Dependencies
+
 - Governance service v0.4.12+
 - Software marketplace v0.4.12+
 - Escrow service v0.4.12+
@@ -363,6 +396,7 @@ If critical issues are detected during migration:
 - **Dispute resolution**: DAO-based dispute handling
 
 ### Performance Metrics
+
 - Proposal creation: <100ms
 - Vote submission: <50ms
 - Proposal execution: <500ms
@@ -384,6 +418,7 @@ If critical issues are detected during migration:
 ## 🚀 Next Steps
 
 ### v0.4.13 Planning
+
 - Advanced governance features (timelock, multisig)
 - Cross-chain governance
 - Governance NFT integration
@@ -391,6 +426,7 @@ If critical issues are detected during migration:
 - Governance analytics dashboard
 
 ### v0.5.0 Planning
+
 - Full DAO implementation
 - Governance tokenomics optimization
 - Automated governance bots

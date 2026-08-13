@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📖 Reference** → *You are here*
 
 **breadcrumb**: Home → Reference → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
 - **📋 Project Documentation** - Project context and supporting material

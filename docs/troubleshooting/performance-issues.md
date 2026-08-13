@@ -5,11 +5,13 @@ This guide covers performance problems including slow API responses, high latenc
 ## Slow API Response Times
 
 **Symptoms:**
+
 - API requests take long to complete
 - Timeouts
 - Poor user experience
 
 **Diagnosis:**
+
 ```bash
 # Measure response time
 time curl http://localhost:8203/v1/jobs
@@ -19,7 +21,9 @@ psql -d aitbc -c "SELECT * FROM pg_stat_statements ORDER BY mean_exec_time DESC 
 ```
 
 **Solutions:**
+
 1. Enable caching
+
 ```python
 # Add Redis caching
 from functools import lru_cache
@@ -29,13 +33,15 @@ def get_job(job_id: str):
     return job_service.get_job(job_id)
 ```
 
-2. Optimize database queries
+1. Optimize database queries
+
 ```sql
 -- Add indexes
 CREATE INDEX CONCURRENTLY idx_job_state ON job(state);
 ```
 
-3. Use connection pooling
+1. Use connection pooling
+
 ```python
 # Increase pool size
 engine = create_engine(
@@ -48,11 +54,13 @@ engine = create_engine(
 ## High Latency
 
 **Symptoms:**
+
 - Network latency high
 - Slow data transfer
 - Poor performance
 
 **Diagnosis:**
+
 ```bash
 # Measure latency
 ping -c 10 localhost
@@ -63,7 +71,9 @@ iperf3 -c localhost
 ```
 
 **Solutions:**
+
 1. Optimize network
+
 ```bash
 # Check network configuration
 ethtool eth0
@@ -72,7 +82,8 @@ ethtool eth0
 ethtool -G eth0 rx 4096 tx 4096
 ```
 
-2. Use local caching
+1. Use local caching
+
 ```python
 # Cache frequently accessed data
 from cachetools import TTLCache

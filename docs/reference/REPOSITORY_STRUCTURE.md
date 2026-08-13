@@ -28,6 +28,7 @@ This is the authoritative layout of the repository root at `/opt/aitbc`.
 ```
 
 ### Main directories at a glance
+
 - **`apps/`** — application and service packages
 - **`cli/`** — CLI entrypoints and command modules
 - **`contracts/`** — Solidity contracts and deployment tooling
@@ -40,6 +41,7 @@ This is the authoritative layout of the repository root at `/opt/aitbc`.
 - **`website/`** — public site, dashboards, docs portal, and wallet assets
 
 ### Notes
+
 - **Repo root**: `/opt/aitbc`
 - **Legacy home paths**: historical only
 - **Deployment docs**: see `docs/project/3_infrastructure.md` and `docs/project/5_done.md`

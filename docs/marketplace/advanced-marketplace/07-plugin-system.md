@@ -7,11 +7,13 @@ The PluginManager provides a production-ready plugin system for marketplace exte
 ## Features
 
 ### Plugin Registration
+
 - Register plugins with metadata
 - Enable/disable plugins
 - Plugin configuration management
 
 ### Plugin Hooks
+
 - `before_booking`: Pre-booking hook
 - `after_booking`: Post-booking hook
 - `before_pricing`: Pre-pricing hook
@@ -20,6 +22,7 @@ The PluginManager provides a production-ready plugin system for marketplace exte
 ~~- `after_auction`: Post-auction hook~~ (DEPRECATED v0.4.7)
 
 ### Hook Execution
+
 - Sequential hook execution
 - Context passing
 - Error handling

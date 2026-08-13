@@ -13,6 +13,7 @@ AITBC v0.4.23 deploys OpenTelemetry Collector for centralized observability data
 ### Collector Configuration
 
 OpenTelemetry Collector deployed with the following endpoints:
+
 - **OTLP gRPC**: 4317
 - **OTLP HTTP**: 4318
 - **Health**: 13133

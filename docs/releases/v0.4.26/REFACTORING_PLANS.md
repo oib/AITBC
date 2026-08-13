@@ -22,6 +22,7 @@ This document outlines planned refactoring for files in `aitbc/` exceeding 400 l
 **Current state**: Single file containing all caching logic — in-memory LRU, TTL, Redis-backed cache, blockchain-specific cache, decorators, invalidation, and metrics.
 
 **Target architecture**:
+
 ```
 aitbc/cache/
   __init__.py          # Re-exports for backward compatibility
@@ -37,6 +38,7 @@ aitbc/cache/
 ```
 
 **Migration steps**:
+
 1. Create `aitbc/cache/` subpackage
 2. Move each class/function to its logical module
 3. Update `aitbc/cache/__init__.py` to re-export everything
@@ -54,6 +56,7 @@ aitbc/cache/
 **Current state**: Single file with HTTP client, circuit breaker, rate limiter, retry logic, caching layer, and both sync/async variants.
 
 **Target architecture**:
+
 ```
 aitbc/network/
   __init__.py           # Re-exports
@@ -65,6 +68,7 @@ aitbc/network/
 ```
 
 **Migration steps**:
+
 1. Split classes into separate modules
 2. Keep `http_client.py` as a shim importing from new modules
 3. Update internal imports in apps/ to use new paths
@@ -81,6 +85,7 @@ aitbc/network/
 **Current state**: Encryption, hashing, key derivation, JWT handling, password validation, and secure random generation all in one file.
 
 **Target architecture**:
+
 ```
 aitbc/crypto/
   __init__.py          # Already exists
@@ -92,6 +97,7 @@ aitbc/crypto/
 ```
 
 **Migration steps**:
+
 1. Split into logical modules (crypto/ already exists)
 2. Update `__init__.py` exports
 3. Keep backward compat in `security.py` as shim
@@ -107,6 +113,7 @@ aitbc/crypto/
 **Current state**: Security headers, CSP, HSTS, XSS protection, content sniffing, frame options, all in one module.
 
 **Target architecture**:
+
 ```
 aitbc/security/
   __init__.py           # Already exists (middleware)
@@ -119,6 +126,7 @@ aitbc/security/
 **Note**: Could also be merged into `aitbc/middleware/` since security hardening is middleware-related.
 
 **Migration steps**:
+
 1. Move security header logic to `aitbc/security/` or `aitbc/middleware/`
 2. Update `__init__.py` exports
 3. Deprecate old module
@@ -134,6 +142,7 @@ aitbc/security/
 **Current state**: Agent registration, discovery, health tracking, and metadata management all in one file.
 
 **Target architecture**:
+
 ```
 aitbc/agent_registry/src/
   registration.py       # Core registration (shrunk)
@@ -143,6 +152,7 @@ aitbc/agent_registry/src/
 ```
 
 **Migration steps**:
+
 1. Extract discovery, health, and metadata into separate modules
 2. Keep `registration.py` focused on registration API
 
@@ -157,6 +167,7 @@ aitbc/agent_registry/src/
 **Current state**: Training environment configuration, validation, hardware detection, dependency checking, and dataset management.
 
 **Target architecture**:
+
 ```
 aitbc/training_setup/
   __init__.py           # Already exists
@@ -177,6 +188,7 @@ aitbc/training_setup/
 **Current state**: Test fixtures, mock generators, assertion helpers, and test utilities all in one file.
 
 **Target architecture**:
+
 ```
 aitbc/testing/
   __init__.py           # Already exists
@@ -197,6 +209,7 @@ aitbc/testing/
 **Current state**: Task queue, job scheduler, worker pool, priority queue, debounce/throttle decorators all in one file.
 
 **Target architecture**:
+
 ```
 aitbc/queues/
   __init__.py           # Already exists
@@ -223,6 +236,7 @@ aitbc/queues/
 **Total estimated effort**: ~7-10 days
 
 **Recommended order**:
+
 1. Start with low-risk internal packages (`testing.py`, `queues/queue_manager.py`)
 2. Then `security.py` and `security_hardening.py`
 3. Then `http_client.py` (medium risk)

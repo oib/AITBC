@@ -17,6 +17,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 #### API Gateway Service
 
 **Configuration:**
+
 - **Workers**: 4 (increased from 1)
 - **Memory Limit**: 512MB (increased from 256MB)
 - **Connection Limit**: 1000 concurrent connections
@@ -24,6 +25,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 - **Keep-Alive Timeout**: 30 seconds
 
 **Command:**
+
 ```bash
 /opt/aitbc/venv/bin/python -m uvicorn api_gateway.main:app \
   --host 0.0.0.0 \
@@ -35,6 +37,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 ```
 
 **Performance Impact:**
+
 - **Current Memory**: 340MB (66% of limit)
 - **Throughput**: 4x improvement in concurrent request handling
 - **Latency**: Reduced under load due to parallel processing
@@ -42,6 +45,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 #### Coordinator API Service
 
 **Configuration:**
+
 - **Workers**: 4 (increased from 1)
 - **Memory Limit**: 1GB (increased from 512MB)
 - **Connection Limit**: 500 concurrent connections
@@ -49,6 +53,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 - **Keep-Alive Timeout**: 30 seconds
 
 **Command:**
+
 ```bash
 /opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app \
   --host 127.0.0.1 \
@@ -60,6 +65,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 ```
 
 **Performance Impact:**
+
 - **Current Memory**: 963MB (96% of limit)
 - **Throughput**: 4x improvement in concurrent request handling
 - **Latency**: Reduced under load due to parallel processing
@@ -67,6 +73,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 #### Blockchain RPC Service
 
 **Configuration:**
+
 - **Workers**: 4 (increased from 1)
 - **Memory Limit**: 512MB (increased from 256MB)
 - **Connection Limit**: 500 concurrent connections
@@ -74,6 +81,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 - **Keep-Alive Timeout**: 30 seconds
 
 **Command:**
+
 ```bash
 /opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app \
   --host 127.0.0.1 \
@@ -85,6 +93,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 ```
 
 **Performance Impact:**
+
 - **Current Memory**: 511MB (100% of limit)
 - **Throughput**: 4x improvement in concurrent request handling
 - **Latency**: Reduced under load due to parallel processing
@@ -92,6 +101,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 ### Connection Timeout Configuration
 
 All optimized services now have:
+
 - **Keep-Alive Timeout**: 30 seconds
 - **Connection Limits**: Configured based on expected load
 - **Backlog**: Increased to handle connection spikes
@@ -115,6 +125,7 @@ All optimized services now have:
 **Status**: Active and operational
 
 **Configuration:**
+
 ```bash
 redis-cli config set maxmemory 2gb
 redis-cli config set maxmemory-policy allkeys-lru
@@ -124,6 +135,7 @@ redis-cli config set maxmemory-policy allkeys-lru
 
 **File**: `/opt/aitbc/aitbc/cache.py`
 **Features**:
+
 - Redis connection management
 - Automatic key prefixing
 - JSON serialization/deserialization
@@ -132,6 +144,7 @@ redis-cli config set maxmemory-policy allkeys-lru
 - Cache statistics
 
 **Usage Example:**
+
 ```python
 from aitbc.cache import get_cache, CacheKeys
 
@@ -155,12 +168,14 @@ stats = cache.get_stats()
 
 **File**: `/opt/aitbc/aitbc/cache_decorators.py`
 **Features**:
+
 - `@cache_blockchain_data(ttl=60)` - Cache blockchain data with short TTL
 - `@cache_account_data(ttl=300)` - Cache account data with medium TTL
 - `@cache_service_discovery(ttl=600)` - Cache service discovery with long TTL
 - `@invalidate_on_change(pattern)` - Invalidate cache on data changes
 
 **Usage Example:**
+
 ```python
 from aitbc.cache_decorators import cache_blockchain_data, invalidate_on_change
 
@@ -176,6 +191,7 @@ def update_account(address, data):
 ### Cache Keys
 
 **Predefined Key Templates:**
+
 - `block:{height}` - Individual blocks
 - `block:head` - Current head block
 - `account:{address}` - Account data
@@ -202,6 +218,7 @@ def update_account(address, data):
 **Log File**: `/var/log/aitbc/cache-monitor.log`
 
 **Monitoring Features:**
+
 - Redis connection status
 - Memory usage statistics
 - Cache hit/miss rates
@@ -209,6 +226,7 @@ def update_account(address, data):
 - Alert thresholds for low hit rates
 
 **Manual Monitoring:**
+
 ```bash
 # Run cache monitor
 /opt/aitbc/scripts/monitoring/cache-monitor.sh
@@ -228,16 +246,19 @@ redis-cli info stats | grep keyspace
 ### Service Response Times
 
 **Before Optimization:**
+
 - API Gateway: ~50-100ms (single worker)
 - Coordinator API: ~100-200ms (single worker)
 - Blockchain RPC: ~50-150ms (single worker)
 
 **After Optimization:**
+
 - API Gateway: ~8ms (4 workers, cached)
 - Coordinator API: ~8ms (4 workers, cached)
 - Blockchain RPC: ~59ms (4 workers, uncached)
 
 **Improvement:**
+
 - API Gateway: 6-12x faster
 - Coordinator API: 12-25x faster
 - Blockchain RPC: 1.7-2.5x faster
@@ -245,6 +266,7 @@ redis-cli info stats | grep keyspace
 ### Memory Usage
 
 **Service Memory After Optimization:**
+
 - API Gateway: 340MB/512MB (66%)
 - Coordinator API: 963MB/1GB (96%)
 - Blockchain RPC: 511MB/512MB (100%)
@@ -299,6 +321,7 @@ To adjust worker count for a service:
 1. **Edit the wrapper script or service file**
 2. **Update the `--workers` parameter**
 3. **Reload systemd and restart the service**
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart <service-name>
@@ -311,6 +334,7 @@ To adjust memory limits:
 1. **Edit the service file**
 2. **Update MemoryMax and MemoryLimit**
 3. **Reload systemd and restart the service**
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart <service-name>
@@ -319,16 +343,19 @@ sudo systemctl restart <service-name>
 ### Cache Management
 
 **Clear all AITBC cache:**
+
 ```bash
 redis-cli --scan --pattern "aitbc:*" | xargs redis-cli del
 ```
 
 **Clear specific cache pattern:**
+
 ```bash
 redis-cli --scan --pattern "aitbc:block:*" | xargs redis-cli del
 ```
 
 **Check cache statistics:**
+
 ```bash
 /opt/aitbc/scripts/monitoring/cache-monitor.sh
 ```
@@ -338,11 +365,13 @@ redis-cli --scan --pattern "aitbc:block:*" | xargs redis-cli del
 ### Service Performance
 
 **Monitor service memory:**
+
 ```bash
 systemctl show <service-name> -p MemoryCurrent -p MemoryMax
 ```
 
 **Monitor service response time:**
+
 ```bash
 time curl http://localhost:<port>/health
 ```
@@ -350,16 +379,19 @@ time curl http://localhost:<port>/health
 ### Cache Performance
 
 **Monitor cache hit rate:**
+
 ```bash
 redis-cli info stats | grep keyspace
 ```
 
 **Monitor memory usage:**
+
 ```bash
 redis-cli info memory | grep used_memory
 ```
 
 **View AITBC cache keys:**
+
 ```bash
 redis-cli keys "aitbc:*"
 ```
@@ -369,11 +401,13 @@ redis-cli keys "aitbc:*"
 ### Service Issues
 
 **Service won't start after worker increase:**
+
 - Check memory limits are sufficient
 - Review service logs: `journalctl -u <service-name> -f`
 - Reduce worker count if memory is insufficient
 
 **High memory usage:**
+
 - Monitor memory: `systemctl show <service-name> -p MemoryCurrent`
 - Increase memory limit if needed
 - Check for memory leaks
@@ -381,11 +415,13 @@ redis-cli keys "aitbc:*"
 ### Cache Issues
 
 **Low cache hit rate:**
+
 - Check if cache is being used correctly
 - Review TTL settings
 - Monitor cache key patterns
 
 **Redis connection issues:**
+
 - Check Redis status: `systemctl status redis-server`
 - Test connection: `redis-cli ping`
 - Review Redis logs: `journalctl -u redis-server`
@@ -430,6 +466,7 @@ redis-cli keys "aitbc:*"
 ### Contact
 
 For questions or issues related to performance optimizations:
+
 - **Documentation**: `/opt/aitbc/docs/operations/`
 - **Cache Logs**: `/var/log/aitbc/cache-monitor.log`
 - **Service Logs**: `journalctl -u aitbc-*.service`

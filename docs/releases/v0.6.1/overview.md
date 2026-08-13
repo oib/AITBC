@@ -28,11 +28,13 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Architecture: Parallel Tx Validation Approach](#architecture-parallel-tx-validation-approach)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [DependencyGraph](./agent-a.md#a1-dependencygraph)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Verify clean](./agent-a.md#a4-verify-clean)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Pure state transition](./agent-b.md#b1-pure-state-transition)
@@ -94,6 +97,7 @@ This release documentation has been split into topic-focused files:
 ```
 
 **Why this works**:
+
 - **Deterministic**: The dependency graph is built from tx data (sender/recipient), not timing. Groups are ordered by tx index. Deltas are applied in tx index order within each group.
 - **Pure state transitions**: `compute_state_delta` takes `(account_map, tx_data)` and returns `(delta, success, error)` — no DB access, no side effects. This makes parallel execution safe.
 - **Conflict detection**: Two txs conflict if they share any address in their read/write sets. Conflicting txs are serialized within a group.

@@ -83,6 +83,7 @@ pip-audit -r requirements.txt
 Use this checklist to ensure you're using the new features effectively:
 
 ### Security Features
+
 - [ ] Using enhanced `SecretManager` for sensitive data
 - [ ] Validating blockchain inputs with `SecurityValidator`
 - [ ] Running local security scans before commits
@@ -90,6 +91,7 @@ Use this checklist to ensure you're using the new features effectively:
 - [ ] Following security best practices
 
 ### Performance Features
+
 - [ ] Using `BlockchainCache` for blockchain data
 - [ ] Implementing cache invalidation for state changes
 - [ ] Enabling database query monitoring
@@ -290,6 +292,7 @@ def health_check():
 ### Common Issues
 
 **Issue**: Secret retrieval returns None
+
 ```python
 # Solution: Check if secret expired
 metadata = manager.get_secret_metadata("api_key")
@@ -298,6 +301,7 @@ if metadata['is_expired']:
 ```
 
 **Issue**: Cache hit rate is low
+
 ```python
 # Solution: Check TTL values and invalidation
 stats = cache.get_cache_stats()
@@ -306,6 +310,7 @@ print(f"TTL settings: {stats['default_ttl']}")
 ```
 
 **Issue**: Database queries are slow
+
 ```python
 # Solution: Check slow queries and optimize
 slow_queries = db.get_slow_queries(limit=10)
@@ -315,6 +320,7 @@ for query in slow_queries:
 ```
 
 **Issue**: Security scan finds vulnerabilities
+
 ```python
 # Solution: Update dependencies
 pip install --upgrade vulnerable_package

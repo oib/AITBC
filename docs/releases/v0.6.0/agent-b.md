@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -60,15 +61,18 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 ## B3: Eliminate N+1 queries
 
 **B3a: `rpc/blocks.py:127-142`** — `get_blocks_range` fetches transactions per-block in a loop:
+
 - Replace the per-block `select(Transaction).where(... block_height == b.height)` loop with a single query: fetch all transactions for the block height range using `WHERE chain_id = ? AND block_height BETWEEN ? AND ?`, then group by `block_height` in memory.
 
 **B3b: `consensus/poa.py:239-327`** — block proposal does 3 DB calls per tx:
+
 - Before the tx loop, batch-fetch all unique sender and recipient accounts in 2 queries: `SELECT * FROM account WHERE chain_id = ? AND address IN (...)`.
 - Build a dict `{address: Account}` for O(1) lookup in the loop.
 - Batch-fetch duplicate check: `SELECT tx_hash FROM transaction WHERE chain_id = ? AND tx_hash IN (...)`.
 - **Keep the sequential processing loop** — only eliminate the per-tx DB round-trips. The actual state transition logic stays unchanged (v0.6.1 will parallelize it).
 
 **B3c: `sync.py:433-451`** — account state sync does `session.get()` per remote account:
+
 - Batch-fetch all existing accounts for the chain in one query: `SELECT * FROM account WHERE chain_id = ?`.
 - Build a dict, then merge remote accounts in memory (insert/update as needed).
 - **Verify**: `pytest apps/blockchain-node/tests/test_sync.py -q` passes.
@@ -112,12 +116,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 ## B7: Wire up compression + block header caching
 
 **Compression** (using A4's `compress_json`/`decompress_json`):
+
 - `gossip/broker.py:326-329` — compress messages before publish, decompress on receive
 - `chain_sync.py:186` — compress block data before Redis publish
 - `p2p_network.py:141` — compress P2P TCP payloads
 - Add a `NETWORK_COMPRESSION_ENABLED=true` env flag (default true) so it can be disabled for debugging
 
 **Block header caching** (using A2's `BlockHeaderCache`):
+
 - `rpc/blocks.py` — cache block headers on `get_block_by_hash` and `get_block_by_height`
 - `consensus/poa.py` — cache headers during block proposal (avoid re-fetching parent)
 - Initialize `BlockHeaderCache(max_size=1000)` in the blockchain-node startup
@@ -156,6 +162,7 @@ class TestPerformance:
 Mark as `@pytest.mark.slow` — only run with `-m slow`.
 
 **Verify targets**:
+
 - Query latency <5ms (95th percentile)
 - Cache hit rate >80%
 - Mempool query latency <5ms

@@ -152,6 +152,7 @@ All methods use the CommandExecutor to call Click CLI commands:
 ### Error Handling
 
 All methods include:
+
 - Try-catch blocks for subprocess errors
 - Logging via aitbc_logging
 - Exception propagation with context
@@ -159,6 +160,7 @@ All methods include:
 ### Async Support
 
 Key methods have async versions for use in async contexts:
+
 - store_ipfs_async / retrieve_ipfs_async
 - announce_data_availability_async
 - listen_for_requests (async only)

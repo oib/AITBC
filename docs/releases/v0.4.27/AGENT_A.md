@@ -35,14 +35,17 @@ Agent A is responsible for **Security, Data & API Integrity** tasks in v0.4.27. 
 ### Fix Options
 
 **Option A**: Add `validate_secrets` method to `ValidatedAITBCConfig`
+
 - Check if `BaseAITBCConfig` has the method, copy it over
 - Ensure it works with the validation logic
 
 **Option B**: Remove the call from `main.py`
+
 - If the method is not needed, remove line 131
 - Verify production validation still works without it
 
 **Option C**: Use the original `BaseAITBCConfig` instead of the alias
+
 - Change import in `config.py` to use the original class
 - Verify no other code depends on the alias
 
@@ -89,6 +92,7 @@ Six routers still use the deprecated `require_admin_key()` function instead of t
 ### Migration Pattern
 
 **Before**:
+
 ```python
 from aitbc.deps import require_admin_key
 
@@ -99,6 +103,7 @@ async def admin_endpoint():
 ```
 
 **After**:
+
 ```python
 from aitbc.deps import AdminDep
 
@@ -119,18 +124,21 @@ async def admin_endpoint(admin: AdminDep):
 ### Common Changes
 
 1. **Remove import**:
+
    ```python
    # DELETE
    from aitbc.deps import require_admin_key
    ```
 
 2. **Add import** (if not present):
+
    ```python
    # ADD
    from aitbc.deps import AdminDep
    ```
 
 3. **Replace decorator**:
+
    ```python
    # BEFORE
    @router.get("/endpoint")
@@ -184,17 +192,20 @@ After all routers are migrated to `AdminDep`, `deps.py` has zero callers. It sho
 ### Steps
 
 1. Verify `deps.py` has no callers:
+
    ```bash
    grep -r "from app.deps import" apps/coordinator-api/
    grep -r "from .deps import" apps/coordinator-api/
    ```
 
 2. If no callers found, delete the file:
+
    ```bash
    rm apps/coordinator-api/src/app/deps.py
    ```
 
 3. Run tests to ensure nothing breaks:
+
    ```bash
    pytest tests/coordinator-api/ -x -q
    ```
@@ -220,6 +231,7 @@ After all routers are migrated to `AdminDep`, `deps.py` has zero callers. It sho
 ### Testing
 
 After each task, run:
+
 ```bash
 # Coordinator API tests
 pytest tests/coordinator-api/ -x -q
@@ -231,6 +243,7 @@ pytest tests/ -x -q
 ### Git Workflow
 
 After each task:
+
 ```bash
 git add -A
 git commit -m "fix: [task description]"
@@ -239,6 +252,7 @@ git commit -m "fix: [task description]"
 ### Documentation
 
 Update `docs/releases/v0.4.27/change.log` as tasks are completed:
+
 - Mark tasks as ✅ done
 - Add notes about any issues encountered
 - Update acceptance criteria checkboxes

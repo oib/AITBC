@@ -11,6 +11,7 @@ This document outlines the security scanning configuration for the AITBC project
 **File**: `.github/dependabot.yml`
 
 **Features**:
+
 - **Python Dependencies**: Weekly updates with conservative approach
 - **GitHub Actions**: Weekly updates for CI/CD dependencies
 - **Docker Dependencies**: Weekly updates for container dependencies
@@ -18,12 +19,14 @@ This document outlines the security scanning configuration for the AITBC project
 - **Conservative Updates**: Patch and minor updates allowed, major updates require review
 
 **Schedule**:
+
 - **Frequency**: Weekly on Mondays at 09:00 UTC
 - **Reviewers**: @oib
 - **Assignees**: @oib
 - **Labels**: dependencies, [ecosystem], [language]
 
 **Conservative Approach**:
+
 - Allow patch updates for all dependencies
 - Allow minor updates for most dependencies
 - Require manual review for major updates of critical dependencies
@@ -34,14 +37,16 @@ This document outlines the security scanning configuration for the AITBC project
 **File**: `bandit.toml`
 
 **Configuration**:
+
 - **Severity Level**: Medium and above
 - **Confidence Level**: Medium and above
-- **Excluded Directories**: tests, test_*, __pycache__, .venv, build, dist
+- **Excluded Directories**: tests, test_*, **pycache**, .venv, build, dist
 - **Skipped Tests**: Comprehensive list of skipped test rules for development efficiency
 - **Output Format**: JSON and human-readable reports
 - **Parallel Processing**: 4 processes for faster scanning
 
 **Scanned Directories**:
+
 - `apps/coordinator-api/src`
 - `cli/aitbc_cli`
 - `packages/py/aitbc-core/src`
@@ -52,6 +57,7 @@ This document outlines the security scanning configuration for the AITBC project
 ### 3. CodeQL Security Analysis
 
 **Features**:
+
 - **Languages**: Python, JavaScript
 - **Queries**: security-extended, security-and-quality
 - **SARIF Output**: Results uploaded to GitHub Security tab
@@ -60,11 +66,13 @@ This document outlines the security scanning configuration for the AITBC project
 ### 4. Dependency Security Scanning
 
 **Python Dependencies**:
+
 - **Tool**: Safety
 - **Check**: Known vulnerabilities in Python packages
 - **Output**: JSON and human-readable reports
 
 **npm Dependencies**:
+
 - **Tool**: npm audit
 - **Check**: Known vulnerabilities in npm packages
 - **Coverage**: explorer-web and website packages
@@ -72,6 +80,7 @@ This document outlines the security scanning configuration for the AITBC project
 ### 5. Container Security Scanning
 
 **Tool**: Trivy
+
 - **Trigger**: When Docker files are modified
 - **Output**: SARIF format for GitHub Security tab
 - **Scope**: Container vulnerability scanning
@@ -79,6 +88,7 @@ This document outlines the security scanning configuration for the AITBC project
 ### 6. OSSF Scorecard
 
 **Purpose**: Open Source Security Foundation security scorecard
+
 - **Metrics**: Security best practices compliance
 - **Output**: SARIF format for GitHub Security tab
 - **Frequency**: On every push and PR
@@ -90,6 +100,7 @@ This document outlines the security scanning configuration for the AITBC project
 **File**: `.github/workflows/security-scanning.yml`
 
 **Triggers**:
+
 - **Push**: main, develop branches
 - **Pull Requests**: main, develop branches
 - **Schedule**: Daily at 2 AM UTC
@@ -172,6 +183,7 @@ This document outlines the security scanning configuration for the AITBC project
 ## 🔧 Configuration Files
 
 ### bandit.toml
+
 ```toml
 [bandit]
 exclude_dirs = ["tests", "test_*", "__pycache__", ".venv"]
@@ -182,6 +194,7 @@ number_of_processes = 4
 ```
 
 ### .github/dependabot.yml
+
 ```yaml
 version: 2
 updates:
@@ -194,6 +207,7 @@ updates:
 ```
 
 ### .github/workflows/security-scanning.yml
+
 ```yaml
 name: Security Scanning
 on:
@@ -208,6 +222,7 @@ on:
 ## 🛡️ Security Best Practices
 
 ### Code Security
+
 - **Input Validation**: Validate all user inputs
 - **SQL Injection**: Use parameterized queries
 - **XSS Prevention**: Escape user-generated content
@@ -215,12 +230,14 @@ on:
 - **Authorization**: Proper access controls
 
 ### Dependency Security
+
 - **Regular Updates**: Keep dependencies up-to-date
 - **Vulnerability Scanning**: Regular security scans
 - **Known Vulnerabilities**: Address immediately
 - **Supply Chain Security**: Verify package integrity
 
 ### Infrastructure Security
+
 - **Container Security**: Regular container scanning
 - **Network Security**: Proper firewall rules
 - **Access Control**: Least privilege principle
@@ -229,18 +246,21 @@ on:
 ## 📋 Security Checklist
 
 ### Development Phase
+
 - [ ] Code review for security issues
 - [ ] Static analysis with Bandit
 - [ ] Dependency vulnerability scanning
 - [ ] Security testing
 
 ### Deployment Phase
+
 - [ ] Container security scanning
 - [ ] Infrastructure security review
 - [ ] Access control verification
 - [ ] Monitoring setup
 
 ### Maintenance Phase
+
 - [ ] Regular security scans
 - [ ] Dependency updates
 - [ ] Security patch application
@@ -249,6 +269,7 @@ on:
 ## 🚨 Incident Response
 
 ### Security Incident Process
+
 1. **Detection**: Automated security scan alerts
 2. **Assessment**: Security team evaluation
 3. **Response**: Immediate patch deployment
@@ -256,6 +277,7 @@ on:
 5. **Post-mortem**: Incident analysis and improvement
 
 ### Escalation Levels
+
 - **Low**: Informational findings
 - **Medium**: Security best practice violations
 - **High**: Security vulnerabilities
@@ -264,6 +286,7 @@ on:
 ## 📈 Security Metrics Dashboard
 
 ### Key Metrics
+
 - **Vulnerability Count**: Number of security findings
 - **Severity Distribution**: Breakdown by severity level
 - **Remediation Time**: Time to fix vulnerabilities
@@ -271,6 +294,7 @@ on:
 - **False Positive Rate**: Accuracy of security tools
 
 ### Reporting Frequency
+
 - **Daily**: Automated scan results
 - **Weekly**: Security summary reports
 - **Monthly**: Security metrics dashboard
@@ -279,6 +303,7 @@ on:
 ## 🔮 Future Enhancements
 
 ### Planned Improvements
+
 - **Dynamic Application Security Testing (DAST)**
 - **Interactive Application Security Testing (IAST)**
 - **Software Composition Analysis (SCA)**
@@ -286,6 +311,7 @@ on:
 - **Threat Modeling Integration**
 
 ### Tool Integration
+
 - **SonarQube**: Code quality and security
 - **Snyk**: Dependency vulnerability scanning
 - **OWASP ZAP**: Web application security
@@ -295,11 +321,13 @@ on:
 ## 📞 Security Contacts
 
 ### Security Team
+
 - **Security Lead**: security@aitbc.dev
 - **Development Team**: dev@aitbc.dev
 - **Operations Team**: ops@aitbc.dev
 
 ### External Resources
+
 - **GitHub Security Advisory**: https://github.com/advisories
 - **OWASP Top 10**: https://owasp.org/www-project-top-ten/
 - **CISA Vulnerabilities**: https://www.cisa.gov/known-exploited-vulnerabilities-catalog

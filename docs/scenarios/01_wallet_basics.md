@@ -74,6 +74,7 @@ aitbc wallet create my-agent-wallet
 You will be prompted to enter and confirm a password for wallet encryption.
 
 **Expected output:**
+
 ```
 Wallet encryption is enabled. Your private key will be encrypted at rest.
 Enter password for wallet 'my-agent-wallet':
@@ -92,6 +93,7 @@ aitbc wallet create test-wallet --type simple --no-encrypt
 ```
 
 **Expected output:**
+
 ```
 Wallet 'test-wallet' created successfully
 test-wallet  simple  aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6  /home/user/.aitbc/wallets/test-wallet.json
@@ -106,6 +108,7 @@ aitbc wallet list
 ```
 
 **Expected output:**
+
 ```
 my-agent-wallet: aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2
 test-wallet: aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6
@@ -120,6 +123,7 @@ aitbc wallet switch test-wallet
 ```
 
 **Expected output:**
+
 ```
 Switched to wallet 'test-wallet'
 active_wallet  test-wallet
@@ -136,6 +140,7 @@ aitbc wallet backup my-agent-wallet --destination /tmp/my-agent-backup.json
 ```
 
 **Expected output:**
+
 ```
 Wallet 'my-agent-wallet' backed up to '/tmp/my-agent-backup.json'
 wallet       my-agent-wallet
@@ -149,6 +154,7 @@ aitbc wallet backup test-wallet
 ```
 
 **Expected output:**
+
 ```
 Wallet 'test-wallet' backed up to 'test-wallet_backup_20260625_120000.json'
 ```
@@ -163,6 +169,7 @@ aitbc wallet restore /tmp/my-agent-backup.json restored-wallet
 ```
 
 **Expected output:**
+
 ```
 Wallet 'restored-wallet' restored from '/tmp/my-agent-backup.json'
 ```
@@ -182,6 +189,7 @@ aitbc wallet delete test-wallet
 ```
 
 **Expected output:**
+
 ```
 Are you sure you want to delete wallet 'test-wallet'? This cannot be undone. [y/N]: y
 Wallet 'test-wallet' deleted
@@ -226,6 +234,7 @@ print(f"Registered:  {agent.registered}")
 ```
 
 **Expected output:**
+
 ```
 Agent ID:    agent_a1b2c3d4
 Agent Name:  my-ai-agent
@@ -260,6 +269,7 @@ print(f"Signature valid: {is_valid}")
 ```
 
 **Expected output:**
+
 ```
 Signature: 3a7f2b1c4d5e6f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a...
 Signature valid: True
@@ -283,6 +293,7 @@ print(agent_dict)
 ```
 
 **Expected output:**
+
 ```python
 {
     'id': 'agent_e5f6a7b8',

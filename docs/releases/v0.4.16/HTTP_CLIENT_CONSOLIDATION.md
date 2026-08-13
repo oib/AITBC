@@ -11,6 +11,7 @@ AITBC v0.4.16 consolidates 5 HTTP client implementations into 4 unified modules 
 ## Unified HTTP Client Architecture
 
 ### New Module Structure
+
 ```
 aitbc/http/
 ├── __init__.py              # Public API
@@ -24,10 +25,12 @@ aitbc/http/
 ```
 
 ### Backend Implementations
+
 - `aitbc/http/backends/httpx.py` - HTTPX-based client
 - `aitbc/http/backends/requests.py` - Requests-based client
 
 ### Utility Modules
+
 - `aitbc/http/client.py` - Unified client interface
 - `aitbc/http/exceptions.py` - Custom exceptions
 
@@ -39,11 +42,13 @@ aitbc/http/
 ## Migration
 
 **Old Import:**
+
 ```python
 from aitbc.network.http_client import AITBCHTTPClient
 ```
 
 **New Import:**
+
 ```python
 from aitbc.http.client import AITBCHTTPClient
 ```

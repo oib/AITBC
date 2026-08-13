@@ -5,11 +5,13 @@ This guide covers GPU problems including detection issues, CUDA errors, and memo
 ## GPU Not Detected
 
 **Symptoms:**
+
 - GPU not recognized
 - CUDA errors
 - Mining fails
 
 **Diagnosis:**
+
 ```bash
 # Check GPU
 nvidia-smi
@@ -22,7 +24,9 @@ dmesg | grep -i nvidia
 ```
 
 **Solutions:**
+
 1. Reinstall NVIDIA driver
+
 ```bash
 # Remove old driver
 apt remove nvidia-* --purge
@@ -34,7 +38,8 @@ apt install nvidia-driver-535
 reboot
 ```
 
-2. Check CUDA installation
+1. Check CUDA installation
+
 ```bash
 # Verify CUDA installation
 nvcc --version
@@ -43,7 +48,8 @@ nvcc --version
 apt install nvidia-cuda-toolkit
 ```
 
-3. Check GPU permissions
+1. Check GPU permissions
+
 ```bash
 # Add user to video group
 usermod -aG video $USER
@@ -55,11 +61,13 @@ reboot
 ## GPU Memory Errors
 
 **Symptoms:**
+
 - Out of memory errors
 - CUDA out of memory
 - Jobs failing
 
 **Diagnosis:**
+
 ```bash
 # Check GPU memory
 nvidia-smi
@@ -69,19 +77,23 @@ watch -n 1 nvidia-smi
 ```
 
 **Solutions:**
+
 1. Reduce batch size
+
 ```python
 # Reduce batch size in job configuration
 batch_size = 8  # Reduce from 16
 ```
 
-2. Clear GPU cache
+1. Clear GPU cache
+
 ```python
 import torch
 torch.cuda.empty_cache()
 ```
 
-3. Restart mining service
+1. Restart mining service
+
 ```bash
 systemctl restart aitbc-miner
 ```
@@ -89,12 +101,14 @@ systemctl restart aitbc-miner
 ## cuInit Fails in Incus/LXC Container (Error 999)
 
 **Symptoms:**
+
 - `nvidia-smi` works inside the container
 - `nvcc --version` works
 - PyCUDA / CUDA runtime fails with `cuInit failed: unknown error` (error 999)
 - Coordinator-api logs: `PyCUDA not available or no CUDA-capable device detected`
 
 **Diagnosis:**
+
 ```bash
 # nvidia-smi works (uses NVML, only needs /dev/nvidia0)
 nvidia-smi
@@ -113,6 +127,7 @@ CUDA runtime requires the NVIDIA Unified Virtual Memory (UVM) device at `/dev/nv
 Incus/LXC containers need the UVM device explicitly passed through from the host.
 
 **Solution (run on the HOST, not inside the container):**
+
 ```bash
 # Find the container name
 incus list
@@ -131,6 +146,7 @@ incus restart <container-name>
 ```
 
 **Verify inside the container after restart:**
+
 ```bash
 ls -la /dev/nvidia-uvm*
 /opt/aitbc/venv/bin/python -c "

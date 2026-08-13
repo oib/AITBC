@@ -7,10 +7,12 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 ### Connection refused
 
 **Symptoms:**
+
 - RPC calls fail with connection refused
 - Cannot reach hub blockchain node
 
 **Solutions:**
+
 - Check hub node is running: `systemctl status aitbc-blockchain-node`
 - Verify HUB_DISCOVERY_URL in `/etc/aitbc/blockchain.env`
 - Test RPC connectivity: `curl http://hub.aitbc.bubuit.net:8202/rpc/head`
@@ -18,10 +20,12 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 ### Insufficient balance
 
 **Symptoms:**
+
 - Staking operations fail
 - GPU allocation operations fail
 
 **Solutions:**
+
 - Ensure wallet has enough the network tokens for staking
 - Request tokens from faucet: `aitbc wallet faucet --wallet <wallet>`
 - Check wallet balance: `aitbc wallet balance --wallet <wallet>`
@@ -29,10 +33,12 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 ### Already voted
 
 **Symptoms:**
+
 - Governance vote fails
 - Error message indicates already voted
 
 **Solutions:**
+
 - Each address can only vote once per proposal
 - Check existing votes: `aitbc operations governance get-proposal <proposal_id>`
 - Use a different wallet address if needed
@@ -40,10 +46,12 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 ### Proposal not found
 
 **Symptoms:**
+
 - Query proposal returns 404
 - Vote operations fail
 
 **Solutions:**
+
 - Ensure proposal_id matches exactly what was created
 - Query all proposals to verify
 - Check chain_id matches expected value
@@ -51,10 +59,12 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 ### GPU not found
 
 **Symptoms:**
+
 - GPU query returns 404
 - Allocation operations fail
 
 **Solutions:**
+
 - Verify GPU was registered on-chain: `aitbc gpu-onchain query <gpu_id>`
 - Check chain_id matches expected value
 - Re-register GPU if needed
@@ -62,10 +72,12 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 ### Wallet not found
 
 **Symptoms:**
+
 - Operations fail with wallet not found error
 - Cannot load wallet
 
 **Solutions:**
+
 - Check wallet exists: `aitbc wallet list`
 - Verify wallet path: `ls ~/.aitbc/wallets/`
 - Create wallet if needed: `aitbc wallet create <wallet-name>`
@@ -104,6 +116,7 @@ sqlite3 /var/lib/aitbc/blockchain.db "PRAGMA integrity_check;"
 ## Getting Help
 
 If issues persist after troubleshooting:
+
 1. Check the [Architecture Notes](./architecture.md) for system design details
 2. Review [Best Practices](./best-practices.md) for recommended usage patterns
 3. Consult the main AITBC documentation for broader system issues

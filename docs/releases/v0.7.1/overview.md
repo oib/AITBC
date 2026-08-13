@@ -8,6 +8,7 @@
 **Goal**: Add the security-critical multi-signature layer to the cross-chain bridge. Replace the current "accepts any valid secp256k1 signer" proof verification (`_verify_proposer_signature` in `cross_chain/bridge.py:477-523`) with proper M-of-N threshold signature validation against a per-chain validator set. Add block header signatures so proposers are cryptographically bound to the blocks they produce. Add CLI commands for security status and validator registration.
 
 > **Rescope from original change.log**: The original v0.7.1 change.log bundled multi-sig + cross-chain sig verification + time-locks + audit trail into one release. This is too much for a single release cycle. Per the release-planning analysis, v0.7.1 is now scoped to **multi-sig core only**:
+>
 > - ✅ v0.7.1: Validator set registry, threshold sigs, block header signing, multi-sig lock/confirm, CLI, threat model
 > - ➡️ v0.7.2: Time-locks (value-tiered), audit trail (cryptographic chaining), light client verification, Merkle proof verification, finality thresholds, oracle stub
 >
@@ -36,6 +37,7 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-from-subagent-investigation-2026-06-29)
 - [Already Fixed / Exists](#already-fixed--exists-verified--no-work-needed)
 - [Architecture](#architecture-bridge-security-v071)
@@ -43,6 +45,7 @@ This release documentation has been split into topic-focused files:
 - [Phase 0 - Threat Model](#phase-0--threat-model-prerequisite)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Extend Bridge Types](./agent-a.md#a1-extend-bridge-types)
@@ -51,6 +54,7 @@ This release documentation has been split into topic-focused files:
 - [BridgeClient Extensions + Unit Tests](./agent-a.md#a4-bridgeclient-extensions--unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Threat Model Document](./agent-b.md#b1-threat-model-document)
@@ -179,6 +183,7 @@ Phase 0 (prerequisite — either agent):
 Create `docs/architecture/bridge-threat-model.md` — bridge-specific threat model addendum to the existing `docs/security/threat-model.md` (which covers general platform threats but NOT bridge-specific ones).
 
 Must cover:
+
 - **Attack surfaces**: bridge RPC endpoints, proof verification path, validator set registry, block header signatures, multi-sig aggregation
 - **Attack vectors**:
   - Forged proofs (attacker fabricates lock proof without actual lock) — mitigated by multi-sig + block anchoring

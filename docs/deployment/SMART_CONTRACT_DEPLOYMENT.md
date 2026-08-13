@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **🚀 Deployment** → **📜 Smart Contract Deployment**
 
 **breadcrumb**: Home → Deployment → Smart Contract Deployment
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **🔧 SETUP_PRODUCTION.md** - Production blockchain setup
 - **📋 [Advanced Deployment](../deployment/0_index.md)** - Advanced deployment topics
 - **📚 [Contracts Directory](../../contracts/)** - Contract source code
@@ -48,30 +50,36 @@ This guide covers the deployment of AITBC smart contracts to testnet and mainnet
 ## 📋 **Prerequisites**
 
 ### Required Tools
+
 - Node.js 18+ and npm
 - Hardhat framework
 - Git repository access
 - CI/CD runner access
 
 ### Required Secrets
+
 Configure the following secrets in your CI/CD system:
 
 **For Testnet:**
+
 - `TESTNET_DEPLOYER_PRIVATE_KEY` - Private key for testnet deployment
 - `TESTNET_RPC_URL` - RPC endpoint for testnet
 - `TESTNET_EXPLORER_API_KEY` - API key for testnet block explorer
 
 **For Mainnet:**
+
 - `MAINNET_DEPLOYER_PRIVATE_KEY` - Private key for mainnet deployment
 - `MAINNET_RPC_URL` - RPC endpoint for mainnet
 - `ETHERSCAN_API_KEY` - API key for Etherscan verification
 
 **For Monitoring:**
+
 - `SLACK_WEBHOOK_URL` - Slack webhook for notifications
 - `ALERT_EMAIL` - Email address for alerts
 - `PAGERDUTY_API_KEY` - PagerDuty API key for critical alerts
 
 ### Local Setup
+
 ```bash
 cd /opt/aitbc/contracts
 pnpm install
@@ -84,6 +92,7 @@ pnpm install
 ### Automated Deployment via CI/CD
 
 The testnet deployment workflow is triggered by:
+
 - Pushing to `main` branch
 - Creating a tag matching `testnet-v*`
 - Manual trigger via `workflow_dispatch`
@@ -113,6 +122,7 @@ pnpm hardhat run scripts/deploy-testnet.js --network testnet
 ### Contract Addresses
 
 After deployment, record the contract addresses:
+
 - `PaymentProcessor` - Handles payment processing
 - `AgentMarketplace` - Manages agent registration and job postings
 - `StakingContract` - Handles staking and rewards
@@ -136,6 +146,7 @@ Before deploying to mainnet, ensure:
 ### Automated Deployment via CI/CD
 
 The mainnet deployment workflow is triggered by:
+
 - Creating a tag matching `mainnet-v*`
 - Manual trigger via `workflow_dispatch`
 
@@ -167,6 +178,7 @@ pnpm hardhat run scripts/deploy-mainnet.js --network mainnet
 ### Deployment Safety
 
 Mainnet deployment includes:
+
 - Pre-deployment security checks
 - Gas optimization
 - Transaction confirmation monitoring
@@ -196,6 +208,7 @@ pnpm hardhat verify --network mainnet <STAKING_CONTRACT_ADDRESS> --constructor-a
 ### Testnet Verification
 
 Testnet verification uses the block explorer API:
+
 ```bash
 export TESTNET_EXPLORER_API_KEY=<testnet-explorer-api-key>
 export TESTNET_EXPLORER_URL=<testnet-explorer-url>
@@ -216,6 +229,7 @@ bash scripts/monitoring/setup-contract-monitoring.sh <network>
 ```
 
 This creates:
+
 - Prometheus metrics configuration
 - Contract event monitoring
 - Health check endpoints
@@ -225,22 +239,26 @@ This creates:
 Automated alerts are configured for:
 
 **Critical Alerts:**
+
 - Contract downtime
 - Critical balance low
 - High failure rate
 
 **Warning Alerts:**
+
 - Unusual withdrawal activity
 - Gas price spikes
 - Reward distribution delays
 
 **Info Alerts:**
+
 - Low marketplace activity
 - Successful deployments
 
 ### Alert Channels
 
 Alerts are sent to:
+
 - Slack (configured channels)
 - Email (ALERT_EMAIL)
 - PagerDuty (critical alerts only)
@@ -248,6 +266,7 @@ Alerts are sent to:
 ### Monitoring Verification
 
 Verify monitoring is working:
+
 ```bash
 bash scripts/monitoring/verify-monitoring.sh <network>
 ```
@@ -259,12 +278,14 @@ bash scripts/monitoring/verify-monitoring.sh <network>
 ### Deployment Fails
 
 **Check:**
+
 - RPC endpoint is accessible
 - Private key is correct and has sufficient funds
 - Network is not congested (gas prices)
 - Contract compilation successful
 
 **Solution:**
+
 ```bash
 # Check RPC connectivity
 curl -X POST $RPC_URL -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
@@ -276,12 +297,14 @@ pnpm hardhat run scripts/check-balance.js --network <network>
 ### Verification Fails
 
 **Check:**
+
 - Contract address is correct
 - Constructor arguments match deployment
 - API key is valid
 - Contract is already verified
 
 **Solution:**
+
 ```bash
 # Check if already verified
 curl https://api.etherscan.io/api?module=contract&action=getabiaddress&address=<CONTRACT_ADDRESS>&apikey=<API_KEY>
@@ -293,12 +316,14 @@ pnpm hardhat verify --network <network> <ADDRESS> <CONSTRUCTOR_ARGS>
 ### Monitoring Not Working
 
 **Check:**
+
 - Monitoring service is running
 - Prometheus is accessible
 - Alertmanager is running
 - Configuration files are valid
 
 **Solution:**
+
 ```bash
 # Check service status
 systemctl status aitbc-monitoring.service
@@ -315,6 +340,7 @@ curl http://localhost:9093/-/healthy
 ## 📝 **Deployment Checklist**
 
 ### Testnet
+
 - [ ] Environment variables configured
 - [ ] Contracts compile successfully
 - [ ] Tests pass
@@ -324,6 +350,7 @@ curl http://localhost:9093/-/healthy
 - [ ] Smoke tests pass
 
 ### Mainnet
+
 - [ ] All testnet checks pass
 - [ ] Security scan clean
 - [ ] Code review complete

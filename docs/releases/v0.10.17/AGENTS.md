@@ -92,19 +92,24 @@ cd /opt/aitbc
 ## Additional Findings (added to release plan)
 
 ### P0 — Fresh Instance Wiring Bug (`main.py:379`)
+
 - Disposable `peer_sync` used only for P2P callback. Fixed by storing `self._sync` and reusing it.
 
 ### P1 — Feature Flags (`v0.10.1` discrepancy)
+
 - `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` flipped to `True`.
 
 ### P2 — Pool-Hub v0.6.7 Gaps
+
 - `BlockchainClient`, reward constants, `distribute_rewards()`, eligibility logic, Prometheus counters: all present.
 - Reward signing integration deferred to v0.7.1 (`blockchain.py:74-77`).
 
 ### P2 — Coordinator-API Alembic Isolation ✅
+
 - `env.py` now honors `DATABASE_URL` or `SQLITE_URL` override before falling back to `app_settings.database.effective_url`.
 
 ### P2 — Systemd Symlink Audit
+
 - After restructure: `scripts/utils/link-systemd.sh` → `load-keystore-secrets.sh`.
 - If `resources` failure: `systemctl reset-failed` then retry.
 

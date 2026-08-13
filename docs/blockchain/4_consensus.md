@@ -7,6 +7,7 @@ Understand AITBC's hybrid Proof-of-Authority/Proof-of-Stake consensus mechanism.
 ## Overview
 
 AITBC uses a hybrid PoA/PoS consensus mechanism with:
+
 - Fixed block time: 2 seconds
 - Multi-validator authority set with role-based permissions
 - Stake-weighted proposer selection and validator rotation
@@ -18,6 +19,7 @@ AITBC uses a hybrid PoA/PoS consensus mechanism with:
 ### Multi-Validator Architecture
 
 AITBC supports multiple validators with distinct roles:
+
 - **PROPOSER**: Authorized to propose new blocks
 - **VALIDATOR**: Participates in consensus and validates blocks
 - **STANDBY**: Waiting to be promoted to active role
@@ -25,6 +27,7 @@ AITBC supports multiple validators with distinct roles:
 ### Proposer Selection
 
 Multiple selection strategies are available:
+
 - **Round-robin**: Validators take turns in fixed order
 - **Stake-weighted**: Higher stake increases selection probability
 - **Reputation-based**: Performance metrics influence selection
@@ -70,6 +73,7 @@ Proposers are selected from active validators with PROPOSER or VALIDATOR roles.
 ## Byzantine Fault Tolerance (PBFT)
 
 AITBC implements Practical Byzantine Fault Tolerance for safety:
+
 - **Pre-prepare phase**: Proposer broadcasts block proposal
 - **Prepare phase**: Validators acknowledge proposal
 - **Commit phase**: Validators commit to block execution
@@ -80,6 +84,7 @@ The system tolerates up to 1/3 faulty validators while maintaining safety and li
 ## Validator Rotation
 
 Validators rotate automatically based on configured strategy:
+
 - **Rotation interval**: Every 100 blocks (configurable)
 - **Maximum validators**: 10 (configurable)
 - **Strategies**: Round-robin, stake-weighted, reputation-based, or hybrid
@@ -89,6 +94,7 @@ Rotation ensures decentralization and prevents single-point failures.
 ## Network Partition Handling
 
 The consensus mechanism detects and handles network partitions:
+
 - Partitioned validators are marked and excluded from consensus
 - Consensus requires majority of active validators (not partitioned)
 - 5-second cooldown after partition healing before resuming consensus
@@ -97,12 +103,14 @@ The consensus mechanism detects and handles network partitions:
 ## Fork Selection
 
 Longest chain rule applies:
+
 - Validators always extend the longest known chain
 - Reorgs occur only on conflicting blocks within the last 10 blocks
 
 ## Finality
 
 Blocks are considered final after:
+
 - 1 confirmation for normal transactions
 - 3 confirmations for high-value transactions
 
@@ -127,6 +135,7 @@ REPUTATION_THRESHOLD=0.7              # Minimum reputation for rotation
 ## Implementation
 
 The consensus is implemented in:
+
 - `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` - Core PoA logic
 - `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` - PBFT protocol
 - `apps/blockchain-node/src/aitbc_chain/consensus/rotation.py` - Validator rotation

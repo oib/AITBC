@@ -3,16 +3,20 @@
 ## Issues Fixed
 
 ### 1. Wrong App Import
+
 - **Problem**: The `coordinator_client` fixture was importing the wallet daemon app instead of the coordinator API
 - **Solution**: Updated the fixture to ensure the coordinator API path is first in sys.path
 
 ### 2. Incorrect Field Names
+
 - **Problem**: Tests were expecting `id` field but API returns `job_id`
 - **Solution**: Changed all references from `id` to `job_id`
 
 ### 3. Wrong Job Data Structure
+
 - **Problem**: Tests were sending job data directly instead of wrapping in `payload`
 - **Solution**: Updated job creation to use correct structure:
+
   ```json
   {
     "payload": { "job_type": "...", "parameters": {...} },
@@ -21,14 +25,17 @@
   ```
 
 ### 4. Missing API Keys
+
 - **Problem**: Some requests were missing the required `X-Api-Key` header
 - **Solution**: Added `X-Api-Key: ${CLIENT_API_KEY}` to all requests
 
 ### 5. Non-existent Endpoints
+
 - **Problem**: Tests were calling endpoints that don't exist (e.g., `/v1/jobs/{id}/complete`)
 - **Solution**: Simplified tests to only use existing endpoints
 
 ### 6. Complex Mock Patches
+
 - **Problem**: Tests had complex patch paths that were failing
 - **Solution**: Simplified tests to work with basic mock clients or skipped complex integrations
 

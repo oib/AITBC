@@ -13,6 +13,7 @@ The Blockchain Node API provides access to blockchain operations including block
 ## API Documentation
 
 Interactive API documentation is available via Swagger UI:
+
 - Development: `http://localhost:8202/docs`
 - OpenAPI Spec: `http://localhost:8202/openapi.json`
 
@@ -23,14 +24,17 @@ Interactive API documentation is available via Swagger UI:
 ### Block Operations
 
 #### Get Block by Height
+
 `GET /rpc/blocks/{height}`
 
 Retrieve a block by its height.
 
 **Parameters:**
+
 - `height` (path parameter): Block height as integer
 
 **Response:** `200 OK`
+
 ```json
 {
   "height": 12345,
@@ -44,11 +48,13 @@ Retrieve a block by its height.
 ```
 
 #### Get Head Block
+
 `GET /rpc/head`
 
 Retrieve the latest (head) block in the blockchain.
 
 **Response:** `200 OK`
+
 ```json
 {
   "height": 11629,
@@ -59,15 +65,18 @@ Retrieve the latest (head) block in the blockchain.
 ```
 
 #### Get Block Range
+
 `GET /rpc/blocks-range?from={start}&to={end}`
 
 Retrieve a range of blocks.
 
 **Parameters:**
+
 - `from` (query): Starting block height
 - `to` (query): Ending block height
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -81,14 +90,17 @@ Retrieve a range of blocks.
 ### Transaction Operations
 
 #### Get Transaction
+
 `GET /rpc/transaction?hash={tx_hash}`
 
 Retrieve a transaction by its hash.
 
 **Parameters:**
+
 - `tx_hash` (path parameter): Transaction hash
 
 **Response:** `200 OK`
+
 ```json
 {
   "hash": "0x...",
@@ -102,11 +114,13 @@ Retrieve a transaction by its hash.
 ```
 
 #### Submit Transaction
+
 `POST /rpc/transaction`
 
 Submit a new transaction to the blockchain.
 
 **Request Body:**
+
 ```json
 {
   "from": "0x...",
@@ -119,6 +133,7 @@ Submit a new transaction to the blockchain.
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "hash": "0x...",
@@ -129,11 +144,13 @@ Submit a new transaction to the blockchain.
 ### Network Status
 
 #### Get Network Info
+
 `GET /rpc/network-info`
 
 Retrieve network status and information.
 
 **Response:** `200 OK`
+
 ```json
 {
   "p2p_endpoint": "aitbc3:8200",
@@ -150,11 +167,13 @@ Retrieve network status and information.
 ```
 
 #### Get Peers
+
 `GET /rpc/subscribers`
 
 Retrieve list of connected peers (subscribers).
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -168,11 +187,13 @@ Retrieve list of connected peers (subscribers).
 ### Smart Contract Operations
 
 #### Call Contract
+
 `POST /v1/contracts/{address}/call`
 
 Call a smart contract method (read-only).
 
 **Request Body:**
+
 ```json
 {
   "method": "balanceOf",
@@ -181,6 +202,7 @@ Call a smart contract method (read-only).
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "result": "0x...",
@@ -189,11 +211,13 @@ Call a smart contract method (read-only).
 ```
 
 #### Send Transaction to Contract
+
 `POST /v1/contracts/{address}/transact`
 
 Send a transaction to a smart contract (state-changing).
 
 **Request Body:**
+
 ```json
 {
   "method": "transfer",
@@ -204,6 +228,7 @@ Send a transaction to a smart contract (state-changing).
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "hash": "0x...",
@@ -266,6 +291,7 @@ ws://localhost:8202/rpc/subscribe
 ```
 
 The WebSocket sends events as JSON messages:
+
 ```json
 {
   "type": "new_block",
@@ -282,21 +308,25 @@ The WebSocket sends events as JSON messages:
 The blockchain node also hosts the marketplace escrow service.
 
 #### Create Escrow
+
 `POST /rpc/escrow/create`
 
 Lock buyer funds for a marketplace job. Automatically called by marketplace-service on `book_offer`.
 
 #### Get Escrow State
+
 `GET /rpc/escrow/{job_id}`
 
 Query escrow state: `created`, `released`, `refunded`, etc.
 
 #### Release Escrow
+
 `POST /rpc/escrow/{job_id}/release`
 
 Release funds to provider on job completion.
 
 #### Refund Escrow
+
 `POST /rpc/escrow/{job_id}/refund`
 
 Refund funds to buyer.

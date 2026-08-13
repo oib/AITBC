@@ -14,18 +14,21 @@ This guide covers the system and software requirements for installing AITBC.
 ## Hardware Requirements
 
 ### Minimum (Development)
+
 - CPU: 4 cores
 - RAM: 8 GB
 - Storage: 100 GB SSD
 - GPU: Not required for development
 
 ### Recommended (Production)
+
 - CPU: 8+ cores
 - RAM: 16+ GB
 - Storage: 500 GB NVMe SSD
 - GPU: NVIDIA RTX 3090 or better (for mining)
 
 ### Multi-Node
+
 - Each node: 8+ cores, 16+ GB RAM, 100+ GB SSD
 - GPU nodes: NVIDIA RTX 3090 or better
 - Network: 10 Gbps interconnect
@@ -33,12 +36,14 @@ This guide covers the system and software requirements for installing AITBC.
 ## Software Dependencies
 
 ### Core Requirements
+
 - Python 3.13.5+
 - pip3
 - git
 - systemd
 
 ### Optional Requirements
+
 - PostgreSQL (for production databases)
 - Redis (for caching and pub/sub)
 - nginx (for reverse proxy)
@@ -97,6 +102,7 @@ whoami
 Ensure your firewall allows the following ports:
 
 ### Required Ports
+
 - **Outbound**: Port 8202 to hub.aitbc.bubuit.net (blockchain RPC)
 - **Outbound**: Port 8203 to hub.aitbc.bubuit.net (Agent coordinator)
 - **Inbound**: Port 8202 (your blockchain RPC)

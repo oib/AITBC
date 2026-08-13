@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -103,6 +104,7 @@ class PeerCapabilityTracker:
 ```
 
 **Key design**:
+
 - `select_peers_for_range` divides the range evenly across available peers
 - Reputation starts at 1.0, decreases by 0.1 on failure (min 0.0), increases by 0.05 on success (max 1.0)
 - Peers with reputation < 0.3 are excluded from selection
@@ -193,6 +195,7 @@ def apply_state_diff(
 ```
 
 **Key design**:
+
 - `compute_state_diff` is pure — takes two snapshots, returns diff
 - `encode_state_diff` / `decode_state_diff` use `aitbc.network.compress_json` / `decompress_json`
 - `apply_state_diff` mutates account_map (similar to `apply_delta_to_map` in v0.6.1)
@@ -264,6 +267,7 @@ class PriorityMessageQueue:
 ```
 
 **Key design**:
+
 - Uses `heapq` for priority ordering
 - `sequence` counter ensures FIFO within same priority
 - Thread-safe (use `threading.Lock` + `threading.Condition` for blocking get)
@@ -276,6 +280,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 ## A4: Unit tests + verify clean
 
 **`tests/unit/test_peer_capability.py`**:
+
 - `test_register_and_get_peer` — register, get, remove
 - `test_select_peers_for_range_even_division` — 4 peers, 100 blocks → 4 sub-ranges of 25
 - `test_select_peers_fewer_peers_than_ranges` — 2 peers, 100 blocks → 2 sub-ranges of 50
@@ -288,6 +293,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 - `test_thread_safety` — concurrent register/select doesn't crash
 
 **`tests/unit/test_state_diff.py`**:
+
 - `test_compute_state_diff_no_changes` — identical snapshots → empty diff
 - `test_compute_state_diff_new_account` — account in new but not old
 - `test_compute_state_diff_deleted_account` — account in old but not new
@@ -300,6 +306,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 - `test_is_too_large_true` — diff > 50% of state → True
 
 **`tests/unit/test_priority_queue.py`**:
+
 - `test_priority_ordering` — block messages come before transaction messages
 - `test_fifo_within_same_priority` — same priority, FIFO by sequence
 - `test_get_batch` — get multiple messages at once
@@ -309,6 +316,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 - `test_thread_safety` — concurrent put/get doesn't crash
 
 **A4 verification**:
+
 - `mypy aitbc/` — 0 errors
 - `ruff check aitbc/` — 0 errors
 - `pytest tests/unit -q` — all pass

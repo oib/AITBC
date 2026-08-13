@@ -63,6 +63,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/owl
 ```
 
 ### Method C: CLI (Limited Functionality)
+
 ```bash
 # Note: aitbc market run queries blockchain transactions, not marketplace service
 # This won't find the cloud offer unless it's also registered on-chain
@@ -75,6 +76,7 @@ curl -s http://aitbc3.aitbc.bubuit.net:8102/v1/marketplace/offer/ollama-nemotron
 ## Step 3: Monitor Usage and Costs
 
 ### Check Transaction Status
+
 ```bash
 # Monitor escrow status
 aitbc wallet escrow-status $ESCROW_TX
@@ -87,6 +89,7 @@ aitbc wallet history
 ```
 
 ### Cost Calculation
+
 - **Price**: 0.01 AIT per 1,000 tokens
 - **Example**: 500 tokens × 0.01 AIT/1000 = 0.005 AIT
 - **Billing**: Automatic deduction from escrow after completion

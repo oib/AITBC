@@ -24,6 +24,7 @@ Pool-Hub now includes comprehensive SLA monitoring and billing integration with 
 ### SLA Thresholds
 
 Default thresholds (configurable in settings):
+
 - Uptime: 95%
 - Response Time: 1000ms
 - Completion Rate: 90%
@@ -32,6 +33,7 @@ Default thresholds (configurable in settings):
 ### Billing Integration
 
 Pool-Hub integrates with coordinator-api's billing system to:
+
 - Record usage data (gpu_hours, api_calls, compute_hours)
 - Sync miner usage to tenant billing
 - Generate invoices via coordinator-api
@@ -40,6 +42,7 @@ Pool-Hub integrates with coordinator-api's billing system to:
 ### API Endpoints
 
 SLA and billing endpoints are available under `/sla/`:
+
 - `GET /sla/metrics/{miner_id}` - Get SLA metrics for a miner
 - `GET /sla/metrics` - Get SLA metrics across all miners
 - `GET /sla/violations` - Get SLA violations
@@ -53,6 +56,7 @@ SLA and billing endpoints are available under `/sla/`:
 ### Configuration
 
 Add to `.env`:
+
 ```bash
 # Coordinator-API Billing Integration
 COORDINATOR_BILLING_URL=http://localhost:8203
@@ -78,6 +82,7 @@ SLA_COLLECTION_INTERVAL_SECONDS=300
 ### Database Migration
 
 Run the database migration to add SLA and capacity tables:
+
 ```bash
 cd apps/pool-hub
 alembic upgrade head
@@ -86,6 +91,7 @@ alembic upgrade head
 ### Testing
 
 Run tests for SLA and billing integration:
+
 ```bash
 cd apps/pool-hub
 pytest tests/test_sla_collector.py

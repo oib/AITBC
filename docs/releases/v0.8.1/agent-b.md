@@ -12,6 +12,7 @@
 **Prerequisite**: Agent A A1-A3 complete. v0.8.0 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/trading_service/ cli/aitbc_cli/commands/trade.py
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v081_offer_sync.py -q -o addopts="" --timeout=30
@@ -35,6 +36,7 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 ## B1: Offer Sync Config
 
 Extend `apps/trading/src/trading_service/config.py`:
+
 ```python
 sync_enabled: bool = True
 sync_interval_seconds: int = 60
@@ -48,6 +50,7 @@ per_chain_staleness_thresholds: dict[str, int] = {}  # chain_id -> threshold
 ## B2: Offer Sync Service
 
 Create `apps/trading/src/trading_service/services/offer_sync_service.py`:
+
 - `OfferSyncService` — polling loop per chain
 - Per-chain sync intervals from config
 - Incremental sync (since last_sync)
@@ -61,6 +64,7 @@ Create `apps/trading/src/trading_service/services/offer_sync_service.py`:
 ## B3: Discovery Endpoint
 
 Add to `apps/trading/src/trading_service/main.py`:
+
 - `POST /v1/trading/offers/discover` — discover offers across chains
 - Query Agent A's `OfferCache` from A3
 - Trigger on-demand sync if stale
@@ -71,6 +75,7 @@ Add to `apps/trading/src/trading_service/main.py`:
 ## B4: Sync Endpoints
 
 Add to `apps/trading/src/trading_service/main.py`:
+
 - `POST /v1/trading/offers/sync` — trigger sync for a specific chain
 - `GET /v1/trading/offers/sync-status` — get sync status for a chain
 
@@ -79,6 +84,7 @@ Add to `apps/trading/src/trading_service/main.py`:
 ## B5: CLI Commands
 
 Extend `cli/aitbc_cli/commands/trade.py`:
+
 - `aitbc trade discover` — discover offers across chains
 - `aitbc trade sync` — trigger sync for a specific chain
 - `aitbc trade sync-status` — get sync status
@@ -90,6 +96,7 @@ Use Agent A's `OfferSyncClient` from A2.
 ## B6: Tests
 
 `apps/trading/tests/test_v081_offer_sync.py` — tests for:
+
 - Sync service polling loop
 - Incremental sync
 - Conflict resolution

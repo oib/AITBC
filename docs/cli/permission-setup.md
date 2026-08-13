@@ -19,6 +19,7 @@ This guide explains how to set up the AITBC development environment to avoid con
 ## 📊 **Current Status: 100% Working**
 
 ### ✅ **Achieved Setup**
+
 - **No Sudo Prompts**: File editing and service management
 - **Proper Permissions**: Shared group access with security
 - **Development Environment**: Complete with helper scripts
@@ -28,6 +29,7 @@ This guide explains how to set up the AITBC development environment to avoid con
 ## 🚀 **Quick Setup**
 
 ### One-Time Setup
+
 ```bash
 # Execute the permission fix script
 /opt/aitbc/scripts/clean-permissions-fix.sh
@@ -40,6 +42,7 @@ source /opt/aitbc/.env.dev
 ```
 
 ### Verification
+
 ```bash
 # Test service management
 systemctl status aitbc-coordinator-api.service
@@ -55,6 +58,7 @@ git status
 ## 📋 **Permission Configuration**
 
 ### User Groups
+
 ```bash
 # Current setup
 oib : oib cdrom floppy audio dip video plugdev users kvm netdev bluetooth lpadmin scanner ollama incus libvirt aitbc codebase systemd-edit
@@ -65,6 +69,7 @@ oib : oib cdrom floppy audio dip video plugdev users kvm netdev bluetooth lpadmi
 ```
 
 ### Directory Permissions
+
 ```bash
 # AITBC directory structure
 /opt/aitbc/
@@ -81,6 +86,7 @@ oib : oib cdrom floppy audio dip video plugdev users kvm netdev bluetooth lpadmi
 ## 🔐 **Sudoers Configuration**
 
 ### Passwordless Commands
+
 ```bash
 # Service management
 oib ALL=(root) NOPASSWD: /usr/bin/systemctl start aitbc-*
@@ -111,6 +117,7 @@ oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc *
 ## 🛠️ **Helper Scripts**
 
 ### Service Management
+
 ```bash
 # Enhanced service management script
 /opt/aitbc/scripts/dev-services.sh
@@ -125,6 +132,7 @@ aitbc-services test     # Test service endpoints
 ```
 
 ### Permission Fixes
+
 ```bash
 # Quick permission fix script
 /opt/aitbc/scripts/fix-permissions.sh
@@ -134,6 +142,7 @@ aitbc-fix              # Quick permission reset
 ```
 
 ### Testing
+
 ```bash
 # Permission test script
 /opt/aitbc/scripts/test-permissions.sh
@@ -147,6 +156,7 @@ aitbc-fix              # Quick permission reset
 ### Common Issues
 
 #### Permission Denied
+
 ```bash
 # Fix permissions
 /opt/aitbc/scripts/fix-permissions.sh
@@ -160,12 +170,14 @@ newgrp aitbc
 ```
 
 #### Sudo Password Prompts
+
 ```bash
 # Check permissions configuration
 # Note: This document is deprecated as services run as root
 ```
 
 #### File Access Issues
+
 ```bash
 # Check file permissions
 ls -la /opt/aitbc
@@ -178,6 +190,7 @@ find /opt/aitbc -type f -exec chmod 664 {} \;
 ```
 
 ### Debug Mode
+
 ```bash
 # Test specific operations
 systemctl status aitbc-coordinator-api.service
@@ -191,6 +204,7 @@ journalctl -u aitbc-coordinator-api.service -f
 ## 🚀 **Development Environment**
 
 ### Environment Variables
+
 ```bash
 # Load development environment
 source /opt/aitbc/.env.dev
@@ -205,6 +219,7 @@ export PYTHONPATH=/opt/aitbc/cli:$PYTHONPATH
 ```
 
 ### Aliases
+
 ```bash
 # Available after sourcing .env.dev
 aitbc-services    # Service management
@@ -213,6 +228,7 @@ aitbc-logs        # View logs
 ```
 
 ### CLI Testing
+
 ```bash
 # Test CLI after setup
 aitbc --help
@@ -224,6 +240,7 @@ aitbc blockchain status
 ## 📚 **Best Practices**
 
 ### Development Workflow
+
 1. **Load Environment**: `source /opt/aitbc/.env.dev`
 2. **Check Services**: `aitbc-services status`
 3. **Test CLI**: `aitbc version`
@@ -231,12 +248,14 @@ aitbc blockchain status
 5. **Fix Issues**: Use helper scripts if needed
 
 ### Security Considerations
+
 - Services still run as `aitbc` user
 - Only development operations are passwordless
 - Sudoers file is properly secured (440 permissions)
 - Group permissions provide shared access without compromising security
 
 ### File Management
+
 - Edit files in Windsurf without prompts
 - Use `aitbc-fix` if permission issues arise
 - Test changes with `aitbc-services restart`
@@ -245,6 +264,7 @@ aitbc blockchain status
 ## 🎯 **Success Criteria**
 
 ### Working Setup Indicators
+
 ✅ **No Sudo Prompts**: File editing and service management
 ✅ **Proper Permissions**: Shared group access
 ✅ **CLI Functionality**: All commands working
@@ -253,6 +273,7 @@ aitbc blockchain status
 ✅ **Log Access**: Debug and monitoring working
 
 ### Test Verification
+
 ```bash
 # Run comprehensive test
 /opt/aitbc/scripts/test-permissions.sh
@@ -270,12 +291,14 @@ aitbc blockchain status
 ## 📈 **Maintenance**
 
 ### Regular Tasks
+
 - **Weekly**: Run permission test script
 - **After Changes**: Use `aitbc-fix` if needed
 - **Service Issues**: Check with `aitbc-services status`
 - **Development**: Use `aitbc-logs` for debugging
 
 ### Updates and Changes
+
 - **New Services**: Add to service configuration
 - **New Developers**: Run setup script
 - **Permission Issues**: Use helper scripts

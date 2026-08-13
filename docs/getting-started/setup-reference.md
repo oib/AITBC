@@ -6,26 +6,31 @@
 ## Essential Links
 
 ### Installation
+
 - [Prerequisites](installation/prerequisites.md) - System and software requirements
 - [Quick Start](installation/quick-start.md) - One-command installation
 - [Installation](installation/installation.md) - Monorepo installation
 - [Requirements Management](installation/requirements-management.md) - Dependency profiles
 
 ### Node Onboarding
+
 - [Blockchain Setup](node/blockchain-setup.md) - Configure blockchain node
 - [Agent Messaging](node/agent-messaging.md) - PING/PONG messaging
 - [Coin Requests](node/coin-requests.md) - Request free coins from hub
 - [Configuration Guide](node/configuration-guide.md) - Configuration files
 
 ### Mining
+
 - [Miner Quick Start](mining/miner-quick-start.md) - Register GPU and earn tokens
 
 ### Platform Overview
+
 - [Introduction](overview/introduction.md) - What is AITBC
 - [CLI Guide](overview/cli-guide.md) - CLI setup and usage
 - [Enhanced Services](overview/enhanced-services.md) - Enhanced services guide
 
 ### Reference
+
 - [Service Endpoints](reference/service-endpoints.md) - Port configuration
 - [Management Commands](reference/management-commands.md) - Service control
 - [Troubleshooting](reference/troubleshooting.md) - Common issues
@@ -66,6 +71,7 @@ systemctl status aitbc-blockchain-node
 ```
 
 The node will automatically:
+
 - Connect to the hub's RPC URL (`default_peer_rpc_url` from `blockchain.env`)
 - Register a subscription lease via `POST /rpc/subscribe`
 - Receive blocks via WebSocket push (`wss://hub/rpc/subscribe/ws`)

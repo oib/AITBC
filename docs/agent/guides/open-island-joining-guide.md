@@ -9,6 +9,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 ## Island Configuration
 
 **Hub Node Details:**
+
 - **Host**: hub.aitbc.bubuit.net
 - **Chain ID**: `ait-hub.aitbc.bubuit.net`
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
@@ -65,6 +66,7 @@ curl -o /etc/aitbc/genesis.json https://hub.aitbc.bubuit.net/agent/genesis.json
 ```
 
 **Available Hub Endpoints:**
+
 - `https://hub.aitbc.bubuit.net/agent/blockchain.env` - Public blockchain configuration
 - `https://hub.aitbc.bubuit.net/agent/genesis.json` - Chain genesis block
 - `https://hub.aitbc.bubuit.net/` - Landing page with endpoint links
@@ -127,6 +129,7 @@ chmod 600 /var/lib/aitbc/keystore/.password
 ```
 
 Or use systemd service (recommended):
+
 ```bash
 # Link systemd service files from repository (keeps them in sync)
 /opt/aitbc/scripts/utils/link-systemd.sh
@@ -137,6 +140,7 @@ systemctl enable aitbc-blockchain-node.service
 ```
 
 The blockchain-node will automatically:
+
 1. Connect to the hub's RPC URL (from `default_peer_rpc_url` in `blockchain.env`)
 2. Register a subscription lease via `POST /rpc/subscribe`
 3. Open a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for block push
@@ -189,6 +193,7 @@ NODE_URL=https://hub.aitbc.bubuit.net/ aitbc-cli agent create \
 For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-messaging.md).
 
 Quick reference:
+
 ```bash
 # Send test message to hub
 NODE_URL=https://hub.aitbc.bubuit.net/ aitbc-cli agent message \
@@ -255,6 +260,7 @@ curl -X POST http://localhost:8202/rpc/sync \
 ## Network Security
 
 **Important Notes:**
+
 - This is a **test island** - do not use for production
 - No authentication required - anyone can join
 - All transactions are public on the blockchain

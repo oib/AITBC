@@ -12,11 +12,13 @@ This document defines the infrastructure requirements, service configuration, an
 ## Infrastructure Requirements
 
 ### Hardware
+
 - **Minimum:** 4 CPU cores, 16GB RAM, 100GB storage
 - **Recommended:** 8 CPU cores, 32GB RAM, 500GB storage
 - **GPU:** NVIDIA GPU with CUDA support (for miner testing)
 
 ### Software
+
 - **Operating System:** Debian stable (bookworm)
 - **Python:** 3.13 or 3.14
 - **PostgreSQL:** 15 or later
@@ -79,6 +81,7 @@ curl -s http://localhost:8102/v1/health
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 # Coordinator API
 COORDINATOR_URL=http://localhost:8203
@@ -106,23 +109,27 @@ REDIS_URL=redis://localhost:6379/0
 ### Fixtures
 
 **User Fixtures:**
+
 - Regular user
 - Admin user
 - Miner user
 - Agent user
 
 **Wallet Fixtures:**
+
 - Pre-funded wallets
 - Empty wallets
 - Wallets with staked tokens
 
 **Job Fixtures:**
+
 - Simple inference job
 - Complex inference job
 - Confidential job
 - Batch jobs
 
 **Blockchain Fixtures:**
+
 - Genesis block
 - Pre-populated accounts
 - Sample transactions
@@ -130,11 +137,13 @@ REDIS_URL=redis://localhost:6379/0
 ### Data Cleanup
 
 **Before Each Test:**
+
 - Reset database to known state
 - Clear blockchain test data
 - Reset cache
 
 **After Each Test:**
+
 - Clean up created resources
 - Reset service states
 - Verify no data leaks
@@ -156,6 +165,7 @@ REDIS_URL=redis://localhost:6379/0
 ### B. Test Data Examples
 
 **Sample User:**
+
 ```json
 {
   "user_id": "test-user-001",
@@ -166,6 +176,7 @@ REDIS_URL=redis://localhost:6379/0
 ```
 
 **Sample Job:**
+
 ```json
 {
   "job_id": "test-job-001",
@@ -184,16 +195,19 @@ REDIS_URL=redis://localhost:6379/0
 ### C. Troubleshooting
 
 **Service Won't Start:**
+
 - Check logs: `journalctl -u [service-name] -f`
 - Verify configuration: `systemctl status [service-name]`
 - Check port conflicts: `netstat -tulpn`
 
 **Test Times Out:**
+
 - Check service health: `curl http://localhost:[port]/health`
 - Verify service dependencies: `systemctl status [service-name]`
 - Check for resource exhaustion: `htop`
 
 **Test Fails Intermittently:**
+
 - Review test logs for timing issues
 - Increase wait times in tests
 - Implement retries for flaky operations

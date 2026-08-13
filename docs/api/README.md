@@ -11,6 +11,7 @@ This section provides comprehensive documentation for all AITBC platform APIs.
 ## OpenAPI Specifications
 
 Each API includes an OpenAPI 3.1.0 specification that can be used with API documentation tools like:
+
 - Swagger UI
 - Redoc
 - Postman
@@ -65,6 +66,7 @@ See [Python SDK Examples](./examples/python-sdk-examples.md) for the full surfac
 ## Rate Limiting
 
 API endpoints may have rate limits enforced. Check the response headers for rate limit information:
+
 - `X-RateLimit-Limit`: Maximum requests per window
 - `X-RateLimit-Remaining`: Remaining requests in current window
 - `X-RateLimit-Reset`: Unix timestamp when the window resets
@@ -72,6 +74,7 @@ API endpoints may have rate limits enforced. Check the response headers for rate
 ## Error Handling
 
 API errors follow standard HTTP status codes:
+
 - `200` - Success
 - `201` - Created
 - `400` - Bad Request
@@ -82,6 +85,7 @@ API errors follow standard HTTP status codes:
 - `500` - Internal Server Error
 
 Error responses include a JSON body with details:
+
 ```json
 {
   "detail": "Error message describing the issue"
@@ -91,6 +95,7 @@ Error responses include a JSON body with details:
 ## WebSocket Endpoints
 
 Real-time updates are available via WebSocket connections for:
+
 - Job status updates
 - Blockchain events
 - Marketplace offers

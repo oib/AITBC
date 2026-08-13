@@ -14,6 +14,7 @@ Features without a dedicated doc are marked **No dedicated doc** — see the
 linked source file or the relevant release changelog for details.
 
 **Status legend:**
+
 - ✅ Complete and active
 - 🚧 Planned / in progress
 - ⚠️ Code complete but not activated (requires external audit)
@@ -21,7 +22,6 @@ linked source file or the relevant release changelog for details.
 - ~~Deprecated~~
 
 ---
-
 
 ---
 

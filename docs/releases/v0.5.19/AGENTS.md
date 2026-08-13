@@ -28,16 +28,19 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [ReputationDTO](./agent-a.md#a1-reputationdto)
 - [Unit tests](./agent-a.md#a2-unit-tests-for-reputationdto)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Certification Refactor](./agent-b.md#b1-certification-refactor)
@@ -143,6 +146,7 @@ Place in `packages/aitbc-shared/aitbc_shared/models/reputation.py` or a new shar
 #### B1: Certification Refactor
 
 Refactor 3 files to use `ReputationDTO` instead of `AgentReputation`:
+
 - `badge_system.py:10` — replace import + 3 references
 - `certification_system.py:17` — replace import + 6 references
 - `partnership_manager.py:14` — replace import + 11 references
@@ -172,6 +176,7 @@ Add a conversion function in reputation context: `to_dto(agent_reputation) -> Re
 #### B5: Integration Tests
 
 `tests/unit/test_v0519_tech_debt.py` — tests for:
+
 - ReputationDTO serialization
 - Certification using DTO (no direct AgentReputation import)
 - Pricing table wiring (if wired)

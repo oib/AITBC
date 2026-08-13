@@ -25,16 +25,19 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 ### GPU Service
 
 **Unit Test Coverage Requirements:**
+
 - Domain models (GPUArchitecture, GPURegistry, ConsumerGPUProfile, EdgeGPUMetrics, GPUBooking, GPUReview): 80%
 - Service layer (EdgeGPUService): 75%
 - API endpoints: 70%
 
 **Integration Test Coverage Requirements:**
+
 - Database operations: 70%
 - API endpoint integration: 60%
 - Service dependencies: 50%
 
 **Critical Path Tests:**
+
 - Consumer GPU profile listing
 - Edge GPU metrics creation
 - GPU discovery (async)
@@ -43,16 +46,19 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 ### Marketplace Service
 
 **Unit Test Coverage Requirements:**
+
 - Domain models (MarketplaceOffer, MarketplaceBid, GlobalMarketplaceOffer, GlobalMarketplaceTransaction, etc.): 75%
 - Service layer (MarketplaceService): 70%
 - API endpoints: 65%
 
 **Integration Test Coverage Requirements:**
+
 - Database operations: 70%
 - API endpoint integration: 60%
 - Service dependencies: 50%
 
 **Critical Path Tests:**
+
 - Offer creation and retrieval
 - Bid creation and retrieval
 - Marketplace analytics
@@ -60,16 +66,19 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 ### Trading Service
 
 **Unit Test Coverage Requirements:**
+
 - Domain models (TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement, TradeFeedback, TradingAnalytics): 75%
 - Service layer (TradingService): 70%
 - API endpoints: 65%
 
 **Integration Test Coverage Requirements:**
+
 - Database operations: 70%
 - API endpoint integration: 60%
 - Service dependencies: 50%
 
 **Critical Path Tests:**
+
 - Trade request creation
 - Trade matching logic
 - Agreement creation
@@ -78,16 +87,19 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 ### Governance Service
 
 **Unit Test Coverage Requirements:**
+
 - Domain models (GovernanceProfile, Proposal, Vote, DaoTreasury, TransparencyReport): 75%
 - Service layer (GovernanceService): 70%
 - API endpoints: 65%
 
 **Integration Test Coverage Requirements:**
+
 - Database operations: 70%
 - API endpoint integration: 60%
 - Service dependencies: 50%
 
 **Critical Path Tests:**
+
 - Proposal creation
 - Vote casting
 - Proposal execution
@@ -96,16 +108,19 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 ### API Gateway
 
 **Unit Test Coverage Requirements:**
+
 - Routing logic: 80%
 - Service registry: 75%
 - Proxy functionality: 70%
 
 **Integration Test Coverage Requirements:**
+
 - Gateway to service routing: 70%
 - Load balancing: 50%
 - Error handling: 60%
 
 **Critical Path Tests:**
+
 - Health check routing
 - Service registry updates
 - Request proxying to each service
@@ -118,12 +133,14 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 **Purpose**: Test individual functions and methods in isolation.
 
 **Requirements**:
+
 - Mock external dependencies (database, external APIs)
 - Test edge cases and error conditions
 - Test validation logic
 - Test business logic
 
 **Example Coverage Areas**:
+
 - Domain model validation
 - Service method logic
 - Utility functions
@@ -134,12 +151,14 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 **Purpose**: Test interactions between components.
 
 **Requirements**:
+
 - Use test databases
 - Test database operations
 - Test API endpoint integration
 - Test service-to-service communication
 
 **Example Coverage Areas**:
+
 - Database CRUD operations
 - API request/response handling
 - Service dependency resolution
@@ -150,12 +169,14 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 **Purpose**: Test complete workflows across services.
 
 **Requirements**:
+
 - Test critical user journeys
 - Test gateway routing
 - Test service orchestration
 - Test error propagation
 
 **Example Coverage Areas**:
+
 - Complete trade flow (request → match → negotiate → agree → settle)
 - Complete proposal flow (create → vote → execute)
 - Gateway routing to all services
@@ -165,22 +186,26 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 ### Running Tests
 
 **Run all tests for a service:**
+
 ```bash
 cd apps/<service-name>
 pytest tests/
 ```
 
 **Run with coverage:**
+
 ```bash
 pytest tests/ --cov=src --cov-report=html --cov-report=term
 ```
 
 **Run specific test file:**
+
 ```bash
 pytest tests/test_main.py
 ```
 
 **Run specific test:**
+
 ```bash
 pytest tests/test_main.py::test_health_check
 ```

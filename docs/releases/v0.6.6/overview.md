@@ -28,12 +28,14 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Already Fixed](#already-fixed-verified--no-work-needed)
 - [Architecture: Compute Marketplace with Chain Awareness](#architecture-compute-marketplace-with-chain-awareness)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [OfferFSM](./agent-a.md#a1-offerfsm)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Marketplace config](./agent-b.md#b1-marketplace-config)

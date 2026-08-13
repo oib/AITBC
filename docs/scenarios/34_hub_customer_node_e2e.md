@@ -69,6 +69,7 @@ A customer node operator on a separate machine wants to submit AI jobs to the hu
 ### Step 1: Identify the Hub's Network Address
 
 On the **hub node**:
+
 ```bash
 HUB_IP=$(hostname -I | awk '{print $1}')
 HUB_HOST=$(hostname)
@@ -77,6 +78,7 @@ echo "Hub hostname: $HUB_HOST"
 ```
 
 **Expected output:**
+
 ```
 Hub IP: 192.168.100.10
 Hub hostname: hub.aitbc.bubuit.net
@@ -85,12 +87,14 @@ Hub hostname: hub.aitbc.bubuit.net
 ### Step 2: Verify Hub Services Listen on Network-Accessible Interfaces
 
 On the **hub node**:
+
 ```bash
 # Check which interfaces the key services bind to
 ss -ltnp | grep -E '8202|8203|8106|8107|8108'
 ```
 
 **Expected output:**
+
 ```
 LISTEN 0  256  127.0.0.1:8202  ...   # blockchain RPC (localhost only — see note)
 LISTEN 0  256  127.0.0.1:8203  ...   # coordinator-api (localhost only — see note)
@@ -100,12 +104,14 @@ LISTEN 0  2048 0.0.0.0:8108    ...   # wallet (all interfaces)
 ```
 
 > **⚠️ Note**: If services bind to `127.0.0.1` only, the customer node cannot reach them directly. You have two options:
+>
 > 1. **SSH tunnel** (recommended for testing): `ssh -L 8202:localhost:8202 -L 8203:localhost:8203 -L 8106:localhost:8106 -L 8107:localhost:8107 user@hub.aitbc.bubuit.net`
 > 2. **Rebind services** to `0.0.0.0` (production: ensure firewall rules restrict access)
 
 ### Step 3: Configure the Customer Node CLI to Point at the Hub
 
 On the **customer node**:
+
 ```bash
 # Set environment variables to override CLI defaults
 export BLOCKCHAIN_RPC_URL="http://hub.aitbc.bubuit.net:8202"
@@ -133,6 +139,7 @@ print(f'wallet_url: {c.wallet_url}')
 ```
 
 **Expected output:**
+
 ```
 blockchain_rpc_url: http://hub.aitbc.bubuit.net:8202
 agent_coordinator_url: http://hub.aitbc.bubuit.net:8107
@@ -143,6 +150,7 @@ wallet_url: http://hub.aitbc.bubuit.net:8108
 ### Step 4: Verify Cross-Network Connectivity
 
 On the **customer node**:
+
 ```bash
 # Test each hub service endpoint
 for port in 8202 8203 8106 8107 8108; do
@@ -153,6 +161,7 @@ done
 ```
 
 **Expected output:**
+
 ```
 Port 8202: {"success":true,"status":"healthy","bridge_initialized":true,...
 Port 8203: {"status":"ok","env":"development","python_version":"3.13.5"}
@@ -168,6 +177,7 @@ Port 8108: {"status":"ok"}  (or similar)
 The A6 fix ensures the hub's coordinator-api uses `settings.blockchain_rpc_url` instead of hardcoded `localhost:8202` for settlement and governance queries. Verify the fix is in the deployed code:
 
 On the **hub node**:
+
 ```bash
 # Settlement hooks should use settings.blockchain_rpc_url (A6 fix)
 grep "blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/app/settlement/hooks.py
@@ -177,12 +187,14 @@ grep "BLOCKCHAIN_RPC_URL\|blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/sr
 ```
 
 **Expected output:**
+
 ```
 response = httpx.get(f"{settings.blockchain_rpc_url}/rpc/chain")
 blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 ```
 
 **Interpretation:**
+
 - `settlement/hooks.py` uses `settings.blockchain_rpc_url` (A6 fixed ✅)
 - `governance_service.py` uses `os.getenv("BLOCKCHAIN_RPC_URL", ...)` (A6 fixed ✅ — no hardcoded localhost)
 
@@ -191,6 +203,7 @@ blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 ### Step 6: Submit a Job from the Customer Node to the Hub
 
 On the **customer node** (or via SSH tunnel):
+
 ```bash
 # Generate a JWT token on the hub (or use a customer-node token if auth is federated)
 # For testing, generate on the hub and copy the token:
@@ -207,6 +220,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://hub.aitbc.bubuit.net:8203/v1/job
 ```
 
 **Expected output:**
+
 ```json
 {"job_id":"...","state":"QUEUED","assigned_miner_id":null,"payment_status":"none"}
 HTTP 201
@@ -217,6 +231,7 @@ HTTP 201
 ### Step 7: Query the Hub's Bridge RPC from the Customer Node
 
 On the **customer node**:
+
 ```bash
 # Check bridge health on the hub
 curl -s http://hub.aitbc.bubuit.net:8202/rpc/bridge/health | python3 -m json.tool
@@ -228,6 +243,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://hub.aitbc.bubuit.net:8202/rpc/br
 ```
 
 **Expected output:**
+
 ```json
 {
   "success": true,
@@ -244,6 +260,7 @@ HTTP 422
 ### Step 8: Trade on the Hub's Exchange from the Customer Node
 
 On the **customer node**:
+
 ```bash
 # Query the hub's exchange orderbook
 curl -s http://hub.aitbc.bubuit.net:8106/v1/exchange/orderbook | python3 -m json.tool | head -20
@@ -255,6 +272,7 @@ curl -s -X POST http://hub.aitbc.bubuit.net:8106/v1/exchange/orders \
 ```
 
 **Expected output:**
+
 ```json
 {
   "buy_orders": [...],
@@ -268,6 +286,7 @@ curl -s -X POST http://hub.aitbc.bubuit.net:8106/v1/exchange/orders \
 ### Step 9: Verify Hub-Side Logs Show the Cross-Node Requests
 
 On the **hub node**:
+
 ```bash
 # Check coordinator-api logs for the customer node's job submission
 journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep -iE "job|submit|customer"
