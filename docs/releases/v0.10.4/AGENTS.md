@@ -8,9 +8,9 @@
 **Goal**: Production readiness from a performance and maintainability standpoint. Extends v0.10.3's financial correctness fix (exchange Decimal migration) to the rest of the stack (pool-hub billing, trading pricing/bid engines). Eliminates performance bottlenecks (N+1 queries, per-request HTTP clients, missing indexes). Removes ~1,000 lines of dead code and consolidates 3 HTTP client implementations, 2 JWT implementations, 5 retry implementations, and copy-pasted config validators.
 
 > **Scope**: 24 tasks across 8 categories. All P0 (Decimal migration), P1 (performance + concurrency), P2 (security/correctness), and P3 (cleanup/consolidation) findings from the post-v0.10.3 audit.
-
+>
 > **Prerequisites**: [v0.10.3](../v0.10.3/change.log) (complete — critical bugs, race conditions, and resource leaks fixed).
-
+>
 > **Risk**: Medium-High. The Decimal migration requires a DB schema migration and touches ~1,500 lines. Performance changes require benchmarking. Mitigated by: (1) comprehensive test suite, (2) live testing on shop node, (3) rollback plan for schema migrations, (4) incremental task completion with verification at each step.
 
 ---
@@ -263,7 +263,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Complex Fixes (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

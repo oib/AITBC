@@ -123,7 +123,7 @@ sqlite3 "$CHAIN_DB" 'SELECT COUNT(*) FROM mempool;'
 
 # No sub-AIT balances should exist (balance < 3600 and > 0)
 sqlite3 "$CHAIN_DB" 'SELECT COUNT(*) FROM account WHERE balance > 0 AND balance < 3600;'
-# Expected: 0
+# Expected: 0 (2)
 
 # Genesis block state_root should be updated
 sqlite3 "$CHAIN_DB" 'SELECT height, state_root FROM block WHERE height = 0;'
@@ -165,7 +165,7 @@ redis-cli FLUSHDB
 
 # Verify cache is empty
 redis-cli DBSIZE
-# Expected: 0
+# Expected: 0 (3)
 ```
 
 - [ ] Redis flushed

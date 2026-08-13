@@ -122,7 +122,7 @@ MARKET_ROLE=customer
 HARDWARE_PROFILE=nogpu
 ```
 
-### Lease-Based Subscription System
+### Lease-Based Subscription System — 📋 Detailed Features
 
 #### Hub Components
 
@@ -201,7 +201,7 @@ Get all valid subscribers with active leases
 
 ### Configuration Settings
 
-#### Node Profiles
+#### Node Profiles — Configuration Settings
 
 ```bash
 # /etc/aitbc/blockchain.env
@@ -213,7 +213,7 @@ HARDWARE_PROFILE=nogpu    # gpu or nogpu
 #### Subscription Settings
 
 ```bash
-# /etc/aitbc/blockchain.env
+# /etc/aitbc/blockchain.env (2)
 SUBSCRIPTION_ENABLED=true
 SUBSCRIPTION_TRANSPORT=redis
 LEASE_DURATION=3600
@@ -224,7 +224,7 @@ HEARTBEAT_INTERVAL=60
 #### Periodic Sync Settings
 
 ```bash
-# /etc/aitbc/blockchain.env
+# /etc/aitbc/blockchain.env (3)
 PERIODIC_SYNC_ENABLED=true
 PERIODIC_SYNC_INTERVAL=30
 ```

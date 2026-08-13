@@ -117,7 +117,7 @@ The original audit (P2) used `grep -rn "from app\.domain\.\|from \.\.domain\."` 
 
 ---
 
-## Verification
+## Verification — Orphan Models Audit — coordinator-api `app/domain/`
 
 - [x] All 17 listed models grepped across `apps/coordinator-api/` (src + tests) and full repo
 - [x] Five import patterns checked (absolute, 2/3/4-dot relative, name-import via `__init__.py`)

@@ -8,9 +8,9 @@
 **Goal**: Continue the dead-code elimination pattern from v0.10.6, v0.10.7, and v0.10.8. Remove unused code and fix inconsistencies in documentation and configuration.
 
 > **Scope**: 33 tasks across 6 categories. (1) Delete 15+ dead test-only `aitbc/` modules, (2) Delete dead pool-hub health router and CLI advanced_wallet.py, (3) Fix status drift (version bump, mark v0.10.4 complete, update STATUS.md), (4) Clean up stale port references, (5) Migrate auth shims, (6) Remove deprecated constants and documentation references.
-
+>
 > **Prerequisites**: [v0.10.8](../v0.10.8/change.log) (✅ complete — config consolidation & dead retry helper cleanup).
-
+>
 > **Risk**: Low. All deletions are verified to have zero production importers. Status drift fixes are documentation-only. Port updates are mechanical. Mitigated by: comprehensive test suite.
 
 ---
@@ -179,7 +179,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/pool-hub/tests -q -o addopts="
 
 ```bash
 cd /opt/aitbc && grep -r "advanced_wallet" --include="*.py" . | grep -v __pycache__
-# Expected: no results
+# Expected: no results (2)
 ```
 
 **Estimated impact**: Delete 314 lines.
@@ -204,7 +204,7 @@ cd /opt/aitbc && grep -r "advanced_wallet" --include="*.py" . | grep -v __pycach
 
 ```bash
 cd /opt/aitbc && grep -rn "HERMES_PORT" --include="*.py" . | grep -v __pycache__
-# Expected: no results
+# Expected: no results (3)
 ```
 
 **Estimated impact**: Delete 3 lines.
@@ -223,7 +223,7 @@ cd /opt/aitbc && grep -rn "HERMES_PORT" --include="*.py" . | grep -v __pycache__
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Status Drift & Config Cleanup (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
@@ -309,7 +309,7 @@ sed -i 's/http:\/\/localhost:8006/http:\/\/localhost:8202/g' tests/unit/test_syn
 
 ```bash
 cd /opt/aitbc && grep -rn "localhost:8006" tests/ --include="*.py" | grep -v __pycache__
-# Expected: no results
+# Expected: no results (4)
 ```
 
 **Estimated impact**: ~60 lines changed.
@@ -364,13 +364,14 @@ cd /opt/aitbc && grep -n "8001\|8002\|8003\|8010\|8011\|8012\|8013\|8014\|8015\|
 ```python
 wallet_base_url: str = Field(default=f"http://127.0.0.1:{WALLET_PORT}")
 ```
+
 1. Add import if needed: `from aitbc.constants import WALLET_PORT`
 
 **Verification**:
 
 ```bash
 cd /opt/aitbc && grep -n "20000" apps/coordinator-api/src/app/contexts/payments/services/payments.py
-# Expected: no results
+# Expected: no results (5)
 ```
 
 **Estimated impact**: ~2 lines changed, ~2 lines deleted.
@@ -412,13 +413,14 @@ declare -A SERVICE_ENDPOINTS=(
     ["aitbc-wallet"]="http://localhost:8108/health"
 )
 ```
+
 1. Update line 168 blockchain sync check URL from `http://localhost:8006` to `http://localhost:8202`
 
 **Verification**:
 
 ```bash
 cd /opt/aitbc && grep -n "8006\|8001\|9001\|8000" health-check.sh
-# Expected: no results (all replaced)
+# Expected: no results (all replaced) (2)
 ```
 
 **Estimated impact**: ~8 lines changed.
@@ -507,7 +509,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" 
 
 ```bash
 cd /opt/aitbc && grep -rn "agent-management" docs/getting-started/setup-service-selection.md
-# Expected: no results
+# Expected: no results (6)
 ```
 
 **Estimated impact**: ~5 lines deleted.

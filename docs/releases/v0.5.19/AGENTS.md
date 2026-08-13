@@ -8,9 +8,9 @@
 **Goal**: Address 3 outstanding tech debt items deferred from v0.5.13-v0.5.18. After re-verification, 4 of 7 original items are already resolved.
 
 > **Not on the critical path**: No release depends on v0.5.19. Pick up opportunistically.
-
+>
 > **Prerequisites**: [v0.5.18](../v0.5.18/change.log) ✅.
-
+>
 > **Risk**: Low. All items are coordinator-api internal or test infrastructure.
 
 ---
@@ -131,7 +131,7 @@ Place in `packages/aitbc-shared/aitbc_shared/models/reputation.py` or a new shar
 
 **Prerequisite**: Agent A A1 complete (for ReputationDTO).
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

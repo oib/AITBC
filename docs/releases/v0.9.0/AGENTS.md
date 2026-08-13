@@ -8,11 +8,11 @@
 **Goal**: Implement the full atomic settlement layer on top of the bridge security (v0.7.1), oracle verification (v0.7.2), and inter-chain trading (v0.8.0-v0.8.2) layers. Uses HTLCs (Hashed Timelock Contracts) — two-phase commit is dropped (see change.log §"HTLC vs Two-Phase Commit — DECISION: HTLC").
 
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅, [v0.8.0](../v0.8.0/change.log) ✅, [v0.8.1](../v0.8.1/change.log) ✅, [v0.8.2](../v0.8.2/change.log) ✅. v0.7.4 (oracle fallback) ✅ Agent A. v0.7.5 (consensus) not required — single-validator PoA remains active.
-
+>
 > **Risk**: 🔴 HIGHEST. Atomic cross-chain settlement caused the largest hacks in crypto history (Wormhole $325M, Ronin $625M, Poly Network $611M). Requires dual external security audits + 6+ months testnet chaos testing before mainnet.
-
+>
 > **External audit status**: SKIPPED — poor project, no budget. Atomic settlement is implemented and tested but **not externally audited**. Use at your own risk.
-
+>
 > **Not on the critical path for v1.0.0**: v1.0.0 can ship with atomic settlement code-complete but unaudited. Production use requires external audit.
 
 ---
@@ -443,7 +443,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_
 cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:apps/trading/src:aitbc ./venv/bin/python -m pytest apps/blockchain-node/tests/test_settlement.py tests/integration/test_atomic_settlement.py -q -o addopts="" --timeout=30
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

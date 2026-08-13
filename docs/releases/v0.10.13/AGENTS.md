@@ -123,7 +123,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/cli -q -o addopts=""
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/security -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Infrastructure & Apps
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
