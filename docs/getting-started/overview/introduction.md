@@ -1,120 +1,103 @@
 # What is AITBC?
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-08-13
 
-> **Note:** This document describes the designed architecture and capabilities of the AITBC platform. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **Note:** This document describes the current AITBC platform. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For the implementation status of each major feature, see [Release Status](../../releases/STATUS.md).
 
-AITBC is a comprehensive blockchain platform that combines AI-powered trading, advanced analytics, multi-chain support, and enterprise-grade security. The platform has evolved from its original AI agent focus to become a full-featured blockchain ecosystem supporting real-world trading, surveillance, and compliance requirements.
+AITBC is a decentralized marketplace for AI compute, powered by a multi-island PoA blockchain. GPU providers (shops) sell compute, clients submit inference or training jobs, and the network handles matching, execution, payment, and settlement on-chain.
 
-| Platform Feature | What it provides |
-|-----------------|-----------------|
-| **Multi-Chain Blockchain** | Complete 7-layer architecture with chain isolation |
-| **AI-Powered Trading** | Machine learning trading algorithms and predictive analytics |
-| **Advanced Surveillance** | Real-time market monitoring with 88-94% accuracy |
-| **Exchange Integration** | Complete integration with major exchanges (Binance, Coinbase, Kraken) |
-| **Compliance Framework** | KYC/AML integration with 5 major compliance providers |
-| **Enterprise Security** | Multi-sig wallets, time-lock, and advanced protection |
-
-## Key Components
+## Key components
 
 | Component | Purpose |
 |-----------|---------|
-| Multi-Chain Architecture | 7-layer system with complete chain isolation (Wallet→Daemon→Coordinator→Blockchain→Consensus→Network→Explorer→User) |
-| AI Trading Engine | Machine learning-based trading with mean reversion and momentum strategies |
-| AI Surveillance System | Advanced pattern recognition and behavioral analysis |
-| Exchange Infrastructure | Real exchange integration with CCXT library |
-| Compliance & Regulatory | Automated KYC/AML and regulatory reporting (FINCEN, SEC, FINRA) |
-| Production Deployment | Complete production setup with encrypted keystores |
+| **Hub** | `BLOCKCHAIN_MODE=hub` — produces and broadcasts blocks, runs coordinator, exchange, and discovery endpoints. |
+| **Shop** | `MARKET_ROLE=shop` — provides GPU, edge, marketplace, and mining services. |
+| **Client** | `MARKET_ROLE=customer` — consumes compute, submits jobs, and syncs as a follower. |
+| **Blockchain node** | PoA consensus, P2P gossip, RPC API, and lease-based block sync. |
+| **Coordinator API** | Job lifecycle, miner matching, marketplace endpoints, and signed receipts. |
+| **Wallet daemon** | Multi-chain wallet management and escrow-backed payments. |
+| **CLI** | `aitbc` command-line interface for node, wallet, market, AI, and mining operations. |
 
-## Quick Start by Use Case
+## Quick start by role
 
-**Traders** → ../05_cli/README.md
+Use the role that matches what you want to do. Service startup is done through `systemctl` after `setup.sh` installs the appropriate profile.
+
+### Client (consume compute)
+
 ```bash
-# Start AI trading
-aitbc ai-trading start --strategy mean_reversion
-aitbc advanced-analytics dashboard
-aitbc ai-surveillance start
+# Submit a text-generation job to the hub's coordinator
+aitbc ai submit --wallet my-wallet --type text-generation \
+  --prompt "Explain zero-knowledge proofs in one paragraph." \
+  --payment 10
 
-# Exchange operations
-aitbc exchange register --name "Binance" --api-key <key>
-aitbc exchange create-pair AITBC/BTC
-aitbc exchange start-trading --pair AITBC/BTC
+# Check the result
+aitbc ai status --job-id <job-id>
+aitbc ai results --job-id <job-id>
 ```
 
-**Miners** → ../04_miners/README.md
+See [CLI Guide](cli-guide.md) and [customer↔hub end-to-end scenario](../../scenarios/34_hub_customer_node_e2e.md) for more.
+
+### Shop (provide GPU compute)
+
 ```bash
-# Mining operations
-aitbc miner start
-aitbc miner status
-aitbc wallet balance
+# List a GPU offer and start mining
+aitbc market offer --gpu-id gpu-0 --memory 24 --price 100
+aitbc mining start --wallet my-wallet
 ```
 
-**Developers** → ../05_cli/README.md
+See [Miner Quick Start](../mining/miner-quick-start.md) for the full shop path.
+
+### Hub (run an island)
+
 ```bash
-# Development and testing
-aitbc test-cli run
-aitbc simulate network
-aitbc optimize performance
+# Install and start the hub profile
+sudo /opt/aitbc/scripts/deployment/setup.sh \
+  --open-island https://hub.aitbc.bubuit.net \
+  --node-id <unique-node-id>
+
+# Start the blockchain node
+sudo systemctl start aitbc-blockchain-node
 ```
 
-**System Administrators** → [../deployment/](../deployment/)
-```bash
-# System management
-aitbc-services status
-aitbc deployment production
-aitbc security-test run
-```
+See [Service Selection](../setup-service-selection.md) for the hub service matrix.
 
-## Multi-Chain Architecture
-
-The AITBC platform features a complete 7-layer multi-chain architecture:
+## Multi-chain architecture
 
 > **Port Reference:** For authoritative port assignments, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
-- **Layer 1**: Wallet Daemon (8015) - Multi-chain wallet management
-- **Layer 2**: Coordinator API (8203) - Transaction coordination
-- **Layer 3**: Blockchain Service (8202) - Transaction processing and consensus
-- **Layer 4**: Consensus Mechanism (8202) - PoA consensus with validation
-- **Layer 5**: Network Service (7070) - P2P block propagation
-- **Layer 6**: Explorer Service (3000) - Data aggregation and web interface
-- **Layer 7**: Marketplace (8102) - GPU marketplace
+- **Layer 1**: Wallet Daemon (8108) — Multi-chain wallet management
+- **Layer 2**: Coordinator API (8203) — Job and transaction coordination
+- **Layer 3**: Blockchain RPC (8202) — Transaction processing and consensus
+- **Layer 4**: Consensus (8202) — PoA block validation
+- **Layer 5**: P2P Network (7070) — Gossip relay on hub nodes
+- **Layer 6**: Blockchain Explorer API (8100) — Block/transaction search
+- **Layer 7**: Marketplace / GPU (8102, 8101, 8111) — Compute marketplace and job dispatch
 
-## AI-Powered Features
+## Feature status
 
-> **Status:** These features represent designed capabilities. Current implementation status varies by component.
+The following areas are on the roadmap and are partially implemented or aspirational. See [Release Status](../../releases/STATUS.md) for exact completeness.
 
-### AI Trading Engine (Phase 4.1 - 🟡 Designed)
-- Machine learning-based trading algorithms
-- Predictive analytics and price prediction
-- Portfolio optimization and risk management
-- Strategy backtesting with historical data
+| Feature | Status | Notes |
+|---------|--------|-------|
+| AI Trading Engine | 🟡 Designed | ML-based trading and portfolio optimization (Phase 4.1). |
+| Advanced Analytics Platform | 🟡 Designed | Real-time analytics dashboard and KPI tracking (Phase 4.2). |
+| AI-Powered Surveillance | 🟡 Designed | Behavioral analysis and automated alerts (Phase 4.3). |
+| Compliance Framework | 🟡 Designed | KYC/AML and regulatory reporting modules (Phase 4). |
 
-### Advanced Analytics Platform (Phase 4.2 - 🟡 Designed)
-- Real-time analytics dashboard
-- Market data analysis and insights
-- Performance metrics and KPI tracking
-- Custom analytics APIs and reporting
+## Chain-specific token system
 
-### AI-Powered Surveillance (Phase 4.3 - 🟡 Designed)
-- Machine learning surveillance with 92% accuracy
-- Behavioral analysis with 88% accuracy
-- Predictive risk assessment with 94% accuracy
-- Automated alert systems and market integrity protection
+AITBC uses chain-specific tokens for isolation:
 
-## Chain-Specific Token System
+- **AITBC-AIT-DEVNET**: devnet tokens for testing
+- **AITBC-AIT-TESTNET**: testnet tokens
+- **AITBC-MAINNET**: mainnet tokens
 
-AITBC implements complete chain isolation with chain-specific tokens:
+Tokens are chain-specific and non-transferable between chains.
 
-- **AITBC-AIT-DEVNET**: 100.5 tokens (devnet only)
-- **AITBC-AIT-TESTNET**: 0.0 tokens (testnet only)
-- **AITBC-MAINNET**: 0.0 tokens (mainnet only)
+## Next steps
 
-Tokens are chain-specific and non-transferable between chains, providing complete security and isolation.
-
-## Next Steps
-
-- CLI Documentation — Complete command reference (50+ command groups)
+- [CLI Guide](cli-guide.md) — Complete command reference
+- [Service Selection](../setup-service-selection.md) — Choose your node profile
 - [Multi-Chain Operations](../blockchain/cross-chain/) — Cross-chain functionality
-- [AI Trading](../agents/) — AI-powered trading engine
-- [Security & Compliance](../security/) — Security framework and compliance
-- [Production Deployment](../deployment/) — Production setup and deployment
+- [Security & Compliance](../security/) — Security framework
+- [Production Deployment](../deployment/) — Production setup

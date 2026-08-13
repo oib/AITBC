@@ -24,83 +24,40 @@
 - **🧭 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation
 - **🎭 [Agent Scenarios](scenarios/README.md)** - agent agent scenarios for all AITBC features
 
-## 🎉 **PROJECT STATUS: Core Implementation Complete - May 11, 2026**
+## Project status
 
-### ✅ **All 10 Major Systems: 100% Complete**
+> **Last Updated:** 2026-08-13
 
-- **System Architecture**: ✅ Complete FHS compliance and directory structure
-- **Service Management**: ✅ Single marketplace service with clean architecture
-- **Basic Security**: ✅ Secure keystore and API key management
-- **Agent Systems**: ✅ Multi-agent coordination with AI/ML integration
-- **API Functionality**: ✅ 17/17 endpoints working (100%)
-- **Test Suite**: ✅ Comprehensive testing with 100% success rate
-- **Advanced Security**: ✅ JWT authentication, RBAC, rate limiting
-- **Production Monitoring**: ✅ Prometheus metrics, alerting, SLA tracking
-- **Type Safety**: ✅ MyPy strict checking with comprehensive coverage
-- **Federated Mesh**: ✅ Independent islands, node hubs, multi-chain support
+AITBC is under active development. Core blockchain, coordinator, wallet, marketplace, and CLI services are implemented and run on the public hub at `hub.aitbc.bubuit.net`. Some advanced capabilities (AI trading, surveillance, analytics, and full compliance modules) are on the roadmap. For a component-by-component view, see [Release Status](releases/STATUS.md).
 
-### 🎯 **Final Achievements (May 11, 2026)**
+### Production service ports
 
-- **100% Core Implementation**: ✅ All 10 major systems fully implemented
-- **100% Test Success**: ✅ All test suites passing (4/4 major suites)
-- **Production Ready**: ✅ Service healthy and operational
-- **Enterprise Security**: ✅ JWT auth with role-based access control
-- **Full Observability**: ✅ Comprehensive monitoring and alerting
-- **Type Safety**: ✅ Strict MyPy checking enforced
-- **Federated Mesh**: ✅ Independent islands, node hubs, multi-chain support
+> For authoritative port configuration, see [Service Ports Reference](reference/SERVICE_PORTS.md).
 
-### 🚀 **Service Status Update (June 5, 2026)**
+| Service | Port | Notes |
+|---------|------|-------|
+| API Gateway | 8201 | Nginx-proxied public entry point |
+| Agent Registry | 8204 | Agent discovery and health |
+| Blockchain RPC | 8202 | External blockchain node access |
+| Coordinator API | 8203 | Job coordination and marketplace endpoints |
+| Blockchain Explorer API | 8100 | Block/transaction search |
+| GPU Service | 8101 | GPU marketplace and miner operations |
+| Marketplace Service | 8102 | Marketplace transactions |
+| Exchange API | 8106 | Cross-chain exchange (migrated from 8001) |
+| Agent / Agent Coordinator | 8107 | Agent messaging and orchestration |
+| Wallet Daemon | 8108 | Multi-chain wallet (migrated from 8015) |
+| Trading Service | 8104 | Trading and offer sync |
+| Governance Service | 8105 | Governance transactions |
+| Edge Service | 8111 | Edge compute and GPU job dispatch |
+| Whisper Service | 8110 | Transcription service |
 
-#### ✅ **All Core Services Operational**
-- **Coordinator API**: 🟢 Running on port 8203 with Agent endpoints
-- **AgentDaemon**: 🟢 Successfully polling every 10 seconds
-- **Marketplace Service**: 🟢 Database schema updated and healthy
-- **Dependencies**: 🟢 All required packages installed and functional
-
-#### 🔧 **Recent Fixes Applied**
-- **Marketplace Deprecation (v0.4.7)**: Removed GPU auction functionality, migrated to hardware+software bundles with fixed pricing
-- **Import Errors**: Removed deprecated MarketplaceBidRequest and MarketplaceBidView schemas
-- **Database Schema**: Added missing `avg_rating` and `rating_count` columns
-- **Service Dependencies**: Resolved missing `ipfshttpclient` dependency
-- **Agent Connectivity**: Fixed polling URL configuration and endpoint paths
-- **Service Management**: Restored systemd service unit file linking
-
-#### 📚 **Enhanced Documentation**
-- **Agent Guides**: Comprehensive Nemotron cloud inference guide with troubleshooting
-- **Release Notes**: Updated v0.4.7 with service stability fixes
-- **API Documentation**: Current operational status and error handling
-- **Best Practices**: Security considerations and integration examples
-- **NAT Traversal**: ✅ STUN-based public endpoint discovery
-- **Infrastructure Complete**: ✅ Rate limiting, audit logging, Redis mempool, async I/O, business metrics
-- **Documentation Complete**: ✅ API docs, architecture diagrams, operational runbook, chaos engineering tests
-
-### 📋 **v0.1 Release Remaining Tasks (11 items)**
-
-Core implementation is complete. Remaining tasks are external dependencies for v0.1 release:
-
-- **Security & Audit (4)**: Third-party security audit, Circom circuit review, ZK proof audit, token economy review
-- **Distribution & Binaries (5)**: Debian miner binary, vLLM integration, GitHub Releases, CI/CD building, signature verification
-- **Quality Assurance (2)**: Cross-platform validation, security penetration testing
-
-See [Release Notes](releases/README.md) for current development status and remaining tasks.
-
-### 🚀 **Production Deployment Status**
-
-> **Note:** Service status below represents designed architecture. For authoritative port configuration, see [Service Ports Reference](reference/SERVICE_PORTS.md).
-
-- **Service Health**: ✅ Designed architecture complete
-- **Coordinator API**: Port 8203
-- **Exchange API**: Port 8001
-- **Blockchain RPC**: Port 8202
-- **Marketplace**: Port 8102
-- **Wallet Daemon**: Port 8015
 - **Authentication**: ✅ JWT tokens configured
 - **Monitoring**: ✅ Prometheus metrics configured
 - **Alerting**: ✅ 5 default rules configured
 - **SLA Tracking**: ✅ Compliance monitoring configured
 - **Type Safety**: ✅ 90%+ coverage achieved
 
-### 📊 **Final Statistics**
+## Quick navigation
 
 - **Total Systems**: 10/10 Complete (100%)
 - **API Endpoints**: 17/17 Working (100%)
@@ -109,19 +66,6 @@ See [Release Notes](releases/README.md) for current development status and remai
 - **Security**: Enterprise-grade
 - **Monitoring**: Full observability
 - **Federated Mesh**: Independent islands with hub discovery
-
-### 🎯 **Previous Achievements**
-
-- **Infrastructure & Security (May 2026)**: ✅ Rate limiting, request validation, audit logging, Redis mempool, async I/O, business metrics, API docs, architecture diagrams, operational runbook, chaos engineering tests
-- **AI Economics Masters**: ✅ Complete agent transformation with economic intelligence
-- **Advanced AI Teaching Plan**: ✅ 10/10 sessions (100%) with real-world applications
-- **Enhanced CLI System**: ✅ 50+ command groups with 100% test coverage
-- **Exchange Infrastructure**: ✅ Complete exchange CLI commands and market integration
-- **Multi-Chain Support**: ✅ Complete 7-layer architecture with chain isolation
-- **AI-Powered Features**: ✅ Advanced surveillance, trading engine, and analytics
-- **Production Setup**: ✅ Complete production blockchain setup with encrypted keystores
-- **Repository Organization**: ✅ Professional structure with 451+ files organized
-- **Federated Mesh Architecture**: ✅ Independent islands, node hubs, multi-chain support, NAT traversal
 
 ## 🧭 **Quick Navigation Guide**
 
@@ -132,10 +76,13 @@ See [Release Notes](releases/README.md) for current development status and remai
 | **I'm a...** | **Start Here** | **Next Steps** | **Goal** |
 |--------------|----------------|----------------|---------|
 | **👤 New User** | [Getting Started](getting-started/) | [CLI Basics](cli/) | Use AITBC effectively |
+| **🏛️ Hub Operator** | [Service Selection](getting-started/setup-service-selection.md) | [Deployment](deployment/) | Run a public or private island |
+| **🏪 Shop** | [Miner Quick Start](getting-started/mining/miner-quick-start.md) | [Marketplace](marketplace/) | Sell GPU compute |
+| **💻 Client** | [Node Quick Start](getting-started/node-quickstart.md) | [CLI](cli/) | Submit jobs and consume compute |
+| **⛏️ Miner** | [Mining Guide](getting-started/mining/miner-quick-start.md) | [Blockchain](blockchain/) | Run mining operations |
 | **👨‍💻 Developer** | [Blockchain](blockchain/) | [Development](development/) | Build on AITBC |
-| **⛏️ Miner** | [Mining Guide](mining/) | [Blockchain](blockchain/) | Run mining operations |
 | **🔧 Admin** | [CLI](cli/) | [Infrastructure](deployment/) | Manage systems |
-| **🎓 Expert** | [Master Index](MASTER_INDEX.md) | Deep expertise |
+| **🎓 Expert** | [Master Index](MASTER_INDEX.md) | Deep expertise | |
 
 ### 📚 **Documentation Map:**
 ```

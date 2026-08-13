@@ -1,64 +1,62 @@
 # Getting Started with AITBC
 
-Welcome to the AITBC getting started guide. This directory contains comprehensive documentation for installing, configuring, and using the AITBC platform.
+Welcome to the AITBC getting started guide. This directory contains the fastest paths to install, configure, and use the AITBC platform.
 
-## Quick Start
+## Three ways to participate
 
-For the fastest setup, see [SETUP.md](SETUP.md) for a 5-minute quick start guide.
+An AITBC node is configured by two independent axes:
 
-## User Journey Paths
+| Role | Axis | What it does | Typical profile |
+|------|------|--------------|-----------------|
+| **Hub** | `BLOCKCHAIN_MODE=hub` | Produces and broadcasts blocks, runs the coordinator, exchange, and public discovery endpoints. | `hub` |
+| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, marketplace, and mining services; sells compute to the network. | `provider-gpu` (with GPU) or `server-no-gpu` (without GPU) |
+| **Client** | `MARKET_ROLE=customer` | Consumes compute: submits jobs, queries results, and syncs as a follower. Also called the **customer node**. | `customer-no-gpu` |
 
-Choose the path that matches your use case:
+A single node can combine roles. For example, a hub can also be a shop, and a follower can be a client or a shop. See [Service Selection](setup-service-selection.md) for the full service matrix.
 
-### New User Path
+## Role-based paths
 
-If you're new to AITBC and want to get started quickly:
+### Client (consume compute)
+
+If you want to submit AI jobs and use the network:
 
 1. [Prerequisites](installation/prerequisites.md) - Check system requirements
 2. [Quick Start](installation/quick-start.md) - One-command installation
-3. [CLI Guide](overview/cli-guide.md) - Learn the CLI commands
-4. [Introduction](overview/introduction.md) - Understand what AITBC is
-5. [Unit System](unit-system.md) - Learn about AIT and compute-seconds
+3. [Open Island Testing](open-island.md) - Join the `hub.aitbc.bubuit.net` open island
+4. [Node Quick Start](node-quickstart.md) - Configure a follower/customer node
+5. [CLI Guide](overview/cli-guide.md) - Learn the CLI commands
+6. [Unit System](unit-system.md) - Learn about AIT and compute-seconds
 
-### Node Operator Path
-
-If you're setting up a follower node on the island:
-
-1. [Prerequisites](installation/prerequisites.md) - Check system requirements
-2. [Quick Start](installation/quick-start.md) - Install AITBC
-3. [Blockchain Setup](node/blockchain-setup.md) - Configure blockchain node
-4. [Agent Messaging](node/agent-messaging.md) - Set up PING/PONG messaging
-5. [Coin Requests](node/coin-requests.md) - Request free coins from hub
-6. [Configuration Guide](node/configuration-guide.md) - Configure your node
-
-### Miner Path
+### Shop (provide GPU compute)
 
 If you want to earn tokens by providing GPU compute:
 
 1. [Prerequisites](installation/prerequisites.md) - Check system requirements (GPU needed)
 2. [Quick Start](installation/quick-start.md) - Install AITBC
-3. [Miner Quick Start](mining/miner-quick-start.md) - Register GPU and start earning
-4. [Coin Requests](node/coin-requests.md) - Request coins for transactions
+3. [Service Selection](setup-service-selection.md) - Choose `MARKET_ROLE=shop`
+4. [Miner Quick Start](mining/miner-quick-start.md) - Register GPU and start earning
+5. [Coin Requests](node/coin-requests.md) - Request coins for transactions
 
-### Developer Path
+### Hub (run a public or private island)
 
-If you're developing with AITBC:
-
-1. [Prerequisites](installation/prerequisites.md) - Check system requirements
-2. [Installation](installation/installation.md) - Monorepo installation
-3. [CLI Guide](overview/cli-guide.md) - Learn CLI commands
-4. [Introduction](overview/introduction.md) - Understand platform architecture
-5. [Enhanced Services](overview/enhanced-services.md) - Enhanced services guide
-
-### Open Island Path
-
-If you want to join the hub.aitbc.bubuit.net open island:
+If you are operating a central island with all services:
 
 1. [Prerequisites](installation/prerequisites.md) - Check system requirements
 2. [Quick Start](installation/quick-start.md) - Install AITBC
-3. [Open Island Testing](open-island.md) - Join the open island
-4. [Blockchain Setup](node/blockchain-setup.md) - Configure for hub connectivity
-5. [Agent Messaging](node/agent-messaging.md) - Set up agent communication
+3. [Service Selection](setup-service-selection.md) - Choose `BLOCKCHAIN_MODE=hub`
+4. [Blockchain Setup](node/blockchain-setup.md) - Configure the blockchain node
+5. [Configuration Guide](node/configuration-guide.md) - Configure your node
+6. [Setup Reference](setup-reference.md) - Common commands and troubleshooting
+
+### Developer
+
+If you are developing with AITBC:
+
+1. [Prerequisites](installation/prerequisites.md) - Check system requirements
+2. [Installation](installation/installation.md) - Monorepo installation
+3. [Introduction](overview/introduction.md) - Understand platform architecture
+4. [CLI Guide](overview/cli-guide.md) - Learn CLI commands
+5. [Unit System](unit-system.md) - Learn about AIT and compute-seconds
 
 ## Directory Structure
 
@@ -67,6 +65,8 @@ getting-started/
 ├── README.md (this file)
 ├── SETUP.md (quick reference)
 ├── open-island.md (open island testing)
+├── ait-value-model.md
+├── unit-system.md
 ├── installation/ (installation guides)
 │   ├── prerequisites.md
 │   ├── quick-start.md
@@ -79,18 +79,16 @@ getting-started/
 │   └── configuration-guide.md
 ├── mining/ (GPU mining)
 │   └── miner-quick-start.md
-├── reference/ (reference docs)
-│   ├── service-endpoints.md
-│   ├── management-commands.md
-│   ├── troubleshooting.md
-│   ├── security-notes.md
-│   └── production-deployment.md
-└── overview/ (platform overview)
-    ├── introduction.md
-    ├── cli-guide.md
-    └── enhanced-services.md
-├── ait-value-model.md
-└── unit-system.md
+├── overview/ (platform overview)
+│   ├── introduction.md
+│   ├── cli-guide.md
+│   └── enhanced-services.md
+└── reference/ (reference docs)
+    ├── service-endpoints.md
+    ├── management-commands.md
+    ├── troubleshooting.md
+    ├── security-notes.md
+    └── production-deployment.md
 ```
 
 ## Additional Resources
@@ -99,10 +97,12 @@ getting-started/
 - [Deployment Guides](../deployment/) - Production deployment
 - [Scenarios Documentation](../scenarios/) - Comprehensive capability examples
 - [Main Documentation Index](../README.md) - All documentation
+- [Apps Documentation](../apps/) - Per-service documentation
 
 ## Getting Help
 
 If you encounter issues:
+
 1. Check [Troubleshooting](reference/troubleshooting.md)
 2. Review [Service Endpoints](reference/service-endpoints.md)
 3. Consult [Management Commands](reference/management-commands.md)
