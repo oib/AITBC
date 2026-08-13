@@ -28,11 +28,13 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Architecture: Parallel Tx Validation Approach](./overview.md#architecture-parallel-tx-validation-approach)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [DependencyGraph](./agent-a.md#a1-dependencygraph)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Verify clean](./agent-a.md#a4-verify-clean)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Pure state transition](./agent-b.md#b1-pure-state-transition)
@@ -92,6 +95,7 @@ This release documentation has been split into topic-focused files:
 ```
 
 **Why this works**:
+
 - **Deterministic**: The dependency graph is built from tx data (sender/recipient), not timing. Groups are ordered by tx index. Deltas are applied in tx index order within each group.
 - **Pure state transitions**: `compute_state_delta` takes `(account_map, tx_data)` and returns `(delta, success, error)` — no DB access, no side effects. This makes parallel execution safe.
 - **Conflict detection**: Two txs conflict if they share any address in their read/write sets. Conflicting txs are serialized within a group.
@@ -123,6 +127,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -199,6 +204,7 @@ class DependencyGraph:
 ```
 
 **Conflict definition**: Two transactions `A` and `B` conflict if:
+
 - `A.write_set ∩ B.write_set ≠ ∅` (both write to the same account), OR
 - `A.read_set ∩ B.write_set ≠ ∅` (A reads what B writes), OR
 - `A.write_set ∩ B.read_set ≠ ∅` (A writes what B reads)
@@ -206,6 +212,7 @@ class DependencyGraph:
 **Grouping algorithm**: Greedy assignment. For each tx (in index order), assign it to the first existing group where it has no conflicts with any member. If it conflicts with all existing groups, create a new group. This maximizes parallelism within each group boundary.
 
 **Determinism**: The grouping is deterministic because:
+
 - Txs are processed in index order
 - Group assignment is greedy (first-fit)
 - Within each group, txs are sorted by index
@@ -262,6 +269,7 @@ class ParallelExecutor:
 ```
 
 **Key design decisions**:
+
 - Uses `ThreadPoolExecutor` (not asyncio) because `compute_state_delta` is CPU-bound, not I/O-bound. The GIL limits true parallelism for pure Python, but the state delta computation involves enough Python bytecode to benefit from thread-level parallelism on multi-core systems. If benchmarks show GIL contention, a `ProcessPoolExecutor` variant can be added later.
 - Groups are executed **sequentially** (not all groups in parallel) because groups represent dependency levels — group 2's txs may depend on group 1's state changes.
 - Within each group, tasks are executed in **parallel** since they don't conflict.
@@ -272,6 +280,7 @@ Export from `aitbc/parallel/__init__.py` as `ParallelExecutor`.
 #### A3: Unit tests
 
 **`tests/unit/test_dependency_graph.py`**:
+
 - `test_no_conflicts_all_in_one_group` — 5 txs, all different accounts → 1 group of 5
 - `test_all_conflict_separate_groups` — 5 txs, all same account → 5 groups of 1
 - `test_partial_conflict` — 3 txs where tx1 and tx3 conflict, tx2 is independent → 2 groups
@@ -283,6 +292,7 @@ Export from `aitbc/parallel/__init__.py` as `ParallelExecutor`.
 - `test_index_ordering_within_group` — within a group, txs sorted by index
 
 **`tests/unit/test_parallel_executor.py`**:
+
 - `test_execute_groups_parallel` — 3 groups, verify results in correct order
 - `test_execute_sequential` — fallback path
 - `test_empty_groups` — empty input → empty output
@@ -305,6 +315,7 @@ Export from `aitbc/parallel/__init__.py` as `ParallelExecutor`.
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -394,6 +405,7 @@ def apply_deltas_to_db(
 ```
 
 **Key**: `compute_state_delta` replicates the validation logic from `state_transition.apply_transaction` (lines 127-213) but:
+
 - Reads from `account_map` instead of `session.get(Account, ...)`
 - Returns a `StateDelta` instead of executing SQL
 - Does NOT call `session.flush()`, `session.execute()`, or invalidate Redis cache
@@ -416,6 +428,7 @@ else:
 **`_propose_block_sequential`**: Extract the existing sequential loop (lines 308-404) into a method. No behavior change — this is the fallback.
 
 **`_propose_block_parallel`**: New method:
+
 1. Build `DependencyGraph` from pending_txs:
    - For each tx, `read_set = {sender, recipient}`, `write_set = {sender, recipient}`
    - `index` = position in pending_txs (deterministic ordering)
@@ -455,6 +468,7 @@ Modify `_append_block` in `sync.py` (lines 609-687) to support parallel verifica
 **Problem**: `mempool.py:109` sorts by `(-t.fee, t.received_at)`. `received_at` is set via `time.time()` (line 81), which varies across validators. If two txs have the same fee, different validators may order them differently, leading to different block contents and state roots.
 
 **Fix**: Change the sort key from `(-t.fee, t.received_at)` to `(-t.fee, t.tx_hash)` in:
+
 - `InMemoryMempool.drain` (line 109)
 - `InMemoryMempool.get_pending_transactions` (line 155)
 - `DatabaseMempool.drain` (line 341) — change `ORDER BY fee DESC, received_at ASC` to `ORDER BY fee DESC, tx_hash ASC`
@@ -476,6 +490,7 @@ conflict_threshold: float = 0.5  # Fall back to sequential if >50% of txs confli
 ```
 
 Also add env var support (following existing config patterns):
+
 ```bash
 # /etc/aitbc/blockchain.env
 PARALLEL_TX_VALIDATION=true
@@ -490,6 +505,7 @@ CONFLICT_THRESHOLD=0.5
 **Problem**: `sync.py:648` loads ALL accounts for state root verification: `accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()`. This is the full recompute path that v0.6.0's B5 optimized in `poa.py` but didn't apply to `sync.py`.
 
 **Fix**: Replace the full recompute in `sync.py:645-687` with the incremental approach:
+
 1. Track `changed_addresses` during tx processing (same as poa.py)
 2. Use `_compute_state_root_incremental(session, chain_id, account_map, changed_addresses)` instead of `state_manager.compute_state_root(account_dict)`
 3. Import `_compute_state_root_incremental` from `consensus/poa.py` or extract it to a shared utility in `state/`
@@ -538,6 +554,7 @@ class TestParallelDeterminism:
 **This is the most critical test file.** If any test fails, the parallel path is non-deterministic and must not be enabled in production.
 
 **Test approach**: For each test case:
+
 1. Create a set of transactions and initial account state
 2. Run sequential validation → record state root
 3. Reset state

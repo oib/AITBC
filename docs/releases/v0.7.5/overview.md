@@ -28,10 +28,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Consensus Signing Utilities](./agent-a.md#a1-consensus-signing-utilities)
@@ -39,6 +41,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Config](./agent-b.md#b1-config)

@@ -26,6 +26,7 @@ All commands support the following global options:
 ## Command Groups
 
 ### 1. wallet
+
 Wallet lifecycle, balances, and transactions.
 
 ```bash
@@ -49,6 +50,7 @@ aitbc wallet history
 ```
 
 ### 2. blockchain
+
 Blockchain state and block inspection.
 
 ```bash
@@ -72,6 +74,7 @@ aitbc blockchain peers
 ```
 
 ### 3. sync
+
 Blockchain synchronization utilities.
 
 ```bash
@@ -86,6 +89,7 @@ aitbc sync bulk --source http://leader-url:8202 --import-url http://localhost:82
 ```
 
 ### 4. account
+
 Account information and management.
 
 ```bash
@@ -97,6 +101,7 @@ aitbc account list
 ```
 
 ### 5. messaging
+
 Messaging system and forum operations.
 
 ```bash
@@ -111,6 +116,7 @@ aitbc messaging topic create <title> <description>
 ```
 
 ### 6. network
+
 Peer connectivity and network operations.
 
 ```bash
@@ -125,6 +131,7 @@ aitbc network test <peer>
 ```
 
 ### 7. market
+
 Marketplace listings and offers.
 
 ```bash
@@ -142,6 +149,7 @@ aitbc market bid <offer_id> <amount>
 ```
 
 ### 8. ai
+
 AI job submission and inspection.
 
 ```bash
@@ -156,6 +164,7 @@ aitbc ai list
 ```
 
 ### 9. analytics
+
 Blockchain analytics and statistics.
 
 ```bash
@@ -167,6 +176,7 @@ aitbc analytics report <type>
 ```
 
 ### 10. script
+
 Script execution and automation.
 
 ```bash
@@ -178,6 +188,7 @@ aitbc script list
 ```
 
 ### 11. mining
+
 Mining lifecycle and rewards.
 
 ```bash
@@ -195,6 +206,7 @@ aitbc mining rewards
 ```
 
 ### 12. system
+
 System health and overview.
 
 ```bash
@@ -209,6 +221,7 @@ aitbc system health
 ```
 
 ### 13. economics
+
 Economic intelligence and modeling.
 
 ```bash
@@ -220,6 +233,7 @@ aitbc economics analyze <metric>
 ```
 
 ### 14. cluster
+
 Cluster management operations.
 
 ```bash
@@ -231,6 +245,7 @@ aitbc cluster nodes
 ```
 
 ### 15. performance
+
 Performance optimization and metrics.
 
 ```bash
@@ -242,6 +257,7 @@ aitbc performance optimize
 ```
 
 ### 16. security
+
 Security audit and scanning.
 
 ```bash
@@ -253,6 +269,7 @@ aitbc security scan
 ```
 
 ### 17. compliance
+
 Compliance policy, classification, and audit commands.
 
 ```bash
@@ -275,6 +292,7 @@ Frameworks: `hipaa`, `soc2`, `glba`, `pci_dss`, `manufacturing`, `education`, `r
 > compliance artifact.
 
 ### 18. simulate
+
 Simulation utilities and testing.
 
 ```bash
@@ -286,6 +304,7 @@ aitbc simulate list
 ```
 
 ### 19. agent
+
 AI agent workflow orchestration.
 
 ```bash
@@ -300,6 +319,7 @@ aitbc agent list
 ```
 
 ### 20. workflow
+
 Workflow templates and execution.
 
 ```bash
@@ -311,6 +331,7 @@ aitbc workflow list
 ```
 
 ### 22. resource
+
 Resource utilization and allocation.
 
 ```bash
@@ -322,6 +343,7 @@ aitbc resource allocate <type> <amount>
 ```
 
 ### 23. genesis
+
 Genesis block and wallet generation.
 
 ```bash
@@ -333,6 +355,7 @@ aitbc genesis wallet create
 ```
 
 ### 24. pool-hub
+
 Pool hub management for SLA monitoring and billing.
 
 ```bash
@@ -344,6 +367,7 @@ aitbc pool-hub sla monitor
 ```
 
 ### 25. bridge
+
 Blockchain event bridge management.
 
 ```bash
@@ -355,6 +379,7 @@ aitbc bridge status
 ```
 
 ### 26. contract
+
 Smart contract operations.
 
 ```bash
@@ -401,11 +426,13 @@ aitbc market bid offer123 10
 ## Help
 
 For command-specific help:
+
 ```bash
 aitbc <command> --help
 ```
 
 For example:
+
 ```bash
 aitbc wallet --help
 aitbc ai --help

@@ -15,6 +15,7 @@ aitbc-chain init --name my-node --network ait-devnet
 ```
 
 Edit `~/.aitbc/chain.yaml`:
+
 ```yaml
 node:
   name: my-node
@@ -54,6 +55,7 @@ AITBC runs from small VPS up, depending on your goal:
 | **Production Hub** | 8+ cores | 16+ GB | 1 TB SSD | 1 Gbps | Optional |
 
 **Notes:**
+
 - For Agent and Ollama, consider using cloud AI models to reduce local hardware requirements
 - For earning coins, GPU with 16GB+ VRAM is minimum to load AI models
 - Hub nodes can run on minimal hardware for basic island operation
@@ -136,6 +138,7 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
 ```
 
 **Genesis file content:**
+
 ```json
 {
   "chain_id": "ait-hub.aitbc.bubuit.net",

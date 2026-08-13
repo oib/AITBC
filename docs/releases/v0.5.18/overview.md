@@ -26,10 +26,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-facts-do-not-re-investigate)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Test Config)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Register markers + default timeout](./agent-a.md#a1-register-markers--default-timeout)
@@ -37,6 +39,7 @@ This release documentation has been split into topic-focused files:
 - [Add to testpaths (LAST)](./agent-a.md#a3-add-to-testpaths-last)
 
 ### Agent B (Blockchain-Node Test Fixes)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [test_rpc_router](./agent-b.md#b1-test_rpc_router-12)

@@ -425,6 +425,7 @@ aitbc agent efficiency agent_123 \
 ### Common Edge Issues
 
 **Connectivity Problems**
+
 ```bash
 # Diagnose connectivity
 aitbc agent diagnose agent_123 \
@@ -439,6 +440,7 @@ aitbc agent repair-connectivity agent_123 \
 ```
 
 **Performance Degradation**
+
 ```bash
 # Diagnose performance issues
 aitbc agent diagnose agent_123 \
@@ -451,6 +453,7 @@ aitbc agent recover agent_123 \
 ```
 
 **Resource Exhaustion**
+
 ```bash
 # Handle resource exhaustion
 aitbc agent handle-exhaustion agent_123 \
@@ -461,16 +464,19 @@ aitbc agent handle-exhaustion agent_123 \
 ## Best Practices
 
 ### Deployment Strategy
+
 - Start with pilot deployments in key regions
 - Use gradual rollout with monitoring at each stage
 - Implement proper rollback procedures
 
 ### Performance Optimization
+
 - Monitor edge metrics continuously
 - Use predictive scaling for demand spikes
 - Optimize routing based on real-time conditions
 
 ### Security Considerations
+
 - Implement zero-trust security model
 - Use end-to-end encryption for sensitive data
 - Regular security audits and compliance checks

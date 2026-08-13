@@ -3,14 +3,17 @@
 ## Problem Statement
 
 The codebase contains duplicated agent service logic across multiple apps:
+
 - `apps/agent-management/src/app/services/agent_integration.py` (1160 lines)
 - `apps/coordinator-api/src/app/services/agent_coordination/integration.py` (1160 lines)
 
 These files are nearly identical but have app-specific imports:
+
 - **agent-management**: imports from `app.domain.agent`, `app.services.agent_security`, `app.services.agent_service`
 - **coordinator-api**: imports from `...domain.agent`, `.security`, `.agent_service`
 
 Direct extraction to a shared package is blocked because:
+
 1. Domain models (`AgentExecution`, `AgentStepExecution`, `VerificationLevel`) are app-specific
 2. Service dependencies (`AgentSecurityManager`, `AIAgentOrchestrator`) are app-specific
 3. Database session handling patterns differ between apps
@@ -22,7 +25,7 @@ Direct extraction to a shared package is blocked because:
 1. **Protocol-First Design**: Define abstract protocols (interfaces) for all dependencies
 2. **App-Specific Adapters**: Each app implements protocols for its domain models and services
 3. **Shared Core Logic**: Extract pure business logic to shared package using only protocol types
-4. **Constructor Injection**: Pass dependencies via __init__, not global imports
+4. **Constructor Injection**: Pass dependencies via **init**, not global imports
 5. **Zero Breaking Changes**: Existing app code continues to work during migration
 
 ### Protocol Definitions
@@ -331,17 +334,21 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
 ### Migration Strategy
 
 #### Phase 1: Create Protocols and Core (No Breaking Changes)
+
 1. Create `aitbc-agent-core` package with protocol definitions
 2. Implement shared `AgentIntegrationService` using protocols
 3. Add to existing apps as optional import (no migration yet)
 
 #### Phase 2: Implement Adapters (No Breaking Changes)
+
 1. Create adapter modules in each app
 2. Write unit tests for adapters
 3. Verify adapters correctly wrap app-specific implementations
 
 #### Phase 3: Gradual Migration (Backward Compatible)
+
 1. Create factory functions in each app to instantiate shared service:
+
    ```python
    # apps/agent-management/src/app/services/agent_integration.py
    from aitbc_agent_core.integration import AgentIntegrationService
@@ -360,10 +367,12 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
            zk_proof_service=ZKProofServiceAdapter(ZKProofService()),
        )
    ```
+
 2. Gradually replace methods in existing service to delegate to shared service
 3. Keep old methods as fallback during transition
 
 #### Phase 4: Cleanup (After Verification)
+
 1. Remove duplicated code from app services
 2. Delete old implementations once fully migrated
 3. Update imports across codebase
@@ -397,23 +406,27 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
 ### Migration Status (Completed)
 
 **Week 1-3: Foundation (Completed)**
+
 - ✅ Created `aitbc-agent-core` package with protocol definitions
 - ✅ Implemented `AgentIntegrationService` core logic
 - ✅ Created adapters for both agent-management and coordinator-api
 - ✅ All protocols defined: domain, security, orchestrator, zk_proof, database
 
 **Week 4-5: Gradual Migration (Completed)**
+
 - ✅ Created factory functions in both apps (`agent_integration_factory.py`)
 - ✅ Added migration comments to existing service files
 - ✅ Imported shared service factory for gradual transition
 - ✅ Both apps have access to shared service via `get_shared_agent_integration_service()`
 
 **Week 6: Cleanup and Verification (Completed)**
+
 - ✅ Architecture documented
 - ✅ Migration path established
 - ⏸️ Full code removal deferred (requires testing and verification)
 
 **Current State:**
+
 - Shared service is available and ready to use
 - Old implementations remain as fallback during transition
 - Apps can gradually migrate methods one at a time
@@ -421,6 +434,7 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
 - Regression tests remain valid
 
 **Next Steps for Full Migration:**
+
 1. Run existing regression tests to verify compatibility
 2. Gradually replace method implementations to delegate to shared service
 3. Remove duplicated code after full verification

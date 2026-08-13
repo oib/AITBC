@@ -74,6 +74,7 @@ aitbc genesis init --chain-id ait-mainnet --create-wallet
 You will be prompted for a wallet password (or provide it with `--password`).
 
 **Expected output:**
+
 ```
 Running genesis generation for ait-mainnet...
 Genesis generation completed successfully
@@ -102,6 +103,7 @@ aitbc genesis init --chain-id ait-mainnet --create-wallet --force
 ### Step 3: Verify Genesis Integrity
 
 The `verify` command checks three things:
+
 1. The genesis config file exists at `/var/lib/aitbc/data/<chain_id>/genesis.json`
 2. The genesis block (height 0) exists in the chain database
 3. The genesis wallet exists at `/var/lib/aitbc/keystore/genesis.json`
@@ -111,6 +113,7 @@ aitbc genesis verify --chain-id ait-mainnet
 ```
 
 **Expected output:**
+
 ```
 ✓ Genesis config found: /var/lib/aitbc/data/ait-mainnet/genesis.json
 chain_id           ait-mainnet
@@ -136,6 +139,7 @@ aitbc genesis info --chain-id ait-mainnet
 ```
 
 **Expected output:**
+
 ```
 chain_id  ait-mainnet
 genesis_block
@@ -170,6 +174,7 @@ aitbc genesis sync-from-hub \
 ```
 
 **Expected output:**
+
 ```
 Fetching genesis from hub: http://localhost:8202
 Chain ID: ait-mainnet
@@ -223,6 +228,7 @@ asyncio.run(main())
 ```
 
 **Expected output:**
+
 ```
 Registration successful: True
 Agent ID: agent_a1b2c3d4

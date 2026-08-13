@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📚 Guides** → *You are here*
 
 **breadcrumb**: Home → Guides → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **🏠 [Documentation Home](../README.md)** - Main docs landing page
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Complete docs catalog
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Writing standard for docs

@@ -7,6 +7,7 @@ The AITBC platform provides WebSocket endpoints for real-time updates on job sta
 ## Overview
 
 WebSocket connections provide real-time, bidirectional communication with the AITBC services. This is particularly useful for:
+
 - Monitoring job status changes
 - Receiving blockchain event notifications
 - Tracking marketplace offers and transactions
@@ -349,6 +350,7 @@ const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws', [], {
 ## Rate Limiting
 
 WebSocket connections are rate limited:
+
 - Maximum connections per IP: 10
 - Maximum messages per second: 100
 - Connection duration limit: 24 hours

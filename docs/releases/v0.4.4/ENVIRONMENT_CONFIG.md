@@ -43,12 +43,14 @@ HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 ## Supported Environment Variables
 
 ### Blockchain Configuration
+
 - `BLOCKCHAIN_MODE`: follower or leader
 - `MARKET_ROLE`: customer or provider
 - `HARDWARE_PROFILE`: nogpu or gpu
 - `HUB_BLOCKCHAIN_URL`: Hub blockchain RPC endpoint
 
 ### Node Configuration
+
 - `GENESIS_PRIVATE_KEY`: Genesis wallet private key (hex)
 - `GENESIS_ADDRESS`: Genesis wallet address
 - `HERMES_DB_PATH`: Path to Hermes database

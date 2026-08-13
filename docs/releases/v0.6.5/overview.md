@@ -28,18 +28,21 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Already Fixed](#already-fixed-verified--no-work-needed)
 - [Architecture: Agent Coordination with Chain Awareness](#architecture-agent-coordination-with-chain-awareness)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [PaymentEscrow](./agent-a.md#a1-paymentescrow)
 - [Unit tests](./agent-a.md#a2-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Add config fields](./agent-b.md#b1-add-config-fields)

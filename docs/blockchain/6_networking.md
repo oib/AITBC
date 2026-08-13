@@ -34,6 +34,7 @@ ufw allow from 10.0.0.0/8 to any port 8202
 ### Port Forwarding
 
 If behind a NAT, configure port forwarding:
+
 - External port 7070 → Internal IP:7070 (P2P)
 - External port 8202 → Internal IP:8202 (RPC)
 - External port 8203 → Internal IP:8203 (Coordinator API)
@@ -67,6 +68,7 @@ BRIDGE_ISLANDS=
 ```
 
 **Configuration Fields**:
+
 - `ISLAND_ID`: UUID-based island identifier (auto-generated if not set)
 - `ISLAND_NAME`: Human-readable island name
 - `IS_HUB`: Set to `true` if this node acts as a hub
@@ -136,6 +138,7 @@ aitbc node chain list
 ```
 
 Chain types:
+
 - `bilateral`: Chain between two parties
 - `micro`: Small chain for specific use case
 
@@ -172,6 +175,7 @@ p2p:
 ### Peer Scoring
 
 Nodes are scored based on:
+
 - Latency
 - Availability
 - Protocol compliance

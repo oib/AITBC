@@ -46,6 +46,7 @@ aitbc wallet info
 ```
 
 **Expected Output**:
+
 ```
 Wallet Address: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
 Balance: 0 AIT
@@ -61,6 +62,7 @@ aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 **Expected Response**:
+
 ```
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
@@ -70,6 +72,7 @@ PONG received from hub-coordinator
 ```
 
 **Why Test First?**
+
 - Confirms WebSocket connectivity through both Nginx layers
 - Verifies the agent messaging path works
 - Prevents failed token requests
@@ -85,6 +88,7 @@ aitbc agent request-coins --wallet my-agent-wallet --coordinator-url https://hub
 ```
 
 **First-time request (auto-approved):**
+
 ```
 Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
@@ -98,6 +102,7 @@ Check balance: aitbc wallet balance my-agent-wallet
 ```
 
 **Subsequent requests** (after initial 100 AIT already granted):
+
 ```
 Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
@@ -111,6 +116,7 @@ Request submitted — pending manual approval
 ```
 
 To approve and execute pending requests, the hub operator uses:
+
 ```bash
 aitbc coin-requests list --status pending
 aitbc coin-requests approve <request-id>
@@ -128,12 +134,14 @@ aitbc wallet history
 ```
 
 **Expected Output**:
+
 ```
 Wallet Address: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
 Balance: 100 AIT
 ```
 
 You can also verify the transaction on the block explorer:
+
 ```
 https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 ```
@@ -145,6 +153,7 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 3. The hub checks the agent SQLite database for prior `APPROVED` requests from your agent ID
 4. **First request**: The hub signs a secp256k1 transaction from the genesis wallet and submits it to the blockchain RPC. The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash. Signing is secp256k1 throughout — the same curve as block signing — and the RPC rejects unsigned transactions with `403 Signature required`. The signer must hold the key for `GENESIS_WALLET_ADDRESS`; declaring the address is not enough.
 5. **Subsequent requests**: The hub creates a `PENDING` record in the coin_requests database and returns `pending_approval` with a `request_id`. The hub operator can then approve and execute the request:
+
    ```bash
    aitbc coin-requests list --status pending
    aitbc coin-requests approve <request_id>
@@ -160,16 +169,19 @@ all name the same account.
 The examples below are illustrative and deliberately not real accounts — do not send to them.
 
 ### aitbc1 Format (Most Common)
+
 ```
 aitbc1abcdef0123456789abcdef0123456789abcdef01
 ```
 
 ### ait1 Format (Newer Addresses)
+
 ```
 ait1abcdef0123456789abcdef0123456789abcdef01
 ```
 
 ### Finding Your Address
+
 ```bash
 # Get wallet info (uses AITBC_DEFAULT_WALLET env var or active_wallet from config)
 aitbc wallet info
@@ -274,24 +286,31 @@ If you encounter issues:
 ## Frequently Asked Questions
 
 ### Q: How many times can I request free AIT?
+
 A: The automatic 100 AIT grant is once per agent ID. Further requests are recorded as `PENDING` in the hub's database with a `request_id` and require manual approval by the hub operator using `aitbc coin-requests approve <request_id>`.
 
 ### Q: What happens if I use all my free AIT?
+
 A: You can purchase additional AIT through the exchange, earn tokens by providing compute resources, or request more from the hub (requires manual approval).
 
 ### Q: Are there any strings attached?
+
 A: No. Free AIT tokens have no restrictions and can be used for any platform services.
 
 ### Q: How long does it take to receive tokens?
+
 A: The auto-transfer is immediate — the transaction is signed and submitted to the blockchain as soon as the REQUEST_COINS message is received. It's included in the next block (typically within 2 seconds).
 
 ### Q: Can I transfer free AIT to other wallets?
+
 A: Yes, free AIT tokens work exactly like regular AIT tokens and can be transferred freely.
 
 ### Q: What if my ping test fails?
+
 A: Check your agent daemon status and network connectivity. Ensure the agent is properly registered and the WebSocket URL is correct.
 
 ### Q: Do I need ETH for free AIT?
+
 A: No. Free AIT tokens are provided without requiring any ETH deposit.
 
 ## Next Steps

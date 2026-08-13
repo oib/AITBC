@@ -9,24 +9,28 @@
 This document tracks the migration of the AITBC monolithic coordinator-api to a microservices architecture.
 
 **Current Port Architecture:**
+
 - **Public Services (8200-8203)**: API Gateway (8201), Blockchain P2P (8200), Blockchain RPC (8202), Coordinator API failover (8203)
 - **Internal Services (8101-8108)**: GPU (8101), Marketplace (8102), Agent (8107), Trading (8104), Governance (8105), Exchange (8106), Agent Coordinator (8107), Wallet (8108)
 
 ## Completed Phases
 
 ### Phase 1-4: Foundation (Completed)
+
 - Dependency Management Consolidation
 - Test Coverage Improvement (Target 50%)
 - Exception Handling Improvement
 - Coordinator-API Monolith Breakup (GPU service extracted, Marketplace/Trading/Governance Service foundations created)
 
 ### Phase 7-10: Microservices Setup (Completed)
+
 - Document testing procedures for microservices
 - Create pytest test files for microservices
 - Run actual services and test
 - Create systemd services for microservices
 
 ### Phase 11: CLI Migration (Completed)
+
 - Updated CLI configuration to include individual microservice URLs
   - `gpu_service_url`: http://localhost:8101
   - `marketplace_service_url`: http://localhost:8102
@@ -38,18 +42,21 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - CLI now communicates directly with microservices for GPU and marketplace operations
 
 ### Phase 12: API Gateway Routing (Completed)
+
 - API Gateway already configured with service registry
 - Added `/v1/transactions` endpoints to all microservices
 - Fixed async session dependency issues in all microservices
 - API Gateway successfully routing to all microservices
 
 ### Phase 13: API Gateway Testing (Completed)
+
 - Tested GPU service routing through API Gateway
 - Tested Marketplace service routing through API Gateway
 - Tested Trading service routing through API Gateway
 - Tested Governance service routing through API Gateway
 
 ### Phase 14: CLI Usage Analysis (Completed)
+
 - Analyzed CLI coordinator-api usage patterns
 - Identified remaining coordinator-api dependencies:
   - Miner operations (register, poll, heartbeat, result, earnings, capabilities)
@@ -62,6 +69,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
   - Monitoring operations (dashboard, status, jobs, miners)
 
 ### Phase 16: Miner Operations Migration (Completed)
+
 - Added miner registration endpoint to GPU service (POST /v1/miners/register)
 - Added miner heartbeat endpoint to GPU service (POST /v1/miners/heartbeat)
 - Added miner GPU listing endpoint to GPU service (GET /v1/miners/{miner_id}/gpus)
@@ -69,12 +77,14 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Tested miner endpoints with curl - all working
 
 ### Phase 17: CLI Miner Commands Migration (Completed)
+
 - Updated CLI miner register command to use GPU service URL
 - Updated CLI miner heartbeat command to use GPU service URL
 - Updated CLI miner status command to use GPU service URL
 - CLI now queries GPU service for miner operations instead of coordinator-api
 
 ### Phase 19: Complete Miner Operations Migration (Completed)
+
 - Added POST /v1/miners/poll - Poll for next job (placeholder)
 - Added POST /v1/miners/{job_id}/result - Submit job result (placeholder)
 - Added POST /v1/miners/{job_id}/fail - Submit job failure (placeholder)
@@ -84,6 +94,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All miner endpoints tested and working
 
 ### Phase 20: Explorer Operations Migration (Completed)
+
 - Added GET /blocks - List recent blocks (placeholder)
 - Added GET /blocks/{block_id} - Get block details (placeholder)
 - Added GET /receipts - List job receipts (placeholder)
@@ -92,6 +103,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All explorer endpoints tested and working
 
 ### Phase 21: CLI Explorer Commands Migration (Completed)
+
 - Added CLI compatibility endpoints to Trading service (v1/explorer/blocks, api/v1/blocks, v1/explorer/receipts, explorer/transactions/{tx_hash})
 - Updated CLI blocks command to use Trading service URL
 - Updated CLI receipts command to use Trading service URL
@@ -99,6 +111,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All CLI explorer commands now query Trading service instead of coordinator-api
 
 ### Phase 22: Agent Messaging Migration (Completed)
+
 - Created `/api/v1/agent/messages/` endpoints in Agent Coordinator (8107)
 - Migrated messaging from Coordinator API (8203) to Agent Coordinator (8107)
 - Updated systemd service and environment files to use port 8107
@@ -106,6 +119,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Updated documentation to reflect new messaging architecture
 
 ### Phase 23: AI Service Foundation (Completed)
+
 - Created AI Service (port 8106) for job operations
 - Implemented job endpoints: POST /jobs, GET /jobs/{job_id}, GET /jobs/{job_id}/result, POST /jobs/{job_id}/cancel, GET /jobs
 - Created database schema for jobs and receipts
@@ -113,6 +127,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All AI Service endpoints tested and working
 
 ### Phase 24: AI Job Operations Migration (Completed)
+
 - Updated CLI job commands to use AI Service URL (submit, status, cancel, result, list, payment-status)
 - Updated CLI monitor commands to use AI Service URL for job metrics
 - Updated CLI admin job commands to use AI Service URL (list, details, delete, prioritize)
@@ -121,6 +136,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All AI job operations now query AI Service instead of coordinator-api
 
 ### Phase 25: Monitoring Service Migration (Completed)
+
 - Created Monitoring Service (port 8107) for system health and metrics
 - Implemented monitoring endpoints: GET /dashboard, GET /dashboard/summary, GET /dashboard/metrics
 - Service monitors all microservices (GPU, Marketplace, Trading, Governance, AI)
@@ -129,6 +145,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - All monitoring operations now query Monitoring Service instead of coordinator-api
 
 ### Phase 30: Final Testing and Validation (Completed)
+
 - Tested all microservices health endpoints: All services healthy
 - Tested API Gateway routing to all services: All routing working correctly
 - Verified systemd services: All services active and running
@@ -136,6 +153,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Core microservices migration validated and operational
 
 ### Phase 26: agent Service Migration (Completed)
+
 - Created agent Service (port 8105) for agent orchestration and edge computing
 - Implemented agent endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
 - Configured systemd service for agent Service
@@ -143,6 +161,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Added agent_service_url to CLI configuration
 
 ### Phase 27: Plugin Service Migration (Completed)
+
 - Created Plugin Service (port 8109) for plugin registration, marketplace, and analytics
 - Implemented plugin endpoints: register, marketplace/plugins, analytics/plugins
 - Configured systemd service for Plugin Service
@@ -150,11 +169,13 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Added plugin_service_url to CLI configuration
 
 ### Phase 28: Multimodal Operations Migration (Completed)
+
 - Added multimodal health endpoints to AI Service (multimodal/health, multimodal/health/deep)
 - AI Service already had multimodal endpoints (process, benchmark, agents)
 - All multimodal operations now query AI Service instead of coordinator-api
 
 ### Phase 29: Optimization Operations Migration (Completed)
+
 - Added optimization endpoints to AI Service (tune, predict, agents, health)
 - All optimization operations now query AI Service instead of coordinator-api
 
@@ -163,6 +184,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 ### Service Port Classification
 
 #### Public Services with Nginx Reverse Proxy (Recommended)
+
 These services should be accessed through nginx for SSL termination, security headers, and load balancing.
 
 - **Agent Registry** (port 8204) - Agent discovery and management
@@ -180,6 +202,7 @@ These services should be accessed through nginx for SSL termination, security he
   - Nginx path: `/c/`
 
 **Nginx Routing Configuration:**
+
 ```
 /agent/    → localhost:8204 (Agent Registry)
 /api/      → localhost:8201 (API Gateway)
@@ -188,12 +211,14 @@ These services should be accessed through nginx for SSL termination, security he
 ```
 
 #### Public Services (Direct Access)
+
 These services are accessible directly without nginx proxy (typically P2P protocols).
 
 - **Blockchain P2P** (port 8200) - P2P network communication
   - Direct access required for P2P protocol
 
 #### Internal Services (Localhost Only) - Contiguous Range 8101-8108
+
 - **GPU Service** (port 8101) - GPU marketplace + miner operations
 - **Marketplace Service** (port 8102) - Marketplace transactions + advanced features
 - **Agent Service** (port 8107) - Agent messaging and orchestration
@@ -292,7 +317,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
      - Wallet management endpoints
    - Status: Migrated from port 8015 (2026-06-02)
 
-6. **API Gateway** (port 8201) - **PUBLIC-FACING**
+9. **API Gateway** (port 8201) - **PUBLIC-FACING**
    - **Security Note**: Only microservice that should be exposed to external network
    - Routes requests to appropriate microservices based on path prefix
    - All internal services are accessible only via API Gateway
@@ -309,12 +334,13 @@ These services are accessible directly without nginx proxy (typically P2P protoc
 ### Legacy Services
 
 **Coordinator API** (port 8203) - **FAILOVER SERVICE**
-   - Kept running as failover until all features are tested on microservices
-   - Most functionality has been migrated to dedicated microservices
-   - Service is still active and running
-   - Some documentation and services may still be calling Coordinator API (port 8203) for agent endpoints instead of Agent Coordinator (8107)
-   - This causes 500 errors due to missing modules (app.storage.config_pg)
-   - Will be disabled after comprehensive microservices testing is complete
+
+- Kept running as failover until all features are tested on microservices
+- Most functionality has been migrated to dedicated microservices
+- Service is still active and running
+- Some documentation and services may still be calling Coordinator API (port 8203) for agent endpoints instead of Agent Coordinator (8107)
+- This causes 500 errors due to missing modules (app.storage.config_pg)
+- Will be disabled after comprehensive microservices testing is complete
 
 ## CLI Configuration
 
@@ -336,6 +362,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 ## Migration Status
 
 ### Migrated to Microservices
+
 - GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
 - Marketplace transactions (offers, bids)
 - Marketplace advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
@@ -358,6 +385,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 ## Migration Summary
 
 **Phase 1 Migration - COMPLETE (2026-06-02):**
+
 - GPU Service (8101): Miner operations ✅
 - Marketplace Service (8102): Core + advanced marketplace features ✅
 - Agent Service (8107): All features ✅
@@ -365,11 +393,13 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 - Governance Service (8105): Core governance + advanced features ✅
 
 **Port Migrations - COMPLETE (2026-06-02):**
+
 - Exchange API: 8001 → 8106 ✅
 - Agent Coordinator: 9001 → 8107 ✅
 - Wallet Daemon: 8015 → 8108 ✅
 
 **Retained in Coordinator API (8203) as Legacy Failover:**
+
 - Job Service: Client job management
 - Services Service: Workload management
 - Training Service: Training operations
@@ -379,6 +409,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 - Specialized services: IPFS, Payments, Blockchain, ZK, etc.
 
 **Migration Progress:**
+
 - GPU marketplace transactions: ✓ 100% migrated to GPU Service
 - Marketplace transactions: ✓ 100% migrated to Marketplace Service
 - Marketplace advanced features: ✓ 100% migrated to Marketplace Service
@@ -391,6 +422,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 - Port migrations: ✓ 100% complete (Exchange, Agent Coordinator, Wallet)
 
 **Services Status:**
+
 - GPU Service (8101): Fully operational with marketplace + miner operations
 - Marketplace Service (8102): Fully operational with marketplace + advanced features
 - Agent Service (8107): Fully operational with agent messaging and orchestration
@@ -405,6 +437,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 - Coordinator API (8203): Legacy failover service (retained for specialized features)
 
 **CLI Integration:**
+
 - Miner commands: Updated to use GPU Service
 - Explorer commands: Updated to use Trading Service
 - Marketplace commands: Updated to use Marketplace Service
@@ -415,6 +448,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 - Plugin commands: Updated to use Plugin Service
 
 **Migration Completion: Phase 1 Complete**
+
 - All core microservice functionality has been migrated to dedicated microservices
 - All microservices are operational and tested
 - Port migrations completed for Exchange, Agent Coordinator, and Wallet
@@ -460,6 +494,7 @@ The following features remain in Coordinator API (8203) and can be extracted to 
 ### Firewall Rules
 
 #### Public-Facing Ports (Allow External Access)
+
 ```bash
 # API Gateway - Only public-facing microservice
 ufw allow 8200/tcp
@@ -473,6 +508,7 @@ ufw allow 8203/tcp
 ```
 
 #### Internal Ports (Block External Access)
+
 ```bash
 # Internal microservices - block external access (contiguous range 8101-8108)
 ufw deny 8101/tcp  # GPU Service

@@ -11,12 +11,14 @@ AITBC v0.4.7 introduces a cross-node agent messaging system, enabling agents on 
 ## Implementation Details
 
 ### Architecture
+
 - Coordinator API (port 8203) exposed via API Gateway at `/v1/coordinator/v1/hermes/*`
 - Host nginx proxy handles SSL termination and forwards requests to container
 - Agent mailbox system for message storage and retrieval
 - Polling-based message delivery for cross-node communication
 
 ### Key Components
+
 - **API Gateway Configuration**: Added coordinator service routing to `/v1/coordinator/` prefix
 - **Host Nginx Proxy**: Configured to forward `/ollama/` and `/api/` paths to container
 - **Ollama Proxy**: Fixed Host header issue (override to "localhost" to avoid 403 errors)
@@ -48,6 +50,7 @@ All cross-node flows have been tested and verified working:
 ## Configuration Changes
 
 ### API Gateway (`/opt/aitbc/apps/api-gateway/src/api_gateway/main.py`)
+
 ```python
 "coordinator": {
     "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"),
@@ -56,6 +59,7 @@ All cross-node flows have been tested and verified working:
 ```
 
 ### Container Nginx (`/etc/nginx/sites-enabled/aitbc`)
+
 ```nginx
 location /ollama/ {
     proxy_pass http://127.0.0.1:11434/;
@@ -65,6 +69,7 @@ location /ollama/ {
 ```
 
 ### Host Nginx Proxy
+
 - Configured to forward `/ollama/` and `/api/` paths to container
 - SSL termination handled by host reverse proxy
 - WebSocket support for streaming responses

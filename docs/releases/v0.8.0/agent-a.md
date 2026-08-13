@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.0-v0.7.2 ✅ (bridge RPC endpoints available). v0.7.3 Agent A ✅ (governance SDK pattern established).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && ./venv/bin/python -m ruff check aitbc/trading/ tests/unit/test_trading_sdk.py && ./venv/bin/python -m pytest tests/unit/test_trading_sdk.py -q -o addopts=""
 ```

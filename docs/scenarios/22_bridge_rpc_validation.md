@@ -68,6 +68,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/lock \
 ```
 
 **Expected output:**
+
 ```
 {"detail":[{"type":"greater_than","loc":["body","amount"],"msg":"Input should be greater than 0","input":0,"ctx":{"gt":0}}]}
 HTTP 422
@@ -84,6 +85,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/lock \
 ```
 
 **Expected output:**
+
 ```
 {"detail":[{"type":"string_too_short","loc":["body","target_chain"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}
 HTTP 422
@@ -100,6 +102,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/lock \
 ```
 
 **Expected output:**
+
 ```
 {"detail":[{"type":"missing","loc":["body","signature"],"msg":"Field required","input":{"target_chain":"chain2","sender":"0xabc","recipient":"0xdef","amount":10}}]}
 HTTP 422
@@ -114,6 +117,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/confir
 ```
 
 **Expected output:**
+
 ```
 {"detail":[{"type":"string_too_short","loc":["body","transfer_id"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}
 HTTP 422
@@ -128,6 +132,7 @@ curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/confir
 ```
 
 **Expected output:**
+
 ```
 {"detail":[{"type":"missing","loc":["body","proof"],"msg":"Field required","input":{"transfer_id":"tx1","signature":"0x123"}}]}
 HTTP 422
@@ -140,6 +145,7 @@ curl -s http://localhost:8202/rpc/bridge/health
 ```
 
 **Expected output:**
+
 ```json
 {"success":true,"status":"healthy","bridge_initialized":true,...}
 ```

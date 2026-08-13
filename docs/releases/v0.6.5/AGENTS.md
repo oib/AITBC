@@ -28,18 +28,21 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Already Fixed](./overview.md#already-fixed-verified--no-work-needed)
 - [Architecture: Agent Coordination with Chain Awareness](./overview.md#architecture-agent-coordination-with-chain-awareness)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [PaymentEscrow](./agent-a.md#a1-paymentescrow)
 - [Unit tests](./agent-a.md#a2-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Add config fields](./agent-b.md#b1-add-config-fields)
@@ -138,6 +141,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/crypto/payment_escrow.py aitbc/crypto/__init__.py && ./venv/bin/python -m ruff check aitbc/crypto/payment_escrow.py aitbc/crypto/__init__.py tests/unit/test_payment_escrow.py && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -365,6 +369,7 @@ Export from `aitbc/crypto/__init__.py` as `PaymentEscrow`, `EscrowEntry`, `Escro
 #### A2: Unit tests
 
 **`tests/unit/test_payment_escrow.py`**:
+
 - `test_create_escrow` — create escrow, verify fields
 - `test_create_escrow_zero_amount_raises` — amount <= 0 raises ValueError
 - `test_lock_pending_escrow` — lock changes status to LOCKED
@@ -395,6 +400,7 @@ Export from `aitbc/crypto/__init__.py` as `PaymentEscrow`, `EscrowEntry`, `Escro
 **Working directory**: `/opt/aitbc/apps/agent-coordinator/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/agent-coordinator/tests/ -q -o addopts="" --timeout=60
 ```
@@ -438,6 +444,7 @@ agent_cleanup_interval_seconds: int = 60
 #### B2: Add chain_id/island_id to agent models
 
 **`apps/agent-coordinator/src/app/models.py`** — update `AgentRegistrationRequest` (line 6):
+
 ```python
 class AgentRegistrationRequest(BaseModel):
     agent_id: str = Field(..., description="Unique agent identifier")
@@ -452,6 +459,7 @@ class AgentRegistrationRequest(BaseModel):
 ```
 
 **`apps/agent-coordinator/src/app/routing/agent_discovery.py`** — update `AgentInfo` (line 53):
+
 ```python
 @dataclass
 class AgentInfo:
@@ -467,6 +475,7 @@ Update `from_dict()` (line 88) to parse `chain_id` and `island_id`.
 Update `create_agent_info()` in `routers/agents.py` (line 25) to pass `chain_id` and `island_id` from the request.
 
 Update `discover_agents()` filter logic in `agent_discovery.py` (around line 198) to filter by `chain_id` and `island_id`:
+
 ```python
 if "chain_id" in query:
     chain_id = query["chain_id"]
@@ -479,6 +488,7 @@ if "island_id" in query:
 #### B3: Add chain_id/payment to task models + escrow integration
 
 **`apps/agent-coordinator/src/app/models.py`** — update `TaskSubmission` (line 18):
+
 ```python
 class TaskSubmission(BaseModel):
     task_data: dict[str, Any] = Field(..., description="Task data")
@@ -499,6 +509,7 @@ class TaskPayment(BaseModel):
 ```
 
 **`apps/agent-coordinator/src/app/routers/tasks.py`** — update `submit_task` (line 18):
+
 ```python
 from aitbc.crypto import PaymentEscrow, EscrowStatus
 
@@ -534,6 +545,7 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
 ```
 
 Add `payment_escrow` to `state.py`:
+
 ```python
 # state.py
 from aitbc.crypto import PaymentEscrow
@@ -545,6 +557,7 @@ Initialize in app startup with blockchain callbacks (wired to `TransactionServic
 #### B4: Add chain_id to swarm + workflow models
 
 **`apps/agent-coordinator/src/app/routers/swarm.py`** — add `chain_id` to `JoinRequest` (line 25) and `CoordinateRequest` (line 34):
+
 ```python
 class JoinRequest(BaseModel):
     role: str
@@ -562,6 +575,7 @@ class CoordinateRequest(BaseModel):
 ```
 
 **`apps/agent-coordinator/src/app/routers/workflow.py`** — add `chain_id` to `CreateWorkflowRequest` (line 21) and `ExecuteWorkflowRequest` (line 30):
+
 ```python
 class CreateWorkflowRequest(BaseModel):
     # ... existing fields ...
@@ -575,6 +589,7 @@ class ExecuteWorkflowRequest(BaseModel):
 #### B5: Make agent TTL configurable
 
 In `apps/agent-coordinator/src/app/routing/agent_discovery.py`, update `AgentRegistry.__init__` (line 102):
+
 ```python
 def __init__(self, redis_url: str = "redis://localhost:6379/1") -> None:
     self.redis_url = redis_url
@@ -595,6 +610,7 @@ def __init__(self, redis_url: str = "redis://localhost:6379/1") -> None:
 Create `apps/agent-coordinator/tests/test_v065_agent_coordination.py`:
 
 **Test cases**:
+
 1. `test_agent_registration_with_chain_id` — register agent with chain_id, verify stored
 2. `test_agent_registration_without_chain_id_backward_compat` — register without chain_id, verify no crash
 3. `test_agent_discovery_filter_by_chain` — discover agents filtered by chain_id

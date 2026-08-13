@@ -1,9 +1,11 @@
 # Development Logs Policy
 
 ## 📁 Log Location
+
 All development logs should be stored in: `/opt/aitbc/dev/logs/`
 
 ## 🗂️ Directory Structure
+
 ```
 dev/logs/
 ├── archive/          # Old logs by date
@@ -15,12 +17,14 @@ dev/logs/
 ```
 
 ## 🛡️ Prevention Measures
+
 1. **Use log aliases**: `wgetlog`, `curllog`, `devlog`
 2. **Environment variables**: `$AITBC_DEV_LOGS_DIR`
 3. **Git ignore**: Prevents log files in project root
 4. **Cleanup scripts**: `cleanlogs`, `archivelogs`
 
 ## 🚀 Quick Commands
+
 ```bash
 # Load log environment
 source /opt/aitbc/.env.dev
@@ -45,6 +49,7 @@ archivelogs          # Archive current logs
 ```
 
 ## 📋 Best Practices
+
 1. **Never** create log files in project root
 2. **Always** use proper log directories
 3. **Use** log aliases for common operations

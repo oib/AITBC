@@ -25,17 +25,21 @@ All AITBC systemd services now follow the `aitbc-` prefix convention for consist
 | blockchain-rpc.service | aitbc-blockchain-rpc-3.service | - | RPC API for Node 3 |
 
 ### Already Compliant Services
+
 These services already had the `aitbc-` prefix:
+
 - aitbc-exchange-api.service (port 3003)
 - aitbc-exchange.service (port 3002)
 - aitbc-miner-dashboard.service
 
 ### Removed Services
+
 - aitbc-blockchain.service (legacy, was on port 9080)
 
 ## Management Commands
 
 ### Check Service Status
+
 ```bash
 # Site A (via SSH)
 ssh aitbc "systemctl status aitbc-blockchain-node-1.service"
@@ -45,6 +49,7 @@ ssh redacted-host-root "incus exec aitbc -- systemctl status aitbc-blockchain-no
 ```
 
 ### Restart Services
+
 ```bash
 # Site A
 ssh aitbc "systemctl restart aitbc-blockchain-node-1.service"
@@ -54,6 +59,7 @@ ssh redacted-host-root "incus exec aitbc -- systemctl restart aitbc-blockchain-n
 ```
 
 ### View Logs
+
 ```bash
 # Site A
 ssh aitbc "journalctl -u aitbc-blockchain-node-1.service -f"
@@ -65,15 +71,18 @@ ssh redacted-host-root "incus exec aitbc -- journalctl -u aitbc-blockchain-node-
 ## Service Dependencies
 
 ### Blockchain Nodes
+
 - Node 1: `/opt/blockchain-node` → port 8081
 - Node 2: `/opt/blockchain-node-2` → port 8082
 - Node 3: `/opt/blockchain-node` → port 8082 (Site B)
 
 ### RPC Services
+
 - RPC services are companion services to the main nodes
 - They provide HTTP API endpoints for blockchain operations
 
 ### Coordinator API
+
 - Main API for job submission, miner management, and receipts
 - Runs on http://localhost:8203 inside container
 - Proxied via nginx at https://aitbc.bubuit.net/api/

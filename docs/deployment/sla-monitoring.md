@@ -7,6 +7,7 @@ This guide covers SLA (Service Level Agreement) monitoring and billing instrumen
 ## Overview
 
 The SLA monitoring system provides:
+
 - Real-time tracking of miner performance metrics
 - Automated SLA violation detection and alerting
 - Capacity planning with forecasting and scaling recommendations
@@ -39,6 +40,7 @@ The SLA monitoring system provides:
 ## SLA Metrics
 
 ### Miner Uptime
+
 - **Definition**: Percentage of time a miner is available and responsive
 - **Calculation**: Based on heartbeat intervals (5-minute threshold)
 - **Threshold**: 95%
@@ -47,6 +49,7 @@ The SLA monitoring system provides:
   - High: <95% (threshold)
 
 ### Response Time
+
 - **Definition**: Average time for miner to respond to match requests
 - **Calculation**: Average of `eta_ms` from match results (last 100 results)
 - **Threshold**: 1000ms (P95)
@@ -55,6 +58,7 @@ The SLA monitoring system provides:
   - High: >1000ms (threshold)
 
 ### Job Completion Rate
+
 - **Definition**: Percentage of jobs completed successfully
 - **Calculation**: Successful outcomes / total outcomes (last 7 days)
 - **Threshold**: 90%
@@ -62,6 +66,7 @@ The SLA monitoring system provides:
   - Critical: <90% (threshold)
 
 ### Capacity Availability
+
 - **Definition**: Percentage of miners available (not busy)
 - **Calculation**: Active miners / Total miners
 - **Threshold**: 80%
@@ -203,11 +208,13 @@ alembic upgrade head
 ### SLA Metrics Endpoints
 
 #### Get SLA Metrics for a Miner
+
 ```bash
 GET /sla/metrics/{miner_id}?hours=24
 ```
 
 Response:
+
 ```json
 [
   {
@@ -224,21 +231,25 @@ Response:
 ```
 
 #### Get All SLA Metrics
+
 ```bash
 GET /sla/metrics?hours=24
 ```
 
 #### Get SLA Violations
+
 ```bash
 GET /sla/violations?resolved=false&miner_id=miner_001
 ```
 
 #### Trigger SLA Metrics Collection
+
 ```bash
 POST /sla/metrics/collect
 ```
 
 Response:
+
 ```json
 {
   "miners_processed": 10,
@@ -255,16 +266,19 @@ Response:
 ### Capacity Planning Endpoints
 
 #### Get Capacity Snapshots
+
 ```bash
 GET /sla/capacity/snapshots?hours=24
 ```
 
 #### Get Capacity Forecast
+
 ```bash
 GET /sla/capacity/forecast?hours_ahead=168
 ```
 
 Response:
+
 ```json
 {
   "forecast_horizon_hours": 168,
@@ -277,11 +291,13 @@ Response:
 ```
 
 #### Get Scaling Recommendations
+
 ```bash
 GET /sla/capacity/recommendations
 ```
 
 Response:
+
 ```json
 {
   "current_state": "healthy",
@@ -298,11 +314,13 @@ Response:
 ```
 
 #### Configure Capacity Alerts
+
 ```bash
 POST /sla/capacity/alerts/configure
 ```
 
 Request:
+
 ```json
 {
   "threshold_pct": 80.0,
@@ -313,16 +331,19 @@ Request:
 ### Billing Integration Endpoints
 
 #### Get Billing Usage
+
 ```bash
 GET /sla/billing/usage?hours=24&tenant_id=tenant_001
 ```
 
 #### Sync Billing Usage
+
 ```bash
 POST /sla/billing/sync
 ```
 
 Request:
+
 ```json
 {
   "miner_id": "miner_001",
@@ -331,11 +352,13 @@ Request:
 ```
 
 #### Record Usage Event
+
 ```bash
 POST /sla/billing/usage/record
 ```
 
 Request:
+
 ```json
 {
   "tenant_id": "tenant_001",
@@ -348,11 +371,13 @@ Request:
 ```
 
 #### Generate Invoice
+
 ```bash
 POST /sla/billing/invoice/generate
 ```
 
 Request:
+
 ```json
 {
   "tenant_id": "tenant_001",
@@ -364,11 +389,13 @@ Request:
 ### Status Endpoint
 
 #### Get SLA Status
+
 ```bash
 GET /sla/status
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -467,6 +494,7 @@ groups:
 **Symptom**: SLA metrics are not being recorded in the database
 
 **Solutions**:
+
 1. Check SLA collector is running: `ps aux | grep sla_collector`
 2. Verify database connection: Check pool-hub database logs
 3. Check SLA collection interval: Ensure `sla_collection_interval_seconds` is configured
@@ -477,6 +505,7 @@ groups:
 **Symptom**: Billing sync to coordinator-api is failing
 
 **Solutions**:
+
 1. Verify coordinator-api is accessible: `curl http://localhost:8203/health`
 2. Check API key: Ensure `COORDINATOR_API_KEY` is set correctly
 3. Check network connectivity: Ensure pool-hub can reach coordinator-api
@@ -487,6 +516,7 @@ groups:
 **Symptom**: Capacity alerts are not being generated
 
 **Solutions**:
+
 1. Verify capacity snapshots are being created: Check `capacity_snapshots` table
 2. Check alert thresholds: Ensure `capacity_alert_threshold_pct` is configured
 3. Verify alert configuration: Check alert configuration endpoint
@@ -533,6 +563,7 @@ The pool-hub integrates with coordinator-api's billing system via HTTP API:
 ### Prometheus Integration
 
 SLA metrics are automatically exposed to Prometheus:
+
 - Metrics are labeled by miner_id, metric_type, and other dimensions
 - Use Prometheus query language to create custom dashboards
 - Set up alert rules based on SLA thresholds
@@ -540,6 +571,7 @@ SLA metrics are automatically exposed to Prometheus:
 ### Alerting Integration
 
 SLA violations can trigger alerts through:
+
 - Prometheus Alertmanager
 - Custom webhook integrations
 - Email notifications (via coordinator-api)

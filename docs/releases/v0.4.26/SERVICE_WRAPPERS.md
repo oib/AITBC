@@ -57,6 +57,7 @@ os.execvpe(exec_cmd[0], exec_cmd, env)
 ## Environment Variables
 
 ### AITBC_HOME
+
 - **Purpose**: Root directory of the AITBC repository
 - **Default**: `/opt/aitbc`
 - **Usage**: Override for development or alternative installations
@@ -67,6 +68,7 @@ os.execvpe(exec_cmd[0], exec_cmd, env)
 Different services may require additional paths:
 
 ### Coordinator API
+
 ```python
 SDK_DIR = AITBC_HOME / "packages/py/aitbc-sdk/src"
 CRYPTO_DIR = AITBC_HOME / "packages/py/aitbc-crypto/src"
@@ -75,6 +77,7 @@ sys.path.insert(0, str(CRYPTO_DIR))
 ```
 
 ### Simple Services
+
 ```python
 # Only REPO_DIR and SERVICE_DIR needed
 SERVICE_DIR = AITBC_HOME / "apps/<service>/src"
@@ -83,6 +86,7 @@ SERVICE_DIR = AITBC_HOME / "apps/<service>/src"
 ## Wrapper Locations
 
 Wrappers are located in:
+
 - `apps/<service-name>/<service-name>-wrapper.py` - App-specific wrappers
 - `scripts/services/<service-name>-wrapper.py` - Centralized service wrappers
 - `scripts/monitoring/<service-name>-wrapper.py` - Monitoring service wrappers
@@ -115,13 +119,17 @@ export AITBC_HOME=/path/to/your/aitbc/repo
 ## Troubleshooting
 
 ### Import Errors
+
 If you see import errors:
+
 1. Check that `AITBC_HOME` is set correctly
 2. Verify the service directory structure
 3. Ensure the package is installed: `pip install -e .`
 
 ### Path Issues
+
 If paths are incorrect:
+
 1. Check the wrapper file follows the standard pattern
 2. Verify `AITBC_HOME` environment variable
 3. Check systemd service file environment settings
@@ -129,6 +137,7 @@ If paths are incorrect:
 ## Maintenance
 
 When adding new services:
+
 1. Copy the standard wrapper pattern
 2. Update service-specific paths
 3. Test with `AITBC_HOME` override

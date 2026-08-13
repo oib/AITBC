@@ -74,6 +74,7 @@ aitbc node island create --island-name "federated-compute"
 ```
 
 **Expected output:**
+
 ```
 New Island Created
 Island ID     550e8400-e29b-41d4-a716-446655440000
@@ -105,6 +106,7 @@ aitbc node island join \
 ```
 
 **Expected output:**
+
 ```
 Connecting to hub hub.aitbc.bubuit.net (203.0.113.50:26656)...
 Joined Island: federated-compute
@@ -139,6 +141,7 @@ aitbc node island join \
 ```
 
 When `--is-hub` is set, the CLI outputs:
+
 ```
 Registering as hub...
 Run 'aitbc node hub register' to complete hub registration
@@ -153,6 +156,7 @@ aitbc node island list-islands
 ```
 
 **Expected output:**
+
 ```
 Known Islands
 Island ID                                Island Name    Chain ID             Status   Peer Count
@@ -168,6 +172,7 @@ aitbc node island island-info 550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Expected output:**
+
 ```
 Island Information: 550e8400-e29b-41d4-a716-446655440000
 Island ID     550e8400-e29b-41d4-a716-446655440000
@@ -187,6 +192,7 @@ aitbc node island leave 550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Expected output:**
+
 ```
 Successfully left island 550e8400-e29b-41d4-a716-446655440000
 ```
@@ -251,6 +257,7 @@ asyncio.run(main())
 ```
 
 **Expected output:**
+
 ```
 Agent registered on island: True
 Agent ID:  agent_c7d8e9f0

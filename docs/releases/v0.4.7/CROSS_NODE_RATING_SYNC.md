@@ -11,35 +11,44 @@ AITBC v0.4.7 adds cross-node rating synchronization, enabling automatic propagat
 ## Features
 
 ### Sync Metadata Fields
+
 - synced_at - Timestamp when rating was last synchronized
 - source_node - Node where rating originated
 
 ### API Endpoints
 
 #### Fetch Unsynced Ratings
+
 ```bash
 GET /v1/marketplace/ratings/unsynced
 ```
+
 Returns ratings that haven't been synced to other nodes.
 
 #### Sync Ratings from Remote
+
 ```bash
 POST /v1/marketplace/ratings/sync
 ```
+
 Sync ratings from remote node with conflict resolution.
 
 #### Mark Ratings as Synced
+
 ```bash
 POST /v1/marketplace/ratings/mark-synced
 ```
+
 Mark ratings as successfully synced.
 
 ### CLI Command
+
 ```bash
 aitbc market sync-ratings --remote-url https://aitbc3.aitbc.bubuit.net/api --limit 100
 ```
 
 ### Conflict Resolution
+
 - Keep most recent rating based on timestamp
 - Sync tracking and audit trail
 - Automatic conflict detection and resolution

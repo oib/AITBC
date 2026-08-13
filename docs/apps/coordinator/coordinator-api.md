@@ -89,12 +89,14 @@ The agent integration service provides deployment and management capabilities fo
 - **Alerting Rules**: Configurable alerting thresholds for CPU, memory, error rate, and response time monitoring
 
 ### Deployment Features
+
 - Dynamic systemd service file generation
 - Service enablement and automatic startup
 - Startup monitoring with active status verification
 - Graceful failure handling with cleanup
 
 ### Monitoring Features
+
 - Multi-source health checks (systemd + HTTP endpoints)
 - Historical health check tracking (last 100 checks)
 - Metrics aggregation with fallback to database values
@@ -108,10 +110,13 @@ The Coordinator API supports GPU optimization for improved performance when proc
 
 1. **NVIDIA Driver**: Must be installed and working (verify with `nvidia-smi`)
 2. **CUDA Toolkit**: Install the development headers for PyCUDA compilation
+
    ```bash
    sudo apt install nvidia-cuda-toolkit nvidia-cudnn
    ```
+
 3. **PyCUDA**: Python CUDA bindings for GPU acceleration
+
    ```bash
    source venv/bin/activate
    pip install pycuda
@@ -126,17 +131,20 @@ The Coordinator API supports GPU optimization for improved performance when proc
 ### Verification
 
 After installation, check the Coordinator API logs:
+
 ```bash
 sudo journalctl -u aitbc-coordinator-api -f
 ```
 
 Successful GPU initialization shows:
+
 ```
 INFO: PyCUDA initialized successfully
 INFO: GPU detected: [GPU Model]
 ```
 
 If PyCUDA is not available, the API runs in simulation mode:
+
 ```
 WARNING: PyCUDA not available or no CUDA-capable device detected: No module named 'pycuda'. GPU optimization will run in simulation mode.
 ```
@@ -158,6 +166,7 @@ Expects environment variables defined in `.env` (see `docs/bootstrap/coordinator
 ### Database
 
 Production deployments use PostgreSQL for persistence. Configure via:
+
 - `DATABASE_ADAPTER=postgresql`
 - `DATABASE_URL=postgresql+psycopg://user:<DB_PASSWORD>@localhost:5432/aitbc_coordinator`
 
@@ -166,6 +175,7 @@ SQLite fallback is available for development or nodes without PostgreSQL.
 ### Signed receipts (optional)
 
 - Generate an Ed25519 key:
+
   ```bash
   python - <<'PY'
   from nacl.signing import SigningKey
@@ -173,6 +183,7 @@ SQLite fallback is available for development or nodes without PostgreSQL.
   print(sk.encode().hex())
   PY
   ```
+
 - Set `RECEIPT_SIGNING_KEY_HEX` in the `.env` file to the printed hex string to enable signed receipts returned by `/v1/miners/{job_id}/result` and retrievable via `/v1/jobs/{job_id}/receipt`.
 - Receipt history is available at `/v1/jobs/{job_id}/receipts` (requires client API key) and returns all stored signed payloads.
 - To enable coordinator attestations, set `RECEIPT_ATTESTATION_KEY_HEX` to a separate Ed25519 private key; responses include an `attestations` array alongside the miner signature.

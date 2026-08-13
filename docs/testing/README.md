@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **🧪 Testing** → *You are here*
 
 **breadcrumb**: Home → Testing → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📚 Docs Home**: [Documentation Home](../README.md) - Main docs landing page
 - **📖 About Docs**: About Documentation - Template standard and audit checklist
 - **👛 CLI Technical**: [CLI Documentation](../cli/README.md) - CLI entry point and usage
@@ -40,6 +42,7 @@ It covers unit tests, integration tests, end-to-end tests, security tests, and l
 ## Recent Updates (April 13, 2026)
 
 ### ✅ Test Cleanup Completed
+
 - **Archived Tests**: Removed legacy archived tests directory (6 files)
 - **Conftest Consolidation**: Deleted duplicate conftest files, kept main conftest.py
 - **Test Runner Cleanup**: Deleted run_all_phase_tests.py (phase2 missing)
@@ -49,6 +52,7 @@ It covers unit tests, integration tests, end-to-end tests, security tests, and l
 ## Previous Updates (March 30, 2026)
 
 ### ✅ Structure Improvements Completed
+
 - **Scripts Organization**: Test scripts moved to `scripts/testing/` and `scripts/utils/`
 - **Logs Consolidation**: All test logs now in `/var/log/aitbc/`
 - **Virtual Environment**: Using central `/opt/aitbc/venv`
@@ -96,6 +100,7 @@ tests/
 ```
 
 ### Related Test Scripts
+
 ```
 scripts/testing/           # Main testing scripts
 ├── comprehensive_e2e_test_fixed.py  # Comprehensive E2E testing
@@ -111,6 +116,7 @@ scripts/utils/             # Testing utilities
 ## ✅ **Prerequisites**
 
 ### **Environment Setup**
+
 ```bash
 # Run main project setup (if not already done)
 ./setup.sh
@@ -126,6 +132,7 @@ source /etc/aitbc/.env  # Central environment configuration
 ```
 
 ### **Service Requirements**
+
 - AITBC blockchain node running
 - Coordinator API service active
 - Database accessible (SQLite/PostgreSQL)
@@ -134,6 +141,7 @@ source /etc/aitbc/.env  # Central environment configuration
 ## ▶️ **Running Tests**
 
 ### **Quick Start**
+
 ```bash
 # Run all fast tests
 python tests/test_runner.py
@@ -146,6 +154,7 @@ python tests/test_runner.py --coverage
 ```
 
 ### **Specific Test Types**
+
 ```bash
 # Unit tests only
 python tests/test_runner.py --unit
@@ -161,6 +170,7 @@ python tests/test_runner.py --performance
 ```
 
 ### **Advanced Testing**
+
 ```bash
 # Comprehensive E2E testing
 python scripts/testing/comprehensive_e2e_test_fixed.py
@@ -175,24 +185,28 @@ bash scripts/testing/test-all-services.sh
 ## 🧪 **Test Types**
 
 ### **Unit Tests**
+
 - **Location**: `tests/unit/` (if exists)
 - **Purpose**: Test individual components in isolation
 - **Speed**: Fast (< 1 second per test)
 - **Coverage**: Core business logic
 
 ### **Integration Tests**
+
 - **Location**: `tests/integration/` and `tests/e2e/`
 - **Purpose**: Test component interactions
 - **Speed**: Medium (1-10 seconds per test)
 - **Coverage**: API endpoints, database operations
 
 ### **End-to-End Tests**
+
 - **Location**: `tests/e2e/` and `scripts/testing/`
 - **Purpose**: Test complete workflows
 - **Speed**: Slow (10-60 seconds per test)
 - **Coverage**: Full user scenarios
 
 ### **Performance Tests**
+
 - **Location**: `tests/load_test.py`
 - **Purpose**: Test system performance under load
 - **Speed**: Variable (depends on test parameters)
@@ -201,11 +215,13 @@ bash scripts/testing/test-all-services.sh
 ## ⚙️ **Configuration**
 
 ### **Test Configuration Files**
+
 - **pytest.ini**: Pytest configuration (in root)
 - **conftest.py**: Shared fixtures and configuration
 - **pyproject.toml**: Project-wide test configuration
 
 ### **Environment Variables**
+
 ```bash
 # Test database (different from production)
 TEST_DATABASE_URL=sqlite:///test_aitbc.db
@@ -222,13 +238,16 @@ TEST_API_BASE_URL=http://localhost:8012
 ## 🔄 **CI/CD Integration**
 
 ### **GitHub Actions**
+
 Test suite is integrated with CI/CD pipeline:
+
 - **Unit Tests**: Run on every push
 - **Integration Tests**: Run on pull requests
 - **E2E Tests**: Run on main branch
 - **Performance Tests**: Run nightly
 
 ### **Local CI Simulation**
+
 ```bash
 # Simulate CI pipeline locally
 python tests/test_runner.py --all --coverage
@@ -242,6 +261,7 @@ coverage html -o coverage_html/
 ### **Common Issues**
 
 #### **Test Failures Due to Services**
+
 ```bash
 # Check service status
 systemctl status aitbc-blockchain-node
@@ -253,6 +273,7 @@ systemctl restart aitbc-coordinator
 ```
 
 #### **Environment Issues**
+
 ```bash
 # Check virtual environment
 which python
@@ -266,6 +287,7 @@ pip install -e .
 ```
 
 #### **Database Issues**
+
 ```bash
 # Reset test database
 rm test_aitbc.db
@@ -276,12 +298,15 @@ python -c "from aitbc_core.db import engine; print(engine.url)"
 ```
 
 ### **Test Logs**
+
 All test logs are now centralized in `/var/log/aitbc/`:
+
 - **test.log**: General test output
 - **test_results.txt**: Test results summary
 - **performance_test.log**: Performance test results
 
 ### **Getting Help**
+
 1. Check test logs in `/var/log/aitbc/`
 2. Review test documentation in `tests/docs/`
 3. Run tests with verbose output: `pytest -v`
@@ -292,12 +317,14 @@ All test logs are now centralized in `/var/log/aitbc/`:
 ## 🔗 **Related Resources**
 
 ### 📚 **Further Reading:**
+
 - [Documentation Home](../README.md) - Main docs landing page
 - About Documentation - Template standard and audit checklist
 - [CLI Technical Documentation](../cli/README.md) - CLI entry point and usage
 - [Deployment Documentation](../deployment/README.md) - Operational deployment context
 
 ### 🆘 **Help & Support:**
+
 - **Documentation Issues**: [Report Issues](https://github.com/oib/AITBC/issues)
 - **Community Forum**: [AITBC Forum](https://forum.aitbc.net)
 - **Technical Support**: [AITBC Support](https://support.aitbc.net)
@@ -305,6 +332,7 @@ All test logs are now centralized in `/var/log/aitbc/`:
 ---
 
 ## 📊 **Quality Metrics**
+
 - **Structure**: 10/10 - Template-compliant landing page with detailed testing sections.
 - **Content**: 10/10 - Comprehensive test suite documentation with operational guidance.
 - **Navigation**: 10/10 - Links to docs home, CLI technical docs, deployment, and about docs.

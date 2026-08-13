@@ -8,6 +8,7 @@
 **Goal**: Build a cross-chain offer synchronization layer on top of the v0.8.0 trading service. Enable agents to discover offers on other AITBC chains, keep offer state synchronized across the network via polling, detect stale offers, and resolve conflicts. Defer subscription-based sync (WebSocket) and external search index (Elasticsearch) to future releases.
 
 > **Rescope from original change.log**: The original v0.8.1 change.log bundled polling-based sync + subscription-based sync + real-time WebSocket + external search index into one release. Per the user's analysis (confirmed) and codebase investigation:
+>
 > - ✅ v0.8.1: Polling-based sync, local offer cache (Redis), staleness detection, conflict resolution, CLI discover/sync/sync-status commands
 > - ➡️ Future (v0.8.2+): Subscription-based sync (WebSocket), real-time offer notifications, external search index (Elasticsearch/Meilisearch)
 > - The user's recommendation to start with polling-only sync is adopted — subscription adds WebSocket complexity (auth, reconnection, backpressure) that can be deferred.
@@ -33,10 +34,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Offer sync types](./agent-a.md#a1-offer-sync-types)
@@ -45,6 +48,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a4-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Offer sync config](./agent-b.md#b1-offer-sync-config)

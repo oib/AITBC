@@ -11,6 +11,7 @@ AITBC v0.4.16 consolidates 7 cache implementations into 6 unified modules with p
 ## Unified Cache Architecture
 
 ### New Module Structure
+
 ```
 aitbc/cache/
 ├── __init__.py              # Public API
@@ -25,11 +26,13 @@ aitbc/cache/
 ```
 
 ### Backend Implementations
+
 - `aitbc/cache/backends/memory.py` - In-memory cache
 - `aitbc/cache/backends/redis.py` - Redis cache
 - `aitbc/cache/backends/null.py` - Null cache (no-op)
 
 ### Utility Modules
+
 - `aitbc/cache/decorators.py` - Cache decorators
 - `aitbc/cache/utils.py` - Helper functions
 
@@ -43,6 +46,7 @@ aitbc/cache/
 ## Migration
 
 **Old Import:**
+
 ```python
 from aitbc.cache import Cache
 from aitbc.redis_cache import RedisCache
@@ -50,6 +54,7 @@ from aitbc.cache_decorators import cached
 ```
 
 **New Import:**
+
 ```python
 from aitbc.cache import Cache
 from aitbc.cache.backends.redis import RedisCache

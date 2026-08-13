@@ -28,6 +28,7 @@
 ## B1: Certification Refactor
 
 Refactor 3 files to use `ReputationDTO` instead of `AgentReputation`:
+
 - `badge_system.py:10` — replace import + 3 references
 - `certification_system.py:17` — replace import + 6 references
 - `partnership_manager.py:14` — replace import + 11 references
@@ -65,6 +66,7 @@ Add a conversion function in reputation context: `to_dto(agent_reputation) -> Re
 ## B5: Integration Tests
 
 `tests/unit/test_v0519_tech_debt.py` — tests for:
+
 - ReputationDTO serialization
 - Certification using DTO (no direct AgentReputation import)
 - Pricing table wiring (if wired)

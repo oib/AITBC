@@ -11,15 +11,19 @@ AITBC v0.4.7 introduces a new FFmpeg video processing service with GPU accelerat
 ## Features
 
 ### Service Endpoints
+
 - `GET /health` — Service health check
 - `GET /capabilities` — List supported codecs, formats, GPU info
 - `POST /process` — Process video with GPU acceleration
 
 ### Capabilities Endpoint
+
 ```bash
 curl http://localhost:8230/capabilities
 ```
+
 Returns:
+
 ```json
 {
   "gpu": {
@@ -33,6 +37,7 @@ Returns:
 ```
 
 ### Process Endpoint
+
 ```bash
 curl -X POST http://localhost:8230/process \
   -F "file=@input.mp4" \
@@ -41,7 +46,9 @@ curl -X POST http://localhost:8230/process \
   -F "resolution=1080p" \
   -F "bitrate=5M"
 ```
+
 Returns:
+
 ```json
 {
   "status": "completed",
@@ -59,6 +66,7 @@ Returns:
 ```
 
 ### CLI Command
+
 ```bash
 # Register FFmpeg offer
 aitbc market offer ffmpeg default 0.15 --unit per_processing_hour
@@ -68,15 +76,19 @@ aitbc market process <offer_id> input.mp4 --format mp4 --codec h264 --resolution
 ```
 
 ### On-Chain Proof of Work
+
 FFmpeg service returns `result_hash` (SHA256 of output file). The `market process` command posts a `software_job` transaction on-chain with:
+
 - job_id, offer_id, result_hash, actual_processing_hours, actual_cost
 
 ### API Gateway Routing
+
 Requests to `/v1/ffmpeg/*` are proxied to `http://localhost:8230/*` by the API Gateway.
 
 ## Configuration
 
 ### Environment Variables (`/etc/aitbc/ffmpeg.env`)
+
 ```bash
 FFMPEG_PORT=8230
 FFMPEG_GPU_DEVICE=0
@@ -84,6 +96,7 @@ FFMPEG_HW_ACCEL=cuda
 ```
 
 ### Systemd Service (`/etc/systemd/system/aitbc-ffmpeg.service`)
+
 ```ini
 [Unit]
 Description=AITBC FFmpeg Video Processing Service

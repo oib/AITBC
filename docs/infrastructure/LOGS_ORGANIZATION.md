@@ -6,7 +6,8 @@
 
 System logs are now properly organized in /var/log/aitbc:
 
-### Current Log Files:
+### Current Log Files
+
 -
 - contract_endpoints_final_status.txt
 - final_production_ai_results.txt
@@ -22,7 +23,8 @@ System logs are now properly organized in /var/log/aitbc:
 - sync_detector.log
 - testing_completion_report.txt
 
-### Log Categories:
+### Log Categories
+
 - **audit/**: Audit logs
 - **network_monitor.log**: Network monitoring logs
 - **qa_cycle.log**: QA cycle logs
@@ -34,6 +36,7 @@ System logs are now properly organized in /var/log/aitbc:
 - **testing_completion_report.txt**: Testing completion logs
 
 ## Change History
+
 - **2026-05-28**: Corrected documentation - /var/log/aitbc/ is a real directory, not a symlink
 - **2026-03-30**: Moved from /opt/aitbc/results/ to /var/log/aitbc/ for proper organization
 - **2026-03-30**: Consolidated /opt/aitbc/logs/host_gpu_miner.log to /var/log/aitbc/ for unified logging

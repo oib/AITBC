@@ -12,6 +12,7 @@
 **Prerequisite**: Agent A A1-A2 complete. v0.8.1 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/trading_service/ apps/blockchain-node/src/aitbc_chain/ cli/aitbc_cli/commands/trade.py
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v082_offer_subscription.py -q -o addopts="" --timeout=30
@@ -35,6 +36,7 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 ## B1: Offer Event Publishing
 
 Extend `apps/trading/src/trading_service/services/offer_sync_service.py`:
+
 - Publish `OfferEvent` to gossip broker on offer changes
 - Use `offers.{chain_id}` topic (per-chain partitioning)
 - Publish on created, updated, deleted events
@@ -45,6 +47,7 @@ Extend `apps/trading/src/trading_service/services/offer_sync_service.py`:
 ## B2: Offer WebSocket Endpoint
 
 Add to `apps/trading/src/trading_service/main.py`:
+
 - `WS /v1/trading/offers/subscribe/ws` — WebSocket endpoint for offer streaming
 - Follow pattern from `apps/blockchain-node/src/aitbc_chain/rpc/websocket.py`
 - Lease-based auth with `node_id`
@@ -56,6 +59,7 @@ Add to `apps/trading/src/trading_service/main.py`:
 ## B3: Gossip Integration
 
 Extend `apps/blockchain-node/src/aitbc_chain/gossip/broker.py`:
+
 - Add `offers.{chain_id}` topic for offer change events
 - Follow existing per-chain topic pattern (`blocks.{chain_id}`, `transactions.{chain_id}`)
 - Priority defaults to `PRIORITY_STATUS` (4) — no change needed to `_priority_for_topic()`
@@ -65,6 +69,7 @@ Extend `apps/blockchain-node/src/aitbc_chain/gossip/broker.py`:
 ## B4: Subscription Endpoints
 
 Add to `apps/trading/src/trading_service/main.py`:
+
 - `POST /v1/trading/offers/subscribe` — register, get lease
 - `POST /v1/trading/offers/heartbeat` — extend lease
 - Follow pattern from `apps/blockchain-node/src/aitbc_chain/rpc/subscription.py`
@@ -75,6 +80,7 @@ Add to `apps/trading/src/trading_service/main.py`:
 ## B5: CLI Commands
 
 Extend `cli/aitbc_cli/commands/trade.py`:
+
 - `aitbc trade subscribe` — subscribe to offer events
 - `aitbc trade unsubscribe` — unsubscribe from offer events
 - `aitbc trade subscription-status` — get subscription status
@@ -86,6 +92,7 @@ Use Agent A's `OfferSubscriptionClient` from A2.
 ## B6: Tests
 
 `apps/trading/tests/test_v082_offer_subscription.py` — tests for:
+
 - Offer event publishing
 - WebSocket subscription
 - Gossip integration

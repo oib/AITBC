@@ -11,6 +11,7 @@ The JWT auth infrastructure is complete (Agent A). The router migration phase ca
 **Priority**: High (security-sensitive, financial, admin)
 
 **Routers to migrate**:
+
 1. Admin routes (`/routers/admin`, `/contexts/admin/*`)
 2. Security routes (`/contexts/security/*`)
 3. Payment routes (`/contexts/payments/*`)
@@ -21,6 +22,7 @@ The JWT auth infrastructure is complete (Agent A). The router migration phase ca
 **Estimated effort**: 3-4 days
 
 **Rationale**:
+
 - Agent A has security context from previous auth work
 - These routes require careful testing
 - Financial routes need extra attention
@@ -31,6 +33,7 @@ The JWT auth infrastructure is complete (Agent A). The router migration phase ca
 **Priority**: Medium (client-facing, miner-facing, read-only)
 
 **Routers to migrate**:
+
 1. Health & docs (already public, just verify)
 2. Client routes (`/routers/client`, `/contexts/certification/*`)
 3. Miner routes (`/routers/miner`, `/contexts/marketplace/*`)
@@ -44,6 +47,7 @@ The JWT auth infrastructure is complete (Agent A). The router migration phase ca
 **Estimated effort**: 3-4 days
 
 **Rationale**:
+
 - These are less security-critical
 - More volume of routers
 - Good fit for Agent B's structural refactoring expertise
@@ -54,6 +58,7 @@ The JWT auth infrastructure is complete (Agent A). The router migration phase ca
 ### 1. Shared Resources
 
 Both agents will use:
+
 - JWT auth infrastructure (already complete)
 - Security matrix (already complete)
 - Migration guide (already complete)
@@ -69,12 +74,14 @@ Both agents will use:
 ### 3. Testing Strategy
 
 **Agent A**:
+
 - Test high-risk routers thoroughly
 - Focus on security edge cases
 - Test financial transaction flows
 - Verify admin role enforcement
 
 **Agent B**:
+
 - Test medium/low-risk routers
 - Focus on functional correctness
 - Test client/miner workflows
@@ -83,6 +90,7 @@ Both agents will use:
 ### 4. Integration Testing
 
 After both complete:
+
 1. Run full test suite
 2. Test cross-context workflows
 3. Verify security matrix enforcement
@@ -92,11 +100,13 @@ After both complete:
 ## Timeline
 
 **Week 1**: Coordination & setup
+
 - Day 1: Review split plan, confirm approach
 - Day 2: Both agents start on their assigned routers
 - Day 3-5: Parallel migration work
 
 **Week 2**: Completion & integration
+
 - Day 1-2: Complete remaining routers
 - Day 3: Integration testing
 - Day 4: Fix issues found in testing
@@ -107,6 +117,7 @@ After both complete:
 ### Daily Sync
 
 Each day, both agents should:
+
 1. Report progress (routers migrated)
 2. Report any issues/blockers
 3. Share learnings/observations
@@ -115,6 +126,7 @@ Each day, both agents should:
 ### Issue Resolution
 
 If issues arise:
+
 1. Document in shared issue tracker
 2. Discuss in daily sync
 3. Escalate if needed
@@ -123,6 +135,7 @@ If issues arise:
 ## Success Criteria
 
 ### Agent A Success Criteria
+
 - ✅ All high-risk routers migrated
 - ✅ Security tests pass
 - ✅ Financial flows verified
@@ -130,6 +143,7 @@ If issues arise:
 - ✅ No regressions in critical paths
 
 **Completed Routers**:
+
 - ✅ `/routers/admin` - 5 endpoints migrated
 - ✅ `/contexts/security/routers/security_router.py` - 16 endpoints migrated
 - ✅ `/contexts/payments/routers/payments.py` - 7 endpoints migrated
@@ -140,6 +154,7 @@ If issues arise:
 **Total**: 32 endpoints migrated to JWT auth
 
 ### Agent B Success Criteria
+
 - ✅ All medium/low-risk routers migrated
 - ✅ Functional tests pass
 - ✅ Client/miner workflows verified
@@ -147,6 +162,7 @@ If issues arise:
 - ✅ No regressions in user-facing paths
 
 ### Joint Success Criteria
+
 - ✅ All routers migrated to JWT auth
 - ✅ Full test suite passes
 - ✅ No API key auth remaining (or deprecated)
@@ -158,11 +174,13 @@ If issues arise:
 If issues arise during migration:
 
 **Individual Rollback**:
+
 - Each agent can rollback their specific routers
 - Revert to API key auth for affected routers
 - Document issues for future reference
 
 **Full Rollback**:
+
 - Disable JWT middleware
 - Revert all router changes
 - Keep JWT infrastructure for future use
@@ -171,6 +189,7 @@ If issues arise during migration:
 ## Documentation Updates
 
 Both agents should:
+
 1. Update migration guide with their learnings
 2. Document any edge cases encountered
 3. Share best practices discovered
@@ -187,6 +206,7 @@ Both agents should:
 ## Questions?
 
 If questions arise during migration:
+
 1. Review this split plan
 2. Check migration guide
 3. Consult with the other agent

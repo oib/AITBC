@@ -54,6 +54,7 @@ aitbc/
 ## apps/ — Core Applications
 
 ### blockchain-node
+
 Full blockchain node implementation with PoA consensus, gossip relay, mempool, RPC API, WebSocket support, and observability dashboards.
 
 ```
@@ -77,6 +78,7 @@ apps/blockchain-node/
 ```
 
 ### coordinator-api
+
 Central job coordination API with marketplace, payments, ZK proofs, multi-tenancy, and governance.
 
 ```
@@ -105,6 +107,7 @@ apps/coordinator-api/
 ```
 
 ### blockchain-explorer
+
 Agent-first blockchain explorer built with Python FastAPI and built-in HTML interface.
 
 ```
@@ -115,6 +118,7 @@ apps/blockchain-explorer/
 ```
 
 ### exchange
+
 Bitcoin/AITBC trading exchange with order book, price ticker, and admin panel.
 
 ```
@@ -132,6 +136,7 @@ apps/exchange/
 ```
 
 ### wallet
+
 Wallet service with receipt verification and ledger management.
 
 ```
@@ -147,6 +152,7 @@ apps/wallet/
 ```
 
 ### pool-hub
+
 Mining pool management with job matching, miner scoring, and Redis caching.
 
 ```
@@ -159,6 +165,7 @@ apps/pool-hub/
 ```
 
 ### zk-circuits
+
 Zero-knowledge proof circuits for receipt verification.
 
 ```
@@ -170,6 +177,7 @@ apps/zk-circuits/
 ```
 
 ### agent-coordinator
+
 Agent coordination and management service.
 
 ```
@@ -182,6 +190,7 @@ apps/agent-coordinator/
 ```
 
 ### agent-daemon
+
 Background agent daemon for task execution.
 
 ```
@@ -192,6 +201,7 @@ apps/agent-daemon/
 ```
 
 ### agent-management
+
 Agent lifecycle management and plugin system.
 
 ```
@@ -204,6 +214,7 @@ apps/agent-management/
 ```
 
 ### ai-engine
+
 AI/ML inference engine for agent tasks.
 
 ```
@@ -214,6 +225,7 @@ apps/ai-engine/
 ```
 
 ### api-gateway
+
 API gateway for routing and load balancing.
 
 ```
@@ -224,6 +236,7 @@ apps/api-gateway/
 ```
 
 ### blockchain-event-bridge
+
 Event bridge for blockchain event processing.
 
 ```
@@ -234,6 +247,7 @@ apps/blockchain-event-bridge/
 ```
 
 ### bridge-monitor
+
 Monitoring service for cross-chain bridges.
 
 ```
@@ -244,6 +258,7 @@ apps/bridge-monitor/
 ```
 
 ### edge
+
 Edge computing service for distributed processing.
 
 ```
@@ -254,6 +269,7 @@ apps/edge/
 ```
 
 ### ffmpeg
+
 Video processing service using FFmpeg.
 
 ```
@@ -264,6 +280,7 @@ apps/ffmpeg/
 ```
 
 ### governance
+
 Governance and voting system.
 
 ```
@@ -274,6 +291,7 @@ apps/governance/
 ```
 
 ### gpu
+
 GPU computing service for mining and inference.
 
 ```
@@ -284,6 +302,7 @@ apps/gpu/
 ```
 
 ### agent
+
 Message passing and communication service.
 
 ```
@@ -294,6 +313,7 @@ apps/agent/
 ```
 
 ### marketplace
+
 Marketplace service for GPU compute trading.
 
 ```
@@ -304,6 +324,7 @@ apps/marketplace/
 ```
 
 ### miner
+
 Mining service for blockchain consensus.
 
 ```
@@ -314,6 +335,7 @@ apps/miner/
 ```
 
 ### trading
+
 Trading service for asset exchange.
 
 ```
@@ -324,6 +346,7 @@ apps/trading/
 ```
 
 ### whisper
+
 Audio processing service using Whisper.
 
 ```

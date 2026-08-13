@@ -11,6 +11,7 @@ aitbc-chain dashboard
 ```
 
 Shows:
+
 - Block height
 - Peers connected
 - Mempool size
@@ -25,6 +26,7 @@ aitbc-chain metrics --port 9090
 ```
 
 Available metrics:
+
 - `aitbc_block_height` - Current block height
 - `aitbc_peers_count` - Number of connected peers
 - `aitbc_mempool_size` - Transactions in mempool
@@ -43,6 +45,7 @@ curl http://localhost:8203/v1/metrics
 ```
 
 Includes:
+
 - API request and error counters
 - Average API response time
 - Cache hit/miss and hit-rate data
@@ -53,6 +56,7 @@ Includes:
 ### Dashboard Flow
 
 The web dashboard at `/opt/aitbc/website/dashboards/metrics.html` consumes:
+
 - `GET /v1/metrics` for live JSON metrics
 - `GET /v1/health` for API health-state checks
 - `GET /metrics` for Prometheus-compatible scraping
@@ -104,6 +108,7 @@ aitbc-chain health --detailed
 ```
 
 Checks:
+
 - Disk space
 - Memory
 - P2P connectivity
@@ -120,6 +125,7 @@ curl http://localhost:8203/v1/metrics | jq
 ```
 
 Expected fields:
+
 - `api_requests` - Total API request count
 - `api_errors` - Total API error count
 - `error_rate_percent` - Calculated error rate percentage
@@ -145,6 +151,7 @@ curl -H "X-API-Key: your-admin-key" \
 ```
 
 Filter by severity:
+
 ```bash
 curl -H "X-API-Key: your-admin-key" \
   "http://localhost:8203/agents/integration/production/alerts?severity=critical" | jq
@@ -158,6 +165,7 @@ curl -H "X-API-Key: your-admin-key" \
 ```
 
 The dashboard polls:
+
 - `GET /v1/metrics` for live JSON metrics
 - `GET /v1/health` for API health-state checks
 - `GET /metrics` for Prometheus-compatible scraping

@@ -11,6 +11,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 ## 🚀 New Features
 
 ### 🖥️ Host GPU Miner (Real GPU)
+
 - **RTX 4060 Ti Mining**: Host miner runs on RTX 4060 Ti with Ollama inference
 - **Incus Proxy Integration**: Uses Incus proxy on `127.0.0.1:8203` to reach the container coordinator
 - **Result Submission**: Result submission fixed and jobs complete successfully
@@ -19,6 +20,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 - **Mining Optimization**: Mining operation optimization for GPU resources
 
 ### 🔧 Coordinator Systemd Alignment
+
 - **Service Configuration**: `coordinator-api.service` enabled in container for startup on boot
 - **Legacy Removal**: Legacy `aitbc-coordinator-api.service` removed to avoid conflicts
 - **Service Management**: Enhanced systemd service management
@@ -27,6 +29,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 - **Health Monitoring**: Service health monitoring
 
 ### 🔍 Proxy Health Check (Host)
+
 - **Systemd Timer**: Added systemd timer `aitbc-coordinator-proxy-health.timer` to monitor proxy availability
 - **Health Monitoring**: Real-time proxy health monitoring
 - **Alerting System**: Proxy health alerting
@@ -35,6 +38,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 - **Status Reporting**: Proxy status reporting
 
 ### 🧪 Ollama GPU Inference End-to-End Testing
+
 - **Complete Workflow Verification**: Job submission via CLI → Coordinator API → Miner polling → Ollama inference → Result submission → Receipt generation → Blockchain recording
 - **Test Execution**: Successfully processed test job in 11.12 seconds with 218 tokens
 - **Receipt Generation**: Receipt generated with proper payment amounts: 11.846 gpu_seconds @ 0.02 AITBC = 0.23692 AITBC
@@ -43,12 +47,14 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 - **Environment Variables**: Environment variable overrides for URL and API keys
 
 ### 🐛 Coordinator API Bug Fix
+
 - **NameError Fix**: Fixed `NameError: name '_coerce_float' is not defined` in receipt service
 - **Helper Function**: Added missing helper function to `/opt/coordinator-api/src/app/services/receipts.py`
 - **Deployment**: Deployed fix to incus container via SSH
 - **Result**: Result submission now returns 200 OK instead of 500 Internal Server Error
 
 ### ⚙️ Miner Configuration Fix
+
 - **Miner ID Update**: Updated miner ID from `host-gpu-miner` to `${MINER_API_KEY}` for proper job assignment
 - **Logging Enhancement**: Added explicit flush logging handler for better systemd journal visibility
 - **Systemd Enhancement**: Enhanced systemd unit with unbuffered logging environment variables
@@ -56,6 +62,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 ## 🔧 Technical Implementation
 
 ### GPU Mining Features
+
 - **Ollama Integration**: Complete Ollama integration for GPU inference
 - **GPU Discovery**: Automatic GPU discovery and configuration
 - **Workload Management**: GPU workload management and scheduling
@@ -64,6 +71,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 - **Error Handling**: Comprehensive error handling for GPU operations
 
 ### Mining Operations Features
+
 - **Job Processing**: Enhanced job processing pipeline
 - **Result Submission**: Reliable result submission
 - **Receipt Generation**: Accurate receipt generation
@@ -72,6 +80,7 @@ AITBC v0.3.7 is a **major GPU mining release** that introduces host GPU miner wi
 - **Status Tracking**: Comprehensive status tracking
 
 ### System Integration Features
+
 - **Systemd Integration**: Enhanced systemd integration
 - **Service Management**: Improved service management
 - **Health Monitoring**: Real-time health monitoring

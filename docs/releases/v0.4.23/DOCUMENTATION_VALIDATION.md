@@ -31,15 +31,18 @@ def validate_master_index():
 ```
 
 ### 2. Add to Pre-commit
+
 - Run documentation validation on commit
 - Prevent broken documentation links
 
 ### 3. Publish OpenAPI Specs
+
 - Extract OpenAPI specs from FastAPI apps
 - Generate static documentation
 - Publish to docs/api/
 
 ### 4. Update MASTER_INDEX.md
+
 - Add API documentation section
 - Add validation step to documentation workflow
 

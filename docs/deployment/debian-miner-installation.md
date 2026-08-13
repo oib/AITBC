@@ -17,6 +17,7 @@ This guide provides step-by-step instructions for installing the AITBC miner on 
 ### Hardware Compatibility
 
 Tested GPUs:
+
 - NVIDIA RTX 3090
 - NVIDIA RTX 4090
 - NVIDIA RTX 4060 Ti
@@ -54,6 +55,7 @@ nvidia-smi
 ```
 
 Expected output:
+
 ```
 +-----------------------------------------------------------------------------+
 | NVIDIA-SMI 535.0.00    Driver Version: 535.0.00    CUDA Version: 12.4 |
@@ -257,6 +259,7 @@ cd /opt/aitbc/miner
 ```
 
 The script will check:
+
 - Binary integrity
 - GPU detection
 - CUDA installation
@@ -271,6 +274,7 @@ systemctl status aitbc-miner
 ```
 
 Expected output:
+
 ```
 ● aitbc-miner.service - AITBC GPU Miner
      Loaded: loaded (/etc/systemd/system/aitbc-miner.service; enabled; vendor preset: enabled)
@@ -292,6 +296,7 @@ journalctl -u aitbc-miner -n 100
 ```
 
 Expected log output:
+
 ```
 2026-05-11 12:00:00 - INFO - Starting Real GPU Miner Client on Host...
 2026-05-11 12:00:00 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
@@ -315,6 +320,7 @@ curl -H "X-Api-Key: your-miner-api-key" \
 **Problem**: Miner cannot detect GPU
 
 **Solution**:
+
 ```bash
 # Check GPU
 nvidia-smi
@@ -334,6 +340,7 @@ reboot
 **Problem**: Miner cannot connect to Ollama
 
 **Solution**:
+
 ```bash
 # Check Ollama status
 systemctl status ollama
@@ -350,6 +357,7 @@ netstat -tulpn | grep 11434
 **Problem**: Miner cannot connect to Coordinator
 
 **Solution**:
+
 ```bash
 # Test Coordinator URL
 curl http://your-coordinator-url:8203/v1/health
@@ -369,6 +377,7 @@ ping your-coordinator-url
 **Problem**: Miner registration returns 404 or 401
 
 **Solution**:
+
 ```bash
 # Check API key
 echo $MINER_API_KEY
@@ -386,6 +395,7 @@ journalctl -u coordinator-api -n 50
 **Problem**: Systemd service fails to start
 
 **Solution**:
+
 ```bash
 # Check service logs
 journalctl -u aitbc-miner -n 50
@@ -402,6 +412,7 @@ journalctl -u aitbc-miner -n 50
 **Problem**: Permission errors accessing files
 
 **Solution**:
+
 ```bash
 # Fix permissions
 chown -R aitbc:aitbc /opt/aitbc/miner

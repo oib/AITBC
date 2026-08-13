@@ -76,6 +76,7 @@ aitbc crosschain rates --from-chain ait-hub --to-chain ait-devnet
 ```
 
 **Expected output (all rates):**
+
 ```
 Cross-chain exchange rates:
 
@@ -104,6 +105,7 @@ aitbc crosschain swap \
 ```
 
 **Expected output:**
+
 ```
 Cross-chain swap created successfully!
 
@@ -126,6 +128,7 @@ aitbc crosschain status swap_abc123
 ```
 
 **Expected output:**
+
 ```
 Swap Status: pending
 
@@ -158,6 +161,7 @@ aitbc crosschain swaps --status completed --limit 5
 ```
 
 **Expected output:**
+
 ```
 Found 3 cross-chain swaps:
 
@@ -184,6 +188,7 @@ aitbc crosschain bridge \
 ```
 
 **Expected output:**
+
 ```
 Cross-chain bridge created successfully!
 
@@ -205,6 +210,7 @@ aitbc crosschain bridge-status bridge_xyz789
 ```
 
 **Expected output:**
+
 ```
 Bridge Status: pending
 
@@ -253,6 +259,7 @@ aitbc bridge start --rpc-url http://localhost:8202
 ```
 
 **Expected output (start):**
+
 ```
 Bridge Started
 
@@ -261,6 +268,7 @@ bridge_status   started
 ```
 
 **Expected output (status):**
+
 ```
 Bridge Status
 
@@ -269,6 +277,7 @@ bridge_status   active
 ```
 
 **Expected output (stop):**
+
 ```
 Bridge Stopped
 

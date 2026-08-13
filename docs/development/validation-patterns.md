@@ -74,6 +74,7 @@ All errors are returned in the following format:
 ### Logging
 
 All errors are logged with context:
+
 - HTTP exceptions: WARNING level
 - Internal exceptions: ERROR level with stack trace
 

@@ -10,6 +10,7 @@ Create reusable port allocation and chain config parsing utilities. These are bl
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/network/port_allocator.py aitbc/utils/chain_config.py aitbc/network/__init__.py aitbc/utils/__init__.py && ./venv/bin/python -m ruff check aitbc/network/port_allocator.py aitbc/utils/chain_config.py aitbc/network/__init__.py aitbc/utils/__init__.py tests/unit/test_port_allocator.py tests/unit/test_chain_config.py && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -251,6 +252,7 @@ Export from `aitbc/utils/__init__.py` as `ChainConfigParser` (add to existing ex
 ### A3: Unit tests
 
 **`tests/unit/test_port_allocator.py`**:
+
 - `test_empty_offsets_returns_base_ports` — no offsets, chain gets base ports
 - `test_single_offset` — one chain with offset 10
 - `test_multiple_offsets` — multiple chains with different offsets
@@ -267,6 +269,7 @@ Export from `aitbc/utils/__init__.py` as `ChainConfigParser` (add to existing ex
 - `test_whitespace_stripped` — whitespace in entries is stripped
 
 **`tests/unit/test_chain_config.py`**:
+
 - `test_empty_string_returns_empty_dict` — empty string → {}
 - `test_single_int_entry` — "block_time_seconds:2" → {"block_time_seconds": 2}
 - `test_multiple_entries` — "block_time_seconds:2,max_txs_per_block:500"

@@ -24,10 +24,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--already-done-verified-do-not-redo)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [BlockchainTextFormatter backward-compat alias](./agent-a.md#a1-blockchaintextformatter-backward-compat-alias)
@@ -36,6 +38,7 @@ This release documentation has been split into topic-focused files:
 - [Fix test_core.py collection error](./agent-a.md#a4-fix-test_corepy-collection-error)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Register multi-chain and multi-node fixtures](./agent-b.md#b1-register-multi-chain-and-multi-node-fixtures)

@@ -11,16 +11,19 @@ AITBC v0.4.6 introduces advanced agent communication patterns including structur
 ## Message Protocols
 
 ### Request/Response Pattern
+
 ```bash
 aitbc agent message --to agent_abc123 --type request --payload '{"service": "whisper", "input": "..."}'
 ```
 
 ### Broadcast Pattern
+
 ```bash
 aitbc agent message --type broadcast --topic "gpu_available" --payload '{"gpu_model": "RTX 4090", "price": 0.5}'
 ```
 
 ### Subscription Pattern
+
 ```bash
 aitbc agent subscribe --topic "whisper_offers" --filter '{"price": {"$lt": 0.05}}'
 ```
@@ -40,6 +43,7 @@ aitbc agent discover agents --capability whisper --min-health 0.8
 ```
 
 **Response:**
+
 ```json
 {
   "agents": [

@@ -11,6 +11,7 @@ agent DAO is the decentralized governance mechanism for the AITBC ecosystem, des
 ## 🎯 Core Principles
 
 ### 1. **Token-Weighted Voting**
+
 - **Governance Token**: the network tokens determine voting power
 - **Weight Distribution**: 1 AITBC = 1 vote (linear weighting)
 - **Minimum Threshold**: 100 AITBC required to submit proposals
@@ -18,6 +19,7 @@ agent DAO is the decentralized governance mechanism for the AITBC ecosystem, des
 - **Voting Period**: 7 days for standard proposals, 3 days for emergency actions
 
 ### 2. **Snapshot Security (Anti-Flash-Loan)**
+
 - **Snapshot-Based**: Voting power captured at proposal creation time
 - **Flash-Loan Protection**: Voting power locked during voting period
 - **Time-Weighted Average**: 24-hour TWAS (Time-Weighted Average Score) for voting power
@@ -25,6 +27,7 @@ agent DAO is the decentralized governance mechanism for the AITBC ecosystem, des
 - **Security Layer**: Multi-sig validation for critical proposals
 
 ### 3. **Agent-Centric Design**
+
 - **Autonomous Participation**: AI agents can hold voting power and participate
 - **Smart Contract Wallets**: Agents use contract wallets for secure voting
 - **Automated Voting**: Pre-programmed voting strategies based on agent goals
@@ -37,6 +40,7 @@ agent DAO is the decentralized governance mechanism for the AITBC ecosystem, des
 ### **Swarm Roles**
 
 #### 1. **Provider Agents**
+
 ```yaml
 Responsibilities:
   - GPU resource provision and staking
@@ -58,6 +62,7 @@ Smart Contract Features:
 ```
 
 #### 2. **Consumer Agents**
+
 ```yaml
 Responsibilities:
   - GPU resource consumption
@@ -79,6 +84,7 @@ Smart Contract Features:
 ```
 
 #### 3. **Builder Agents**
+
 ```yaml
 Responsibilities:
   - Protocol development and upgrades
@@ -100,6 +106,7 @@ Smart Contract Features:
 ```
 
 #### 4. **Coordinator Agents**
+
 ```yaml
 Responsibilities:
   - Swarm coordination and optimization
@@ -127,24 +134,28 @@ Smart Contract Features:
 ### **Proposal Types**
 
 #### 1. **Protocol Proposals**
+
 - **Technical Upgrades**: Protocol changes, new features
 - **Parameter Changes**: Fee structures, reward mechanisms
 - **Security Updates**: Vulnerability fixes, security improvements
 - **Integration Proposals**: New partnerships, ecosystem expansion
 
 #### 2. **Resource Proposals**
+
 - **GPU Allocation**: Computing resource distribution
 - **Staking Policies**: Reward mechanisms, lock periods
 - **Infrastructure**: Network expansion, hardware upgrades
 - **Pricing Models**: Service pricing, fee structures
 
 #### 3. **Community Proposals**
+
 - **DAO Grants**: Ecosystem development funding
 - **Marketing Initiatives**: Community growth strategies
 - **Educational Programs**: Developer education, documentation
 - **Research Funding**: AI research, blockchain innovation
 
 #### 4. **Emergency Proposals**
+
 - **Security Crises**: Critical vulnerabilities, attacks
 - **System Failures**: Network issues, service disruptions
 - **Market Crises**: Extreme volatility, liquidity issues
@@ -175,6 +186,7 @@ graph TD
 ### **Snapshot Security Implementation**
 
 #### 1. **Time-Weighted Voting Power**
+
 ```solidity
 contract VotingPower {
     struct Snapshot {
@@ -193,12 +205,14 @@ contract VotingPower {
 ```
 
 #### 2. **Anti-Manipulation Measures**
+
 - **Vesting Periods**: Newly acquired tokens have 7-day vesting for voting
 - **Maximum Voting Power**: Single address limited to 5% of total voting power
 - **Proposal Bond**: 1000 AITBC bond required to submit proposals
 - **Challenge Period**: 48-hour challenge period for proposal validity
 
 #### 3. **Multi-Sig Protection**
+
 - **Critical Proposals**: Require 3/5 multi-sig approval
 - **Treasury Access**: Multi-sig control over DAO funds
 - **Protocol Upgrades**: Additional security layer for technical changes
@@ -211,6 +225,7 @@ contract VotingPower {
 ### **Smart Contract Wallets**
 
 #### 1. **Agent Wallet Structure**
+
 ```solidity
 contract AgentWallet {
     address owner;
@@ -232,6 +247,7 @@ contract AgentWallet {
 ```
 
 #### 2. **Autonomous Voting Strategies**
+
 ```python
 class AgentVotingStrategy:
     def __init__(self, agent_type, reputation_score):
@@ -257,6 +273,7 @@ class AgentVotingStrategy:
 ### **GPU Negotiation & Staking**
 
 #### 1. **Resource Allocation Protocol**
+
 ```yaml
 Agent Negotiation Flow:
   1. Provider agents submit resource offers
@@ -268,6 +285,7 @@ Agent Negotiation Flow:
 ```
 
 #### 2. **Staking Mechanism**
+
 ```solidity
 contract GPUStaking {
     struct Stake {
@@ -291,6 +309,7 @@ contract GPUStaking {
 ## 📊 Tokenomics & Incentives
 
 ### **Governance Token Distribution**
+
 ```yaml
 Initial Distribution:
   - Community Treasury: 40%
@@ -308,6 +327,7 @@ Voting Power Allocation:
 ```
 
 ### **Incentive Mechanisms**
+
 - **Participation Rewards**: the network tokens for active voting participation
 - **Proposal Rewards**: Tokens for successful proposal submissions
 - **Reputation System**: Reputation points increase voting weight
@@ -319,6 +339,7 @@ Voting Power Allocation:
 ## 🛣️ Development Roadmap
 
 ### **Phase 1: Agent Trading (Q2 2026)**
+
 ```yaml
 Objectives:
   - Implement agent-to-agent trading protocols
@@ -340,6 +361,7 @@ Governance Integration:
 ```
 
 ### **Phase 2: DAO Grants System (Q3 2026)**
+
 ```yaml
 Objectives:
   - Implement DAO grant distribution
@@ -361,6 +383,7 @@ Governance Integration:
 ```
 
 ### **Phase 3: Advanced Agent Autonomy (Q4 2026)**
+
 ```yaml
 Objectives:
   - Implement advanced AI decision-making
@@ -386,18 +409,21 @@ Governance Integration:
 ## 📈 Success Metrics
 
 ### **Governance Health Indicators**
+
 - **Participation Rate**: >30% of token holders voting regularly
 - **Proposal Success Rate**: >60% of proposals passing
 - **Agent Engagement**: >80% of agents participating in governance
 - **Proposal Quality**: >90% of proposals implementing successfully
 
 ### **Ecosystem Growth Metrics**
+
 - **Agent Count**: Target 1000+ active agents
 - **GPU Utilization**: >85% network utilization
 - **Transaction Volume**: >10,000 daily agent transactions
 - **DAO Treasury Growth**: >20% annual treasury growth
 
 ### **Security & Stability**
+
 - **Zero Critical Exploits**: No successful attacks on governance
 - **Uptime**: >99.9% governance system availability
 - **Vote Integrity**: 100% vote accuracy and transparency
@@ -408,12 +434,14 @@ Governance Integration:
 ## 🔄 Future Enhancements
 
 ### **Advanced Features**
+
 - **Cross-Chain Governance**: Multi-chain coordination protocols
 - **AI-Enhanced Voting**: Machine learning for proposal evaluation
 - **Dynamic Quorum**: Adaptive quorum requirements
 - **Predictive Governance**: Anticipatory decision-making
 
 ### **Ecosystem Integration**
+
 - **DeFi Integration**: Yield farming with governance tokens
 - **NFT Governance**: NFT-based voting rights
 - **Layer 2 Solutions**: Scalable governance on L2 networks
@@ -424,12 +452,14 @@ Governance Integration:
 ## 📚 Documentation & Resources
 
 ### **Technical Documentation**
+
 - Agent SDK Documentation
 - [Smart Contract API Reference](../contracts/api/)
 - [Governance Protocol Specification](../../agent/blockchain/governance.md)
 - [Security Audit Reports](../security/audits/)
 
 ### **Community Resources**
+
 - DAO Participation Guide
 - Agent Development Tutorial
 - [FAQ and Support](../../reference/faq.md)

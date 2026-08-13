@@ -1,27 +1,32 @@
 # Dependency Security Monitoring Strategy
 
 ## Overview
+
 This document outlines the monitoring strategy for key dependencies in the AITBC project to manage security vulnerabilities effectively.
 
 ## Current Vulnerability Status
 
 ### Python Dependencies
+
 - **Status**: 0 vulnerabilities found
 - **Tool**: pip-audit in project virtual environment
 - **Scope**: All Python packages in venv
 - **Note**: Internal AITBC packages (aitbc, aitbc-agent-core, etc.) are not on PyPI and are excluded from audit
 
 ### npm/JavaScript Dependencies
+
 - **Total**: 35 vulnerabilities (7 low, 15 moderate, 13 high)
 - **Status**: Accepted as acceptable risk
 - **Rationale**: Most vulnerabilities are in Hardhat/Ethers build tools (transitive dependencies), not production runtime code
 - **Note**: npm audit fix attempted; pnpm workspaces (contracts, zk-circuits) lack npm lockfiles and use pnpm-specific overrides
 
-#### Breakdown by Package:
+#### Breakdown by Package
+
 - `/opt/aitbc/contracts`: 14 vulnerabilities (3 low, 7 moderate, 4 high)
 - `/opt/aitbc/apps/zk-circuits`: 13 vulnerabilities (2 low, 4 moderate, 7 high)
 
-#### Key Vulnerable Packages:
+#### Key Vulnerable Packages
+
 - **elliptic** (low): Cryptographic primitive implementation risk in @ethersproject/signing-key
 - **serialize-javascript** (moderate): CPU exhaustion DoS in mocha
 - **tmp** (low): Arbitrary file write via symbolic link in solc
@@ -32,6 +37,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 - **underscore** (moderate): Prototype pollution in multiple paths
 
 ### Rust Dependencies
+
 - **Status**: 0 vulnerabilities found
 - **Tool**: cargo-audit
 - **Scope**: dev/gpu/gpu_zk_research (48 crate dependencies)
@@ -42,12 +48,14 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ### Automated Monitoring
 
 #### GitHub Dependabot
+
 - **Current**: Enabled on default branch
 - **Frequency**: Continuous on push
 - **Scope**: All dependency manifests
 - **Action**: Review Dependabot alerts monthly
 
 #### CI/CD Integration
+
 - **Security Scanning Workflow**: `.gitea/workflows/security-scanning.yml`
 - **Tools**: pip-audit (Python), pnpm audit (npm), cargo audit (Rust)
 - **Frequency**: On every push and PR
@@ -56,7 +64,9 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ### Manual Monitoring
 
 #### Monthly Review
+
 1. Run comprehensive vulnerability scans:
+
    ```bash
    # Python
    source /opt/aitbc/venv/bin/activate
@@ -80,6 +90,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
    - halo2 ecosystem
 
 #### Quarterly Review
+
 1. Evaluate major version updates for:
    - Hardhat (currently v2.22.0, v3.7.0 available - major breaking changes)
    - Ethers.js (currently v6.16.0)
@@ -91,11 +102,13 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ### npm Audit Fix Guidance
 
 #### Limitations
+
 - **pnpm workspaces**: `npm audit fix` requires npm lockfiles; pnpm workspaces (contracts, zk-circuits) use pnpm-lock.yaml
 - **Overrides**: pnpm-specific overrides in package.json only work with pnpm, not npm or yarn
 - **Transitive dependencies**: Manual overrides may not catch all transitive dependency paths
 
 #### Recommended Approach
+
 1. **For npm-based packages**: Run `npm audit fix` first to auto-resolve fixable vulnerabilities
 2. **For pnpm workspaces**: Use pnpm overrides in package.json (currently implemented)
 3. **Consider Hardhat upgrade**: Hardhat v3.x may resolve many transitive dependency vulnerabilities but requires testing due to breaking changes
@@ -104,17 +117,20 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ### Acceptance Criteria
 
 #### Low Risk (Acceptable)
+
 - Build-time only dependencies (devDependencies)
 - Transitive dependencies in build tools
 - Vulnerabilities requiring local code execution
 - Vulnerabilities in test frameworks
 
 #### Medium Risk (Monitor)
+
 - Runtime dependencies with moderate severity
 - Vulnerabilities in widely-used libraries
 - Beta/preview dependencies
 
 #### High Risk (Remediate)
+
 - Runtime dependencies with high severity
 - Vulnerabilities in cryptographic primitives
 - Known exploited vulnerabilities (KEV)
@@ -122,6 +138,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ## Remediation Procedures
 
 ### Immediate (Within 24 hours)
+
 - **Trigger**: Critical/High severity in production runtime dependencies
 - **Action**:
   1. Assess exploitability
@@ -130,6 +147,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
   4. Verify fix
 
 ### Short-term (Within 1 week)
+
 - **Trigger**: Moderate severity in production runtime dependencies
 - **Action**:
   1. Schedule maintenance window
@@ -137,6 +155,7 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
   3. Deploy to production
 
 ### Long-term (Within 1 month)
+
 - **Trigger**: Low severity or build-time dependencies
 - **Action**:
   1. Include in regular dependency update cycle
@@ -145,9 +164,11 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 ## Dependency Overrides
 
 ### npm (pnpm)
+
 The following packages have version overrides in package.json files to mitigate known vulnerabilities:
 
 #### contracts/package.json
+
 ```json
 "overrides": {
   "uuid": "^14.0.0",
@@ -163,6 +184,7 @@ The following packages have version overrides in package.json files to mitigate 
 ```
 
 #### apps/zk-circuits/package.json
+
 ```json
 "pnpm": {
   "overrides": {
@@ -175,11 +197,13 @@ The following packages have version overrides in package.json files to mitigate 
 ## Communication
 
 ### Internal
+
 - **Monthly**: Security status update in team meeting
 - **Quarterly**: Dependency health report
 - **Ad-hoc**: Critical vulnerability notifications
 
 ### External
+
 - **GitHub Security Advisories**: Publish security advisories for affected releases
 - **Release Notes**: Document security updates in changelog
 
@@ -191,4 +215,5 @@ The following packages have version overrides in package.json files to mitigate 
 - [pip-audit Documentation](https://pypi.org/project/pip-audit/)
 
 ## Last Updated
+
 2026-05-29

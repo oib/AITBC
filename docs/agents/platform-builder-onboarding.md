@@ -10,6 +10,7 @@ aitbc agent validate --type platform_builder --prerequisites
 ```
 
 **Required Capabilities:**
+
 - Programming skills
 - GitHub account
 - Development environment

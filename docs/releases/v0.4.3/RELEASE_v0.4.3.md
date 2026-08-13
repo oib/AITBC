@@ -11,6 +11,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 ## 🎯 Release Highlights
 
 ### Node Profiles System
+
 - ✅ Three-tier profile system (BLOCKCHAIN_MODE, MARKET_ROLE, HARDWARE_PROFILE)
 - ✅ setup.sh integration for interactive profile selection during installation
 - ✅ Profile-based service startup logic in blockchain node
@@ -18,6 +19,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Profile logging at startup for visibility
 
 ### Lease-Based Subscription System
+
 - ✅ Redis-based lease tracker for subscriber management
 - ✅ Subscription RPC endpoints (/rpc/subscribe, /rpc/heartbeat, /rpc/lease/{node_id}, /rpc/subscribers)
 - ✅ Follower subscription client with automatic lease renewal
@@ -26,6 +28,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Hub lease tracker integration in RPC service lifespan
 
 ### Sync Mode Management
+
 - ✅ Automatic sync mode selection (push vs pull)
 - ✅ Sync mode logging and monitoring
 - ✅ Lease expiry tracking and renewal
@@ -33,6 +36,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Configurable lease duration and renewal thresholds
 
 ### Documentation
+
 - ✅ SETUP.md updated with node profiles documentation
 - ✅ SETUP.md updated with sync modes documentation
 - ✅ setup.sh comments added for profile selection function
@@ -43,6 +47,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Agent API usage examples added to documentation
 
 ### Security Hardening (v0.4.3.1)
+
 - ✅ Dependency security scanning script created
 - ✅ API security middleware added (input validation, suspicious user agent detection)
 - ✅ Security utilities module created (InputValidator, RequestSigner, APIKeyRotator)
@@ -51,6 +56,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Network security recommendations documentation created for system administrators
 
 ### Agent Autonomy Features (v0.4.3.2)
+
 - ✅ Distributed decision making API (consensus voting, weighted decisions)
 - ✅ Self-healing and error recovery system (health monitoring, automatic recovery)
 - ✅ Autonomous resource management (allocation strategies, dynamic pricing)
@@ -59,6 +65,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Hermes resource service with pool management
 
 ### Advanced GPU Marketplace Features (v0.4.3.3)
+
 - ✅ Advanced pricing strategies (TIME_BASED, REPUTATION_BASED, MULTI_FACTOR, PREDICTIVE)
 - ✅ Advanced auction types (Dutch, sealed-bid, reverse)
 - ✅ ML-based search and recommendations with vector embeddings
@@ -70,6 +77,7 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 - ✅ Full test suite (all tests passing)
 
 ### Port Architecture Reorganization (v0.4.3.4)
+
 - ✅ Public ports reorganized to contiguous range 8200-8204
 - ✅ Internal services consolidated to localhost-only range 8101-8105
 - ✅ API Gateway moved to port 8201 (nginx-proxied via /api/)
@@ -90,19 +98,24 @@ AITBC v0.4.3 introduces a comprehensive node profile system and lease-based push
 ### Node Profiles
 
 #### BLOCKCHAIN_MODE
+
 - **follower** (default): Receives blocks from hub, runs periodic sync and subscription client
 - **hub**: Produces and broadcasts blocks, runs lease tracker for subscription system
 
 #### MARKET_ROLE
+
 - **customer** (default): Consumes GPU resources
 - **shop**: Provides GPU resources (requires GPU hardware)
 
 #### HARDWARE_PROFILE
+
 - **nogpu** (default): No GPU available
 - **gpu**: GPU available for compute
 
 #### Configuration
+
 Profiles are set in `/etc/aitbc/blockchain.env` (read by blockchain node):
+
 ```bash
 BLOCKCHAIN_MODE=follower
 MARKET_ROLE=customer
@@ -112,16 +125,19 @@ HARDWARE_PROFILE=nogpu
 ### Lease-Based Subscription System
 
 #### Hub Components
+
 - **Lease Tracker**: Redis-based subscriber management with expiry tracking
 - **Subscription RPC**: RESTful endpoints for subscription management
 - **Block Publishing**: Modified to check valid leases before pushing blocks
 
 #### Follower Components
+
 - **Subscription Client**: Manages subscription lifecycle and lease renewal
 - **Heartbeat Task**: Periodic lease renewal via heartbeat endpoint
 - **Fallback Logic**: Automatic switch to pull sync on subscription failure
 
 #### Subscription Flow
+
 1. Follower registers with hub via `/rpc/subscribe`
 2. Hub grants lease (default: 1 hour) and stores in Redis
 3. Follower subscribes to Redis pub/sub topic for blocks
@@ -132,7 +148,9 @@ HARDWARE_PROFILE=nogpu
 ### Subscription RPC Endpoints
 
 #### POST /rpc/subscribe
+
 Register for block subscription with lease
+
 ```json
 {
   "node_id": "node-aitbc3-0b7a8bda",
@@ -142,7 +160,9 @@ Register for block subscription with lease
 ```
 
 #### POST /rpc/heartbeat
+
 Extend subscription lease via heartbeat
+
 ```json
 {
   "node_id": "node-aitbc3-0b7a8bda"
@@ -150,23 +170,28 @@ Extend subscription lease via heartbeat
 ```
 
 #### GET /rpc/lease/{node_id}
+
 Get lease status for a subscriber
 
 #### DELETE /rpc/lease/{node_id}
+
 Revoke subscription lease
 
 #### GET /rpc/subscribers
+
 Get all valid subscribers with active leases
 
 ### Sync Modes
 
 #### Pull Sync (Periodic)
+
 - Default mode for follower nodes
 - Periodically polls hub for new blocks (default: 30 seconds)
 - Always available as fallback
 - Configurable via `PERIODIC_SYNC_ENABLED` and `PERIODIC_SYNC_INTERVAL`
 
 #### Push Sync (Subscription)
+
 - Efficient mode when subscription is enabled
 - Hub pushes blocks to subscribed followers via Redis pub/sub
 - Requires valid lease (DHCP-style subscription)
@@ -177,6 +202,7 @@ Get all valid subscribers with active leases
 ### Configuration Settings
 
 #### Node Profiles
+
 ```bash
 # /etc/aitbc/blockchain.env
 BLOCKCHAIN_MODE=follower  # follower or hub
@@ -185,6 +211,7 @@ HARDWARE_PROFILE=nogpu    # gpu or nogpu
 ```
 
 #### Subscription Settings
+
 ```bash
 # /etc/aitbc/blockchain.env
 SUBSCRIPTION_ENABLED=true
@@ -195,6 +222,7 @@ HEARTBEAT_INTERVAL=60
 ```
 
 #### Periodic Sync Settings
+
 ```bash
 # /etc/aitbc/blockchain.env
 PERIODIC_SYNC_ENABLED=true
@@ -213,12 +241,14 @@ PERIODIC_SYNC_INTERVAL=30
 ### v0.4.2 → v0.4.3
 
 1. **Backup existing configuration**
+
    ```bash
    cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.backup
    cp /etc/aitbc/node.env /etc/aitbc/node.env.backup
    ```
 
 2. **Add profile variables to blockchain.env**
+
    ```bash
    # Add to /etc/aitbc/blockchain.env
    BLOCKCHAIN_MODE=follower  # or hub for hub nodes
@@ -227,6 +257,7 @@ PERIODIC_SYNC_INTERVAL=30
    ```
 
 3. **Configure subscription (optional, for followers)**
+
    ```bash
    # Add to /etc/aitbc/blockchain.env
    SUBSCRIPTION_ENABLED=true
@@ -237,11 +268,13 @@ PERIODIC_SYNC_INTERVAL=30
    ```
 
 4. **Restart services**
+
    ```bash
    systemctl restart aitbc-blockchain-node
    ```
 
 5. **Verify configuration**
+
    ```bash
    # Check logs for profile configuration
    journalctl -u aitbc-blockchain-node -n 50 | grep "blockchain_mode"
@@ -253,12 +286,14 @@ PERIODIC_SYNC_INTERVAL=30
 ## 🧪 Testing
 
 ### Node Profiles Testing
+
 - ✅ setup.sh profile selection (follower/hub, customer/shop, gpu/nogpu)
 - ✅ Profile-based service startup (hub vs follower)
 - ✅ Profile logging at startup
 - ✅ Profile configuration in blockchain.env and node.env
 
 ### Subscription System Testing
+
 - ✅ Hub lease tracker startup (BLOCKCHAIN_MODE=hub)
 - ✅ Follower subscription client startup (BLOCKCHAIN_MODE=follower)
 - ✅ Subscription endpoint (/rpc/subscribe)
@@ -271,6 +306,7 @@ PERIODIC_SYNC_INTERVAL=30
 - ✅ Lease expiry and cleanup
 
 ### Test Coverage
+
 - Node profiles: 100%
 - Subscription RPC endpoints: 100%
 - Lease tracker: 95%
@@ -287,10 +323,12 @@ PERIODIC_SYNC_INTERVAL=30
 ## 🚀 Dependencies
 
 ### New Dependencies
+
 - redis (synchronous client for lease tracker)
 - Existing Redis infrastructure for pub/sub
 
 ### Updated Dependencies
+
 - Blockchain node v0.4.3+
 - CLI v0.4.3+
 - setup.sh v0.4.3+
@@ -311,6 +349,7 @@ PERIODIC_SYNC_INTERVAL=30
 - **Automatic fallback**: Pull sync ensures reliability
 
 ### Performance Metrics
+
 - Push sync latency: <100ms vs 30s polling interval
 - Network bandwidth: Reduced by ~90% for block propagation
 - Lease overhead: Minimal (1 heartbeat per minute per subscriber)
@@ -331,6 +370,7 @@ PERIODIC_SYNC_INTERVAL=30
 ## 🚀 Next Steps
 
 ### v0.4.4 Planning
+
 - WebSocket transport for subscription
 - HTTP long-polling transport for subscription
 - Advanced subscription features (multi-chain, selective subscription)
@@ -338,6 +378,7 @@ PERIODIC_SYNC_INTERVAL=30
 - Subscription rate limiting
 
 ### v0.5.0 Planning
+
 - Enhanced Hermes agent autonomy features
 - Additional security hardening
 - Performance monitoring and alerting

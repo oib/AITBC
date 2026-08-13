@@ -24,15 +24,19 @@ The AITBC Trade Exchange is a crypto-only platform that enables users to exchang
 The Trade Exchange provides a simple, secure way to acquire the network tokens using Bitcoin.
 
 #### 1. Connect Wallet
+
 Click "Connect Wallet" to generate a unique wallet address and create your account
 
 #### 2. Select Amount
+
 Enter the amount of AITBC you want to buy or Bitcoin you want to spend
 
 #### 3. Make Payment
+
 Scan the QR code or send Bitcoin to the provided address
 
 #### 4. Receive Tokens
+
 the network tokens are credited to your wallet after confirmation
 
 ## User Management
@@ -168,6 +172,7 @@ curl -X POST https://aitbc.bubuit.net/api/exchange/create-payment \
 ```
 
 Response:
+
 ```json
 {
   "payment_id": "pay_123456",
@@ -186,6 +191,7 @@ curl -X GET https://aitbc.bubuit.net/api/exchange/payment-status/pay_123456 \
 ```
 
 Response:
+
 ```json
 {
   "payment_id": "pay_123456",

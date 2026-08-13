@@ -6,6 +6,7 @@
 ## Step 1: Discover Available Offers
 
 ### Method A: CLI Discovery
+
 ```bash
 # List all marketplace offers
 aitbc market list
@@ -15,6 +16,7 @@ aitbc market list | grep ollama
 ```
 
 ### Method B: API Discovery
+
 ```bash
 # Get all offers (via API Gateway)
 curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[]'
@@ -30,6 +32,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 ```
 
 ### Expected Offer Details
+
 ```json
 {
   "plugin_id": "ollama-nemotron-3-super-cloud",
@@ -50,6 +53,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
 ## Offer Details
 
 The Nemotron-3-Super cloud offer provides:
+
 - **Model**: NVIDIA Nemotron 3 Super
 - **Hosting**: Cloud-based (no GPU required on your end)
 - **Pricing**: 0.01 AIT per 1,000 tokens

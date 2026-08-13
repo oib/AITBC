@@ -84,6 +84,7 @@ aitbc agent create my-provider \
 ```
 
 **Expected output:**
+
 ```
 Agent created successfully!
 
@@ -112,6 +113,7 @@ aitbc agent list --format table
 ```
 
 **Expected output:**
+
 ```
 Local Agents
 ============
@@ -129,6 +131,7 @@ aitbc agent status agent_a1b2c3d4 --format table
 ```
 
 **Expected output:**
+
 ```
 Agent Status: agent_a1b2c3d4
 ============================
@@ -150,6 +153,7 @@ aitbc agent register agent_a1b2c3d4 --coordinator-url http://localhost:8203 --fo
 ```
 
 **Expected output:**
+
 ```
 Agent agent_a1b2c3d4 registered successfully!
 
@@ -174,6 +178,7 @@ aitbc agent register-identity agent_a1b2c3d4 0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a
 ```
 
 **Expected output:**
+
 ```json
 {
   "identity_id": "id_abc123",
@@ -214,6 +219,7 @@ aitbc agent config-validate my-provider
 ```
 
 **Expected output (validate):**
+
 ```
 Configuration is valid: my-provider
 ```
@@ -233,6 +239,7 @@ aitbc agent config-import ./my-provider-backup.json --name my-provider-restored
 ```
 
 **Expected output (export):**
+
 ```
 Configuration exported: my-provider -> ./my-provider-backup.json
 ```

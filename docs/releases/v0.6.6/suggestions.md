@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.6.6 Suggestions
 
 ## Status
+
 **CLAIMS CONFIRMED + UPDATED** — All claims verified against current codebase. Several v0.5.16 bugs already fixed. New issues discovered (schema mismatches, stale port, missing config).
 
 ## Confirmed Gaps (verified in /opt/aitbc — 2026-06-29 subagent investigation)
@@ -71,6 +73,7 @@
 6. ✅ **GPU service BLOCKCHAIN_RPC_URL** — already defaults to 8202 (correct)
 
 ## Recommendations
+
 - Ship v0.6.5 first (PaymentEscrow needed for edge payment verification). ✅ Done.
 - Create OfferFSM before wiring it into services (Agent A Phase 1 → Agent B Phase 3).
 - Fix edge schema mismatches first (B5) — they are already-broken code causing runtime errors.

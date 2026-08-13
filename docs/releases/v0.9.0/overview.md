@@ -30,6 +30,7 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Already Implemented](#already-implemented-reusable-no-work-needed)
 - [Task Split Overview](#task-split-overview)
@@ -38,6 +39,7 @@ This release documentation has been split into topic-focused files:
 - [Fallback for v1.0.0](#fallback-for-v100)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Settlement Types](./agent-a.md#a1-settlement-types)
@@ -48,6 +50,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a6-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Escrow Config](./agent-b.md#b1-escrow-config)
@@ -118,6 +121,7 @@ This release documentation has been split into topic-focused files:
 Agent A owns `aitbc/settlement/` (new) and `aitbc/trading/types.py` (extend). Agent B owns `apps/`, `cli/`, `contracts/`, `tests/harness/`. No file conflicts.
 
 Agent B imports from Agent A's modules:
+
 - `from aitbc.settlement import CrossChainEscrow, EscrowProof, SettlementConfig, EscrowStatus, HTLCState, ProofType`
 - `from aitbc.settlement.htlc import generate_secret, compute_hashlock, verify_secret, calculate_source_timelock, calculate_dest_timelock, validate_timelocks, HTLCStateMachine`
 - `from aitbc.settlement.client import SettlementClient`
@@ -151,6 +155,7 @@ Settlement is gated behind `escrow_enabled = false` in config until all of the f
 ### Rollback Plan
 
 If issues are found post-activation:
+
 1. Set `escrow_enabled = false` in config
 2. Restart blockchain-node — new escrows rejected, existing escrows allowed to complete or timeout/refund
 3. Manual refund for any stuck escrows (admin tool)
@@ -176,6 +181,7 @@ If issues are found post-activation:
 ### Fallback for v1.0.0
 
 If security audit cannot be completed or chaos testing reveals unfixable issues:
+
 - v1.0.0 ships with `escrow_enabled = false`
 - Non-atomic settlement: manual admin refund for stuck trades
 - Atomic settlement deferred to v1.1.0

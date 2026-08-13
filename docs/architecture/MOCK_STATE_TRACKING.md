@@ -15,6 +15,7 @@
 ## Safety
 
 All mock routes are **disabled in production**:
+
 - `training.py`: `settings.debug \| \| settings.enable_mock_training`
 - `agent.py`: `settings.debug \| \| settings.enable_mock_agent`
 - `swarm.py` (router): `settings.debug \| \| settings.enable_mock_swarm`

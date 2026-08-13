@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **👛 CLI Technical** → *You are here*
 
 **breadcrumb**: Home → CLI Technical → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📚 Docs Home**: [Documentation Home](../README.md) - Main docs landing page
 - **📖 About Docs**: About Documentation - Template standard and audit checklist
 - **🎯 Beginner CLI**: Beginner Documentation - CLI basics and user workflows
@@ -48,12 +50,14 @@ aitbc --help
 ## 🔗 **Related Resources**
 
 ### 📚 **Further Reading:**
+
 - [Documentation Home](../README.md) - Main docs landing page
 - About Documentation - Template standard and audit checklist
 - Beginner Documentation - CLI basics and user workflows
 - [Testing Documentation](../testing/README.md) - Validation and regression testing
 
 ### 🆘 **Help & Support:**
+
 - **Documentation Issues**: [Report Issues](https://github.com/oib/AITBC/issues)
 - **Community Forum**: [AITBC Forum](https://forum.aitbc.net)
 - **Technical Support**: [AITBC Support](https://support.aitbc.net)
@@ -61,6 +65,7 @@ aitbc --help
 ---
 
 ## 📊 **Quality Metrics**
+
 - **Structure**: 10/10 - Template-compliant landing page with clear navigation.
 - **Content**: 10/10 - Short and focused CLI technical entry point.
 - **Navigation**: 10/10 - Links to the docs home, beginner CLI, and testing docs.

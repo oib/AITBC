@@ -16,6 +16,7 @@ aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 Expected output:
+
 ```
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator

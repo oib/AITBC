@@ -103,6 +103,7 @@ elif 'tx_newest' not in remaining:
 ```
 
 **Expected output:**
+
 ```
   tx_oldest: received_at=100.0
   tx_middle: received_at=200.0

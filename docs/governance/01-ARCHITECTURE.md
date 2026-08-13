@@ -11,12 +11,14 @@ The AITBC Governance system consists of three main components: the Governance Se
 **Port:** 8105
 
 **Technology Stack:**
+
 - FastAPI (Python web framework)
 - SQLModel (ORM)
 - SQLite (default) or PostgreSQL (production)
 - Alembic (database migrations)
 
 **Responsibilities:**
+
 - API endpoint management
 - Database operations
 - Token staking logic
@@ -29,6 +31,7 @@ The AITBC Governance system consists of three main components: the Governance Se
 ### 2. Smart Contracts
 
 **Technology Stack:**
+
 - Solidity ^0.8.19
 - OpenZeppelin contracts
 - Foundry (testing framework)
@@ -36,6 +39,7 @@ The AITBC Governance system consists of three main components: the Governance Se
 **Contracts:**
 
 #### AITBCGovernanceToken.sol
+
 - ERC20 token with 1B total supply
 - Token staking with minimum 30-day lock period
 - 2x voting power multiplier for staked tokens
@@ -44,6 +48,7 @@ The AITBC Governance system consists of three main components: the Governance Se
 **Location:** `/opt/aitbc/contracts/governance/src/AITBCGovernanceToken.sol`
 
 #### AITBCVoting.sol
+
 - Proposal creation with configurable voting periods
 - Token-weighted voting
 - Quorum requirements (10% of total supply)
@@ -55,12 +60,14 @@ The AITBC Governance system consists of three main components: the Governance Se
 ### 3. CLI Commands
 
 **Technology Stack:**
+
 - Click (Python CLI framework)
 - AITBCHTTPClient (HTTP client)
 
 **Command Group:** `aitbc governance`
 
 **Available Commands:**
+
 - `stake` - Stake tokens for enhanced voting power
 - `delegate` - Delegate voting power to another address
 - `execute` - Execute a passed proposal
@@ -73,18 +80,21 @@ The AITBC Governance system consists of three main components: the Governance Se
 ## Data Flow
 
 ### Proposal Creation Flow
+
 1. User creates proposal via CLI or API
 2. Proposal stored in database
 3. Smart contract proposal created on-chain
 4. Voting period begins
 
 ### Voting Flow
+
 1. User votes via CLI or API
 2. Vote recorded in database
 3. Smart contract vote submitted on-chain
 4. Voting power calculated from token holdings + staking
 
 ### Proposal Execution Flow
+
 1. Voting period ends
 2. Quorum and approval thresholds checked
 3. Execution delay passes (1 day)
@@ -92,12 +102,14 @@ The AITBC Governance system consists of three main components: the Governance Se
 5. Execution logged in database
 
 ### Staking Flow
+
 1. User stakes tokens via CLI or API
 2. Tokens locked in smart contract
 3. Voting power updated (2x multiplier)
 4. Staking record created in database
 
 ### Delegation Flow
+
 1. User delegates voting power via CLI or API
 2. Delegation recorded in database
 3. Voting power transferred to delegate
@@ -130,14 +142,17 @@ The AITBC Governance system consists of three main components: the Governance Se
 ## Integration Points
 
 ### API Gateway
+
 - Route: `/governance/*`
 - Forwards requests to Governance Service (port 8105)
 
 ### Blockchain Node
+
 - RPC endpoint for smart contract interactions
 - On-chain proposal and vote submission
 
 ### Database
+
 - SQLite for development
 - PostgreSQL for production
 - Alembic for schema migrations
@@ -145,15 +160,18 @@ The AITBC Governance system consists of three main components: the Governance Se
 ## Security Architecture
 
 ### Authentication
+
 - Wallet-based authentication for CLI commands
 - API key authentication for service-to-service communication
 
 ### Authorization
+
 - Token holders can vote
 - Staked tokens get 2x voting power
 - Delegation allows proxy voting
 
 ### Audit Trail
+
 - All proposal executions logged
 - Vote records with timestamps
 - Staking and delegation history
@@ -161,16 +179,19 @@ The AITBC Governance system consists of three main components: the Governance Se
 ## Scalability Considerations
 
 ### Database
+
 - Connection pooling for PostgreSQL
 - Indexed queries for performance
 - Migration support for schema changes
 
 ### Smart Contracts
+
 - Gas optimization for voting operations
 - Batch operations for efficiency
 - Event logging for off-chain indexing
 
 ### API
+
 - Async I/O for concurrent requests
 - Caching for frequently accessed data
 - Rate limiting for abuse prevention

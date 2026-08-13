@@ -26,10 +26,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Fix BlockchainCache typing](./agent-a.md#a1-fix-blockchaincache-typing--add-block-by-hash)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Verify clean](./agent-a.md#a7-verify-clean)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Add missing indexes](./agent-b.md#b1-add-missing-indexes--alembic-migration)
@@ -102,6 +105,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -141,6 +145,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 - **Problem**: 6 files in blockchain-node create `httpx.AsyncClient` per-request (no connection reuse). Agent B will replace them, but needs a shared pool utility to wire up.
 - **Fix**: Create `aitbc/network/http_pool.py` with:
+
   ```python
   class SharedHttpClient:
       """Singleton async HTTP client with connection pooling."""
@@ -149,6 +154,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
       async def post(self, url, **kwargs) -> httpx.Response: ...
       async def close(self): ...
   ```
+
   - Uses a single `httpx.AsyncClient` with `httpx.Limits(max_connections=..., max_keepalive_connections=...)`
   - Lazy-init: client created on first use, reused thereafter
   - Export from `aitbc/network/__init__.py`
@@ -158,12 +164,14 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 - **Problem**: Zero compression for block/tx propagation. JSON payloads are large.
 - **Fix**: Create `aitbc/network/compression.py` with:
+
   ```python
   def compress(data: bytes | str, algorithm: str = "gzip") -> bytes: ...
   def decompress(data: bytes, algorithm: str = "gzip") -> bytes: ...
   def compress_json(obj: Any, algorithm: str = "gzip") -> bytes: ...
   def decompress_json(data: bytes, algorithm: str = "gzip") -> Any: ...
   ```
+
   - Support `gzip` (stdlib `gzip`) and `zstd` (if `zstandard` package available, else fall back to gzip)
   - `compress_json`: `json.dumps(separators=(",", ":"))` → encode → compress
   - `decompress_json`: decompress → decode → `json.loads`
@@ -173,6 +181,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 #### A5: Benchmarking helpers
 
 - Create `aitbc/benchmark.py` with:
+
   ```python
   @contextmanager
   def timed(label: str): ...  # logs elapsed time
@@ -181,6 +190,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
   class CacheMetrics: ...  # tracks hit/miss counts
   ```
+
 - Keep it simple — no external dependencies. Used by Agent B's benchmarks (B8).
 
 #### A6: Unit tests
@@ -205,6 +215,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -249,15 +260,18 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 #### B3: Eliminate N+1 queries
 
 **B3a: `rpc/blocks.py:127-142`** — `get_blocks_range` fetches transactions per-block in a loop:
+
 - Replace the per-block `select(Transaction).where(... block_height == b.height)` loop with a single query: fetch all transactions for the block height range using `WHERE chain_id = ? AND block_height BETWEEN ? AND ?`, then group by `block_height` in memory.
 
 **B3b: `consensus/poa.py:239-327`** — block proposal does 3 DB calls per tx:
+
 - Before the tx loop, batch-fetch all unique sender and recipient accounts in 2 queries: `SELECT * FROM account WHERE chain_id = ? AND address IN (...)`.
 - Build a dict `{address: Account}` for O(1) lookup in the loop.
 - Batch-fetch duplicate check: `SELECT tx_hash FROM transaction WHERE chain_id = ? AND tx_hash IN (...)`.
 - **Keep the sequential processing loop** — only eliminate the per-tx DB round-trips. The actual state transition logic stays unchanged (v0.6.1 will parallelize it).
 
 **B3c: `sync.py:433-451`** — account state sync does `session.get()` per remote account:
+
 - Batch-fetch all existing accounts for the chain in one query: `SELECT * FROM account WHERE chain_id = ?`.
 - Build a dict, then merge remote accounts in memory (insert/update as needed).
 - **Verify**: `pytest apps/blockchain-node/tests/test_sync.py -q` passes.
@@ -293,12 +307,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 #### B7: Wire up compression + block header caching
 
 **Compression** (using A4's `compress_json`/`decompress_json`):
+
 - `gossip/broker.py:326-329` — compress messages before publish, decompress on receive
 - `chain_sync.py:186` — compress block data before Redis publish
 - `p2p_network.py:141` — compress P2P TCP payloads
 - Add a `NETWORK_COMPRESSION_ENABLED=true` env flag (default true) so it can be disabled for debugging
 
 **Block header caching** (using A1's fixed `BlockchainCache` + A2's `BlockHeaderCache`):
+
 - `rpc/blocks.py` — cache `get_block` responses using `BlockHeaderCache` (in-process, hot path) + `BlockchainCache` (Redis, cold path)
 - `rpc/accounts.py` — already has Redis caching; wire up `BlockchainCache` for consistency
 - Invalidate cache on new block import (`poa.py` after `session.commit()`)

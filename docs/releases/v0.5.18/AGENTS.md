@@ -26,10 +26,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-facts-do-not-re-investigate)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Test Config)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Register markers + default timeout](./agent-a.md#a1-register-markers--default-timeout)
@@ -37,6 +39,7 @@ This release documentation has been split into topic-focused files:
 - [Add to testpaths (LAST)](./agent-a.md#a3-add-to-testpaths-last)
 
 ### Agent B (Blockchain-Node Test Fixes)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [test_rpc_router](./agent-b.md#b1-test_rpc_router-12)
@@ -87,6 +90,7 @@ This release documentation has been split into topic-focused files:
 **Scope**: pytest markers, default timeout, reusable auto-skip fixtures, and the final `testpaths` inclusion. No test-logic changes.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --collect-only -q 2>&1 | tail -5
 ```
@@ -102,18 +106,22 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --colle
 ### Agent A — Detailed Instructions
 
 #### A1: Register markers + default timeout
+
 - In `pyproject.toml` `[tool.pytest.ini_options]`:
   - Append to `markers`:
+
     ```toml
     "requires_redis: test needs a reachable Redis instance (auto-skipped if absent)",
     "requires_postgres: test needs a reachable PostgreSQL instance (auto-skipped if absent)",
     "requires_genesis: test needs an on-disk genesis file fixture (auto-skipped if absent)",
     ```
+
   - Add `timeout = 60` (seconds). `pytest-timeout` is already installed. This prevents CI hangs.
 - **Verify**: `pytest apps/blockchain-node/tests/ --collect-only -q` shows no "unknown marker" errors once B applies them.
 - **Sequencing**: A1 must merge **before** B5 (B applies these markers). `--strict-markers` will error otherwise.
 
 #### A2: Auto-skip fixtures
+
 - In `apps/blockchain-node/tests/conftest.py`, add a `pytest_collection_modifyitems` hook (or autouse fixtures) that:
   - For `requires_redis`: attempt a fast Redis connection (env `REDIS_URL`, short timeout). On failure → `pytest.skip("Redis not available")`.
   - For `requires_postgres`: attempt a fast Postgres connection (env `DATABASE_URL`/`MEMPOOL_DB_URL`). On failure → skip.
@@ -122,6 +130,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --colle
 - **Verify**: In this no-infra sandbox, `pytest apps/blockchain-node/tests/ -m "requires_redis or requires_postgres"` reports skips, not failures (after B5 tags the tests).
 
 #### A3: Add to testpaths (LAST)
+
 - After B1–B6 are green, add `"apps/blockchain-node/tests"` to `testpaths` in `pyproject.toml`.
 - **Do not do this earlier** — it would turn the default `pytest` run red while B is mid-flight.
 - **Verify**: `cd /opt/aitbc && ./venv/bin/python -m pytest -q` collects the blockchain-node suite with 0 failed / 0 errors (infra tests skipped).
@@ -133,6 +142,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --colle
 **Scope**: Update the 16 stale/infra test files to current APIs and apply Agent A's markers. No production source changes.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -153,24 +163,29 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 ### Agent B — Detailed Instructions
 
 #### B1: test_rpc_router (12)
+
 - Tests build `TransactionRequest(...)` with the old shape (nested `recipient`/`value` in `payload`, no top-level `to`/`amount`/`signature`). The model now requires `to`, `amount`, `signature` (and accepts `chain_id`).
 - Rebuild each test's tx dict to the current schema (mirror `apps/blockchain-node/tests/test_signing_round_trip.py`, which is green). For tests asserting validation rejection, assert against the **current** error messages.
 - 2 failures are `AssertionError: Regex pattern did not match` — update the expected error-message regex.
 
 #### B2: test_guardian_contract (14)
+
 - `initiate_transaction()` now calls `to_checksum_address(to_address)`; placeholder addresses (`"0xrecipient"`) are rejected with `{"status":"rejected","reason":...}` — no `message` key → `KeyError: 'message'`.
 - Replace placeholder addresses with valid 0x checksum addresses (e.g. `0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C`).
 - Align assertions to current response keys (`reason` on rejection vs `message` on approval) and status strings (`approved`/`time_locked`/`rejected`). Verify the spending-limit-message tests against `_check_spending_limits` (source line ~270).
 
 #### B3: test_mempool (8)
+
 - `DatabaseMempool(db_path, ...)` is given a raw filesystem path; the constructor builds a SQLAlchemy engine → `Could not parse SQLAlchemy URL`.
 - Pass `f"sqlite:///{tmp_path / 'mempool.db'}"` (check the current `DatabaseMempool.__init__` signature in `apps/blockchain-node/src/aitbc_chain/mempool.py` ~line 174 for the exact expected arg).
 
 #### B4: Monkeypatch-target drift (9)
+
 - `test_hub_manager.py`: `monkeypatch.setattr(hub_manager, "redis", ...)` fails — module has no top-level `redis`. Patch the actual seam used by the current `hub_manager` (lazy import / client attribute). Tests that genuinely need Redis → tag `requires_redis` (B5).
 - `test_force_sync_endpoints.py`: `monkeypatch.setattr(rpc_router, "session_scope", ...)` fails — `rpc.router` no longer exposes `session_scope`. Patch the current DB/session seam.
 
 #### B5: Quarantine infra tests (12)
+
 - Apply Agent A's markers (must be merged first):
   - `test_gossip_network.py` → `@pytest.mark.requires_redis` / `@pytest.mark.requires_postgres` per test (Redis URL scheme + Postgres 5432 auth errors).
   - `test_websocket.py` → `requires_redis` (pub/sub backed) where applicable.
@@ -178,6 +193,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 - After tagging, these **skip** (not fail) in a no-infra environment.
 
 #### B6: Remaining stale assertions (17)
+
 - `test_staking.py` (6): messages/values drifted (`'self stake must be at least 1000.0'` vs `'insufficient stake'`, staked totals, active validators). **Verify current StakingManager behavior before editing** — if logic genuinely regressed, escalate.
 - `test_models.py` (2): construct `Block` with `chain_id` (NOT NULL); fix hash-validation message.
 - `test_sync.py` (2): add `skip_state_root_validation` kwarg to the `fake_import_block` double; fix `'Invalid hash length'` message assertion.
@@ -187,6 +203,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 - `test_multi_validator_poa.py` (1), `test_island_join.py` (1): verify + update assertions.
 
 #### B7: Green run + fix v0.5.17 docs
+
 - Run the full suite; confirm 0 failed / 0 errors (infra skipped). Then correct the Final Test Results table in `docs/releases/v0.5.17/change.log` (it measured only 3 of 17 blockchain-node files).
 
 ---
@@ -194,6 +211,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 ## Coordination Protocol
 
 ### File Ownership
+
 | File | Owner | Notes |
 |------|-------|-------|
 | `pyproject.toml` `[tool.pytest.ini_options]` | Agent A | A1 (markers+timeout) first; A3 (testpaths) last |
@@ -202,6 +220,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 | `docs/releases/v0.5.17/change.log` | Agent B | B7 |
 
 ### Execution Order
+
 ```
 Phase 1 (Agent A — unblocks B):
   A1 register markers + default timeout   (pyproject.toml)

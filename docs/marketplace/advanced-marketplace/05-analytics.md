@@ -7,18 +7,21 @@ The MarketAnalytics service provides real-time market metrics, trend analysis, a
 ## Features
 
 ### Real-Time Metrics
+
 - Total/available/booked GPU counts
 - Capacity utilization
 - Average pricing
 - Active bookings count
 
 ### Trend Analysis
+
 - Booking trends over time
 - Price trends
 - Utilization trends
 - Direction indicators
 
 ### Forecasting
+
 - Booking forecasts
 - Price forecasts
 - Utilization forecasts

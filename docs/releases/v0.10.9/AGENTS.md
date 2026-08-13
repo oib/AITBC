@@ -33,6 +33,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -77,6 +78,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Fix**:
 
 **Step 1**: Verify zero production importers for each module:
+
 ```bash
 # For each module, verify no production imports
 grep -rn "from aitbc.state\|import aitbc.state" --include="*.py" apps/ cli/ scripts/ packages/ | grep -v __pycache__
@@ -86,6 +88,7 @@ grep -rn "from aitbc.testing\|import aitbc.testing" --include="*.py" apps/ cli/ 
 ```
 
 **Step 2**: Delete the modules:
+
 ```bash
 rm -rf aitbc/state/
 rm -rf aitbc/testing/
@@ -105,6 +108,7 @@ rm aitbc/agent_bridge/src/__init__.py
 ```
 
 **Step 3**: Delete orphan test files:
+
 ```bash
 rm tests/test_state.py
 rm tests/test_testing.py
@@ -126,6 +130,7 @@ rm tests/fixtures/multi_chain.py  # if only used by deleted modules
 **Step 5**: Update `docs/agent-sdk/api-sdk-methods.md` to remove references to `aitbc.agent_protocols`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ./venv/bin/python -m ruff check .
@@ -140,15 +145,18 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 **Problem**: Health router in `apps/pool-hub/src/app/routers/health.py` is never mounted. Only `src/poolhub/app/routers/health.py` is used in main.py.
 
 **Evidence**:
+
 - `src/poolhub/app/main.py:20` attempts to import `from app.routers.pools import router as pools_router` (fails, sets to None)
 - `src/poolhub/app/main.py:56` includes `health_router` from poolhub (not app)
 - `src/app/routers/__init__.py:6` exports `health_router` but it's never imported anywhere in production code
 
 **Fix**:
+
 1. Delete `apps/pool-hub/src/app/routers/health.py`
 2. Update `apps/pool-hub/src/app/routers/__init__.py` to remove the `health_router` export
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/pool-hub/tests -q -o addopts="" 2>/dev/null || echo "No tests or tests pass"
 ```
@@ -164,9 +172,11 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/pool-hub/tests -q -o addopts="
 **Evidence**: `grep -r "advanced_wallet" --include="*.py" .` returns no results.
 
 **Fix**:
+
 1. Delete `cli/advanced_wallet.py`
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -r "advanced_wallet" --include="*.py" . | grep -v __pycache__
 # Expected: no results
@@ -181,14 +191,17 @@ cd /opt/aitbc && grep -r "advanced_wallet" --include="*.py" . | grep -v __pycach
 **Problem**: `HERMES_PORT` in `aitbc/constants.py` is marked as deprecated since v0.5.9. Only referenced in docs, no active usage found.
 
 **Evidence**:
+
 - Line 56: `HERMES_PORT: int = 8012  # Deprecated: hermes service removed in v0.5.9 §8, use AGENT_COORDINATOR_PORT`
 - Grep for `HERMES_PORT` returns only doc references
 
 **Fix**:
+
 1. Delete line 56 from `aitbc/constants.py`
 2. Search docs for `HERMES_PORT` references and remove them
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -rn "HERMES_PORT" --include="*.py" . | grep -v __pycache__
 # Expected: no results
@@ -205,6 +218,7 @@ cd /opt/aitbc && grep -rn "HERMES_PORT" --include="*.py" . | grep -v __pycache__
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -226,6 +240,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 #### B1: Fix status drift — version bump, mark v0.10.4 complete, update STATUS.md
 
 **Problem**: Multiple documentation inconsistencies:
+
 1. `pyproject.toml` version is `0.10.2` but latest complete release is v0.10.8
 2. `AGENTS.md` marks v0.10.4 as "🚧 in progress" but all tasks are complete
 3. `docs/releases/STATUS.md` stops at v0.9.0 ("in progress" — it's done); no v0.10.x entries
@@ -233,16 +248,19 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 **Fix**:
 
 **Step 1**: Update `pyproject.toml` version to `0.10.9`:
+
 ```toml
 version = "0.10.9"
 ```
 
 **Step 2**: Mark v0.10.4 as complete in `docs/releases/v0.10.4/change.log`:
+
 ```markdown
 **Status**: ✅ Complete — Performance optimization, Decimal migration, dead code elimination
 ```
 
 **Step 3**: Update root `AGENTS.md` to mark v0.10.4 as complete:
+
 ```markdown
 - **v0.10.4** — Performance, Correctness & Cleanup: <ref_file file="/opt/aitbc/docs/releases/v0.10.4/change.log" /> ✅ complete
 ```
@@ -250,6 +268,7 @@ version = "0.10.9"
 **Step 4**: Update `docs/releases/STATUS.md` to add v0.10.x entries (v0.10.0 through v0.10.9, all complete).
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep "version = " pyproject.toml
 # Expected: version = "0.10.9"
@@ -264,6 +283,7 @@ cd /opt/aitbc && grep "version = " pyproject.toml
 **Problem**: Test fixtures still use stale port 8006 instead of correct port 8202. This was missed in v0.10.6 A2.
 
 **Files and occurrences**:
+
 - `tests/fixtures/cli_mocks.py:256`: `config.coordinator_url = "http://localhost:8006"`
 - `tests/fixtures/multi_chain.py`: 5 occurrences
 - `tests/unit/test_http_pool.py`: 5 occurrences
@@ -272,8 +292,10 @@ cd /opt/aitbc && grep "version = " pyproject.toml
 - **Total**: ~60 occurrences
 
 **Fix**:
+
 1. Replace all `http://localhost:8006` with `http://localhost:8202` in the above files
 2. Use `sed` or manual edit:
+
 ```bash
 cd /opt/aitbc
 sed -i 's/http:\/\/localhost:8006/http:\/\/localhost:8202/g' tests/fixtures/cli_mocks.py
@@ -284,6 +306,7 @@ sed -i 's/http:\/\/localhost:8006/http:\/\/localhost:8202/g' tests/unit/test_syn
 ```
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -rn "localhost:8006" tests/ --include="*.py" | grep -v __pycache__
 # Expected: no results
@@ -298,17 +321,20 @@ cd /opt/aitbc && grep -rn "localhost:8006" tests/ --include="*.py" | grep -v __p
 **Problem**: CORS origins list in `apps/coordinator-api/src/app/config.py:128-137` references obsolete ports (8001-8016) that don't match current service ports.
 
 **Current obsolete ports**:
+
 - `8001` (Exchange - now 8106)
 - `8002/8003` (Blockchain - now 8202)
 - `8010-8016` (various services - now 8101-8108)
 
 **Current constants from `aitbc/constants.py`**:
+
 - `BLOCKCHAIN_RPC_PORT=8202`
 - `WALLET_PORT=8108`
 - `AGENT_COORDINATOR_PORT=8107`
 - `EXCHANGE_PORT=8001` (but exchange actually uses 8106)
 
 **Fix**:
+
 1. Update the CORS origins list in `apps/coordinator-api/src/app/config.py` to use current port constants
 2. Replace:
    - `http://localhost:8001` → `http://localhost:8106` (exchange)
@@ -317,6 +343,7 @@ cd /opt/aitbc && grep -rn "localhost:8006" tests/ --include="*.py" | grep -v __p
    - `http://localhost:8010-8016` → `http://localhost:8101-8108` (various services)
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -n "8001\|8002\|8003\|8010\|8011\|8012\|8013\|8014\|8015\|8016" apps/coordinator-api/src/app/config.py
 # Expected: no results (all replaced)
@@ -331,13 +358,16 @@ cd /opt/aitbc && grep -n "8001\|8002\|8003\|8010\|8011\|8012\|8013\|8014\|8015\|
 **Problem**: `apps/coordinator-api/src/app/contexts/payments/services/payments.py:28` hardcodes `wallet_base_url: str = "http://127.0.0.1:20000"` but `aitbc/constants.py` defines `WALLET_PORT = 8108`.
 
 **Fix**:
+
 1. Update line 28 to use the constant:
+
 ```python
 wallet_base_url: str = Field(default=f"http://127.0.0.1:{WALLET_PORT}")
 ```
-2. Add import if needed: `from aitbc.constants import WALLET_PORT`
+1. Add import if needed: `from aitbc.constants import WALLET_PORT`
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -n "20000" apps/coordinator-api/src/app/contexts/payments/services/payments.py
 # Expected: no results
@@ -352,6 +382,7 @@ cd /opt/aitbc && grep -n "20000" apps/coordinator-api/src/app/contexts/payments/
 **Problem**: `health-check.sh` has hardcoded outdated ports that don't match current service ports.
 
 **Current obsolete ports** (lines 26-31):
+
 - `8006` (Blockchain - should be 8202)
 - `8001` (Exchange - should be 8106)
 - `9001` (Agent Coordinator - should be 8107)
@@ -359,6 +390,7 @@ cd /opt/aitbc && grep -n "20000" apps/coordinator-api/src/app/contexts/payments/
 - `8102` (Marketplace - should be 8081)
 
 **Current constants from `aitbc/constants.py`**:
+
 - `BLOCKCHAIN_RPC_PORT=8202`
 - `COORDINATOR_API_PORT=8203`
 - `EXCHANGE_PORT=8001` (but exchange actually uses 8106)
@@ -367,7 +399,9 @@ cd /opt/aitbc && grep -n "20000" apps/coordinator-api/src/app/contexts/payments/
 - `WALLET_PORT=8108`
 
 **Fix**:
+
 1. Update the SERVICE_ENDPOINTS array in `health-check.sh` to use current ports:
+
 ```bash
 declare -A SERVICE_ENDPOINTS=(
     ["aitbc-blockchain-rpc"]="http://localhost:8202/health"
@@ -378,9 +412,10 @@ declare -A SERVICE_ENDPOINTS=(
     ["aitbc-wallet"]="http://localhost:8108/health"
 )
 ```
-2. Update line 168 blockchain sync check URL from `http://localhost:8006` to `http://localhost:8202`
+1. Update line 168 blockchain sync check URL from `http://localhost:8006` to `http://localhost:8202`
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -n "8006\|8001\|9001\|8000" health-check.sh
 # Expected: no results (all replaced)
@@ -395,6 +430,7 @@ cd /opt/aitbc && grep -n "8006\|8001\|9001\|8000" health-check.sh
 **Problem**: Deprecated auth shims from v0.10.5 still have internal importers, causing hundreds of deprecation warnings in integration tests.
 
 **Deprecated shims** (to be deleted after migration):
+
 - `apps/coordinator-api/src/app/auth/jwt_handler.py` (23 lines)
 - `apps/coordinator-api/src/app/auth/middleware.py` (21 lines)
 - `apps/coordinator-api/src/app/auth/dependencies.py` (35 lines)
@@ -408,18 +444,21 @@ cd /opt/aitbc && grep -n "8006\|8001\|9001\|8000" health-check.sh
 **Fix**:
 
 **Step 1**: Find all internal importers of the deprecated shims:
+
 ```bash
 cd /opt/aitbc
 grep -rn "from app.auth\|from apps/coordinator-api/src/app/auth\|from apps/agent-coordinator/src/app/auth" --include="*.py" apps/coordinator-api apps/agent-coordinator | grep -v __pycache__
 ```
 
 **Step 2**: Migrate each importer to use `aitbc.auth` instead:
+
 - `from app.auth.jwt_handler import X` → `from aitbc.auth import X`
 - `from app.auth.middleware import X` → `from aitbc.auth.middleware import X`
 - `from app.auth.dependencies import X` → `from aitbc.auth.dependencies import X`
 - `from app.auth.security_matrix import X` → `from aitbc.auth.security_matrix import X`
 
 **Step 3**: Update `apps/coordinator-api/src/app/auth/__init__.py` to re-export from `aitbc.auth` instead of local shims:
+
 ```python
 # Re-export from aitbc.auth for backward compatibility
 from aitbc.auth import (
@@ -433,6 +472,7 @@ from aitbc.auth import (
 ```
 
 **Step 4**: Delete the deprecated shim files:
+
 ```bash
 rm apps/coordinator-api/src/app/auth/jwt_handler.py
 rm apps/coordinator-api/src/app/auth/middleware.py
@@ -444,6 +484,7 @@ rm apps/agent-coordinator/src/app/auth/permissions.py
 ```
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" 2>&1 | grep -i "deprecated" | wc -l
 # Expected: 0 (no more deprecation warnings from app.auth)
@@ -458,10 +499,12 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" 
 **Problem**: `docs/getting-started/setup-service-selection.md` still references the `aitbc-agent-management` service which was deleted in v0.10.7.
 
 **Fix**:
+
 1. Remove the agent-management service entry from the service selection table
 2. Update any references to agent-management in the surrounding text
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -rn "agent-management" docs/getting-started/setup-service-selection.md
 # Expected: no results
@@ -476,6 +519,7 @@ cd /opt/aitbc && grep -rn "agent-management" docs/getting-started/setup-service-
 ### No coordination required
 
 Agent A and Agent B tasks are independent:
+
 - Agent A deletes dead code in `aitbc/` and apps (no business logic impact, zero production importers)
 - Agent B fixes status drift, updates ports, and migrates auth shims (mechanical changes)
 

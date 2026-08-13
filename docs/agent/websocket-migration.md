@@ -7,6 +7,7 @@ This guide explains how to migrate from the current polling-based message system
 ## Current Polling Implementation
 
 ### Current Pattern
+
 ```python
 # Agent polls for messages (inefficient)
 while True:
@@ -23,6 +24,7 @@ while True:
 ```
 
 ### Issues with Polling
+
 - **High latency**: Messages delayed up to 5 seconds
 - **Server load**: Continuous GET requests even when no messages
 - **Network overhead**: Repeated HTTP headers and connections
@@ -31,6 +33,7 @@ while True:
 ## New WebSocket Implementation
 
 ### WebSocket Pattern
+
 ```python
 # Agent connects once and receives messages in real-time
 import asyncio
@@ -70,6 +73,7 @@ asyncio.run(agent_websocket_listener("my-agent", "localhost:8000"))
 ```
 
 ### Benefits of WebSocket
+
 - **Real-time delivery**: Messages delivered instantly
 - **Lower server load**: Single connection per agent
 - **Reduced bandwidth**: No repeated HTTP headers
@@ -78,6 +82,7 @@ asyncio.run(agent_websocket_listener("my-agent", "localhost:8000"))
 ## Built-in Handlers
 
 ### PING Handler
+
 ```python
 # Automatically responds to PING with PONG
 # No agent code needed - handled by server
@@ -99,6 +104,7 @@ asyncio.run(agent_websocket_listener("my-agent", "localhost:8000"))
 ```
 
 ### REQUEST_COINS Handler
+
 ```python
 # Handles coin requests with approval workflow
 # Supports automatic, AI, and manual approval modes
@@ -133,6 +139,7 @@ asyncio.run(agent_websocket_listener("my-agent", "localhost:8000"))
 ## Migration Steps
 
 ### Step 1: Update Agent Code
+
 ```python
 # OLD: Polling implementation
 def poll_messages(agent_id: str):
@@ -152,6 +159,7 @@ async def websocket_listener(agent_id: str):
 ```
 
 ### Step 2: Remove PONG Handler Code
+
 ```python
 # OLD: Manual PONG handling
 if "PING" in message["content"]:
@@ -166,6 +174,7 @@ if "PING" in message["content"]:
 ```
 
 ### Step 3: Update Message Sending
+
 ```python
 # OLD: HTTP POST
 requests.post(f"{coordinator_url}/v1/agent/messages/send", {
@@ -183,6 +192,7 @@ await websocket.send(json.dumps({
 ```
 
 ### Step 4: Add Connection Handling
+
 ```python
 async def websocket_listener(agent_id: str):
     uri = f"ws://{coordinator_url}/v1/agent/ws/{agent_id}"
@@ -207,11 +217,13 @@ async def websocket_listener(agent_id: str):
 ## API Endpoints
 
 ### WebSocket Endpoint
+
 ```
 WS /v1/agent/ws/{agent_id}
 ```
 
 ### Status Endpoint
+
 ```bash
 GET /v1/agent/ws/status
 
@@ -227,6 +239,7 @@ Response:
 ```
 
 ### Fallback Send Endpoint
+
 ```bash
 POST /v1/agent/messages/send
 
@@ -238,6 +251,7 @@ POST /v1/agent/messages/send
 ## Testing
 
 ### Test WebSocket Connection
+
 ```python
 import asyncio
 import websockets
@@ -262,6 +276,7 @@ asyncio.run(test_connection())
 ```
 
 ### Test PING/PONG
+
 ```bash
 # Connect to WebSocket
 wscat -c ws://localhost:8000/v1/agent/ws/test-agent
@@ -304,6 +319,7 @@ async def hybrid_listener(agent_id: str):
 ## Monitoring
 
 ### Monitor WebSocket Status
+
 ```bash
 # Check active connections
 curl http://localhost:8000/v1/agent/ws/status
@@ -313,6 +329,7 @@ tail -f coordinator.log | grep "WebSocket"
 ```
 
 ### Metrics to Track
+
 - Active WebSocket connections
 - Message delivery latency
 - Handler execution time
@@ -321,6 +338,7 @@ tail -f coordinator.log | grep "WebSocket"
 ## Troubleshooting
 
 ### Connection Issues
+
 ```python
 # Ensure WebSocket URL is correct
 # Use ws:// for HTTP, wss:// for HTTPS
@@ -328,6 +346,7 @@ ws://localhost:8000/v1/agent/ws/{agent_id}
 ```
 
 ### Handler Not Triggering
+
 ```python
 # Check handler registration
 curl http://localhost:8000/v1/agent/ws/status
@@ -341,6 +360,7 @@ curl http://localhost:8000/v1/agent/ws/status
 ```
 
 ### Messages Not Delivered
+
 ```python
 # Check if recipient is connected
 curl http://localhost:8000/v1/agent/ws/status
@@ -352,6 +372,7 @@ curl http://localhost:8000/v1/agent/ws/status
 ## Future Enhancements
 
 ### Custom Handlers
+
 ```python
 # Register custom handlers
 from coordinator_api.contexts.agent.routers.agent_websocket import message_listener
@@ -364,6 +385,7 @@ message_listener.register_handler("CUSTOM", custom_handler)
 ```
 
 ### Message Encryption
+
 ```python
 # Add encryption to WebSocket messages
 from coordinator_api.agent_coordinator.encryption.message_encryption import encrypt_message
@@ -373,6 +395,7 @@ await websocket.send(encrypted)
 ```
 
 ### Multi-Agent Coordination
+
 ```python
 # Use WebSocket for real-time coordination
 await websocket.send(json.dumps({
@@ -385,6 +408,7 @@ await websocket.send(json.dumps({
 ## Support
 
 For issues or questions:
+
 - Check Coordinator logs: `tail -f coordinator.log`
 - Test WebSocket status: `GET /v1/agent/ws/status`
 - Review handler registration in logs

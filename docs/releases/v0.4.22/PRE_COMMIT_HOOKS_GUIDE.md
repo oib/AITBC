@@ -35,6 +35,7 @@ pre-commit run ruff ruff-format mypy
 Hooks run automatically on `git commit` for staged files. If a hook fails, the commit will be blocked. Fix the issues and try again.
 
 To bypass hooks (not recommended):
+
 ```bash
 git commit --no-verify
 ```
@@ -42,11 +43,13 @@ git commit --no-verify
 ## Available Hooks
 
 ### Python
+
 - **ruff**: Linting and formatting (replaces black, isort, flake8, pydocstyle, pyupgrade)
 - **mypy**: Type checking
 - **bandit**: Security scanning
 
 ### General
+
 - **trailing-whitespace**: Remove trailing whitespace
 - **end-of-file-fixer**: Ensure newline at end of file
 - **check-yaml**: Validate YAML syntax
@@ -57,13 +60,16 @@ git commit --no-verify
 - **mixed-line-ending**: Ensure consistent line endings (LF)
 
 ### Configuration Files
+
 - **yamllint**: YAML linting with custom config
 - **markdownlint**: Markdown linting (excludes docs/archive)
 
 ### JavaScript/TypeScript
+
 - **eslint**: JavaScript/TypeScript linting for packages/js and cli
 
 ### Shell Scripts
+
 - **shellcheck**: Shell script linting
 
 ## Configuration
@@ -84,6 +90,7 @@ git diff .pre-commit-config.yaml
 ## Exclusions
 
 Hooks exclude common directories:
+
 - venv/, .venv/ (Python virtual environments)
 - build/, dist/ (Build artifacts)
 - docs/archive/ (Archived documentation)
@@ -91,16 +98,21 @@ Hooks exclude common directories:
 ## Troubleshooting
 
 ### Hook fails but you think it's wrong
+
 Check the specific hook documentation and configuration. Some rules may need adjustment for the project.
 
 ### Pre-commit not running
+
 Ensure hooks are installed:
+
 ```bash
 pre-commit install
 ```
 
 ### Slow execution
+
 Run hooks on specific files only:
+
 ```bash
 pre-commit run <hook-name> <files...>
 ```

@@ -74,6 +74,7 @@ aitbc monitor dashboard --refresh 5 --duration 60
 ```
 
 **Expected output (one frame):**
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ AITBC Dashboard ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Refreshing every 5s | Elapsed: 3s
@@ -99,6 +100,7 @@ aitbc monitor metrics --period 24h --export /tmp/aitbc-metrics.json
 ```
 
 **Expected output:**
+
 ```
 Metrics exported to /tmp/aitbc-metrics.json
 period: 24h
@@ -128,6 +130,7 @@ aitbc monitor alerts add --name miner-watch --type miner_offline --threshold 1 -
 ```
 
 **Expected output:**
+
 ```
 Alert 'miner-watch' added
 name: miner-watch
@@ -145,6 +148,7 @@ aitbc monitor alerts list
 ```
 
 **Expected output:**
+
 ```
 - name: miner-watch
   type: miner_offline
@@ -160,6 +164,7 @@ aitbc monitor alerts test --name miner-watch
 ```
 
 **Expected output:**
+
 ```
 status: sent
 response_code: 200
@@ -170,6 +175,7 @@ Remove an alert:
 ```bash
 aitbc monitor alerts remove --name miner-watch
 ```
+
 ```
 Alert 'miner-watch' removed
 ```
@@ -183,6 +189,7 @@ aitbc monitor history --period 7d
 ```
 
 **Expected output:**
+
 ```
 period: 7d
 since: 2026-06-18T12:00:00
@@ -203,6 +210,7 @@ aitbc explorer chain-head
 ```
 
 **Expected output:**
+
 ```json
 {
   "chain_id": "ait-hub.aitbc.bubuit.net",
@@ -221,6 +229,7 @@ aitbc explorer latest-blocks --limit 3
 ```
 
 **Expected output:**
+
 ```json
 [
   {"height": 128452, "hash": "0xabc123...", "tx_count": 2, "timestamp": "2026-06-25T12:00:00Z"},
@@ -234,6 +243,7 @@ aitbc explorer non-empty-blocks --limit 3
 ```
 
 **Expected output:**
+
 ```json
 [
   {"height": 128452, "hash": "0xabc123...", "tx_count": 2, "timestamp": "2026-06-25T12:00:00Z"},

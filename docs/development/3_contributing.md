@@ -10,18 +10,21 @@ We welcome contributions from the community! This guide will help you get starte
 ## Ways to Contribute
 
 ### Code Contributions
+
 - Fix bugs
 - Add features
 - Improve performance
 - Write tests
 
 ### Documentation
+
 - Improve docs
 - Add examples
 - Translate content
 - Fix typos
 
 ### Community
+
 - Answer questions
 - Report issues
 - Share feedback
@@ -30,12 +33,14 @@ We welcome contributions from the community! This guide will help you get starte
 ## Getting Started
 
 ### 1. Fork Repository
+
 ```bash
 git clone https://github.com/your-username/aitbc.git
 cd aitbc
 ```
 
 ### 2. Setup Development Environment
+
 ```bash
 # Install dependencies
 pip install -r requirements-dev.txt
@@ -48,6 +53,7 @@ aitbc dev start
 ```
 
 ### 3. Create Branch
+
 ```bash
 git checkout -b feature/your-feature-name
 ```
@@ -55,12 +61,14 @@ git checkout -b feature/your-feature-name
 ## Development Workflow
 
 ### Code Style
+
 - Follow PEP 8 for Python
 - Use ESLint for JavaScript
 - Write clear commit messages
 - Add tests for new features
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest
@@ -73,6 +81,7 @@ pytest --cov=aitbc
 ```
 
 ### Submitting Changes
+
 1. Push to your fork
 2. Create pull request
 3. Wait for review

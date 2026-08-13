@@ -84,6 +84,7 @@ aitbc marketplace list \
 ```
 
 **Expected output:**
+
 ```
 Chain listed successfully! Listing ID: chain_listing_20260625143012
 
@@ -115,6 +116,7 @@ aitbc marketplace search --status active
 ```
 
 **Expected output:**
+
 ```
 Chain Listings
 ==============
@@ -133,6 +135,7 @@ aitbc marketplace buy chain_listing_20260625143012 buyer-agent-01 --payment cryp
 ```
 
 **Expected output:**
+
 ```
 Purchase initiated! Transaction ID: tx_abc123def456789
 
@@ -154,6 +157,7 @@ aitbc marketplace complete tx_abc123def456789 0x9f8e7d6c5b4a3928f1e0d2c3b4a59687
 ```
 
 **Expected output:**
+
 ```
 Transaction tx_abc123def456789 completed successfully!
 

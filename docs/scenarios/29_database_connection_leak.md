@@ -86,6 +86,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
 ```
 
 **Expected output:**
+
 ```
 Test 1: SQLiteDatabaseService with open connection, no close...
   Connections opened: 1
@@ -118,6 +119,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
 ```
 
 **Expected output:**
+
 ```
 Test 2: SQLiteDatabaseService with context manager...
 PASS: no warning when using context manager
@@ -127,7 +129,7 @@ PASS: no warning when using context manager
 
 ## Code Examples
 
-### B7 Fix: __del__, close(), Context Manager Support
+### B7 Fix: **del**, close(), Context Manager Support
 
 ```python
 # aitbc/database/service.py

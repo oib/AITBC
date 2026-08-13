@@ -13,6 +13,7 @@ AITBC v0.4.7 adds multi-GPU server support, enabling precise hardware binding fo
 The marketplace now supports multi-GPU servers by capturing GPU device ID and UUID from nvidia-smi.
 
 ### nvidia-smi Output Parsing
+
 ```
 GPU 0: NVIDIA GeForce RTX 4060 Ti (UUID: GPU-ba5c6553-6396-ab66-5706-17e6de30a93a)
 GPU 1: NVIDIA GeForce RTX 4090 (UUID: GPU-abc123...)

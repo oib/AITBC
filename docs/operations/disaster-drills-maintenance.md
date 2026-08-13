@@ -24,6 +24,7 @@ This document defines disaster recovery drill procedures and maintenance require
 ### Drill Procedures
 
 #### Pre-Drill Preparation
+
 1. Define drill scenario and objectives
 2. Notify participants in advance
 3. Prepare test environment (if needed)
@@ -31,6 +32,7 @@ This document defines disaster recovery drill procedures and maintenance require
 5. Establish success criteria
 
 #### During Drill
+
 1. Execute drill according to scenario
 2. Document actions and timing
 3. Record issues and blockers
@@ -38,6 +40,7 @@ This document defines disaster recovery drill procedures and maintenance require
 5. Communicate progress
 
 #### Post-Drill Review
+
 1. Collect metrics and observations
 2. Identify gaps and improvements
 3. Update procedures and documentation
@@ -93,18 +96,21 @@ Next Drill: [Date]
 ### Monitoring
 
 #### Backup Monitoring
+
 - Backup completion status
 - Backup size and duration
 - Backup integrity checks
 - Storage capacity
 
 #### Recovery Monitoring
+
 - Recovery time tracking
 - Recovery success rate
 - System health post-recovery
 - Error rates post-recovery
 
 #### Drill Monitoring
+
 - Drill completion rate
 - Drill success rate
 - Participant feedback
@@ -113,17 +119,20 @@ Next Drill: [Date]
 ## Maintenance
 
 ### Plan Review
+
 - **Frequency:** Quarterly
 - **Owner:** Operations Manager
 - **Participants:** Engineering, DevOps, Security
 - **Output:** Updated plan version
 
 ### Contact Updates
+
 - **Frequency:** Monthly
 - **Owner:** HR/Operations
 - **Process:** Verify all contacts are current
 
 ### Procedure Updates
+
 - **Frequency:** As needed
 - **Trigger:** System changes, incident lessons learned
 - **Process:** Update documentation, notify team

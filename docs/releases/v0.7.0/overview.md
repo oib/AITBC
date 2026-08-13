@@ -28,12 +28,14 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets)
 - [Already Fixed / Exists](#already-fixed--exists-verified--no-work-needed)
 - [Architecture](#architecture-bridge-basics-v070)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [BridgeClient + Bridge Types](./agent-a.md#a1-bridgeclient--bridge-types)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Bridge Config + Constants](./agent-b.md#b1-bridge-config--constants)

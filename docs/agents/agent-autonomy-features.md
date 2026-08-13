@@ -22,11 +22,13 @@ All endpoints are available at `http://localhost:8203/v1/agent/*` and require ad
 ### Distributed Decision Making
 
 #### Propose Decision
+
 **POST** `/v1/agent/decision/propose`
 
 Create a new decision proposal for agent voting.
 
 **Request Body:**
+
 ```json
 {
   "decision_type": "resource_allocation",
@@ -41,6 +43,7 @@ Create a new decision proposal for agent voting.
 ```
 
 **Valid Decision Types:**
+
 - `resource_allocation` - Resource allocation decisions
 - `pricing_adjustment` - Pricing adjustment decisions
 - `task_assignment` - Task assignment decisions
@@ -48,6 +51,7 @@ Create a new decision proposal for agent voting.
 - `emergency_response` - Emergency response decisions
 
 **Response:**
+
 ```json
 {
   "decision_id": "uuid",
@@ -59,11 +63,13 @@ Create a new decision proposal for agent voting.
 ```
 
 #### Submit Vote
+
 **POST** `/v1/agent/decision/vote`
 
 Submit an agent vote on a decision.
 
 **Request Body:**
+
 ```json
 {
   "decision_id": "uuid",
@@ -75,11 +81,13 @@ Submit an agent vote on a decision.
 ```
 
 **Valid Vote Options:**
+
 - `approve` - Approve the decision
 - `reject` - Reject the decision
 - `abstain` - Abstain from voting
 
 **Response:**
+
 ```json
 {
   "vote_id": "uuid",
@@ -90,11 +98,13 @@ Submit an agent vote on a decision.
 ```
 
 #### Get Decision Result
+
 **GET** `/v1/agent/decision/{decision_id}`
 
 Get the current result of a decision.
 
 **Response:**
+
 ```json
 {
   "decision_id": "uuid",
@@ -114,15 +124,18 @@ Get the current result of a decision.
 ```
 
 #### List Decisions
+
 **GET** `/v1/agent/decision/`
 
 List all decisions with optional filtering.
 
 **Query Parameters:**
+
 - `decision_type` (optional) - Filter by decision type
 - `status` (optional) - Filter by status
 
 **Response:**
+
 ```json
 {
   "decisions": [...],
@@ -133,11 +146,13 @@ List all decisions with optional filtering.
 ### Self-Healing and Error Recovery
 
 #### Report Health
+
 **POST** `/v1/agent/health/report`
 
 Report health status for an agent or service.
 
 **Request Body:**
+
 ```json
 {
   "agent_id": "agent-123",
@@ -151,12 +166,14 @@ Report health status for an agent or service.
 ```
 
 **Valid Health Status:**
+
 - `healthy` - Service is operating normally
 - `degraded` - Service is degraded but functional
 - `unhealthy` - Service is not functioning
 - `recovering` - Service is in recovery process
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -165,11 +182,13 @@ Report health status for an agent or service.
 ```
 
 #### Report Error
+
 **POST** `/v1/agent/health/error`
 
 Report an error for self-healing analysis.
 
 **Request Body:**
+
 ```json
 {
   "agent_id": "agent-123",
@@ -185,6 +204,7 @@ Report an error for self-healing analysis.
 ```
 
 **Valid Error Types:**
+
 - `network_error` - Network-related errors
 - `timeout_error` - Timeout errors
 - `authentication_error` - Authentication failures
@@ -194,12 +214,14 @@ Report an error for self-healing analysis.
 - `unknown_error` - Unknown errors
 
 **Valid Severity Levels:**
+
 - `low` - Low severity
 - `medium` - Medium severity
 - `high` - High severity
 - `critical` - Critical severity
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -208,15 +230,18 @@ Report an error for self-healing analysis.
 ```
 
 #### Get Health Status
+
 **GET** `/v1/agent/health/status`
 
 Get health status with optional filtering.
 
 **Query Parameters:**
+
 - `agent_id` (optional) - Filter by agent ID
 - `service_name` (optional) - Filter by service name
 
 **Response:**
+
 ```json
 [
   {
@@ -232,15 +257,18 @@ Get health status with optional filtering.
 ```
 
 #### Get Recovery History
+
 **GET** `/v1/agent/health/recovery-history`
 
 Get recovery history with optional filtering.
 
 **Query Parameters:**
+
 - `agent_id` (optional) - Filter by agent ID
 - `limit` (optional) - Maximum number of results (default: 100)
 
 **Response:**
+
 ```json
 [
   {
@@ -256,11 +284,13 @@ Get recovery history with optional filtering.
 ### Autonomous Resource Management
 
 #### Register Resource
+
 **POST** `/v1/agent/resource/register`
 
 Register a new resource for autonomous management.
 
 **Request Body:**
+
 ```json
 {
   "resource_id": "GPU-A100-001",
@@ -278,6 +308,7 @@ Register a new resource for autonomous management.
 ```
 
 **Valid Resource Types:**
+
 - `gpu` - GPU resources
 - `cpu` - CPU resources
 - `memory` - Memory resources
@@ -285,6 +316,7 @@ Register a new resource for autonomous management.
 - `network` - Network resources
 
 **Valid Resource Status:**
+
 - `available` - Resource is available for allocation
 - `allocated` - Resource is fully allocated
 - `reserved` - Resource is reserved
@@ -292,6 +324,7 @@ Register a new resource for autonomous management.
 - `offline` - Resource is offline
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -300,11 +333,13 @@ Register a new resource for autonomous management.
 ```
 
 #### Allocate Resource
+
 **POST** `/v1/agent/resource/allocate`
 
 Allocate resources based on strategy.
 
 **Request Body:**
+
 ```json
 {
   "resource_type": "gpu",
@@ -320,12 +355,14 @@ Allocate resources based on strategy.
 ```
 
 **Valid Allocation Strategies:**
+
 - `demand_based` - Allocate based on demand (default)
 - `priority_based` - Allocate based on priority
 - `round_robin` - Round-robin allocation
 - `least_loaded` - Allocate to least loaded resource
 
 **Response:**
+
 ```json
 {
   "allocation_id": "uuid",
@@ -338,11 +375,13 @@ Allocate resources based on strategy.
 ```
 
 #### Release Resource
+
 **POST** `/v1/agent/resource/release`
 
 Release allocated resources.
 
 **Request Body:**
+
 ```json
 {
   "allocation_id": "uuid",
@@ -351,6 +390,7 @@ Release allocated resources.
 ```
 
 **Response:**
+
 ```json
 {
   "allocation_id": "uuid",
@@ -361,11 +401,13 @@ Release allocated resources.
 ```
 
 #### Adjust Pricing
+
 **POST** `/v1/agent/resource/pricing/adjust`
 
 Automatically adjust pricing based on utilization.
 
 **Request Body:**
+
 ```json
 {
   "resource_type": "gpu"
@@ -373,6 +415,7 @@ Automatically adjust pricing based on utilization.
 ```
 
 **Response:**
+
 ```json
 {
   "resource_id": "gpu:pool",
@@ -385,17 +428,20 @@ Automatically adjust pricing based on utilization.
 ```
 
 **Pricing Logic:**
+
 - Utilization > 80%: Increase price by 20%
 - Utilization > 60%: Increase price by 10%
 - Utilization < 30%: Decrease price by 10%
 - Otherwise: No change
 
 #### Get Resource Pools
+
 **GET** `/v1/agent/resource/pools`
 
 Get all resource pools.
 
 **Response:**
+
 ```json
 [
   {
@@ -411,14 +457,17 @@ Get all resource pools.
 ```
 
 #### Get Allocations
+
 **GET** `/v1/agent/resource/allocations`
 
 Get allocations with optional filtering.
 
 **Query Parameters:**
+
 - `agent_id` (optional) - Filter by agent ID
 
 **Response:**
+
 ```json
 [
   {

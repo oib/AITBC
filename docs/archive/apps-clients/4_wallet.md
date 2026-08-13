@@ -31,6 +31,7 @@ aitbc wallet balance --detailed
 ```
 
 Shows:
+
 - Available balance
 - Pending transactions
 - Locked tokens

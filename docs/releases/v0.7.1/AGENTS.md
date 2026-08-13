@@ -8,6 +8,7 @@
 **Goal**: Add the security-critical multi-signature layer to the cross-chain bridge. Replace the current "accepts any valid secp256k1 signer" proof verification (`_verify_proposer_signature` in `cross_chain/bridge.py:477-523`) with proper M-of-N threshold signature validation against a per-chain validator set. Add block header signatures so proposers are cryptographically bound to the blocks they produce. Add CLI commands for security status and validator registration.
 
 > **Rescope from original change.log**: The original v0.7.1 change.log bundled multi-sig + cross-chain sig verification + time-locks + audit trail into one release. This is too much for a single release cycle. Per the release-planning analysis, v0.7.1 is now scoped to **multi-sig core only**:
+>
 > - ✅ v0.7.1: Validator set registry, threshold sigs, block header signing, multi-sig lock/confirm, CLI, threat model
 > - ➡️ v0.7.2: Time-locks (value-tiered), audit trail (cryptographic chaining), light client verification, Merkle proof verification, finality thresholds, oracle stub
 >
@@ -36,6 +37,7 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation-2026-06-29)
 - [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
 - [Architecture](./overview.md#architecture-bridge-security-v071)
@@ -43,6 +45,7 @@ This release documentation has been split into topic-focused files:
 - [Phase 0 - Threat Model](./overview.md#phase-0--threat-model-prerequisite)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Extend Bridge Types](./agent-a.md#a1-extend-bridge-types)
@@ -51,6 +54,7 @@ This release documentation has been split into topic-focused files:
 - [BridgeClient Extensions + Unit Tests](./agent-a.md#a4-bridgeclient-extensions--unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Threat Model Document](./agent-b.md#b1-threat-model-document)
@@ -177,6 +181,7 @@ Phase 0 (prerequisite — either agent):
 Create `docs/architecture/bridge-threat-model.md` — bridge-specific threat model addendum to the existing `docs/security/threat-model.md` (which covers general platform threats but NOT bridge-specific ones).
 
 Must cover:
+
 - **Attack surfaces**: bridge RPC endpoints, proof verification path, validator set registry, block header signatures, multi-sig aggregation
 - **Attack vectors**:
   - Forged proofs (attacker fabricates lock proof without actual lock) — mitigated by multi-sig + block anchoring
@@ -201,6 +206,7 @@ Must cover:
 **Working directory**: `/opt/aitbc/aitbc/bridge/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && ./venv/bin/python -m ruff check aitbc/bridge/ tests/unit/test_bridge_security.py && ./venv/bin/python -m pytest tests/unit/test_bridge_security.py tests/unit/test_bridge_sdk.py -q -o addopts=""
 ```
@@ -274,6 +280,7 @@ class ThresholdProof:
 ```
 
 **Extend BridgeProof** — add optional `validator_signatures` field:
+
 ```python
 @dataclass
 class BridgeProof:
@@ -283,6 +290,7 @@ class BridgeProof:
 ```
 
 **Extend BridgeConfig** — add multi-sig config:
+
 ```python
 @dataclass
 class BridgeConfig:
@@ -524,6 +532,7 @@ async def security_status(self) -> dict[str, Any]:
 ```
 
 **`tests/unit/test_bridge_security.py`** — unit tests for A1-A4:
+
 - `test_validator_info_dataclass` — all fields
 - `test_validator_set_addresses_property` — active validators only
 - `test_validator_set_active_count` — counts active
@@ -563,6 +572,7 @@ async def security_status(self) -> dict[str, Any]:
 **Prerequisite**: Agent B must commit v0.7.0 work (currently uncommitted in working tree) before starting v0.7.1.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/config.py apps/blockchain-node/src/aitbc_chain/base_models.py apps/blockchain-node/src/aitbc_chain/consensus/poa.py apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py apps/blockchain-node/src/aitbc_chain/rpc/bridge.py cli/aitbc_cli/commands/bridge.py aitbc/constants.py
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v071_bridge_security.py -q -o addopts="" --timeout=30
@@ -590,6 +600,7 @@ Create `docs/architecture/bridge-threat-model.md` — see Phase 0 section above 
 #### B2: Bridge Security Config + Constants
 
 In `aitbc/constants.py`, add:
+
 ```python
 # Bridge multi-sig defaults (v0.7.1)
 BRIDGE_MULTISIG_DEFAULT_THRESHOLD = 3    # M-of-N: minimum signatures
@@ -600,6 +611,7 @@ BRIDGE_BLOCK_SIGNATURE_REQUIRED = True   # require block header signatures
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/config.py`, add to `ChainSettings` (near existing `bridge_release_enabled` at line 285):
+
 ```python
     # Bridge multi-sig configuration (v0.7.1)
     bridge_multisig_enabled: bool = False          # require multi-sig for confirm
@@ -613,6 +625,7 @@ In `apps/blockchain-node/src/aitbc_chain/config.py`, add to `ChainSettings` (nea
 #### B3: Block Header Signatures
 
 In `apps/blockchain-node/src/aitbc_chain/base_models.py`, add `signature` field to `Block` model (line 25-76):
+
 ```python
     # Block header signature (v0.7.1) — secp256k1 signature over the block hash
     # by the proposer. Empty for legacy blocks (pre-v0.7.1). Verified by PoA
@@ -621,6 +634,7 @@ In `apps/blockchain-node/src/aitbc_chain/base_models.py`, add `signature` field 
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
+
 - On block proposal: sign the block hash with the proposer's private key, set `block.signature`
 - On block validation: when `bridge_block_signature_required=True`, verify `block.signature` recovers to `block.proposer` using `aitbc.crypto.crypto.recover_signer()`
 - Backward compatibility: if `block.signature == ""`, skip verification (legacy block)
@@ -630,6 +644,7 @@ In `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
 #### B4: BridgeValidator SQLModel Table
 
 Create a `BridgeValidator` SQLModel table for persisting validator registrations:
+
 ```python
 class BridgeValidator(SQLModel, table=True):
     """Bridge validator registration (v0.7.1)."""
@@ -737,6 +752,7 @@ Create `apps/blockchain-node/tests/test_v071_bridge_security.py`:
 ### v0.7.0 Agent B Commit
 
 Agent B's v0.7.0 work (B1-B7) is currently uncommitted in the working tree:
+
 - `aitbc/constants.py` (bridge constants)
 - `apps/blockchain-node/src/aitbc_chain/config.py` (bridge config fields)
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (refund_transfer method)

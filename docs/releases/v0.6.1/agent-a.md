@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -88,6 +89,7 @@ class DependencyGraph:
 ```
 
 **Conflict definition**: Two transactions `A` and `B` conflict if:
+
 - `A.write_set ∩ B.write_set ≠ ∅` (both write to the same account), OR
 - `A.read_set ∩ B.write_set ≠ ∅` (A reads what B writes), OR
 - `A.write_set ∩ B.read_set ≠ ∅` (A writes what B reads)
@@ -95,6 +97,7 @@ class DependencyGraph:
 **Grouping algorithm**: Greedy assignment. For each tx (in index order), assign it to the first existing group where it has no conflicts with any member. If it conflicts with all existing groups, create a new group. This maximizes parallelism within each group boundary.
 
 **Determinism**: The grouping is deterministic because:
+
 - Txs are processed in index order
 - Group assignment is greedy (first-fit)
 - Within each group, txs are sorted by index
@@ -153,6 +156,7 @@ class ParallelExecutor:
 ```
 
 **Key design decisions**:
+
 - Uses `ThreadPoolExecutor` (not asyncio) because `compute_state_delta` is CPU-bound, not I/O-bound. The GIL limits true parallelism for pure Python, but the state delta computation involves enough Python bytecode to benefit from thread-level parallelism on multi-core systems. If benchmarks show GIL contention, a `ProcessPoolExecutor` variant can be added later.
 - Groups are executed **sequentially** (not all groups in parallel) because groups represent dependency levels — group 2's txs may depend on group 1's state changes.
 - Within each group, tasks are executed in **parallel** since they don't conflict.
@@ -165,6 +169,7 @@ Export from `aitbc/parallel/__init__.py` as `ParallelExecutor`.
 ## A3: Unit tests
 
 **`tests/unit/test_dependency_graph.py`**:
+
 - `test_no_conflicts_all_in_one_group` — 5 txs, all different accounts → 1 group of 5
 - `test_all_conflict_separate_groups` — 5 txs, all same account → 5 groups of 1
 - `test_partial_conflict` — 3 txs where tx1 and tx3 conflict, tx2 is independent → 2 groups
@@ -176,6 +181,7 @@ Export from `aitbc/parallel/__init__.py` as `ParallelExecutor`.
 - `test_index_ordering_within_group` — within a group, txs sorted by index
 
 **`tests/unit/test_parallel_executor.py`**:
+
 - `test_execute_groups_parallel` — 3 groups, verify results in correct order
 - `test_execute_sequential` — fallback path
 - `test_empty_groups` — empty input → empty output

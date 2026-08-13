@@ -5,6 +5,7 @@ Overview of all components in the AITBC platform, their status, and documentatio
 ## Core Components
 
 ### Blockchain Node
+
 <span class="component-status live">● Live</span>
 
 PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
@@ -12,6 +13,7 @@ PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehen
 [Learn More →](../development/1_overview.md#blockchain-node)
 
 ### Coordinator API
+
 <span class="component-status live">● Live</span>
 
 FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.
@@ -19,6 +21,7 @@ FastAPI service for job submission, miner registration, and receipt management. 
 [Learn More →](../development/1_overview.md#coordinator-api)
 
 ### Marketplace Web
+
 <span class="component-status live">● Live</span>
 
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
@@ -26,6 +29,7 @@ Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and m
 [Learn More →](../blockchain/0_readme.md)
 
 ### Blockchain Explorer
+
 <span class="component-status live">● Live</span>
 
 Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8016.
@@ -33,6 +37,7 @@ Agent-first Python FastAPI blockchain explorer with complete API and built-in HT
 [Learn More →](../18_explorer/)
 
 ### Wallet Daemon
+
 <span class="component-status live">● Live</span>
 
 Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.
@@ -40,6 +45,7 @@ Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and r
 [Learn More →](7_wallet.md)
 
 ### Trade Exchange
+
 <span class="component-status live">● Live</span>
 
 Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
@@ -47,6 +53,7 @@ Bitcoin-to-AITBC exchange with QR payments, user management, and real-time tradi
 [Learn More →](6_trade-exchange.md)
 
 ### ZK Circuits Engine
+
 <span class="component-status live">● Live</span>
 
 Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inference verification, training verification, and cryptographic proof generation using Groth16.
@@ -54,6 +61,7 @@ Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inf
 [Learn More →](../releases/v0.4.2/zk-circuits.md)
 
 ### FHE Service
+
 <span class="component-status live">● Live</span>
 
 Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support.
@@ -61,6 +69,7 @@ Fully Homomorphic Encryption service for encrypted computation on sensitive ML d
 [Learn More →](../development/fhe-service.md)
 
 ### Enhanced Edge GPU
+
 <span class="component-status live">● Live</span>
 
 Consumer GPU optimization with dynamic discovery, latency measurement, and edge-aware scheduling. Supports Turing, Ampere, and Ada Lovelace architectures.
@@ -141,6 +150,7 @@ docker-compose logs -f
 ## Support
 
 For component-specific issues:
+
 - Check individual documentation pages
 - Visit the [GitHub repository](https://github.com/aitbc/platform)
 - Contact: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)
