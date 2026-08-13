@@ -84,9 +84,8 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
    - Rewrite `docs/apps/README.md` as a catalog of current `apps/*` using real service names, `systemctl` commands, and links to `docs/reference/SERVICE_PORTS.md`.
 
 2. **Next slices**:
-   - Create/update `docs/apps/<app>/README.md` for each missing app, generated from `apps/<app>/README.md`.
    - Enforce port single-source-of-truth by replacing inline port lists with links to `docs/reference/SERVICE_PORTS.md`.
-   - Continue refreshing other stale docs surfaced by the inventory (e.g., `docs/testing/MICROSERVICES_TESTING_GUIDE.md`, `docs/infrastructure/migration/microservices-migration-status.md`).
+   - Continue refreshing other stale docs surfaced by the inventory (e.g., `docs/testing/MICROSERVICES_TESTING_GUIDE.md`, `docs/infrastructure/migration/microservices-migration-status.md`, `docs/agents/AGENT_COMMUNICATION.md`, `docs/cli/CLI_ARCHITECTURE.md`).
 
 3. **Continuous validation**:
    - Re-run `bash scripts/validate_docs.sh` after every slice.
@@ -106,4 +105,7 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 | `docs/QUICK_REFERENCE.md` | rewrite to current CLI and ports | done |
 | `docs/agent-coordinator/CLI.md` | rewrite to current `aitbc` CLI and port 8107 | done |
 | `docs/development/1_overview.md` | rewrite to current stack and mark designed features | done |
-| `docs/apps/<missing>/README.md` | create | pending |
+| `docs/apps/<missing>/README.md` | created 19 app landing pages | done |
+| `docs/apps/README.md` | regenerated catalog to use new app docs | done |
+| Port single-source-of-truth cleanup | replace inline old ports with links | pending |
+| Remaining stale current docs | e.g. agents, cli, testing, infrastructure | pending |
