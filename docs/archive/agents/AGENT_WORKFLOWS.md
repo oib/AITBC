@@ -1,10 +1,14 @@
 # Agent Workflows
 
+> **Archived**: This document describes the v0.4.6 workflow orchestration design. The current
+> agent workflow commands are in `cli/aitbc_cli/commands/workflow.py` and `cli/aitbc_cli/commands/agent.py`.
+
 This document describes the workflow orchestration system for multi-agent coordination in AITBC v0.4.6.
 
 ## Overview
 
 The workflow orchestration system enables:
+
 - Multi-step agent workflows with dependencies
 - Workflow execution with state tracking
 - Workflow templates for common patterns
@@ -68,7 +72,7 @@ A workflow consists of multiple steps, each executed by a specific agent with de
 
 ## Creating Workflows
 
-### CLI
+### Create CLI
 
 ```bash
 aitbc agent workflow create \
@@ -79,6 +83,7 @@ aitbc agent workflow create \
 ```
 
 **workflow.json:**
+
 ```json
 [
   {
@@ -98,7 +103,7 @@ aitbc agent workflow create \
 ]
 ```
 
-### API
+### Create API
 
 ```bash
 curl -X POST http://localhost:9001/api/v1/agent/workflows \
@@ -121,7 +126,7 @@ curl -X POST http://localhost:9001/api/v1/agent/workflows \
 
 ## Executing Workflows
 
-### CLI
+### Execute CLI
 
 ```bash
 aitbc agent workflow execute \
@@ -131,6 +136,7 @@ aitbc agent workflow execute \
 ```
 
 **inputs.json:**
+
 ```json
 {
   "audio_file": "/path/to/audio.mp3",
@@ -138,7 +144,7 @@ aitbc agent workflow execute \
 }
 ```
 
-### API
+### Execute API
 
 ```bash
 curl -X POST http://localhost:9001/api/v1/agent/workflows/wf_20260604103000_abc12345/execute \
@@ -153,7 +159,7 @@ curl -X POST http://localhost:9001/api/v1/agent/workflows/wf_20260604103000_abc1
 
 ## Workflow Status
 
-### CLI
+### Status CLI
 
 ```bash
 aitbc agent workflow status \
@@ -161,13 +167,14 @@ aitbc agent workflow status \
   --coordinator-url http://localhost:9001
 ```
 
-### API
+### Status API
 
 ```bash
 curl http://localhost:9001/api/v1/agent/workflows/wf_20260604103000_abc12345/status
 ```
 
 **Response:**
+
 ```json
 {
   "execution_id": "exec_20260604103100_def67890",
@@ -190,19 +197,20 @@ curl http://localhost:9001/api/v1/agent/workflows/wf_20260604103000_abc12345/sta
 
 ## Listing Workflows
 
-### CLI
+### List CLI
 
 ```bash
 aitbc agent workflow list --coordinator-url http://localhost:9001
 ```
 
-### API
+### List API
 
 ```bash
 curl http://localhost:9001/api/v1/agent/workflows
 ```
 
 **Response:**
+
 ```json
 {
   "workflows": [
@@ -282,6 +290,7 @@ Steps that fail are automatically retried up to `max_retries` times. The retry c
 ### Step Failure
 
 If a step fails after all retries:
+
 - The workflow status is set to `failed`
 - The `error` field contains the error message
 - Subsequent dependent steps are skipped
@@ -327,6 +336,7 @@ curl -X POST http://localhost:9001/api/v1/agent/workflows/executions/exec_202606
 ## Persistence
 
 Workflows and executions are stored in Redis with a 24-hour TTL. This provides:
+
 - Fast access to workflow state
 - Automatic cleanup of old data
 - Persistence across service restarts
@@ -351,6 +361,7 @@ Workflows and executions are stored in Redis with a 24-hour TTL. This provides:
 ### Workflow Stuck in Running State
 
 If a workflow remains in `running` state:
+
 - Check if the agent-coordinator service is running
 - Verify Redis is accessible
 - Check agent status (agents may be offline)
@@ -359,6 +370,7 @@ If a workflow remains in `running` state:
 ### Step Failures
 
 If steps fail repeatedly:
+
 - Verify the agent is registered and healthy
 - Check agent capabilities match the action
 - Review agent logs for specific errors
@@ -368,6 +380,7 @@ If steps fail repeatedly:
 ### Redis Connection Issues
 
 If workflows cannot be persisted:
+
 - Verify Redis is running: `systemctl status redis`
 - Check Redis configuration in agent-coordinator config
 - Verify Redis URL: `redis://localhost:6379/1`
