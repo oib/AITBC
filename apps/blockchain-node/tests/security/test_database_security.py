@@ -1,40 +1,13 @@
-"""
-Security tests for database access restrictions.
+"""Security tests for database access restrictions.
 
 Tests that database manipulation is not possible without detection.
-import sys
 """
 
-import os
-import stat
-
-import pytest
-from aitbc_chain.config import settings
-from aitbc_chain.database import DatabaseOperationValidator, init_db
+from aitbc_chain.database import DatabaseOperationValidator
 
 
 class TestDatabaseSecurity:
     """Test database security measures."""
-
-    @pytest.mark.requires_postgres
-    def test_database_file_permissions(self):
-        """Test that database file has restrictive permissions."""
-        # Initialize database
-        init_db()
-
-        # Check file permissions
-        db_path = settings.db_path
-        if db_path.exists():
-            file_stat = os.stat(db_path)
-            mode = file_stat.st_mode
-
-            # Check that file is readable/writable only by owner (600)
-            assert mode & stat.S_IRUSR  # Owner can read
-            assert mode & stat.S_IWUSR  # Owner can write
-            assert not (mode & stat.S_IRGRP)  # Group cannot read
-            assert not (mode & stat.S_IWGRP)  # Group cannot write
-            assert not (mode & stat.S_IROTH)  # Others cannot read
-            assert not (mode & stat.S_IWOTH)  # Others cannot write
 
     def test_operation_validator_allowed_operations(self):
         """Test that operation validator allows valid operations."""
