@@ -76,6 +76,9 @@ git add docs/archive/ && git commit -m "docs(archive): archive OLD-GUIDE.md -- s
 | [SOCIAL-MEDIA-SETUP.md](./SOCIAL-MEDIA-SETUP.md) | Guide for configuring GitHub social preview cards and sharing metadata. | Project-internal -- setup instructions specific to the original project, not the template. |
 | [USER-JOURNEY-VALIDATION-REPORT.md](./USER-JOURNEY-VALIDATION-REPORT.md) | Validation report assessing the new-user journey through repository documentation (2025-10-08). | Completed deliverable -- findings were addressed; report preserved for reference. |
 | [apps-clients/](./apps-clients/) | Old client quick-start and job submission guides. | Superseded by `docs/getting-started/` and contained non-existent CLI commands. |
+| [cli/CLI_ARCHITECTURE.md](./cli/CLI_ARCHITECTURE.md) | Old CLI architecture based on `unified_cli.py`. | Superseded by `cli/aitbc_cli/core/main.py` and `cli/README.md`. |
+| [agents/AGENT_COMMUNICATION.md](./agents/AGENT_COMMUNICATION.md) | v0.4.6 agent communication guide (port 9001). | Superseded by `docs/agent-sdk/AGENT_COMMUNICATION_GUIDE.md` and current CLI commands. |
+| [agents/AGENT_WORKFLOWS.md](./agents/AGENT_WORKFLOWS.md) | v0.4.6 agent workflow orchestration guide. | Superseded by current CLI `workflow` and `agent` commands. |
 
 ## What NOT to Archive
 

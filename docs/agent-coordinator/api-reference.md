@@ -6,7 +6,7 @@
 ## Base URL
 
 ```
-http://localhost:9001
+http://localhost:8107
 ```
 
 ## Health Check
@@ -18,6 +18,7 @@ Check the health of the agent coordinator service.
 **Endpoint:** `GET /health`
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "healthy",
@@ -27,8 +28,9 @@ Check the health of the agent coordinator service.
 ```
 
 **Example:**
+
 ```bash
-curl http://localhost:9001/health
+curl http://localhost:8107/health
 ```
 
 ## Error Codes
@@ -49,6 +51,7 @@ Currently, rate limiting is not implemented. Future versions may include rate li
 ## WebSocket Support
 
 WebSocket support is planned for future releases to provide real-time updates on:
+
 - Agent status changes
 - Task distribution events
 - Load balancer metrics updates
@@ -58,13 +61,13 @@ WebSocket support is planned for future releases to provide real-time updates on
 The API follows OpenAPI 3.0 specification. An OpenAPI JSON schema can be generated from the FastAPI application by visiting:
 
 ```
-http://localhost:9001/openapi.json
+http://localhost:8107/openapi.json
 ```
 
 Interactive API documentation is available at:
 
 ```
-http://localhost:9001/docs
+http://localhost:8107/docs
 ```
 
 ## Related Topics

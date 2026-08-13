@@ -3,7 +3,7 @@
 **Last Updated:** 2026-06-30
 **Version:** 2.0 (Split into topic-focused files)
 
-> **Important:** This document describes the Agent Coordinator service. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the Agent Coordinator service. The Agent Coordinator service runs on port 8107. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 This guide provides operators with the knowledge to deploy, configure, monitor, and troubleshoot the AITBC Agent Coordinator service.
 
@@ -27,16 +27,19 @@ This guide has been split into topic-focused files for easier navigation:
 ## Quick Navigation
 
 **For New Operators:**
+
 1. Start with [Deployment](./operator-deployment.md)
 2. Review [Agent Registration](./operator-registration.md)
 3. Set up [Monitoring](./operator-monitoring.md)
 
 **For Operations:**
+
 1. Check [Performance Tuning](./operator-performance.md) for optimization
 2. Review [Security](./operator-security.md) for hardening
 3. Configure [Alerting](./operator-alerting.md) for proactive monitoring
 
 **For Troubleshooting:**
+
 - See [Troubleshooting](./operator-troubleshooting.md) for common issues and solutions
 - Use the troubleshooting checklist at the end of that file
 

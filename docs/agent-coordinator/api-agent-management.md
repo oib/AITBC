@@ -6,7 +6,7 @@
 ## Base URL
 
 ```
-http://localhost:9001
+http://localhost:8107
 ```
 
 ## Authentication
@@ -22,6 +22,7 @@ Register a new agent with the coordinator.
 **Endpoint:** `POST /agents/register`
 
 **Request Body:**
+
 ```json
 {
   "agent_id": "string (required)",
@@ -34,6 +35,7 @@ Register a new agent with the coordinator.
 ```
 
 **Parameters:**
+
 - `agent_id` (required): Unique identifier for the agent
 - `agent_type` (required): Type of agent (worker, provider, consumer, general)
 - `capabilities` (optional): Array of agent capabilities
@@ -42,6 +44,7 @@ Register a new agent with the coordinator.
 - `metadata` (optional): Additional metadata as key-value pairs
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -52,6 +55,7 @@ Register a new agent with the coordinator.
 ```
 
 **Response (422 Unprocessable Entity):**
+
 ```json
 {
   "detail": "Validation error message"
@@ -59,6 +63,7 @@ Register a new agent with the coordinator.
 ```
 
 **Response (500 Internal Server Error):**
+
 ```json
 {
   "detail": "Failed to register agent: {error message}"
@@ -66,8 +71,9 @@ Register a new agent with the coordinator.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST http://localhost:9001/agents/register \
+curl -X POST http://localhost:8107/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-agent",
@@ -86,6 +92,7 @@ Discover agents based on filtering criteria.
 **Endpoint:** `POST /agents/discover`
 
 **Request Body:**
+
 ```json
 {
   "status": "string (optional)",
@@ -96,12 +103,14 @@ Discover agents based on filtering criteria.
 ```
 
 **Parameters:**
+
 - `status` (optional): Filter by agent status (active, inactive, busy, stale)
 - `agent_type` (optional): Filter by agent type
 - `capabilities` (optional): Filter by required capabilities
 - `services` (optional): Filter by available services
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -129,6 +138,7 @@ Discover agents based on filtering criteria.
 ```
 
 **Response (500 Internal Server Error):**
+
 ```json
 {
   "detail": "Error discovering agents: {error message}"
@@ -136,8 +146,9 @@ Discover agents based on filtering criteria.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST http://localhost:9001/agents/discover \
+curl -X POST http://localhost:8107/agents/discover \
   -H "Content-Type: application/json" \
   -d '{
     "status": "active",
@@ -152,9 +163,11 @@ Retrieve detailed information about a specific agent.
 **Endpoint:** `GET /agents/{agent_id}`
 
 **URL Parameters:**
+
 - `agent_id` (required): The unique identifier of the agent
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -178,6 +191,7 @@ Retrieve detailed information about a specific agent.
 ```
 
 **Response (404 Not Found):**
+
 ```json
 {
   "detail": "Agent not found"
@@ -185,6 +199,7 @@ Retrieve detailed information about a specific agent.
 ```
 
 **Response (500 Internal Server Error):**
+
 ```json
 {
   "detail": "Error getting agent: {error message}"
@@ -192,8 +207,9 @@ Retrieve detailed information about a specific agent.
 ```
 
 **Example:**
+
 ```bash
-curl http://localhost:9001/agents/agent-agent
+curl http://localhost:8107/agents/agent-agent
 ```
 
 ### Update Agent Status
@@ -203,9 +219,11 @@ Update the status and load metrics of an agent.
 **Endpoint:** `PUT /agents/{agent_id}/status`
 
 **URL Parameters:**
+
 - `agent_id` (required): The unique identifier of the agent
 
 **Request Body:**
+
 ```json
 {
   "status": "string (required)",
@@ -219,10 +237,12 @@ Update the status and load metrics of an agent.
 ```
 
 **Parameters:**
+
 - `status` (required): New agent status (active, inactive, busy, stale)
 - `load_metrics` (optional): Object containing load metrics
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -234,6 +254,7 @@ Update the status and load metrics of an agent.
 ```
 
 **Response (422 Unprocessable Entity):**
+
 ```json
 {
   "detail": "Validation error message"
@@ -241,6 +262,7 @@ Update the status and load metrics of an agent.
 ```
 
 **Response (500 Internal Server Error):**
+
 ```json
 {
   "detail": "Error updating agent status: {error message}"
@@ -248,8 +270,9 @@ Update the status and load metrics of an agent.
 ```
 
 **Example:**
+
 ```bash
-curl -X PUT http://localhost:9001/agents/agent-agent/status \
+curl -X PUT http://localhost:8107/agents/agent-agent/status \
   -H "Content-Type: application/json" \
   -d '{
     "status": "busy",

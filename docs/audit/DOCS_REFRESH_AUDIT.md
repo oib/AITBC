@@ -85,7 +85,7 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 
 2. **Next slices**:
    - Enforce port single-source-of-truth by replacing inline port lists with links to `docs/reference/SERVICE_PORTS.md`.
-   - Continue refreshing other stale current docs surfaced by the inventory (e.g., `docs/testing/MICROSERVICES_TESTING_GUIDE.md`, `docs/infrastructure/migration/microservices-migration-status.md`, `docs/agents/AGENT_COMMUNICATION.md`, `docs/cli/CLI_ARCHITECTURE.md`).
+   - Continue refreshing other stale current docs surfaced by the inventory (e.g., `docs/testing/MICROSERVICES_TESTING_GUIDE.md`, `docs/infrastructure/migration/microservices-migration-status.md`).
    - Remove remaining root boilerplate artifacts from `.gitignore` / CI references if needed.
 
 3. **Continuous validation**:

@@ -6,7 +6,7 @@
 ## Base URL
 
 ```
-http://localhost:9001
+http://localhost:8107
 ```
 
 ## Message Management API
@@ -18,6 +18,7 @@ Send a message to a specific agent using a specified communication protocol.
 **Endpoint:** `POST /messages/send`
 
 **Request Body:**
+
 ```json
 {
   "receiver_id": "string (required)",
@@ -29,6 +30,7 @@ Send a message to a specific agent using a specified communication protocol.
 ```
 
 **Parameters:**
+
 - `receiver_id` (required): Target agent ID
 - `message_type` (required): Message type (direct, broadcast, hierarchical, peer_to_peer, etc.)
 - `payload` (required): Message data
@@ -36,6 +38,7 @@ Send a message to a specific agent using a specified communication protocol.
 - `protocol` (optional): Communication protocol (hierarchical, peer_to_peer, broadcast)
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -48,6 +51,7 @@ Send a message to a specific agent using a specified communication protocol.
 ```
 
 **Response (400 Bad Request):**
+
 ```json
 {
   "detail": "Invalid protocol: {protocol}. Valid protocols: hierarchical, peer_to_peer, broadcast"
@@ -55,6 +59,7 @@ Send a message to a specific agent using a specified communication protocol.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Communication manager not available"
@@ -62,8 +67,9 @@ Send a message to a specific agent using a specified communication protocol.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST http://localhost:9001/messages/send \
+curl -X POST http://localhost:8107/messages/send \
   -H "Content-Type: application/json" \
   -d '{
     "receiver_id": "agent-agent",
@@ -81,6 +87,7 @@ Broadcast a message to multiple agents with optional filtering.
 **Endpoint:** `POST /messages/broadcast`
 
 **Request Body:**
+
 ```json
 {
   "message_type": "string (required)",
@@ -92,6 +99,7 @@ Broadcast a message to multiple agents with optional filtering.
 ```
 
 **Parameters:**
+
 - `message_type` (required): Message type
 - `payload` (required): Message data
 - `priority` (optional): Message priority (low, normal, high, critical)
@@ -99,6 +107,7 @@ Broadcast a message to multiple agents with optional filtering.
 - `capabilities` (optional): Filter by capabilities
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -110,6 +119,7 @@ Broadcast a message to multiple agents with optional filtering.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Communication manager not available"
@@ -117,8 +127,9 @@ Broadcast a message to multiple agents with optional filtering.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST http://localhost:9001/messages/broadcast \
+curl -X POST http://localhost:8107/messages/broadcast \
   -H "Content-Type: application/json" \
   -d '{
     "message_type": "broadcast",
@@ -134,12 +145,14 @@ Retrieve message history with optional filtering.
 **Endpoint:** `GET /messages/history`
 
 **Query Parameters:**
+
 - `sender_id` (optional): Filter by sender ID
 - `receiver_id` (optional): Filter by receiver ID
 - `limit` (optional): Maximum number of messages (default: 100)
 - `offset` (optional): Pagination offset (default: 0)
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -163,6 +176,7 @@ Retrieve message history with optional filtering.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Message storage not available"
@@ -170,8 +184,9 @@ Retrieve message history with optional filtering.
 ```
 
 **Example:**
+
 ```bash
-curl "http://localhost:9001/messages/history?sender_id=agent-1&limit=50"
+curl "http://localhost:8107/messages/history?sender_id=agent-1&limit=50"
 ```
 
 ### Get Specific Message
@@ -181,9 +196,11 @@ Retrieve a specific message by ID.
 **Endpoint:** `GET /messages/{message_id}`
 
 **URL Parameters:**
+
 - `message_id` (required): The unique message identifier
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -202,6 +219,7 @@ Retrieve a specific message by ID.
 ```
 
 **Response (404 Not Found):**
+
 ```json
 {
   "detail": "Message {message_id} not found"
@@ -209,6 +227,7 @@ Retrieve a specific message by ID.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Message storage not available"
@@ -216,8 +235,9 @@ Retrieve a specific message by ID.
 ```
 
 **Example:**
+
 ```bash
-curl http://localhost:9001/messages/{message_id}
+curl http://localhost:8107/messages/{message_id}
 ```
 
 ## Related Topics

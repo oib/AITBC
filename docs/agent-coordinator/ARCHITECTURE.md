@@ -3,7 +3,7 @@
 **Last Updated:** 2026-05-28
 **Version:** 1.0
 
-> **Important:** This document describes the Agent Coordinator architecture. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the Agent Coordinator architecture. The Agent Coordinator service runs on port 8107. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## System Overview
 
@@ -12,7 +12,7 @@ The AITBC Agent Coordinator is a distributed task distribution system that manag
 ## Service Location
 
 **Actual Service:** `/opt/aitbc/apps/agent-coordinator/src/app/`
-**Port:** 9001
+**Port:** 8107
 **Systemd Service:** `aitbc-agent-coordinator.service`
 
 **DO NOT USE:** `/opt/aitbc/aitbc/agent_coordinator/src/coordinator.py` (this is an older/incorrect implementation - DELETED)
@@ -24,6 +24,7 @@ The AITBC Agent Coordinator is a distributed task distribution system that manag
 The Agent Registry is the central component for managing agent lifecycle and discovery.
 
 **Key Features:**
+
 - Redis-backed persistence for agent data
 - Agent registration and deregistration
 - Agent discovery with filtering (by type, status, capabilities)
@@ -31,11 +32,13 @@ The Agent Registry is the central component for managing agent lifecycle and dis
 - Load metrics tracking (active connections, pending tasks)
 
 **Data Model:**
+
 - Agent data stored as Redis hashes: `agent:{agent_id}`
 - Active agents indexed in Redis set: `agents:active`
 - Agent status tracked: active, inactive, busy, stale
 
 **Key Classes:**
+
 - `AgentInfo` - Dataclass representing agent information
 - `AgentRegistry` - Main registry class with Redis integration
 - `AgentDiscoveryService` - Service for discovering agents with criteria
@@ -45,6 +48,7 @@ The Agent Registry is the central component for managing agent lifecycle and dis
 The Load Balancer distributes tasks across eligible agents using configurable strategies.
 
 **Load Balancing Strategies:**
+
 - `LEAST_CONNECTIONS` - Selects agent with fewest active connections (default)
 - `ROUND_ROBIN` - Distributes tasks in circular order
 - `WEIGHTED_ROUND_ROBIN` - Based on agent performance weights
@@ -53,11 +57,13 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 - `RANDOM` - For testing purposes
 
 **Key Classes:**
+
 - `LoadBalancer` - Main load balancer class
 - `TaskDistributor` - Manages task priority queues and distribution
 - `TaskPriority` - Enum for task priorities (urgent, critical, high, normal, low)
 
 **Task Distribution Flow:**
+
 1. Task submitted to `TaskDistributor.submit_task()`
 2. Task placed in appropriate priority queue
 3. Background distribution loop processes queues
@@ -70,6 +76,7 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 #### Agent Management (`routers/agents.py`)
 
 **Endpoints:**
+
 - `POST /agents/register` - Register new agent
 - `POST /agents/discover` - Discover agents with filtering
 - `GET /agents/{agent_id}` - Get agent information
@@ -78,6 +85,7 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 #### Task Management (`routers/tasks.py`)
 
 **Endpoints:**
+
 - `POST /tasks/submit` - Submit task for distribution
 - `GET /tasks/status` - Get task distribution statistics
 
@@ -86,6 +94,7 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 The Agent Communication system enables agents to communicate with each other through the coordinator using various protocols.
 
 **Message Types:**
+
 - `DIRECT` - Point-to-point messages between specific agents
 - `BROADCAST` - Messages sent to all connected agents
 - `HIERARCHICAL` - Master-agent to sub-agent communication
@@ -98,6 +107,7 @@ The Agent Communication system enables agents to communicate with each other thr
 - `CONSENSUS` - Consensus protocol messages
 
 **Message Priorities:**
+
 - `LOW` - Low priority messages
 - `NORMAL` - Normal priority (default)
 - `HIGH` - High priority messages
@@ -106,18 +116,21 @@ The Agent Communication system enables agents to communicate with each other thr
 **Communication Protocols:**
 
 **Hierarchical Protocol:**
+
 - Master agents manage sub-agents
 - Messages flow from master to sub-agents
 - Sub-agents can send messages back to master
 - Suitable for coordinated task execution
 
 **Peer-to-Peer Protocol:**
+
 - Direct agent-to-agent communication
 - Agents maintain peer connections
 - Messages sent directly between peers
 - Suitable for decentralized coordination
 
 **Message Structure:**
+
 ```python
 AgentMessage:
   - id: Unique message ID (UUID)
@@ -133,6 +146,7 @@ AgentMessage:
 ```
 
 **Communication Flow:**
+
 1. Agents register with coordinator via `POST /agents/register`
 2. Agents establish connections via endpoints
 3. Messages routed through coordinator or direct connections
@@ -143,6 +157,7 @@ AgentMessage:
 **Current Implementation Status:**
 
 **Implemented:**
+
 - `POST /messages/send` - Send messages (hardcoded to "hierarchical" protocol only)
 - `GET /load-balancer/stats` - Load balancer statistics
 - `GET /registry/stats` - Agent registry statistics
@@ -151,6 +166,7 @@ AgentMessage:
 - `PUT /load-balancer/strategy` - Change load balancing strategy
 
 **Missing / Incomplete:**
+
 1. `POST /messages/send` only uses "hierarchical" protocol - doesn't support:
    - `peer_to_peer` protocol
    - `broadcast` protocol
@@ -190,6 +206,7 @@ async def lifespan(app: FastAPI):
 **Hash Key:** `agent:{agent_id}`
 
 **Fields:**
+
 - `agent_id` - Unique identifier
 - `agent_type` - Type (worker, provider, consumer, general)
 - `status` - Current status (active, inactive, busy, stale)
@@ -211,6 +228,7 @@ async def lifespan(app: FastAPI):
 ## Agent Lifecycle
 
 ### Registration
+
 1. Agent sends POST /agents/register with agent information
 2. Coordinator validates agent data
 3. Agent info stored in Redis
@@ -218,17 +236,20 @@ async def lifespan(app: FastAPI):
 5. Success response returned
 
 ### Heartbeat
+
 1. Agent sends heartbeat (not yet implemented as endpoint)
 2. Last heartbeat timestamp updated
 3. Health score recalculated
 4. Stale agents marked as inactive (configurable timeout)
 
 ### Status Update
+
 1. Agent sends PUT /agents/{agent_id}/status
 2. Status and load metrics updated
 3. Load balancer uses updated metrics for task assignment
 
 ### Deregistration
+
 1. Agent marked as inactive
 2. Removed from active agents set
 3. Data retained in Redis for historical purposes
@@ -236,6 +257,7 @@ async def lifespan(app: FastAPI):
 ## Task Distribution Flow
 
 ### Task Submission
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -261,7 +283,9 @@ sequenceDiagram
 ```
 
 ### Load Balancing
+
 The load balancer uses the following criteria to select agents:
+
 1. Agent status must be "active"
 2. Agent must have required capabilities
 3. Agent type must match requirements
@@ -271,16 +295,19 @@ The load balancer uses the following criteria to select agents:
 ## Configuration
 
 ### Environment Variables
+
 - `AITBC_REDIS_URL` - Redis connection URL (default: redis://localhost:6379)
-- `AITBC_COORDINATOR_PORT` - Coordinator service port (default: 9001)
+- `AITBC_COORDINATOR_PORT` - Coordinator service port (default: 8107)
 - `AITBC_LOG_LEVEL` - Logging level (default: INFO)
 
 ### Load Balancing Configuration
+
 - Default strategy: LEAST_CONNECTIONS
 - Strategy can be changed via LoadBalancer.set_strategy()
 - Priority queues: urgent, critical, high, normal, low
 
 ### Health Check Configuration
+
 - Heartbeat timeout: 300 seconds (configurable)
 - Health score threshold: 0.5 (configurable)
 - Stale agent detection: enabled by default
@@ -288,6 +315,7 @@ The load balancer uses the following criteria to select agents:
 ## Monitoring
 
 ### Metrics Available
+
 - Active agents count
 - Tasks distributed/completed/failed
 - Average distribution time
@@ -296,6 +324,7 @@ The load balancer uses the following criteria to select agents:
 - Queue sizes per priority
 
 ### Monitoring Endpoints
+
 - `GET /tasks/status` - Task distribution statistics
 - `GET /health` - Service health check
 - Future: Prometheus metrics endpoint
@@ -303,22 +332,26 @@ The load balancer uses the following criteria to select agents:
 ## Security
 
 ### Authentication
+
 - API key authentication via middleware (optional)
 - JWT token support (optional)
 - Role-based access control (optional)
 
 ### Rate Limiting
+
 - Not currently implemented
 - Can be added via FastAPI middleware
 
 ## Scalability
 
 ### Horizontal Scaling
+
 - Multiple coordinator instances can run behind a load balancer
 - Redis provides shared state across instances
 - Agent registry is distributed via Redis
 
 ### Performance Considerations
+
 - Redis operations are O(1) or O(log N)
 - Task distribution is asynchronous
 - Priority queues prevent starvation
@@ -329,23 +362,27 @@ The load balancer uses the following criteria to select agents:
 ### Common Issues
 
 **No active agents:**
+
 - Check Redis connection
 - Verify agents are registered
 - Check agent status (may be inactive/stale)
 
 **Tasks not distributing:**
+
 - Check task distributor is running
 - Verify eligible agents exist
 - Check load balancer strategy
 - Review task requirements
 
 **Agent not discovered:**
+
 - Verify agent registration succeeded
 - Check agent status is active
 - Verify capabilities match query
 - Check Redis connection
 
 ### Debug Commands
+
 ```bash
 # Check service status
 systemctl status aitbc-agent-coordinator.service
@@ -359,13 +396,14 @@ redis-cli
 > SMEMBERS agents:active
 
 # Test API
-curl http://localhost:9001/health
-curl http://localhost:9001/tasks/status
+curl http://localhost:8107/health
+curl http://localhost:8107/tasks/status
 ```
 
 ## Future Enhancements
 
 Planned improvements (see Phase 3):
+
 - Agent heartbeat mechanism
 - Additional load balancing strategies
 - Task priority queue management

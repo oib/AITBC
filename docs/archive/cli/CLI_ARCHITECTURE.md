@@ -1,5 +1,9 @@
 # AITBC CLI Architecture
 
+> **Archived**: This document describes an older CLI architecture (`unified_cli.py` and the
+> `cli/parsers/`/`cli/handlers/` layout) that is no longer current. The current CLI is
+> `cli/aitbc_cli/core/main.py` and is documented in [cli/README.md](../../cli/README.md).
+
 **Last Updated:** 2026-05-28
 
 > **Important:** This document describes the CLI architecture. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
@@ -258,6 +262,7 @@ Marketplace Exchange API (8001)
 **Location:** `/opt/aitbc/cli/parsers/`
 
 Create new parser module following the pattern:
+
 ```python
 def register(subparsers, ctx):
     parser = subparsers.add_parser("command", help="description")
@@ -265,6 +270,7 @@ def register(subparsers, ctx):
 ```
 
 **Registration:** Add to `/opt/aitbc/cli/parsers/__init__.py`
+
 ```python
 from . import mycommand
 
@@ -277,6 +283,7 @@ def register_all(subparsers, ctx):
 **Location:** `/opt/aitbc/cli/handlers/`
 
 Create handler module:
+
 ```python
 def handle_command(args, render_mapping):
     # Implementation
@@ -284,6 +291,7 @@ def handle_command(args, render_mapping):
 ```
 
 **Registration:** Add to `/opt/aitbc/cli/unified_cli.py`
+
 ```python
 from handlers import mycommand as mycommand_handlers
 
@@ -315,12 +323,14 @@ def handle_command(args, service_url, render_mapping):
 **Location:** `/opt/aitbc/cli/unified_cli.py`
 
 Add context to handler wrapper:
+
 ```python
 def handle_command(args):
     mycommand_handlers.handle_command(args, default_rpc_url, default_coordinator_url, render_mapping)
 ```
 
 **Handler signature:**
+
 ```python
 def handle_command(args, default_rpc_url, default_coordinator_url, render_mapping):
     # Use provided context
@@ -345,6 +355,7 @@ def handle_command(args, default_rpc_url, default_coordinator_url, render_mappin
 ### Common Patterns
 
 **Agent Coordinator Integration:**
+
 ```python
 coordinator_url = "http://localhost:9001"
 job_data = {
@@ -358,12 +369,14 @@ requests.post(f"{coordinator_url}/tasks/submit", json=job_data)
 ```
 
 **Blockchain RPC Integration:**
+
 ```python
 rpc_url = "http://localhost:8202"
 requests.get(f"{rpc_url}/rpc/blocks/latest")
 ```
 
 **Marketplace API Integration:**
+
 ```python
 marketplace_url = "http://localhost:8001"
 requests.get(f"{marketplace_url}/listings")
@@ -406,6 +419,7 @@ response = requests.get(url, timeout=30)  # 30 second timeout
 ### Async Operations
 
 For long-running operations, use stub handlers or background tasks:
+
 ```python
 def handle_long_operation(args, render_mapping):
     result = {
@@ -443,6 +457,7 @@ if not validate_input(args.input):
 ### Unit Testing
 
 Test handler functions in isolation:
+
 ```python
 def test_handle_command():
     args = Namespace(option="value")
@@ -453,6 +468,7 @@ def test_handle_command():
 ### Integration Testing
 
 Test complete command flow:
+
 ```bash
 /opt/aitbc/venv/bin/python /opt/aitbc/cli/unified_cli.py mycommand --option value
 ```
@@ -462,6 +478,7 @@ Test complete command flow:
 ### Logging
 
 Add logging to handlers:
+
 ```python
 import logging
 logger = logging.getLogger(__name__)
@@ -473,6 +490,7 @@ def handle_command(args):
 ### Error Messages
 
 Provide clear, actionable error messages:
+
 ```python
 print(f"Error: Failed to connect to service at {service_url}")
 print(f"  - Check if service is running")

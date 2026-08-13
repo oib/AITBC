@@ -7,6 +7,7 @@ This document outlines the missing backend implementations required to resolve r
 ## Current Status
 
 **Integration Tests (v0.4.17):**
+
 - 188 passed (94.0%)
 - 4 failed
 - 12 skipped
@@ -17,9 +18,11 @@ This document outlines the missing backend implementations required to resolve r
 ## Critical Issues (4 Failures)
 
 ### 1. Auth Invalid Credentials Test
+
 **Test:** `TestAuthAdvanced::test_auth_invalid_credentials`
 **Current Behavior:** Test fails when environment variables not set
 **Required Implementation:**
+
 - Robust environment variable configuration
 - Fallback authentication mechanisms
 - Better error handling for missing credentials
@@ -28,9 +31,11 @@ This document outlines the missing backend implementations required to resolve r
 **Estimated Effort:** 2-4 hours
 
 ### 2. Message Pagination and Limits
+
 **Test:** `TestStorageComprehensive::test_message_pagination_and_limits`
 **Current Behavior:** Skipped - storage backend not fully implemented
 **Required Implementation:**
+
 - Persistent message storage backend (Redis/PostgreSQL)
 - Pagination logic with offset/limit
 - Message indexing for efficient queries
@@ -41,9 +46,11 @@ This document outlines the missing backend implementations required to resolve r
 **Dependencies:** Storage backend selection and configuration
 
 ### 3. Concurrent Message Sending
+
 **Test:** `TestLoadTesting::test_concurrent_message_sending`
 **Current Behavior:** Fails under concurrent load
 **Required Implementation:**
+
 - Thread-safe message queuing
 - Rate limiting refinement
 - Concurrent operation handling
@@ -53,9 +60,11 @@ This document outlines the missing backend implementations required to resolve r
 **Estimated Effort:** 8-12 hours
 
 ### 4. Concurrent Auth Operations
+
 **Test:** `TestLoadTesting::test_concurrent_auth_operations`
 **Current Behavior:** Fails under concurrent auth operations
 **Required Implementation:**
+
 - Thread-safe authentication state management
 - Token cache with concurrency support
 - Session management for concurrent logins
@@ -68,9 +77,11 @@ This document outlines the missing backend implementations required to resolve r
 ### Protected Endpoint Errors (2)
 
 #### 1. Protected Admin Endpoint
+
 **Test:** `TestUsers::test_protected_admin_authorized`
 **Current Behavior:** Test error - protected endpoint not implemented
 **Required Implementation:**
+
 - Auth middleware for protected routes
 - Role-based access control (RBAC) enforcement
 - Protected route decorators
@@ -79,9 +90,11 @@ This document outlines the missing backend implementations required to resolve r
 **Estimated Effort:** 8-12 hours
 
 #### 2. Protected Operator Endpoint
+
 **Test:** `TestUsers::test_protected_operator_authorized`
 **Current Behavior:** Test error - protected endpoint not implemented
 **Required Implementation:**
+
 - Same as above (shared implementation)
 **Priority:** High
 **Complexity:** Medium
@@ -90,9 +103,11 @@ This document outlines the missing backend implementations required to resolve r
 ### Consensus Auth Errors (16)
 
 #### Consensus Node Registration Auth
+
 **Test:** `TestConsensus::test_register_consensus_node_authorized`
 **Current Behavior:** Test error - consensus auth not integrated
 **Required Implementation:**
+
 - Consensus system authentication integration
 - Node registration with auth tokens
 - Consensus-specific permission checks
@@ -101,9 +116,11 @@ This document outlines the missing backend implementations required to resolve r
 **Estimated Effort:** 16-24 hours
 
 #### Consensus Proposal Creation Auth
+
 **Test:** `TestConsensus::test_create_consensus_proposal_authorized`
 **Current Behavior:** Test error - consensus auth not integrated
 **Required Implementation:**
+
 - Proposal creation with auth
 - Consensus permission system
 - Proposal validation with user context
@@ -112,9 +129,11 @@ This document outlines the missing backend implementations required to resolve r
 **Estimated Effort:** 16-24 hours
 
 #### Auth Protected Endpoints with Valid Token
+
 **Test:** `TestAuthAdvanced::test_auth_protected_endpoints_with_valid_token`
 **Current Behavior:** Test error - protected endpoints not implemented
 **Required Implementation:**
+
 - Protected route implementation
 - Token validation middleware
 - Role-based route access
@@ -125,7 +144,9 @@ This document outlines the missing backend implementations required to resolve r
 ## Implementation Phases
 
 ### Phase 1: Critical Auth Improvements (High Priority)
+
 **Items:**
+
 1. Auth invalid credentials handling
 2. Protected endpoint middleware
 3. Role-based access control enforcement
@@ -134,7 +155,9 @@ This document outlines the missing backend implementations required to resolve r
 **Impact:** Resolves 2 failures + 3 errors
 
 ### Phase 2: Storage Backend (Medium Priority)
+
 **Items:**
+
 1. Persistent message storage
 2. Pagination implementation
 3. Message indexing
@@ -144,7 +167,9 @@ This document outlines the missing backend implementations required to resolve r
 **Dependencies:** Storage backend selection
 
 ### Phase 3: Concurrency Support (Medium Priority)
+
 **Items:**
+
 1. Thread-safe message queuing
 2. Concurrent auth operations
 3. Rate limiting refinement
@@ -153,7 +178,9 @@ This document outlines the missing backend implementations required to resolve r
 **Impact:** Resolves 2 failures
 
 ### Phase 4: Consensus Integration (Low Priority)
+
 **Items:**
+
 1. Consensus auth integration
 2. Node registration with auth
 3. Proposal creation with auth
@@ -165,7 +192,9 @@ This document outlines the missing backend implementations required to resolve r
 ## Technical Decisions Needed
 
 ### 1. Storage Backend Selection
+
 **Options:**
+
 - Redis (current partial implementation)
 - PostgreSQL
 - MongoDB
@@ -174,7 +203,9 @@ This document outlines the missing backend implementations required to resolve r
 **Recommendation:** Complete Redis implementation for consistency with existing code
 
 ### 2. Concurrency Model
+
 **Options:**
+
 - Asyncio with proper locking
 - Thread-based with mutexes
 - Message queue (RabbitMQ/Redis Streams)
@@ -182,7 +213,9 @@ This document outlines the missing backend implementations required to resolve r
 **Recommendation:** Asyncio with async locks (consistent with FastAPI)
 
 ### 3. Auth Middleware Architecture
+
 **Options:**
+
 - FastAPI Depends() pattern
 - Custom middleware
 - Decorator-based protection
@@ -194,25 +227,31 @@ This document outlines the missing backend implementations required to resolve r
 The following tests are skipped due to missing user management API endpoints that are not aligned with current architecture:
 
 **User Management Tests:**
+
 - `TestUsersAdvanced::test_users_permission_operations`
 - `TestUsersAdvanced::test_users_role_assignments`
 
 **Auth Advanced Tests:**
+
 - `TestAuthAdvanced::test_auth_token_expiration_scenarios`
 - `TestAuthAdvanced::test_auth_invalid_credentials`
 
 **Storage Tests:**
+
 - `TestStorageAdvanced::test_message_storage_various_scenarios`
 - `TestStorageAdvanced::test_registry_and_load_balancer_integration`
 
 **Error Handling Tests:**
+
 - `TestErrorHandling::test_invalid_json_requests`
 - `TestErrorHandling::test_numeric_edge_cases`
 
 **Integration Scenario Tests:**
+
 - `TestIntegrationScenarios::test_authentication_authorization_workflow`
 
 **Communication Tests:**
+
 - `TestCommunicationAdvanced::test_communication_all_protocol_combinations`
 - `TestCommunicationAdvanced::test_broadcast_all_agent_types`
 
@@ -221,23 +260,27 @@ The following tests are skipped due to missing user management API endpoints tha
 ## Success Metrics
 
 **Phase 1 Success:**
+
 - 0 failures
 - 15 errors remaining
 - 95%+ pass rate
 
 **Phase 2 Success:**
+
 - 0 failures
 - 15 errors remaining
 - 95%+ pass rate
 - Pagination working
 
 **Phase 3 Success:**
+
 - 0 failures
 - 15 errors remaining
 - 95%+ pass rate
 - Concurrent operations stable
 
 **Phase 4 Success:**
+
 - 0 failures
 - 0 errors
 - 100% pass rate
@@ -246,11 +289,13 @@ The following tests are skipped due to missing user management API endpoints tha
 ## Dependencies
 
 **External:**
+
 - Storage backend configuration
 - Redis/PostgreSQL deployment
 - Consensus system architecture finalization
 
 **Internal:**
+
 - Permission system completion
 - Auth middleware design
 - Concurrency model selection
