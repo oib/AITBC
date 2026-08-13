@@ -27,7 +27,7 @@
 
 - [Introduction](overview/introduction.md) - What is AITBC
 - [CLI Guide](overview/cli-guide.md) - CLI setup and usage
-- [Enhanced Services](overview/enhanced-services.md) - Enhanced services guide
+- [Enhanced Services (archived)](../archive/getting-started/overview/enhanced-services.md) - Historical enhanced services guide
 
 ### Reference
 

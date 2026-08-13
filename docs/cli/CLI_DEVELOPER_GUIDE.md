@@ -272,7 +272,7 @@ Use marketplace exchange API:
 
 ```python
 def handle_marketplace_command(args, marketplace_url, render_mapping):
-    marketplace_url = args.marketplace_url or "http://localhost:8001"
+    marketplace_url = args.marketplace_url or "http://localhost:8106"
 
     response = requests.get(f"{marketplace_url}/listings", timeout=30)
     if response.status_code == 200:
