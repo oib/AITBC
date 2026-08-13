@@ -1,10 +1,10 @@
 # AITBC CLI Technical Documentation
 
-**Level**: Intermediate<br>
-**Prerequisites**: Basic CLI familiarity, shell usage, and AITBC project context<br>
-**Estimated Time**: 10-15 minutes<br>
-**Last Updated**: 2026-05-28<br>
-**Version**: 1.0
+- **Level**: Intermediate
+- **Prerequisites**: Basic CLI familiarity, shell usage, and AITBC project context
+- **Estimated Time**: 10-15 minutes
+- **Last Updated**: 2026-05-28
+- **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
 
@@ -73,6 +73,6 @@ aitbc --help
 
 ---
 
-*Last updated: 2026-04-27*<br>
-*Version: 1.0*<br>
+*Last updated: 2026-04-27*
+*Version: 1.0*
 *Status: Active index for CLI technical documentation*

@@ -156,7 +156,7 @@ Content-Type: application/json
 }
 ```
 
-### Configuration
+### Configuration — API Reference
 
 #### Get Configuration
 
@@ -189,7 +189,7 @@ GET /api/v1/infrastructure/costs?period=month
 GET /api/v1/infrastructure/costs/recommendations
 ```
 
-## Configuration
+## Configuration — Run cost optimizer tests
 
 ### Environment Variables
 

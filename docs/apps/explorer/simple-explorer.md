@@ -158,7 +158,7 @@ GET /api/v1/explorer/address/{address}/transactions?limit=50
 
 ### Search
 
-#### Search
+#### Search — Search
 
 ```http
 GET /api/v1/explorer/search?q={query}
@@ -196,7 +196,7 @@ GET /api/v1/explorer/stats
 GET /api/v1/explorer/network/status
 ```
 
-## Configuration
+## Configuration — Run search engine tests
 
 ### Environment Variables
 

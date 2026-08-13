@@ -269,7 +269,7 @@
 - Print statements: 0 remaining (replaced with logger)
 - Log injection: 9 key instances fixed, remaining 289 are low-risk
 
-### Phase 5: Secrets Management Hardening (April 28, 2026)
+### Phase 5: Secrets Management Hardening (April 28, 2026) — Security Metrics
 
 - Credential system: Implemented with 600/700 permissions
 - Insecure defaults: Removed (API_KEY_HASH_SECRET now required)

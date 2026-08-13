@@ -778,7 +778,7 @@ parallel, profiling.py, rate_limiting.py, rewards, risk, security,
 security_headers.py, settlement, sync, tee, trading, training_setup, types,
 _version.py, utils, wallet.
 
-### Findings
+### Findings — Shared Core Audit Findings (AITBC-AUDIT-2)
 
 #### Finding: Float used for oracle price
 

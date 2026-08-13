@@ -131,7 +131,7 @@ USING (current_setting('app.user_role', true) = 'admin');
 **Data Classification**: USER - Personal profile data
 **GDPR Implications**: Contains PII - requires strict user isolation
 
-#### Access Rules
+#### Access Rules — 1. user (User Profiles)
 
 **Regular Users**:
 
@@ -148,7 +148,7 @@ USING (current_setting('app.user_role', true) = 'admin');
 
 - ✅ Can access for background processing
 
-#### RLS Policies
+#### RLS Policies — 1. user (User Profiles)
 
 ```sql
 -- User Isolation Policy
@@ -162,7 +162,7 @@ FOR ALL
 USING (current_setting('app.user_role', true) = 'admin');
 ```
 
-#### Testing
+#### Testing — 1. user (User Profiles)
 
 **Test Coverage**: ✅ Tested
 
@@ -173,7 +173,7 @@ USING (current_setting('app.user_role', true) = 'admin');
 3. ✅ Admin can read all profiles
 4. ✅ System context works for webhooks
 
-#### Migration History
+#### Migration History — 1. user (User Profiles)
 
 - **Created**: AITBC-001 (initial_rls_setup)
 
@@ -185,24 +185,24 @@ USING (current_setting('app.user_role', true) = 'admin');
 **Data Classification**: [USER/ADMIN/SYSTEM] - [Description]
 **GDPR Implications**: [PII status]
 
-#### Access Rules
+#### Access Rules — 2. [your_table] ([Purpose])
 
 [Document your access rules]
 
-#### RLS Policies
+#### RLS Policies — 2. [your_table] ([Purpose])
 
 ```sql
 -- Add your policies here
 ```
 
-#### Testing
+#### Testing — 2. [your_table] ([Purpose])
 
 **Test Coverage**: ⚠️ Test needed
 
 **Test Cases**:
 [List your test cases]
 
-#### Migration History
+#### Migration History — 2. [your_table] ([Purpose])
 
 - **Created**: AITBC-XXX ([migration_name])
 

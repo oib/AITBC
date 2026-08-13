@@ -157,7 +157,7 @@ X-Webhook-Secret: your-secret
 }
 ```
 
-## Configuration
+## Configuration — Run webhook tests
 
 ### Environment Variables
 

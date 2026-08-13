@@ -1,10 +1,10 @@
 # API Gateway
 
-**Level**: Intermediate<br>
-**Prerequisites**: Familiarity with AITBC microservices architecture<br>
-**Estimated Time**: 10 minutes<br>
-**Last Updated**: 2026-05-03<br>
-**Version**: 1.0
+- **Level**: Intermediate
+- **Prerequisites**: Familiarity with AITBC microservices architecture
+- **Estimated Time**: 10 minutes
+- **Last Updated**: 2026-05-03
+- **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
 
@@ -85,7 +85,7 @@ Expected response:
 {"status": "healthy", "service": "api-gateway"}
 ```
 
-### Service Registry
+### Service Registry — Testing
 
 ```bash
 curl http://localhost:8203/services
@@ -138,7 +138,7 @@ The API Gateway implements:
 
 ---
 
-*Last updated: 2026-05-03*<br>
-*Version: 1.0*<br>
-*Status: Active service*<br>
+*Last updated: 2026-05-03*
+*Version: 1.0*
+*Status: Active service*
 *Tags: api-gateway, infrastructure, routing, microservices*

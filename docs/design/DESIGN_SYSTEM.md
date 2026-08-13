@@ -8,7 +8,7 @@
 > project's values. The UI/UX Design Agent treats this file as the single
 > source of truth for design tokens, components, accessibility standards,
 > and responsive breakpoints - it will STOP and request this file if missing.
-
+>
 > **Single source of truth (ADR-A-0017).** This file is the ONE design-contract
 > source of truth. The `design-system-check` gate is backed by the vendored
 > `impeccable` detector (`vendor/impeccable/`), whose `init` can emit its own

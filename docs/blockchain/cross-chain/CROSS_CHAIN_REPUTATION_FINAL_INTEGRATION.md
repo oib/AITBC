@@ -55,7 +55,7 @@ The Cross-Chain Reputation System has been successfully implemented and tested. 
 
 ### **Testing & Documentation**
 
-5. **`/test_cross_chain_integration.py`** - Comprehensive integration tests
+1. **`/test_cross_chain_integration.py`** - Comprehensive integration tests
 2. **`/CROSS_CHAIN_REPUTATION_IMPLEMENTATION_SUMMARY.md`** - Implementation summary
 
 ---
