@@ -97,9 +97,8 @@ def get_chain_id(chain_id: str | None = None) -> str:
 
 
 def validate_chain_id(chain_id: str) -> bool:
-    """Validate that chain_id is in supported_chains list"""
-    supported_chains = [c.strip() for c in settings.supported_chains.split(",")]
-    return chain_id in supported_chains
+    """Validate that chain_id is in supported_chains list."""
+    return chain_id in get_supported_chains()
 
 
 def get_supported_chains() -> list[str]:
