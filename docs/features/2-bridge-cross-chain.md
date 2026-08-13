@@ -1,3 +1,5 @@
+# Bridge / Cross-Chain
+
 ## 2. Bridge / Cross-Chain
 
 ### Bridge Operations
@@ -22,7 +24,7 @@
 | Multi-Sig Verification | Multi-signature verification for transfers | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
 | Time-Locks | Time-locked transfers with refund windows | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
 | Bridge Security Status | Bridge security status check | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
-| Bridge Threat Model | Threat modeling for bridge security | [docs/architecture/bridge-threat-model.md](../docs/architecture/bridge-threat-model.mdarchitecture/bridge-threat-model.md | ✅ | v0.7.1 |
+| Bridge Threat Model | Threat modeling for bridge security | [docs/architecture/bridge-threat-model.md](../architecture/bridge-threat-model.md) | ✅ | v0.7.1 |
 
 ### Bridge Verification
 
@@ -47,8 +49,8 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Cross-Chain Reputation | Unified reputation across EVM chains | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.mdblockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md | ✅ | — |
-| Reputation Aggregation | Unified scores with configurable weighting | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.mdblockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md | ✅ | — |
-| Anomaly Detection | Automatic detection of reputation changes | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.mdblockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md | ✅ | — |
+| Cross-Chain Reputation | Unified reputation across EVM chains | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md) | ✅ | — |
+| Reputation Aggregation | Unified scores with configurable weighting | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md) | ✅ | — |
+| Anomaly Detection | Automatic detection of reputation changes | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md) | ✅ | — |
 
 ---
