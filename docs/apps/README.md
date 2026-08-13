@@ -54,7 +54,6 @@ These directories cover cross-cutting concerns rather than a single app:
 
 - [agents](agents/)
 - [blockchain](blockchain/)
-- [clients](clients/)
 - [compliance](compliance/)
 - [coordinator](coordinator/)
 - [crypto](crypto/)

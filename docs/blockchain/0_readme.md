@@ -6,7 +6,7 @@ Run a blockchain node: validate transactions, produce blocks, maintain the AITBC
 
 | # | File | What you learn |
 |---|------|----------------|
-| 1 | [1_quick-start.md](../apps/clients/1_quick-start.md) | Get a node running in 10 minutes |
+| 1 | [Node Quick Start](../getting-started/node-quickstart.md) | Get a node running in 10 minutes |
 | 2 | [2_configuration.md](./2_configuration.md) | Node, RPC, P2P, mempool settings |
 | 3 | [3_operations.md](./3_operations.md) | Start/stop, sync, peers, backups |
 | 4 | [4_consensus.md](./4_consensus.md) | PoA consensus mechanism |
