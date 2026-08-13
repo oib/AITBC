@@ -1,6 +1,6 @@
 # AITBC developer tasks.
 #
-# These wrap the commands in CLAUDE.md and CONTRIBUTING.md so there is one place to look
+# These wrap the commands in CONTRIBUTING.md so there is one place to look
 # and one spelling to keep working.
 
 # Prefer the repo's own venv; fall back to whatever python is on PATH so the targets still

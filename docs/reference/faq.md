@@ -40,19 +40,21 @@ Yes, AITBC is open source. The code is available on GitHub at https://github.com
 
 ### How can I contribute?
 
-Contributions are welcome! Please see the [contributing guidelines](https://github.com/oib/AITBC/blob/main/CONTRIBUTING.md) for more information.
+Contributions are welcome! Please see the [contributing guidelines](../../CONTRIBUTING.md) for more information.
 
 ## Installation and Setup
 
 ### What are the system requirements?
 
 **Minimum (Development):**
+
 - CPU: 4 cores
 - RAM: 8 GB
 - Storage: 100 GB SSD
 - Python 3.13+
 
 **Recommended (Production):**
+
 - CPU: 8+ cores
 - RAM: 16+ GB
 - Storage: 500 GB NVMe SSD
@@ -174,6 +176,7 @@ Validators require staking the network tokens. See the [Staking Documentation](.
 ### What GPUs are supported?
 
 NVIDIA GPUs with CUDA 12.4+ support are recommended. Tested GPUs include:
+
 - NVIDIA RTX 3090
 - NVIDIA RTX 4090
 - NVIDIA A100
@@ -198,6 +201,7 @@ The mining process is automatic once you're registered. The Coordinator API will
 ### How are payments calculated?
 
 Payments are based on:
+
 - GPU type and memory
 - Job duration
 - Current market rates
