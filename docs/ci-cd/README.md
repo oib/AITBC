@@ -19,7 +19,7 @@ Complete CI/CD pipeline documentation:
 
 ## 🔗 Related Documentation
 
-- CONTRIBUTING.md - Git workflow and commit standards
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) - Git workflow and commit standards
 - [Security Architecture](../security/SECURITY_FIRST_ARCHITECTURE.md) - Security in CI/CD
 
 ## 🎯 CI/CD Agents

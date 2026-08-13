@@ -24,14 +24,14 @@ This document serves as the **single source of truth** for your database schema.
 
 ## 📋 How to Use This Template
 
-### For New Projects:
+### For New Projects
 
 1. Replace `[PLACEHOLDERS]` with your actual values
 2. Document each table as you create it
 3. Update RLS policies when adding user data tables
 4. Track changes with AITBC-XXX references
 
-### For AI Agents:
+### For AI Agents
 
 - **BSA**: Reference this for data requirements in specs
 - **Data Engineer**: Update this MANDATORY after schema changes
@@ -277,21 +277,21 @@ await withSystemContext(prisma, contextType, async (client) => {
 
 ## 🛠️ Development Context
 
-### **Database Access Patterns**:
+### **Database Access Patterns**
 
 - **RLS Context**: All user operations use `withUserContext()`
 - **Admin Operations**: Use `withAdminContext()`
 - **System Operations**: Use `withSystemContext()`
 - **Connection Pooling**: [Your pooling strategy]
 
-### **Migration Strategy**:
+### **Migration Strategy**
 
 - [Your ORM] migrations for schema changes
 - Manual RLS policy updates (if needed)
 - Required security review for user data tables
 - ARCHitect approval for schema changes (see RLS_DATABASE_MIGRATION_SOP.md)
 
-### **Performance Considerations**:
+### **Performance Considerations**
 
 - All RLS policy columns should be indexed
 - Connection pooling configuration
@@ -304,7 +304,7 @@ await withSystemContext(prisma, contextType, async (client) => {
 - [RLS Implementation Guide](./RLS_IMPLEMENTATION_GUIDE.md)
 - [RLS Migration SOP](./RLS_DATABASE_MIGRATION_SOP.md)
 - [Security First Architecture](../security/SECURITY_FIRST_ARCHITECTURE.md)
-- CONTRIBUTING.md
+- [CONTRIBUTING.md](../../CONTRIBUTING.md)
 
 ---
 
