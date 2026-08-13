@@ -4,7 +4,9 @@ Register for block subscription with lease
 
 - **Status**: ✅
 - **Release**: —
+
 ## Implementation Details
+
 - `apps/blockchain-node/src/aitbc_chain/rpc/routers/subscription.py` — Subscription router.
 - `aitbc/trading/subscription_client.py` — The base HTTP URL for the trading service.
 - `apps/blockchain-node/src/aitbc_chain/rpc/subscription.py` — Subscription RPC endpoints for lease-based block push system.
@@ -13,6 +15,7 @@ Register for block subscription with lease
 - `Blockchain Node` exposes `POST /rpc/subscribe` (operation `register_subscription_route_rpc_subscribe_post`) — Register for block subscription with lease
 - `Blockchain Node` exposes `POST /rpc/heartbeat` (operation `heartbeat_route_rpc_heartbeat_post`) — Extend subscription lease via heartbeat
 - `Blockchain Node` exposes `GET /rpc/lease/{node_id}` (operation `lease_status_route_rpc_lease__node_id__get`) — Get lease status for a subscriber
+
 ## Examples
 
 - `POST /subscribe` (`register_subscription_route` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/subscription.py`)
@@ -23,5 +26,7 @@ Register for block subscription with lease
 - `POST /rpc/subscribe` (`register_subscription_route_rpc_subscribe_post`) on `Blockchain Node`
 - `POST /rpc/heartbeat` (`heartbeat_route_rpc_heartbeat_post`) on `Blockchain Node`
 - `GET /rpc/lease/{node_id}` (`lease_status_route_rpc_lease__node_id__get`) on `Blockchain Node`
+
 ## Operational Notes
+
 - **Status / Release:** `✅` / `—`

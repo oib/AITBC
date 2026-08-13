@@ -1,21 +1,23 @@
+# Trading
+
 ## 7. Trading
 
 ### Trade Requests
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Create Request | Create a new trade request | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
-| List Requests | List trade requests with filters | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
-| Get Request | Get a specific trade request by ID | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
+| Create Request | Create a new trade request | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
+| List Requests | List trade requests with filters | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
+| Get Request | Get a specific trade request by ID | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
 
 ### Trade Matches & Agreements
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Create Match | Create a new trade match | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
-| List Matches | List trade matches with filters | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
-| Create Agreement | Create a trade agreement | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
-| List Agreements | List trade agreements with filters | [docs/architecture/6_trade-exchange.md](../docs/architecture/6_trade-exchange.mdarchitecture/6_trade-exchange.md | ✅ | v0.8.0 |
+| Create Match | Create a new trade match | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
+| List Matches | List trade matches with filters | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
+| Create Agreement | Create a trade agreement | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
+| List Agreements | List trade agreements with filters | [docs/architecture/6_trade-exchange.md](../architecture/6_trade-exchange.md) | ✅ | v0.8.0 |
 
 ### Inter-Chain Trading
 
@@ -66,10 +68,10 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Create Payment | Create exchange payment | [docs/features/create-payment.md](../docs/features/create-payment.mdcreate-payment.md | ✅ | — |
-| Payment Status | Get payment status | [docs/features/payment-status.md](../docs/features/payment-status.mdpayment-status.md | ✅ | — |
-| Exchange Rates | Get exchange rates | [docs/features/exchange-rates.md](../docs/features/exchange-rates.mdexchange-rates.md | ✅ | — |
-| Market Stats | Get market statistics | [docs/features/market-stats.md](../docs/features/market-stats.mdmarket-stats.md | ✅ | — |
-| Wallet Balance/Info | Get exchange wallet balance and info | [docs/features/wallet-balance-info.md](../docs/features/wallet-balance-info.mdwallet-balance-info.md | ✅ | — |
+| Create Payment | Create exchange payment | [docs/features/create-payment.md](./create-payment.md) | ✅ | — |
+| Payment Status | Get payment status | [docs/features/payment-status.md](./payment-status.md) | ✅ | — |
+| Exchange Rates | Get exchange rates | [docs/features/exchange-rates.md](./exchange-rates.md) | ✅ | — |
+| Market Stats | Get market statistics | [docs/features/market-stats.md](./market-stats.md) | ✅ | — |
+| Wallet Balance/Info | Get exchange wallet balance and info | [docs/features/wallet-balance-info.md](./wallet-balance-info.md) | ✅ | — |
 
 ---

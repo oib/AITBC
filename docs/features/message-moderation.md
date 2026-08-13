@@ -4,7 +4,9 @@ Moderate messages in forums
 
 - **Status**: ✅
 - **Release**: —
+
 ## Implementation Details
+
 - `apps/agent-coordinator/src/agent_app/storage/message_storage.py` — Message storage layer for persisting agent communication messages in Redis
 - `apps/agent-coordinator/src/agent_app/routers/messages.py` — Request to send encrypted message
 - `apps/agent-coordinator/src/agent_app/protocols/message_types.py` — Message Types and Routing System for AITBC Agent Coordination
@@ -13,6 +15,7 @@ Moderate messages in forums
 - `Blockchain Node` exposes `POST /rpc/contracts/messaging/messages/{message_id}/moderate` (operation `moderate_message_route_rpc_contracts_messaging_messages__message_id__moderate_post`) — Moderate message
 - `Blockchain Node` exposes `POST /rpc/contracts/messaging/messages/post` (operation `post_message_route_rpc_contracts_messaging_messages_post_post`) — Post message
 - `Blockchain Node` exposes `POST /rpc/contracts/messaging/messages/{message_id}/vote` (operation `vote_message_route_rpc_contracts_messaging_messages__message_id__vote_post`) — Vote on message
+
 ## Examples
 
 - `POST /messaging/messages/{message_id}/moderate` (`moderate_message_route` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/contracts.py`)
@@ -23,5 +26,7 @@ Moderate messages in forums
 - `POST /rpc/contracts/messaging/messages/{message_id}/moderate` (`moderate_message_route_rpc_contracts_messaging_messages__message_id__moderate_post`) on `Blockchain Node`
 - `POST /rpc/contracts/messaging/messages/post` (`post_message_route_rpc_contracts_messaging_messages_post_post`) on `Blockchain Node`
 - `POST /rpc/contracts/messaging/messages/{message_id}/vote` (`vote_message_route_rpc_contracts_messaging_messages__message_id__vote_post`) on `Blockchain Node`
+
 ## Operational Notes
+
 - **Status / Release:** `✅` / `—`
