@@ -1,5 +1,7 @@
 # Client API Reference
 
+> **Archived.** This guide is preserved for historical reference. The endpoints and request/response formats may have changed. For current API documentation, see the [Coordinator API README](../../../apps/coordinator-api/README.md) and [Getting Started](../../getting-started/README.md).
+
 REST API endpoints for client operations.
 
 ## Endpoints

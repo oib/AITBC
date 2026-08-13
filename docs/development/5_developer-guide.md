@@ -139,7 +139,7 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 - [Python SDK](../builders/sdk-reference.md) — `packages/py/aitbc-sdk`
 - [Python Agent SDK](../agent-sdk/README.md) — `packages/py/aitbc-agent-sdk`
-- [Client Quick Start](../apps/clients/1_quick-start.md)
+- [Getting Started](../getting-started/README.md)
 
 ### Development Environment
 
@@ -150,8 +150,8 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 ### Learning Resources
 
-- [Video Tutorials](../apps/clients/1_quick-start.md)
-- [Workshop Materials](../apps/clients/2_job-submission.md)
+- [Getting Started](../getting-started/README.md)
+- [Scenarios](../scenarios/README.md)
 - Blog Posts
 - [Research Papers](../reference/5_zk-proofs.md)
 

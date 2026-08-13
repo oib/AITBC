@@ -1,4 +1,6 @@
 # Job Status Guide
+
+> **Archived.** This guide is preserved for historical reference. It describes CLI commands and API endpoints that may no longer exist. For the current client path, see [Getting Started](../../getting-started/README.md).
 Understand job states and how to track progress.
 
 ## Job States
