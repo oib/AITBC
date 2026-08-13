@@ -3,7 +3,7 @@
 **Last Updated**: 2026-06-30
 **Version**: 1.0
 
-> **Important:** This document describes the Agent Coordinator service. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document describes the Agent Coordinator service. The Agent Coordinator service runs on port 8107. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ pip install -r requirements.txt
 ```bash
 # Edit /etc/aitbc/.env
 export AITBC_REDIS_URL=redis://localhost:6379
-export AITBC_COORDINATOR_PORT=9001
+export AITBC_COORDINATOR_PORT=8107
 export AITBC_LOG_LEVEL=INFO
 ```
 
@@ -49,21 +49,24 @@ systemctl enable aitbc-agent-coordinator.service
 **Service file location:** `/etc/systemd/system/aitbc-agent-coordinator.service`
 
 **Key configuration parameters:**
+
 - `PYTHONPATH=apps/agent-coordinator/src` - Python module path
 - `uvicorn agent_app.main:app` - FastAPI application entry point
 - `--host 0.0.0.0` - Bind to all interfaces
-- `--port 9001` - Service port
+- `--port 8107` - Service port
 
 ## Redis Configuration
 
 **Connection URL:** `redis://localhost:6379/0`
 
 **Redis data persistence:**
+
 - Agent data: `agent:{agent_id}` (hash)
 - Active agents: `agents:active` (set)
 - Load metrics: Stored in agent hash
 
 **Redis monitoring:**
+
 ```bash
 redis-cli
 > KEYS agent:*

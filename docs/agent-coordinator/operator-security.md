@@ -16,7 +16,7 @@
 
 ```bash
 # Allow only specific IPs
-ufw allow from 192.168.1.0/24 to any port 9001
+ufw allow from 192.168.1.0/24 to any port 8107
 ```
 
 ## Authentication

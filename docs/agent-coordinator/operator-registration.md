@@ -11,7 +11,7 @@
 aitbc-cli agent sdk register \
   --agent-id my-agent \
   --type worker \
-  --coordinator-url http://localhost:9001
+  --coordinator-url http://localhost:8107
 ```
 
 ### Full Registration with Capabilities
@@ -24,7 +24,7 @@ aitbc-cli agent sdk register \
   --services "task-execution,coordination" \
   --endpoints '{"http":"http://my-host:9002"}' \
   --metadata '{"version":"1.0.0","owner":"my-team"}' \
-  --coordinator-url http://localhost:9001
+  --coordinator-url http://localhost:8107
 ```
 
 ## Automated Registration Script
@@ -33,7 +33,7 @@ aitbc-cli agent sdk register \
 #!/bin/bash
 # register_agents.sh
 
-COORDINATOR_URL="http://localhost:9001"
+COORDINATOR_URL="http://localhost:8107"
 
 register_agent() {
   local agent_id=$1
@@ -59,7 +59,7 @@ Register agents on multiple nodes for distributed task distribution:
 
 ```bash
 # Register agent on node1
-curl -X POST http://node1:9001/agents/register \
+curl -X POST http://node1:8107/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "node1-worker",
@@ -69,7 +69,7 @@ curl -X POST http://node1:9001/agents/register \
   }'
 
 # Register agent on node2
-curl -X POST http://node2:9001/agents/register \
+curl -X POST http://node2:8107/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "node2-worker",

@@ -8,10 +8,11 @@
 ### Service Health
 
 ```bash
-curl http://localhost:9001/health
+curl http://localhost:8107/health
 ```
 
 **Expected response:**
+
 ```json
 {
   "status": "healthy",
@@ -23,7 +24,7 @@ curl http://localhost:9001/health
 ### Task Distribution Stats
 
 ```bash
-curl http://localhost:9001/tasks/status
+curl http://localhost:8107/tasks/status
 ```
 
 ### CLI Health Check
