@@ -1,9 +1,8 @@
 # AITBC - Contributing
 
-**Last Updated**: 2026-06-30
-**Version**: 1.0
+For the current contribution workflow and validation commands, see [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-We welcome contributions! Here's how to get started.
+The notes below are historical and may not reflect the current process.
 
 ## Contribution Guidelines
 

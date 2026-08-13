@@ -141,4 +141,4 @@ Areas where contributions are welcome:
 - CLI command polish.
 - Performance and observability improvements.
 
-See CONTRIBUTING.md for branch and commit conventions.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for branch and commit conventions.

@@ -93,6 +93,19 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
    - Run `npx markdownlint-cli docs/` on touched directories.
    - Keep this audit updated as remediation completes.
 
+## Current baseline (post-boilerplate removal, 2026-08-13)
+
+- Internal `.md` links: 2,839 valid.
+- Markdown lint errors in `docs/`: 15,096.
+- Stale markers in current `docs/` (excluding `docs/releases/`, `docs/archive/`, `docs/audit/`): 133 files, 513 hits.
+- Top directories by stale markers: `docs/development` (59), `docs/agent-coordinator` (50), `docs/testing` (46), `docs/security` (42), `docs/reference` (32), `docs/agents` (30), `docs/infrastructure` (30), `docs/infrastructure/migration` (24), `docs/cli` (21).
+- Top files by stale markers:
+  - `docs/development/mock-data-system.md` (67 designed/placeholder terms)
+  - `docs/testing/MICROSERVICES_TESTING_GUIDE.md` (28 old app names)
+  - `docs/infrastructure/migration/microservices-migration-status.md` (24)
+  - `docs/cli/CLI_ARCHITECTURE.md` (15)
+  - `docs/agents/AGENT_COMMUNICATION.md` (12)
+
 ## Remediation status
 
 | File | Action | Status |
@@ -110,5 +123,7 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 | `docs/apps/README.md` | regenerated catalog to use new app docs | done |
 | Boilerplate docs and root files | deleted from repo | done |
 | `docs/README.md` / `MASTER_INDEX.md` | rewritten post-cleanup | done |
+| `CONTRIBUTING.md` | created project-specific root guide | done |
+| Dead CONTRIBUTING.md / SDK links | fixed across README and docs | done |
 | Port single-source-of-truth cleanup | replace inline old ports with links | pending |
 | Remaining stale current docs | e.g. agents, cli, testing, infrastructure | pending |
