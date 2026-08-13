@@ -11,7 +11,7 @@
 This is the step-by-step runbook for migrating the **hub node** to v0.5.10. The hub is the PoA authority — all follower nodes sync from it. The hub must migrate first; followers re-sync afterwards.
 
 > **Breaking change.** All nodes must run v0.5.10 code. A node still on v0.5.9 will reject fee=36 transactions and vice versa.
-
+>
 > **Lessons learned.** This runbook was updated after the actual migration on 2026-06-23. Key findings:
 >
 > - **Hub has more services than expected** — `aitbc-blockchain-rpc` is a separate service from `aitbc-blockchain-node` and must be stopped/restarted too. See Step 2 and Step 8.
@@ -166,7 +166,7 @@ All follower node operators must be notified of the fork time. Followers do NOT 
 
 ---
 
-## Migration Steps
+## Migration Steps — Expected: PONG
 
 Execute these in order during the maintenance window. Do not skip steps.
 
@@ -288,7 +288,7 @@ sqlite3 "$CHAIN_DB" 'SELECT COUNT(*) FROM mempool;'
 
 # No sub-AIT balances should exist (balance < 3600 and > 0)
 sqlite3 "$CHAIN_DB" 'SELECT COUNT(*) FROM account WHERE balance > 0 AND balance < 3600;'
-# Expected: 0
+# Expected: 0 (2)
 
 # Genesis block state_root should be updated
 sqlite3 "$CHAIN_DB" 'SELECT height, state_root FROM block WHERE height = 0;'
@@ -330,7 +330,7 @@ redis-cli FLUSHDB
 
 # Verify cache is empty
 redis-cli DBSIZE
-# Expected: 0
+# Expected: 0 (3)
 ```
 
 - [ ] Redis flushed
@@ -448,7 +448,7 @@ git pull
 # Verify v0.5.10 code
 test -f /opt/aitbc/aitbc/utils/units.py && echo "OK: units.py" || echo "MISSING: units.py"
 grep -n "fee.*=.*36" /opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/transactions.py
-# Expected: fee: int = 36
+# Expected: fee: int = 36 (2)
 ```
 
 ### Follower Step 2. Verify sync source points to hub
@@ -495,7 +495,7 @@ mv "$DATA_DIR/chain.db-shm" "$DATA_DIR/chain.db-shm.pre-fork.$TS" 2>/dev/null ||
 # Flush Redis (stale cached balances)
 redis-cli FLUSHDB
 redis-cli DBSIZE
-# Expected: 0
+# Expected: 0 (4)
 
 # Verify chain.db is gone
 ls "$DATA_DIR"/chain.db 2>/dev/null && echo "WARNING: chain.db still exists" || echo "OK: chain.db wiped"
@@ -655,7 +655,7 @@ pkill -f "uvicorn.*aitbc_chain" || true
 
 # Verify no processes remain
 ps aux | grep aitbc_chain | grep -v grep
-# Should be empty
+# Should be empty (2)
 
 # Retry migration
 ```

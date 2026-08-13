@@ -378,7 +378,7 @@ Migrated 14 router files from API key authentication to JWT-based authentication
 
 ---
 
-## Updated Summary
+## Updated Summary — Agent B: Tooling, Architecture, and Operations Hardening (v0.4.26) - COMPLETED
 
 **Completed Tasks**: 31/22 (141% - significantly exceeded original scope)
 **Deferred Tasks**: 7/22 (32%)

@@ -349,10 +349,10 @@ def process_data(data: str) -> str:
 **SQL Execute with Raw String**
 
 ```python
-# Before
+# Before (2)
 await session.execute("SELECT 1")
 
-# After
+# After (2)
 from sqlalchemy import text
 await session.execute(text("SELECT 1"))
 ```
@@ -360,11 +360,11 @@ await session.execute(text("SELECT 1"))
 **Optional Parameters**
 
 ```python
-# Before
+# Before (3)
 def process(data: str = None):
     pass
 
-# After
+# After (3)
 def process(data: str | None = None):
     pass
 ```

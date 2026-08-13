@@ -87,10 +87,10 @@ aitbc governance rewards view
 # Stake tokens
 aitbc governance stake --amount 1000 --lock-period 30d
 
-# Unstake tokens
+# Unstake tokens (2)
 aitbc governance unstake --amount 1000
 
-# Claim rewards
+# Claim rewards (2)
 aitbc governance rewards claim
 
 # View balance

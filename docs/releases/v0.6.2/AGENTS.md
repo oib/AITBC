@@ -8,9 +8,9 @@
 **Goal**: Reduce block propagation latency and initial sync time by (1) adding message prioritization and batching to the gossip broker, (2) enabling parallel block fetching from multiple peers, and (3) implementing delta-based state synchronization for fast catch-up.
 
 > **Scope constraint**: This release optimizes the **existing** gossip and sync infrastructure. It does NOT redesign the P2P transport layer (TCP connections, discovery handshake) — that's v0.6.3 (Multi-Island). The gossip topic migration to `transactions.{chain_id}` is also deferred to v0.6.3.
-
+>
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) (network compression — `GZ:` prefix scheme) and [v0.6.1](../v0.6.1/change.log) (parallel processing — `DependencyGraph`, `ParallelExecutor`, pure state transitions). Both are complete (354+87 tests passing).
-
+>
 > **Risk**: Medium. Gossip changes affect all peers (protocol versioning). Sync changes are behind feature flags. Mitigated by: (1) backward compatibility with v1 peers, (2) feature flags defaulting to off, (3) fallback to sequential sync.
 
 ---
@@ -451,7 +451,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
 
-### Tasks
+### Tasks — Agent B — Apps & Infrastructure
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

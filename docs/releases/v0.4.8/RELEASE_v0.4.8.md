@@ -41,7 +41,7 @@ AITBC v0.4.8 focuses on critical infrastructure fixes and improvements to the bl
 
 ## 📋 Detailed Features
 
-### Blockchain Node Service Fixes
+### Blockchain Node Service Fixes — 📋 Detailed Features
 
 #### Virtual Environment Recreation
 
@@ -62,7 +62,7 @@ AITBC v0.4.8 focuses on critical infrastructure fixes and improvements to the bl
 - Started blockchain-rpc service (was inactive)
 - Fixed lease tracker initialization on follower nodes
 
-### Logging System Improvements
+### Logging System Improvements — 📋 Detailed Features
 
 #### Text Format Logging
 
@@ -86,7 +86,7 @@ INFO aitbc_chain.lease_tracker Redis client created: connected to redis://127.0.
 - Removed duplicate timestamps (systemd provides them)
 - Fixed Redis client log to show URL instead of object representation
 
-### Subscription Management
+### Subscription Management — 📋 Detailed Features
 
 #### CLI Commands
 
@@ -117,7 +117,7 @@ aitbc network subscribers --chain-id <chain>
 
 Modified `app.py` to start lease tracker on all nodes (not just hub nodes) when subscription is enabled. This allows follower nodes to register subscriptions with the hub.
 
-### WebSocket Migration
+### WebSocket Migration — List all active subscribers
 
 #### Agent Coordinator Integration
 

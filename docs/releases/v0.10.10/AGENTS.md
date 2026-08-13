@@ -8,9 +8,9 @@
 **Goal**: Shift from feature/dead-code work to the testing and type-safety foundations that v1.0.0 production readiness depends on.
 
 > **Scope**: 8 tasks across 2 agents. (1) Verify v0.10.9 completion, (2) expand mypy coverage by removing `aitbc/` exclusions, (3) add property-based tests, (4) pin dependencies, (5) add local dev script, (6) raise coverage gate, (7) add performance regression tests, (8) add integration fixtures.
-
+>
 > **Prerequisites**: [v0.10.9](../v0.10.9/change.log) (✅ complete — dead code elimination & status drift cleanup).
-
+>
 > **Risk**: Medium. mypy expansion can surface a large error count; mitigated by incremental exclusion removal and per-file `# mypy: ignore-errors` as a temporary scaffold. Coverage gate raises may require backfilling tests. Performance baselines must be calibrated to the CI runner to avoid flakiness.
 
 ---
@@ -138,7 +138,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit/test_crypto_properties.p
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Infrastructure & Testing (GLM 5.2)
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|

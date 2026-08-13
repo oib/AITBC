@@ -74,7 +74,7 @@ pytest tests/coordinator-api/ -x -q
 **Estimated effort**: 3 hours
 **Risk**: Medium (established pattern, 6 routers to migrate)
 
-### Problem
+### Problem — Task 2: JWT Auth Migration — Remaining High-Risk Routers
 
 Six routers still use the deprecated `require_admin_key()` function instead of the new `AdminDep` dependency. This was deferred from v0.4.26 to avoid scope creep.
 
@@ -152,20 +152,20 @@ async def admin_endpoint(admin: AdminDep):
        ...
    ```
 
-### Acceptance Criteria
+### Acceptance Criteria — Task 2: JWT Auth Migration — Remaining High-Risk Routers
 
 - [ ] Zero `require_admin_key` references in all 6 routers
 - [ ] All routers still protect admin endpoints
 - [ ] Tests pass for each router
 - [ ] No breaking changes to API contracts
 
-### Verification
+### Verification — Task 2: JWT Auth Migration — Remaining High-Risk Routers
 
 ```bash
 # Search for remaining require_admin_key usages
 grep -r "require_admin_key" apps/coordinator-api/
 
-# Run coordinator tests
+# Run coordinator tests (2)
 pytest tests/coordinator-api/ -x -q
 
 # Test each router manually if needed
@@ -181,7 +181,7 @@ curl -X GET http://localhost:8000/admin-endpoint  # Should fail without auth
 **Risk**: Low (blocked on Task 2)
 **Dependency**: Must complete Task 2 first
 
-### Problem
+### Problem — Task 3: Delete deps.py
 
 After all routers are migrated to `AdminDep`, `deps.py` has zero callers. It should be deleted to clean up deprecated code.
 
@@ -210,7 +210,7 @@ After all routers are migrated to `AdminDep`, `deps.py` has zero callers. It sho
    pytest tests/coordinator-api/ -x -q
    ```
 
-### Acceptance Criteria
+### Acceptance Criteria — Task 3: Delete deps.py
 
 - [ ] `deps.py` deleted
 - [ ] Zero import errors in codebase

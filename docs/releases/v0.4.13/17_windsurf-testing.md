@@ -217,7 +217,7 @@ Unittest discovery errors when using Windsurf's test runner with the `tests/` fo
 - ✅ All `test_*.py` files are discovered by pytest
 - ⚠️ Tests with complex imports may fail during execution due to module path issues
 
-## Running Tests
+## Running Tests — Run in parallel
 
 ### For test discovery only (Windsurf integration)
 

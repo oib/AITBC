@@ -11,7 +11,7 @@ This document summarizes the Phase 3 bug hunt fixes for the coordinator-api code
 
 ## Async Race Condition Fixes (11 Services)
 
-### Overview
+### Overview — Async Race Condition Fixes (11 Services)
 
 All 11 services identified in Phase 1 have been reviewed and fixed for async race conditions. Most services already had `self._lock = asyncio.Lock()` in their `__init__` methods, but had unprotected accesses to shared state.
 

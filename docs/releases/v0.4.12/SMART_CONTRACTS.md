@@ -77,7 +77,7 @@ contract AITBCGovernanceToken {
 
 ## Voting Contract
 
-### Contract Specification
+### Contract Specification — Voting Contract
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -184,7 +184,7 @@ contract AITBCVoting {
 }
 ```
 
-### Features
+### Features — Voting Contract
 
 - **Proposal Creation**: Create governance proposals with type, title, description, and value
 - **Proposal Lifecycle**: Draft, Active, Passed, Rejected, Executed

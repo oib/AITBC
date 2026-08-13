@@ -108,7 +108,7 @@ aitbc exchange price --pair ETH-AIT
 - Band Protocol (backup)
 - CoinGecko API (fallback)
 
-### Bridge Operations
+### Bridge Operations — 📋 Detailed Features
 
 #### Deposit ETH
 
@@ -160,7 +160,7 @@ aitbc exchange status --tx-id 0x...
 }
 ```
 
-### Exchange API
+### Exchange API — 📋 Detailed Features
 
 #### REST Endpoints
 
@@ -180,7 +180,7 @@ ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/price/{pair}
 ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
 ```
 
-### Website Update
+### Website Update — 📋 Detailed Features
 
 #### New Features
 
@@ -213,10 +213,10 @@ ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
 #### Exchange Commands
 
 ```bash
-# Deposit ETH
+# Deposit ETH (2)
 aitbc exchange deposit --chain ethereum --amount 0.1
 
-# Withdraw AIT to Ethereum
+# Withdraw AIT to Ethereum (2)
 aitbc exchange withdraw --chain ethereum --amount 100
 
 # Get oracle price

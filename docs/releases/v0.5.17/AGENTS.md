@@ -153,7 +153,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit tests/cli tests/test_multi_chain_fixtures.py -q -o addopts="" && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts=""
 ```
 
-### Tasks
+### Tasks — Agent B — Bug Fixes, Infrastructure & Apps
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
