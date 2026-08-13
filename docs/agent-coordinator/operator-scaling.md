@@ -15,7 +15,7 @@
 
 ```nginx
 upstream coordinator {
-    server localhost:9001;
+    server localhost:8107;
     server localhost:9002;
     server localhost:9003;
 }

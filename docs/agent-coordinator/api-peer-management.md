@@ -6,7 +6,7 @@
 ## Base URL
 
 ```
-http://localhost:9001
+http://localhost:8107
 ```
 
 ## Peer Management API
@@ -18,10 +18,12 @@ Add a peer connection for an agent.
 **Endpoint:** `POST /peers/add`
 
 **Query Parameters:**
+
 - `agent_id` (required): Agent ID
 - `peer_id` (required): Peer agent ID
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -33,6 +35,7 @@ Add a peer connection for an agent.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Peer storage not available"
@@ -40,8 +43,9 @@ Add a peer connection for an agent.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST "http://localhost:9001/peers/add?agent_id=agent-1&peer_id=agent-2"
+curl -X POST "http://localhost:8107/peers/add?agent_id=agent-1&peer_id=agent-2"
 ```
 
 ### Remove Peer Connection
@@ -51,10 +55,12 @@ Remove a peer connection for an agent.
 **Endpoint:** `POST /peers/remove`
 
 **Query Parameters:**
+
 - `agent_id` (required): Agent ID
 - `peer_id` (required): Peer agent ID
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -66,6 +72,7 @@ Remove a peer connection for an agent.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Peer storage not available"
@@ -73,8 +80,9 @@ Remove a peer connection for an agent.
 ```
 
 **Example:**
+
 ```bash
-curl -X POST "http://localhost:9001/peers/remove?agent_id=agent-1&peer_id=agent-2"
+curl -X POST "http://localhost:8107/peers/remove?agent_id=agent-1&peer_id=agent-2"
 ```
 
 ### Get Agent Peers
@@ -84,9 +92,11 @@ Get all peers for a specific agent.
 **Endpoint:** `GET /peers/{agent_id}`
 
 **URL Parameters:**
+
 - `agent_id` (required): Agent ID
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -98,6 +108,7 @@ Get all peers for a specific agent.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Peer storage not available"
@@ -105,8 +116,9 @@ Get all peers for a specific agent.
 ```
 
 **Example:**
+
 ```bash
-curl http://localhost:9001/peers/agent-1
+curl http://localhost:8107/peers/agent-1
 ```
 
 ### Get All Peer Connections
@@ -116,6 +128,7 @@ Get all peer connections in the system.
 **Endpoint:** `GET /peers`
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "success",
@@ -130,6 +143,7 @@ Get all peer connections in the system.
 ```
 
 **Response (503 Service Unavailable):**
+
 ```json
 {
   "detail": "Peer storage not available"
@@ -137,8 +151,9 @@ Get all peer connections in the system.
 ```
 
 **Example:**
+
 ```bash
-curl http://localhost:9001/peers
+curl http://localhost:8107/peers
 ```
 
 ## Related Topics
