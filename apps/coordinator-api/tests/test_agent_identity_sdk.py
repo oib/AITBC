@@ -457,21 +457,6 @@ class TestConvenienceFunctions:
 class TestIntegration:
     """Integration tests for the SDK"""
 
-    @pytest.mark.asyncio
-    async def test_full_identity_workflow(self):
-        """Test complete identity creation and management workflow"""
-        # This would be an integration test that:
-        # 1. Creates an identity
-        # 2. Registers cross-chain mappings
-        # 3. Creates wallets
-        # 4. Verifies identities
-        # 5. Executes transactions
-        # 6. Searches for identities
-        # 7. Exports/imports identity data
-
-        # Skip for now as it requires a running API
-        pytest.skip("Integration test requires running API")
-
 
 if __name__ == "__main__":
     pytest.main([__file__])
