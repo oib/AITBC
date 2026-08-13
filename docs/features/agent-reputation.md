@@ -4,7 +4,9 @@ Get agent reputation from messaging contracts
 
 - **Status**: ✅
 - **Release**: —
+
 ## Implementation Details
+
 - `apps/blockchain-node/src/aitbc_chain/rpc/contracts.py` — Derive a deterministic contract address from deployer, name, and timestamp. Similar to Ethereum's CR...
 - `apps/blockchain-node/src/aitbc_chain/rpc/contracts_stub.py`
 - `apps/blockchain-node/src/aitbc_chain/rpc/routers/contracts.py` — Contracts router.
@@ -13,6 +15,7 @@ Get agent reputation from messaging contracts
 - `Blockchain Node` exposes `GET /rpc/contracts/messaging/agents/{agent_id}/reputation` (operation `get_agent_reputation_route_rpc_contracts_messaging_agents__agent_id__reputation_get`) — Get agent reputation
 - `Blockchain Node` exposes `GET /rpc/contracts/messaging/state` (operation `get_messaging_contract_state_route_rpc_contracts_messaging_state_get`) — Get messaging contract state
 - `Blockchain Node` exposes `GET /rpc/contracts/messaging/topics` (operation `get_forum_topics_route_rpc_contracts_messaging_topics_get`) — Get forum topics
+
 ## Examples
 
 - `GET /messaging/agents/{agent_id}/reputation` (`get_agent_reputation_route` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/contracts.py`)
@@ -23,5 +26,7 @@ Get agent reputation from messaging contracts
 - `GET /rpc/contracts/messaging/agents/{agent_id}/reputation` (`get_agent_reputation_route_rpc_contracts_messaging_agents__agent_id__reputation_get`) on `Blockchain Node`
 - `GET /rpc/contracts/messaging/state` (`get_messaging_contract_state_route_rpc_contracts_messaging_state_get`) on `Blockchain Node`
 - `GET /rpc/contracts/messaging/topics` (`get_forum_topics_route_rpc_contracts_messaging_topics_get`) on `Blockchain Node`
+
 ## Operational Notes
+
 - **Status / Release:** `✅` / `—`
