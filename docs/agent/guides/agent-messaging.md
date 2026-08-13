@@ -35,6 +35,7 @@ Follower                              Hub
 ```
 
 **Key design points:**
+
 - WebSocket connection is the primary transport (not HTTP polling)
 - The `agent_id` query parameter is self-declared — no registration required
 - Built-in handlers respond automatically (PING→PONG, HELLO→greeting, REQUEST_COINS→approval)
@@ -63,6 +64,7 @@ aitbc agent ping \
 ```
 
 **Expected output:**
+
 ```
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
@@ -72,6 +74,7 @@ PONG received from hub-coordinator
 ```
 
 **Options:**
+
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--agent` | `hub-coordinator` | Recipient agent ID to ping |

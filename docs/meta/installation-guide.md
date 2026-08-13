@@ -11,7 +11,9 @@
 - **Docker**: Not supported (do not use)
 
 ### Root Cause Analysis
+
 The system requirements are based on actual project configuration:
+
 - **Python 3.13.5+**: Defined in `pyproject.toml` as `requires-python = ">=3.13.5"`
 - **Node.js 24.14.0+**: Defined in `config/.nvmrc` as `24.14.0`
 - **No Docker Support**: Docker is not used in this project

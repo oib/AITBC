@@ -23,6 +23,7 @@ This document provides guidelines for maintaining the AITBC release documentatio
 **Structure**: Versioned directories with structured files
 
 **Directory Structure**:
+
 ```
 docs/releases/
   vX.Y.Z/
@@ -84,10 +85,12 @@ Documentation should be archived when:
 
 1. Create an `archive/` subdirectory if it doesn't exist
 2. Move legacy files to the archive with appropriate subdirectories:
+
    ```bash
    mkdir -p /opt/aitbc/docs/releases/archive/v0.4.x
    mv /opt/aitbc/docs/releases/RELEASE_v0.4.*.md /opt/aitbc/docs/releases/archive/v0.4.x/
    ```
+
 3. Update the release index to reference the archived location
 4. Add a note explaining why the files were archived
 
@@ -120,6 +123,7 @@ When features are deprecated:
 4. Provide migration guidance if applicable
 
 **Example Notice**:
+
 ```markdown
 > **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only marketplace with bidding was deprecated in v0.4.7.
 > The current marketplace focuses on hardware+software bundles with fixed pricing.
@@ -137,11 +141,13 @@ When features are deprecated:
 
 - Use consistent heading levels (H1 for titles, H2 for sections)
 - Include metadata at the top of files:
+
   ```markdown
   **Last Updated**: YYYY-MM-DD
   **Version**: X.Y
   **Status**: Planned/In Progress/Complete
   ```
+
 - Use code blocks for commands and code examples
 - Use tables for structured data
 

@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.5.19 Suggestions
 
 ## Status
+
 **PLANNED 2026-06-29** — v0.5.19 created to track 7 tech debt items deferred from v0.5.13-v0.5.18. After re-verification, 4 items are already resolved, leaving 3 outstanding. NOT on the critical path. Low risk.
 
 ## Origin
@@ -17,11 +19,13 @@ During v0.7.4 and v0.8.2 release planning, it was discovered that 7 tech debt it
 ## Deferred Items — Verified State (2026-06-29)
 
 ### 1. Cross-context import refactor: ai_analytics → analytics (from v0.5.13) — ✅ RESOLVED
+
 - `ai_analytics` context no longer exists — merged into `analytics` as sub-package in v0.5.14
 - `apps/coordinator-api/src/app/contexts/analytics/services/ai_analytics/__init__.py:2-4` confirms merge
 - **No action needed**
 
 ### 2. 7 pricing tables not wired into engine (from v0.5.13) — ⚠️ PARTIALLY ADDRESSED
+
 - Models in `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`:
   - `ProviderPricingStrategy` (line 108) — PARTIALLY WIRED (used in `dynamic_pricing.py:344`)
   - `MarketMetrics` (line 171) — DUPLICATE (also in `marketplace/domain/gpu_marketplace.py:145`)
@@ -33,10 +37,12 @@ During v0.7.4 and v0.8.2 release planning, it was discovered that 7 tech debt it
 - **Action needed**: wire or remove 6 unused tables; resolve duplicates
 
 ### 3. Certification cross-context import to analytics (from v0.5.13) — ✅ RESOLVED
+
 - 0 imports from certification to analytics/ai_analytics found
 - **No action needed**
 
 ### 4. Rewards/certification cross-context imports: AgentReputation (from v0.5.13) — ❌ STILL OUTSTANDING
+
 - Certification imports `AgentReputation` from reputation context (20 references):
   - `badge_system.py:10` — 3 references
   - `certification_system.py:17` — 6 references
@@ -46,16 +52,19 @@ During v0.7.4 and v0.8.2 release planning, it was discovered that 7 tech debt it
 - **Action needed**: introduce ReputationDTO/service interface to eliminate direct model import
 
 ### 5. _TEMPLATE.md for scenario authors (from v0.5.15) — ✅ RESOLVED
+
 - `docs/scenarios/_TEMPLATE.md` exists (129 lines, complete structure)
 - **No action needed**
 
 ### 6. 127 skipped CLI tests (from v0.5.17) — ✅ RESOLVED
+
 - Current CLI tests (`cli/tests/`) have 0 permanent skip decorators
 - Only conditional skips for service availability (e.g., "edge-api not running")
 - `tests/cli/` has ~15 conditional skip statements (down from 127)
 - **No action needed** — remaining skips are appropriate integration test guards
 
 ### 7. Add fakeredis (from v0.5.18) — ❌ STILL OUTSTANDING
+
 - `tests/conftest_sqlite.py:57` has misleading comment "uses fakeredis" but it's NOT installed
 - Not in `requirements.txt` or `pyproject.toml`
 - The fixture just sets `REDIS_URL` env var to `redis://localhost:6379/1` — doesn't use fakeredis

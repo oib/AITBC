@@ -20,6 +20,7 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 5. **Fixing service configurations** (user accounts, missing dependencies)
 
 ### Key Achievements
+
 - **0 vulnerabilities** in JavaScript/TypeScript dependencies (pnpm audit)
 - **Updated Python dependencies** (pyjwt 2.9.0, argon2, faster-whisper)
 - **Automated security scanning** in CI/CD
@@ -29,6 +30,7 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 - **Legacy services removed** (wallet-daemon duplicate)
 
 ### Service Inventory
+
 - **Total service files**: 32 service definitions (1 legacy removed)
 - **Active services**: 24 services currently running
 - **Removed services**: 1 legacy service (aitbc-wallet-daemon.service)
@@ -38,6 +40,7 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 ### Actual Vulnerabilities Found
 
 **JavaScript/TypeScript Dependencies (Contracts):**
+
 - **Location**: `/opt/aitbc/contracts/package.json`
 - **Vulnerabilities**: Multiple moderate and low severity
 - **Main Issues**:
@@ -49,11 +52,13 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 - **Risk**: Development dependencies only (not production)
 
 **JavaScript/TypeScript Dependencies (SDK):**
+
 - **Location**: `/opt/aitbc/packages/js/aitbc-sdk/package.json`
 - **Vulnerabilities**: 0 vulnerabilities found
 - **Status**: Clean ✅
 
 **Python Dependencies:**
+
 - **Location**: `/opt/aitbc/pyproject.toml`
 - **Vulnerabilities**: Safety scanner requires API key for full scan
 - **Packages Scanned**: 261 packages
@@ -71,6 +76,7 @@ The AITBC project successfully addressed all 82 security vulnerabilities by:
 Based on investigation, vulnerabilities likely originate from:
 
 ### 1. Python Dependencies (Primary Source)
+
 - **Location**: `/opt/aitbc/pyproject.toml`
 - **Package Manager**: Poetry
 - **Dependencies**: 80+ direct and indirect dependencies
@@ -84,12 +90,14 @@ Based on investigation, vulnerabilities likely originate from:
   - `urllib3 >=2.7.0`
 
 ### 2. JavaScript/TypeScript Dependencies
+
 - **Location**: `/opt/aitbc/contracts/package.json`
 - **Package Manager**: npm
 - **Status**: No lockfile present, preventing full audit
 - **Dependencies**: Hardhat, Ethers.js, OpenZeppelin contracts
 
 ### 3. Smart Contract Dependencies
+
 - **Location**: `/opt/aitbc/contracts/governance/`
 - **Package Manager**: Foundry
 - **Dependencies**: OpenZeppelin contracts, forge-std
@@ -145,6 +153,7 @@ Based on investigation, vulnerabilities likely originate from:
 ## Final Security Status
 
 ### Before Remediation
+
 - 82 vulnerabilities (23 high, 59 moderate)
 - Using npm with package-lock.json
 - System-linked venv (Python 3.13.5)
@@ -152,6 +161,7 @@ Based on investigation, vulnerabilities likely originate from:
 - Vulnerabilities in @ethersproject packages
 
 ### After Remediation
+
 - **0 vulnerabilities** ✅ (pnpm audit shows no known vulnerabilities)
 - **Switched to pnpm** for better security
 - **System-linked venv** (Python 3.13.5) - systemd compatible
@@ -162,6 +172,7 @@ Based on investigation, vulnerabilities likely originate from:
 - **100% vulnerability reduction**
 
 ### Services Fixed During Migration
+
 - **aitbc-api-gateway.service**: Fixed user configuration (aitbc → root)
 - **aitbc-wallet.service**: Added missing argon2 dependency
 - **aitbc-whisper.service**: Fixed user configuration and added faster-whisper dependency
@@ -177,22 +188,26 @@ Based on investigation, vulnerabilities likely originate from:
 During the migration, several systemd services required configuration fixes:
 
 ### aitbc-api-gateway.service
+
 - **Issue**: Non-existent user 'aitbc' in service configuration
 - **Fix**: Changed User/Group from 'aitbc' to 'root'
 - **File**: `/opt/aitbc/apps/api-gateway/aitbc-api-gateway.service`
 
 ### aitbc-wallet.service
+
 - **Issue**: Missing 'argon2' dependency for encryption
 - **Fix**: Installed argon2 and argon2-cffi packages
 - **Dependency**: Required for wallet encryption functionality
 
 ### aitbc-whisper.service
+
 - **Issue 1**: Non-existent user 'aitbc' in service configuration
 - **Issue 2**: Missing 'faster-whisper' dependency
 - **Fix**: Changed User/Group to 'root' and installed faster-whisper
 - **File**: `/opt/aitbc/apps/whisper/aitbc-whisper.service`
 
 ### aitbc-agent-daemon.service
+
 - **Issue**: No blockchain chains configured, service had no work to do
 - **Fix**: Added AGENT_DAEMON_CHAINS=ait-hub.aitbc.bubuit.net to service configuration
 - **Additional**: Created agent wallet from genesis wallet
@@ -200,26 +215,31 @@ During the migration, several systemd services required configuration fixes:
 - **Wrapper**: `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py`
 
 ### aitbc-edge.service
+
 - **Issue**: Port conflict with aitbc-whisper.service (both using 8110)
 - **Fix**: Changed API_PORT from 8110 to 8111
 - **File**: `/opt/aitbc/apps/edge/aitbc-edge.service`
 
 ### aitbc-blockchain-event-bridge.service
+
 - **Issue**: Port conflict with coordinator-api service (both using 8204)
 - **Fix**: Changed default port from 8204 to 8205
 - **File**: `/opt/aitbc/apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py`
 
 ### aitbc-miner.service
+
 - **Issue**: Connection refused to coordinator (using legacy port 8011)
 - **Fix**: Updated COORDINATOR_URL from http://localhost:8011 to http://localhost:8203
 - **File**: `/opt/aitbc/apps/miner/aitbc-miner.service`
 
 ### aitbc-wallet-daemon.service
+
 - **Issue**: Legacy duplicate service causing port conflicts with aitbc-wallet.service
 - **Fix**: Disabled and removed service file
 - **File**: `/opt/aitbc/apps/wallet/aitbc-wallet-daemon.service` (removed)
 
 ### All Services
+
 - **Issue**: System venv compatibility after pyenv removal
 - **Fix**: Recreated system venv with all dependencies
 - **Result**: All 24 services now running successfully
@@ -227,6 +247,7 @@ During the migration, several systemd services required configuration fixes:
 ## Port Configuration Updates
 
 ### Blockchain Ports (8200+)
+
 - **8200**: P2P service (aitbc-blockchain-p2p.service)
 - **8201**: P2P service (aitbc-blockchain-p2p.service)
 - **8202**: Blockchain RPC (localhost) - aitbc-blockchain-rpc.service
@@ -236,6 +257,7 @@ During the migration, several systemd services required configuration fixes:
 - **8206-8209**: Available for future use
 
 ### Application Ports (8100+)
+
 - **8101**: GPU Service (localhost) - aitbc-gpu.service
 - **8102**: Marketplace Service (localhost) - aitbc-marketplace.service
 - **8103**: Hermes Service (localhost) - aitbc-hermes.service
@@ -249,6 +271,7 @@ During the migration, several systemd services required configuration fixes:
 - **8111**: Edge Service - aitbc-edge.service (changed from 8110)
 
 ### Legacy Port Updates
+
 - **8011**: Legacy coordinator port (no longer used, updated to 8203)
 - **8204**: Legacy event-bridge port (no longer used, updated to 8205)
 - **8110**: Legacy edge service port (no longer used, updated to 8111)
@@ -295,6 +318,7 @@ During the migration, several systemd services required configuration fixes:
 ## Removed/Legacy Services
 
 ### aitbc-wallet-daemon.service
+
 - **Status**: Removed
 - **Reason**: Legacy duplicate of aitbc-wallet.service
 - **Issue**: Caused port conflicts on port 8108
@@ -304,24 +328,28 @@ During the migration, several systemd services required configuration fixes:
 ## pnpm Migration Benefits
 
 ### Security Improvements
+
 - **Stricter dependency resolution**: pnpm enforces stricter dependency rules
 - **Better peer dependency handling**: Prevents conflicts and version mismatches
 - **More accurate vulnerability detection**: pnpm audit has better security database
 - **Deterministic installs**: Consistent dependency resolution across environments
 
 ### Performance Improvements
+
 - **Faster installation**: pnpm is significantly faster than npm
 - **Efficient disk usage**: Uses content-addressable storage to avoid duplicates
 - **Better caching**: More effective caching mechanism
 - **Parallel installation**: Installs packages in parallel
 
 ### Management Benefits
+
 - **Monorepo support**: Better support for monorepo projects
 - **Strict peer dependencies**: Prevents silent peer dependency issues
 - **Workspace protocol**: Native support for workspace projects
 - **Better lockfile format**: More readable and maintainable lockfile
 
 ### Files Modified for pnpm Migration
+
 - `/opt/aitbc/contracts/pnpm-lock.yaml` (new, 146KB)
 - `/opt/aitbc/packages/js/aitbc-sdk/pnpm-lock.yaml` (new, 60KB)
 - `/opt/aitbc/.gitea/workflows/js-sdk-tests.yml` (updated to use pnpm)
@@ -332,6 +360,7 @@ During the migration, several systemd services required configuration fixes:
 ## Dependency Overrides Already in Place
 
 The project already has security overrides in `/opt/aitbc/contracts/package.json`:
+
 ```json
 "overrides": {
   "uuid": "^14.0.0",
@@ -349,21 +378,25 @@ The project already has security overrides in `/opt/aitbc/contracts/package.json
 ## Recommended Security Enhancements
 
 ### 1. Automated Dependency Scanning
+
 - Integrate Dependabot alerts with CI/CD pipeline
 - Add automated security scanning to GitHub Actions
 - Implement dependency update automation
 
 ### 2. Dependency Pinning
+
 - Pin all Python dependencies to specific versions
 - Use poetry.lock for reproducible builds
 - Pin npm dependencies using package-lock.json
 
 ### 3. Security Testing
+
 - Add SAST (Static Application Security Testing) to CI/CD
 - Implement dependency scanning in pull requests
 - Add container security scanning
 
 ### 4. Monitoring
+
 - Set up security alert notifications
 - Monitor for new vulnerability disclosures
 - Implement security patch management process
@@ -371,18 +404,21 @@ The project already has security overrides in `/opt/aitbc/contracts/package.json
 ## Priority Remediation Plan
 
 ### Phase 1: Critical (Immediate)
+
 1. Generate missing lockfiles
 2. Run full security audit
 3. Update high-severity dependencies
 4. Test updates in staging environment
 
 ### Phase 2: High (Within 1 week)
+
 1. Update moderate-severity dependencies
 2. Implement automated dependency scanning
 3. Add security checks to CI/CD pipeline
 4. Document security patch process
 
 ### Phase 3: Medium (Within 1 month)
+
 1. Implement dependency pinning strategy
 2. Add SAST tools to development workflow
 3. Set up security monitoring
@@ -400,6 +436,7 @@ During the migration, additional Python dependencies were installed to fix servi
 ## Current Security Tools in Project
 
 The project already includes security tools in `pyproject.toml`:
+
 - `bandit = "1.9.4"` - Python security linter
 - `safety = "3.7.0"` - Dependency vulnerability scanner
 - `ruff = "0.15.10"` - Fast Python linter with security rules

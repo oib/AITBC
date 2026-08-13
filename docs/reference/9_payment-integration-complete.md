@@ -7,6 +7,7 @@ The wallet-coordinator integration for job payments has been successfully implem
 ## Test Results
 
 ### ✅ All Integration Tests Passing (7/7)
+
 1. **End-to-End Job Execution** - PASSED
 2. **Multi-Tenant Isolation** - PASSED
 3. **Wallet Payment Flow** - PASSED ✨ **NEW**
@@ -18,6 +19,7 @@ The wallet-coordinator integration for job payments has been successfully implem
 ## Implemented Features
 
 ### 1. Payment API Endpoints ✅
+
 - `POST /v1/payments` - Create payment
 - `GET /v1/payments/{id}` - Get payment details
 - `GET /v1/jobs/{id}/payment` - Get job payment
@@ -26,16 +28,19 @@ The wallet-coordinator integration for job payments has been successfully implem
 - `GET /v1/payments/{id}/receipt` - Get receipt
 
 ### 2. Job Payment Integration ✅
+
 - Jobs can be created with `payment_amount` and `payment_currency`
 - Payment status tracked in job model
 - Automatic escrow creation for Bitcoin payments
 
 ### 3. Escrow Service ✅
+
 - Integration with wallet daemon
 - Timeout-based expiration
 - Status tracking (pending → escrowed → released/refunded)
 
 ### 4. Database Schema ✅
+
 - `job_payments` table for payment records
 - `payment_escrows` table for escrow tracking
 - Migration script: `004_payments.sql`
@@ -43,6 +48,7 @@ The wallet-coordinator integration for job payments has been successfully implem
 ## Test Example
 
 The payment flow test now:
+
 1. Creates a job with 0.001 BTC payment
 2. Verifies payment creation and escrow
 3. Retrieves payment details
@@ -51,6 +57,7 @@ The payment flow test now:
 ## Next Steps for Production
 
 1. **Apply Database Migration**
+
    ```sql
    psql -d aitbc -f apps/coordinator-api/migrations/004_payments.sql
    ```
@@ -71,6 +78,7 @@ The payment flow test now:
 ## Files Modified/Created
 
 ### New Files
+
 - `apps/coordinator-api/src/app/schemas/payments.py`
 - `apps/coordinator-api/src/app/domain/payment.py`
 - `apps/coordinator-api/src/app/services/payments.py`
@@ -78,6 +86,7 @@ The payment flow test now:
 - `apps/coordinator-api/migrations/004_payments.sql`
 
 ### Updated Files
+
 - Job model and schemas for payment tracking
 - Job service and client router
 - Main app to include payment endpoints

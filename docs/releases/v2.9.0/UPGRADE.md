@@ -27,6 +27,7 @@ git fetch harness
 11 new TOML files in `.codex/agents/` defining SAFe agent roles for Codex CLI.
 
 **Safe to auto-sync** — new files, no customization risk:
+
 ```bash
 git checkout harness/main -- .codex/agents/
 ```
@@ -36,6 +37,7 @@ git checkout harness/main -- .codex/agents/
 `.agents/skills/` expanded from 3 to 18 skills (cross-provider).
 
 **Safe to auto-sync** — new files:
+
 ```bash
 git checkout harness/main -- .agents/skills/
 ```
@@ -45,6 +47,7 @@ git checkout harness/main -- .agents/skills/
 `.codex/config.toml` enriched with MCP servers, agent profiles, feature flags.
 
 **Manual review recommended** — if you've customized this file:
+
 ```bash
 git diff harness/main -- .codex/config.toml
 ```
@@ -54,6 +57,7 @@ git diff harness/main -- .codex/config.toml
 New guide and tmux template for Codex CLI in Dark Factory.
 
 **Safe to auto-sync** — new files:
+
 ```bash
 git checkout harness/main -- dark-factory/docs/CODEX-DARK-FACTORY-GUIDE.md
 git checkout harness/main -- dark-factory/templates/codex-factory.sh
@@ -64,6 +68,7 @@ git checkout harness/main -- dark-factory/templates/codex-factory.sh
 New MCP config and 3 additional Cursor rules.
 
 **Safe to auto-sync** — new files:
+
 ```bash
 git checkout harness/main -- .cursor/mcp.json
 git checkout harness/main -- .cursor/rules/14-spec-creation.mdc
@@ -74,6 +79,7 @@ git checkout harness/main -- .cursor/rules/16-stripe-payments.mdc
 ### Branch Reference Updates (SAW-32)
 
 6 files updated to reference `main` instead of `template`. If you've customized these:
+
 - `.github/workflows/test-fork-sync.yml`
 - `scripts/pre-release-check.sh`
 - `docs/release/PRE-RELEASE-CHECKLIST.md`
@@ -100,6 +106,7 @@ If you adopted the harness at v2.6.0 (or earlier), ran `setup-template.sh` to re
 placeholders, and now want to upgrade:
 
 **Step 1 — Sync `.claude/` directory** (manifest-aware, protects customizations):
+
 ```bash
 # Initialize sync metadata (if not already done)
 ./scripts/sync-claude-harness.sh init
@@ -113,6 +120,7 @@ placeholders, and now want to upgrade:
 ```
 
 **Step 2 — Cherry-pick non-`.claude/` files** (new in v2.9.0):
+
 ```bash
 git fetch harness main
 git checkout harness/main -- .codex/agents/
@@ -129,6 +137,7 @@ bash scripts/setup-template.sh
 ```
 
 The manifest-based sync automatically:
+
 - Detects your project-specific values (from `team-config.json`)
 - Applies your substitutions to new `.claude/` files
 - Protects files you've marked as customized
@@ -164,6 +173,7 @@ bash scripts/setup-template.sh
 ## Verification
 
 After upgrading, verify:
+
 ```bash
 # Agent files present
 ls .codex/agents/*.toml | wc -l  # Should be 11
@@ -193,6 +203,7 @@ git checkout v2.8.1 -- .cursor/rules/16-stripe-payments.mdc
 ```
 
 For a full rollback of the `.claude/` directory (if sync was used):
+
 ```bash
 # The sync script creates timestamped backups before changes
 ls .claude/.harness-backup/   # Find your backup
@@ -200,6 +211,7 @@ cp -r .claude/.harness-backup/<timestamp>/* .claude/
 ```
 
 For a complete rollback to v2.8.1 across all harness files:
+
 ```bash
 git fetch harness --tags
 git checkout v2.8.1 -- .claude/ .codex/ .cursor/ .agents/ dark-factory/

@@ -44,6 +44,7 @@ staging.aitbc.example.com
 ### System Requirements
 
 Same as production:
+
 - CPU: 4+ cores
 - RAM: 16GB+
 - Disk: 100GB+ SSD

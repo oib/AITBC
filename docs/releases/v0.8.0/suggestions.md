@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.8.0 Suggestions
 
 ## Status
+
 **RE-VERIFIED 2026-06-29** — Original analysis had multiple stale/incorrect claims. Re-verified against current codebase state.
 
 ## Stale Claims Corrected

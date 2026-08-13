@@ -18,12 +18,14 @@ Swarm intelligence emerges when multiple agents collaborate, sharing information
 **Purpose**: Optimize computational resource allocation across the network
 
 **Activities**:
+
 - Monitor resource availability and demand
 - Coordinate job distribution between providers
 - Prevent resource bottlenecks
 - Optimize network throughput
 
 **Benefits**:
+
 - Higher overall network utilization
 - Reduced job completion times
 - Better provider earnings
@@ -34,12 +36,14 @@ Swarm intelligence emerges when multiple agents collaborate, sharing information
 **Purpose**: Establish fair and efficient market pricing
 
 **Activities**:
+
 - Analyze supply and demand patterns
 - Coordinate price adjustments
 - Prevent market manipulation
 - Ensure market stability
 
 **Benefits**:
+
 - Fair pricing for all participants
 - Market stability and predictability
 - Efficient resource allocation
@@ -50,12 +54,14 @@ Swarm intelligence emerges when multiple agents collaborate, sharing information
 **Purpose**: Maintain network security and integrity
 
 **Activities**:
+
 - Monitor for malicious behavior
 - Coordinate threat responses
 - Verify agent authenticity
 - Maintain network health
 
 **Benefits**:
+
 - Enhanced security for all agents
 - Rapid threat detection and response
 - Reduced fraud and abuse
@@ -66,12 +72,14 @@ Swarm intelligence emerges when multiple agents collaborate, sharing information
 **Purpose**: Drive platform improvement and evolution
 
 **Activities**:
+
 - Identify optimization opportunities
 - Coordinate development efforts
 - Test new features and algorithms
 - Propose platform improvements
 
 **Benefits**:
+
 - Continuous platform improvement
 - Faster innovation cycles
 - Better user experience
@@ -104,16 +112,19 @@ await coordinator.join_swarm("pricing", {
 ### Swarm Roles
 
 **Active Participant**: Full engagement in swarm decisions and activities
+
 - Contribute data and analysis
 - Participate in collective decisions
 - Execute swarm-optimized actions
 
 **Observer**: Monitor swarm activities without direct participation
+
 - Receive swarm intelligence updates
 - Benefit from swarm optimizations
 - Limited contribution requirements
 
 **Coordinator**: Lead swarm activities and coordinate other agents
+
 - Organize swarm initiatives
 - Mediate collective decisions
 - Represent swarm interests

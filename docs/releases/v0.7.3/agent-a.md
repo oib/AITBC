@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.2 Agent A ✅.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/governance/ && ./venv/bin/python -m ruff check aitbc/governance/ tests/unit/test_governance_sdk.py && ./venv/bin/python -m pytest tests/unit/test_governance_sdk.py -q -o addopts=""
 ```
@@ -32,6 +33,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/governance/ 
 ## A1: Governance Types
 
 Create `aitbc/governance/types.py`:
+
 - `GovernanceTxType` enum — PROPOSE, VOTE, EXECUTE
 - `GovernanceConfig` dataclass — voting params, timelock, quorum
 - `ProposalData` dataclass — on-chain tx payload for proposals
@@ -43,6 +45,7 @@ Create `aitbc/governance/types.py`:
 ## A2: Governance Client
 
 Create `aitbc/governance/client.py`:
+
 - `GovernanceClient` — async HTTP client for governance service RPC
 - `submit_proposal(proposal_data)` — submit proposal to governance service
 - `submit_vote(vote_data)` — submit vote to governance service
@@ -54,6 +57,7 @@ Create `aitbc/governance/client.py`:
 ## A3: On-Chain Utilities
 
 Create `aitbc/governance/onchain.py`:
+
 - `build_proposal_tx(proposal_data)` — GOVERNANCE_PROPOSE tx payload
 - `build_vote_tx(vote_data)` — GOVERNANCE_VOTE tx payload
 - `build_execute_tx(proposal_id)` — GOVERNANCE_EXECUTE tx payload
@@ -64,6 +68,7 @@ Create `aitbc/governance/onchain.py`:
 ## A4: Unit Tests
 
 `tests/unit/test_governance_sdk.py` — tests for:
+
 - Governance types serialization
 - Governance client HTTP methods (mocked httpx)
 - On-chain utilities tx building

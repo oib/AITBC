@@ -52,6 +52,7 @@
 ### Files Currently Tracked That Should Be Removed
 
 **High Priority - Remove Immediately:**
+
 1. `.windsurf/` - Entire IDE configuration directory
    - Contains local IDE settings, skills, and workflows
    - Should never be in a public repository
@@ -63,6 +64,7 @@
 ### Files With Hardcoded Credentials (Documentation/Examples)
 
 **Low Priority - These are examples but should be cleaned:**
+
 - `website/docs/coordinator-api.html` - Contains `SECRET_KEY=<YOUR_SECRET_KEY>`
 - `website/docs/wallet-daemon.html` - Contains `password="<DB_PASSWORD>"`
 - `website/docs/pool-hub.html` - Contains `POSTGRES_PASSWORD=pass`
@@ -70,6 +72,7 @@
 ## 🚨 IMMEDIATE ACTIONS REQUIRED
 
 ### 1. Remove Sensitive Files from Git History
+
 ```bash
 # Remove .windsurf directory completely
 git filter-branch --force --index-filter 'git rm -rf --cached --ignore-unmatch .windsurf/' --prune-empty --tag-name-filter cat -- --all
@@ -83,7 +86,9 @@ git reflog expire --expire=now --all && git gc --prune=now --aggressive
 ```
 
 ### 2. Update .gitignore
+
 Add these lines to `.gitignore`:
+
 ```
 # IDE configurations
 .windsurf/
@@ -105,7 +110,9 @@ scripts/deployment/terraform/environments/secrets.tf
 ```
 
 ### 3. Replace Hardcoded Examples
+
 Replace documentation examples with placeholder variables:
+
 - `SECRET_KEY=<YOUR_SECRET_KEY>` → `SECRET_KEY=${SECRET_KEY}`
 - `password="<DB_PASSWORD>"` → `password="${DB_PASSWORD}"`
 - `POSTGRES_PASSWORD=pass` → `POSTGRES_PASSWORD=${POSTGRES_PASSWORD}`
@@ -113,12 +120,14 @@ Replace documentation examples with placeholder variables:
 ## 🐙 GITHUB REPOSITORY SETUP
 
 ### Repository Description
+
 ```
 AITBC - AI Trusted Blockchain Computing Platform
 A comprehensive blockchain-based marketplace for AI computing services with zero-knowledge proof verification and confidential transaction support.
 ```
 
 ### Recommended Topics
+
 ```
 blockchain ai-computing marketplace zero-knowledge-proofs confidential-transactions web3 python fastapi react typescript kubernetes terraform helm decentralized gpu-computing zk-proofs cryptography smart-contracts
 ```
@@ -126,6 +135,7 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 ### Repository Settings to Configure
 
 **Security Settings:**
+
 - ✅ Enable "Security advisories"
 - ✅ Enable "Dependabot alerts"
 - ✅ Enable "Dependabot security updates"
@@ -133,6 +143,7 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 - ✅ Enable "Secret scanning"
 
 **Branch Protection:**
+
 - ✅ Require pull request reviews
 - ✅ Require status checks to pass
 - ✅ Require up-to-date branches
@@ -140,6 +151,7 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 - ✅ Require conversation resolution
 
 **Integration Settings:**
+
 - ✅ Enable "Issues"
 - ✅ Enable "Projects"
 - ✅ Enable "Wikis"
@@ -148,7 +160,8 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 
 ## 📋 FINAL CHECKLIST
 
-### Before Pushing to GitHub:
+### Before Pushing to GitHub
+
 - [ ] Remove `.windsurf/` directory from git history
 - [ ] Remove `scripts/deployment/k8s/sealed-secrets.yaml` from git history
 - [ ] Remove `scripts/deployment/terraform/environments/secrets.tf` from git history
@@ -157,7 +170,8 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 - [ ] Scan for any remaining sensitive files
 - [ ] Test that the repository still builds/works
 
-### After GitHub Setup:
+### After GitHub Setup
+
 - [ ] Configure repository settings
 - [ ] Set up branch protection rules
 - [ ] Enable security features
@@ -167,7 +181,8 @@ blockchain ai-computing marketplace zero-knowledge-proofs confidential-transacti
 
 ## 🔍 TOOLS FOR VERIFICATION
 
-### Scan for Credentials:
+### Scan for Credentials
+
 ```bash
 # Install truffleHog
 pip install trufflehog
@@ -179,7 +194,8 @@ trufflehog filesystem --directory /path/to/repo
 git secrets --scan -r
 ```
 
-### Git History Analysis:
+### Git History Analysis
+
 ```bash
 # Check for large files
 git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | sed -n 's/^blob //p' | sort -n --key=2 | tail -20
@@ -191,6 +207,7 @@ git log -p --all | grep -E "(password|secret|key|token)" | head -20
 ## ⚠️ IMPORTANT NOTES
 
 1. **Force Push Required**: After removing files from history, you'll need to force push:
+
    ```bash
    git push origin --force --all
    git push origin --force --tags

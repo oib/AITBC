@@ -68,6 +68,7 @@ cd /opt/aitbc/apps/governance
 ### Changes
 
 **Tables Created:**
+
 - governance_profiles
 - proposals
 - votes
@@ -79,6 +80,7 @@ cd /opt/aitbc/apps/governance
 - transparency_reports
 
 **Indexes Created:**
+
 - idx_proposals_status
 - idx_proposals_voting_period
 - idx_proposals_proposer
@@ -136,6 +138,7 @@ def downgrade() -> None:
 The Alembic configuration file is located at `/opt/aitbc/apps/governance/alembic.ini`.
 
 **Key Settings:**
+
 ```ini
 # Database URL (SQLite for development)
 sqlalchemy.url = sqlite:////var/lib/aitbc/data/governance_service.db
@@ -149,6 +152,7 @@ sqlalchemy.url = sqlite:////var/lib/aitbc/data/governance_service.db
 The migration environment script is located at `/opt/aitbc/apps/governance/alembic/env.py`.
 
 **Key Configuration:**
+
 - Adds `src` directory to Python path for model imports
 - Configures database engine from environment
 - Sets up migration context
@@ -187,6 +191,7 @@ cd /opt/aitbc/apps/governance
 **Cause:** Database already has tables from previous migration or manual setup.
 
 **Solution:**
+
 ```bash
 # SQLite: Delete database file
 rm /var/lib/aitbc/data/governance_service.db
@@ -229,6 +234,7 @@ sys.path.insert(0, '/opt/aitbc/apps/governance/src')
 ```
 
 Example output:
+
 ```
 <base>  -> 001_initial_governance_schema (head), Initial governance schema
 ```

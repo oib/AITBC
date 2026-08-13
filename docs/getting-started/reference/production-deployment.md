@@ -9,14 +9,14 @@ For production deployment, ensure the following items are completed:
 
 ## Security
 
-3. Set up reverse proxy (nginx)
-4. Configure SSL certificates manually outside `scripts/deployment/setup.sh`
+1. Set up reverse proxy (nginx)
+2. Configure SSL certificates manually outside `scripts/deployment/setup.sh`
 
 ## Operations
 
-5. Set up log rotation
-6. Configure monitoring and alerts
-7. Use proper database setup (PostgreSQL/Redis)
+1. Set up log rotation
+2. Configure monitoring and alerts
+3. Use proper database setup (PostgreSQL/Redis)
 
 ## See Also
 

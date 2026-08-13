@@ -10,6 +10,7 @@
 > **Rescope from original change.log**: The original v0.7.2 plan assumed external oracle infrastructure (`oracle1.aitbc.bubuit.net`, `oracle2.aitbc.bubuit.net`) that **does not exist**. No oracle client code, light client library, or deployed oracle network are present. v0.7.2 is rescoped to use **in-process cryptographic verification** with existing Merkle Patricia Trie infrastructure (`merkle_patricia_trie.verify_proof`). External oracle integration is deferred to v0.8.x or v0.9.x. A stub oracle client interface is included to allow future integration without breaking changes.
 
 > **Hard prerequisite**: v0.7.1 must be **complete and committed** before v0.7.2 implementation starts. v0.7.2's core verification depends on:
+>
 > - v0.7.1 Agent A: `ValidatorSetRegistry`, `verify_threshold_signatures`, `ValidatorSet`/`ValidatorInfo` types (✅ committed `1fcf1e829`)
 > - v0.7.1 Agent B: `BridgeValidator` SQLModel table, block header `signature` field, `_verify_threshold_signatures` in bridge.py, validator RPC endpoints (🔴 NOT STARTED — v0.7.0 Agent B is still uncommitted)
 >
@@ -38,6 +39,7 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
 - [Hard Blockers](./overview.md#hard-blockers-must-be-resolved-before-v072-implementation)
@@ -45,6 +47,7 @@ This release documentation has been split into topic-focused files:
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Extend Bridge Types](./agent-a.md#a1-extend-bridge-types)
@@ -53,6 +56,7 @@ This release documentation has been split into topic-focused files:
 - [BridgeClient Extensions + Unit Tests](./agent-a.md#a4-bridgeclient-extensions--unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Bridge Verification Config + Constants](./agent-b.md#b1-bridge-verification-config--constants)
@@ -205,6 +209,7 @@ Phase 0 (prerequisite — Agent B):
 **Prerequisite**: v0.7.1 Agent A ✅ (committed `1fcf1e829`). v0.7.1 Agent B ✅ (committed `a4ea61295` — provides `BridgeValidator` table + block header `signature` field that the types mirror).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && ./venv/bin/python -m ruff check aitbc/bridge/ tests/unit/test_bridge_verification.py && ./venv/bin/python -m pytest tests/unit/test_bridge_verification.py tests/unit/test_bridge_security.py tests/unit/test_bridge_sdk.py -q -o addopts=""
 ```
@@ -543,6 +548,7 @@ async def oracle_status(self) -> dict[str, Any]:
 ```
 
 **`tests/unit/test_bridge_verification.py`** — unit tests for A1-A4:
+
 - `test_bridge_block_header_dataclass` — all fields
 - `test_bridge_block_header_defaults` — signature="", finality_confirmed=False
 - `test_finality_config_defaults` — min_confirmations=3, finality_blocks=6, etc.
@@ -578,6 +584,7 @@ async def oracle_status(self) -> dict[str, Any]:
 **Prerequisite**: v0.7.1 Agent B must be complete (BridgeValidator table, block header signature field, threshold sig verification). v0.7.0 Agent B must be committed.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/config.py apps/blockchain-node/src/aitbc_chain/base_models.py apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py apps/blockchain-node/src/aitbc_chain/rpc/bridge.py apps/blockchain-node/src/aitbc_chain/rpc/router.py cli/aitbc_cli/commands/bridge.py aitbc/constants.py
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v072_bridge_verification.py -q -o addopts="" --timeout=30
@@ -601,6 +608,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bri
 #### B1: Bridge Verification Config + Constants
 
 In `aitbc/constants.py`, add:
+
 ```python
 # Bridge verification config (v0.7.2)
 BRIDGE_VERIFICATION_MODE = "in_process"       # "in_process" | "oracle"
@@ -611,6 +619,7 @@ BRIDGE_LARGE_TRANSFER_THRESHOLD = 10000        # transfers above this require fu
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/config.py`, add to Settings:
+
 ```python
 bridge_verification_mode: str = "in_process"
 bridge_min_confirmations: int = 3
@@ -666,21 +675,25 @@ Wire the `InProcessVerifier` from A2 as the verification backend, passing the bl
 Use `validate_block_header()` from A3 to verify the block header's proposer signature against the v0.7.1 validator set registry. Reject proofs anchored to blocks with invalid or unknown proposer signatures.
 
 Add an RPC endpoint for storing remote block headers:
+
 - `POST /bridge/block-headers` — store a remote chain block header (with signature)
 
 #### B5: Finality Tracking
 
 Track block confirmations per chain:
+
 - When a new block is received for a chain, increment confirmation counts for all previous blocks
 - Mark blocks as `finality_confirmed = True` when `confirmation_count >= bridge_finality_blocks`
 - In `_validate_proof`, reject proofs anchored to non-finalized blocks for transfers >= `bridge_large_transfer_threshold`
 
 Add RPC endpoint:
+
 - `GET /bridge/block-headers/{chain_id}/{height}` — get a stored block header with finality status
 
 #### B6: Validator Set Epoch Tracking
 
 Extend the v0.7.1 `BridgeValidator` table with epoch tracking:
+
 - Add `epoch` and `is_active` columns (if not already in v0.7.1)
 - Track validator set transitions with grace period
 - Reject proofs signed by stale validator sets after grace period expires
@@ -689,18 +702,22 @@ Extend the v0.7.1 `BridgeValidator` table with epoch tracking:
 #### B7: Unfence Release Path + CLI
 
 **Unfence**: After all verification (B3-B6) is operational and tested:
+
 - Change `bridge_release_enabled: bool = False` → `True` in `config.py`
 - Update the fence comment to reflect that Merkle proof verification is now active
 
 **CLI**: Add `oracle-status` subcommand to `cli/aitbc_cli/commands/bridge.py`:
+
 ```
 aitbc bridge oracle-status
 ```
+
 Reports: verification mode, finality config, validator set status, block header count per chain.
 
 #### B8: Integration Tests
 
 Create `apps/blockchain-node/tests/test_v072_bridge_verification.py`:
+
 - Valid Merkle proof verification (lock event in state trie)
 - Invalid Merkle proof rejection (tampered proof, wrong state root)
 - Block header signature verification (valid/invalid/non-member)

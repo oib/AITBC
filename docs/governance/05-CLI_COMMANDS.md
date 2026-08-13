@@ -21,17 +21,20 @@ aitbc governance stake --address <address> --amount <amount> --lock-days <days>
 ```
 
 **Options:**
+
 - `--address` (required): Staker wallet address
 - `--amount` (required): Amount of tokens to stake
 - `--lock-days` (optional): Lock period in days (default: 30, minimum: 30)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance stake --address 0x1234567890abcdef --amount 1000 --lock-days 30
 ```
 
 **Response:**
+
 ```json
 {
   "stake_id": "uuid",
@@ -44,6 +47,7 @@ aitbc governance stake --address 0x1234567890abcdef --amount 1000 --lock-days 30
 ```
 
 **Error:**
+
 - Lock period must be at least 30 days
 
 ### delegate
@@ -55,17 +59,20 @@ aitbc governance delegate --delegator <address> --delegate <address> --amount <a
 ```
 
 **Options:**
+
 - `--delegator` (required): Delegator wallet address
 - `--delegate` (required): Delegate wallet address
 - `--amount` (required): Amount of voting power to delegate
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance delegate --delegator 0x1234567890abcdef --delegate 0x0987654321fedcba --amount 500
 ```
 
 **Response:**
+
 ```json
 {
   "delegation_id": "uuid",
@@ -77,6 +84,7 @@ aitbc governance delegate --delegator 0x1234567890abcdef --delegate 0x0987654321
 ```
 
 **Error:**
+
 - Insufficient voting power
 
 ### execute
@@ -88,17 +96,21 @@ aitbc governance execute <proposal_id>
 ```
 
 **Arguments:**
+
 - `proposal_id`: Proposal ID to execute
 
 **Options:**
+
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance execute prop_123
 ```
 
 **Response:**
+
 ```json
 {
   "proposal_id": "prop_123",
@@ -108,6 +120,7 @@ aitbc governance execute prop_123
 ```
 
 **Errors:**
+
 - Proposal not found (404)
 - Proposal not in succeeded state (400)
 
@@ -120,17 +133,21 @@ aitbc governance voting-power <address>
 ```
 
 **Arguments:**
+
 - `address`: Wallet address to query
 
 **Options:**
+
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance voting-power 0x1234567890abcdef
 ```
 
 **Response:**
+
 ```json
 {
   "address": "0x1234567890abcdef",
@@ -148,9 +165,11 @@ aitbc governance vote <proposal_id> --vote <option> --wallet <wallet>
 ```
 
 **Arguments:**
+
 - `proposal_id`: Proposal ID to vote on
 
 **Options:**
+
 - `--vote` (required): Vote option (for, against, abstain)
 - `--wallet` (required): Wallet name for signing
 - `--voting-power` (optional): Voting power to use (default: 0)
@@ -158,11 +177,13 @@ aitbc governance vote <proposal_id> --vote <option> --wallet <wallet>
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance vote prop_123 --vote for --wallet mywallet --reason "Support this proposal"
 ```
 
 **Response:**
+
 ```json
 {
   "vote_id": "uuid",
@@ -184,6 +205,7 @@ aitbc governance proposal --proposal-id <id> --title <title> --description <desc
 ```
 
 **Options:**
+
 - `--proposal-id` (required): Unique proposal ID
 - `--title` (required): Proposal title
 - `--description` (required): Proposal description
@@ -193,11 +215,13 @@ aitbc governance proposal --proposal-id <id> --title <title> --description <desc
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance proposal --proposal-id prop_123 --title "Test Proposal" --description "Test description" --wallet mywallet --voting-days 7
 ```
 
 **Response:**
+
 ```json
 {
   "proposal_id": "prop_123",
@@ -220,17 +244,21 @@ aitbc governance get-proposal <proposal_id>
 ```
 
 **Arguments:**
+
 - `proposal_id`: Proposal ID to query
 
 **Options:**
+
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
+
 ```bash
 aitbc governance get-proposal prop_123
 ```
 
 **Response:**
+
 ```json
 {
   "proposal_id": "prop_123",
@@ -270,6 +298,7 @@ aitbc wallet show mywallet
 ## Output Formats
 
 ### Table (Default)
+
 Human-readable table output.
 
 ```bash
@@ -277,6 +306,7 @@ aitbc governance voting-power 0x123... --format table
 ```
 
 ### JSON
+
 Machine-readable JSON output.
 
 ```bash
@@ -286,6 +316,7 @@ aitbc governance voting-power 0x123... --format json
 ## Error Handling
 
 Common errors:
+
 - **Network Error:** Cannot connect to governance service
 - **Invalid Address:** Invalid wallet address format
 - **Insufficient Balance:** Not enough tokens for operation

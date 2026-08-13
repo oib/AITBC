@@ -10,6 +10,7 @@ Add per-chain sync source config, multi-hub subscription clients, island manager
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -177,13 +178,16 @@ def validate_bridge_islands(cls, v: str) -> str:
 
 1. Import `SyncSourceResolver` from `aitbc.sync`
 2. In `BlockchainNode.__init__` or `start()`, create a `SyncSourceResolver`:
+
    ```python
    self._sync_source_resolver = SyncSourceResolver(
        sync_sources=settings.chain_sync_sources,
        default_url=settings.default_peer_rpc_url,
    )
    ```
+
 3. Add a `get_sync_source(chain_id: str) -> str | None` method:
+
    ```python
    def get_sync_source(self, chain_id: str) -> str | None:
        return self._sync_source_resolver.get_sync_source(chain_id)
@@ -194,6 +198,7 @@ def validate_bridge_islands(cls, v: str) -> str:
 Modify the subscription client setup (currently lines 324-334). Uses `SubscriptionManager` from Agent A's A4 task.
 
 **Current** (single client, first chain only):
+
 ```python
 if settings.subscription_enabled:
     node_id = os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node")
@@ -205,6 +210,7 @@ if settings.subscription_enabled:
 ```
 
 **New** (one client per chain, managed by SubscriptionManager):
+
 ```python
 from aitbc.network import SubscriptionManager
 
@@ -225,6 +231,7 @@ if settings.subscription_enabled:
 ```
 
 **SubscriptionClient changes** (in `subscription_client.py`): The existing `SubscriptionClient` class must implement the `SubscriptionClientProtocol` interface from A4:
+
 - Add `chain_id` and `hub_url` as read-only properties (already stored as instance attrs)
 - Add `is_connected` property (track WebSocket connection state)
 - The `start()` method already exists — no change needed to its signature
@@ -243,6 +250,7 @@ The `island_manager.start()` method (island_manager.py:77-87) runs two backgroun
 | `_island_health_check()` (line 233) | Periodic health of connected islands — marks islands with 0 peers as INACTIVE after 600s | Catches exceptions, logs error, sleeps 10s, retries | Loop continues on error; task restarts if process restarts; fresh check cycle from `islands` dict | `island_health_check_interval: int = 30` (sleep between checks) |
 
 **Implementation notes**:
+
 - Both tasks use `while self.running:` loops with try/except — they self-heal on transient errors
 - The 10s error-retry sleep is hardcoded in island_manager.py:231,249 — make it configurable as `island_task_error_retry_interval: int = 10`
 - The 3600s bridge request expiry and 600s inactive threshold are hardcoded — make them configurable as `bridge_request_expiry: int = 3600` and `island_inactive_threshold: int = 600`
@@ -251,6 +259,7 @@ The `island_manager.start()` method (island_manager.py:77-87) runs two backgroun
 Modify the island manager setup (currently lines 294-310):
 
 1. After `create_island_manager(...)`, if `settings.island_tasks_enabled`:
+
    ```python
    if settings.island_tasks_enabled:
        await island_manager.start()
@@ -260,6 +269,7 @@ Modify the island manager setup (currently lines 294-310):
    ```
 
 2. Add auto-join logic for islands from `bridge_islands` config:
+
    ```python
    if settings.bridge_islands and _island_manager_available:
        from aitbc.network import IslandRegistry
@@ -296,6 +306,7 @@ def sync_status(node_url, all_chains):
 ```
 
 Implementation:
+
 - Query `GET /head?chain_id=X` for each chain
 - Query `GET /network-info` for supported chains list
 - Display per-chain: chain_id, local height, last block hash, sync source URL
@@ -304,12 +315,14 @@ Implementation:
 ### B6: Add `node island health` + fix `node island list`
 
 **CLI group structure** (verified):
+
 - `aitbc chain sync-status` → `cli/aitbc_cli/commands/chain.py` (top-level `chain` group, already exists with `list`, `status`, `info`, `create`, `delete`, `add`, `remove`, `migrate` subcommands)
 - `aitbc node island health` → `cli/aitbc_cli/commands/node/__init__.py` (island group is defined here at line 46-49, with `create`, `join`, `leave`, `list_islands`, `island_info` subcommands)
 - `aitbc node island list` (alias) → same file, add `list` as alias for `list_islands`
 - The actual command implementations are in `cli/aitbc_cli/commands/node/island.py`
 
 1. Add `health` subcommand to the island group in `cli/aitbc_cli/commands/node/__init__.py`:
+
    ```python
    @island.command()
    @click.option("--node-url", default="http://127.0.0.1:8202")
@@ -318,6 +331,7 @@ Implementation:
        """Show health status of connected islands."""
        health_island_command(ctx, node_url)
    ```
+
    - Add `health_island_command` implementation to `cli/aitbc_cli/commands/node/island.py`
    - Query local node for island health (if endpoint exists, or query island manager state)
    - Display: island_id, chain_id, status, peer_count, last_health_check
@@ -328,6 +342,7 @@ Implementation:
    - Display real island data from the node
 
 3. Add `list` as an alias for `list_islands` in `cli/aitbc_cli/commands/node/__init__.py`:
+
    ```python
    @island.command(name="list")
    @click.pass_context
@@ -407,12 +422,14 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check .
 The `subscription_client.py` rewrite touches shared infrastructure (WebSocket connections, lease management). To avoid conflicts, the work is split by interface contract:
 
 **Agent A** (core subscription logic — new utility in `aitbc/`):
+
 - `aitbc/network/subscription_manager.py` (new) — generic multi-hub subscription manager
 - Tracks multiple `SubscriptionClient` instances by `(chain_id, hub_url)` key
 - Provides `add_subscription(chain_id, hub_url)`, `remove_subscription(chain_id)`, `get_subscription(chain_id)`
 - Handles per-subscription lifecycle (start, stop, restart on failure)
 
 **Agent B** (WebSocket connection management — in `apps/blockchain-node/`):
+
 - `apps/blockchain-node/src/aitbc_chain/subscription_client.py` — existing file, modify for per-chain use
 - WebSocket connection, lease/heartbeat, push message handling
 - Consumes `SubscriptionManager` from Agent A

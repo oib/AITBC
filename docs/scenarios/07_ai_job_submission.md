@@ -79,6 +79,7 @@ aitbc ai submit \
 ```
 
 **Expected output:**
+
 ```json
 {
   "job_id": "job_7f8e9d0c1b2a3c4d",
@@ -105,6 +106,7 @@ aitbc ai jobs --status pending --coordinator-url http://localhost:8203
 ```
 
 **Expected output:**
+
 ```
 AI Jobs
 =======
@@ -123,6 +125,7 @@ aitbc ai status --job-id job_7f8e9d0c1b2a3c4d --format json
 ```
 
 **Expected output:**
+
 ```json
 {
   "job_id": "job_7f8e9d0c1b2a3c4d",
@@ -143,6 +146,7 @@ aitbc ai results --job-id job_7f8e9d0c1b2a3c4d --format json
 ```
 
 **Expected output:**
+
 ```json
 {
   "job_id": "job_7f8e9d0c1b2a3c4d",

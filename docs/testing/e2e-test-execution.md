@@ -16,6 +16,7 @@ This document defines test execution procedures, reporting formats, and maintena
 **Recommended Framework:** pytest with pytest-asyncio
 
 **Additional Tools:**
+
 - `httpx` for HTTP client
 - `playwright` for browser automation (if UI testing needed)
 - Systemd services for service orchestration
@@ -142,11 +143,13 @@ pytest tests/e2e/ --timeout=600 -v
 ### Automated Execution
 
 **CI/CD Integration:**
+
 - Run E2E tests nightly
 - Run E2E tests on release candidates
 - Run E2E tests after major changes
 
 **GitHub Actions Example:**
+
 ```yaml
 name: E2E Tests
 
@@ -263,18 +266,21 @@ jobs:
 ## Next Steps
 
 ### Immediate (1-2 weeks)
+
 1. Set up E2E test environment
 2. Implement service orchestration (docker-compose)
 3. Create test fixtures
 4. Implement critical test scenarios (job lifecycle, payment flow)
 
 ### Short-term (1 month)
+
 1. Implement remaining test scenarios
 2. Integrate tests into CI/CD
 3. Set up test reporting
 4. Document test procedures
 
 ### Long-term (3 months)
+
 1. Optimize test execution time
 2. Implement parallel test execution
 3. Add UI testing (if applicable)

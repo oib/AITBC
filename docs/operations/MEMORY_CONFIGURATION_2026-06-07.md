@@ -83,16 +83,19 @@ All other services have been configured with a 256MB memory limit:
 ### Manual Monitoring
 
 Run the memory monitor manually:
+
 ```bash
 /opt/aitbc/scripts/monitoring/memory-monitor.sh
 ```
 
 Check service memory usage:
+
 ```bash
 systemctl show <service-name> -p MemoryCurrent -p MemoryMax -p MemoryLimit
 ```
 
 Check all services:
+
 ```bash
 for service in $(systemctl list-units --type=service --state=running | grep aitbc | awk '{print $1}'); do
     echo "=== $service ==="
@@ -121,6 +124,7 @@ MemoryLimit=256M
 The following service files have been updated with memory limits:
 
 **High-Memory Services:**
+
 - `/etc/systemd/system/aitbc-whisper.service` (1GB)
 - `/etc/systemd/system/aitbc-coordinator-api.service` (512MB)
 - `/etc/systemd/system/aitbc-edge.service` (512MB)
@@ -129,6 +133,7 @@ The following service files have been updated with memory limits:
 - `/etc/systemd/system/aitbc-agent-coordinator.service` (256MB)
 
 **Standard Services (256MB):**
+
 - All other AITBC services
 
 ## Memory Usage Summary
@@ -155,22 +160,26 @@ The following service files have been updated with memory limits:
 If a service consistently hits its memory limit:
 
 1. **Monitor the service**:
+
    ```bash
    systemctl status <service-name>
    journalctl -u <service-name> -f
    ```
 
 2. **Check current usage**:
+
    ```bash
    systemctl show <service-name> -p MemoryCurrent -p MemoryMax
    ```
 
 3. **Edit the service file**:
+
    ```bash
    sudo nano /etc/systemd/system/<service-name>.service
    ```
 
 4. **Update memory limits**:
+
    ```ini
    [Service]
    MemoryMax=<new-limit>
@@ -178,6 +187,7 @@ If a service consistently hits its memory limit:
    ```
 
 5. **Reload and restart**:
+
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl restart <service-name>
@@ -186,16 +196,19 @@ If a service consistently hits its memory limit:
 ### Troubleshooting Memory Issues
 
 **Service keeps hitting memory limit:**
+
 - Increase the memory limit
 - Check for memory leaks in the service
 - Review service logs for errors
 
 **System memory usage high:**
+
 - Check which services are using the most memory
 - Consider reducing memory limits for less critical services
 - Add more system memory if needed
 
 **OOM killer events detected:**
+
 - Review OOM killer logs
 - Identify which services were killed
 - Increase memory limits for affected services
@@ -204,12 +217,14 @@ If a service consistently hits its memory limit:
 ### Memory Monitoring Alerts
 
 **Critical Alert (>80% usage):**
+
 - Immediate action required
 - Check service logs
 - Consider increasing memory limit
 - Monitor for stability
 
 **Warning Alert (>60% usage):**
+
 - Monitor service closely
 - Plan for memory limit increase
 - Check for unusual patterns
@@ -263,6 +278,7 @@ If a service consistently hits its memory limit:
 ### Contact
 
 For questions or issues related to memory configuration:
+
 - **Documentation**: `/opt/aitbc/docs/operations/`
 - **Logs**: `/var/log/aitbc/memory-monitor.log`
 - **Service Logs**: `journalctl -u aitbc-*.service`

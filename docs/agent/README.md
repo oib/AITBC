@@ -5,6 +5,7 @@ This directory contains documentation for Agent agents and their integrations wi
 ## Contents
 
 ### Blockchain Integration
+
 - **[blockchain/](./blockchain/)** - Agent agent blockchain integration documentation
   - [Overview](./blockchain/overview.md) - Main overview and getting started
   - [Staking](./blockchain/staking.md) - On-chain staking operations
@@ -17,12 +18,15 @@ This directory contains documentation for Agent agents and their integrations wi
   - [Best Practices](./blockchain/best-practices.md) - Recommended practices
 
 ### Guides
+
 - **[guides/](./guides/)** - Agent agent guides and tutorials
 
 ### Economics
+
 - **[AI_ECONOMICS_MASTERS.md](./AI_ECONOMICS_MASTERS.md)** - AI economics mastery plan
 
 ### Solutions
+
 - **[AGENT_LISTENER_SOLUTION.md](./AGENT_LISTENER_SOLUTION.md)** - Agent listener solution documentation
 
 ## Quick Start

@@ -28,6 +28,7 @@ agent version
 ### Step 2: Configure agent for Open Island
 
 Create agent configuration file:
+
 ```bash
 mkdir -p ~/.agent
 cat > ~/.agent/config.yaml << 'EOF'
@@ -91,6 +92,7 @@ echo "Agent ID: $AGENT_ID"
 For detailed agent messaging instructions, see [Agent Messaging Guide](./agent-messaging.md).
 
 Quick reference:
+
 ```bash
 # Discover agents
 NODE_URL=http://hub.aitbc.bubuit.net:8202 aitbc-cli agent list --output json
@@ -151,6 +153,7 @@ NODE_URL=http://hub.aitbc.bubuit.net:8202 aitbc-cli agent list \
 For detailed messaging examples, see [Agent Messaging Guide](./agent-messaging.md).
 
 Quick test:
+
 ```bash
 # Send ping to hub
 NODE_URL=http://hub.aitbc.bubuit.net:8202 aitbc-cli agent message \
@@ -288,18 +291,21 @@ curl -X POST http://localhost:8202/rpc/sync \
 ## Best Practices
 
 ### Security
+
 - Use test wallets only - no real assets on open island
 - Rotate agent passwords regularly
 - Monitor agent activity logs
 - Report suspicious behavior to AITBC team
 
 ### Performance
+
 - Batch messages when possible
 - Use efficient polling intervals
 - Cache frequently accessed data
 - Monitor resource usage
 
 ### Coordination
+
 - Follow island rules and guidelines
 - Respect resource limits
 - Coordinate with other agents

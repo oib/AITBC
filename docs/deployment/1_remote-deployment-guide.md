@@ -3,6 +3,7 @@
 **Last Updated:** 2026-05-28
 
 ## Overview
+
 This deployment strategy builds the blockchain node directly on the ns3 server to utilize its gigabit connection, avoiding slow uploads from localhost.
 
 For new-host bootstrap, start with `SETUP.md`, which documents the main `scripts/deployment/setup.sh` entry point.
@@ -10,11 +11,13 @@ For new-host bootstrap, start with `SETUP.md`, which documents the main `scripts
 ## Quick Start
 
 ### 1. Deploy Everything
+
 ```bash
 ./scripts/deployment/deploy-all-remote.sh
 ```
 
 This will:
+
 - Copy deployment scripts to ns3
 - Copy blockchain source code from localhost
 - Build blockchain node directly on server
@@ -24,10 +27,12 @@ This will:
 ### 2. Access Services
 
 **Blockchain Node RPC:**
+
 - Internal: http://localhost:8202
 - External: http://aitbc.keisanki.net:8202
 
 **Blockchain Explorer:**
+
 - Internal: http://localhost:3000
 - External: http://aitbc.keisanki.net:3000
 
@@ -49,6 +54,7 @@ ns3-root (95.216.198.140)
 ## Key Features
 
 ### Blockchain Node
+
 - Built directly on server from source code
 - Source copied from localhost via scp
 - Auto-sync on startup
@@ -56,6 +62,7 @@ ns3-root (95.216.198.140)
 - Uses server's gigabit connection
 
 ### Explorer
+
 - Pure HTML/CSS/JS (no build step)
 - Served by nginx
 - Real-time block viewing
@@ -67,6 +74,7 @@ ns3-root (95.216.198.140)
 If you need to deploy components separately:
 
 ### Blockchain Node Only
+
 ```bash
 ssh ns3-root
 cd /opt
@@ -74,6 +82,7 @@ cd /opt
 ```
 
 ### Explorer Only
+
 ```bash
 ssh ns3-root
 cd /opt
@@ -83,6 +92,7 @@ cd /opt
 ## Troubleshooting
 
 ### Check Services
+
 ```bash
 # On ns3 server
 systemctl status blockchain-node blockchain-rpc nginx
@@ -94,6 +104,7 @@ journalctl -u nginx -f
 ```
 
 ### Test RPC
+
 ```bash
 # From ns3
 curl http://localhost:8082/rpc/head
@@ -103,7 +114,9 @@ curl http://aitbc.keisanki.net:8082/rpc/head
 ```
 
 ### Port Forwarding
+
 If port forwarding doesn't work:
+
 ```bash
 # Check iptables rules
 iptables -t nat -L -n
@@ -116,14 +129,18 @@ iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8082 -j MASQUERA
 ## Configuration
 
 ### Blockchain Node
+
 Location: `/opt/blockchain-node/.env`
+
 - Chain ID: ait-devnet
 - RPC Port: 8082
 - P2P Port: 7070
 - Auto-sync: enabled
 
 ### Explorer
+
 Location: `/opt/blockchain-explorer/index.html`
+
 - Served by nginx on port 3000
 - Connects to localhost:8082
 - No configuration needed

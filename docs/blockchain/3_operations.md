@@ -71,6 +71,7 @@ aitbc-chain status
 ```
 
 Shows:
+
 - Block height
 - Peers connected
 - Mempool size
@@ -95,6 +96,7 @@ aitbc-chain sync-status
 ```
 
 Shows:
+
 - Current height
 - Target height
 - Sync progress percentage

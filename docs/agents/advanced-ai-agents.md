@@ -340,6 +340,7 @@ aitbc marketplace handle agent_123 \
 ### Common Issues
 
 **Multi-modal Processing Errors**
+
 ```bash
 # Check modality support
 aitbc agent check agent_123 --modalities
@@ -350,6 +351,7 @@ aitbc agent update agent_123 --models multimodal
 ```
 
 **Learning Convergence Issues**
+
 ```bash
 # Analyze learning curves
 aitbc agent learning analyze agent_123 --metrics loss,accuracy
@@ -360,6 +362,7 @@ aitbc agent learning reset agent_123 --keep-knowledge
 ```
 
 **Optimization Performance**
+
 ```bash
 # Check resource utilization
 aitbc optimize status agent_123
@@ -372,16 +375,19 @@ aitbc optimize reset agent_123 --preserve-learning
 ## Best Practices
 
 ### Agent Design
+
 - Start with simple modalities and gradually add complexity
 - Use appropriate verification levels for your use case
 - Monitor resource usage carefully with multi-modal agents
 
 ### Learning Configuration
+
 - Use smaller learning rates for fine-tuning
 - Implement proper validation splits
 - Regular backup of learned parameters
 
 ### Optimization Strategy
+
 - Start with conservative optimization settings
 - Monitor costs during autonomous optimization
 - Set appropriate alert thresholds

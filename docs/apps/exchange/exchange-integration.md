@@ -1,14 +1,17 @@
 # Exchange Integration
 
 ## Status
+
 ✅ Operational
 
 ## Overview
+
 Integration service for connecting the exchange with external systems, blockchains, and data providers.
 
 ## Architecture
 
 ### Core Components
+
 - **Blockchain Connector**: Connects to blockchain RPC endpoints
 - **Data Feed Manager**: Manages external data feeds
 - **Webhook Handler**: Processes webhook notifications
@@ -18,18 +21,22 @@ Integration service for connecting the exchange with external systems, blockchai
 ## Quick Start (End Users)
 
 ### Prerequisites
+
 - Python 3.13+
 - Access to blockchain RPC endpoints
 - API keys for external exchanges
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/apps/exchange-integration
 .venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
+
 Set environment variables in `.env`:
+
 ```bash
 BLOCKCHAIN_RPC_URL=http://localhost:8202
 EXTERNAL_EXCHANGE_API_KEY=<YOUR_API_KEY>
@@ -37,6 +44,7 @@ WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
 ```
 
 ### Running the Service
+
 ```bash
 .venv/bin/python main.py
 ```
@@ -44,6 +52,7 @@ WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
 ## Developer Guide
 
 ### Development Setup
+
 1. Clone the repository
 2. Create virtual environment: `python -m venv .venv`
 3. Install dependencies: `pip install -r requirements.txt`
@@ -51,6 +60,7 @@ WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
 5. Run tests: `pytest tests/`
 
 ### Project Structure
+
 ```
 exchange-integration/
 ├── src/
@@ -64,6 +74,7 @@ exchange-integration/
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
@@ -80,11 +91,13 @@ pytest tests/test_webhook.py
 ### Blockchain Integration
 
 #### Get Blockchain Status
+
 ```http
 GET /api/v1/integration/blockchain/status
 ```
 
 #### Sync Blockchain Data
+
 ```http
 POST /api/v1/integration/blockchain/sync
 Content-Type: application/json
@@ -99,6 +112,7 @@ Content-Type: application/json
 ### Data Feeds
 
 #### Subscribe to Data Feed
+
 ```http
 POST /api/v1/integration/feeds/subscribe
 Content-Type: application/json
@@ -110,6 +124,7 @@ Content-Type: application/json
 ```
 
 #### Get Feed Data
+
 ```http
 GET /api/v1/integration/feeds/{feed_id}/data
 ```
@@ -117,6 +132,7 @@ GET /api/v1/integration/feeds/{feed_id}/data
 ### Webhooks
 
 #### Register Webhook
+
 ```http
 POST /api/v1/integration/webhooks
 Content-Type: application/json
@@ -129,6 +145,7 @@ Content-Type: application/json
 ```
 
 #### Process Webhook
+
 ```http
 POST /api/v1/integration/webhooks/process
 Content-Type: application/json
@@ -143,6 +160,7 @@ X-Webhook-Secret: your-secret
 ## Configuration
 
 ### Environment Variables
+
 - `BLOCKCHAIN_RPC_URL`: Blockchain RPC endpoint
 - `EXTERNAL_EXCHANGE_API_KEY`: API key for external exchanges
 - `WEBHOOK_SECRET`: Secret for webhook validation
@@ -151,6 +169,7 @@ X-Webhook-Secret: your-secret
 - `TIMEOUT`: Request timeout in seconds
 
 ### Integration Settings
+
 - **Supported Chains**: List of supported blockchain networks
 - **Data Feed Providers**: External data feed providers
 - **Webhook Endpoints**: Configurable webhook endpoints

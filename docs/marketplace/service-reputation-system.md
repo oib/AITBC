@@ -19,6 +19,7 @@ The AITBC Service Reputation System enables customers to rate and review softwar
 ### Database Schema
 
 #### ServiceRating Model
+
 ```python
 class ServiceRating(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -32,6 +33,7 @@ class ServiceRating(SQLModel, table=True):
 ```
 
 #### SoftwareService Model (Extended)
+
 ```python
 class SoftwareService(SQLModel, table=True):
     # ... existing fields ...
@@ -42,9 +44,11 @@ class SoftwareService(SQLModel, table=True):
 ### API Endpoints
 
 #### POST `/v1/marketplace/offer/{service_id}/rate`
+
 Submit a rating for a service.
 
 **Request:**
+
 ```json
 {
   "rating": 4.5,
@@ -54,6 +58,7 @@ Submit a rating for a service.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -70,13 +75,16 @@ Submit a rating for a service.
 ```
 
 #### GET `/v1/marketplace/offer/{service_id}/ratings`
+
 Retrieve ratings for a service.
 
 **Query Parameters:**
+
 - `limit`: Number of ratings to return (default: 50)
 - `offset`: Pagination offset (default: 0)
 
 **Response:**
+
 ```json
 {
   "service_id": "ollama-llama3.2:3b",
@@ -102,12 +110,15 @@ Retrieve ratings for a service.
 ```
 
 #### GET `/v1/marketplace/ratings/unsynced`
+
 Fetch ratings that haven't been synced to remote nodes.
 
 **Query Parameters:**
+
 - `limit`: Number of ratings to return (default: 100)
 
 **Response:**
+
 ```json
 {
   "ratings": [
@@ -126,9 +137,11 @@ Fetch ratings that haven't been synced to remote nodes.
 ```
 
 #### POST `/v1/marketplace/ratings/sync`
+
 Sync ratings from a remote node with conflict resolution.
 
 **Request:**
+
 ```json
 [
   {
@@ -144,6 +157,7 @@ Sync ratings from a remote node with conflict resolution.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -154,14 +168,17 @@ Sync ratings from a remote node with conflict resolution.
 ```
 
 #### POST `/v1/marketplace/ratings/mark-synced`
+
 Mark ratings as synced after successful propagation.
 
 **Request:**
+
 ```json
 ["rating-uuid-1", "rating-uuid-2"]
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -172,31 +189,37 @@ Mark ratings as synced after successful propagation.
 ## CLI Commands
 
 ### Submit a Rating
+
 ```bash
 aitbc market rate <service_id> <rating> [--comment <text>] [--reviewer-id <id>]
 ```
 
 **Example:**
+
 ```bash
 aitbc market rate ollama-llama3.2:3b 4.5 --comment "Great service!"
 ```
 
 ### View Ratings
+
 ```bash
 aitbc market ratings <service_id> [--limit <n>] [--offset <n>]
 ```
 
 **Example:**
+
 ```bash
 aitbc market ratings ollama-llama3.2:3b --limit 10
 ```
 
 ### Sync Ratings
+
 ```bash
 aitbc market sync-ratings [--remote-url <url>] [--limit <n>]
 ```
 
 **Example:**
+
 ```bash
 aitbc market sync-ratings --remote-url https://aitbc3.aitbc.bubuit.net/api --limit 100
 ```
@@ -208,6 +231,7 @@ aitbc market sync-ratings --remote-url https://aitbc3.aitbc.bubuit.net/api --lim
 The reputation system supports cross-node rating synchronization between the hub's local marketplace and the aitbc3 software service registry.
 
 **Sync Flow:**
+
 1. Rating created on hub with `source_node="local"` and `synced_at=NULL`
 2. CLI command fetches unsynced ratings via `/v1/marketplace/ratings/unsynced`
 3. Ratings pushed to remote via `/v1/marketplace/ratings/sync`
@@ -218,6 +242,7 @@ The reputation system supports cross-node rating synchronization between the hub
 ### Conflict Resolution
 
 When the same rating (same service_id + reviewer_id) exists on both nodes:
+
 - Compare `created_at` timestamps
 - Keep the most recent rating
 - Update `synced_at` to current timestamp
@@ -266,6 +291,7 @@ aitbc market list
 ```
 
 **Output:**
+
 ```
 Offer ID    Type    Model              GPU                 Price         Rating       Status
 sw_offer_   OLLAMA  llama3.2:3b        RTX 4090 [GPU 0]    0.05 AIT/h     ⭐ 4.2 (5)   active
@@ -282,16 +308,19 @@ sw_offer_   OLLAMA  llama3.2:3b        RTX 4090 [GPU 0]    0.05 AIT/h     ⭐ 4.
 ## Troubleshooting
 
 ### Ratings Not Syncing
+
 1. Check remote URL is accessible: `curl https://aitbc3.aitbc.bubuit.net/api/health`
 2. Verify ratings are unsynced: `curl http://localhost:8102/v1/marketplace/ratings/unsynced`
 3. Check sync logs: `journalctl -u aitbc-marketplace -f`
 
 ### Average Rating Not Updating
+
 1. Verify rating was submitted successfully
 2. Check database for rating record
 3. Restart marketplace service: `systemctl restart aitbc-marketplace`
 
 ### Conflict Resolution Issues
+
 1. Check `created_at` timestamps on conflicting ratings
 2. Ensure timezone consistency across nodes
 3. Manually resolve conflicts via direct database access if needed

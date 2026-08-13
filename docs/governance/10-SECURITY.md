@@ -11,6 +11,7 @@ This document covers security considerations for the Governance Service, includi
 API endpoints require API key authentication for service-to-service communication.
 
 **Implementation:**
+
 ```python
 # In main.py
 from fastapi import Header, HTTPException
@@ -26,6 +27,7 @@ async def get_proposals():
 ```
 
 **Configuration:**
+
 ```bash
 export API_KEY=your_secure_api_key
 ```
@@ -35,6 +37,7 @@ export API_KEY=your_secure_api_key
 CLI commands use wallet-based authentication for blockchain operations.
 
 **Implementation:**
+
 ```python
 # Wallet signing
 from cryptography.hazmat.primitives import hashes
@@ -66,6 +69,7 @@ User roles determine access levels:
 | viewer | Read-only access |
 
 **Implementation:**
+
 ```python
 # In governance_service.py
 async def check_permission(user_id: str, required_role: str):
@@ -88,18 +92,21 @@ voting_power = token_balance + (staked_tokens * 2)
 ### Encryption at Rest
 
 **PostgreSQL:**
+
 ```sql
 -- Enable encryption
 ALTER DATABASE aitbc_governance WITH ENCRYPTION = true;
 ```
 
 **SQLite:**
+
 - Use full-disk encryption (LUKS, BitLocker)
 - Encrypt database file with tools like sqlcipher
 
 ### Encryption in Transit
 
 **TLS/SSL Configuration:**
+
 ```nginx
 # Nginx configuration
 server {
@@ -114,11 +121,13 @@ server {
 ### Sensitive Data Handling
 
 **Environment Variables:**
+
 - Never commit secrets to version control
 - Use `.env` files (add to .gitignore)
 - Use secret management systems (HashiCorp Vault, AWS Secrets Manager)
 
 **Example .env file:**
+
 ```bash
 DB_PASS=your_secure_password
 API_KEY=your_secure_api_key
@@ -132,6 +141,7 @@ PRIVATE_KEY=0x...
 The contracts use Solidity 0.8+ which has built-in overflow protection and follow the checks-effects-interactions pattern.
 
 **Example:**
+
 ```solidity
 function unstake(uint256 amount) external {
     require(stakedTokens[msg.sender] >= amount, "Insufficient staked tokens");
@@ -149,10 +159,12 @@ function unstake(uint256 amount) external {
 ### Access Control
 
 **AITBCGovernanceToken.sol:**
+
 - Only owner can mint tokens (initial deployment)
 - Anyone can stake/unstake their own tokens
 
 **AITBCVoting.sol:**
+
 - Anyone can create proposals
 - Token holders can vote
 - Anyone can execute passed proposals
@@ -160,10 +172,12 @@ function unstake(uint256 amount) external {
 ### Time Manipulation Protection
 
 **Execution Delay:**
+
 - 1-day delay after voting ends before execution
 - Prevents front-running and manipulation
 
 **Lock Periods:**
+
 - Minimum 30-day lock period for staking
 - Prevents short-term manipulation
 
@@ -172,6 +186,7 @@ function unstake(uint256 amount) external {
 ### API Input Validation
 
 **Pydantic Models:**
+
 ```python
 from pydantic import BaseModel, Field, validator
 
@@ -190,6 +205,7 @@ class StakeRequest(BaseModel):
 ### SQL Injection Prevention
 
 **SQLModel automatically prevents SQL injection:**
+
 ```python
 # Safe - parameterized query
 stmt = select(Proposal).where(Proposal.proposal_id == proposal_id)
@@ -219,6 +235,7 @@ function createProposal(
 ### API Rate Limiting
 
 **Implementation:**
+
 ```python
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -232,12 +249,14 @@ async def get_proposals():
 ```
 
 **Limits:**
+
 - 100 requests per minute per IP
 - 1000 requests per hour per IP
 
 ### Smart Contract Gas Limits
 
 **Gas optimization:**
+
 - Packed structs
 - View functions for read operations
 - Event indexing for efficient filtering
@@ -247,11 +266,13 @@ async def get_proposals():
 ### Service Logs
 
 **Systemd journal:**
+
 ```bash
 sudo journalctl -u aitbc-governance -f
 ```
 
 **Application logs:**
+
 ```python
 logger.info(f"Proposal {proposal_id} created by {proposer_id}")
 logger.warning(f"Failed to execute proposal {proposal_id}: {error}")
@@ -261,6 +282,7 @@ logger.error(f"Database connection failed: {error}")
 ### Audit Trail
 
 **Proposal execution log:**
+
 ```python
 execution_log = ProposalExecutionLog(
     proposal_id=proposal_id,
@@ -271,6 +293,7 @@ execution_log = ProposalExecutionLog(
 ```
 
 **Database audit:**
+
 - All proposal executions logged
 - Vote records with timestamps
 - Staking and delegation history
@@ -317,6 +340,7 @@ forge install OpenZeppelin/openzeppelin-contracts --no-commit
 ### Security Updates
 
 **Regular updates:**
+
 - Python packages: `pip install --upgrade <package>`
 - System packages: `apt update && apt upgrade`
 - Smart contracts: Re-deploy with fixes
@@ -324,6 +348,7 @@ forge install OpenZeppelin/openzeppelin-contracts --no-commit
 ### Incident Response
 
 **Steps:**
+
 1. Identify the vulnerability
 2. Assess impact
 3. Patch the vulnerability

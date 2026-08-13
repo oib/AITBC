@@ -3,16 +3,19 @@
 ## Coordinator API SLOs
 
 ### Performance SLOs
+
 - **p50 latency**: < 10ms
 - **p95 latency**: < 50ms
 - **p99 latency**: < 200ms
 - **p99.9 latency**: < 500ms
 
 ### Availability SLOs
+
 - **Uptime**: 99.9% (43.2 minutes downtime/month)
 - **Error rate**: < 0.1% (1 error per 1000 requests)
 
 ### Throughput SLOs
+
 - **Health endpoint**: > 100 req/s
 - **Training job submission**: > 10 req/s (when debug mode enabled)
 - **Miner heartbeat**: > 100 req/s
@@ -20,18 +23,21 @@
 ## Alert Thresholds
 
 ### Critical Alerts (Page immediately)
+
 - **Error rate > 1%**: Service experiencing significant errors
 - **p99 latency > 500ms**: Performance degradation
 - **Service down**: Service not responding to health checks
 - **Redis connection failure**: State management unavailable
 
 ### Warning Alerts (Notify within 15 minutes)
+
 - **Error rate > 0.5%**: Elevated error rate
 - **p95 latency > 100ms**: Performance degradation
 - **Memory usage > 80%**: Resource pressure
 - **CPU usage > 80%**: Resource pressure
 
 ### Info Alerts (Log for investigation)
+
 - **Error rate > 0.1%**: Baseline error rate exceeded
 - **p95 latency > 50ms**: Performance baseline exceeded
 - **Memory usage > 60%**: Resource monitoring

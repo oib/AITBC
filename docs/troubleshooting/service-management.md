@@ -5,11 +5,13 @@ This guide covers service management issues including service startup, configura
 ## Service Won't Start
 
 **Symptoms:**
+
 - Service fails to start
 - Systemd service shows "failed" status
 - No logs available
 
 **Diagnosis:**
+
 ```bash
 # Check service status
 systemctl status aitbc-coordinator-api
@@ -22,13 +24,16 @@ journalctl -u aitbc-coordinator-api -f | grep -i error
 ```
 
 **Solutions:**
+
 1. Check configuration files
+
 ```bash
 # Validate configuration
 python -m apps.coordinator_api.main --validate-config
 ```
 
-2. Check port conflicts
+1. Check port conflicts
+
 ```bash
 # Check if port is in use
 netstat -tulpn | grep 8203
@@ -37,7 +42,8 @@ netstat -tulpn | grep 8203
 kill -9 $(lsof -t -i:8203)
 ```
 
-3. Check permissions
+1. Check permissions
+
 ```bash
 # Check file permissions
 ls -la /opt/aitbc
@@ -46,7 +52,8 @@ ls -la /opt/aitbc
 chown -R aitbc:aitbc /opt/aitbc
 ```
 
-4. Check dependencies
+1. Check dependencies
+
 ```bash
 # Verify Python dependencies
 source venv/bin/activate
@@ -59,11 +66,13 @@ pip install -r requirements.txt
 ## High CPU Usage
 
 **Symptoms:**
+
 - Service consuming excessive CPU
 - System sluggish
 - High load averages
 
 **Diagnosis:**
+
 ```bash
 # Check CPU usage
 top -p $(pgrep -f coordinator-api)
@@ -76,7 +85,9 @@ uptime
 ```
 
 **Solutions:**
+
 1. Profile the application
+
 ```bash
 # Profile with cProfile
 python -m cProfile -o profile.stats apps/coordinator_api/main.py
@@ -85,13 +96,15 @@ python -m cProfile -o profile.stats apps/coordinator_api/main.py
 python -m pstats profile.stats
 ```
 
-2. Check for infinite loops
+1. Check for infinite loops
+
 ```bash
 # Monitor process strace
 strace -p $(pgrep -f coordinator-api)
 ```
 
-3. Optimize database queries
+1. Optimize database queries
+
 ```bash
 # Enable query logging
 export SQLALCHEMY_ECHO=true
@@ -103,11 +116,13 @@ psql -d aitbc -c "SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMI
 ## Memory Leaks
 
 **Symptoms:**
+
 - Memory usage increases over time
 - Service crashes with OOM killer
 - Swap usage high
 
 **Diagnosis:**
+
 ```bash
 # Check memory usage
 free -h
@@ -120,14 +135,17 @@ watch -n 1 'free -h'
 ```
 
 **Solutions:**
+
 1. Check for memory leaks
+
 ```bash
 # Use memory profiler
 pip install memory-profiler
 python -m memory_profiler apps/coordinator_api/main.py
 ```
 
-2. Check connection pooling
+1. Check connection pooling
+
 ```python
 # Reduce pool size
 engine = create_engine(
@@ -137,7 +155,8 @@ engine = create_engine(
 )
 ```
 
-3. Restart service periodically
+1. Restart service periodically
+
 ```bash
 # Add to crontab
 0 2 * * * systemctl restart aitbc-coordinator-api

@@ -73,8 +73,8 @@ await withSystemContext(prisma, contextType, async (client) => { ... });
 ```markdown
 ### [N]. [table_name] ([Purpose])
 
-**RLS Status**: ✅ Enabled  
-**Data Classification**: [USER/ADMIN/SYSTEM/PUBLIC] - [Description]  
+**RLS Status**: ✅ Enabled
+**Data Classification**: [USER/ADMIN/SYSTEM/PUBLIC] - [Description]
 **GDPR Implications**: [Contains PII / No PII / Audit trail]
 
 #### Access Rules
@@ -127,8 +127,8 @@ USING (current_setting('app.user_role', true) = 'admin');
 
 ### 1. user (User Profiles)
 
-**RLS Status**: ✅ Enabled  
-**Data Classification**: USER - Personal profile data  
+**RLS Status**: ✅ Enabled
+**Data Classification**: USER - Personal profile data
 **GDPR Implications**: Contains PII - requires strict user isolation
 
 #### Access Rules
@@ -181,8 +181,8 @@ USING (current_setting('app.user_role', true) = 'admin');
 
 ### 2. [your_table] ([Purpose])
 
-**RLS Status**: ✅ Enabled  
-**Data Classification**: [USER/ADMIN/SYSTEM] - [Description]  
+**RLS Status**: ✅ Enabled
+**Data Classification**: [USER/ADMIN/SYSTEM] - [Description]
 **GDPR Implications**: [PII status]
 
 #### Access Rules
@@ -238,6 +238,7 @@ USING (current_setting('app.user_role', true) = 'admin');
    ```
 
 3. **System Context Test**:
+
    ```typescript
    // System can access for background jobs
    const systemData = await withSystemContext(

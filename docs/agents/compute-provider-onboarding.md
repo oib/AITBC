@@ -10,6 +10,7 @@ aitbc agent validate --type compute_provider --prerequisites
 ```
 
 **Required Capabilities:**
+
 - GPU resources (NVIDIA/AMD)
 - Minimum 4GB GPU memory
 - Stable internet connection

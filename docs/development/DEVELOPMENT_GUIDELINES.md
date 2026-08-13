@@ -3,6 +3,7 @@
 ## 📁 Where to Put Files
 
 ### Essential Root Files (Keep at Root)
+
 - `.editorconfig` - Editor configuration
 - `.env.example` - Environment template
 - `.gitignore` - Git ignore rules
@@ -15,6 +16,7 @@
 - `setup.sh` - Main project setup script
 
 ### Development Scripts → `dev/tools/scripts/`
+
 ```bash
 # Development fixes and patches
 dev/tools/scripts/fix_*.py
@@ -24,6 +26,7 @@ dev/tools/scripts/simple_test.py
 ```
 
 ### Test Files → `dev/tests/`
+
 ```bash
 # Test scripts and scenarios
 dev/tests/test_*.py
@@ -34,6 +37,7 @@ dev/tests/simple_test_results.json
 ```
 
 ### Multi-Chain Testing → `dev/tools/multi-chain/`
+
 ```bash
 # Multi-chain specific files
 dev/tools/multi-chain/MULTI_*.md
@@ -42,6 +46,7 @@ dev/tools/multi-chain/test_multi_site.py
 ```
 
 ### Configuration Files → `config/`
+
 ```bash
 # Configuration and environment files
 config/.aitbc.yaml
@@ -52,12 +57,14 @@ config/.lycheeignore
 ```
 
 ### Development Environment → `/etc/aitbc/.env`
+
 ```bash
 # Central environment configuration
 /etc/aitbc/.env
 ```
 
 ### Cache and Temporary → `dev/cache/`
+
 ```bash
 # Cache and temporary directories
 dev/cache/.pytest_cache/
@@ -69,6 +76,7 @@ dev/cache/.vscode/
 ## 🚀 Quick Start Commands
 
 ### Creating New Files
+
 ```bash
 # Create a new test script
 touch dev/tests/test_my_feature.py
@@ -81,6 +89,7 @@ touch dev/tools/scripts/patch_component.py
 ```
 
 ### Checking Organization
+
 ```bash
 # Check current file organization
 ./scripts/check-file-organization.sh
@@ -90,6 +99,7 @@ touch dev/tools/scripts/patch_component.py
 ```
 
 ### Git Integration
+
 ```bash
 # Git will automatically check file locations on commit
 git add .
@@ -98,14 +108,16 @@ git commit -m "My changes"  # Will run pre-commit hooks
 
 ## ⚠️ Common Mistakes to Avoid
 
-### ❌ Don't create these files at root:
+### ❌ Don't create these files at root
+
 - `test_*.py` or `test_*.sh` → Use `dev/tests/`
 - `patch_*.py` or `fix_*.py` → Use `dev/tools/scripts/`
 - `MULTI_*.md` → Use `dev/tools/multi-chain/`
 - `node_modules/` or `.venv/` → Use `dev/env/`
 - `.pytest_cache/` or `.ruff_cache/` → Use `dev/cache/`
 
-### ✅ Do this instead:
+### ✅ Do this instead
+
 ```bash
 # Right way to create test files
 touch dev/tests/test_new_feature.py
@@ -121,14 +133,18 @@ source /opt/aitbc/venv/bin/activate  # Use central Python virtual environment
 ## 🔧 IDE Configuration
 
 ### VS Code
+
 The project includes `.vscode/settings.json` with:
+
 - Excluded patterns for cache directories
 - File watcher exclusions
 - Auto-format on save
 - Organize imports on save
 
 ### Git Hooks
+
 Pre-commit hooks automatically:
+
 - Check file locations
 - Suggest correct locations
 - Prevent commits with misplaced files
@@ -136,6 +152,7 @@ Pre-commit hooks automatically:
 ## 📞 Getting Help
 
 If you're unsure where to put a file:
+
 1. Run `./scripts/check-file-organization.sh`
 2. Check this guide
 3. Ask in team chat
@@ -152,20 +169,24 @@ If you're unsure where to put a file:
 The project includes a comprehensive prevention system:
 
 ### 1. Git Pre-commit Hooks
+
 - Automatically check file locations before commits
 - Block commits with misplaced files
 - Provide helpful suggestions
 
 ### 2. Automated Scripts
+
 - `check-file-organization.sh` - Scan for issues
 - `move-to-right-folder.sh` - Auto-fix organization
 
 ### 3. IDE Configuration
+
 - VS Code settings hide clutter
 - File nesting for better organization
 - Tasks for easy access to tools
 
 ### 4. CI/CD Validation
+
 - Pull request checks for file organization
 - Automated comments with suggestions
 - Block merges with organization issues
@@ -173,16 +194,19 @@ The project includes a comprehensive prevention system:
 ## 🎯 Best Practices
 
 ### File Naming
+
 - Use descriptive names
 - Follow existing patterns
 - Include file type in name (test_, patch_, fix_)
 
 ### Directory Structure
+
 - Keep related files together
 - Use logical groupings
 - Maintain consistency
 
 ### Development Workflow
+
 1. Create files in correct location initially
 2. Use IDE tasks to check organization
 3. Run scripts before commits
@@ -193,6 +217,7 @@ The project includes a comprehensive prevention system:
 ### Common Issues
 
 #### "Git commit blocked due to file organization"
+
 ```bash
 # Run the auto-fix script
 ./scripts/move-to-right-folder.sh --auto
@@ -203,6 +228,7 @@ git commit -m "My changes"
 ```
 
 #### "Can't find my file"
+
 ```bash
 # Check if it was moved automatically
 find . -name "your-file-name"
@@ -212,6 +238,7 @@ find . -name "your-file-name"
 ```
 
 #### "VS Code shows too many files"
+
 - The `.vscode/settings.json` excludes cache directories
 - Reload VS Code to apply settings
 - Check file explorer settings

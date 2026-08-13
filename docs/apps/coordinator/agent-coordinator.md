@@ -3,14 +3,17 @@
 > **Important:** This document uses port 9001 for the Agent Coordinator service. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## Status
+
 ✅ Operational
 
 ## Overview
+
 FastAPI-based agent coordination service that manages agent discovery, load balancing, and task distribution across the the network.
 
 ## Architecture
 
 ### Core Components
+
 - **Agent Registry**: Central registry for tracking available agents
 - **Agent Discovery Service**: Service for discovering and registering agents
 - **Load Balancer**: Distributes tasks across agents using various strategies
@@ -19,11 +22,13 @@ FastAPI-based agent coordination service that manages agent discovery, load bala
 - **Message Processor**: Processes and routes messages between agents
 
 ### AI Integration
+
 - **Real-time Learning**: Adaptive learning system for task optimization
 - **Advanced AI**: AI integration for decision making and coordination
 - **Distributed Consensus**: Consensus mechanism for agent coordination decisions
 
 ### Security
+
 - **JWT Authentication**: Token-based authentication for API access
 - **Password Management**: Secure password handling and validation
 - **API Key Management**: API key generation and validation
@@ -31,6 +36,7 @@ FastAPI-based agent coordination service that manages agent discovery, load bala
 - **Security Headers**: Security middleware for HTTP headers
 
 ### Monitoring
+
 - **Prometheus Metrics**: Performance metrics and monitoring
 - **Performance Monitor**: Real-time performance tracking
 - **Alert Manager**: Alerting system for critical events
@@ -39,19 +45,23 @@ FastAPI-based agent coordination service that manages agent discovery, load bala
 ## Quick Start (End Users)
 
 ### Prerequisites
+
 - Python 3.13+
 - PostgreSQL database
 - Redis for caching
 - Valid JWT token or API key
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/apps/agent-coordinator
 .venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
+
 Set environment variables in `.env`:
+
 ```bash
 DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/agent_coordinator
 REDIS_URL=redis://localhost:6379
@@ -60,6 +70,7 @@ API_KEY=<YOUR_API_KEY>
 ```
 
 ### Running the Service
+
 ```bash
 .venv/bin/uvicorn agent_app.main:app --host 0.0.0.0 --port 8203
 ```
@@ -67,6 +78,7 @@ API_KEY=<YOUR_API_KEY>
 ## Developer Guide
 
 ### Development Setup
+
 1. Clone the repository
 2. Create virtual environment: `python -m venv .venv`
 3. Install dependencies: `pip install -r requirements.txt`
@@ -74,6 +86,7 @@ API_KEY=<YOUR_API_KEY>
 5. Run tests: `pytest tests/`
 
 ### Project Structure
+
 ```
 agent-coordinator/
 ├── src/app/
@@ -92,6 +105,7 @@ agent-coordinator/
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
@@ -108,6 +122,7 @@ pytest --cov=src tests/
 ### Agent Management
 
 #### Register Agent
+
 ```http
 POST /api/v1/agents/register
 Content-Type: application/json
@@ -122,12 +137,14 @@ Authorization: Bearer <jwt_token>
 ```
 
 #### Discover Agents
+
 ```http
 GET /api/v1/agents/discover
 Authorization: Bearer <jwt_token>
 ```
 
 #### Get Agent Status
+
 ```http
 GET /api/v1/agents/{agent_id}/status
 Authorization: Bearer <jwt_token>
@@ -136,6 +153,7 @@ Authorization: Bearer <jwt_token>
 ### Task Management
 
 #### Submit Task
+
 ```http
 POST /api/v1/tasks/submit
 Content-Type: application/json
@@ -150,12 +168,14 @@ Authorization: Bearer <jwt_token>
 ```
 
 #### Get Task Status
+
 ```http
 GET /api/v1/tasks/{task_id}/status
 Authorization: Bearer <jwt_token>
 ```
 
 #### List Tasks
+
 ```http
 GET /api/v1/tasks?status=pending&limit=10
 Authorization: Bearer <jwt_token>
@@ -164,12 +184,14 @@ Authorization: Bearer <jwt_token>
 ### Load Balancing
 
 #### Get Load Balancer Status
+
 ```http
 GET /api/v1/loadbalancer/status
 Authorization: Bearer <jwt_token>
 ```
 
 #### Configure Load Balancing Strategy
+
 ```http
 PUT /api/v1/loadbalancer/strategy
 Content-Type: application/json
@@ -184,6 +206,7 @@ Authorization: Bearer <jwt_token>
 ## Configuration
 
 ### Environment Variables
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string
 - `JWT_SECRET_KEY`: Secret key for JWT token signing
@@ -193,6 +216,7 @@ Authorization: Bearer <jwt_token>
 - `TASK_TIMEOUT`: Task timeout in seconds (default: 300)
 
 ### Load Balancing Strategies
+
 - **Round Robin**: Distributes tasks evenly across agents
 - **Least Loaded**: Assigns tasks to the agent with lowest load
 - **Weighted**: Uses agent weights for task distribution

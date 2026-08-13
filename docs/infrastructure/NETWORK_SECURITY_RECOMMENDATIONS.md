@@ -8,6 +8,7 @@ This document provides network security recommendations for AITBC deployments. T
 ## Overview
 
 AITBC services run on the following ports:
+
 - **8202** - Blockchain Node RPC
 - **8203** - Coordinator API
 - **8105** - Agent Service
@@ -61,7 +62,7 @@ sudo ufw allow from 10.0.2.0/24 to any port 8105
 sudo ufw allow from 10.0.0.0/8 to any port 7070
 ```
 
-### Using `firewalld` (RHEL/CentOS):
+### Using `firewalld` (RHEL/CentOS)
 
 ```bash
 # Add AITBC services
@@ -81,17 +82,20 @@ sudo firewall-cmd --reload
 AITBC services should be configured with TLS in production:
 
 **Coordinator API (8203):**
+
 - Use reverse proxy (nginx/apache) with TLS termination
 - Configure valid SSL certificates
 - Enforce HTTPS only
 - HSTS headers
 
 **Blockchain Node RPC (8202):**
+
 - Use TLS for RPC communication
 - Configure client certificate authentication
 - Disable HTTP in production
 
 **Agent Service (8105):**
+
 - Enable TLS for agent communication
 - Use mutual TLS for agent authentication
 
@@ -204,6 +208,7 @@ Configure VLANs to isolate network segments:
 ### Network Monitoring
 
 Monitor for:
+
 - Unusual traffic patterns
 - Port scanning attempts
 - DDoS attack indicators
@@ -221,6 +226,7 @@ Centralize logs for security analysis:
 ### Alerting
 
 Set up alerts for:
+
 - Firewall rule changes
 - High connection rates
 - Failed login attempts

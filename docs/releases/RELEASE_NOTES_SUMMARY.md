@@ -80,6 +80,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 **Status**: In Progress (B1-B5 complete; chaos testing + external audit pending)
 
 **Key Features**:
+
 - HTLC contract implementation for atomic swaps
 - Cross-chain escrow with timeout protection
 - Multi-chain settlement coordination
@@ -97,6 +98,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 **Status**: ✅ Complete
 
 **Key Features**:
+
 - WebSocket-based offer subscription
 - Real-time offer change notifications
 - Gossip-based event propagation
@@ -114,6 +116,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 **Status**: ✅ Complete
 
 **Key Features**:
+
 - Cross-chain offer discovery
 - Polling-based synchronization
 - Local offer cache (Redis)
@@ -132,6 +135,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 **Status**: ✅ Complete
 
 **Key Features**:
+
 - Cross-chain trading service
 - Offer management
 - Trade matching
@@ -149,6 +153,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 **Status**: ⚠️ Code Complete (soak test pending)
 
 **Key Features**:
+
 - MultiValidatorPoA with signature verification
 - PBFT consensus implementation
 - SlashingManager integration

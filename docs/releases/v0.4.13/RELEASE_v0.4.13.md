@@ -15,6 +15,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### ✅ Completed (Security & Stability)
 
 **Phase 0: Security Vulnerability Remediation**
+
 - ✅ Switched from npm to pnpm for JavaScript/TypeScript dependency management
 - ✅ Generated pnpm-lock.yaml files for contracts and JS SDK
 - ✅ Updated CI/CD workflows to use pnpm audit
@@ -22,6 +23,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Updated Python dependencies (pyjwt 2.9.0, argon2, faster-whisper, psycopg2-binary)
 
 **Phase 1: Python Environment Migration**
+
 - ✅ Attempted pyenv installation and Python 3.13.13 migration
 - ✅ Reverted to system venv (Python 3.13.5) due to systemd incompatibility
 - ✅ Purged pyenv from system
@@ -29,6 +31,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Result: System venv working correctly with systemd
 
 **Phase 2: Service Configuration Fixes**
+
 - ✅ Fixed aitbc-api-gateway.service user configuration (aitbc → root)
 - ✅ Fixed aitbc-whisper.service user configuration and added faster-whisper dependency
 - ✅ Fixed aitbc-wallet.service by adding argon2 dependency
@@ -36,6 +39,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Removed legacy aitbc-wallet-daemon.service (duplicate service)
 
 **Phase 3: Port Conflict Resolution**
+
 - ✅ Fixed aitbc-edge.service port conflict (8110 → 8111)
 - ✅ Fixed aitbc-blockchain-event-bridge.service port conflict (8204 → 8205)
 - ✅ Fixed aitbc-miner.service coordinator URL (8011 → 8203)
@@ -43,6 +47,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Updated blockchain API documentation with correct endpoints
 
 **Phase 4: Documentation Updates**
+
 - ✅ Updated SECURITY_VULNERABILITIES_2026-06-07.md with complete remediation status
 - ✅ Updated PYENV_MIGRATION_2026-06-07.md with migration details and cleanup
 - ✅ Updated SERVICE_PORTS.md with correct port allocations
@@ -50,6 +55,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Added agent coordinator health endpoint
 
 **Phase 5: System Testing**
+
 - ✅ Tested blockchain operations (block queries, network info, account queries)
 - ✅ Tested wallet functionality (balance checks, faucet requests)
 - ✅ Tested agent communication (agent-daemon running and connected)
@@ -59,6 +65,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### ✅ Completed (Performance Optimizations)
 
 **Phase 6: Performance Optimizations**
+
 - ✅ Service configuration tuning (increase worker count for high-traffic services)
   - API Gateway: 4 workers, 512MB memory limit
   - Coordinator API: 4 workers, 1GB memory limit
@@ -73,6 +80,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Performance testing completed (6-25x improvement in response times)
 
 **Phase 7: Resource Optimizations**
+
 - ✅ Memory management (service limits, monitoring, profiling)
   - All services configured with appropriate memory limits
   - Memory monitoring script and timer implemented
@@ -81,6 +89,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - 📋 Resource utilization monitoring
 
 **Phase 8: Monitoring & Observability**
+
 - ✅ Automated health check monitoring with alerts
   - Memory monitoring script and timer implemented
   - Cache monitoring script and timer implemented
@@ -94,6 +103,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - 📋 Metrics collection (Prometheus + Grafana) - Optional enhancement if needed
 
 **Phase 9: Security Hardening**
+
 - ✅ Service isolation (streamlined user strategy implemented)
   - 5 dedicated users created (aitbc-public, aitbc-internal, aitbc-blockchain, aitbc-gpu, aitbc-wallet)
   - 24/26 services isolated (92%) using exposure-based grouping
@@ -114,6 +124,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - 📋 Service isolation (2 remaining services still running as root: agent daemon, agent management)
 
 **Phase 10: Operational Improvements**
+
 - ✅ Service dependency management (systemd dependencies already configured)
   - All services configured with proper After= and Wants= directives
   - Automatic dependency resolution and startup ordering
@@ -125,11 +136,13 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - 📋 Disaster recovery procedures (basic recovery procedures)
 
 **Phase 11: Code-Level Optimizations**
+
 - 📋 Query optimization (database indexes, slow query optimization) - Performance tuning if needed
 
 ## 🎯 Release Highlights
 
 ### Security & Stability
+
 - ✅ **0 vulnerabilities** in JavaScript/TypeScript dependencies (down from 82)
 - ✅ **System venv** with Python 3.13.5 (systemd compatible)
 - ✅ **All 24 services** running successfully
@@ -137,12 +150,14 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ **Legacy services** removed
 
 ### Service Configuration
+
 - ✅ **User configuration** fixed for all services
 - ✅ **Missing dependencies** installed (argon2, faster-whisper, psycopg2-binary)
 - ✅ **Agent daemon** configured with blockchain chain
 - ✅ **Coordinator connections** updated to current ports
 
 ### Documentation
+
 - ✅ **Service port reference** updated with current allocations
 - ✅ **Blockchain API documentation** updated with correct endpoints
 - ✅ **Security remediation** fully documented
@@ -151,6 +166,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 🗄️ System Status
 
 ### Current Configuration
+
 - **Python Version**: 3.13.5 (system-linked)
 - **Virtual Environment**: `/opt/aitbc/venv` (system venv)
 - **Security Status**: 0 vulnerabilities
@@ -158,6 +174,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - **Health Check Success Rate**: 13/13 (100%)
 
 ### Port Allocation
+
 - **8200**: Blockchain P2P
 - **8201**: API Gateway
 - **8202**: Blockchain RPC (localhost)
@@ -176,6 +193,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - **8111**: Edge Service
 
 ### Resource Usage
+
 - **Disk**: 8.9TB/17TB (55% used)
 - **Memory**: 8.3GB/16GB (52% used)
 - **GPU**: NVIDIA GeForce RTX 4060 Ti (16GB)
@@ -183,14 +201,17 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 🔧 Breaking Changes
 
 ### Port Changes
+
 - **aitbc-edge.service**: Port changed from 8110 to 8111
 - **aitbc-blockchain-event-bridge.service**: Port changed from 8204 to 8205
 - **aitbc-miner.service**: Coordinator URL changed from http://localhost:8011 to http://localhost:8203
 
 ### Service Removal
+
 - **aitbc-wallet-daemon.service**: Removed (legacy duplicate of aitbc-wallet.service)
 
 ### API Changes
+
 - **Blockchain RPC**: All endpoints now use `/rpc/` prefix (not `/v1/`)
 - **Agent Coordinator**: Health endpoint now at `/health` (not `/v1/health`)
 
@@ -199,11 +220,13 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### For System Administrators
 
 **1. Update Service Configurations**
+
 ```bash
 # No action required - all service configurations have been updated automatically
 ```
 
 **2. Update API Endpoints**
+
 ```bash
 # Update blockchain RPC calls to use /rpc/ prefix
 # Old: http://localhost:8202/v1/network
@@ -211,6 +234,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ```
 
 **3. Update Firewall Rules**
+
 ```bash
 # Update firewall rules for new port allocations
 # Add: 8111 (edge service)
@@ -220,6 +244,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### For Developers
 
 **1. Update API Calls**
+
 ```python
 # Blockchain RPC
 # Old: client.get_network_info()  # Used /v1/network
@@ -231,6 +256,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ```
 
 **2. Update Package Management**
+
 ```bash
 # JavaScript/TypeScript
 # Old: npm install
@@ -245,12 +271,14 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### Phase 6: Performance Optimizations (Planned)
 
 **Database Optimization**
+
 - Enable WAL mode for SQLite blockchain database
 - Implement connection pooling for PostgreSQL services
 - Add database indexes for frequently queried fields
 - Optimize slow queries identified through profiling
 
 **Caching Layer**
+
 - Implement Redis caching for:
   - Block headers and recent blocks
   - Account balances
@@ -260,6 +288,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - Set up cache monitoring
 
 **Service Configuration Tuning**
+
 - Increase worker count for high-traffic services:
   - API Gateway: 4-8 workers
   - Coordinator API: 2-4 workers
@@ -270,12 +299,14 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### Phase 7: Resource Optimizations (Planned)
 
 **Memory Management**
+
 - Set memory limits for all services (currently some have 2GB limits)
 - Implement memory monitoring and alerting
 - Profile memory-intensive services (Whisper, GPU service)
 - Implement memory pressure detection and auto-scaling
 
 **GPU Optimization**
+
 - Implement GPU scheduling and prioritization
 - Add batch processing for GPU-intensive tasks
 - Monitor GPU utilization more granularly
@@ -285,18 +316,21 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### Phase 8: Monitoring & Observability (Planned)
 
 **Centralized Logging**
+
 - Implement ELK stack (Elasticsearch, Logstash, Kibana)
 - Configure log aggregation from all services
 - Set up log retention policies
 - Implement log parsing and alerting
 
 **Health Check Automation**
+
 - Set up automated health monitoring with alerts
 - Configure PagerDuty or similar for critical alerts
 - Implement health check dashboards
 - Set up synthetic transaction monitoring
 
 **Metrics Collection**
+
 - Implement Prometheus metrics collection
 - Configure Grafana dashboards for:
   - Service health and performance
@@ -309,12 +343,14 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### Phase 9: Security Hardening (Planned)
 
 **Service Isolation**
+
 - Create dedicated service users with minimal permissions
 - Implement service-specific resource limits
 - Configure filesystem permissions
 - Set up service-level security policies
 
 **Network Security**
+
 - Configure firewall rules to restrict access
 - Implement rate limiting on all public endpoints
 - Set up IP whitelisting for sensitive services
@@ -324,6 +360,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### Phase 10: Operational Improvements (Planned)
 
 **Backup Strategy**
+
 - Implement automated backups for:
   - Blockchain database
   - Wallet files and keystore
@@ -334,6 +371,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - Configure disaster recovery procedures
 
 **Service Dependencies**
+
 - Implement proper dependency management in systemd
 - Configure service startup order
 - Add health check dependencies
@@ -342,12 +380,14 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### Phase 11: Code-Level Optimizations (Planned)
 
 **Query Optimization**
+
 - Add database indexes for frequently queried fields
 - Optimize slow queries identified through profiling
 - Implement query result caching
 - Add query performance monitoring
 
 **Async Operations**
+
 - Ensure all I/O operations are async
 - Implement async database operations
 - Add async HTTP client operations
@@ -356,6 +396,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 🧪 Testing
 
 ### Completed Tests
+
 - ✅ Blockchain operations (block queries, network info, account queries)
 - ✅ Wallet functionality (balance checks, faucet requests)
 - ✅ Agent communication (agent-daemon running and connected)
@@ -363,6 +404,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ GPU/ML services (GPU service, miner, whisper operational)
 
 ### Planned Tests
+
 - 📋 Load testing for high-traffic services
 - 📋 Failover testing for service dependencies
 - 📋 Performance testing for optimization phases
@@ -371,6 +413,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 📚 Documentation Updates
 
 ### Updated Documentation
+
 - ✅ `/opt/aitbc/docs/SECURITY_VULNERABILITIES_2026-06-07.md`
 - ✅ `/opt/aitbc/docs/PYENV_MIGRATION_2026-06-07.md`
 - ✅ `/opt/aitbc/docs/reference/SERVICE_PORTS.md`
@@ -379,6 +422,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ `/opt/aitbc/docs/infrastructure/migration/microservices-migration-status.md`
 
 ### New Documentation
+
 - 📋 Performance optimization guides
 - 📋 Monitoring setup guides
 - 📋 Security hardening procedures
@@ -389,6 +433,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ### From v0.4.12 to v0.4.13
 
 **Pre-Upgrade Checklist**
+
 - [ ] Review breaking changes
 - [ ] Update API endpoint calls
 - [ ] Update firewall rules for new ports
@@ -396,7 +441,9 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - [ ] Review optimization roadmap
 
 **Upgrade Steps**
+
 1. **Stop all services**
+
    ```bash
    systemctl stop aitbc-*.service
    ```
@@ -410,11 +457,13 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
    - Update agent coordinator health check to use `/health`
 
 4. **Start all services**
+
    ```bash
    systemctl start aitbc-*.service
    ```
 
 5. **Verify service health**
+
    ```bash
    # Check all services are running
    systemctl list-units --type=service --state=running | grep aitbc
@@ -431,6 +480,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
    - Test agent communication
 
 **Post-Upgrade**
+
 - [ ] Verify all services are running
 - [ ] Check service logs for errors
 - [ ] Run health checks
@@ -440,11 +490,13 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 🐛 Known Issues
 
 ### Minor Issues
+
 - **Agent Coordinator**: Agent registration requires specific agent_type values (documentation needed)
 - **Whisper Service**: Transcription endpoint requires proper audio file format
 - **Blockchain RPC**: Some legacy endpoints not found (expected - API structure changed)
 
 ### Planned Fixes
+
 - 📋 Document agent registration requirements
 - 📋 Add transcription examples with proper audio formats
 - 📋 Provide migration guide for legacy RPC endpoints
@@ -452,6 +504,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 📈 Performance Metrics
 
 ### Current Performance
+
 - **Service Uptime**: 100% (24/24 services running)
 - **Health Check Success Rate**: 100% (13/13 services)
 - **Blockchain Height**: 11632 (syncing actively)
@@ -460,6 +513,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - **Disk Usage**: 55% (8.9TB/17TB)
 
 ### Target Performance (Post-Optimization)
+
 - **Service Response Time**: < 100ms (current: varies)
 - **Blockchain Query Time**: < 50ms (current: varies)
 - **GPU Utilization**: 60-80% (current: 7-31%)
@@ -468,11 +522,13 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 🔐 Security Summary
 
 ### Vulnerability Status
+
 - **Before**: 82 vulnerabilities (23 high, 59 moderate)
 - **After**: 0 vulnerabilities ✅
 - **Reduction**: 100%
 
 ### Security Improvements
+
 - ✅ Switched to pnpm for better dependency security
 - ✅ Updated Python dependencies with security patches
 - ✅ Automated security scanning in CI/CD
@@ -480,6 +536,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 - ✅ Fixed user configuration issues
 
 ### Future Security Enhancements
+
 - 📋 Service isolation with dedicated users
 - 📋 Network security with firewall rules
 - 📋 Rate limiting on all public endpoints
@@ -488,6 +545,7 @@ AITBC v0.4.13 is a critical security and stability release that addresses 82 sec
 ## 📞 Support
 
 For issues or questions related to this release:
+
 - **Documentation**: `/opt/aitbc/docs/`
 - **Service Logs**: `journalctl -u aitbc-*.service`
 - **Health Checks**: Service-specific `/health` endpoints

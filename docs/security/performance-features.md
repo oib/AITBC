@@ -1,6 +1,7 @@
 # AITBC Security and Performance Features Guide
 
 ## Table of Contents
+
 - [Enhanced Secret Management](#enhanced-secret-management)
 - [Blockchain-Specific Validation](#blockchain-specific-validation)
 - [Performance Caching Strategies](#performance-caching-strategies)
@@ -13,9 +14,11 @@
 ## Enhanced Secret Management
 
 ### Overview
+
 The enhanced `SecretManager` provides enterprise-grade secret management with automatic expiration, rotation, and encryption key rotation capabilities.
 
 ### Features
+
 - **Secret Expiration**: Automatic TTL-based expiration
 - **Secret Rotation**: Version tracking for secret updates
 - **Encryption Key Rotation**: Master key rotation with re-encryption
@@ -59,6 +62,7 @@ print(f"Exported {len(export)} secret entries")
 ### Advanced Usage
 
 #### Encryption Key Rotation
+
 ```python
 from cryptography.fernet import Fernet
 
@@ -79,6 +83,7 @@ if success:
 ```
 
 #### Secret Expiration Management
+
 ```python
 # Set short-lived secrets (e.g., session tokens)
 manager.set_secret("session_token", "token_value", ttl_hours=1)
@@ -106,6 +111,7 @@ manager = SecretManager(
 ```
 
 ### Security Considerations
+
 - Always use strong encryption keys (Fernet.generate_key())
 - Rotate secrets regularly (recommended: monthly for API keys, quarterly for encryption keys)
 - Never log or expose secret values
@@ -117,9 +123,11 @@ manager = SecretManager(
 ## Blockchain-Specific Validation
 
 ### Overview
+
 Enhanced `SecurityValidator` provides blockchain-specific input validation to prevent common blockchain security issues.
 
 ### Features
+
 - **Private key validation**: Format and length checking
 - **Chain ID validation**: Positive integer validation
 - **Contract address validation**: Ethereum address format checking
@@ -208,9 +216,11 @@ def validate_transaction_params(tx_data: dict) -> bool:
 ## Performance Caching Strategies
 
 ### Overview
+
 Enhanced caching system with blockchain-specific optimizations, intelligent invalidation, and performance monitoring.
 
 ### Features
+
 - **Blockchain-specific caching**: Different TTL for different data types
 - **Automatic cache invalidation**: Event-driven cache consistency
 - **Performance monitoring**: Hit/miss rate tracking, operation timing
@@ -316,9 +326,11 @@ print(f"Average duration: {stats['operation_stats']['account_balance']['avg_dura
 ## Database Optimization
 
 ### Overview
+
 Enhanced database utilities with query monitoring, read replica support, and performance tracking.
 
 ### Features
+
 - **Query monitoring**: Performance tracking and slow query detection
 - **Read replica management**: Intelligent read/write routing for PostgreSQL
 - **Connection pooling**: Optimized connection management
@@ -436,6 +448,7 @@ print(f"Slow queries: {stats['slow_query_count']}")
 ## Dependency Security Automation
 
 ### Overview
+
 Automated dependency security scanning using safety, pip-audit, and bandit with CI/CD integration.
 
 ### Local Security Scanning
@@ -453,10 +466,12 @@ bandit -r aitbc/
 ### CI/CD Integration
 
 The security scanning is automatically integrated into:
+
 - **GitHub Actions**: `.github/workflows/dependency-security.yml`
 - **Gitea Actions**: `.gitea/workflows/security-scanning.yml`
 
 Triggers:
+
 - On push to main/develop branches
 - On pull requests
 - Daily scheduled scans (GitHub: 2 AM UTC, Gitea: Weekly)
@@ -502,6 +517,7 @@ pip freeze > requirements.txt
 ### Security Policy
 
 See `.github/SECURITY.md` for comprehensive security policies including:
+
 - Vulnerability response procedures
 - Severity-based timelines
 - Security best practices
@@ -512,6 +528,7 @@ See `.github/SECURITY.md` for comprehensive security policies including:
 ## Security Best Practices
 
 ### 1. Secret Management
+
 ```python
 # ✅ Good: Use environment variables for encryption keys
 import os
@@ -522,6 +539,7 @@ encryption_key = "hardcoded_key_here"
 ```
 
 ### 2. Input Validation
+
 ```python
 # ✅ Good: Validate all blockchain inputs
 from aitbc.security_hardening import SecurityValidator
@@ -537,6 +555,7 @@ def process_transaction(tx_data: dict):
 ```
 
 ### 3. Error Handling
+
 ```python
 # ✅ Good: Proper exception chaining
 try:
@@ -552,6 +571,7 @@ except Exception:
 ```
 
 ### 4. Caching Strategy
+
 ```python
 # ✅ Good: Cache with appropriate TTL and invalidation
 blockchain_cache.set_account_balance(address, chain_id, balance)
@@ -563,6 +583,7 @@ cache.set("balance", balance, ttl=86400)  # Too long, stale data
 ```
 
 ### 5. Database Security
+
 ```python
 # ✅ Good: Use parameterized queries
 cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -572,6 +593,7 @@ cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
 ```
 
 ### 6. Dependency Management
+
 ```python
 # ✅ Good: Regular security scans
 ./scripts/security/dependency-scan.sh
@@ -586,6 +608,7 @@ cryptography
 ```
 
 ### 7. Monitoring
+
 ```python
 # ✅ Good: Enable monitoring in production
 db = DatabaseConnection(db_path, enable_monitoring=True)
@@ -600,6 +623,7 @@ db = DatabaseConnection(db_path, enable_monitoring=False)
 ```
 
 ### 8. Cache Monitoring
+
 ```python
 # ✅ Good: Monitor cache performance
 metrics = get_cache_metrics()
@@ -616,23 +640,27 @@ if stats['hit_rate'] < 0.7:  # 70% hit rate threshold
 ## Quick Reference
 
 ### Security Features
+
 - **SecretManager**: Enhanced secret management with rotation
 - **SecurityValidator**: Blockchain-specific validation
 - **DependencySecurity**: Automated vulnerability scanning
 
 ### Performance Features
+
 - **BlockchainCache**: Specialized blockchain caching
 - **CacheInvalidator**: Event-driven cache invalidation
 - **QueryMonitor**: Database query performance tracking
 - **ReadReplicaManager**: PostgreSQL read replica routing
 
 ### Configuration Files
+
 - `.github/SECURITY.md` - Security policy and procedures
 - `.github/workflows/dependency-security.yml` - GitHub security automation
 - `.gitea/workflows/security-scanning.yml` - Gitea security automation
 - `scripts/security/dependency-scan.sh` - Local security scanning script
 
 ### Testing
+
 - `tests/test_security_enhancements.py` - Security feature tests
 - `tests/test_performance_caching.py` - Caching feature tests
 - `tests/test_database_optimization.py` - Database optimization tests
@@ -643,6 +671,7 @@ if stats['hit_rate'] < 0.7:  # 70% hit rate threshold
 ## Support
 
 For security issues or questions about these features:
+
 - **Security Policy**: See `.github/SECURITY.md`
 - **Security Issues**: security@aitbc.io
 - **Documentation**: See inline docstrings and type hints

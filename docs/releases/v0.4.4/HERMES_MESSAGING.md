@@ -13,9 +13,11 @@ AITBC v0.4.4 updates the Hermes messaging service with port changes, endpoint up
 ### Port and Endpoint Changes
 
 #### Port Update
+
 - Port updated from 8014 to 8103
 
 #### Endpoint Changes
+
 - Message endpoints updated from `/v1/hermes/messages` to `/api/v1/agent/messages`
 - Polling daemon updated to use new endpoints
 - Base handler updated for send and poll operations
@@ -30,6 +32,7 @@ HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 ```
 
 #### Loading Order
+
 1. HERMES_DB_PATH loaded from environment before storage imports
 2. Fallback to DATA_DIR/hermes_coin_requests.db if not set
 3. node.env loaded before environment variable setting
@@ -39,9 +42,11 @@ HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 ### Agent Coordinator Integration
 
 #### Port Update
+
 - Agent Coordinator port updated from 8011 to 8107
 
 #### Router Integration
+
 - agent_messaging router added to coordinator routers list
 - Main.py conditionally applies /v1 prefix based on router's existing prefix
 - CLI coin requests updated to use Agent Coordinator

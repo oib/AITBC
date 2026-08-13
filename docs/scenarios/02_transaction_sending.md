@@ -77,6 +77,7 @@ aitbc transactions send \
 ```
 
 **Password resolution** (in priority order):
+
 1. `--password` flag (inline)
 2. `--password-file` flag (read from file)
 3. `AITBC_WALLET_PASSWORD` environment variable
@@ -84,6 +85,7 @@ aitbc transactions send \
 5. Interactive `getpass` prompt (only if TTY available)
 
 **Expected output:**
+
 ```
 Transaction submitted: 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b
 Transaction sent: 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b
@@ -119,6 +121,7 @@ aitbc transactions status 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b
 ```
 
 **Expected output:**
+
 ```json
 {
   "status": "confirmed",
@@ -165,6 +168,7 @@ aitbc transactions batch --transactions-file /tmp/batch_tx.json --password-file 
 ```
 
 **Expected output:**
+
 ```
 Transaction submitted: 0xabc123...
 Transaction sent: my-agent-wallet → aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 (5.0 AIT)
@@ -185,6 +189,7 @@ aitbc transactions estimate-fee \
 ```
 
 **Expected output:**
+
 ```
 Estimated fee: 0.0100 AIT (default)
 ```
@@ -198,6 +203,7 @@ aitbc transactions pending
 ```
 
 **Expected output:**
+
 ```
 Pending transactions: 2
   - 0xabc123...: 5 AIT

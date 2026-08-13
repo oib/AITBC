@@ -5,6 +5,7 @@ This guide covers requesting free coins from the hub via the coin approval syste
 ## Understanding the Coin Approval System
 
 The hub operates a coin approval system with three modes:
+
 - **Manual**: Requires CLI approval (default)
 - **Automatic**: Auto-approves requests under configured limits
 - **AI**: Uses Ollama for intelligent approval decisions
@@ -62,6 +63,7 @@ curl -X POST "http://localhost:8203/v1/agent/messages/send" \
 ```
 
 **Example:**
+
 ```bash
 curl -X POST "http://localhost:8203/v1/agent/messages/send" \
   -H "Content-Type: application/json" \
@@ -86,11 +88,13 @@ aitbc-cli coin-requests list
 ## Request Format Options
 
 **Natural language:**
+
 ```
 REQUEST_COINS: 1000 ait coins to address ait1xyz123abc
 ```
 
 **JSON format:**
+
 ```json
 {
   "cmd": "REQUEST_COINS",
@@ -107,6 +111,7 @@ REQUEST_COINS: 1000 ait coins to address ait1xyz123abc
 4. **Notification**: Sender notified of completion
 
 **Manual approval on hub:**
+
 ```bash
 # Approve request
 aitbc-cli coin-requests approve <request-id> --reason "New node onboarding"

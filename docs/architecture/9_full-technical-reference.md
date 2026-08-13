@@ -7,6 +7,7 @@ Complete technical documentation for the AI Training & Blockchain Computing Plat
 ## 📊 **Current Status: PRODUCTION READY - March 18, 2026**
 
 ### ✅ **Implementation Status**
+
 - **Phase 1-3**: 100% Complete (Exchange Infrastructure, Security, Production Integration)
 - **Phase 4.1**: 100% Complete (AI Trading Engine)
 - **Phase 4.2**: 100% Complete (Advanced Analytics Platform)
@@ -88,42 +89,49 @@ The AITBC platform implements a complete 7-layer multi-chain architecture:
 ### Core Components
 
 #### **Layer 1: Wallet Daemon (Port 8015)**
+
 - Multi-chain wallet management
 - Chain-specific wallet creation and balance queries
 - Cross-chain transaction rejection for security
 - Systemd service integration with journalctl logging
 
 #### **Layer 2: Coordinator API (Port 8203)**
+
 - Transaction coordination and routing
 - Multi-chain endpoint management
 - AI service integration
 - Exchange and compliance coordination
 
 #### **Layer 3: Blockchain Service (Port 8007)**
+
 - Transaction processing and consensus
 - Chain-specific transaction handling
 - Database schema with chain_id support
 - Mempool management with chain isolation
 
 #### **Layer 4: Consensus Mechanism (Port 8007)**
+
 - Proof of Authority (PoA) consensus
 - Validator signature collection
 - Block proposal and validation
 - Consensus status monitoring
 
 #### **Layer 5: Network Service (Port 8008)**
+
 - Peer-to-peer network with 4+ peers
 - Automatic block propagation
 - Chain-specific network isolation
 - Network health monitoring
 
 #### **Layer 6: Explorer Service (Port 8016)**
+
 - Real-time data aggregation
 - Multi-chain API endpoints
 - Beautiful web interface with search
 - Chain-specific data presentation
 
 #### **Layer 7: User Interface (Port 8016)**
+
 - Complete user experience
 - Multi-chain dashboard
 - Search functionality
@@ -141,6 +149,7 @@ Wallet         Coordination    Processing    Proposal    Peer       Aggreg  Inte
 ### Consensus Mechanism
 
 **Proof of Authority (PoA) Implementation**
+
 - **Validator**: ait1devproposer000000000000000000000000000000
 - **Block Height**: Currently 250+ blocks
 - **Transaction Flow**: Submit → Mempool → Consensus → Block
@@ -154,6 +163,7 @@ Wallet         Coordination    Processing    Proposal    Peer       Aggreg  Inte
 **CLI**: `/cli/aitbc_cli/commands/ai_trading.py`
 
 **Features**:
+
 - Machine learning-based trading algorithms
 - **Strategies**: Mean Reversion, Momentum (extensible framework)
 - **Predictive Analytics**: Price prediction and trend analysis
@@ -162,6 +172,7 @@ Wallet         Coordination    Processing    Proposal    Peer       Aggreg  Inte
 - **Strategy Backtesting**: Historical data analysis and optimization
 
 **CLI Commands**:
+
 ```bash
 aitbc ai-trading start --strategy mean_reversion
 aitbc ai-trading status
@@ -175,6 +186,7 @@ aitbc ai-trading backtest --strategy momentum
 **CLI**: `/cli/aitbc_cli/commands/advanced_analytics.py`
 
 **Features**:
+
 - Real-time analytics dashboard
 - **Market Data Analysis**: Deep market insights and patterns
 - **Performance Metrics**: Trading performance and KPI tracking
@@ -183,6 +195,7 @@ aitbc ai-trading backtest --strategy momentum
 - **Reporting Automation**: Automated analytics report generation
 
 **CLI Commands**:
+
 ```bash
 aitbc advanced-analytics dashboard
 aitbc advanced-analytics market-data --symbol AITBC
@@ -196,6 +209,7 @@ aitbc advanced-analytics report --type portfolio
 **CLI**: `/cli/aitbc_cli/commands/ai_surveillance.py`
 
 **Features**:
+
 - **Machine Learning Surveillance**: 92% accuracy with isolation forest algorithms
 - **Behavioral Analysis**: 88% accuracy with clustering techniques
 - **Predictive Risk Assessment**: 94% accuracy with gradient boosting models
@@ -205,6 +219,7 @@ aitbc advanced-analytics report --type portfolio
 **ML Models**: 4 production-ready models with 88-94% accuracy
 
 **CLI Commands**:
+
 ```bash
 aitbc ai-surveillance start
 aitbc ai-surveillance status
@@ -212,12 +227,14 @@ aitbc ai-surveillance alerts
 aitbc ai-surveillance patterns
 aitbc ai-surveillance risk-profile --user <username>
 ```
+
        │                     │                     │
        ▼                     ▼                     ▼
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │   Wallet    │     │   Pool Hub   │     │   Miners    │
 │   Daemon    │     │              │     │             │
 └─────────────┘     └──────────────┘     └─────────────┘
+
 ```
 
 ### Data Flow
@@ -271,6 +288,7 @@ docker-compose ps
 Main configuration file: `docker-compose.yml`
 
 Key environment variables:
+
 ```yaml
 services:
   coordinator:
@@ -293,6 +311,7 @@ services:
 Base URL: `http://localhost:8203`
 
 #### Authentication
+
 ```http
 X-Api-Key: <YOUR_API_KEY>
 ```
@@ -300,16 +319,19 @@ X-Api-Key: <YOUR_API_KEY>
 #### Endpoints
 
 **Jobs**
+
 - `POST /v1/jobs` - Submit job
 - `GET /v1/jobs/{id}` - Get job status
 - `DELETE /v1/jobs/{id}` - Cancel job
 
 **Miners**
+
 - `POST /v1/miners/register` - Register miner
 - `POST /v1/miners/heartbeat` - Send heartbeat
 - `GET /v1/miners/jobs` - Get available jobs
 
 **Receipts**
+
 - `GET /v1/receipts` - List receipts
 - `GET /v1/receipts/{id}` - Get receipt details
 
@@ -343,6 +365,7 @@ Base URL: `http://localhost:18002`
 **Port**: 26657 (RPC), 26658 (WebSocket)
 
 Features:
+
 - Hybrid PoA/PoS consensus
 - Sub-second finality
 - Smart contract support
@@ -354,6 +377,7 @@ Features:
 **Port**: 8203
 
 Features:
+
 - Job orchestration
 - Miner management
 - Receipt verification
@@ -365,6 +389,7 @@ Features:
 **Port**: 18001
 
 Features:
+
 - GPU management
 - Job execution
 - Result submission
@@ -376,6 +401,7 @@ Features:
 **Port**: 18002
 
 Features:
+
 - Encrypted key storage
 - Transaction signing
 - Balance tracking
@@ -391,16 +417,19 @@ Features:
    - Get test tokens
 
 2. **Submit Job**
+
    ```bash
    ./aitbc-cli.sh submit "Your prompt" --model llama3.2
    ```
 
 3. **Track Progress**
+
    ```bash
    ./aitbc-cli.sh status <job_id>
    ```
 
 4. **Verify Result**
+
    ```bash
    ./aitbc-cli.sh receipts --job-id <job_id>
    ```
@@ -413,6 +442,7 @@ Features:
    - Linux OS recommended
 
 2. **Install Miner**
+
    ```bash
    wget https://github.com/oib/AITBC/releases/download/latest/aitbc-miner
    chmod +x aitbc-miner
@@ -420,6 +450,7 @@ Features:
    ```
 
 3. **Configure**
+
    ```toml
    [mining]
    stake_amount = 10000
@@ -428,6 +459,7 @@ Features:
    ```
 
 4. **Start Mining**
+
    ```bash
    ./aitbc-miner start
    ```
@@ -435,6 +467,7 @@ Features:
 ### Developer Guide
 
 1. **Setup Development**
+
    ```bash
    git clone https://github.com/oib/AITBC.git
    cd aitbc
@@ -442,6 +475,7 @@ Features:
    ```
 
 2. **Build Components**
+
    ```bash
    # Blockchain
    cd apps/blockchain-node && poetry install
@@ -451,6 +485,7 @@ Features:
    ```
 
 3. **Run Tests**
+
    ```bash
    pytest tests/
    ```
@@ -486,6 +521,7 @@ Token holders can:
 ### Common Issues
 
 **Node not syncing**
+
 ```bash
 # Check peers
 curl localhost:26657/net_info
@@ -495,6 +531,7 @@ docker-compose restart blockchain
 ```
 
 **Jobs stuck in pending**
+
 ```bash
 # Check miner status
 curl localhost:8203/v1/miners
@@ -504,6 +541,7 @@ curl localhost:18001/health
 ```
 
 **Wallet connection issues**
+
 ```bash
 # Clear browser cache
 # Check wallet daemon logs
@@ -513,6 +551,7 @@ docker-compose logs wallet-daemon
 ### Debug Mode
 
 Enable debug logging:
+
 ```bash
 # Coordinator
 export LOG_LEVEL=debug
@@ -537,6 +576,7 @@ export DEBUG=true
 ### Audits
 
 The platform has been audited by:
+
 - Smart contracts: ✅ CertiK
 - Infrastructure: ✅ Trail of Bits
 - Cryptography: ✅ NCC Group

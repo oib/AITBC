@@ -1,4 +1,5 @@
 # GPU Setup & Configuration
+
 Configure and optimize your GPU setup for mining.
 
 ## Prerequisites

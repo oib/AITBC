@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/` (cross-cutting)
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit tests/cli tests/test_multi_chain_fixtures.py -q -o addopts="" && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts=""
 ```
@@ -34,6 +35,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 - **Problem**: `tests/conftest.py` line 29 has the comment `# Register multi-chain and multi-node fixtures so they're available to all tests` but no code follows. The fixtures defined in `tests/fixtures/multi_chain.py` and `tests/harness/multi_node.py` are never imported, so pytest can't discover them.
 - **Fix**: Add after line 29 in `tests/conftest.py`:
+
   ```python
   # Register multi-chain and multi-node fixtures so they're available to all tests
   from tests.fixtures.multi_chain import (  # noqa: E402,F401
@@ -48,6 +50,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
       three_node_network,
   )
   ```
+
   Order imports alphabetically (ruff isort). The `# noqa: E402` suppresses import-not-at-top (needed because of the sys.path manipulation above). The `# noqa: F401` suppresses unused-import (fixtures are registered by import side-effect).
 - **Verify**: `pytest tests/test_multi_chain_fixtures.py -q -o addopts=""` — all 33 tests collect and pass (previously errored with "fixture not found").
 
@@ -94,6 +97,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 ## B5: Update signing round-trip test
 
 - Update `test_signing_round_trip.py` to include a cross-chain replay test:
+
   ```python
   def test_cross_chain_replay_rejected(self):
       """Verify that a transaction signed for one chain cannot be replayed on another."""
@@ -106,6 +110,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
       with pytest.raises(InvalidSignatureError):
           transaction_service.verify_transaction_signature(tx_data_wrong_chain, signed["signature"], public_key)
   ```
+
 - **Verify**: Test passes after A2+B4 are both deployed.
 
 ---

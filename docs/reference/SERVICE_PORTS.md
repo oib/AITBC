@@ -14,6 +14,7 @@ This document provides the authoritative port configuration for all AITBC servic
 ## Port Architecture
 
 ### Public Services with Nginx Reverse Proxy (Recommended)
+
 These services should be accessed through nginx for SSL termination, security headers, and load balancing.
 
 | Service | Port | Health Endpoint | Binding | Nginx Port | Notes |
@@ -26,6 +27,7 @@ These services should be accessed through nginx for SSL termination, security he
 **Nginx Configuration**: Services in this group are proxied through nginx on ports 80 (HTTP) and 443 (HTTPS) with SSL termination.
 
 **Nginx Routing Configuration:**
+
 ```
 /agent/    → localhost:8204 (Agent Registry)
 /api/      → localhost:8201 (API Gateway)
@@ -34,17 +36,20 @@ These services should be accessed through nginx for SSL termination, security he
 ```
 
 **Network Discovery Endpoint:**
+
 - `/rpc/network-info` - Provides network configuration for open island joining
   - Returns RPC endpoint, node ID, chain ID, and subscription instructions
   - Accessible via direct port (8202) or nginx proxy (/rpc/)
 
 **Follower Block Subscription (WebSocket via nginx):**
+
 - `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` - Real-time block push to followers
 - `POST /rpc/subscribe` - Register subscription lease
 - `POST /rpc/heartbeat` - Extend subscription lease
 - Nginx routes `/rpc/subscribe/ws`, `/rpc/blocks`, `/rpc/transactions` with WebSocket upgrade headers
 
 ### Public Services (Direct Access)
+
 These services are accessible directly without nginx proxy.
 
 | Service | Port | Health Endpoint | Binding | Notes |
@@ -54,6 +59,7 @@ These services are accessible directly without nginx proxy.
 | **Blockchain Event Bridge** | 8205 | `http://localhost:8205/health` | 0.0.0.0 | Blockchain event streaming service |
 
 ### Internal Services (Ports 8101-8105)
+
 These services bind to localhost only (127.0.0.1) and should not be exposed externally.
 
 | Service | Port | Health Endpoint | Binding | Notes |
@@ -81,6 +87,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 ## Port Configuration Sources
 
 ### Service Wrapper Scripts
+
 - **API Gateway**: `apps/api-gateway/src/api_gateway/main.py` (line 325: `port=8201`)
 - **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8203`)
 - **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
@@ -97,6 +104,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Edge Service**: `apps/edge/aitbc-edge.service` (line 16: `API_PORT=8111`)
 
 ### Application Main Files
+
 - **GPU Service**: `apps/gpu-service/src/gpu_service/main.py` (line 458: `port=8101`)
 - **Marketplace Service**: `apps/marketplace-service/src/marketplace_service/main.py` (line 559: `port=8102`)
 - **Agent Service**: `apps/agent/aitbc-agent-wrapper.py` (line 33: `--port 8107`)
@@ -110,15 +118,18 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Edge Service**: `apps/edge/src/aitbc_edge/main.py` (line 42: `port=8111`)
 
 ### Environment Configuration Files
+
 - **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (rpc_bind_port=8202, default_peer_rpc_url for followers)
 - **Node Configuration**: `/etc/aitbc/node.env` (P2P_BIND_PORT=7070 for hub gossip relay)
 
 ### CLI Configuration
+
 - **CLI Config**: `cli/aitbc_cli/config.py` (service URLs for all microservices)
 
 ## Port Conflict Resolution
 
 ### Historical Conflicts (Resolved)
+
 - **Wallet API**: Previously documented as 8003 in SETUP.md, corrected to 8015 (actual port from app/main.py)
 - **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8203
 - **Blockchain RPC**: Previously on 8006, moved to 8202 as part of public port reorganization
@@ -129,6 +140,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Blockchain Event Bridge**: Previously on 8204 (conflict with coordinator), moved to 8205
 
 ### Configuration Notes
+
 - Ports are typically configured in service wrapper scripts or systemd unit files
 - Environment variables in `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env` may override defaults
 - Some services support port configuration via environment variables (e.g., `rpc_bind_port`, `p2p_bind_port`)
@@ -139,12 +151,15 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 ## Health Check Patterns
 
 ### Standard Health Endpoints
+
 Most services follow one of these health endpoint patterns:
+
 - `/health` - Standard health check (Coordinator, Exchange, Blockchain RPC, Marketplace, Wallet)
 - `/api/health` - API-specific health check (some Exchange implementations)
 - No health endpoint - Services without health checks (P2P, some internal services)
 
 ### Health Check Commands
+
 ```bash
 # Check service health (public services)
 curl -s http://localhost:8201/health  # API Gateway
@@ -174,10 +189,12 @@ ss -tlnp | grep ':8101'     # GPU Service
 ## CLI Entry Point Reference
 
 ### Canonical CLI Entry Point
+
 - **Primary**: `/opt/aitbc/aitbc-cli` (wrapper script that loads unified_cli.py)
 - **Alternative**: `python3 cli/unified_cli.py` (direct invocation for specific operations)
 
 ### Usage Guidelines
+
 - Use `/opt/aitbc/aitbc-cli` for: general operations, wallet, blockchain, network commands
 - Use `python3 cli/unified_cli.py` for: marketplace operations, GPU testing, specific module features
 
@@ -190,6 +207,7 @@ ss -tlnp | grep ':8101'     # GPU Service
 ## Maintenance
 
 When adding or modifying services:
+
 1. Update this file with the new port configuration
 2. Add source reference (wrapper script, app main.py, or systemd file)
 3. Update related documentation to reference this file instead of duplicating port information
@@ -203,6 +221,7 @@ When adding or modifying services:
 ## Port Migration History
 
 ### 2026-06-02 Migration
+
 - **Exchange API**: 8001 → 8106 (migrated to 8100+ range)
 - **Agent Coordinator**: 9001 → 8107 (migrated to 8100+ range)
 - **Wallet Daemon**: 8015 → 8108 (migrated to 8100+ range)

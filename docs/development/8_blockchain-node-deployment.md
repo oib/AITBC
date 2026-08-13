@@ -55,11 +55,13 @@ pip install -e .
 ## Running
 
 ### Development
+
 ```bash
 uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8080 --reload
 ```
 
 ### Production
+
 ```bash
 uvicorn aitbc_chain.app:app \
   --host 0.0.0.0 \
@@ -73,6 +75,7 @@ uvicorn aitbc_chain.app:app \
 **Note:** Use `--workers 1` because the PoA proposer must run as a single instance.
 
 ### Systemd Service
+
 ```ini
 [Unit]
 Description=AITBC Blockchain Node
@@ -109,11 +112,13 @@ WantedBy=multi-user.target
 ## Monitoring
 
 ### Health Check
+
 ```bash
 curl http://localhost:8080/health
 ```
 
 ### Key Metrics
+
 - `poa_proposer_running` — 1 if proposer is active
 - `chain_head_height` — Current block height
 - `mempool_size` — Pending transactions
@@ -122,6 +127,7 @@ curl http://localhost:8080/health
 - `rpc_rate_limited_total` — Rate-limited requests
 
 ### Alerting Rules (Prometheus)
+
 ```yaml
 - alert: ProposerDown
   expr: poa_proposer_running == 0

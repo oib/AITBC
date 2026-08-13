@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -101,6 +102,7 @@ def apply_deltas_to_db(
 ```
 
 **Key**: `compute_state_delta` replicates the validation logic from `state_transition.apply_transaction` (lines 127-213) but:
+
 - Reads from `account_map` instead of `session.get(Account, ...)`
 - Returns a `StateDelta` instead of executing SQL
 - Does NOT call `session.flush()`, `session.execute()`, or invalidate Redis cache
@@ -125,6 +127,7 @@ else:
 **`_propose_block_sequential`**: Extract the existing sequential loop (lines 308-404) into a method. No behavior change — this is the fallback.
 
 **`_propose_block_parallel`**: New method:
+
 1. Build `DependencyGraph` from pending_txs:
    - For each tx, `read_set = {sender, recipient}`, `write_set = {sender, recipient}`
    - `index` = position in pending_txs (deterministic ordering)
@@ -168,6 +171,7 @@ Modify `_append_block` in `sync.py` (lines 609-687) to support parallel verifica
 **Problem**: `mempool.py:109` sorts by `(-t.fee, t.received_at)`. `received_at` is set via `time.time()` (line 81), which varies across validators. If two txs have the same fee, different validators may order them differently, leading to different block contents and state roots.
 
 **Fix**: Change the sort key from `(-t.fee, t.received_at)` to `(-t.fee, t.tx_hash)` in:
+
 - `InMemoryMempool.drain` (line 109)
 - `InMemoryMempool.get_pending_transactions` (line 155)
 - `DatabaseMempool.drain` (line 341) — change `ORDER BY fee DESC, received_at ASC` to `ORDER BY fee DESC, tx_hash ASC`
@@ -191,6 +195,7 @@ conflict_threshold: float = 0.5  # Fall back to sequential if >50% of txs confli
 ```
 
 Also add env var support (following existing config patterns):
+
 ```bash
 # /etc/aitbc/blockchain.env
 PARALLEL_TX_VALIDATION=true
@@ -207,6 +212,7 @@ CONFLICT_THRESHOLD=0.5
 **Problem**: `sync.py:648` loads ALL accounts for state root verification: `accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()`. This is the full recompute path that v0.6.0's B5 optimized in `poa.py` but didn't apply to `sync.py`.
 
 **Fix**: Replace the full recompute in `sync.py:645-687` with the incremental approach:
+
 1. Track `changed_addresses` during tx processing (same as poa.py)
 2. Use `_compute_state_root_incremental(session, chain_id, account_map, changed_addresses)` instead of `state_manager.compute_state_root(account_dict)`
 3. Import `_compute_state_root_incremental` from `consensus/poa.py` or extract it to a shared utility in `state/`
@@ -257,6 +263,7 @@ class TestParallelDeterminism:
 **This is the most critical test file.** If any test fails, the parallel path is non-deterministic and must not be enabled in production.
 
 **Test approach**: For each test case:
+
 1. Create a set of transactions and initial account state
 2. Run sequential validation → record state root
 3. Reset state

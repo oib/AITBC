@@ -28,10 +28,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Offer event types](./agent-a.md#a1-offer-event-types)
@@ -40,6 +42,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a4-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Offer event publishing](./agent-b.md#b1-offer-event-publishing)
@@ -102,12 +105,14 @@ class OfferEvent:
 ```
 
 **Rationale (grounded in evidence)**:
+
 - Field name `event_type` matches the **agent-coordinator event pattern** (`apps/agent-coordinator/src/app/routing/agent_discovery.py:370-375`): `{"event_type": str, "timestamp": ISO, "payload": dict}`. Using `event` would diverge from the only existing Redis pub/sub event pattern in the codebase.
 - `source` field matches the generic `aitbc.events.Event` dataclass (`aitbc/events/events.py:30-42`): `event_type, data, timestamp, priority, source`. This enables event routing and debugging.
 - Embedding `SyncedOffer` object (with `to_dict()`/`from_dict()`) rather than a raw dict payload matches how `SyncedOffer` is already serialized in `offer_cache.py:65-74` and `offer_types.py:64-116`. It provides type safety and consistent serialization.
 - `timestamp` as ISO string (not datetime object) matches all existing patterns: agent-coordinator, gossip block messages (`consensus/poa.py:502`: `block.timestamp.isoformat()`), and `SyncedOffer.last_synced`.
 
 **Gossip message format** (when publishing to `offers.{chain_id}` topic):
+
 ```json
 {
   "event_type": "created",
@@ -120,6 +125,7 @@ class OfferEvent:
 ```
 
 **Event type semantics**:
+
 | Event | Trigger | `offer` field |
 |-------|---------|---------------|
 | `created` | New GPU_MARKETPLACE tx confirmed | Full `SyncedOffer` |
@@ -133,6 +139,7 @@ class OfferEvent:
 **Decision**: Use `offers.{chain_id}` (per-chain partitioning), NOT a single global `offers` topic.
 
 **Rationale (grounded in evidence)**:
+
 - **ALL existing gossip topics use per-chain partitioning** — this is the only pattern in the codebase:
   - `blocks.{chain_id}` (`consensus/poa.py:488`, `main.py:223`)
   - `transactions.{chain_id}` (`main.py:182`)
@@ -144,6 +151,7 @@ class OfferEvent:
 **Priority routing**: The existing `_priority_for_topic()` in `gossip/broker.py:318-328` defaults non-block/transaction topics to `PRIORITY_STATUS` (4). Offers are lower priority than blocks/transactions — **no change needed to `_priority_for_topic()`**. Offers default to priority 4, which is correct.
 
 **Subscription pattern** (trading service):
+
 ```python
 # Subscribe to offer events for each registered chain
 for chain_id in registered_chains:
@@ -158,11 +166,13 @@ for chain_id in registered_chains:
 **Decision**: Reuse the exact lease-based pattern from `/rpc/subscribe/ws`. No JWT, no X-Wallet-Address. Auth via `node_id` + Redis lease.
 
 **Rationale (grounded in evidence)**:
+
 - The existing WebSocket subscription endpoint (`apps/blockchain-node/src/aitbc_chain/rpc/websocket.py:42-136`) uses **lease-based auth with `node_id`** — no JWT, no wallet address. This is the only WebSocket auth pattern in the codebase.
 - The lease is obtained via prior HTTP POST to `/rpc/subscribe` (`rpc/subscription.py:14-56`), stored in Redis via `lease_tracker.py:80-116`, and validated on WebSocket connect (`websocket.py:54-83`).
 - Config values are proven: `lease_duration=3600` (1hr), `lease_renewal_threshold=300` (5min), `heartbeat_interval=60` (1min) — `config.py:184-188`.
 
 **New endpoints (mirroring existing pattern)**:
+
 | Endpoint | Mirrors | Purpose |
 |----------|---------|---------|
 | `POST /v1/trading/offers/subscribe` | `POST /rpc/subscribe` | Register, get lease |
@@ -170,6 +180,7 @@ for chain_id in registered_chains:
 | `WS /v1/trading/offers/subscribe/ws` | `WS /rpc/subscribe/ws` | Stream offer events |
 
 **WebSocket first message** (client → server, extends existing pattern with optional filters):
+
 ```json
 {
   "node_id": "trading-node-1",
@@ -186,15 +197,18 @@ for chain_id in registered_chains:
 ```
 
 **Lease storage**: The trading service is a separate process from blockchain-node. It needs its own lease tracker pointing at the same Redis, with a **different key prefix** to avoid collisions:
+
 - Block subscription leases: `lease:subscriber:{node_id}` (existing, `lease_tracker.py`)
 - Offer subscription leases: `lease:offer_subscriber:{node_id}` (new)
 
 **Heartbeat**: Same dual-heartbeat pattern as existing:
+
 1. Application-level JSON ping every 20s: `{"type": "ping", "timestamp": ...}` (server → client)
 2. HTTP heartbeat for lease renewal every 60s, renews when <300s remaining (client → server)
 3. WebSocket protocol-level ping handled by `websockets` library (`ping_interval=20, ping_timeout=30`)
 
 **Reconnection**: Same backoff as `subscription_client.py:262-276`:
+
 - WebSocket disconnect → retry after 5s
 - Other errors → fallback to polling (v0.8.1 OfferSyncClient), retry after 30s
 
@@ -205,12 +219,14 @@ for chain_id in registered_chains:
 **Decision**: Multi-layer staleness policy. When a subscription drops, mark offers stale (don't delete them), then fall back to polling.
 
 **Rationale (grounded in evidence)**:
+
 - OfferCache already has per-offer staleness via `last_synced` + `staleness_threshold_seconds` (default 300s, `offer_cache.py:112-123`, `offer_types.py:38-60`). This is the foundation.
 - BlockchainCache uses **TTL + event invalidation** (belt-and-suspenders, `blockchain_cache.py:24-29`). OfferCache should follow the same layered approach.
 - SubscriptionClient already has push→pull fallback (`subscription_client.py:262-276`, `368-382`). Offer subscription should do the same: subscription → polling fallback.
 - **Gap identified**: No per-chain "silent chain" detection exists. This is new work.
 
 **Staleness layers**:
+
 | Layer | Mechanism | Existing? | Trigger |
 |-------|-----------|-----------|---------|
 | 1. Per-offer TTL | `cache_ttl_seconds=300` — entries auto-expire | ✅ Existing | Time-based |
@@ -219,6 +235,7 @@ for chain_id in registered_chains:
 | 4. Polling fallback | Switch to v0.8.1 OfferSyncClient polling | ✅ Existing (pattern) | Subscription failure |
 
 **New OfferCache methods**:
+
 ```python
 def mark_chain_silent(self, chain_id: str) -> int:
     """Mark all offers for a chain as stale when subscription drops.
@@ -237,6 +254,7 @@ def clear_chain_silent(self, chain_id: str) -> None:
 ```
 
 **Trigger conditions for `mark_chain_silent()`**:
+
 1. WebSocket disconnects
 2. Reconnection fails after `subscription_max_reconnect_attempts` (default: 3)
 3. No events received for `subscription_silent_threshold_multiplier × staleness_threshold` (default: 2 × 300s = 600s = 10min)
@@ -244,6 +262,7 @@ def clear_chain_silent(self, chain_id: str) -> None:
 **Recovery**: When subscription reconnects, call `clear_chain_silent(chain_id)`. The next batch of events will refresh offers via `handle_event()`.
 
 **Config additions**:
+
 ```python
 subscription_max_reconnect_attempts: int = 3
 subscription_silent_threshold_multiplier: int = 2  # silent after 2x staleness threshold
@@ -258,6 +277,7 @@ subscription_silent_threshold_multiplier: int = 2  # silent after 2x staleness t
 **Decision**: Search index is OFF by default (opt-in). Meilisearch preferred over Elasticsearch. In-memory search as fallback.
 
 **Rationale (grounded in evidence)**:
+
 - No search index infrastructure exists anywhere in the codebase. This is entirely new.
 - Meilisearch is preferred over Elasticsearch because:
   - Lighter weight (single binary, ~50MB vs Elasticsearch's JVM + ~500MB)
@@ -268,6 +288,7 @@ subscription_silent_threshold_multiplier: int = 2  # silent after 2x staleness t
 - The in-memory fallback (filter/sort on cached offers in OfferCache) ensures the feature works without external dependencies.
 
 **Config defaults**:
+
 ```python
 # apps/trading/src/trading_service/config.py
 offer_search_index_enabled: bool = False  # OFF by default — opt-in
@@ -277,6 +298,7 @@ offer_search_index_api_key: str = ""  # empty = no auth (dev mode)
 ```
 
 **Behavior**:
+
 | Config | Behavior |
 |--------|----------|
 | `offer_search_index_enabled=False` | Use in-memory search (filter/sort OfferCache entries) |
@@ -284,11 +306,13 @@ offer_search_index_api_key: str = ""  # empty = no auth (dev mode)
 | `offer_search_index_enabled=True` + index unreachable | Fall back to in-memory search, log warning |
 
 **Indexing strategy**: Index on offer events (same `OfferEvent` stream that drives cache invalidation):
+
 - `created` → add document to index
 - `updated` → update document in index
 - `deleted` → remove document from index
 
 **Search scope**:
+
 - Full-text: `service_type`, `provider`, `attributes.gpu_model`, `attributes.region`
 - Faceted filters: `chain_id`, `service_type`, `region`, `gpu_model`, `price_range`
 - Sort: `price`, `created_at`
@@ -392,6 +416,7 @@ offer_search_index_api_key: str = ""  # empty = no auth (dev mode)
 **Prerequisite**: v0.8.1 Agent A ✅ (`b3f3ef57d`). v0.8.1 Agent B should be complete (for trading service endpoints).
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && ./venv/bin/python -m ruff check aitbc/trading/ tests/unit/test_offer_subscription_sdk.py && ./venv/bin/python -m pytest tests/unit/test_offer_subscription_sdk.py -q -o addopts=""
 ```
@@ -516,6 +541,7 @@ Add `OfferEventType` enum to `aitbc/trading/offer_types.py` (or re-export from `
 **Prerequisite**: Agent A A1-A3 complete. v0.8.1 Agent B complete.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/trading/src/ cli/aitbc_cli/commands/trade.py
 cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest apps/trading/tests/test_v082_offer_subscription.py -q -o addopts="" --timeout=30
@@ -540,6 +566,7 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 #### B1: Subscription Config
 
 Extend `apps/trading/src/trading_service/config.py`:
+
 ```python
 # Subscription settings
 offer_subscription_enabled: bool = True
@@ -556,6 +583,7 @@ offer_search_index_url: str = "http://localhost:7700"
 #### B2: WebSocket Offer Subscription Endpoint
 
 Add to `main.py`:
+
 - `WS /v1/trading/offers/subscribe` — WebSocket endpoint for offer streaming
 - Follow `/rpc/subscribe/ws` pattern (lease-based auth, heartbeat, subscriber tracking)
 - Stream offer events from gossip topic `offers.{chain_id}`
@@ -564,6 +592,7 @@ Add to `main.py`:
 #### B3: Gossip Integration
 
 Create `apps/trading/src/trading_service/services/offer_subscription_service.py`:
+
 - Subscribe to gossip topics `offers.{chain_id}` for each registered chain
 - On offer event: update OfferCache (invalidate stale entry, set fresh entry)
 - Publish events to WebSocket subscribers
@@ -572,6 +601,7 @@ Create `apps/trading/src/trading_service/services/offer_subscription_service.py`
 #### B4: Notification Service
 
 Create `apps/trading/src/trading_service/services/offer_notification_service.py`:
+
 - Maintain saved query subscriptions from WebSocket clients
 - Match incoming offer events against saved queries
 - Debounce batch notifications (collect for `debounce_ms` then send)
@@ -580,12 +610,14 @@ Create `apps/trading/src/trading_service/services/offer_notification_service.py`
 #### B5: Subscription Status Endpoint
 
 Add to `main.py`:
+
 - `GET /v1/trading/offers/subscription-status` — per-chain subscription health
 - Returns: chain_id, status (subscribed/reconnecting/polling_fallback), last_event, event_count
 
 #### B6: CLI Commands
 
 Extend `cli/aitbc_cli/commands/trade.py`:
+
 - `aitbc trade watch --service-type <type> --max-price <price> --region <region>` — stream offer changes
 - `aitbc trade subscription-status` — show subscription health per chain
 
@@ -594,6 +626,7 @@ Use `OfferSubscriptionClient` from A2.
 #### B7: Optional Search Index
 
 Create `apps/trading/src/trading_service/services/offer_search_service.py`:
+
 - Meilisearch client (preferred) or Elasticsearch client
 - Index offers on sync/event
 - Query endpoint for advanced search
@@ -602,6 +635,7 @@ Create `apps/trading/src/trading_service/services/offer_search_service.py`:
 #### B8: Integration Tests
 
 `apps/trading/tests/test_v082_offer_subscription.py` — tests for:
+
 - WebSocket subscription (mocked gossip broker)
 - Offer event → cache update → notification flow
 - Reconnection and fallback to polling
@@ -612,6 +646,7 @@ Create `apps/trading/src/trading_service/services/offer_search_service.py`:
 #### B9: Optional Blockchain-Node Gossip Publishing
 
 Extend `apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py`:
+
 - On GPU_MARKETPLACE tx confirmation, publish offer event to gossip topic `offers.{chain_id}`
 - Event types: created (new listing), updated (status change), deleted (listing removed)
 

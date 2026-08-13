@@ -17,11 +17,13 @@ Most endpoints require an API key passed via the `X-Api-Key` header. API keys ca
 ### Job Management
 
 #### Submit Job
+
 `POST /v1/jobs`
 
 Submit a new compute job to the platform.
 
 **Request Body:**
+
 ```json
 {
   "payload": {
@@ -40,6 +42,7 @@ Submit a new compute job to the platform.
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "job_id": "string",
@@ -54,11 +57,13 @@ Submit a new compute job to the platform.
 ```
 
 #### Get Job Status
+
 `GET /v1/jobs/{job_id}`
 
 Retrieve the current status of a job.
 
 **Response:** `200 OK`
+
 ```json
 {
   "job_id": "string",
@@ -73,11 +78,13 @@ Retrieve the current status of a job.
 ```
 
 #### Get Job Result
+
 `GET /v1/jobs/{job_id}/result`
 
 Retrieve the result of a completed job.
 
 **Response:** `200 OK`
+
 ```json
 {
   "result": {
@@ -93,11 +100,13 @@ Retrieve the result of a completed job.
 ```
 
 #### Cancel Job
+
 `POST /v1/jobs/{job_id}/cancel`
 
 Cancel a queued or running job.
 
 **Response:** `200 OK`
+
 ```json
 {
   "job_id": "string",
@@ -110,11 +119,13 @@ Cancel a queued or running job.
 ### Payment Management
 
 #### Get Job Payment
+
 `GET /v1/jobs/{job_id}/payment`
 
 Retrieve payment information for a job.
 
 **Response:** `200 OK`
+
 ```json
 {
   "payment_id": "string",
@@ -129,11 +140,13 @@ Retrieve payment information for a job.
 ### Receipt Management
 
 #### Get Latest Receipt
+
 `GET /v1/jobs/{job_id}/receipt`
 
 Retrieve the latest signed receipt for a job.
 
 **Response:** `200 OK`
+
 ```json
 {
   "job_id": "string",
@@ -144,11 +157,13 @@ Retrieve the latest signed receipt for a job.
 ```
 
 #### List All Receipts
+
 `GET /v1/jobs/{job_id}/receipts`
 
 Retrieve all signed receipts for a job.
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -186,6 +201,7 @@ ws://localhost:8203/v1/jobs/{job_id}/ws
 ```
 
 The WebSocket sends status updates as JSON messages:
+
 ```json
 {
   "job_id": "string",

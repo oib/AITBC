@@ -5,6 +5,7 @@ This document describes the on-chain zero-knowledge proof verification flow for 
 ## Overview
 
 The ZK verification system allows proving receipt validity without revealing sensitive details:
+
 - **Prover** (off-chain): Generates ZK proof from receipt data
 - **Verifier** (on-chain): Validates proof and records verified receipts
 
@@ -290,14 +291,17 @@ verifier.setSettlementContract(settlementAddress);
 ## Troubleshooting
 
 ### "Invalid proof"
+
 - Verify circuit was compiled with same parameters
 - Check public signals match between prover and verifier
 - Ensure proof format is correct (note b array ordering)
 
 ### "Receipt already verified"
+
 - Each receipt hash can only be verified once
 - Check `isReceiptVerified()` before submitting
 
 ### "Unauthorized"
+
 - Caller must be in `authorizedVerifiers` mapping
 - Or caller must be the `settlementContract`

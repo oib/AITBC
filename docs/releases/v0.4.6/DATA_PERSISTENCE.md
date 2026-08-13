@@ -17,15 +17,19 @@ AITBC v0.4.6 uses Redis for message and workflow persistence, and SQLModel for r
 ## SQLModel Tables
 
 ### AgentReputation Table
+
 - agent_id, trust_score, reputation_level, performance_rating
 
 ### CommunityFeedback Table
+
 - agent_id, reviewer_id, ratings, feedback_text
 
 ### ReputationEvent Table
+
 - agent_id, event_type, impact_score, trust_score_before/after
 
 ### TrustScoreCalculation Table
+
 - agent_id, category, base_score, adjusted_score
 
 ## Features

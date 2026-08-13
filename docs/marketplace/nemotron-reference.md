@@ -8,6 +8,7 @@
 ### Common Issues
 
 1. **API Gateway Issues**
+
    ```bash
    # Test API Gateway routing (should work via port 443)
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
@@ -19,6 +20,7 @@
    ```
 
 2. **Insufficient Balance**
+
    ```bash
    aitbc wallet balance
    # Add funds if needed
@@ -26,6 +28,7 @@
    ```
 
 3. **Offer Not Available**
+
    ```bash
    # Check offer status (via API Gateway)
    curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
@@ -35,6 +38,7 @@
    ```
 
 4. **Ollama Proxy Issues (Fixed — Was 403)**
+
    ```bash
    # Test Ollama endpoint (now works)
    curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags
@@ -59,6 +63,7 @@
    ```
 
 5. **Escrow Issues**
+
    ```bash
    # Check escrow status
    aitbc wallet escrow-status <tx_hash>
@@ -67,6 +72,7 @@
    ```
 
 6. **CLI Limitations**
+
    ```bash
    # aitbc market run queries blockchain, not marketplace service
    # Use API Gateway calls instead:
@@ -74,6 +80,7 @@
    ```
 
 7. **Service Startup Issues (Fixed 2026-06-05)**
+
    ```bash
    # If Coordinator API fails to start:
    systemctl status aitbc-coordinator-api.service
@@ -150,6 +157,7 @@ A: No, you pay only for actual token usage. No minimum fees.
 ### API Security
 
 **Authentication**: All endpoints require proper headers and valid request formats:
+
 ```bash
 # Required headers
 -H "Content-Type: application/json"
@@ -157,6 +165,7 @@ A: No, you pay only for actual token usage. No minimum fees.
 ```
 
 **Input Validation**: Always sanitize user inputs:
+
 ```python
 import re
 
@@ -180,6 +189,7 @@ def validate_prompt(prompt):
 ```
 
 **Rate Limiting**: Implement client-side rate limiting:
+
 ```python
 import time
 from collections import deque
@@ -205,11 +215,13 @@ class RateLimiter:
 ### Data Privacy
 
 **Prompt Privacy**: Be aware that prompts may be logged for service improvement:
+
 - Avoid sending sensitive personal information
 - Use anonymization for proprietary data
 - Consider local models for highly sensitive workloads
 
 **Response Handling**: Securely process AI responses:
+
 ```python
 def sanitize_response(response):
     # Remove any potential script injection
@@ -220,6 +232,7 @@ def sanitize_response(response):
 ### Network Security
 
 **HTTPS Only**: Always use HTTPS endpoints:
+
 ```bash
 # ✅ Correct
 https://aitbc3.aitbc.bubuit.net/ollama/api/generate
@@ -229,6 +242,7 @@ http://aitbc3.aitbc.bubuit.net/ollama/api/generate
 ```
 
 **Certificate Verification**: Ensure SSL certificate validation:
+
 ```python
 import requests
 
@@ -242,6 +256,7 @@ response = requests.post(
 ### Blockchain Security
 
 **Escrow Safety**: When using blockchain payments:
+
 ```bash
 # Always verify escrow details before release
 aitbc wallet escrow-status $ESCROW_TX
@@ -252,6 +267,7 @@ aitbc wallet escrow-status $ESCROW_TX
 ```
 
 **Wallet Security**: Protect your wallet:
+
 - Use strong passwords
 - Enable two-factor authentication if available
 - Regular backup of wallet keys
@@ -280,6 +296,7 @@ aitbc wallet escrow-status $ESCROW_TX
 ## Support
 
 For issues with:
+
 - **Marketplace**: Check aitbc3 status and network connectivity
 - **Payments**: Verify wallet configuration and balance
 - **API**: Review authentication and endpoint URLs

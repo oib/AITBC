@@ -88,6 +88,7 @@ marketplace-web/
 ### Core Components
 
 #### JobCard
+
 Display job information with real-time status updates.
 
 ```typescript
@@ -99,6 +100,7 @@ interface JobCardProps {
 ```
 
 #### StatsDashboard
+
 Real-time statistics and charts.
 
 ```typescript
@@ -111,6 +113,7 @@ interface StatsData {
 ```
 
 #### OfferPanel
+
 Create and manage job offers.
 
 ```typescript

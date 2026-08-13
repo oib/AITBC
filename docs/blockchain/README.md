@@ -34,6 +34,7 @@ The AITBC blockchain supports the following transaction types:
 The MESSAGE transaction type allows users to send short on-chain messages without affecting account balances. The message is stored in the transaction payload and only the fee is deducted from the sender's balance.
 
 **Usage:**
+
 ```bash
 curl -X POST http://localhost:8202/rpc/transaction \
   -H "Content-Type: application/json" \
@@ -41,6 +42,7 @@ curl -X POST http://localhost:8202/rpc/transaction \
 ```
 
 **Characteristics:**
+
 - value must be 0
 - fee > 0
 - recipient can be any address (or special "null" address)
@@ -48,6 +50,7 @@ curl -X POST http://localhost:8202/rpc/transaction \
 - Message stored in transaction payload
 
 ## Category Overview
+
 This section contains documentation related to blockchain node setup, synchronization, and network configuration.
 
 ---

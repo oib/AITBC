@@ -28,12 +28,14 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets)
 - [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
 - [Architecture](./overview.md#architecture-bridge-basics-v070)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [BridgeClient + Bridge Types](./agent-a.md#a1-bridgeclient--bridge-types)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Bridge Config + Constants](./agent-b.md#b1-bridge-config--constants)
@@ -166,6 +169,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/bridge/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && ./venv/bin/python -m ruff check aitbc/bridge/ tests/unit/test_bridge_sdk.py && ./venv/bin/python -m pytest tests/unit/test_bridge_sdk.py -q -o addopts=""
 ```
@@ -417,6 +421,7 @@ class BridgeClient:
 ```
 
 **`aitbc/bridge/__init__.py`** — re-exports:
+
 ```python
 from .client import BridgeClient
 from .types import BridgeConfig, BridgeProof, BridgeStatus, BridgeTransfer
@@ -583,6 +588,7 @@ def dict_to_proof(data: dict[str, Any]) -> BridgeProof:
 #### A3: Unit Tests
 
 **`tests/unit/test_bridge_sdk.py`**:
+
 - `test_bridge_status_values` — enum values match expected strings
 - `test_bridge_transfer_defaults` — default field values
 - `test_bridge_proof_dataclass` — all required fields
@@ -613,6 +619,7 @@ def dict_to_proof(data: dict[str, Any]) -> BridgeProof:
 **Working directory**: `/opt/aitbc/apps/blockchain-node/` and `/opt/aitbc/cli/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/rpc/bridge.py apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py apps/blockchain-node/src/aitbc_chain/network/bridge_manager.py apps/blockchain-node/src/aitbc_chain/config.py cli/aitbc_cli/commands/bridge.py aitbc/constants.py
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v070_bridge_basics.py -q -o addopts="" --timeout=30
@@ -635,6 +642,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bri
 #### B1: Bridge Config + Constants
 
 In `aitbc/constants.py`, add bridge constants:
+
 ```python
 # Bridge defaults
 BRIDGE_FEE_BASIS_POINTS = 10       # 0.1% bridge fee
@@ -646,6 +654,7 @@ BRIDGE_STUCK_TRANSFER_TIMEOUT = 3600  # 1 hour — transfers pending longer are 
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/config.py`, add to `Settings` class (near existing `bridge_release_enabled` at line 290):
+
 ```python
     # Bridge configuration (v0.7.0)
     bridge_timeout: int = 300
@@ -660,6 +669,7 @@ In `apps/blockchain-node/src/aitbc_chain/config.py`, add to `Settings` class (ne
 #### B2: Missing RPC Endpoints
 
 In `cross_chain/bridge.py`, add a `refund_transfer()` method to `CrossChainBridge`:
+
 ```python
 async def refund_transfer(self, transfer_id: str, sender: str) -> BridgeTransfer:
     """Refund a pending bridge transfer — return locked funds to sender.
@@ -674,6 +684,7 @@ async def refund_transfer(self, transfer_id: str, sender: str) -> BridgeTransfer
 ```
 
 Also add `get_bridge_balance()` method:
+
 ```python
 async def get_bridge_balance(self, chain_id: str | None = None) -> dict[str, int]:
     """Get total locked amount per chain (sum of pending/locked transfers)."""
@@ -684,6 +695,7 @@ async def get_bridge_balance(self, chain_id: str | None = None) -> dict[str, int
 Also add `batch_lock()` and `batch_confirm()` methods.
 
 In `rpc/bridge.py`, add endpoints:
+
 - `POST /bridge/unlock` — calls `refund_transfer()`, requires signature
 - `GET /bridge/balance/{chain_id}` — calls `get_bridge_balance()`
 - `GET /bridge/health` — returns bridge health status (active transfers, pending count, last error)
@@ -712,6 +724,7 @@ Remove the fallback-to-simulated-data pattern — if the RPC endpoint is unavail
 #### B4: Bridge Monitoring
 
 In `network/bridge_manager.py`, add:
+
 1. `health_check()` method — ping active bridges, return health status per bridge
 2. `detect_stuck_transfers()` method — query `CrossChainTransfer` for transfers pending longer than `bridge_stuck_transfer_timeout`, log warnings
 3. `get_metrics()` method — return dict with: active_bridge_count, pending_transfer_count, stuck_transfer_count, total_locked_amount
@@ -722,6 +735,7 @@ The monitoring is additive — it does not change the existing bridge connection
 #### B5: CLI Node Bridge Commands
 
 In `cli/aitbc_cli/commands/node/bridge.py` (currently 52 lines, stubs), replace simulated data with actual RPC calls:
+
 - `aitbc node bridge request <target_island_id>` — calls `POST /islands/bridge`
 - `aitbc node bridge approve <request_id> <approving_node_id>` — calls bridge manager approve
 - `aitbc node bridge reject <request_id> [--reason]` — calls bridge manager reject
@@ -730,6 +744,7 @@ In `cli/aitbc_cli/commands/node/bridge.py` (currently 52 lines, stubs), replace 
 #### B6: Integration Tests
 
 Create `apps/blockchain-node/tests/test_v070_bridge_basics.py`:
+
 - `test_bridge_unlock_refund` — lock then unlock returns funds to sender
 - `test_bridge_unlock_completed_rejected` — cannot unlock a completed transfer
 - `test_bridge_balance` — balance reflects locked transfers
@@ -771,6 +786,7 @@ No shared files are touched by both agents. Agent A creates new files in `aitbc/
 ### Deferred to v0.7.1 / v0.7.2
 
 The following are explicitly **NOT** in v0.7.0 scope:
+
 - **v0.7.1**: Block header signing by proposers, multi-sig validation, time-locked transactions, cross-chain signature verification, bridge event auditing, external security audit
 - **v0.7.2**: Merkle proof verification (`merkle_patricia_trie.verify_proof`), proposer-set membership checking, block header signature verification, finality tracking, validator set epoch transitions, `BRIDGE_RELEASE_ENABLED` fence removal
 

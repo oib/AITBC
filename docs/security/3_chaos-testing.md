@@ -3,6 +3,7 @@
 **⚠️ DEPRECATED: This document describes Kubernetes-based chaos testing which is not supported in the current systemd-based deployment.**
 
 This chaos testing framework is designed for Kubernetes deployments and requires kubectl. For systemd-based deployments, consider using alternative testing approaches such as:
+
 - Manual service restarts via systemctl
 - Network simulation using iptables/tc
 - Database failure simulation via service stops
@@ -17,6 +18,7 @@ This framework implements chaos engineering tests to validate the resilience and
 ## Overview
 
 The chaos testing framework simulates real-world failure scenarios to:
+
 - Test system resilience under adverse conditions
 - Measure Mean-Time-To-Recovery (MTTR) metrics
 - Identify single points of failure
@@ -73,6 +75,7 @@ chmod +x chaos_*.py
 ### Running Individual Tests
 
 #### Coordinator Outage Test
+
 ```bash
 # Basic test
 python3 chaos_test_coordinator.py --namespace default
@@ -85,6 +88,7 @@ python3 chaos_test_coordinator.py --dry-run
 ```
 
 #### Network Partition Test
+
 ```bash
 # Partition 50% of nodes for 60 seconds
 python3 chaos_test_network.py --namespace default
@@ -94,6 +98,7 @@ python3 chaos_test_network.py --namespace default --partition-duration 90 --part
 ```
 
 #### Database Failure Test
+
 ```bash
 # Simulate connection failure
 python3 chaos_test_database.py --namespace default --failure-type connection
@@ -122,6 +127,7 @@ python3 chaos_orchestrator.py --namespace default --continuous --duration 24 --i
 **Objective**: Test system resilience when the coordinator service becomes unavailable.
 
 **Steps**:
+
 1. Generate baseline load on coordinator API
 2. Delete all coordinator pods
 3. Wait for specified outage duration
@@ -129,6 +135,7 @@ python3 chaos_orchestrator.py --namespace default --continuous --duration 24 --i
 5. Generate post-recovery load
 
 **Metrics Collected**:
+
 - MTTR (Mean-Time-To-Recovery)
 - Success/error request counts
 - Recovery time distribution
@@ -138,6 +145,7 @@ python3 chaos_orchestrator.py --namespace default --continuous --duration 24 --i
 **Objective**: Test blockchain consensus during network partitions.
 
 **Steps**:
+
 1. Identify blockchain node pods
 2. Apply iptables rules to partition nodes
 3. Monitor consensus during partition
@@ -145,6 +153,7 @@ python3 chaos_orchestrator.py --namespace default --continuous --duration 24 --i
 5. Verify network recovery
 
 **Metrics Collected**:
+
 - Network recovery time
 - Consensus health during partition
 - Node connectivity status
@@ -154,12 +163,14 @@ python3 chaos_orchestrator.py --namespace default --continuous --duration 24 --i
 **Objective**: Test application behavior when database is unavailable.
 
 **Steps**:
+
 1. Simulate database connection failure or high latency
 2. Monitor API behavior during failure
 3. Restore database connectivity
 4. Verify application recovery
 
 **Metrics Collected**:
+
 - Database recovery time
 - API error rates during failure
 - Application resilience metrics
@@ -192,6 +203,7 @@ The orchestrator generates a comprehensive report including:
 - MTTR trends and statistics
 
 Example report snippet:
+
 ```json
 {
   "summary": {
@@ -280,6 +292,7 @@ jobs:
 ### Common Issues
 
 1. **kubectl not found**
+
    ```bash
    # Ensure kubectl is installed and configured
    which kubectl
@@ -287,6 +300,7 @@ jobs:
    ```
 
 2. **Permission denied errors**
+
    ```bash
    # Check RBAC permissions
    kubectl auth can-i create pods --namespace default
@@ -294,12 +308,14 @@ jobs:
    ```
 
 3. **Network rules not applying**
+
    ```bash
    # Check if iptables is available in pods
    kubectl exec -it <pod> -- iptables -L
    ```
 
 4. **Tests hanging**
+
    ```bash
    # Check pod status
    kubectl get pods --namespace default
@@ -309,6 +325,7 @@ jobs:
 ### Debug Mode
 
 Enable debug logging:
+
 ```bash
 export PYTHONPATH=.
 python3 -u chaos_test_coordinator.py --namespace default 2>&1 | tee debug.log
@@ -334,6 +351,7 @@ To add new chaos test scenarios:
 ## Support
 
 For issues or questions:
+
 - Check the troubleshooting section
 - Review test logs for error details
 - Contact the DevOps team at devops@aitbc.io

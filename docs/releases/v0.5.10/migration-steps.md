@@ -73,6 +73,7 @@ python3 scripts/migration/scale_balances_3600x.py \
 ```
 
 **Expected output:**
+
 ```
 🚀 Starting v0.5.10 hard fork migration for chain: ait-hub.aitbc.bubuit.net
 💾 Creating backups...

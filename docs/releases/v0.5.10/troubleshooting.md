@@ -6,6 +6,7 @@
 ## Migration script fails with "database is locked"
 
 The blockchain node or RPC server is still running and holding a DB connection:
+
 ```bash
 # Stop ALL services that might hold a DB connection
 systemctl stop aitbc-blockchain-rpc 2>/dev/null || true
@@ -28,6 +29,7 @@ ps aux | grep aitbc_chain | grep -v grep
 ## Migration script fails with "near 'transaction': syntax error"
 
 This was a bug in the migration script where the `transaction` table name (a SQL reserved keyword) was not quoted. **Fixed in commit `ff2176b6a`** — ensure you have the latest version:
+
 ```bash
 cd /opt/aitbc
 git pull
@@ -40,6 +42,7 @@ grep 'UPDATE "transaction"' scripts/migration/scale_balances_3600x.py
 The state root reported by the migration script (`2d64cfa9...`) will differ from the state root reported by the running node (`0x5aee7550...`). This is expected — the migration script uses a simplified SHA-256 hash, while the node uses its real Merkle Patricia Trie implementation. **The node's state root is authoritative.**
 
 To verify the migration is correct, check that:
+
 1. Account balances are multiples of 3600
 2. Transaction fees are multiples of 3600
 3. No sub-AIT balances exist (`balance > 0 AND balance < 3600` → 0 rows)
@@ -50,6 +53,7 @@ To verify the migration is correct, check that:
 The `aitbc-blockchain-rpc` service runs a separate uvicorn process with its own database connection pool. If it was not stopped during Step 2, or not restarted during Step 8, it will return stale pre-migration data.
 
 **Fix:** Restart the RPC service:
+
 ```bash
 systemctl restart aitbc-blockchain-rpc
 sleep 3
@@ -58,6 +62,7 @@ curl -s http://localhost:8202/rpc/head | python3 -m json.tool
 ```
 
 **Verify the DB directly if RPC still looks wrong:**
+
 ```bash
 sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
   'SELECT height, state_root FROM block ORDER BY height DESC LIMIT 1;'
@@ -69,6 +74,7 @@ sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
 If followers report sync errors or show wrong state root after the hub migrates:
 
 1. **Check `default_peer_rpc_url`** in `/etc/aitbc/blockchain.env`:
+
    ```bash
    grep default_peer_rpc_url /etc/aitbc/blockchain.env
    # Must be: https://hub.aitbc.bubuit.net
@@ -76,12 +82,14 @@ If followers report sync errors or show wrong state root after the hub migrates:
    ```
 
 2. **Confirm follower is running v0.5.10 code:**
+
    ```bash
    grep "fee.*=.*36" /opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/transactions.py
    # Expected: fee: int = 36
    ```
 
 3. **Wipe local chain.db and re-sync from scratch** (the most reliable fix):
+
    ```bash
    systemctl stop aitbc-blockchain-rpc 2>/dev/null || true
    systemctl stop aitbc-blockchain-node
@@ -101,6 +109,7 @@ If followers report sync errors or show wrong state root after the hub migrates:
    ```
 
 4. **Verify sync completed:**
+
    ```bash
    # Compare state roots
    curl -s "http://localhost:8202/rpc/state/snapshot?chain_id=ait-hub.aitbc.bubuit.net" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state_root'))"
@@ -111,6 +120,7 @@ If followers report sync errors or show wrong state root after the hub migrates:
 ## Follower RPC returns stale data after sync
 
 Same as the hub issue — `aitbc-blockchain-rpc` caches DB connections. Restart it:
+
 ```bash
 systemctl restart aitbc-blockchain-rpc
 sleep 3

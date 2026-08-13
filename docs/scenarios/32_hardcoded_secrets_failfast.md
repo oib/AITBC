@@ -74,6 +74,7 @@ except Exception as e:
 ```
 
 **Expected output:**
+
 ```
 PASS: ValidationError: secret_key required in production
 ```
@@ -94,6 +95,7 @@ except Exception as e:
 ```
 
 **Expected output:**
+
 ```
 PASS: ValidationError: SECRET_KEY must be changed from default value
 ```
@@ -123,6 +125,7 @@ except Exception as e:
 ```
 
 **Expected output:**
+
 ```
 PASS: jwt_secret validation triggered (missing rejected in production)
 ```
@@ -153,6 +156,7 @@ except Exception as e:
 ```
 
 **Expected output:**
+
 ```
 PASS: default jwt_secret rejected in production
 ```
@@ -183,6 +187,7 @@ except Exception as e:
 ```
 
 **Expected output:**
+
 ```
 PASS: short jwt_secret rejected in production
 ```
@@ -206,6 +211,7 @@ print(f'PASS: Settings accepted with proper secrets — jwt_secret len={len(s.jw
 ```
 
 **Expected output:**
+
 ```
 PASS: Settings accepted with proper secrets — jwt_secret len=42, secret_key set: True
 ```

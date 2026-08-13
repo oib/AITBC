@@ -15,6 +15,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 ### ✅ Phase 1: Critical Infrastructure
 
 **1.1 Redis Caching (v0.4.10 activation)**
+
 - ✅ Verified Redis running on `localhost:6379` (database 0 for blockchain-node, 1 for governance, 2 for exchange)
 - ✅ Added `REDIS_URL=redis://localhost:6379/0` to `/etc/aitbc/blockchain.env`
 - ✅ Integrated `RedisCache` into `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py`
@@ -24,6 +25,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
   - `apply_transaction()` now deletes cache entries for sender and recipient after every confirmed balance change
 
 **1.2 PostgreSQL for Governance Service (v0.4.12 activation)**
+
 - ✅ Created PostgreSQL database `aitbc_governance` and user `aitbc_governance`
 - ✅ Updated `apps/governance/alembic.ini` to use `postgresql+psycopg2://` connection string
 - ✅ Ran Alembic initial migration (`001_initial_governance_schema.py`) — schema created successfully
@@ -36,6 +38,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 ### ✅ Phase 4: External Blockchain Exchange (v0.4.9 activation)
 
 **4.1 Bridge Contract Deployment (Sepolia)**
+
 - ✅ Deployed `CrossChainBridge.sol` to Ethereum Sepolia testnet
   - Contract address: `0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA`
   - Deployer wallet: `0x818018F30d8F5FB7AE7a64f25895F15110923748` (0.05 ETH funded via Google faucet)
@@ -46,6 +49,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
   - `GET /v1/bridge/status` now returns `status: deployed` with contract address
 
 **4.2 Oracle Integration (Chainlink + CoinGecko)**
+
 - ✅ Created `@/opt/aitbc/aitbc/oracles/price_oracle.py`
   - `ChainlinkOracle` — reads ETH/USD, BTC/USD, LINK/USD from on-chain aggregators (active when `ETH_RPC_URL` set)
   - `CoinGeckoOracle` — public REST fallback, 60s cache, no API key required
@@ -55,6 +59,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 - ✅ Exchange API endpoint: `GET /v1/bridge/price?base=ETH&quote=USD` returns oracle data
 
 **4.3/4.4 Exchange Bridge API + CLI Commands**
+
 - ✅ Exchange API endpoints (port 8106):
   - `GET /v1/bridge/price` — oracle price feed
   - `GET /v1/bridge/status` — bridge configuration status
@@ -75,6 +80,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 ### ✅ Phase 2: Security & Performance (v0.4.10)
 
 **2.1 Secret Management Rotation Scheduler**
+
 - ✅ Added `start_rotation_scheduler()` method to `SecretManager` in `aitbc/crypto/security.py`
   - Runs as a daemon thread checking for expired secrets every N hours
   - Calls `cleanup_expired_secrets()` and logs audit event on each cleanup run
@@ -82,6 +88,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
   - Reads `AITBC_SECRET_MANAGER_KEY` from environment for encryption key
 
 **2.2 Blockchain Input Validation (v0.4.10 activation)**
+
 - ✅ Integrated `SecurityValidator` and `log_security_event` from `aitbc/security_hardening.py` into `apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py`
   - `marketplace_create` validates price via `SecurityValidator.validate_amount()` — rejects negative values with HTTP 400
   - Description sanitized via `SecurityValidator.sanitize_html()` — XSS tags HTML-escaped before storage
@@ -112,6 +119,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 ### ✅ Phase 6: ETH-to-AIT Bridge Implementation
 
 **Bridge Monitor Service**
+
 - ✅ Created `apps/bridge-monitor/src/bridge_monitor/main.py` — polling service for Sepolia deposits
   - Polls Ethereum Sepolia every 30s for ETH deposits to `0x818018F30d8F5FB7AE7a64f25895F15110923748`
   - Parses AIT recipient address from transaction `input` data field
@@ -126,6 +134,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 - ✅ Bridge monitor running and actively polling
 
 **Environment Variables**
+
 - `BRIDGE_ETH_ADDRESS=0x818018F30d8F5FB7AE7a64f25895F15110923748`
 - `GENESIS_WALLET_ADDRESS=ait1db5247d03ca2e40f3995a583b2c097ab703efd4d`
 - `GENESIS_WALLET_PRIVATE_KEY` (secret)
@@ -134,16 +143,19 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 - `AIT_USD_FIXED_PRICE=0.01`
 
 **Oracle Integration**
+
 - ✅ Fixed `aitbc/oracles/price_oracle.py` to support AIT/USD fixed price fallback
   - When AIT/USD not available from Chainlink/CoinGecko, uses `AIT_USD_FIXED_PRICE` env var
   - Required for bridge AIT amount calculation (ETH/USD ÷ AIT/USD)
 
 **nginx Configuration**
+
 - ✅ Added proxy location `/v1/bridge/` → `http://127.0.0.1:8106/v1/bridge/`
 - ✅ Added proxy location `/v1/exchange/history` → `http://127.0.0.1:8106/v1/exchange/history`
 - ✅ Added proxy location `/exchange/price.json` → `http://127.0.0.1:8106/exchange/price.json`
 
 **Exchange UI Updates**
+
 - ✅ Updated `website/exchange.html`:
   - Added ETH-to-AIT Bridge card with deposit address, instructions, rate
   - Added copy-to-clipboard button for deposit address
@@ -155,6 +167,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 ### ✅ Phase 5: Advanced Monitoring (v0.4.13 activation)
 
 **Prometheus Stack**
+
 - ✅ Installed `prometheus` (v2.53.3) and `prometheus-node-exporter`
 - ✅ Installed `prometheus-redis-exporter` (v1.69.0) — scrapes `localhost:6379`
 - ✅ Installed `prometheus-postgres-exporter` (v0.17.1) — configured with `aitbc_governance` credentials
@@ -169,6 +182,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 - ✅ Prometheus accessible at `http://localhost:9090`
 
 **Blockchain RPC Service**
+
 - ✅ `aitbc-blockchain-rpc.service` started (was inactive) — uvicorn on `127.0.0.1:8202`
 - ✅ `/metrics` endpoint already implemented via `prometheus_client.generate_latest()`
 
@@ -179,6 +193,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 **Root Cause**: 3 services configured `--workers 4` + 1 service `--workers 2` = 14 Python processes competing simultaneously for 2 CPU cores and 3.7GB RAM.
 
 **Fix — reduced workers to 1 in all services**:
+
 - `apps/blockchain-node/aitbc-blockchain-rpc-wrapper.py`: 4 → 1 worker, concurrency 500 → 100, backlog 1024 → 256
 - `apps/coordinator-api/aitbc-coordinator-api-wrapper.py`: 4 → 1 worker, concurrency 500 → 100, backlog 1024 → 256
 - `apps/api-gateway/aitbc-api-gateway.service`: 4 → 1 worker, concurrency 1000 → 100, backlog 2048 → 256
@@ -227,6 +242,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 ## 🗄️ System Status
 
 ### Services Running
+
 ```
 aitbc-agent-daemon.service      active running
 aitbc-blockchain-node.service   active running
@@ -240,6 +256,7 @@ aitbc-wallet-daemon.service     active running
 ```
 
 ### Prometheus Monitoring Targets (8/8 UP)
+
 | Job | Target | Status |
 |-----|--------|--------|
 | prometheus | localhost:9090 | ✅ up |
@@ -254,16 +271,19 @@ aitbc-wallet-daemon.service     active running
 ## 🔐 Security Summary
 
 ### Input Validation
+
 - Negative/invalid amounts on marketplace listings → HTTP 400 rejected
 - HTML/script tags in descriptions → HTML-escaped before storage
 - All security events audit-logged via `log_security_event()`
 
 ### Secret Management
+
 - `SecretManager` now auto-starts a background rotation scheduler
 - Expired secrets cleaned up every hour with audit log entry
 - Global `get_secret_manager()` singleton reads `AITBC_SECRET_MANAGER_KEY` from env
 
 ### Cache Security
+
 - Account balance cache TTL: 30 seconds
 - Cache invalidated immediately on any confirmed balance-changing transaction
 - Separate Redis databases per service (db 0/1/2) for isolation
@@ -288,6 +308,7 @@ aitbc-wallet-daemon.service     active running
 ### From v0.4.13 to v0.4.14
 
 **Prerequisites**
+
 ```bash
 # Install required packages
 apt-get install -y prometheus prometheus-node-exporter \
@@ -298,6 +319,7 @@ apt-get install -y prometheus prometheus-node-exporter \
 ```
 
 **PostgreSQL Setup**
+
 ```sql
 CREATE USER aitbc_governance WITH PASSWORD 'aitbc_governance_pass';
 CREATE DATABASE aitbc_governance OWNER aitbc_governance;
@@ -305,6 +327,7 @@ GRANT ALL PRIVILEGES ON DATABASE aitbc_governance TO aitbc_governance;
 ```
 
 **Bridge Contract Deployment (Sepolia)**
+
 ```bash
 # Get Sepolia ETH from faucet (e.g., https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
 # Get Infura API key from https://infura.io (free tier)
@@ -326,12 +349,14 @@ systemctl restart aitbc-exchange.service
 ```
 
 **Alembic Migration**
+
 ```bash
 cd /opt/aitbc/apps/governance
 /opt/aitbc/venv/bin/alembic upgrade head
 ```
 
 **Start New Services**
+
 ```bash
 systemctl enable --now aitbc-governance.service
 systemctl enable --now aitbc-exchange.service
@@ -341,6 +366,7 @@ systemctl enable --now prometheus prometheus-node-exporter \
 ```
 
 **Verify**
+
 ```bash
 # Check all services
 systemctl list-units --type=service --state=running | grep aitbc
@@ -359,6 +385,7 @@ curl http://127.0.0.1:8105/v1/governance/status
 ### ✅ Phase 7: WebSocket Push Sync & Follower Node Fixes
 
 **7.1 WebSocket Server (hub-side)**
+
 - ✅ Created `apps/blockchain-node/src/aitbc_chain/rpc/websocket.py` — WebSocket endpoint for real-time block push
   - `GET /rpc/subscribe/ws` — accepts WebSocket connections from follower nodes
   - Validates subscriber has a valid lease (registered via `POST /rpc/subscribe`)
@@ -370,6 +397,7 @@ curl http://127.0.0.1:8105/v1/governance/status
 - ✅ `aitbc-blockchain-rpc.service` enabled and started (was inactive)
 
 **7.2 WebSocket Client (follower-side)**
+
 - ✅ Implemented `_receive_via_websocket()` in `apps/blockchain-node/src/aitbc_chain/subscription_client.py`
   - Converts hub URL to `wss://` for secure WebSocket connection
   - Sends subscription message via `websocket.send(json.dumps({...}))` (correct `websockets` library API)
@@ -379,21 +407,25 @@ curl http://127.0.0.1:8105/v1/governance/status
 - ✅ Added `websockets==15.0.1` import (already installed)
 
 **7.3 Chain ID Fix**
+
 - ✅ `config.py`: Changed `supported_chains` default from hardcoded `"ait-mainnet"` to `""` — now correctly falls back to `CHAIN_ID` env var (`ait-hub.aitbc.bubuit.net`)
 - ✅ Removed stale `/var/lib/aitbc/data/ait-mainnet/` database (12 MB, orphaned from misconfigured chain ID)
 
 **7.4 Adaptive Pull/Push Sync**
+
 - ✅ `_periodic_sync_task()` in `main.py` now accepts `subscription_client` reference
   - Skips periodic pull when WebSocket push is active (`sync_mode == "push"`)
   - Automatically resumes pull sync when WebSocket is unavailable (fallback)
   - Startup behavior: pull runs once on boot before WebSocket connects, then push takes over
 
 **7.5 PostgreSQL Credentials Security**
+
 - ✅ Removed hardcoded PostgreSQL credentials from `apps/blockchain-node/src/aitbc_chain/config.py`
   - `mempool_db_url` now defaults to `""` — requires `MEMPOOL_DB_URL` env var
 - ✅ Added `MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:aitbc_mempool@localhost:5432/aitbc_mempool` to `/etc/aitbc/blockchain.env`
 
 **7.6 Blockchain Node Sync Fixes**
+
 - ✅ Fixed `default_peer_rpc_url` in `blockchain.env` to point to hub (`https://hub.aitbc.bubuit.net`)
 - ✅ Changed all hub URLs from HTTP to HTTPS in `blockchain.env` (fixes 308 redirect errors)
 - ✅ Removed `/rpc` suffix from hub URLs to prevent double `/rpc` in sync requests
@@ -421,11 +453,13 @@ curl http://127.0.0.1:8105/v1/governance/status
 ## 📈 Performance Metrics
 
 ### Cache Performance
+
 - **Account balance lookup (DB)**: ~61ms
 - **Account balance lookup (cached)**: ~39ms
 - **Cache speedup**: ~36% improvement
 
 ### Service Workers (corrected for 2-core VPS)
+
 | Service | Before | After |
 |---------|--------|-------|
 | blockchain-rpc | 4 workers | 1 worker |

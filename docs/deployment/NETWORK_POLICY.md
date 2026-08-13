@@ -66,12 +66,14 @@ This directive prevents any network access from the service, even if the applica
 ### 1. Add IPDeny=any to Localhost-Only Services ⏸️ DEFERRED (systemd compatibility)
 
 **Status**: Deferred due to systemd compatibility issues
+
 - IPDeny=any requires systemd version 242+ (not available in current environment)
 - Attempted to add IPDeny=any caused service failures
 - Services affected: coordinator-api, blockchain-rpc, agent, multimodal, modality-optimization, learning
 - Resolution: Upgrade systemd or use alternative network isolation methods
 
 **Alternative approaches**:
+
 - Use firewall rules (iptables/nftables) for network isolation
 - Use network namespaces for service isolation
 - Implement application-level network restrictions
@@ -81,11 +83,13 @@ This directive prevents any network access from the service, even if the applica
 For services with no explicit bind, added explicit localhost binding or environment variables:
 
 **Completed:**
+
 - ✅ `apps/marketplace/aitbc-marketplace.service` - Added MARKETPLACE_BIND_HOST=127.0.0.1 + MARKETPLACE_BIND_PORT=8104
 - ✅ `apps/exchange/aitbc-exchange.service` - Already binds localhost via HTTPServer
 - ✅ `apps/gpu/aitbc-gpu.service` - Added GPU_BIND_HOST=127.0.0.1
 
 **Pending (deferred to v0.5.2):**
+
 - ⏸️ `apps/edge/aitbc-edge.service`
 - ⏸️ `apps/governance/aitbc-governance.service`
 - ⏸️ `apps/trading/aitbc-trading.service`
@@ -97,6 +101,7 @@ For services with no explicit bind, added explicit localhost binding or environm
 ### 3. Audit Exposed Services ⏸️ PENDING
 
 For services binding to 0.0.0.0, ensure proper security:
+
 - ⏸️ `apps/api-gateway/aitbc-api-gateway.service` - Verify rate limiting and authentication
 - ⏸️ `apps/ai-engine/aitbc-ai.service` - Verify authentication and authorization
 
@@ -159,6 +164,7 @@ sudo ufw deny 8107/tcp  # agent
 ### Monitor for Policy Violations
 
 Set up monitoring to detect:
+
 - Services binding to 0.0.0.0 without explicit authorization
 - Services making unexpected network connections
 - External access attempts to localhost-only services
@@ -166,6 +172,7 @@ Set up monitoring to detect:
 ### Alerting
 
 Configure alerts for:
+
 - Service configuration changes (IPDeny=any removed)
 - Network binding changes (127.0.0.1 → 0.0.0.0)
 - Firewall rule changes
@@ -173,6 +180,7 @@ Configure alerts for:
 ## Compliance
 
 This network policy supports:
+
 - **Principle of Least Privilege**: Services only have the network access they need
 - **Defense in Depth**: Multiple layers of security (systemd + firewall)
 - **Audit Trail**: All network access is logged and monitored

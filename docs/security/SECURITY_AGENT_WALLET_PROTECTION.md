@@ -7,12 +7,14 @@ The AITBC autonomous agent wallet security model addresses the critical vulnerab
 ## ⚠️ Security Problem Statement
 
 ### Current Vulnerability
+
 - **Direct signing authority**: Agents have unlimited spending capability
 - **Single point of failure**: Compromised agent = complete wallet drain
 - **No spending controls**: No limits on transaction amounts or frequency
 - **No emergency response**: No mechanism to halt suspicious activity
 
 ### Attack Scenarios
+
 1. **Agent compromise**: Malicious code gains control of agent signing keys
 2. **Logic exploitation**: Bugs in agent logic trigger excessive spending
 3. **External manipulation**: Attackers influence agent decision-making
@@ -23,20 +25,26 @@ The AITBC autonomous agent wallet security model addresses the critical vulnerab
 ### Core Components
 
 #### 1. Guardian Contract
+
 A smart contract that wraps agent wallets with security controls:
+
 - **Spending limits**: Per-transaction, hourly, daily, weekly caps
 - **Time locks**: Delayed execution for large transactions
 - **Emergency controls**: Guardian-initiated pause/unpause
 - **Multi-signature recovery**: Requires multiple guardian approvals
 
 #### 2. Security Profiles
+
 Pre-configured security levels for different agent types:
+
 - **Conservative**: Low limits, high security (default)
 - **Aggressive**: Higher limits, moderate security
 - **High Security**: Very low limits, maximum protection
 
 #### 3. Guardian Network
+
 Trusted addresses that can intervene in emergencies:
+
 - **Multi-sig approval**: Multiple guardians required for critical actions
 - **Recovery mechanism**: Restore access after compromise
 - **Override controls**: Emergency pause and limit adjustments
@@ -44,6 +52,7 @@ Trusted addresses that can intervene in emergencies:
 ## 📊 Security Configurations
 
 ### Conservative Configuration (Default)
+
 ```python
 {
     "per_transaction": 100,    # $100 per transaction
@@ -56,6 +65,7 @@ Trusted addresses that can intervene in emergencies:
 ```
 
 ### Aggressive Configuration
+
 ```python
 {
     "per_transaction": 1000,   # $1,000 per transaction
@@ -68,6 +78,7 @@ Trusted addresses that can intervene in emergencies:
 ```
 
 ### High Security Configuration
+
 ```python
 {
     "per_transaction": 50,     # $50 per transaction
@@ -136,6 +147,7 @@ agent_wallet_security.emergency_unpause(
 ## 🔍 Security Monitoring
 
 ### Real-time Monitoring
+
 ```python
 # Get agent security status
 status = get_agent_security_summary("0x1234...abcd")
@@ -151,6 +163,7 @@ if suspicious["suspicious_activity"]:
 ```
 
 ### Security Reporting
+
 ```python
 # Generate comprehensive security report
 report = generate_security_report()
@@ -163,6 +176,7 @@ print(f"Emergency mode agents: {report['summary']['emergency_mode_agents']}")
 ## 🛠️ Integration with Agent Logic
 
 ### Modified Agent Transaction Flow
+
 ```python
 class SecureAITBCAgent:
     def __init__(self, wallet_address: str, security_level: str = "conservative"):
@@ -190,22 +204,26 @@ class SecureAITBCAgent:
 ## 📋 Security Best Practices
 
 ### 1. Guardian Selection
+
 - **Multi-sig guardians**: Use 3-5 trusted addresses
 - **Geographic distribution**: Guardians in different jurisdictions
 - **Key security**: Hardware wallets for guardian keys
 - **Regular rotation**: Update guardians periodically
 
 ### 2. Security Level Selection
+
 - **Conservative**: Default for most agents
 - **Aggressive**: High-volume trading agents
 - **High Security**: Critical infrastructure agents
 
 ### 3. Monitoring and Alerts
+
 - **Real-time alerts**: Suspicious activity notifications
 - **Daily reports**: Spending limit utilization
 - **Emergency procedures**: Clear response protocols
 
 ### 4. Recovery Planning
+
 - **Backup guardians**: Secondary approval network
 - **Recovery procedures**: Steps for key compromise
 - **Documentation**: Clear security policies
@@ -213,6 +231,7 @@ class SecureAITBCAgent:
 ## 🔧 Technical Architecture
 
 ### Contract Structure
+
 ```
 GuardianContract
 ├── SpendingLimit (per_transaction, per_hour, per_day, per_week)
@@ -222,6 +241,7 @@ GuardianContract
 ```
 
 ### Security Flow
+
 1. **Transaction Initiation** → Check limits
 2. **Limit Validation** → Approve/Reject/Time-lock
 3. **Time Lock** → Queue for delayed execution
@@ -229,6 +249,7 @@ GuardianContract
 5. **Execution** → Record and update limits
 
 ### Data Structures
+
 ```python
 # Operation tracking
 {
@@ -254,18 +275,21 @@ GuardianContract
 ## 🚨 Emergency Procedures
 
 ### 1. Immediate Response
+
 1. **Identify compromise**: Detect suspicious activity
 2. **Emergency pause**: Guardian initiates pause
 3. **Assess damage**: Review transaction history
 4. **Secure keys**: Rotate compromised keys
 
 ### 2. Recovery Process
+
 1. **Multi-sig approval**: Gather guardian signatures
 2. **Limit adjustment**: Reduce spending limits
 3. **System update**: Patch vulnerability
 4. **Resume operations**: Careful monitoring
 
 ### 3. Post-Incident
+
 1. **Security audit**: Review all security controls
 2. **Update guardians**: Rotate guardian addresses
 3. **Improve monitoring**: Enhance detection capabilities
@@ -274,12 +298,14 @@ GuardianContract
 ## 📈 Security Metrics
 
 ### Key Performance Indicators
+
 - **Protection coverage**: % of agents under protection
 - **Limit utilization**: Average spending vs. limits
 - **Response time**: Emergency pause latency
 - **False positives**: Legitimate transactions blocked
 
 ### Monitoring Dashboard
+
 ```python
 # Real-time security metrics
 metrics = {
@@ -296,12 +322,14 @@ metrics = {
 ## 🔮 Future Enhancements
 
 ### Planned Features
+
 1. **Dynamic limits**: AI-driven limit adjustment
 2. **Behavioral analysis**: Machine learning anomaly detection
 3. **Cross-chain protection**: Multi-blockchain security
 4. **DeFi integration**: Protocol-specific protections
 
 ### Research Areas
+
 1. **Zero-knowledge proofs**: Privacy-preserving security
 2. **Threshold signatures**: Advanced multi-sig schemes
 3. **Quantum resistance**: Post-quantum security
@@ -310,11 +338,13 @@ metrics = {
 ## 📚 References
 
 ### Related Documentation
+
 - AITBC Security Architecture
 - [Smart Contract Security](README.md)
 - [Agent Development Guide](../agents/INTEGRATION_ASSETS_README.md)
 
 ### External Resources
+
 - [Ethereum Smart Contract Security](https://consensys.github.io/smart-contract-best-practices/)
 - [Multi-signature Wallet Standards](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2645.md)
 - [Time-lock Contracts](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-650.md)

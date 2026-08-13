@@ -7,6 +7,7 @@ This document outlines the backup and restore procedures for all AITBC system co
 ## Overview
 
 The AITBC platform implements a comprehensive backup strategy with:
+
 - **Automated daily backups** via `aitbc-backup.service` / `aitbc-backup.timer` (systemd on bare-metal / VM deployments)
 - **Manual backup capabilities** for on-demand operations
 - **Incremental and full backup options** for ledger data
@@ -19,18 +20,21 @@ The systemd timer runs `scripts/maintenance/aitbc-backup.sh` daily at 02:00 UTC.
 ## Components
 
 ### 1. PostgreSQL Database
+
 - **Location**: Coordinator API persistent storage
 - **Data**: Jobs, marketplace offers/bids, user sessions, configuration
 - **Backup Format**: Custom PostgreSQL dump with compression
 - **Retention**: 30 days (configurable)
 
 ### 2. Redis Cache
+
 - **Location**: In-memory cache with persistence
 - **Data**: Session cache, temporary data, rate limiting
 - **Backup Format**: RDB snapshot + AOF (if enabled)
 - **Retention**: 30 days (configurable)
 
 ### 3. Ledger Storage
+
 - **Location**: Blockchain node persistent storage
 - **Data**: Blocks, transactions, receipts, wallet states
 - **Backup Format**: Compressed tar archives
@@ -188,12 +192,14 @@ curl -s http://localhost:8202/rpc/head
 ### Disaster Recovery Steps
 
 1. **Assess Impact**
+
    ```bash
    # Check component status
    systemctl status aitbc-*
    ```
 
 2. **Restore Critical Services**
+
    ```bash
    # Restore PostgreSQL first (critical for operations)
    ./scripts/deployment/restore_postgresql.sh default [latest-backup]
@@ -206,6 +212,7 @@ curl -s http://localhost:8202/rpc/head
    ```
 
 3. **Verify System Health**
+
    ```bash
    # Check all services
    systemctl status aitbc-*
@@ -247,6 +254,7 @@ fi
 ```
 
 Add to crontab for hourly checks:
+
 ```bash
 0 * * * * /opt/aitbc/scripts/monitor-backups.sh
 ```
@@ -256,9 +264,11 @@ Add to crontab for hourly checks:
 ### Backup Security
 
 1. **Encryption**: Use GPG to encrypt local backups
+
    ```bash
    gpg --symmetric --cipher-algo AES256 backup.sql.gz
    ```
+
 2. **Access Control**: Use filesystem permissions (chmod/chown)
 3. **Retention**: Use logrotate or systemd timer cleanup
 4. **Validation**: Regular restore testing
@@ -281,6 +291,7 @@ Add to crontab for hourly checks:
 ### Common Issues
 
 #### Backup Fails with "Permission Denied"
+
 ```bash
 # Check service account permissions
 systemctl status aitbc-backup.service
@@ -288,6 +299,7 @@ journalctl -u aitbc-backup.service -n 50
 ```
 
 #### Restore Fails with "Database in Use"
+
 ```bash
 # Scale down application before restore
 systemctl stop coordinator-api
@@ -297,6 +309,7 @@ systemctl start coordinator-api
 ```
 
 #### Ledger Restore Incomplete
+
 ```bash
 # Verify backup integrity
 tar -tzf ledger-backup.tar.gz
@@ -318,7 +331,7 @@ cat metadata.json | jq '.latest_block_height'
 | Variable               | Default          | Description                     |
 |------------------------|------------------|---------------------------------|
 | BACKUP_RETENTION_DAYS  | 30               | Days to keep backups            |
-| BACKUP_SCHEDULE        | 0 2 * * *        | Cron schedule for backups       |
+| BACKUP_SCHEDULE        | 0 2 ** *        | Cron schedule for backups       |
 | BACKUP_PATH            | /var/backups/aitbc | Local backup directory          |
 | COMPRESSION_LEVEL      | 6                | gzip compression level          |
 

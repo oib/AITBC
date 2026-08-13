@@ -11,12 +11,14 @@ This document outlines a detailed plan for consolidating duplicate systems and b
 ### Current State Analysis
 
 **Existing Implementations:**
+
 1. `aitbc/cache.py` (252 lines) - `AITBCCache` class with Redis backend
 2. `aitbc/redis_cache.py` (280 lines) - `RedisCache` class with `get_cache()` function
 3. `aitbc/caching.py` (940 lines) - `BlockchainCache`, `LRUCache`, `TTLCache`, `CacheInvalidator`
 4. `aitbc/cache_decorators.py` (109 lines) - Three nearly identical decorators with different TTLs
 
 **Import Usage (15+ locations):**
+
 - `aitbc/config.py`: late import from `redis_cache`
 - `aitbc/caching.py`: late imports from `redis_cache` (circular dependency)
 - `aitbc/cache_decorators.py`: imports from `cache`
@@ -27,6 +29,7 @@ This document outlines a detailed plan for consolidating duplicate systems and b
 - `apps/coordinator-api/src/app/contexts/language/`: uses `TranslationCache`
 
 **Issues:**
+
 - Circular dependencies between `cache.py`, `redis_cache.py`, and `caching.py`
 - Inconsistent APIs (some use `get_cache()`, some instantiate classes directly)
 - Duplicate functionality (4 cache backends, 15+ factory functions)
@@ -48,6 +51,7 @@ aitbc/cache/
 ```
 
 **Public API:**
+
 ```python
 from aitbc.cache import Cache, get_cache, cached, cache_with_ttl
 
@@ -66,6 +70,7 @@ def get_account(address: str) -> Account:
 ### Migration Strategy
 
 **Phase 1: Create New Module (Week 1)**
+
 1. Create `aitbc/cache/` directory structure
 2. Implement `base.py` with abstract `CacheBackend` interface
 3. Implement `backends/redis.py` consolidating `AITBCCache` and `RedisCache`
@@ -75,6 +80,7 @@ def get_account(address: str) -> Account:
 7. Add deprecation warnings to old modules
 
 **Phase 2: Update Imports (Week 2)**
+
 1. Update `aitbc/__init__.py` to export new cache API
 2. Update `aitbc/config.py` to use new cache
 3. Update blockchain-node imports (2 files)
@@ -83,6 +89,7 @@ def get_account(address: str) -> Account:
 6. Run tests after each batch of changes
 
 **Phase 3: Remove Old Code (Week 3)**
+
 1. Remove late imports causing circular dependencies
 2. Delete `aitbc/redis_cache.py` (after confirming no imports)
 3. Delete `aitbc/cache.py` (after confirming no imports)
@@ -91,6 +98,7 @@ def get_account(address: str) -> Account:
 6. Update documentation
 
 **Phase 4: Testing & Validation (Week 4)**
+
 1. Run full test suite
 2. Performance benchmarking (ensure no regression)
 3. Integration testing with real Redis
@@ -99,16 +107,19 @@ def get_account(address: str) -> Account:
 ### Risk Assessment
 
 **High Risk:**
+
 - Circular dependency resolution may break existing code
 - Redis connection pooling changes may affect performance
 - Cache key collisions if key generation changes
 
 **Medium Risk:**
+
 - Import path changes may break external dependencies
 - Decorator signature changes may require code updates
 - Memory cache size limits may affect behavior
 
 **Mitigation:**
+
 - Add deprecation warnings before removal
 - Feature flag to switch between old/new implementations
 - Comprehensive testing before removal
@@ -117,18 +128,21 @@ def get_account(address: str) -> Account:
 ### Testing Approach
 
 **Unit Tests:**
+
 - Test each cache backend independently
 - Test cache key generation
 - Test TTL expiration
 - Test serialization/deserialization
 
 **Integration Tests:**
+
 - Test with real Redis instance
 - Test cache invalidation
 - Test concurrent access
 - Test cache warming
 
 **Performance Tests:**
+
 - Benchmark old vs new implementations
 - Measure memory usage
 - Measure Redis connection pooling
@@ -156,18 +170,21 @@ def get_account(address: str) -> Account:
 ### Current State Analysis
 
 **Existing Implementations:**
+
 1. `aitbc/network/http_client.py` (746 lines) - `AITBCHTTPClient` and `AsyncAITBCHTTPClient` using requests
 2. `cli/aitbc_cli/utils/http_client.py` - `AITBCHTTPClient` using httpx
 3. `cli/aitbc/__init__.py` - Another `AITBCHTTPClient` using requests
 4. `apps/coordinator-api/src/app/utils/cache.py` - Custom HTTP client
 
 **Import Usage (50+ locations):**
+
 - CLI commands: `account.py`, `bridge.py`, `gpu_marketplace.py`, `market.py`, `simulate.py`, `transactions.py`, etc.
 - CLI utils: `blockchain.py`, `chain_id.py`, `wallet_daemon_client.py`
 - Tests: `test_http_client.py`, `test_exception_handling.py`, `test_import_surface.py`
 - Coordinator API: various services
 
 **Issues:**
+
 - Same class name, different implementations
 - Inconsistent interfaces (sync vs async)
 - Different underlying libraries (requests vs httpx)
@@ -190,6 +207,7 @@ aitbc/http/
 ```
 
 **Public API:**
+
 ```python
 from aitbc.http import HTTPClient, AsyncHTTPClient, NetworkError, ValidationError
 
@@ -205,6 +223,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 ### Migration Strategy
 
 **Phase 1: Create New Module (Week 1)**
+
 1. Create `aitbc/http/` directory structure
 2. Implement `client.py` with unified interface
 3. Implement `backends/requests.py` for sync client
@@ -213,23 +232,27 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 6. Add deprecation warnings to old clients
 
 **Phase 2: Update CLI Imports (Week 2)**
+
 1. Update `cli/aitbc/__init__.py` to export new HTTP client
 2. Update `cli/aitbc_cli/utils/http_client.py` to use new implementation
 3. Update all CLI command imports (15+ files)
 4. Run CLI tests after each batch of changes
 
 **Phase 3: Update Coordinator API (Week 3)**
+
 1. Update coordinator-api imports (10+ files)
 2. Update coordinator-api services
 3. Run coordinator-api tests
 
 **Phase 4: Remove Old Code (Week 4)**
+
 1. Remove `cli/aitbc/__init__.py` HTTP client
 2. Remove `cli/aitbc_cli/utils/http_client.py`
 3. Consolidate `aitbc/network/http_client.py` into new structure
 4. Update documentation
 
 **Phase 5: Testing & Validation (Week 5)**
+
 1. Run full test suite
 2. Integration testing with real services
 3. Performance benchmarking
@@ -238,16 +261,19 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 ### Risk Assessment
 
 **High Risk:**
+
 - Breaking changes to CLI commands
 - Async client changes may break coordinator-api
 - Network timeout handling differences
 
 **Medium Risk:**
+
 - Import path changes may break external scripts
 - Exception type changes may break error handling
 - Retry logic differences may affect behavior
 
 **Mitigation:**
+
 - Add deprecation warnings before removal
 - Feature flag to switch between implementations
 - Comprehensive testing before removal
@@ -256,6 +282,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 ### Testing Approach
 
 **Unit Tests:**
+
 - Test sync client with various HTTP methods
 - Test async client with various HTTP methods
 - Test timeout handling
@@ -263,12 +290,14 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 - Test exception handling
 
 **Integration Tests:**
+
 - Test with real blockchain RPC
 - Test with real coordinator API
 - Test concurrent requests
 - Test connection pooling
 
 **Performance Tests:**
+
 - Benchmark old vs new implementations
 - Measure request latency
 - Measure connection overhead
@@ -297,6 +326,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 ### Current State Analysis
 
 **Monolithic Files (>700 lines):**
+
 1. `cli/aitbc_cli/commands/exchange.py` (1,234 lines)
 2. `apps/exchange/simple_exchange_api.py` (1,142 lines)
 3. `cli/aitbc_cli/commands/node.py` (1,061 lines)
@@ -312,6 +342,7 @@ response = await async_client.get("/rpc/account", params={"address": addr})
 #### 1. `cli/aitbc_cli/commands/exchange.py` (1,234 lines)
 
 **Split into:**
+
 ```
 cli/aitbc_cli/commands/exchange/
 ├── __init__.py
@@ -325,6 +356,7 @@ cli/aitbc_cli/commands/exchange/
 #### 2. `apps/exchange/simple_exchange_api.py` (1,142 lines)
 
 **Split into:**
+
 ```
 apps/exchange/
 ├── api.py               # Main FastAPI app (200 lines)
@@ -340,6 +372,7 @@ apps/exchange/
 #### 3. `cli/aitbc_cli/commands/node.py` (1,061 lines)
 
 **Split into:**
+
 ```
 cli/aitbc_cli/commands/node/
 ├── __init__.py
@@ -353,6 +386,7 @@ cli/aitbc_cli/commands/node/
 #### 4. `aitbc/caching.py` (940 lines)
 
 **Split into:**
+
 ```
 aitbc/cache/
 ├── __init__.py
@@ -366,6 +400,7 @@ aitbc/cache/
 #### 5. `aitbc/network/http_client.py` (746 lines)
 
 **Split into:**
+
 ```
 aitbc/http/
 ├── __init__.py
@@ -378,6 +413,7 @@ aitbc/http/
 #### 6. `aitbc/database.py` (719 lines)
 
 **Split into:**
+
 ```
 aitbc/database/
 ├── __init__.py
@@ -390,6 +426,7 @@ aitbc/database/
 #### 7. `apps/coordinator-api/src/app/main.py` (796 lines)
 
 **Split into:**
+
 ```
 apps/coordinator-api/src/app/
 ├── main.py              # FastAPI app setup (200 lines)
@@ -402,6 +439,7 @@ apps/coordinator-api/src/app/
 ### Migration Strategy
 
 **Phase 1: Create New Structure (Week 1)**
+
 1. Create new directory structures
 2. Split files into logical modules
 3. Update imports within each module
@@ -409,6 +447,7 @@ apps/coordinator-api/src/app/
 5. Run syntax checks
 
 **Phase 2: Update External Imports (Week 2)**
+
 1. Update imports for exchange command
 2. Update imports for exchange API
 3. Update imports for node command
@@ -419,11 +458,13 @@ apps/coordinator-api/src/app/
 8. Run tests after each batch of changes
 
 **Phase 3: Remove Old Files (Week 3)**
+
 1. Delete old monolithic files
 2. Update documentation
 3. Update any remaining import references
 
 **Phase 4: Testing & Validation (Week 4)**
+
 1. Run full test suite
 2. Integration testing
 3. Performance testing
@@ -432,16 +473,19 @@ apps/coordinator-api/src/app/
 ### Risk Assessment
 
 **High Risk:**
+
 - Import path changes may break external dependencies
 - Circular dependencies may emerge during splitting
 - Test coverage may be insufficient for split modules
 
 **Medium Risk:**
+
 - Module structure may not be optimal
 - Functionality may be inadvertently changed during split
 - Documentation may become outdated
 
 **Mitigation:**
+
 - Keep old files during migration
 - Comprehensive testing before deletion
 - Code review for each split
@@ -450,16 +494,19 @@ apps/coordinator-api/src/app/
 ### Testing Approach
 
 **Unit Tests:**
+
 - Test each new module independently
 - Test imports between modules
 - Test exported functions/classes
 
 **Integration Tests:**
+
 - Test CLI commands with split modules
 - Test API endpoints with split modules
 - Test database operations with split modules
 
 **Regression Tests:**
+
 - Compare behavior before/after split
 - Performance benchmarking
 - Memory usage comparison
@@ -484,12 +531,14 @@ apps/coordinator-api/src/app/
 ## Overall Timeline
 
 **Sequential Execution:**
+
 - Task 1 (Caching): 4 weeks
 - Task 2 (HTTP Client): 5 weeks
 - Task 3 (Monolithic Files): 4 weeks
 - **Total:** 13 weeks
 
 **Parallel Execution (Recommended):**
+
 - Task 1 (Caching): 4 weeks
 - Task 2 (HTTP Client): 5 weeks (can overlap with Task 1 after Phase 1)
 - Task 3 (Monolithic Files): 4 weeks (can overlap with Task 1 after Phase 1)
@@ -498,6 +547,7 @@ apps/coordinator-api/src/app/
 ## Success Criteria
 
 ### Task 1: Caching
+
 - [ ] Single cache abstraction layer
 - [ ] No circular dependencies
 - [ ] All imports updated
@@ -506,6 +556,7 @@ apps/coordinator-api/src/app/
 - [ ] Documentation updated
 
 ### Task 2: HTTP Client
+
 - [ ] Single HTTP client with sync/async variants
 - [ ] Consistent interface across codebase
 - [ ] All imports updated
@@ -514,6 +565,7 @@ apps/coordinator-api/src/app/
 - [ ] Documentation updated
 
 ### Task 3: Monolithic Files
+
 - [ ] All files <300 lines
 - [ ] Clear module structure
 - [ ] All imports updated
@@ -524,6 +576,7 @@ apps/coordinator-api/src/app/
 ## Rollback Strategy
 
 For each task:
+
 1. Create feature branch before starting
 2. Keep old code in `*_legacy/` directories
 3. Add feature flags to switch implementations
@@ -533,6 +586,7 @@ For each task:
 ## Monitoring & Validation
 
 **Metrics to Track:**
+
 - Test pass rate
 - Performance benchmarks
 - Error rates
@@ -541,6 +595,7 @@ For each task:
 - Memory usage
 
 **Alert Thresholds:**
+
 - Test pass rate < 95%
 - Performance regression > 10%
 - Error rate increase > 5%
@@ -548,9 +603,11 @@ For each task:
 ## Dependencies
 
 **External Dependencies:**
+
 - None (pure refactoring)
 
 **Internal Dependencies:**
+
 - Task 1 should be completed before Task 3 (caching file is monolithic)
 - Task 2 can be done in parallel with Task 1 after Phase 1
 - Task 3 can be done in parallel with Task 1 after Phase 1
@@ -558,16 +615,19 @@ For each task:
 ## Resources Required
 
 **Development:**
+
 - 1-2 senior developers
 - Code review time
 - Testing infrastructure
 
 **Testing:**
+
 - Test environment with Redis
 - Test environment with blockchain RPC
 - Test environment with coordinator API
 
 **Documentation:**
+
 - Technical writer
 - Documentation review time
 

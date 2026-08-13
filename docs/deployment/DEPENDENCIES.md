@@ -12,29 +12,34 @@ This document lists all system-level dependencies required for deploying AITBC i
 ### Operating System
 
 **Supported:**
+
 - Debian 12 (Bookworm) or later
 - Ubuntu 22.04 (Jammy) or later
 - RHEL 9 or equivalent
 
 **Minimum:**
+
 - Linux kernel 5.15+
 - systemd 247+
 
 ### Hardware Requirements
 
 **Minimum (Single Server):**
+
 - CPU: 4 cores (x86_64)
 - RAM: 16 GB
 - Disk: 100 GB SSD
 - Network: 1 Gbps
 
 **Recommended (Production):**
+
 - CPU: 8+ cores
 - RAM: 32 GB+
 - Disk: 500 GB+ NVMe SSD
 - Network: 10 Gbps
 
 **Multi-Server Deployment:**
+
 - Blockchain Node: 4 cores, 16 GB RAM, 200 GB SSD
 - Coordinator API: 2 cores, 8 GB RAM, 50 GB SSD
 - Agent Coordinator: 2 cores, 8 GB RAM, 50 GB SSD
@@ -76,11 +81,13 @@ This document lists all system-level dependencies required for deploying AITBC i
 ### Blockchain Node
 
 **Required:**
+
 - Python 3.13+
 - PostgreSQL 15+ (for mempool storage)
 - libpq-dev (PostgreSQL client library)
 
 **Installation:**
+
 ```bash
 apt install python3.13 python3.13-venv postgresql-15 libpq-dev
 ```
@@ -88,12 +95,14 @@ apt install python3.13 python3.13-venv postgresql-15 libpq-dev
 ### Coordinator API
 
 **Required:**
+
 - Python 3.13+
 - PostgreSQL 15+
 - Redis 7+
 - libpq-dev
 
 **Installation:**
+
 ```bash
 apt install python3.13 python3.13-venv postgresql-15 redis-server libpq-dev
 ```
@@ -101,10 +110,12 @@ apt install python3.13 python3.13-venv postgresql-15 redis-server libpq-dev
 ### Agent Coordinator
 
 **Required:**
+
 - Python 3.13+
 - Redis 7+
 
 **Installation:**
+
 ```bash
 apt install python3.13 python3.13-venv redis-server
 ```
@@ -112,12 +123,14 @@ apt install python3.13 python3.13-venv redis-server
 ### Governance Service
 
 **Required:**
+
 - Python 3.13+
 - PostgreSQL 15+
 - Redis 7+
 - libpq-dev
 
 **Installation:**
+
 ```bash
 apt install python3.13 python3.13-venv postgresql-15 redis-server libpq-dev
 ```
@@ -125,11 +138,13 @@ apt install python3.13 python3.13-venv postgresql-15 redis-server libpq-dev
 ### Monitoring Stack
 
 **Required:**
+
 - Prometheus 2.45+
 - Grafana 10+
 - Alertmanager 0.26+
 
 **Installation:**
+
 ```bash
 # Using official repositories
 wget -qO- https://packages.grafana.com/gpg.key | apt-key add -
@@ -143,10 +158,12 @@ apt install prometheus grafana alertmanager
 ### PostgreSQL
 
 **Required Extensions:**
+
 - pg_trgm (for text search)
 - uuid-ossp (for UUID generation)
 
 **Configuration:**
+
 ```sql
 -- Enable extensions
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -169,6 +186,7 @@ GRANT ALL PRIVILEGES ON DATABASE aitbc_mempool TO aitbc_mempool;
 ```
 
 **Performance Tuning:**
+
 ```ini
 # /etc/postgresql/15/main/postgresql.conf
 shared_buffers = 4GB
@@ -191,6 +209,7 @@ max_parallel_maintenance_workers = 4
 ### Redis
 
 **Configuration:**
+
 ```ini
 # /etc/redis/redis.conf
 maxmemory 2gb
@@ -222,6 +241,7 @@ appendfsync everysec
 | nginx | 80, 443 | TCP | Inbound | HTTP/HTTPS |
 
 **UFW Configuration:**
+
 ```bash
 # Allow SSH
 ufw allow 22/tcp
@@ -270,10 +290,12 @@ certbot renew --dry-run
 ### Custom Certificates
 
 Place certificates in:
+
 - `/etc/ssl/certs/aitbc.crt`
 - `/etc/ssl/private/aitbc.key`
 
 Permissions:
+
 ```bash
 chmod 644 /etc/ssl/certs/aitbc.crt
 chmod 600 /etc/ssl/private/aitbc.key
@@ -313,10 +335,12 @@ chmod 600 /etc/ssl/private/aitbc.key
 ### System Monitoring
 
 **Required:**
+
 - Prometheus Node Exporter
 - systemd
 
 **Installation:**
+
 ```bash
 apt install prometheus-node-exporter
 systemctl enable prometheus-node-exporter
@@ -326,10 +350,12 @@ systemctl start prometheus-node-exporter
 ### Application Monitoring
 
 **Required:**
+
 - Prometheus (for metrics collection)
 - Grafana (for visualization)
 
 **Configuration:**
+
 ```yaml
 # /etc/prometheus/prometheus.yml
 scrape_configs:
@@ -347,6 +373,7 @@ scrape_configs:
 - `rsync` (File backup)
 
 **Installation:**
+
 ```bash
 apt install postgresql-client redis-tools rsync
 ```
@@ -354,6 +381,7 @@ apt install postgresql-client redis-tools rsync
 ### Backup Script Dependencies
 
 The backup script requires:
+
 - Bash 4+
 - gzip
 - date utilities
@@ -367,6 +395,7 @@ The backup script requires:
 - `auditd` (audit logging)
 
 **Installation:**
+
 ```bash
 apt install ufw fail2ban auditd
 ```

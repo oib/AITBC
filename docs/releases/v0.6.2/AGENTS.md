@@ -28,11 +28,13 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Architecture: Parallel Sync Approach](./overview.md#architecture-parallel-sync-approach)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [PeerCapabilityTracker](./agent-a.md#a1-peercapabilitytracker)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests + verify clean](./agent-a.md#a4-unit-tests--verify-clean)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Add gossip + sync config](./agent-b.md#b1-add-gossip--sync-config)
@@ -100,6 +103,7 @@ This release documentation has been split into topic-focused files:
 ```
 
 **Why this works**:
+
 - **Parallel sync**: Divides the block range into sub-ranges, each fetched from a different peer. Results are merged by block height (deterministic). If a peer fails, re-request from another peer.
 - **Delta sync**: Instead of fetching all accounts, only fetch accounts that changed between `local_height` and `remote_height`. The peer computes the diff and sends only changed accounts. Falls back to full sync if delta > 50% of full state.
 - **Feature flags**: Both paths default to off. Sequential sync remains the default.
@@ -130,6 +134,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -221,6 +226,7 @@ class PeerCapabilityTracker:
 ```
 
 **Key design**:
+
 - `select_peers_for_range` divides the range evenly across available peers
 - Reputation starts at 1.0, decreases by 0.1 on failure (min 0.0), increases by 0.05 on success (max 1.0)
 - Peers with reputation < 0.3 are excluded from selection
@@ -309,6 +315,7 @@ def apply_state_diff(
 ```
 
 **Key design**:
+
 - `compute_state_diff` is pure — takes two snapshots, returns diff
 - `encode_state_diff` / `decode_state_diff` use `aitbc.network.compress_json` / `decompress_json`
 - `apply_state_diff` mutates account_map (similar to `apply_delta_to_map` in v0.6.1)
@@ -378,6 +385,7 @@ class PriorityMessageQueue:
 ```
 
 **Key design**:
+
 - Uses `heapq` for priority ordering
 - `sequence` counter ensures FIFO within same priority
 - Thread-safe (use `threading.Lock` + `threading.Condition` for blocking get)
@@ -388,6 +396,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 #### A4: Unit tests + verify clean
 
 **`tests/unit/test_peer_capability.py`**:
+
 - `test_register_and_get_peer` — register, get, remove
 - `test_select_peers_for_range_even_division` — 4 peers, 100 blocks → 4 sub-ranges of 25
 - `test_select_peers_fewer_peers_than_ranges` — 2 peers, 100 blocks → 2 sub-ranges of 50
@@ -400,6 +409,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 - `test_thread_safety` — concurrent register/select doesn't crash
 
 **`tests/unit/test_state_diff.py`**:
+
 - `test_compute_state_diff_no_changes` — identical snapshots → empty diff
 - `test_compute_state_diff_new_account` — account in new but not old
 - `test_compute_state_diff_deleted_account` — account in old but not new
@@ -412,6 +422,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 - `test_is_too_large_true` — diff > 50% of state → True
 
 **`tests/unit/test_priority_queue.py`**:
+
 - `test_priority_ordering` — block messages come before transaction messages
 - `test_fifo_within_same_priority` — same priority, FIFO by sequence
 - `test_get_batch` — get multiple messages at once
@@ -421,6 +432,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 - `test_thread_safety` — concurrent put/get doesn't crash
 
 **A4 verification**:
+
 - `mypy aitbc/` — 0 errors
 - `ruff check aitbc/` — 0 errors
 - `pytest tests/unit -q` — all pass
@@ -434,6 +446,7 @@ Export from `aitbc/gossip/__init__.py` as `PrioritizedMessage`, `PriorityMessage
 **Working directory**: `/opt/aitbc/apps/blockchain-node/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts="" --timeout=60
 ```
@@ -534,6 +547,7 @@ Modify `sync.py`:
 3. Add `register_sync_peer(peer_id, rpc_url, block_range, has_state)` method
 4. Add `update_peer_capability(peer_id, block_range)` method (called after fetching remote head)
 5. In `bulk_import_from()`, after fetching remote head, register the peer's capability:
+
    ```python
    self._peer_tracker.register_peer(PeerCapability(
        peer_id=source_url,
@@ -542,6 +556,7 @@ Modify `sync.py`:
        has_state=True,
    ))
    ```
+
 6. Call `record_success`/`record_failure` after each batch fetch
 
 **Note**: For now, only one peer is registered (the `source_url`). Multi-peer support comes in v0.6.3 when island managers provide peer lists. The tracker is ready for multi-peer but works with single peer too.
@@ -584,6 +599,7 @@ async def delta_sync_from(self, source_url: str, from_height: int, to_height: in
 ```
 
 Also add the RPC endpoint for serving delta requests (in `rpc/sync.py` or `rpc/router.py`):
+
 - `POST /sync/delta` — accepts `{from_height, to_height}`, returns encoded `StateDiff`
 - Computes diff by comparing account state at `from_height` vs `to_height`
 - Uses `compute_state_diff` from `aitbc.sync`
@@ -611,6 +627,7 @@ def status(chain_id):
 ```
 
 **Implementation**:
+
 - Use `SharedHttpClient` (from v0.6.0) to query the local node's RPC
 - Display: chain ID, local height, peer count, peer block ranges, sync mode, last sync time, blocks/sec
 - If no node running, show error message

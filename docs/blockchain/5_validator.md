@@ -32,6 +32,7 @@ aitbc-chain validator activate
 ### Block Production
 
 Validators take turns producing blocks:
+
 - Round-robin selection
 - Fixed 2-second block time
 - Missed blocks result in reduced rewards

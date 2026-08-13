@@ -12,6 +12,7 @@ This document tracks type checking debt across the AITBC codebase. The goal is 1
 **✅ v0.10.16 B7 complete** - The six blockchain-node mixin files no longer use `# mypy: ignore-errors`.
 
 Introduced typed protocols for the shared attributes and methods:
+
 - `apps/blockchain-node/src/aitbc_chain/sync_base.SyncBase` — used by `BulkSyncMixin`, `StateSyncMixin`, `BlockImportMixin` (concrete implementation in `ChainSync`).
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_base.BridgeBase` — used by `BridgeTransferMixin`, `BridgeValidatorMixin`, `BridgeFinalityMixin` (concrete implementation in `CrossChainBridge`).
 
@@ -32,11 +33,13 @@ A small number of targeted `# type: ignore[code]` comments remain for SQLModel/S
 ### Previously Fixed Files (v0.4.23)
 
 #### apps/blockchain-node/src/aitbc_chain/rpc/router.py
+
 - **Status**: ✅ Fixed - Removed stale `# mypy: ignore-errors`
 - **Action**: File now passes MyPy with 0 errors
 - **Date**: 2026-06-16
 
 #### apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py
+
 - **Status**: ✅ Clean - Never had ignore comment
 - **Action**: Verified clean, no changes needed
 - **Date**: 2026-06-16
@@ -44,6 +47,7 @@ A small number of targeted `# type: ignore[code]` comments remain for SQLModel/S
 ## MyPy Configuration
 
 Current strict mode settings (pyproject.toml):
+
 ```toml
 [tool.mypy]
 python_version = "3.13"
@@ -54,18 +58,21 @@ warn_unused_configs = true
 ```
 
 Exclusions:
+
 - Tests and migrations excluded from strict checking
 - External libraries (torch, web3, eth_account, sqlalchemy) ignore missing imports
 
 ## Type Checking Commands
 
 ### Check specific application
+
 ```bash
 cd /opt/aitbc
 find apps/APP_NAME/src -name "*.py" -path "*/src/*" | xargs ./venv/bin/python -m mypy --show-error-codes
 ```
 
 ### Check all applications
+
 ```bash
 cd /opt/aitbc
 for app in pool-hub wallet edge agent agent-management agent-coordinator coordinator-api blockchain-node; do
@@ -75,11 +82,13 @@ done
 ```
 
 ### Check specific file
+
 ```bash
 ./venv/bin/python -m mypy --show-error-codes apps/blockchain-node/src/aitbc_chain/rpc/router.py
 ```
 
 ### Find all files with type ignores
+
 ```bash
 grep -r "# mypy: ignore-errors" --include="*.py" /opt/aitbc/apps /opt/aitbc/aitbc
 ```
@@ -87,25 +96,30 @@ grep -r "# mypy: ignore-errors" --include="*.py" /opt/aitbc/apps /opt/aitbc/aitb
 ## Common Type Fix Patterns
 
 ### SQLModel/SQLAlchemy Issues
+
 - Use `scalars().all()` instead of `.all()` for query results
 - Cast Row results to proper types with `cast(dict[str, Any], result)`
 - Add explicit type annotations to dict comprehensions
 - Use `col(Model.column)` for Python-typed columns in where clauses
 
 ### Cryptography Library
+
 - Use `# type: ignore[union-attr]` for key type variations
 - Use `isinstance(key, RSAPublicKey)` narrowing before calling methods
 - Use `# type: ignore[arg-type,union-attr,call-arg]` for complex crypto operations
 
 ### FastAPI/Decorators
+
 - Use `# type: ignore[untyped-decorator]` for FastAPI decorators
 - Add type hints to dependency injection functions
 
 ### Redis Type Issues
+
 - Convert bytes/str unions explicitly: `[str(m) for m in results]`
 - Use explicit dict comprehensions with type annotations
 
 ### External Library Stubs
+
 - Add `# type: ignore[import-not-found]` for missing stubs
 - Install stub packages if available (types-*)
 - Document justified ignores for unsupported libraries
@@ -113,9 +127,11 @@ grep -r "# mypy: ignore-errors" --include="*.py" /opt/aitbc/apps /opt/aitbc/aitb
 ## CI/CD Integration
 
 ### Pre-commit Hook
+
 The `.pre-commit-config.yaml` includes MyPy checking for the 12 clean applications.
 
 ### CI Gate
+
 - MyPy must pass for all applications before merge
 - New `# mypy: ignore-errors` comments require documentation in this file
 - Type checking debt tracked in release notes

@@ -25,42 +25,53 @@ ERC20 token with staking capabilities for enhanced voting power. Staked tokens r
 ### Key Functions
 
 #### stake(amount, lockPeriod)
+
 Stake tokens for enhanced voting power.
 
 **Parameters:**
+
 - `amount` (uint256): Amount of tokens to stake
 - `lockPeriod` (uint256): Lock period in seconds (minimum 30 days)
 
 **Requirements:**
+
 - Sufficient token balance
 - Lock period >= 30 days
 - No existing active stake
 
 **Events:**
+
 - `TokensStaked(staker, amount, lockPeriod)`
 - `VotingPowerUpdated(account, newPower)`
 
 #### unstake(amount)
+
 Unstake tokens after lock period expires.
 
 **Parameters:**
+
 - `amount` (uint256): Amount of tokens to unstake
 
 **Requirements:**
+
 - Sufficient staked tokens
 - Lock period expired
 
 **Events:**
+
 - `TokensUnstaked(staker, amount)`
 - `VotingPowerUpdated(account, newPower)`
 
 #### getVotingPower(address)
+
 Get total voting power for an address.
 
 **Parameters:**
+
 - `address` (address): Address to query
 
 **Returns:**
+
 - `uint256`: Total voting power (balance + staked * 2)
 
 ### State Variables
@@ -76,6 +87,7 @@ Get total voting power for an address.
 ### Test Coverage
 
 **7/7 tests passing:**
+
 - testInitialState
 - testStakeTokens
 - testStakeMinimumLockPeriod
@@ -105,9 +117,11 @@ Proposal creation, voting, and execution contract with quorum requirements and e
 ### Key Functions
 
 #### createProposal(type, title, description, value, votingPeriod)
+
 Create a new governance proposal.
 
 **Parameters:**
+
 - `type` (string): Proposal type
 - `title` (string): Proposal title
 - `description` (string): Proposal description
@@ -115,23 +129,29 @@ Create a new governance proposal.
 - `votingPeriod` (uint256): Voting period in seconds
 
 **Requirements:**
+
 - Voting period >= 1 day
 - Voting period <= 30 days
 
 **Returns:**
+
 - `bytes32`: Proposal ID
 
 **Events:**
+
 - `ProposalCreated(proposalId, proposer)`
 
 #### vote(proposalId, support)
+
 Vote on a proposal.
 
 **Parameters:**
+
 - `proposalId` (bytes32): Proposal to vote on
 - `support` (bool): True for yes, False for no
 
 **Requirements:**
+
 - Proposal is active
 - Voting period has started
 - Voting period has not ended
@@ -139,15 +159,19 @@ Vote on a proposal.
 - Address has voting power > 0
 
 **Events:**
+
 - `VoteCast(proposalId, voter, support, power)`
 
 #### executeProposal(proposalId)
+
 Execute a passed proposal.
 
 **Parameters:**
+
 - `proposalId` (bytes32): Proposal to execute
 
 **Requirements:**
+
 - Proposal is active
 - Voting period has ended
 - Execution delay has passed (1 day)
@@ -155,25 +179,32 @@ Execute a passed proposal.
 - More yes votes than no votes
 
 **Events:**
+
 - `ProposalExecuted(proposalId)`
 
 #### getProposal(proposalId)
+
 Get proposal details.
 
 **Parameters:**
+
 - `proposalId` (bytes32): Proposal to query
 
 **Returns:**
+
 - `Proposal`: Proposal struct with all details
 
 #### hasVotedOn(voter, proposalId)
+
 Check if an address has voted on a proposal.
 
 **Parameters:**
+
 - `voter` (address): Voter address
 - `proposalId` (bytes32): Proposal to check
 
 **Returns:**
+
 - `bool`: True if voted, False otherwise
 
 ### State Variables
@@ -218,6 +249,7 @@ struct Proposal {
 ### Test Coverage
 
 **7/7 tests passing:**
+
 - testCreateProposal
 - testCreateProposalInvalidVotingPeriod
 - testVoteOnProposal
@@ -270,11 +302,13 @@ Total: 14/14 tests passing
 ### Deployment Steps
 
 1. **Compile contracts:**
+
    ```bash
    forge build
    ```
 
 2. **Deploy AITBCGovernanceToken:**
+
    ```bash
    forge create src/AITBCGovernanceToken.sol:AITBCGovernanceToken \
      --rpc-url <RPC_URL> \
@@ -282,6 +316,7 @@ Total: 14/14 tests passing
    ```
 
 3. **Deploy AITBCVoting:**
+
    ```bash
    forge create src/AITBCVoting.sol:AITBCVoting \
      --rpc-url <RPC_URL> \
@@ -290,6 +325,7 @@ Total: 14/14 tests passing
    ```
 
 4. **Verify deployment:**
+
    ```bash
    cast call <TOKEN_ADDRESS> "totalSupply()" --rpc-url <RPC_URL>
    cast call <VOTING_ADDRESS> "governanceToken()" --rpc-url <RPC_URL>

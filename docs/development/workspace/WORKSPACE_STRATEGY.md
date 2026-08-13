@@ -3,6 +3,7 @@
 ## 🎯 Current Workspace Usage
 
 ### In-Repo Workspaces (Current)
+
 ```
 /opt/aitbc/
 ├── python-packages-workspace/    # Created inside repo
@@ -14,21 +15,25 @@
 ## ✅ Benefits of Outside-Repo Workspaces
 
 ### 1. **Clean Repository**
+
 - No workspace directories in git status
 - Cleaner commits and PRs
 - No .gitignore conflicts
 
 ### 2. **Better Isolation**
+
 - Each workspace has isolated environment
 - No cross-contamination between tests
 - Easier cleanup and reset
 
 ### 3. **Resource Management**
+
 - Workspaces can use different base directories
 - Better disk space management
 - Parallel test execution possible
 
 ### 4. **CI/CD Best Practices**
+
 - Standard industry practice
 - GitHub Actions, GitLab CI use this pattern
 - Container-friendly approach
@@ -36,6 +41,7 @@
 ## 🚀 Recommended Workspace Structure
 
 ### Outside-Repo Strategy
+
 ```bash
 # Base workspace directory
 /var/lib/aitbc-workspaces/
@@ -48,6 +54,7 @@
 ```
 
 ### Alternative: /opt Structure
+
 ```bash
 /opt/aitbc-workspaces/
 ├── python-packages/
@@ -60,6 +67,7 @@
 ## 📝 Implementation Examples
 
 ### Current (Inside Repo)
+
 ```yaml
 - name: Setup Python Workspace
   run: |
@@ -71,6 +79,7 @@
 ```
 
 ### Improved (Outside Repo)
+
 ```yaml
 - name: Setup Python Workspace
   run: |
@@ -84,6 +93,7 @@
 ```
 
 ### Even Better (With Cleanup)
+
 ```yaml
 - name: Setup Workspace
   run: |
@@ -103,6 +113,7 @@
 ## 🔧 Workspace Management Functions
 
 ### Reusable Setup Script
+
 ```bash
 #!/bin/bash
 # /opt/aitbc/scripts/setup-workspace.sh
@@ -155,6 +166,7 @@ setup_workspace "security-tests"
 5. **Build artifacts**
 
 **Keep inside-repo only for:**
+
 1. **Development scripts**
 2. **Documentation**
 3. **Configuration files**

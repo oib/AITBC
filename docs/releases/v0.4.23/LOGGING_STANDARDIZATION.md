@@ -32,26 +32,31 @@ AITBC v0.4.23 migrates all services to use `aitbc.aitbc_logging` for unified obs
 ## Migration Tasks
 
 ### 1. Audit Current Logging Patterns
+
 - Document each service's current logging setup
 - Identify custom logger implementations
 - Note any service-specific logging requirements
 
 ### 2. Create Migration Guide
+
 - Document aitbc_logging.py API
 - Provide migration examples
 - List breaking changes
 
 ### 3. Migrate Services in Priority Order
+
 - **Priority 1**: blockchain-node, wallet, edge (core infrastructure)
 - **Priority 2**: agent-management, agent-coordinator, pool-hub (agent services)
 - **Priority 3**: Remaining services (supporting services)
 
 ### 4. Update Service main.py Files
+
 - Replace custom logger imports with `from aitbc import configure_logging, get_logger`
 - Call `configure_logging()` during startup
 - Replace logger initialization with `logger = get_logger(__name__)`
 
 ### 5. Verify Logging Output
+
 - Check structured JSON format
 - Verify log levels
 - Test log aggregation

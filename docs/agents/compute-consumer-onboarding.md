@@ -10,6 +10,7 @@ aitbc agent validate --type compute_consumer --prerequisites
 ```
 
 **Required Capabilities:**
+
 - Task requirements definition
 - Budget allocation
 - Network connectivity
