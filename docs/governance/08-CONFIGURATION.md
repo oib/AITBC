@@ -63,7 +63,7 @@ rpc_url = "http://localhost:8006"
 chain_id = "ait-hub.aitbc.bubuit.net"
 ```
 
-## Database Configuration
+## Database Configuration — sqlalchemy.url = postgresql://aitbc_governance:password@localhost:5432/aitbc_governance
 
 ### SQLite (Default)
 
@@ -114,7 +114,7 @@ GRANT ALL PRIVILEGES ON DATABASE aitbc_governance TO aitbc_governance;
 sqlalchemy.url = postgresql://aitbc_governance:your_password@localhost:5432/aitbc_governance
 ```
 
-## Service Configuration
+## Service Configuration — sqlalchemy.url = postgresql://aitbc_governance:password@localhost:5432/aitbc_governance
 
 ### Port Configuration
 

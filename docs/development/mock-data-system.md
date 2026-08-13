@@ -85,7 +85,7 @@ The blockchain explorer (`apps/blockchain-explorer/main.py`) has been updated to
 
 ## Chain Registry Configuration
 
-### Purpose
+### Purpose — Chain Registry Configuration
 
 The chain registry provides a centralized configuration for blockchain networks, replacing hardcoded chain lists throughout the codebase.
 
@@ -93,7 +93,7 @@ The chain registry provides a centralized configuration for blockchain networks,
 
 Configuration file: `cli/config/chains.py`
 
-### Usage
+### Usage — Chain Registry Configuration
 
 ```python
 from cli.config.chains import get_chain_registry
@@ -135,7 +135,7 @@ The registry comes with two default chains:
 
 ## Testing Utilities
 
-### Purpose
+### Purpose — Testing Utilities
 
 The `aitbc.testing` module provides standardized testing utilities for generating mock data across the codebase.
 

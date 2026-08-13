@@ -127,13 +127,13 @@ websocat ws://localhost:8203/v1/jobs/job-id/ws?api_key=<YOUR_API_KEY>
 
 ## Blockchain Events WebSocket
 
-### Endpoint
+### Endpoint — Blockchain Events WebSocket
 
 ```
 ws://localhost:8202/v1/events
 ```
 
-### Message Format
+### Message Format — Blockchain Events WebSocket
 
 Blockchain events are sent as JSON messages:
 
@@ -157,7 +157,7 @@ Blockchain events are sent as JSON messages:
 - `fork_detected` - Blockchain fork detected
 - `sync_status` - Node sync status update
 
-### Example (Python)
+### Example (Python) — Blockchain Events WebSocket
 
 ```python
 import asyncio
@@ -179,7 +179,7 @@ async def monitor_blockchain():
 asyncio.run(monitor_blockchain())
 ```
 
-### Example (JavaScript)
+### Example (JavaScript) — Blockchain Events WebSocket
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8202/v1/events');
@@ -200,15 +200,15 @@ ws.onmessage = (event) => {
 };
 ```
 
-## Marketplace WebSocket
+## Marketplace WebSocket — WebSocket API Documentation
 
-### Endpoint
+### Endpoint — Marketplace WebSocket
 
 ```
 ws://localhost:8102/v1/events
 ```
 
-### Message Format
+### Message Format — Marketplace WebSocket
 
 Marketplace events are sent as JSON messages:
 
@@ -225,7 +225,7 @@ Marketplace events are sent as JSON messages:
 }
 ```
 
-### Event Types
+### Event Types — Marketplace WebSocket
 
 - `new_offer` - New GPU offer posted
 - `offer_matched` - Offer matched with job
@@ -233,7 +233,7 @@ Marketplace events are sent as JSON messages:
 - `offer_cancelled` - Offer cancelled by provider
 - `price_update` - Offer price updated
 
-### Example (Python)
+### Example (Python) — Marketplace WebSocket
 
 ```python
 import asyncio

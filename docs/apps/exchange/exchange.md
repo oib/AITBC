@@ -207,7 +207,7 @@ GET /health
 GET /metrics
 ```
 
-## Configuration
+## Configuration — Run cross-chain tests
 
 ### Environment Variables
 

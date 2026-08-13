@@ -122,11 +122,11 @@ manager = SecretManager(
 
 ## Blockchain-Specific Validation
 
-### Overview
+### Overview — Blockchain-Specific Validation
 
 Enhanced `SecurityValidator` provides blockchain-specific input validation to prevent common blockchain security issues.
 
-### Features
+### Features — Blockchain-Specific Validation
 
 - **Private key validation**: Format and length checking
 - **Chain ID validation**: Positive integer validation
@@ -134,7 +134,7 @@ Enhanced `SecurityValidator` provides blockchain-specific input validation to pr
 - **Transaction data validation**: Hex string validation
 - **Gas parameter validation**: Reasonable bounds checking
 
-### Basic Usage
+### Basic Usage — Blockchain-Specific Validation
 
 ```python
 from aitbc.security_hardening import SecurityValidator
@@ -215,11 +215,11 @@ def validate_transaction_params(tx_data: dict) -> bool:
 
 ## Performance Caching Strategies
 
-### Overview
+### Overview — Performance Caching Strategies
 
 Enhanced caching system with blockchain-specific optimizations, intelligent invalidation, and performance monitoring.
 
-### Features
+### Features — Performance Caching Strategies
 
 - **Blockchain-specific caching**: Different TTL for different data types
 - **Automatic cache invalidation**: Event-driven cache consistency
@@ -325,11 +325,11 @@ print(f"Average duration: {stats['operation_stats']['account_balance']['avg_dura
 
 ## Database Optimization
 
-### Overview
+### Overview — Database Optimization
 
 Enhanced database utilities with query monitoring, read replica support, and performance tracking.
 
-### Features
+### Features — Database Optimization
 
 - **Query monitoring**: Performance tracking and slow query detection
 - **Read replica management**: Intelligent read/write routing for PostgreSQL
@@ -438,7 +438,7 @@ monitor.record_query(
     row_count=1000
 )
 
-# Get statistics
+# Get statistics (2)
 stats = monitor.get_stats()
 print(f"Slow queries: {stats['slow_query_count']}")
 ```
@@ -447,7 +447,7 @@ print(f"Slow queries: {stats['slow_query_count']}")
 
 ## Dependency Security Automation
 
-### Overview
+### Overview — Dependency Security Automation
 
 Automated dependency security scanning using safety, pip-audit, and bandit with CI/CD integration.
 
