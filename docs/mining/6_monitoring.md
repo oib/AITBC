@@ -105,6 +105,6 @@ Shows:
 
 ## Next
 
-- [Quick Start](../apps/clients/1_quick-start.md) — Get started
+- [Miner Quick Start](../getting-started/mining/miner-quick-start.md) — Get started
 - [GPU Setup](./5_gpu-setup.md) — GPU configuration
 - [Job Management](./3_job-management.md) — Job management

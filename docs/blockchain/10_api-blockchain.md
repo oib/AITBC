@@ -200,6 +200,6 @@ WS /rpc/tx
 
 ## Next
 
-- [Quick Start](../apps/clients/1_quick-start.md) — Get started
+- [Node Quick Start](../getting-started/node-quickstart.md) — Get started
 - [Configuration](./2_configuration.md) - Configure your node
 - [Operations](./3_operations.md) — Day-to-day ops

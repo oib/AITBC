@@ -152,6 +152,6 @@ ipmitool sdr list | grep Temp
 
 ## Next
 
-- [Quick Start](../apps/clients/1_quick-start.md) — Get started
+- [Miner Quick Start](../getting-started/mining/miner-quick-start.md) — Get started
 - [Monitoring](./6_monitoring.md) - Monitor your miner
 - [Job Management](./3_job-management.md) — Job management

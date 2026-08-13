@@ -6,7 +6,7 @@ Provide GPU resources to the the network and earn tokens.
 
 | # | File | What you learn |
 |---|------|----------------|
-| 1 | [1_quick-start.md](../apps/clients/1_quick-start.md) | Get mining in 5 minutes |
+| 1 | [Miner Quick Start](../getting-started/mining/miner-quick-start.md) | Get mining in 5 minutes |
 | 2 | [2_registration.md](./2_registration.md) | Register GPU with the network |
 | 3 | [3_job-management.md](./3_job-management.md) | Accept and complete jobs |
 | 4 | [4_earnings.md](./4_earnings.md) | Track and withdraw earnings |
