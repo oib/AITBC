@@ -11,8 +11,35 @@ os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 # Enable multi-validator consensus for tests (threshold guard bypass)
 os.environ.setdefault("MULTI_VALIDATOR_CONSENSUS_ENABLED", "true")
 
+from aitbc_chain.config import settings
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
 from sqlmodel import Session, SQLModel, create_engine
+
+
+# Chain IDs used by isolated blockchain-node tests. AITBC's real chain whitelist
+# lives in settings, but unit tests spin up throwaway chains; this fixture makes
+# those chains valid for validate_chain_id() without touching production config.
+_TEST_CHAIN_IDS = {
+    "test-chain",
+    "test",
+    "chain-a",
+    "chain-b",
+    "chain-c",
+    "chain-empty",
+    "chain-sig",
+    "secondary",
+    "default-chain",
+    "ait-testnet",
+    "ait-mainnet",
+}
+
+
+@pytest.fixture(autouse=True)
+def _allow_test_chain_ids(monkeypatch) -> None:
+    """Add the test chain IDs to supported_chains for the duration of each test."""
+    existing = {c.strip() for c in settings.supported_chains.split(",") if c.strip()}
+    supported = ",".join(sorted(existing | _TEST_CHAIN_IDS))
+    monkeypatch.setattr(settings, "supported_chains", supported)
 
 
 def _blockchain_table_names() -> set[str]:
