@@ -1,6 +1,6 @@
 # Agent Coordinator
 
-> **Important:** This document uses port 9001 for the Agent Coordinator service. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **Important:** This document uses port **8107** for the Agent Coordinator service. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 ## Status
 

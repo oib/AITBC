@@ -230,7 +230,7 @@ systemctl list-units --type=service --state=running | grep aitbc
 
 # Check health endpoints
 curl -s http://localhost:8203/health | jq .
-curl -s http://localhost:8006/health | jq .
+curl -s http://localhost:8202/health | jq .
 
 # Check the blockchain node synced to the latest block
 aitbc blockchain status
