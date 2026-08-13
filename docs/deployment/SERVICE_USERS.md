@@ -27,12 +27,14 @@ Before unification, services use multiple different users:
 For v0.5.0, we recommend standardizing on a single `aitbc` user for most services, with exceptions for services that require specific capabilities:
 
 **Standard User: `aitbc`**
+
 - Most services should run as `aitbc`
 - Member of `aitbc` group
 - Member of `aitbc-services` group
 - Member of `video` and `render` groups (for GPU access)
 
 **Exceptional Users:**
+
 - `aitbc-blockchain` - Keep for blockchain-specific services (may need separate permissions)
 - Services requiring `root` - Should be refactored to avoid root requirement
 
@@ -45,6 +47,7 @@ sudo ./scripts/deployment/create_aitbc_user.sh
 ```
 
 This script:
+
 - Creates `aitbc` group (system group)
 - Creates `aitbc` user (system user, no login shell)
 - Adds user to supplementary groups (aitbc-services, video, render)
@@ -58,6 +61,7 @@ sudo ./scripts/deployment/unify_service_users.sh
 ```
 
 This script:
+
 - Finds all `.service` files in `/opt/aitbc/apps`
 - Updates `User=` directive to `aitbc`
 - Updates `Group=` directive to `aitbc`
@@ -100,6 +104,7 @@ sudo systemctl status aitbc-*
 ### GPU Services
 
 Services that need GPU access (miner, gpu, ai-engine) require:
+
 - Membership in `video` group
 - Membership in `render` group
 - Access to `/dev/dri/*` devices
@@ -107,6 +112,7 @@ Services that need GPU access (miner, gpu, ai-engine) require:
 ### Blockchain Services
 
 Blockchain services may need:
+
 - Network access for P2P communication
 - File system access for blockchain data
 - Potentially separate user for isolation
@@ -114,6 +120,7 @@ Blockchain services may need:
 ### Root-Required Services
 
 Services currently running as root should be refactored:
+
 - `miner` - Should run as `aitbc` with GPU group membership
 - `agent-daemon` - Should run as `aitbc`
 - `blockchain-sync` - Should run as `aitbc-blockchain`
@@ -149,6 +156,7 @@ journalctl -u aitbc-coordinator-api -n 50
 AITBC services use systemd journal for logging by default, which is rotated by systemd-journald. For services that write to log files, logrotate is configured.
 
 **Installation:**
+
 ```bash
 # Install logrotate configuration
 sudo cp /opt/aitbc/scripts/deployment/aitbc-logrotate.conf /etc/logrotate.d/aitbc
@@ -161,6 +169,7 @@ sudo logrotate -f /etc/logrotate.d/aitbc
 ```
 
 **Logrotate Configuration:**
+
 - Main logs: Daily rotation, 14 days retention
 - Audit logs: Daily rotation, 30 days retention
 - Monitoring logs: Daily rotation, 7 days retention
@@ -169,6 +178,7 @@ sudo logrotate -f /etc/logrotate.d/aitbc
 
 **Systemd Journal Configuration:**
 Configure journald retention in `/etc/systemd/journald.conf`:
+
 ```ini
 [Journal]
 SystemMaxUse=1G
@@ -178,11 +188,13 @@ MaxRetentionSec=1month
 
 **LogsDirectory Directive:**
 Some services use `LogsDirectory=aitbc` in systemd service files to ensure log directory creation with proper permissions:
+
 - Directory: `/var/log/aitbc`
 - Owner: aitbc:aitbc
 - Permissions: 0755
 
 **Verification:**
+
 ```bash
 # Check logrotate configuration
 cat /etc/logrotate.d/aitbc
@@ -230,22 +242,26 @@ sudo systemctl restart aitbc-*
 ## Migration Strategy
 
 ### Phase 1: Create Unified User
+
 - Run `create_aitbc_user.sh`
 - Verify user and group creation
 - Set up directory permissions
 
 ### Phase 2: Update Service Files
+
 - Run `unify_service_users.sh`
 - Review changes
 - Commit updated service files
 
 ### Phase 3: Test in Staging
+
 - Deploy to staging environment
 - Restart services
 - Verify all services start correctly
 - Check logs for permission errors
 
 ### Phase 4: Deploy to Production
+
 - Deploy during maintenance window
 - Monitor service startup
 - Have rollback plan ready

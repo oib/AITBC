@@ -35,6 +35,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -61,6 +62,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 **Files**: `cli/aitbc_cli/commands/advanced_wallet.py` (314 lines)
 
 **Verification**: Already confirmed 0 imports across the codebase:
+
 ```bash
 grep -rn "advanced_wallet" --include="*.py" --include="*.toml" . | grep -v "advanced_wallet.py:"
 # Expected: no output
@@ -73,6 +75,7 @@ grep -rn "advanced_wallet" --include="*.py" --include="*.toml" . | grep -v "adva
 **Files**: `aitbc/database_service.py`, `tests/test_database_service.py`
 
 **Verification**: Only `tests/test_database_service.py` imports it (its own test):
+
 ```bash
 grep -rln "from aitbc.database_service\|from aitbc import database_service\|aitbc\.database_service" --include="*.py" .
 # Expected: only tests/test_database_service.py
@@ -83,10 +86,12 @@ grep -rln "from aitbc.database_service\|from aitbc import database_service\|aitb
 #### A3: Delete orphaned test + dead payments service
 
 **Files**:
+
 - `tests/test_coordinator_api_v1.py` (330 lines, orphaned — no corresponding module)
 - `apps/coordinator-api/src/app/contexts/payments/services/payments_service.py` (in-memory `PaymentsService`, 0 imports)
 
 **Verification for payments_service.py**:
+
 ```bash
 grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --include="*.py" . | grep -v "payments_service.py:"
 # Expected: no output (real service is PaymentService in payments.py, which IS DB-backed)
@@ -97,6 +102,7 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 #### A4: Consolidate HTTP client implementations
 
 **Files**:
+
 - `aitbc/network/client.py` (608 lines, ~0 app usage — the feature-rich shared client that nobody uses)
 - `aitbc/http_client/client.py` (request-ID aware)
 - `cli/aitbc_cli/utils/http_client.py` (48+ users)
@@ -104,12 +110,15 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: 3 HTTP client implementations exist. The CLI one has the most users. The `aitbc/network/client.py` one is nearly unused despite being the most feature-rich.
 
 **Fix**:
+
 1. Audit usage of each:
+
    ```bash
    grep -rln "from aitbc.network.client\|from aitbc.network import.*Client" --include="*.py" .
    grep -rln "from aitbc.http_client\|from aitbc.http_client.client" --include="*.py" .
    grep -rln "from aitbc_cli.utils.http_client\|from .http_client\|from ..utils.http_client" --include="*.py" .
    ```
+
 2. Merge request-ID support from `aitbc/http_client/client.py` into `aitbc/network/` as the canonical client.
 3. Update all `aitbc/http_client/` imports to point to `aitbc/network/`.
 4. Update CLI `http_client.py` to re-export from `aitbc/network/` (or update all 48+ call sites — judge based on import count).
@@ -120,6 +129,7 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 #### A5: Extract shared JWT module to `aitbc/auth/`
 
 **Files**:
+
 - `aitbc/auth/` (new module)
 - `apps/coordinator-api/src/app/auth.py` (basic JWT)
 - `apps/agent-coordinator/src/app/auth.py` (JWT with refresh/bcrypt)
@@ -127,6 +137,7 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: 2 JWT implementations with overlapping but inconsistent features.
 
 **Fix**:
+
 1. Read both implementations to identify the union of features.
 2. Create `aitbc/auth/jwt.py` with the canonical implementation (token creation, verification, refresh, bcrypt password hashing).
 3. Create `aitbc/auth/__init__.py` with public exports.
@@ -140,10 +151,13 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: 5 retry implementations and 2 circuit breakers exist across the codebase.
 
 **Fix**:
+
 1. Find all retry/circuit breaker implementations:
+
    ```bash
    grep -rn "def.*retry\|class.*Retry\|class.*CircuitBreaker\|@retry" --include="*.py" . | grep -v test
    ```
+
 2. Standardize on `aitbc/network/retry.py` and `aitbc/network/circuit_breaker.py`.
 3. Update all call sites to use the canonical implementations.
 4. Delete duplicate implementations.
@@ -153,6 +167,7 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 #### A7: Extract shared config validators to `aitbc/config/validators.py`
 
 **Files**:
+
 - `aitbc/config/validators.py` (new)
 - `apps/coordinator-api/src/app/config.py`
 - `apps/agent-coordinator/src/app/config.py`
@@ -161,10 +176,13 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: Copy-pasted config validators (secret validation, CORS validation, bool parsing) across 3+ apps. The v0.10.3 A5 gap (missing `jwt_secret` validator in coordinator-api) existed because of this duplication.
 
 **Fix**:
+
 1. Identify shared validation patterns:
+
    ```bash
    grep -rn "field_validator\|@validator" --include="*.py" apps/coordinator-api/src/app/config.py apps/agent-coordinator/src/app/config.py apps/edge/src/aitbc_edge/config.py
    ```
+
 2. Create `aitbc/config/validators.py` with reusable validator functions:
    - `validate_secret(field_name, min_length=32)` — rejects default/short secrets in production
    - `validate_cors_origins()` — validates CORS origin list
@@ -176,6 +194,7 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 #### A8: Sweep stale port defaults (8010/8011)
 
 **Files**:
+
 - `aitbc/agent_bridge/src/integration_layer.py:21`
 - `apps/pool-hub/.../settings.py`
 - `apps/wallet/src/app/settings.py`
@@ -184,10 +203,13 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: v0.10.3 established a port registry, but some references to old ports (8010/8011) remain.
 
 **Fix**:
+
 1. Find all stale port references:
+
    ```bash
    grep -rn "8010\|8011" --include="*.py" . | grep -v test | grep -v ".pyc"
    ```
+
 2. Update each to the correct port from the registry in `AGENTS.md`.
 3. Verify no service actually runs on 8010/8011.
 
@@ -198,10 +220,13 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: ~40 sites use naive `datetime.now()` or deprecated `datetime.utcnow()` in expiry/alert logic, which can cause timezone bugs.
 
 **Fix**:
+
 1. Find all naive/deprecated datetime calls:
+
    ```bash
    grep -rn "datetime\.now()\|datetime\.utcnow()\|\.utcnow()" --include="*.py" . | grep -v test | grep -v ".pyc"
    ```
+
 2. Replace each with `datetime.now(UTC)` (import `from datetime import UTC`).
 3. For `datetime.utcnow()`, replace with `datetime.now(UTC)`.
 4. Verify no timezone-naive comparisons remain in expiry logic.
@@ -213,10 +238,13 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Problem**: Torch/PyCUDA imported at module level adds 1-2s startup time and breaks non-GPU deployments.
 
 **Fix**:
+
 1. Find module-level imports:
+
    ```bash
    grep -rn "^import torch\|^import pycuda\|^from torch\|^from pycuda" --include="*.py" apps/coordinator-api/
    ```
+
 2. Move imports inside functions that need them (lazy import pattern).
 3. Verify startup time improvement.
 
@@ -229,6 +257,7 @@ grep -rn "PaymentsService\|from.*payments_service\|import payments_service" --in
 **Working directory**: `/opt/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -258,13 +287,16 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 #### B1: Migrate `UsageRecord` model to Numeric columns + Alembic migration
 
 **Files**:
+
 - `apps/coordinator-api/src/app/models/multitenant.py` (lines 148-155)
 - `apps/coordinator-api/alembic/versions/` (new migration)
 
 **Problem**: `UsageRecord.quantity/unit_price/total_cost` are `Float` columns, causing accounting drift.
 
 **Fix**:
+
 1. Change column types in the model:
+
    ```python
    # Before
    quantity: float = Field(nullable=False)
@@ -275,11 +307,14 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
    unit_price: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
    total_cost: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
    ```
+
 2. Use `sqlalchemy.Numeric(18, 8)` (SQLModel maps `Decimal` to `Numeric` automatically).
 3. Create Alembic migration:
+
    ```bash
    cd apps/coordinator-api && ../../venv/bin/python -m alembic revision --autogenerate -m "migrate_usage_records_to_numeric"
    ```
+
 4. Edit migration to use `if_not_exists=True` and include a downgrade path.
 5. Test migration on a copy of the production DB.
 
@@ -290,6 +325,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Files**: `apps/pool-hub/src/poolhub/services/billing_integration.py`
 
 **Problem**: `record_usage()` converts `Decimal` to `float` for the HTTP payload (lines 64-66):
+
 ```python
 "quantity": float(quantity),
 "unit_price": float(unit_price),
@@ -297,6 +333,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 ```
 
 **Fix**:
+
 1. Remove `float()` conversions — serialize `Decimal` as string for JSON transport.
 2. Update `_collect_miner_usage()` return type from `dict[str, float]` to `dict[str, Decimal]`.
 3. Update `compute_hours` calculation to use `Decimal` throughout.
@@ -312,6 +349,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: All pricing data structures use `float` — `base_price`, multipliers, confidence scores, risk adjustments (lines 66-119).
 
 **Fix**:
+
 1. Change all `float` type annotations to `Decimal` in dataclasses (`PricingFactors`, `PricingResult`, `MarketConditions`, etc.).
 2. Update all arithmetic to use `Decimal` — note that `Decimal` does not support `**` operator for non-integer exponents; use `.sqrt()` or explicit power functions.
 3. Update default values from `1.0` to `Decimal("1.0")`, `0.5` to `Decimal("0.5")`, etc.
@@ -337,6 +375,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: 3 queries per miner per collection cycle (3N+1 total).
 
 **Fix**:
+
 1. Read the current implementation to understand the 3 per-miner queries.
 2. Replace with batched queries using JOINs or subqueries.
 3. Target: O(1) round trips regardless of miner count.
@@ -349,6 +388,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: `sync_all_miners_usage()` executes 1 query per miner in a loop.
 
 **Fix**:
+
 1. Replace the per-miner loop with a single batched query that aggregates usage across all miners.
 2. Group results by `miner_id` in Python.
 3. Test with the billing test suite.
@@ -356,26 +396,33 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 #### B7: Add missing DB indexes (pool-hub + marketplace)
 
 **Files**:
+
 - `apps/pool-hub/src/poolhub/models.py` — `MatchResult.miner_id`, `MatchResult.created_at`, `Feedback.miner_id`, `SLAMetric.miner_id`, `SLAViolation.created_at`
 - `apps/marketplace/.../marketplace.py` — `provider_address`, `status`, `region`
 - Alembic migration for existing DBs
 
 **Fix**:
+
 1. Add `index=True` to each Field definition:
+
    ```python
    miner_id: str = Field(index=True, ...)
    created_at: datetime = Field(index=True, ...)
    ```
+
 2. For composite indexes, add `__table_args__` with `sqlalchemy.Index(...)`.
 3. Create Alembic migration with `if_not_exists=True`:
+
    ```bash
    cd apps/coordinator-api && ../../venv/bin/python -m alembic revision -m "add_poolhub_marketplace_indexes"
    ```
+
 4. Test query performance before/after.
 
 #### B8: Replace per-request `httpx.AsyncClient()` with shared instances
 
 **Files**: ~10 sites:
+
 - `apps/wallet/src/app/main.py`
 - `apps/trading/src/.../main.py`
 - `apps/trading/src/.../clients/blockchain.py` (3×)
@@ -386,10 +433,13 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: Each site creates a new `httpx.AsyncClient()` per request, paying TCP+TLS handshake overhead.
 
 **Fix**:
+
 1. Find all per-request client creation:
+
    ```bash
    grep -rn "httpx\.AsyncClient()" --include="*.py" apps/ | grep -v test
    ```
+
 2. For each service, create a shared client in the service's lifespan/startup and close it on shutdown.
 3. Use the `SharedHttpClient` pattern from v0.10.3 (or the consolidated client from A4 if complete).
 4. Test that clients are properly closed on shutdown.
@@ -401,6 +451,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: Slack/webhook alert delivery uses sync `requests.post()`, blocking the event loop.
 
 **Fix**:
+
 1. Replace `requests.post()` with `httpx.AsyncClient.post()`.
 2. Use a shared `httpx.AsyncClient` managed by the service lifespan.
 3. Add proper error handling and timeouts.
@@ -413,12 +464,15 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: Check-then-act patterns on reputation/stakes dicts across `await` boundaries (~13 sites).
 
 **Fix**:
+
 1. Add `self._lock = asyncio.Lock()` to the service `__init__`.
 2. Wrap all check-then-act sequences in `async with self._lock:`.
 3. Identify the 13 sites by searching for `await` between dict reads and writes:
+
    ```bash
    grep -n "await\|self\._reputation\|self\._stakes" apps/coordinator-api/src/app/contexts/trading/services/cross_chain/reputation.py
    ```
+
 4. Test with concurrent access.
 
 #### B11: Add `asyncio.Lock` to `load_balancer.py` race conditions
@@ -448,6 +502,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 #### B14: SQL identifier whitelisting (3 sites)
 
 **Files**:
+
 - `apps/exchange/simple_exchange/db.py` (lines 97-140 — table names in migration helper)
 - `apps/blockchain-node/src/aitbc_chain/database.py` (lines 97, 241 — PRAGMA key/ALTER TABLE)
 - `apps/wallet/src/app/multichain_ledger.py` (line 308 — `chain_id` in table name)
@@ -455,7 +510,9 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 **Problem**: F-string interpolation of identifiers in `execute()`. Low exploitability (internal values) but fragile and a security smell.
 
 **Fix**:
+
 1. For each site, replace f-string interpolation with identifier whitelisting:
+
    ```python
    ALLOWED_TABLES = {"table_a", "table_b", ...}
    if table_name not in ALLOWED_TABLES:
@@ -463,6 +520,7 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
    # Use sqlalchemy.text() with bound parameters for values,
    # and validated identifiers for table/column names.
    ```
+
 2. For `chain_id` in wallet, validate against a regex or allowed chain list before interpolation.
 3. Test that valid identifiers still work and invalid ones are rejected.
 
@@ -502,6 +560,7 @@ Per the AGENTS.md coordination protocol, the following shared files may be touch
 ## Post-Release
 
 After v0.10.4 is complete:
+
 1. Update `docs/releases/v0.10.4/change.log` with actual completion status
 2. Update root `AGENTS.md` with v0.10.4 in the release sequence
 3. Update `docs/releases/STATUS.md` with v0.10.4 summary

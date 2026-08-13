@@ -8,7 +8,8 @@ This document describes the implementation of wallet-coordinator integration for
 
 ### ✅ 1. Payment Endpoints in Coordinator API
 
-#### New Routes Added:
+#### New Routes Added
+
 - `POST /v1/payments` - Create payment for a job
 - `GET /v1/payments/{payment_id}` - Get payment details
 - `GET /v1/jobs/{job_id}/payment` - Get payment for a specific job
@@ -18,7 +19,8 @@ This document describes the implementation of wallet-coordinator integration for
 
 ### ✅ 2. Escrow Service
 
-#### Features:
+#### Features
+
 - Automatic escrow creation for Bitcoin payments
 - Timeout-based escrow expiration (default 1 hour)
 - Integration with wallet daemon for escrow management
@@ -26,7 +28,8 @@ This document describes the implementation of wallet-coordinator integration for
 
 ### ✅ 3. Wallet Daemon Integration
 
-#### Integration Points:
+#### Integration Points
+
 - HTTP client communication with wallet daemon at `http://127.0.0.1:20000`
 - Escrow creation via `/api/v1/escrow/create`
 - Payment release via `/api/v1/escrow/release`
@@ -34,21 +37,24 @@ This document describes the implementation of wallet-coordinator integration for
 
 ### ✅ 4. Payment Status Tracking
 
-#### Job Model Updates:
+#### Job Model Updates
+
 - Added `payment_id` field to track associated payment
 - Added `payment_status` field for status visibility
 - Relationship with JobPayment model
 
 ### ✅ 5. Refund Mechanism
 
-#### Features:
+#### Features
+
 - Automatic refund for failed/cancelled jobs
 - Refund to specified address
 - Transaction hash tracking for refunds
 
 ### ✅ 6. Payment Receipt Generation
 
-#### Features:
+#### Features
+
 - Detailed payment receipts with verification status
 - Transaction hash inclusion
 - Timestamp tracking for all payment events
@@ -56,6 +62,7 @@ This document describes the implementation of wallet-coordinator integration for
 ### ✅ 7. Integration Test Updates
 
 #### Test: `test_job_payment_flow`
+
 - Creates job with payment amount
 - Verifies payment creation
 - Tests payment status tracking
@@ -63,9 +70,10 @@ This document describes the implementation of wallet-coordinator integration for
 
 ## Database Schema
 
-### New Tables:
+### New Tables
 
 #### `job_payments`
+
 - id (PK)
 - job_id (indexed)
 - amount (DECIMAL(20,8))
@@ -79,6 +87,7 @@ This document describes the implementation of wallet-coordinator integration for
 - Timestamps (created, updated, escrowed, released, refunded, expires)
 
 #### `payment_escrows`
+
 - id (PK)
 - payment_id (indexed)
 - amount
@@ -87,15 +96,17 @@ This document describes the implementation of wallet-coordinator integration for
 - Status flags (is_active, is_released, is_refunded)
 - Timestamps
 
-### Updated Tables:
+### Updated Tables
 
 #### `job`
+
 - Added payment_id (FK to job_payments)
 - Added payment_status (VARCHAR)
 
 ## API Examples
 
 ### Create Job with Payment
+
 ```json
 POST /v1/jobs
 {
@@ -110,6 +121,7 @@ POST /v1/jobs
 ```
 
 ### Response with Payment Info
+
 ```json
 {
     "job_id": "abc123",
@@ -121,6 +133,7 @@ POST /v1/jobs
 ```
 
 ### Release Payment
+
 ```json
 POST /v1/payments/pay456/release
 {
@@ -131,14 +144,16 @@ POST /v1/payments/pay456/release
 
 ## Files Created/Modified
 
-### New Files:
+### New Files
+
 - `apps/coordinator-api/src/app/schemas/payments.py` - Payment schemas
 - `apps/coordinator-api/src/app/domain/payment.py` - Payment domain models
 - `apps/coordinator-api/src/app/services/payments.py` - Payment service
 - `apps/coordinator-api/src/app/routers/payments.py` - Payment endpoints
 - `apps/coordinator-api/migrations/004_payments.sql` - Database migration
 
-### Modified Files:
+### Modified Files
+
 - `apps/coordinator-api/src/app/domain/job.py` - Added payment tracking
 - `apps/coordinator-api/src/app/schemas.py` - Added payment fields to JobCreate/JobView
 - `apps/coordinator-api/src/app/services/jobs.py` - Integrated payment creation
@@ -150,17 +165,20 @@ POST /v1/payments/pay456/release
 ## Next Steps
 
 1. **Deploy Database Migration**
+
    ```sql
    -- Apply migration 004_payments.sql
    ```
 
 2. **Start Wallet Daemon**
+
    ```bash
    # Ensure wallet daemon is running on port 20000
    ./scripts/wallet-daemon.sh start
    ```
 
 3. **Test Payment Flow**
+
    ```bash
    # Run the updated integration test
    python -m pytest tests/integration/test_full_workflow.py::TestWalletToCoordinatorIntegration::test_job_payment_flow -v
@@ -182,6 +200,7 @@ POST /v1/payments/pay456/release
 ## Monitoring
 
 Payment events should be monitored:
+
 - Failed escrow creations
 - Expired escrows
 - Refund failures

@@ -10,6 +10,7 @@ The AITBC codebase contains approximately 105 files with `sys.path` manipulation
 ## Current State
 
 ### CLI Modules (~14 files)
+
 The CLI has multiple entrypoints and command modules that manipulate sys.path to find the repo root and sibling utilities:
 
 - `cli/aitbc_cli.py` - Main entrypoint, inserts REPO_ROOT and CLI_DIR
@@ -29,6 +30,7 @@ The CLI has multiple entrypoints and command modules that manipulate sys.path to
 - `cli/aitbc_cli/commands/agent_sdk.py` - Agent SDK commands, inserts agent-sdk src
 
 ### Wrapper Scripts (13 files)
+
 All systemd service wrappers in their respective app directories use sys.path.insert to import aitbc constants before setting PYTHONPATH for the child process:
 
 - `aitbc-agent-management-wrapper.py`
@@ -45,6 +47,7 @@ All systemd service wrappers in their respective app directories use sys.path.in
 - `aitbc-wallet-wrapper.py`
 
 ### Tests (~25 files)
+
 Test files use sys.path manipulation for test isolation and to import fixtures:
 
 - `tests/conftest.py` - Root test configuration
@@ -59,6 +62,7 @@ Test files use sys.path manipulation for test isolation and to import fixtures:
 - Various other test files
 
 ### Scripts (~25 files)
+
 Utility scripts in `scripts/` use sys.path for ad-hoc imports:
 
 - `scripts/utils/chain_regen_node.py`
@@ -77,6 +81,7 @@ Utility scripts in `scripts/` use sys.path for ad-hoc imports:
 - `scripts/deployment/*.sh` - Deployment scripts
 
 ### Apps (~20 files)
+
 App-specific scripts and modules use sys.path for local imports:
 
 - `apps/blockchain-node/scripts/*.py` - Blockchain node scripts
@@ -90,6 +95,7 @@ App-specific scripts and modules use sys.path for local imports:
 - Various other app-specific files
 
 ### Dev/Docs (~20 files)
+
 Development examples and documentation reference sys.path:
 
 - `dev/tools/examples/*.py` - Example scripts
@@ -118,29 +124,34 @@ Development examples and documentation reference sys.path:
 ## Recommended Solution
 
 ### Phase 1: Package CLI Properly
+
 1. Create proper `pyproject.toml` for CLI with entry points
 2. Define CLI as installable package with src-layout
 3. Use `console_scripts` entry points for CLI commands
 4. Install CLI in venv with `pip install -e .`
 
 ### Phase 2: Consolidate Entry Points
+
 1. Deprecate legacy entrypoints (click_cli.py, miner_cli.py)
 2. Use unified_cli.py as single entry point
 3. Update systemd services to use installed CLI
 4. Update documentation to reflect new entry point
 
 ### Phase 3: Standardize Imports
+
 1. Remove sys.path manipulation from CLI modules
 2. Use relative imports within CLI package
 3. Use PYTHONPATH environment variable for cross-package imports
 4. Consolidate import helpers into single module
 
 ### Phase 4: Wrapper Refactoring
+
 1. Keep sys.path in wrappers for constants import (acceptable pattern)
 2. Ensure PYTHONPATH is set before exec for child processes
 3. Document wrapper pattern as acceptable for systemd services
 
 ### Phase 5: Test and Script Cleanup
+
 1. Keep sys.path in tests (acceptable for test isolation)
 2. Add PYTHONPATH to script shebangs or wrapper scripts
 3. Document scripts that require specific PYTHONPATH setup
@@ -180,6 +191,7 @@ After attempting to package the CLI as a standalone library, it was determined t
 **sys.path manipulation is ACCEPTED as necessary for monorepo CLI tools.**
 
 The CLI will continue to use sys.path manipulation to:
+
 - Resolve imports from the aitbc package
 - Access CLI-specific core modules
 - Maintain backward compatibility

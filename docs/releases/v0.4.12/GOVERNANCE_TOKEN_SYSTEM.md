@@ -11,26 +11,31 @@ AITBC v0.4.12 introduces a comprehensive governance token system, including toke
 ## Token Distribution
 
 ### Service Providers
+
 - Earn tokens for completing jobs
 - Proportional to job value
 - Reputation bonuses
 
 ### Service Consumers
+
 - Earn tokens for marketplace activity
 - Usage-based rewards
 - Review bonuses
 
 ### Liquidity Providers
+
 - Earn tokens for providing liquidity
 - Proportional to liquidity provided
 - Duration bonuses
 
 ### Governance Participants
+
 - Earn tokens for voting participation
 - Proposal creation rewards
 - Delegation rewards
 
 ### Protocol Contributors
+
 - Earn tokens for code contributions
 - Pull request rewards
 - Bug bounty rewards
@@ -52,6 +57,7 @@ aitbc governance unstake --amount 1000
 ```
 
 ### Staking Benefits
+
 - **2x voting power**: Staked tokens provide 2x voting power
 - **Governance token rewards**: Earn rewards for staking
 - **Fee share**: Share of marketplace fees

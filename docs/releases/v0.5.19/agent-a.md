@@ -44,6 +44,7 @@ Place in `packages/aitbc-shared/aitbc_shared/models/reputation.py` or a new shar
 ## A2: Unit tests for ReputationDTO
 
 Create `tests/unit/test_reputation_dto.py` with tests for:
+
 - ReputationDTO serialization
 - Field validation
 - Conversion from AgentReputation model

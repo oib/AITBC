@@ -12,6 +12,7 @@
 **Prerequisite**: v0.7.1 Agent B must be complete (BridgeValidator table, block header signature field, threshold sig verification). v0.7.0 Agent B must be committed.
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/blockchain-node/src/aitbc_chain/config.py apps/blockchain-node/src/aitbc_chain/base_models.py apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py apps/blockchain-node/src/aitbc_chain/rpc/bridge.py apps/blockchain-node/src/aitbc_chain/rpc/router.py cli/aitbc_cli/commands/bridge.py aitbc/constants.py
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bridge_suite.py apps/blockchain-node/tests/test_v072_bridge_verification.py -q -o addopts="" --timeout=30
@@ -37,6 +38,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bri
 ## B1: Bridge Verification Config + Constants
 
 In `aitbc/constants.py`, add:
+
 ```python
 # Bridge verification config (v0.7.2)
 BRIDGE_VERIFICATION_MODE = "in_process"       # "in_process" | "oracle"
@@ -47,6 +49,7 @@ BRIDGE_LARGE_TRANSFER_THRESHOLD = 10000        # transfers above this require fu
 ```
 
 In `apps/blockchain-node/src/aitbc_chain/config.py`, add to Settings:
+
 ```python
 bridge_verification_mode: str = "in_process"
 bridge_min_confirmations: int = 3
@@ -108,6 +111,7 @@ Wire the `InProcessVerifier` from A2 as the verification backend, passing the bl
 Use `validate_block_header()` from A3 to verify the block header's proposer signature against the v0.7.1 validator set registry. Reject proofs anchored to blocks with invalid or unknown proposer signatures.
 
 Add an RPC endpoint for storing remote block headers:
+
 - `POST /bridge/block-headers` — store a remote chain block header (with signature)
 
 ---
@@ -115,11 +119,13 @@ Add an RPC endpoint for storing remote block headers:
 ## B5: Finality Tracking
 
 Track block confirmations per chain:
+
 - When a new block is received for a chain, increment confirmation counts for all previous blocks
 - Mark blocks as `finality_confirmed = True` when `confirmation_count >= bridge_finality_blocks`
 - In `_validate_proof`, reject proofs anchored to non-finalized blocks for transfers >= `bridge_large_transfer_threshold`
 
 Add RPC endpoint:
+
 - `GET /bridge/block-headers/{chain_id}/{height}` — get a stored block header with finality status
 
 ---
@@ -127,6 +133,7 @@ Add RPC endpoint:
 ## B6: Validator Set Epoch Tracking
 
 Extend the v0.7.1 `BridgeValidator` table with epoch tracking:
+
 - Add `epoch` and `is_active` columns (if not already in v0.7.1)
 - Track validator set transitions with grace period
 - Reject proofs signed by stale validator sets after grace period expires
@@ -137,13 +144,16 @@ Extend the v0.7.1 `BridgeValidator` table with epoch tracking:
 ## B7: Unfence Release Path + CLI
 
 **Unfence**: After all verification (B3-B6) is operational and tested:
+
 - Change `bridge_release_enabled: bool = False` → `True` in `config.py`
 - Update the fence comment to reflect that Merkle proof verification is now active
 
 **CLI**: Add `oracle-status` subcommand to `cli/aitbc_cli/commands/bridge.py`:
+
 ```
 aitbc bridge oracle-status
 ```
+
 Reports: verification mode, finality config, validator set status, block header count per chain.
 
 ---
@@ -151,6 +161,7 @@ Reports: verification mode, finality config, validator set status, block header 
 ## B8: Integration Tests
 
 Create `apps/blockchain-node/tests/test_v072_bridge_verification.py`:
+
 - Valid Merkle proof verification (lock event in state trie)
 - Invalid Merkle proof rejection (tampered proof, wrong state root)
 - Block header signature verification (valid/invalid/non-member)

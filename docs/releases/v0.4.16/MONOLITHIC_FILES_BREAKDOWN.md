@@ -11,7 +11,9 @@ AITBC v0.4.16 breaks down 7 monolithic files into 47 focused modules, all under 
 ## Split Files
 
 ### 1. Split `aitbc/caching.py` (940 lines)
+
 Split into 7 focused modules:
+
 - `aitbc/caching/__init__.py` - Public API exports (38 lines)
 - `aitbc/caching/blockchain.py` - Blockchain cache (216 lines)
 - `aitbc/caching/lru.py` - LRU cache (119 lines)
@@ -21,7 +23,9 @@ Split into 7 focused modules:
 - `aitbc/caching/utils.py` - Helper functions (87 lines)
 
 ### 2. Split `aitbc/database.py` (719 lines)
+
 Split into 5 focused modules:
+
 - `aitbc/database/__init__.py` - Public API exports (41 lines)
 - `aitbc/database/connection.py` - Database connection (240 lines)
 - `aitbc/database/monitoring.py` - Query monitoring (138 lines)
@@ -30,7 +34,9 @@ Split into 5 focused modules:
 - `aitbc/database/utils.py` - Helper functions (94 lines)
 
 ### 3. Split `cli/aitbc_cli/commands/node.py` (1,061 lines)
+
 Split into 7 focused modules:
+
 - `cli/aitbc_cli/commands/node/__init__.py` - Public API exports (202 lines)
 - `cli/aitbc_cli/commands/node/main.py` - Main node commands (272 lines)
 - `cli/aitbc_cli/commands/node/monitor.py` - Monitoring commands (185 lines)
@@ -40,7 +46,9 @@ Split into 7 focused modules:
 - `cli/aitbc_cli/commands/node/chain.py` - Chain management (59 lines)
 
 ### 4. Split `cli/aitbc_cli/commands/exchange.py` (1,234 lines)
+
 Split into 5 focused modules:
+
 - `cli/aitbc_cli/commands/exchange/__init__.py` - Public API exports (60 lines)
 - `cli/aitbc_cli/commands/exchange/main.py` - Main exchange commands (321 lines)
 - `cli/aitbc_cli/commands/exchange/payments.py` - Payment commands (96 lines)
@@ -49,14 +57,18 @@ Split into 5 focused modules:
 - `cli/aitbc_cli/commands/exchange/bridge.py` - Bridge commands (44 lines)
 
 ### 5. Split `apps/exchange/simple_exchange_api.py` (1,142 lines)
+
 Split into 3 focused modules:
+
 - `apps/exchange/api/__init__.py` - Public API exports (9 lines)
 - `apps/exchange/api/database.py` - Database setup (124 lines)
 - `apps/exchange/api/handlers.py` - API handlers (254 lines)
 - `apps/exchange/api/server.py` - Server setup (34 lines)
 
 ### 6. Split `apps/coordinator-api/src/app/main.py` (796 lines)
+
 Split into 4 focused modules:
+
 - `apps/coordinator-api/src/app/core/__init__.py` - Public API exports (10 lines)
 - `apps/coordinator-api/src/app/core/app.py` - FastAPI app setup (37 lines)
 - `apps/coordinator-api/src/app/core/lifespan.py` - Lifecycle events (102 lines)

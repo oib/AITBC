@@ -15,6 +15,7 @@ usage. No source files were modified.
 - **Issue:** `amount = float(tx_data["amount"])` converts a monetary amount to
   binary float, risking rounding in multisig validation.
 - **Suggested fix:** Replace with `Decimal`:
+
   ```python
   from decimal import Decimal
   amount = Decimal(str(tx_data["amount"]))
@@ -27,6 +28,7 @@ usage. No source files were modified.
 - **Issue:** `with open(credentials_path) as f:` loads island RPC credentials
   without checking file owner or mode.
 - **Suggested fix:** Reject insecure permissions before `json.load`:
+
   ```python
   if stat.S_IMODE(credentials_path.stat().st_mode) > 0o600:
       raise PermissionError(
@@ -41,6 +43,7 @@ usage. No source files were modified.
 - **Issue:** `except Exception as e:` catches `KeyboardInterrupt` and other
   unexpected errors in subprocess helpers.
 - **Suggested fix:** Catch only subprocess-related exceptions:
+
   ```python
   except (OSError, subprocess.SubprocessError) as e:
   ```
@@ -52,6 +55,7 @@ usage. No source files were modified.
 - **Issue:** `"amount": float(ait_amount)` uses float for an exchange order
   amount.
 - **Suggested fix:** Use `Decimal`:
+
   ```python
   "amount": Decimal(str(ait_amount))
   ```

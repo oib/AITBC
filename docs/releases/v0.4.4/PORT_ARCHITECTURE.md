@@ -47,16 +47,19 @@ AITBC v0.4.4 introduces a comprehensive port architecture reorganization to stan
 ## Migration Impact
 
 ### Documentation Updates
+
 - All documentation updated to reference new ports
 - SERVICE_PORTS.md updated as authoritative reference
 - API documentation updated with new endpoints
 
 ### Configuration Updates
+
 - CLI commands updated to use port 8202 for blockchain RPC
 - Service configurations updated with new port assignments
 - Nginx reverse proxy configuration updated
 
 ### Breaking Changes
+
 - Blockchain RPC port changed from 8006 to 8202
 - Blockchain P2P port changed from 7070 to 8200
 - Agent Coordinator port changed from 8011 to 8107

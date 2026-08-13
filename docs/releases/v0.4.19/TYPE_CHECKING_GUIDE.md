@@ -7,12 +7,14 @@ This project uses a **gradual type checking approach** to improve code quality w
 ## Current State
 
 **v0.4.18 Achievements:**
+
 - ✅ coordinator-api: 0 MyPy errors (360 files checked, 148 excluded by config)
 - ✅ agent-coordinator: 0 MyPy errors (49 source files)
 - ✅ Ruff G004: 0 errors (all logging f-strings converted)
 - ✅ 163 files with per-file ignores across apps (baseline)
 
 **v0.4.19 Progress:**
+
 - ✅ agent: 0 MyPy errors (1 file fixed, removed per-file ignore)
 - ✅ edge: 0 MyPy errors (6 files fixed, removed all per-file ignores)
 - ✅ pool-hub: 0 MyPy errors (16 files fixed, removed all per-file ignores)
@@ -22,6 +24,7 @@ This project uses a **gradual type checking approach** to improve code quality w
 - ✅ Reduced per-file ignore count from 163 to 127 (36 files fixed)
 
 **Remaining per-file ignores by app:**
+
 - coordinator-api: 81 files (0 MyPy errors with current config)
 - blockchain-node: 31 files (excluded from MyPy checks)
 - agent-management: 1 file (services.py - rate_limit decorator issue)
@@ -35,6 +38,7 @@ This project uses a **gradual type checking approach** to improve code quality w
 ### 1. Pre-Commit Hook
 
 When you run `git commit`, the pre-commit hook automatically checks type annotations on:
+
 - Staged Python files
 - Modified Python files
 
@@ -46,6 +50,7 @@ venv/bin/python -m mypy your_file.py --follow-imports=skip --ignore-missing-impo
 ### 2. CI/CD Integration
 
 The CI workflow runs mypy on changed files only:
+
 - Compares against the previous commit
 - Fails the build if new type errors are introduced
 - Skips check if no Python files changed
@@ -53,11 +58,13 @@ The CI workflow runs mypy on changed files only:
 ### 3. What Gets Checked
 
 ✅ **Checked:**
+
 - New Python files you create
 - Modified Python files in your commits
 - Files with newly added type annotations
 
 ❌ **Not Checked:**
+
 - Existing unmodified files (they remain excluded)
 - Files in the mypy exclusion list (see `pyproject.toml`)
 
@@ -68,6 +75,7 @@ The CI workflow runs mypy on changed files only:
 If you modify a file that has type errors:
 
 1. **Fix the errors** in the functions you're modifying:
+
    ```python
    # Before (missing types)
    def process_data(data):
@@ -79,6 +87,7 @@ If you modify a file that has type errors:
    ```
 
 2. **If you can't fix all errors**, use targeted `# type: ignore` comments:
+
    ```python
    # type: ignore[no-untyped-def]  # TODO: Add type annotations
    def legacy_function(data):
@@ -93,6 +102,7 @@ If you modify a file that has type errors:
    - Variable annotations for complex types
 
 2. **Common patterns**:
+
    ```python
    from typing import Optional, dict, list, Any
 

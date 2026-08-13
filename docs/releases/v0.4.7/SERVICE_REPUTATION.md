@@ -11,6 +11,7 @@ AITBC v0.4.7 introduces a comprehensive service reputation system with cross-nod
 ## Features
 
 ### ServiceRating Model
+
 - service_id, rating (1-5), reviewer_id, comment, created_at
 - Automatic rating aggregation and average calculation
 - Rating submission via API and CLI
@@ -18,6 +19,7 @@ AITBC v0.4.7 introduces a comprehensive service reputation system with cross-nod
 - Rating display in marketplace listings
 
 ### Database Schema
+
 ```sql
 CREATE TABLE service_ratings (
     rating_id UUID PRIMARY KEY,
@@ -32,6 +34,7 @@ CREATE TABLE service_ratings (
 ```
 
 ### SoftwareService Model Extension
+
 - avg_rating field (FLOAT)
 - rating_count field (INTEGER)
 - Automatic aggregation on rating submission
@@ -39,16 +42,19 @@ CREATE TABLE service_ratings (
 ### CLI Commands
 
 #### Rate Service
+
 ```bash
 aitbc market rate --service-id <plugin_id or offer_id> --rating 4.5 --comment "Great service"
 ```
 
 #### View Ratings
+
 ```bash
 aitbc market ratings --service-id <plugin_id or offer_id> --limit 50 --offset 0
 ```
 
 #### Sync Ratings
+
 ```bash
 aitbc market sync-ratings --remote-url https://aitbc3.aitbc.bubuit.net/api --limit 100
 ```

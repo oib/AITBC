@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -48,9 +49,11 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 ## A3: Update transaction service unit tests
 
 - Update `test_canonical_message_is_pinned_to_node_format`: add `"chain_id": "ait-hub"` to the tx dict and to the expected JSON string. The expected message becomes:
+
   ```
   {"amount":100,"chain_id":"ait-hub","fee":36,"from":"0x...","nonce":0,"payload":{"amount":100},"to":"0x...","type":"TRANSFER"}
   ```
+
 - Update `test_signed_transaction_is_accepted_by_real_node_verifier`: the `tx_data_dict` construction (lines 72-81) must now include `"chain_id": req.chain_id` (the `TransactionRequest` model has this field). This coordinates with B4 — the endpoint will also start including `chain_id` in the dict.
 - Add a new test: `test_cross_chain_replay_rejected` — sign a tx with `chain_id="ait-hub"`, then verify it with `chain_id="ait-island1"` in the dict. The signature must NOT validate because the signed message differs.
 

@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../README.md)** → **📦 Packages** → *You are here*
 
 **breadcrumb**: Home → Packages → Overview
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📖 About Documentation** - Template standard and audit checklist
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
 - **📁 Project Documentation** - Project-level overview

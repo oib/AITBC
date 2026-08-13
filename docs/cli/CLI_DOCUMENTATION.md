@@ -13,6 +13,7 @@ The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the 
 ## 🎉 **Unified Command Hierarchy**
 
 ### **✅ All CLI Groups: Fully Operational**
+
 - **Wallet Commands**: Create, list, balance, send, transactions, import, export, delete, rename, batch
 - **Blockchain Commands**: Info, analytics, multi-chain support
 - **Network Commands**: Status, peer management, sync monitoring
@@ -35,6 +36,7 @@ aitbc-cli <group> <action> [options]
 ```
 
 **Public Top-Level Groups:**
+
 - `wallet` - Wallet management
 - `blockchain` - Blockchain operations
 - `network` - Network status and monitoring
@@ -71,11 +73,13 @@ For backward compatibility, legacy flat commands are automatically normalized to
 ## Installation
 
 ### Prerequisites
+
 - Python 3.13+
 - Virtual environment at `/opt/aitbc/venv`
 - AITBC services running on ports 8203, 8001, 8202
 
 ### Setup
+
 ```bash
 cd /opt/aitbc
 source venv/bin/activate
@@ -87,6 +91,7 @@ source venv/bin/activate
 ### Core Commands
 
 #### Wallet Management
+
 ```bash
 # Create new wallet
 ./aitbc-cli wallet create wallet-name your-password
@@ -105,6 +110,7 @@ source venv/bin/activate
 ```
 
 #### Blockchain Operations
+
 ```bash
 # Get blockchain information
 ./aitbc-cli blockchain info [--rpc-url http://localhost:8202]
@@ -117,6 +123,7 @@ source venv/bin/activate
 ```
 
 #### AI Operations
+
 ```bash
 # Submit AI job
 ./aitbc-cli ai submit --wallet wallet-name --type inference --prompt "Generate image" --payment 100
@@ -141,6 +148,7 @@ source venv/bin/activate
 ```
 
 #### Marketplace Operations
+
 ```bash
 # List marketplace items
 ./aitbc-cli market list
@@ -156,6 +164,7 @@ source venv/bin/activate
 ```
 
 #### Resource Management
+
 ```bash
 # Get resource status
 ./aitbc-cli resource --action status
@@ -165,6 +174,7 @@ source venv/bin/activate
 ```
 
 #### Mining Operations
+
 ```bash
 # Start mining
 ./aitbc-cli mine-start
@@ -179,6 +189,7 @@ source venv/bin/activate
 ### Advanced Commands
 
 #### Agent Operations
+
 ```bash
 # Run agent workflow
 ./aitbc-cli agent --agent agent-name --message "Task description" --thinking high
@@ -188,12 +199,14 @@ source venv/bin/activate
 ```
 
 #### Workflow Operations
+
 ```bash
 # Run workflow
 ./aitbc-cli workflow --name workflow-name --parameters "param1=value1,param2=value2"
 ```
 
 #### Simulation Commands
+
 ```bash
 # Simulate blockchain
 ./aitbc-cli simulate blockchain --blocks 10 --transactions 50 --delay 1.0
@@ -214,6 +227,7 @@ source venv/bin/activate
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 export AITBC_COORDINATOR_URL="http://localhost:8203"
 export AITBC_API_KEY="<YOUR_API_KEY>"
@@ -221,9 +235,11 @@ export AITBC_RPC_URL="http://localhost:8202"
 ```
 
 ### Configuration File
+
 The CLI uses configuration from `/etc/aitbc/.env` by default.
 
 ### Command Line Options
+
 ```bash
 # Output format
 ./aitbc-cli --output table|json|yaml|csv command
@@ -250,12 +266,14 @@ The CLI uses configuration from `/etc/aitbc/.env` by default.
 ## Service Integration
 
 ### Service Endpoints
+
 - **Coordinator API**: http://localhost:8203
 - **Exchange API**: http://localhost:8001
 - **Blockchain RPC**: http://localhost:8202
 - **Ollama**: http://localhost:11434
 
 ### Health Checks
+
 ```bash
 # Check all services
 curl -s http://localhost:8203/health
@@ -267,6 +285,7 @@ curl -s http://localhost:11434/api/tags
 ## Examples
 
 ### Basic Workflow
+
 ```bash
 # 1. Create wallet
 ./aitbc-cli wallet create my-wallet my-password
@@ -285,6 +304,7 @@ curl -s http://localhost:11434/api/tags
 ```
 
 ### Marketplace Operations
+
 ```bash
 # 1. Create service listing
 ./aitbc-cli market create --type ai-inference --price 100 --description "High-quality image generation service" --wallet provider-wallet
@@ -300,6 +320,7 @@ curl -s http://localhost:11434/api/tags
 ```
 
 ### Simulation Examples
+
 ```bash
 # Simulate blockchain with 100 blocks
 ./aitbc-cli simulate blockchain --blocks 100 --transactions 100 --delay 0.1
@@ -316,6 +337,7 @@ curl -s http://localhost:11434/api/tags
 ### Common Issues
 
 #### Command Not Found
+
 ```bash
 # Check CLI installation
 ./aitbc-cli --version
@@ -325,6 +347,7 @@ source venv/bin/activate
 ```
 
 #### Service Connection Errors
+
 ```bash
 # Check service status
 systemctl status aitbc-coordinator-api.service
@@ -336,6 +359,7 @@ curl -s http://localhost:8203/health
 ```
 
 #### Permission Errors
+
 ```bash
 # Check file permissions
 ls -la /opt/aitbc/aitbc-cli
@@ -345,6 +369,7 @@ chmod +x /opt/aitbc/aitbc-cli
 ```
 
 ### Debug Mode
+
 ```bash
 # Enable debug output
 ./aitbc-cli --debug --verbose command
@@ -356,6 +381,7 @@ chmod +x /opt/aitbc/aitbc-cli
 ## Development
 
 ### Running Tests
+
 ```bash
 # Run all tests
 cd /opt/aitbc
@@ -370,12 +396,14 @@ python -m pytest cli/tests/ --cov=cli --cov-report=html
 ```
 
 ### Adding New Commands
+
 1. Create command file in `cli/aitbc_cli/commands/`
 2. Import command in `cli/core/main.py`
 3. Add tests in `cli/tests/`
 4. Update documentation
 
 ### Code Style
+
 ```bash
 # Format and lint code
 ruff check cli/
@@ -390,6 +418,7 @@ mypy cli/
 ### Command Options
 
 #### Global Options
+
 - `--url`: Override coordinator URL
 - `--api-key`: Set API key
 - `--output`: Set output format (table, json, yaml, csv)
@@ -401,12 +430,15 @@ mypy cli/
 - `--no-verify`: Skip SSL verification
 
 #### Command-Specific Options
+
 Each command has specific options documented in the help:
+
 ```bash
 ./aitbc-cli command --help
 ```
 
 ### Exit Codes
+
 - `0`: Success
 - `1`: General error
 - `2`: Command line error
@@ -414,6 +446,7 @@ Each command has specific options documented in the help:
 ## Version History
 
 ### v0.2.2 (Current)
+
 - Unified CLI with 20+ commands
 - Enhanced output formatting
 - AI operations integration
@@ -423,22 +456,26 @@ Each command has specific options documented in the help:
 - agent agent integration
 
 ### v0.2.1
+
 - Project consolidation to `/opt/aitbc`
 - Enhanced service integration
 - Improved error handling
 
 ### v0.2.0
+
 - Modular command structure
 - Enhanced configuration management
 - Performance improvements
 
 ### v0.1.0
+
 - Initial CLI implementation
 - Basic wallet and blockchain operations
 
 ## Support
 
 For issues and questions:
+
 1. Check troubleshooting section
 2. Run with `--debug --verbose` for detailed output
 3. Check service health status

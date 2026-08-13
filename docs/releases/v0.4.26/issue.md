@@ -7,13 +7,16 @@
 ## 📋 Issue Categories
 
 ### 1. SQLAlchemy Table Definition Conflicts (High Impact)
+
 **Affected**: 4 coordinator API test files fail collection
+
 - `tests/test_coordinator_api.py`
 - `tests/test_coordinator_api_extended.py`
 - `tests/test_coordinator_api_utils.py`
 - `tests/test_coordinator_api_v1.py`
 
 **Root Cause**: Multiple apps define identical ORM models with different `declarative_base()`:
+
 - `MarketplaceBid` - defined in `apps/marketplace` and `apps/coordinator-api`
 - `JobPayment` - defined in `apps/payments` and `apps/coordinator-api`
 - `PaymentEscrow` - defined in `apps/payments` and `apps/coordinator-api`
@@ -21,6 +24,7 @@
 **Error**: `sqlalchemy.exc.InvalidRequestError: Table 'marketplace_bid' is already defined for this MetaData instance`
 
 **Suggested Fix**:
+
 1. **Create shared models package** (`packages/aitbc-shared-models/`) with common ORM definitions
 2. **Refactor all apps** to import from shared package instead of local definitions
 3. **Use single `declarative_base()`** per service, shared via dependency injection
@@ -31,10 +35,12 @@
 ---
 
 ### 2. Overall Test Coverage Below 50% Target (Medium Impact)
+
 **Current**: ~47% (with caching tests), ~35% (without caching)
 **Target**: ≥50%
 
 **Untested Areas**:
+
 | Area | Modules | Approx Lines | Effort |
 |------|---------|--------------|--------|
 | 42 apps in `apps/` | ~42 apps | ~50,000+ | Months |
@@ -47,6 +53,7 @@
 | `aitbc/testing/` | 2 | ~230 | 1 week |
 
 **Suggested Fix**:
+
 1. **Prioritize by impact**: Core infrastructure (`access_control`, `async_helpers`) first
 2. **Incremental**: Add tests module-by-module per sprint
 3. **Exclude legacy apps**: Mark inactive apps with `# pragma: no cover`
@@ -56,6 +63,7 @@
 ---
 
 ### 3. External Dependency Deprecation Warnings (Low Impact)
+
 **Cannot fix in our code - require upstream updates**:
 
 | Warning | Source | Fix |
@@ -64,13 +72,16 @@
 | `starlette.testclient` + `httpx` | `tests/cli/test_cli_integration.py:15` | Migrate to `httpx2` test client |
 
 **Action**:
+
 - `websockets.legacy`: Already mitigated in our code (using `ServerProtocol`)
 - `httpx2` migration: Requires test client rewrite (~1 week)
 
 ---
 
 ### 4. SQLAlchemy SAWarnings: Duplicate Model Definitions (Low Impact)
+
 **Cause**: Same model class defined in multiple apps with different bases:
+
 ```
 SAWarning: This declarative base already contains a class with the same class name...
   app.contexts.marketplace.domain.marketplace.MarketplaceBid
@@ -83,9 +94,11 @@ SAWarning: This declarative base already contains a class with the same class na
 ---
 
 ### 5. Apps Directory Audit Needed (Low Impact)
+
 **Problem**: 42 apps in `apps/` directory - many likely inactive/legacy.
 
 **Known Active Apps** (from service logs and test references):
+
 - `agent-coordinator` ✅
 - `coordinator-api` ✅
 - `blockchain-node` ✅
@@ -97,6 +110,7 @@ SAWarning: This declarative base already contains a class with the same class na
 - `governance` ✅
 
 **Suggested Fix**:
+
 1. **Audit script** to check git activity, CI references, service logs
 2. **Archive inactive apps** to `apps/archive/`
 3. **Document active apps** in `docs/architecture/active_apps.md`
@@ -106,6 +120,7 @@ SAWarning: This declarative base already contains a class with the same class na
 ---
 
 ### 6. Monolithic Files Needing Refactoring (Technical Debt)
+
 | File | Lines | Suggestion |
 |------|-------|------------|
 | `aitbc/caching.py` | 926 | Split: `cache_backends.py`, `cache_strategies.py`, `cache_invalidation.py` |
@@ -119,22 +134,26 @@ SAWarning: This declarative base already contains a class with the same class na
 ## 🎯 v0.4.26 Sprint Priorities
 
 ### Sprint 1 (Week 1-2): High Impact Fixes
+
 - [ ] **Fix SQLAlchemy table conflicts** - Create shared models package
 - [ ] **Migrate `httpx` → `httpx2`** in CLI integration tests
 - [ ] **Run full test suite** without collection errors
 
 ### Sprint 2 (Week 3-4): Coverage & Debt
+
 - [ ] **Add tests for `access_control.py`** (security critical)
 - [ ] **Add tests for `async_helpers/`** (core infrastructure)
 - [ ] **Refactor `caching.py`** into smaller modules
 - [ ] **Audit `apps/` directory** - archive inactive apps
 
 ### Sprint 3 (Week 5-6): Infrastructure
+
 - [ ] **Create shared ORM models package** (`packages/aitbc-shared/`)
 - [ ] **Refactor `caching.py`** into smaller modules
 - [ ] **Add CI job isolation** for per-app test runs
 
 ### Sprint 4 (Week 7-8): Polish
+
 - [ ] **Document active apps**
 - [ ] **Archive inactive apps** to `apps/archive/`
 - [ ] **Update coverage targets** based on reality

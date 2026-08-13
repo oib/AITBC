@@ -11,6 +11,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
 ## 🚀 New Features
 
 ### 🎓 Skills Framework Implementation
+
 - **Deploy-Production Skill**: Created comprehensive deployment workflow skill
   - Location: `.windsurf/skills/deploy-production/`
   - Features: Pre-deployment checks, environment templates, rollback procedures
@@ -23,6 +24,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
   - Use cases: Node management, mining optimization, network diagnostics
 
 ### 📁 Repository Reorganization
+
 - **Root Directory Cleanup**: Moved 60+ loose files to proper subdirectories
   - `scripts/deployment/` - 9 deployment scripts
   - `scripts/gpu/` - 13 GPU miner files
@@ -47,6 +49,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
   - Added project-specific rules for coordinator, explorer, GPU miner
 
 ### 📊 Repository File Audit & Cleanup
+
 - **File Audit Document** (`docs/files.md`): Created comprehensive audit of all 849 repository files
   - Categorized into Whitelist (60), Greylist (0), Placeholders (12), Removed (35)
   - All greylist items resolved - no pending reviews
@@ -69,6 +72,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
 - **Roadmap Updates**: Added Stage 19: Placeholder Content Development, Stage 20: Technical Debt Remediation
 
 ### 🎯 Stage 19: Placeholder Content Development
+
 - **Phase 1: Documentation** (17 files created):
   - User Guides (`docs/user/guides/`): 8 files
   - Developer Tutorials (`docs/developer/tutorials/`): 5 files
@@ -81,6 +85,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
   - Coordinator Migrations (`apps/coordinator-api/migrations/`)
 
 ### 🛠️ Stage 20: Technical Debt Remediation
+
 - **Blockchain Node SQLModel Fixes**: Fixed models.py with proper relationships and type hints
 - **Solidity Token Audit**: Reviewed AIToken.sol and AITokenRegistry.sol with comprehensive tests
 - **ZK Receipt Verifier Integration**: Fixed ZKReceiptVerifier.sol to match receipt_simple circuit
@@ -88,12 +93,14 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
 ## 🔧 Technical Implementation
 
 ### Skills Framework Features
+
 - **Standardized Workflows**: Standardized workflows for complex operations
 - **Automated Safety Checks**: Automated safety checks and validation
 - **Comprehensive Documentation**: Comprehensive documentation and error handling
 - **Integration with Cascade**: Integration with Cascade for intelligent execution
 
 ### Repository Organization Features
+
 - **Logical Structure**: Logical file organization
 - **Reduced Clutter**: Reduced root directory clutter
 - **Improved Navigation**: Improved code navigation
@@ -101,6 +108,7 @@ AITBC v0.3.8 is a **major development workflow release** that introduces the Ski
 - **Consistent Structure**: Consistent directory structure
 
 ### Documentation Features
+
 - **Shared CSS**: Shared CSS for consistency
 - **Theme Support**: Dark theme support
 - **Responsive Design**: Responsive documentation

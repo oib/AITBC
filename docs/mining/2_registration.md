@@ -1,4 +1,5 @@
 # Miner Registration
+
 Register your miner with the the network.
 
 ## Requirements
@@ -57,6 +58,7 @@ aitbc miner status
 ```
 
 Shows:
+
 - Registration status
 - GPU availability
 - Current jobs

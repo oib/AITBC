@@ -5,11 +5,13 @@ This guide covers security problems including unauthorized access, data breaches
 ## Unauthorized Access
 
 **Symptoms:**
+
 - Unauthorized API calls
 - Failed authentication attempts
 - Suspicious activity
 
 **Diagnosis:**
+
 ```bash
 # Check authentication logs
 journalctl -u aitbc-coordinator-api | grep -i authentication
@@ -19,7 +21,9 @@ tail -f /var/log/nginx/access.log
 ```
 
 **Solutions:**
+
 1. Review API keys
+
 ```bash
 # List all API keys
 curl -H "X-Admin-Key: $ADMIN_KEY" \
@@ -29,7 +33,8 @@ curl -H "X-Admin-Key: $ADMIN_KEY" \
 curl -X DELETE http://localhost:8203/v1/admin/api-keys/{key_id}
 ```
 
-2. Enable rate limiting
+1. Enable rate limiting
+
 ```python
 # Add rate limiting
 from slowapi import Limiter
@@ -41,7 +46,8 @@ async def submit_job():
     pass
 ```
 
-3. Enable IP whitelisting
+1. Enable IP whitelisting
+
 ```bash
 # Configure nginx
 allow 192.168.1.0/24;
@@ -51,11 +57,13 @@ deny all;
 ## Data Breach
 
 **Symptoms:**
+
 - Data accessed without authorization
 - Logs show suspicious activity
 - Credentials compromised
 
 **Diagnosis:**
+
 ```bash
 # Check for suspicious activity
 journalctl -u aitbc-* | grep -i error
@@ -65,7 +73,9 @@ grep "401\|403" /var/log/nginx/access.log
 ```
 
 **Solutions:**
+
 1. Immediate containment
+
 ```bash
 # Stop all services
 systemctl stop aitbc-*
@@ -75,7 +85,8 @@ systemctl stop aitbc-*
 # Change database passwords
 ```
 
-2. Investigate breach
+1. Investigate breach
+
 ```bash
 # Preserve evidence
 journalctl -u aitbc-* > incident-logs.txt
@@ -84,7 +95,8 @@ journalctl -u aitbc-* > incident-logs.txt
 grep -i "suspicious\|unauthorized" incident-logs.txt
 ```
 
-3. Recovery
+1. Recovery
+
 ```bash
 # Restore from backup
 psql -d aitbc < backup.sql

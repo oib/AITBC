@@ -5,11 +5,13 @@ This guide covers Coordinator API problems including 500 errors, job queueing is
 ## 500 Internal Server Error
 
 **Symptoms:**
+
 - API returns 500 errors
 - Jobs fail to submit
 - Status checks fail
 
 **Diagnosis:**
+
 ```bash
 # Check API logs
 journalctl -u aitbc-coordinator-api -n 100 | grep -i error
@@ -22,7 +24,9 @@ curl http://localhost:8203/health
 ```
 
 **Solutions:**
+
 1. Check database connectivity
+
 ```bash
 # Test database connection
 psql -h localhost -U aitbc -d aitbc
@@ -31,7 +35,8 @@ psql -h localhost -U aitbc -d aitbc
 systemctl restart postgresql
 ```
 
-2. Check Redis connection
+1. Check Redis connection
+
 ```bash
 # Test Redis
 redis-cli ping
@@ -40,7 +45,8 @@ redis-cli ping
 systemctl restart redis
 ```
 
-3. Check datetime handling
+1. Check datetime handling
+
 ```bash
 # Check for datetime comparison errors
 # Ensure all datetimes are timezone-aware or offset-naive consistently
@@ -49,11 +55,13 @@ systemctl restart redis
 ## Job Stuck in Queued State
 
 **Symptoms:**
+
 - Jobs remain in QUEUED state
 - No miners assigned
 - Job expiration
 
 **Diagnosis:**
+
 ```bash
 # Check job status
 curl -H "X-Api-Key: $API_KEY" \
@@ -67,7 +75,9 @@ journalctl -u aitbc-coordinator-api -n 50
 ```
 
 **Solutions:**
+
 1. Check miner registration
+
 ```bash
 # Verify miners are registered
 curl http://localhost:8203/v1/miners
@@ -78,14 +88,16 @@ curl -X POST http://localhost:8203/v1/miners/register \
   -d '{"miner_id": "miner-123", "gpu_type": "nvidia-rtx-3090"}'
 ```
 
-2. Check job constraints
+1. Check job constraints
+
 ```bash
 # Verify job constraints can be satisfied
 curl -H "X-Api-Key: $API_KEY" \
   http://localhost:8203/v1/jobs/{job_id} | jq '.constraints'
 ```
 
-3. Increase job TTL
+1. Increase job TTL
+
 ```bash
 # Resubmit with longer TTL
 curl -X POST http://localhost:8203/v1/jobs \

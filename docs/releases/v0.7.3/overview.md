@@ -8,6 +8,7 @@
 **Goal**: Wire the existing governance service (991 lines, `apps/governance/src/`) to the blockchain so proposals and votes are on-chain transactions. Replace local-only voting power with on-chain AIT balance snapshots. Add governance transaction types to blockchain-node. Defer cross-chain governance to v0.8.x (requires v0.7.2 verification + v0.7.1 multi-sig).
 
 > **Rescope from original change.log**: The original v0.7.3 change.log bundled on-chain proposals + voting + parameter automation + cross-chain governance into one release. Cross-chain governance requires v0.7.2 bridge verification (in-process Merkle proofs) to be operational and tested, plus v0.7.1 multi-sig for secure proposal propagation. v0.7.2 Agent B is still in progress. Per the release-planning analysis, v0.7.3 is now scoped to **same-chain governance only**:
+>
 > - ✅ v0.7.3: On-chain proposals/votes (GOVERNANCE_PROPOSE/VOTE/EXECUTE tx types), on-chain balance snapshot for voting power, parameter change schema, timelock execution, CLI
 > - ➡️ v0.8.x: Cross-chain governance (proposal propagation via bridge, cross-chain vote aggregation) — deferred until v0.7.2 verification is operational and audited
 > - ➡️ v0.8.x: Parameter automation (pool-hub/marketplace parameter APIs) — deferred until target services expose parameter change endpoints
@@ -37,10 +38,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-2026-06-29)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Governance types](./agent-a.md#a1-governance-types)
@@ -49,6 +52,7 @@ This release documentation has been split into topic-focused files:
 - [Unit tests](./agent-a.md#a4-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Governance config](./agent-b.md#b1-governance-config)

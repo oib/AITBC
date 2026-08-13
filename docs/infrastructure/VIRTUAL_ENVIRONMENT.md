@@ -23,6 +23,7 @@ AITBC now uses a central Python virtual environment to manage all dependencies c
 ## 🚀 Quick Start
 
 ### Activate Virtual Environment
+
 ```bash
 # Use the environment wrapper (recommended)
 /opt/aitbc/aitbc-env
@@ -32,6 +33,7 @@ source /opt/aitbc/venv/bin/activate
 ```
 
 ### CLI Usage
+
 ```bash
 # Start interactive shell with CLI access
 /opt/aitbc/aitbc-env
@@ -46,6 +48,7 @@ source /opt/aitbc/venv/bin/activate
 ## 📦 Package Management
 
 ### Dependencies Included
+
 - **Web Framework**: FastAPI, Uvicorn
 - **Database**: SQLAlchemy, SQLModel, Alembic
 - **Security**: Cryptography, PyNaCl
@@ -54,6 +57,7 @@ source /opt/aitbc/venv/bin/activate
 - **Monitoring**: Prometheus Client, Structlog
 
 ### Installing New Packages
+
 ```bash
 # Activate environment first
 /opt/aitbc/aitbc-env
@@ -68,6 +72,7 @@ pip freeze > /opt/aitbc/requirements.txt
 ## 🔧 Service Integration
 
 ### Updated Services
+
 All major AITBC services now use the central virtual environment:
 
 - ✅ **Wallet Service**: `/opt/aitbc/venv/bin/python`
@@ -76,7 +81,9 @@ All major AITBC services now use the central virtual environment:
 - ✅ **Blockchain Node**: `/opt/aitbc/venv/bin/python`
 
 ### SystemD Configuration
+
 Services automatically use the central venv via updated ExecStart paths:
+
 ```ini
 [Service]
 ExecStart=/opt/aitbc/venv/bin/python service_script.py
@@ -85,6 +92,7 @@ ExecStart=/opt/aitbc/venv/bin/python service_script.py
 ## 🛠️ Development Workflow
 
 ### Development Environment
+
 ```bash
 # Activate for development
 /opt/aitbc/aitbc-env
@@ -98,7 +106,9 @@ pytest tests/
 ```
 
 ### Environment Variables
+
 The environment wrapper sets up:
+
 ```bash
 PYTHONPATH=/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
 AITBC_VENV=/opt/aitbc/venv
@@ -110,6 +120,7 @@ PATH=/opt/aitbc/venv/bin:$PATH
 ### Common Issues
 
 **Service Not Starting**
+
 ```bash
 # Check if venv exists
 ls -la /opt/aitbc/venv/
@@ -122,6 +133,7 @@ journalctl -u aitbc-service-name -n 20
 ```
 
 **Missing Packages**
+
 ```bash
 # Install missing package
 /opt/aitbc/aitbc-env pip install package-name
@@ -131,6 +143,7 @@ systemctl restart aitbc-*
 ```
 
 **Import Errors**
+
 ```bash
 # Check PYTHONPATH
 echo $PYTHONPATH
@@ -140,6 +153,7 @@ echo $PYTHONPATH
 ```
 
 ### Recreate Virtual Environment
+
 ```bash
 # Backup current requirements
 cp /opt/aitbc/requirements.txt /tmp/
@@ -157,6 +171,7 @@ pip install -r /opt/aitbc/requirements.txt
 ## 📋 Management Commands
 
 ### Virtual Environment
+
 ```bash
 # Check Python version
 /opt/aitbc/aitbc-env python --version
@@ -169,6 +184,7 @@ pip install -r /opt/aitbc/requirements.txt
 ```
 
 ### Services
+
 ```bash
 # Restart all services with venv
 systemctl restart aitbc-wallet aitbc-exchange-api
@@ -191,11 +207,13 @@ journalctl -u aitbc-service-name -f
 ## 🔄 Migration Notes
 
 ### From System Python
+
 - No more `--break-system-packages` needed
 - Clean separation from OS packages
 - Consistent package versions across services
 
 ### From Multiple Venvs
+
 - Single source of truth for dependencies
 - Easier maintenance and updates
 - Reduced disk usage

@@ -5,6 +5,7 @@ This document outlines the security architecture, threat model, and implementati
 ## Overview
 
 AITBC implements defense-in-depth security across multiple layers:
+
 - Network security with TLS termination
 - API authentication and authorization
 - Secrets management and encryption
@@ -64,6 +65,7 @@ AITBC implements defense-in-depth security across multiple layers:
 ### Network Security
 
 #### TLS Termination
+
 ```yaml
 # Ingress configuration with TLS
 apiVersion: networking.k8s.io/v1
@@ -80,6 +82,7 @@ spec:
 ```
 
 #### Certificate Management
+
 - Uses cert-manager for automatic certificate provisioning
 - Supports Let's Encrypt for production
 - Internal CA for development environments
@@ -88,18 +91,21 @@ spec:
 ### API Security
 
 #### Authentication
+
 - API key-based authentication for all services
 - Keys stored in Kubernetes Secrets
 - Per-service key rotation policies
 - Audit logging for all authenticated requests
 
 #### Authorization
+
 - Role-based access control (RBAC)
 - Resource-level permissions
 - Rate limiting per API key
 - IP whitelisting for sensitive operations
 
 #### API Key Format
+
 ```
 Header: X-API-Key: aitbc_prod_ak_1a2b3c4d5e6f7g8h9i0j
 ```
@@ -107,16 +113,19 @@ Header: X-API-Key: aitbc_prod_ak_1a2b3c4d5e6f7g8h9i0j
 ### Secrets Management
 
 #### Kubernetes Secrets
+
 - Base64 encoded secrets (not encrypted by default)
 - Encrypted at rest with etcd encryption
 - Access controlled via RBAC
 
 #### SealedSecrets (Recommended for Production)
+
 - Client-side encryption of secrets
 - GitOps friendly
 - Zero-knowledge encryption
 
 #### Secret Rotation
+
 - Automated rotation every 90 days
 - Zero-downtime rotation for services
 - Audit trail of all rotations
@@ -126,6 +135,7 @@ Header: X-API-Key: aitbc_prod_ak_1a2b3c4d5e6f7g8h9i0j
 ### 1. TLS Configuration
 
 #### Coordinator API
+
 ```yaml
 # Helm values for coordinator
 ingress:
@@ -141,6 +151,7 @@ ingress:
 ```
 
 #### Blockchain Node RPC
+
 ```yaml
 # WebSocket with TLS
 wss://aitbc.bubuit.net/ws
@@ -149,6 +160,7 @@ wss://aitbc.bubuit.net/ws
 ### 2. API Authentication Middleware
 
 #### Coordinator API Implementation
+
 ```python
 from fastapi import Security, HTTPException
 from fastapi.security import APIKeyHeader
@@ -173,6 +185,7 @@ async def auth_middleware(request: Request, call_next):
 ### 3. Secrets Management Setup
 
 #### SealedSecrets Installation
+
 ```bash
 # Install sealed-secrets controller
 helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
@@ -183,6 +196,7 @@ kubeseal --format yaml < secret.yaml > sealed-secret.yaml
 ```
 
 #### Example Secret Structure
+
 ```yaml
 apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
@@ -197,6 +211,7 @@ spec:
 ### 4. Network Policies
 
 #### Default Deny Policy
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -210,6 +225,7 @@ spec:
 ```
 
 #### Service-Specific Policies
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -235,12 +251,14 @@ spec:
 ## Security Best Practices
 
 ### Development Environment
+
 - Use 127.0.0.2 for local development (not 0.0.0.0)
 - Separate API keys for dev/staging/prod
 - Enable debug logging only in development
 - Use self-signed certificates for local TLS
 
 ### Production Environment
+
 - Enable all security headers
 - Implement comprehensive logging
 - Use external secret management
@@ -250,12 +268,14 @@ spec:
 ### Monitoring and Alerting
 
 #### Security Metrics
+
 - Failed authentication attempts
 - Unusual API usage patterns
 - Certificate expiry warnings
 - Secret access audits
 
 #### Alert Rules
+
 ```yaml
 - alert: HighAuthFailureRate
   expr: rate(auth_failures_total[5m]) > 10
@@ -277,18 +297,21 @@ spec:
 ## Incident Response
 
 ### Security Incident Categories
+
 1. **Critical**: Data breach, system compromise
 2. **High**: Service disruption, privilege escalation
 3. **Medium**: Suspicious activity, policy violation
 4. **Low**: Misconfiguration, minor issue
 
 ### Response Procedures
+
 1. **Detection**: Automated alerts, manual monitoring
 2. **Assessment**: Impact analysis, containment
 3. **Remediation**: Patch, rotate credentials, restore
 4. **Post-mortem**: Document, improve controls
 
 ### Emergency Contacts
+
 - Security Team: security@aitbc.io
 - On-call Engineer: +1-555-SECURITY
 - Incident Commander: incident@aitbc.io
@@ -296,12 +319,14 @@ spec:
 ## Compliance
 
 ### Data Protection
+
 - GDPR compliance for EU users
 - CCPA compliance for California users
 - Data retention policies
 - Right to deletion implementation
 
 ### Auditing
+
 - Quarterly security audits
 - Annual penetration testing
 - Continuous vulnerability scanning
@@ -310,6 +335,7 @@ spec:
 ## Security Checklist
 
 ### Pre-deployment
+
 - [ ] All API endpoints require authentication
 - [ ] TLS certificates valid and properly configured
 - [ ] Secrets encrypted and access-controlled
@@ -320,6 +346,7 @@ spec:
 - [ ] Security headers configured
 
 ### Post-deployment
+
 - [ ] Security testing completed
 - [ ] Documentation updated
 - [ ] Team trained on procedures

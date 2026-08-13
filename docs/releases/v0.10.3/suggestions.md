@@ -43,6 +43,7 @@ This document captures improvement suggestions discovered during the v0.10.3 cod
 **Issue**: Several critical operations (peer connections, block imports, state root computation, order matching, escrow verification) lack metrics for monitoring and alerting.
 
 **Suggestion**: Add metrics_registry calls to track:
+
 - Success/failure rates
 - Latency distributions (p50, p95, p99)
 - Throughput (operations per second)
@@ -61,6 +62,7 @@ This document captures improvement suggestions discovered during the v0.10.3 cod
 **Issue**: Creates new `httpx.AsyncClient()` for each request without connection pooling, adding overhead to every HTTP call.
 
 **Suggestion**: Use a shared client with connection pooling in the service lifespan:
+
 ```python
 @app.on_event("startup")
 async def startup():
@@ -86,6 +88,7 @@ async def shutdown():
 **Issue**: Service URLs and ports are hardcoded in config files throughout the codebase. This makes deployment fragile and requires updating multiple files when changing infrastructure.
 
 **Suggestion**: Implement a centralized service discovery mechanism:
+
 - Use environment variables for all service URLs
 - Create a shared config module that all services import
 - Add a service registry that services can register with on startup
@@ -104,6 +107,7 @@ async def shutdown():
 **Issue**: Database engine uses default connection pool settings which may not be optimal for production load.
 
 **Suggestion**: Configure pool settings based on expected load:
+
 ```python
 engine = create_engine(
     DATABASE_URL,
@@ -127,6 +131,7 @@ engine = create_engine(
 **Issue**: The `match_and_assign()` function has no rate limiting, allowing potential abuse of the matching engine.
 
 **Suggestion**: Add rate limiting at the API router level using FastAPI's `slowapi` or similar:
+
 ```python
 from slowapi import Limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -150,6 +155,7 @@ async def match_and_assign(request: Request, ...):
 **Issue**: Peer timeout (300 seconds) and discovery interval (30 seconds) are hardcoded. These should be configurable for different network conditions.
 
 **Suggestion**: Move to configuration settings:
+
 ```python
 class NetworkSettings(BaseSettings):
     peer_timeout: int = Field(default=300, description="Peer connection timeout in seconds")
@@ -169,6 +175,7 @@ class NetworkSettings(BaseSettings):
 **Issue**: Voting period is calculated from block time settings but not validated to ensure it's reasonable (e.g., minimum 1 hour, maximum 30 days).
 
 **Suggestion**: Add validation:
+
 ```python
 MIN_VOTING_PERIOD = 3600  # 1 hour
 MAX_VOTING_PERIOD = 2592000  # 30 days
@@ -190,6 +197,7 @@ if voting_period < MIN_VOTING_PERIOD or voting_period > MAX_VOTING_PERIOD:
 **Issue**: Default execution timeout of 300 seconds may be insufficient for complex multi-chain trades.
 
 **Suggestion**: Make timeout configurable per trade type or increase default:
+
 ```python
 class TradingSettings(BaseSettings):
     execution_timeout: int = Field(default=600, description="Trade execution timeout in seconds")
@@ -211,6 +219,7 @@ class TradingSettings(BaseSettings):
 **Issue**: Deprecated shim modules re-export from new locations, cluttering the codebase and confusing developers.
 
 **Suggestion**: Complete the migration started in v0.10.3 by:
+
 1. Searching for all imports of deprecated modules
 2. Updating imports to use new locations
 3. Deleting the deprecated files
@@ -229,6 +238,7 @@ class TradingSettings(BaseSettings):
 **Issue**: Error logging in discovery handler only logs the exception message without context about which peer or message type failed.
 
 **Suggestion**: Include relevant context in error logs:
+
 ```python
 logger.error(
     "Discovery message failed",
@@ -253,6 +263,7 @@ logger.error(
 **Issue**: Cache key generation uses `str(sorted(params.items()))` which may not produce consistent keys across Python versions or for complex nested structures.
 
 **Suggestion**: Use `json.dumps` for more consistent serialization:
+
 ```python
 import json
 cache_key = json.dumps(params, sort_keys=True)
@@ -271,6 +282,7 @@ cache_key = json.dumps(params, sort_keys=True)
 **Issue**: When the queue is full, `put()` returns `False` but doesn't provide a way to handle backpressure or wait for space.
 
 **Suggestion**: Add a blocking variant:
+
 ```python
 async def put_wait(self, item, timeout: float = None):
     """Put item in queue, blocking until space is available"""
@@ -294,6 +306,7 @@ async def put_wait(self, item, timeout: float = None):
 **Issue**: Only coordinator-api and blockchain-node have `.env.example` files. Other services lack environment variable documentation.
 
 **Suggestion**: Create `.env.example` files for each service documenting:
+
 - Required environment variables
 - Optional variables with defaults
 - Description of each variable
@@ -312,6 +325,7 @@ async def put_wait(self, item, timeout: float = None):
 **Issue**: Complex endpoint URL manipulation with string replacement is fragile and error-prone.
 
 **Suggestion**: Use proper URL parsing library:
+
 ```python
 from urllib.parse import urljoin, urlparse
 
@@ -332,6 +346,7 @@ endpoint = urljoin(base_url, "/rpc/head")
 **Issue**: Import of `httpx as _httpx` is done inside the function instead of at module level, which is less efficient.
 
 **Suggestion**: Move import to module level:
+
 ```python
 import httpx as _httpx
 
@@ -354,6 +369,7 @@ def get_wallet_balance(...):
 **Issue**: The external oracle infrastructure referenced in v0.7.2 does not exist. No oracle client code, light client library, or deployed oracle network are present.
 
 **Suggestion**: Research and design an external oracle architecture:
+
 - Define oracle protocol and API
 - Implement light client for block header verification
 - Design oracle network for decentralization
@@ -372,6 +388,7 @@ def get_wallet_balance(...):
 **Issue**: Compact blocks protocol was planned in v0.6.2 but never implemented. Would significantly reduce bandwidth for block propagation.
 
 **Suggestion**: Design and implement compact blocks:
+
 - Define compact block format (tx hashes instead of full txs)
 - Implement mempool reconciliation protocol
 - Add fallback to full blocks when reconciliation fails
@@ -390,6 +407,7 @@ def get_wallet_balance(...):
 **Issue**: Gossip protocol v2 with message prioritization and propagation control was planned in v0.6.2 but never implemented.
 
 **Suggestion**: Design and implement gossip v2:
+
 - Message priority levels
 - Propagation control (TTL, fanout)
 - Message deduplication improvements
@@ -408,6 +426,7 @@ def get_wallet_balance(...):
 **Issue**: Epoch rewards calculation and distribution was planned but never integrated into block production.
 
 **Suggestion**: Design and implement epoch rewards:
+
 - Define epoch duration
 - Calculate rewards based on participation
 - Distribute rewards in coinbase transactions
@@ -426,6 +445,7 @@ def get_wallet_balance(...):
 **Issue**: Bridge and consensus code have not undergone external security audit. Homebrew security review was done for v0.7.5 but is insufficient for production.
 
 **Suggestion**: Engage a reputable security audit firm to review:
+
 - Bridge cryptographic verification
 - Consensus algorithm correctness
 - Multi-sig threshold implementation

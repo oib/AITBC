@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/` (cross-cutting)
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy --show-error-codes apps/coordinator-api/src apps/blockchain-node/src
 ```

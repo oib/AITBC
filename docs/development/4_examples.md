@@ -90,6 +90,7 @@ with CoordinatorReceiptClient(base_url="http://localhost:8203", api_key="your_ke
 ## CLI Examples
 
 ### Job Management
+
 ```bash
 # Create job from file
 aitbc job create job.yaml
@@ -105,6 +106,7 @@ aitbc job download <job_id> --output ./results/
 ```
 
 ### Marketplace Operations
+
 ```bash
 # List available offers
 aitbc marketplace list --type image-classification
@@ -119,4 +121,5 @@ aitbc marketplace accept <offer_id> --job-id <job_id>
 ## Complete Examples
 
 Find full working examples in this repository:
+
 - [cURL Examples](../api/examples/curl-examples.md) — direct HTTP calls against the coordinator and blockchain node APIs

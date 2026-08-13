@@ -21,11 +21,13 @@ This document illustrates the complete flow of a job submission through the CLI 
 ### 1. CLI Wrapper Execution
 
 **User Command:**
+
 ```bash
 ./scripts/aitbc-cli.sh submit inference --prompt "What is machine learning?" --model llama3.2:latest
 ```
 
 **Internal Process:**
+
 1. Bash script (`aitbc-cli.sh`) parses arguments
 2. Sets environment variables:
    - `AITBC_URL=http://127.0.0.1:8203`
@@ -37,8 +39,10 @@ This document illustrates the complete flow of a job submission through the CLI 
 **File:** `/cli/client.py`
 
 **Steps:**
+
 1. Parse command-line arguments
 2. Prepare job submission payload:
+
    ```json
    {
      "type": "inference",
@@ -52,6 +56,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 ### 3. Coordinator API Call
 
 **HTTP Request:**
+
 ```http
 POST /v1/jobs
 Host: 127.0.0.1:8203
@@ -66,11 +71,13 @@ X-Api-Key: ${CLIENT_API_KEY}
 ```
 
 **Coordinator Service (Port 8203):**
+
 1. Receives HTTP request
 2. Validates API key and job parameters
 3. Generates unique job ID: `job_123456`
 4. Creates job record in database
 5. Returns initial response:
+
    ```json
    {
      "job_id": "job_123456",
@@ -84,6 +91,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 **Coordinator → Blockchain Node (RPC Port 26657):**
 
 1. Coordinator creates blockchain transaction:
+
    ```json
    {
      "type": "submit_job",
@@ -95,6 +103,7 @@ X-Api-Key: ${CLIENT_API_KEY}
    ```
 
 2. RPC Call to blockchain node:
+
    ```bash
    curl -X POST http://127.0.0.1:26657 \
      -d '{
@@ -110,6 +119,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 ### 5. Job Queue and Miner Assignment
 
 **Coordinator Internal Processing:**
+
 1. Job added to pending queue (Redis/Database)
 2. Miner selection algorithm runs:
    - Check available miners
@@ -117,6 +127,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 3. Selected miner: `${MINER_API_KEY}`
 
 **Coordinator → Miner Daemon (Port 8005):**
+
 ```http
 POST /v1/jobs/assign
 Host: 127.0.0.1:8005
@@ -137,9 +148,11 @@ X-Api-Key: ${ADMIN_API_KEY}
 ### 6. Miner Processing
 
 **Miner Daemon (Port 8005):**
+
 1. Receives job assignment
 2. Updates job status to `running`
 3. Notifies coordinator:
+
    ```http
    POST /v1/jobs/job_123456/status
    {"status": "running", "started_at": "2025-01-29T14:50:05Z"}
@@ -148,6 +161,7 @@ X-Api-Key: ${ADMIN_API_KEY}
 ### 7. Ollama Inference Request
 
 **Miner → Ollama Server (Port 11434):**
+
 ```http
 POST /api/generate
 Host: 127.0.0.1:11434
@@ -165,10 +179,12 @@ Content-Type: application/json
 ```
 
 **Ollama Processing:**
+
 1. Loads model into GPU memory
 2. Processes prompt through neural network
 3. Generates response text
 4. Returns result:
+
    ```json
    {
      "model": "llama3.2:latest",
@@ -183,6 +199,7 @@ Content-Type: application/json
 ### 8. Result Submission to Coordinator
 
 **Miner → Coordinator (Port 8203):**
+
 ```http
 POST /v1/jobs/job_123456/complete
 Host: 127.0.0.1:8203
@@ -207,9 +224,11 @@ X-Miner-Key: ${MINER_API_KEY}
 ### 9. Receipt Generation
 
 **Coordinator Processing:**
+
 1. Verifies miner's proof
 2. Calculates payment: `12.5 seconds × 0.02 AITBC/second = 0.25 AITBC`
 3. Creates receipt:
+
    ```json
    {
      "receipt_id": "receipt_789",
@@ -226,6 +245,7 @@ X-Miner-Key: ${MINER_API_KEY}
 ### 10. Blockchain Receipt Recording
 
 **Coordinator → Blockchain (RPC Port 26657):**
+
 ```json
 {
   "type": "record_receipt",
@@ -240,11 +260,13 @@ X-Miner-Key: ${MINER_API_KEY}
 ### 11. Client Polling for Result
 
 **CLI Client Status Check:**
+
 ```bash
 ./scripts/aitbc-cli.sh status job_123456
 ```
 
 **HTTP Request:**
+
 ```http
 GET /v1/jobs/job_123456
 Host: 127.0.0.1:8203
@@ -252,6 +274,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 ```
 
 **Response:**
+
 ```json
 {
   "job_id": "job_123456",
@@ -265,6 +288,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 ### 12. Final Output to User
 
 **CLI displays:**
+
 ```
 Job ID: job_123456
 Status: completed

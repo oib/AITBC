@@ -42,6 +42,7 @@
 **Working directory**: `/opt/aitbc/aitbc/crypto/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -58,6 +59,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 ### Agent A — Detailed Instructions
 
 #### A1: Fix the signing-scheme regression (P0)
+
 - **Problem**: `generate_signed_transaction()` (<ref_snippet file="/opt/aitbc/aitbc/crypto/transaction_service.py" lines="90-102" />) signs with `ed25519.Ed25519PrivateKey` producing a 64-byte signature. The node's `verify_transaction_signature` (<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/utils.py" lines="38-47" />) does secp256k1 `ecrecover` and rejects anything that isn't 65 bytes. Result: agent-coordinator coin requests and CLI transfers signed via this helper now fail with `403 Invalid transaction signature`.
 - **Fix**: Sign with secp256k1 using **`eth_keys`** (not eth-account — see ⚠️ below). The signed payload **must** match the verifier exactly:
   - message = `keccak256( json.dumps(<signed fields>, sort_keys=True, separators=(",", ":")) )`
@@ -73,14 +75,17 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 - **Coordination**: the message format is the shared contract with Agent B (B6) — see the updated Coordination Protocol. The B6 round-trip test must use `eth_keys`-signed txs.
 
 #### A2: Require chain_id
+
 - In `generate_signed_transaction`, after resolving `actual_chain_id = chain_id or self.chain_id`, if it is empty/`None`: log an error and return `None` (or raise `ValueError`) — never emit `chain_id: ""`.
 - Keep the signature param backward-compatible (`chain_id: str | None = None`), but fail closed when it can't be resolved.
 
 #### A3: Canonical recover/verify primitive
+
 - Add `recover_signer(message_data: dict[str, Any], signature: str) -> str | None` to `aitbc/crypto/crypto.py` (keccak256 of canonical JSON → eth-account recover → checksum address; return `None` on any failure). Export it from `aitbc/crypto/__init__.py`.
 - This is the single implementation that Agent B will migrate `verify_transaction_signature`, `verify_request_signature`, and `_verify_proposer_signature` onto (B6/B1). Keep the existing `verify_signature(message_hash, signature, address)` intact for current callers.
 
 #### A4: Tests
+
 - New `tests/unit/test_transaction_service.py`: sign a tx with the genesis key, assert `recover_signer(...) == from` and that the produced signature is 65 bytes; assert `generate_signed_transaction` returns `None` when chain_id unresolved.
 
 ---
@@ -92,6 +97,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 **Working directory**: `/opt/aitbc/` (cross-cutting)
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
   cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts="" ; cd ../.. ; \
@@ -115,6 +121,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 ### Agent B — Detailed Instructions
 
 #### B1: Fence the bridge release path (P0)
+
 - **Problem**: `_verify_proposer_signature` (<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py" lines="350-357" />) recovers a signer but accepts **any** valid signature — it never checks the recovered address is an authorized source-chain proposer. A proof signed by any attacker-generated key passes. The mint/release path is therefore drainable until v0.7.2 adds proposer-set tracking.
 - **Fix (this release)**:
   - Gate `confirm_transfer` / the unlock-mint path behind a setting that defaults **off** (e.g. `BRIDGE_RELEASE_ENABLED=false`); return `503 bridge release disabled` when off.
@@ -123,26 +130,33 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 - **Do NOT** attempt full proposer-set verification here — that is v0.7.2. (After A3 lands, migrate `_verify_proposer_signature` to call `aitbc.crypto.recover_signer` so v0.7.2 only has to add the set-membership check.)
 
 #### B2: Bug 9 — authenticate `/mining/miners`
+
 - Add `get_authenticated_address(request, credentials)` to `list_miners_route` (<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/router.py" lines="907-913" />), matching `/mining/start|stop|status` (lines 855/880/896).
 
 #### B3: Bug 10 — no more silent feature disabling
+
 - 7 `try/except ImportError` blocks in `rpc/router.py` (≈lines 44-204) set disputes/contracts/islands/bridge/staking/gpu functions to `None` silently.
 - For each: `logger.warning("RPC feature '<x>' disabled: %s", exc)` at import time, and register a `503` fallback route (don't 404 silently). Add `RPC_REQUIRE_ALL_FEATURES=true` to fail-fast on startup when any required module is missing.
 
 #### B4: Bug 15 — marketplace port
+
 - <ref_snippet file="/opt/aitbc/apps/marketplace/src/marketplace_service/main.py" lines="19-19" />: change default `http://localhost:8202` → `http://localhost:8006` (blockchain-node RPC). Grep the marketplace package for any other `8202` literals.
 
 #### B5: GPU chain_id
+
 - The `GPU_REGISTER` tx dict in `gpu_service/main.py` (≈lines 272-291) has no `chain_id`. Add `"chain_id": os.getenv("CHAIN_ID", "") or DEFAULT_CHAIN_ID`. Same class as Bug 16; completes the cross-service chain_id family. (Relies on the v0.5.16 `TransactionRequest.chain_id` field, already present.)
 
 #### B6: Verifier side of the signing-scheme fix (P0)
+
 - Confirm `verify_transaction_signature` builds the message identically to A1: `keccak256(json.dumps(tx_without "signature", sort_keys=True, separators=(",",":")))`, 65-byte sig, recovered == `from`.
 - Add an integration test under `tests/integration/` that calls `TransactionService.generate_signed_transaction(...)` then drives `/rpc/transaction` (via the multi-node harness `TestClient`) and asserts **acceptance** (not 403). This is the regression guard for A1↔B6.
 
 #### B7: Bug 14 — document dev-only header trust
+
 - `auth.py` already defaults `TRUST_X_WALLET_ADDRESS` to false and warns when enabled (<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/auth.py" lines="35-49" />) — no code change. Add a dev-only warning comment to the relevant `examples/*.env` and a sentence in the bridge/node docs.
 
 #### B8: Release tracking
+
 - `v0.5.16/change.log`: set per-bug status (✅ for done items in the Status Baseline above; **PARTIAL** for Bug 3 with the B1 fence noted), flip header `Status` from `🚧 Planned` to `🚧 In Progress`/`✅ Complete` as appropriate.
 - Root `AGENTS.md`: move v0.5.16 and v0.5.17 out of "Planned Releases / Immediate Bugfix" into "Completed Releases", and correct the stale "Verified Code Targets … STILL PRESENT" claims for the already-fixed bugs (and Bug 6 import-crash, now obsolete).
 
@@ -153,6 +167,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 **Problem**: All genesis/keystore scripts generate ed25519 keys and derive addresses as `sha256(pubkey)[:20].hex()` with `ait1` or `aitbc1` prefix. The node's transaction verifier (Bug 4 fix) and A1 signer use secp256k1 with Ethereum-style `keccak256(pubkey)[-20:]` + `0x` addresses. A1 made the signer correct, but a genesis wallet created by the existing tooling produces an ed25519 private key and an `ait1` address — `eth_keys.PrivateKey(bytes.fromhex(...))` will derive a *different* `0x` address, A1's fail-closed check rejects the mismatch, and no genesis-funded transaction can be signed. This task makes genesis key generation consistent with the verifier.
 
 **NOT in scope** (explicitly excluded to prevent scope creep):
+
 - **Agent receipt signing** (`packages/py/aitbc-crypto/src/aitbc_crypto/signing.py`, `packages/py/aitbc-sdk/src/aitbc_sdk/receipts.py`) — these use ed25519 for agent-to-agent receipt signatures, a separate system from blockchain transaction signing. Leave as-is.
 - **Wallet app encryption** (`apps/wallet/src/app/crypto/encryption.py`) — uses nacl XChaCha20-Poly1305 for symmetric encryption, not key generation. Keep nacl for encryption; only change the key *generation* algorithm.
 - **`aitbc/crypto/crypto.py`** — already has `derive_ethereum_address()` using eth_account. No change needed (Agent A domain).
@@ -160,6 +175,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 **Sub-tasks** (all Agent B domain — `apps/`, `cli/`):
 
 **B9a — Genesis scripts** (5 files in `apps/blockchain-node/scripts/`):
+
 1. `create_genesis_wallet.py` (lines 11, 31-32, 16-23, 42):
    - Replace `ed25519.Ed25519PrivateKey.from_private_bytes(...)` with `eth_account.Account.from_key(...)` (or `eth_keys.keys.PrivateKey(...)`).
    - Replace `derive_address_from_public_key()` (sha256→aitbc1) with `aitbc.crypto.crypto.derive_ethereum_address()` (already exists, returns `0x` checksum address) or inline equivalent: `Account.from_key(priv_key).address`.
@@ -188,6 +204,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
    - Reads allocations JSON with `ait1` addresses. No key generation, but update any example/default allocations to `0x` format. The script itself is format-agnostic (just passes addresses through), so minimal change.
 
 **B9b — Address validation & prefix checks** (3 files in `apps/`):
+
 1. `apps/coordinator-api/src/app/agent_identity/wallet_adapter_enhanced.py` (lines 599, 719, 723, 754):
    - `_derive_address_from_private_key()` (line 749-754): replace `sha256(private_key)[:32]` + `ait1` prefix with `Account.from_key(private_key).address` (secp256k1 → `0x`).
    - Address validation (line 719-723): change `startswith("ait1")` check to `startswith("0x")` + length 42 + checksum validation (`eth_utils.is_checksum_address`).
@@ -200,6 +217,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
    - `if decoded.startswith("ait1") or decoded.startswith("aitbc1")` → `if decoded.startswith("0x")`.
 
 **B9c — CLI wallet** (2 files in `cli/`):
+
 1. `cli/aitbc_cli/commands/wallet/basic.py` (lines 48, 582, 589):
    - HD wallet path (line 48) already uses `ec.SECP256K1()` — good, but derives address as `aitbc1{sha256[:20]}`. Change to Ethereum `0x` address derivation.
    - Simple wallet path (lines 582, 589): replace fake key generation + `ait1` address with real `Account.create()` + `0x` address.
@@ -209,6 +227,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
    - If removing bech32 entirely, update `hex_to_bech32()` callers.
 
 **B9d — Tests** (update mocks + key generation):
+
 1. `tests/verification/test_keystore_mac.py` (lines 16, 41, 91, 121, 166):
    - Replace `ed25519.Ed25519PrivateKey.generate()` with `Account.create()`.
    - MAC computation (HMAC-SHA256 over derived_key[16:32] + ciphertext) is encryption-layer, stays the same.
@@ -233,6 +252,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
    - Use valid checksum `0x` addresses (e.g. `Account.create().address`) or well-known test addresses.
 
 **B9e — Examples & docs** (update `ait1` → `0x` in env examples):
+
 1. `examples/blockchain.env.example` (lines 40, 41) — replace `ait1` addresses with `0x` addresses.
 2. `examples/blockchain.env.open-island` (lines 6, 22) — same.
 3. `apps/blockchain-node/create_enhanced_genesis.py` (line 75) — hardcoded `ait1devproposer...` → real `0x` test address or derive from a test key.
@@ -240,6 +260,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 5. `apps/blockchain-node/scripts/keygen.py` (line 25) — fake `ait1` address → `Account.create().address`.
 
 **Verification for B9**:
+
 ```bash
 # 1. Generate a genesis wallet and verify the address is 0x + key is secp256k1
 ./venv/bin/python apps/blockchain-node/scripts/create_genesis_wallet.py
@@ -260,6 +281,7 @@ cd apps/blockchain-node && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 ```
 
 **Operational note (for B8 changelog)**: This is a **breaking change for existing deployments**. Any chain running with ed25519 genesis wallets must:
+
 1. Regenerate the genesis wallet (`create_genesis_wallet.py` or `unified_genesis.py --force --create-wallet`).
 2. Update `GENESIS_ADDRESS` and `GENESIS_PRIVATE_KEY` env vars with the new `0x` address and secp256k1 key.
 3. Reinitialize the chain database (genesis allocations now use `0x` addresses).
@@ -292,7 +314,9 @@ cd apps/blockchain-node && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 No file is edited by both agents. The only cross-agent dependency is the **wire-format contract** for transaction signatures.
 
 ### Shared Contract — Transaction Signature Wire Format (A1 ↔ B6) — VERIFIED
+
 Both sides MUST agree, byte-for-byte (confirmed against the real verifier in A1):
+
 1. **Curve**: secp256k1, signed with **`eth_keys`** (`PrivateKey.sign_msg_hash`). ⚠️ Do **not** use eth-account `sign_hash` — it emits `v=27/28` which `eth_keys.Signature` rejects (`v` must be `0/1`).
 2. **Signed fields**: exactly `{from, to, amount, fee, nonce, payload, type}` — i.e. the endpoint's `tx_data_dict` minus `signature`. **`chain_id` is excluded** (latent malleability gap → close in B6).
 3. **Message**: `keccak256( json.dumps(<signed fields>, sort_keys=True, separators=(",", ":")) )`.
@@ -315,6 +339,7 @@ If either side needs to change this, update this section first and re-run the B6
    - Both: run full verification commands; confirm `apps/coordinator-api` and `apps/blockchain-node` suites green.
 
 ### Definition of Done
+
 - [ ] A round-trip test proves a `TransactionService`-signed tx is **accepted** by `/rpc/transaction` (A1 + B6 + B9a — needs a secp256k1 genesis key).
 - [ ] `chain_id` cannot be silently dropped from a shared-helper transaction (A2) and GPU registers with chain_id (B5).
 - [ ] `/mining/miners` requires auth (B2); silent import failures are logged, not hidden (B3); marketplace points at `:8006` (B4).

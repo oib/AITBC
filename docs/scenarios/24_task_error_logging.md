@@ -83,6 +83,7 @@ print('PASS: create_task_with_logging executed and logged the failure')
 ```
 
 **Expected output:**
+
 ```
 Background task test_b8_failure failed: Test failure for B8/B9 verification
 Traceback (most recent call last):
@@ -111,6 +112,7 @@ systemctl start redis
 ```
 
 **Expected output:**
+
 ```
 Jul 05 14:33:24 aitbc3 aitbc-blockchain[988]: [ERROR] [aitbc_chain.gossip.broker] [BROKER SUB ERROR] Redis subscription error for topic blocks.ait-hub.aitbc.bubuit.net: Error Multiple exceptions: [Errno 111] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.
 Jul 05 14:33:24 aitbc3 aitbc-blockchain[988]: [INFO] [aitbc_chain.gossip.broker] [BROKER SUB] Redis subscription ended for topic: blocks.ait-hub.aitbc.bubuit.net
@@ -126,11 +128,13 @@ journalctl -u aitbc-edge -n 50 --no-pager | grep -iE "register|blockchain"
 ```
 
 **Expected output (on failure):**
+
 ```
 Jul 05 11:37:28 aitbc3 python[2207]: [WARNING] [aitbc_edge.main] Failed to register edge node on blockchain: All connection attempts failed
 ```
 
 **Expected output (on success):**
+
 ```
 Jul 05 14:28:13 aitbc3 python[50134]: [INFO] [aitbc_edge.main] Edge node registered on blockchain: edge-aitbc3
 ```

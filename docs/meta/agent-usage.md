@@ -23,18 +23,21 @@ agent agent --agent CoordinatorAgent --session-id "orchestration" --message "Coo
 ## Advanced AI Operations
 
 ### Phase 1: Advanced AI Workflow Orchestration
+
 ```bash
 ./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "Complex AI pipeline for medical diagnosis" --payment 500
 ./aitbc-cli ai-submit --wallet genesis-ops --type ensemble --prompt "Parallel AI processing with ensemble validation" --payment 600
 ```
 
 ### Phase 2: Multi-Model AI Pipelines
+
 ```bash
 ./aitbc-cli ai-submit --wallet genesis-ops --type multimodal --prompt "Multi-modal customer feedback analysis" --payment 1000
 ./aitbc-cli ai-submit --wallet genesis-ops --type fusion --prompt "Cross-modal fusion with joint reasoning" --payment 1200
 ```
 
 ### Phase 3: AI Resource Optimization
+
 ```bash
 ./aitbc-cli ai-submit --wallet genesis-ops --type resource-allocation --prompt "Dynamic resource allocation system" --payment 800
 ./aitbc-cli ai-submit --wallet genesis-ops --type performance-tuning --prompt "AI performance optimization" --payment 1000

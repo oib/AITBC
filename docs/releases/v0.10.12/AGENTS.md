@@ -52,11 +52,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 **Problem**: `mypy --show-error-codes aitbc/` fails because `types-pytz` is not installed and `bcrypt`/`zstandard`/`yaml` are not available to mypy.
 
 **Fix**:
+
 - Coordinate with Agent B to add `types-pytz` to dev dependencies and `bcrypt`/`zstandard` to main dependencies (or add `mypy` overrides if the imports are optional).
 - If adding dependencies is not possible, add targeted `mypy` overrides or wrap optional imports so mypy sees them as `Any`.
 - Do not add `# type: ignore` comments unless documented.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/
 # Expected: no errors
@@ -71,11 +73,13 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/
 **Problem**: `assert` is removed when running `python -O` and should not be used for runtime checks.
 
 **Fix**:
+
 - Replace `assert self.session is not None` etc. with explicit `if self.session is None: raise RuntimeError(...)` or `typing.cast`.
 - Leave `assert` in test files unchanged.
 - Do not modify `aitbc/agent_bridge/src/integration_layer.py` — that file is owned by Agent B as a shared-boundary implementation.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -R "^\s*assert\s" aitbc/ --include="*.py" | grep -v test | wc -l
 # Expected: 0
@@ -88,6 +92,7 @@ cd /opt/aitbc && grep -R "^\s*assert\s" aitbc/ --include="*.py" | grep -v test |
 #### A3: Fix broad `except Exception: pass` in `aitbc/`
 
 **Problem**: Several `aitbc/` modules swallow exceptions silently, hiding real failures. Confirmed locations:
+
 - `aitbc/utils/time_utils.py:retry_until_deadline`
 - `aitbc/crypto/crypto.py:117`
 - `aitbc/crypto/secrets.py:91,214`
@@ -96,12 +101,14 @@ cd /opt/aitbc && grep -R "^\s*assert\s" aitbc/ --include="*.py" | grep -v test |
 - `aitbc/crypto/tokens.py:159-166` (API-key persistence fallback)
 
 **Fix**:
+
 - Log the exception at `WARNING` or `ERROR` level unless the fallback is explicitly intentional.
 - Narrow the exception type where possible (e.g., `Exception` is acceptable for a retry loop but should be logged).
 - For intentional crypto fallbacks that return `None`/`False`, document the behavior in a comment and ensure the fallback value is still logged at `DEBUG` or `INFO`.
 - Do not change behavior that would break callers; only add observability and narrow overly broad handlers where safe.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 # Expected: all tests pass
@@ -116,10 +123,12 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 **Problem**: Several `aitbc/` modules are at 0-20% coverage (`alerting.py`, `health_checks.py`, `utils/time_utils.py`).
 
 **Fix**:
+
 - Add unit tests for the smallest public surface first.
 - Target the `tests/unit` suite.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" --cov=aitbc --cov-report=term --cov-fail-under=46
 # Expected: pass and coverage does not regress
@@ -164,10 +173,12 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 **Problem**: `mypy aitbc/ cli/ --ignore-missing-imports` reports 16 errors in `cli/`: 15 unused `type: ignore` comments and one `call-arg` error in `cli/aitbc_cli/commands/wallet/__init__.py:139`.
 
 **Fix**:
+
 - Remove stale `type: ignore` comments from `cli/`.
 - Fix `error("Failed to re-save wallet with encryption: %s", e)` to `error(f"Failed to re-save wallet with encryption: {e}")`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ cli/ --ignore-missing-imports
 # Expected: no errors
@@ -182,6 +193,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ cli/ --igno
 **Problem**: `assert` and `print` are used in production source paths. `print` in `apps/wallet/src/wallet_app/bridge/generate_eth_address.py` also prints a private key. The CLI also has silent exception handlers that hide failures.
 
 **Fix**:
+
 - Replace `assert` with explicit checks/exceptions or `typing.cast`.
 - Replace `print` in `apps/wallet/src/wallet_app/bridge/` with the logger.
 - Remove or secure the private-key print in `generate_eth_address.py`; do not print key material to stdout or logs. Add a regression test proving the private key is never emitted.
@@ -190,6 +202,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ cli/ --igno
 - Audit `cli/aitbc_cli/` for silent `except Exception: pass` handlers and add logging or explicit propagation where appropriate.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -R "^\s*assert\s" apps/ cli/ aitbc/agent_bridge/src --include="*.py" | grep -v test | wc -l
 # Expected: 0
@@ -206,15 +219,18 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k gene
 #### B3: Repair `tests/coordinator` and `tests/integration`
 
 **Problem**:
+
 - `tests/coordinator/test_ignored_modules.py` patches `requests.post` but `apps/agent-coordinator/src/agent_app/monitoring/alerting.py` uses `httpx.AsyncClient`.
 - `tests/integration` hangs around 37% because Redis/Postgres-dependent tests are not isolated.
 
 **Fix**:
+
 - Update `test_ignored_modules.py` Slack/webhook tests to mock `httpx.AsyncClient` or the `_send_slack`/`_send_webhook` methods directly.
 - Remove `@pytest.mark.asyncio` from synchronous test functions.
 - Add `pytest` markers to quarantine tests that require external services, and provide fakes/fake-redis fixtures for those that can be mocked.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/coordinator -q -o addopts=""
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
@@ -230,6 +246,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 **Problem**: `bcrypt` and `zstandard` are used but not declared, `types-pytz` is missing, `uv.lock` is an empty placeholder and is git-ignored, `poetry.lock` also exists, CI uses `uv sync --dev`, and version strings are inconsistent across the repo.
 
 **Fix**:
+
 - Decide the canonical resolver: `uv` (matches current CI) or `poetry`. Document the decision in this plan.
 - If `uv` is canonical: regenerate and commit a real `uv.lock`, remove `uv.lock` from `.gitignore`, and verify `uv lock --check` passes in CI.
 - If `poetry` remains supported: regenerate `poetry.lock` as well.
@@ -242,6 +259,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 - Coordinate with Agent A on any `mypy` configuration needed in `pyproject.toml`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pip check
 # Expected: no broken requirements
@@ -264,6 +282,7 @@ cd /opt/aitbc && ./venv/bin/python -m aitbc_cli --version
 **Problem**: `apps/coordinator-api/alembic/versions/` contains multiple independent roots (`down_revision = None`) and multiple heads, so `alembic upgrade head` fails with "Multiple head revisions are present." Offline SQL generation also fails because `drop_unused_pricing_tables.py` calls `inspect()` on Alembic's offline mock connection.
 
 Confirmed problematic revisions:
+
 - `001_initial_migration.py` — root
 - `2024_01_05_add_receipts_table.py` — separate root
 - `001_context_table_prefixes.py` — separate root
@@ -272,6 +291,7 @@ Confirmed problematic revisions:
 - `add_agent_execution_fields.py` — head
 
 **Fix**:
+
 - Reconcile the graph into a single linear history (or explicitly declare and test multiple heads if that is the intended model).
 - Add the missing `down_revision` links so `alembic history` shows one line (or one documented set of heads).
 - Fix `drop_unused_pricing_tables.py` to skip `inspect()` when `context.is_offline_mode()` is true.
@@ -283,6 +303,7 @@ Confirmed problematic revisions:
 - Document any intentional multiple-head topology in `apps/coordinator-api/alembic/README.md`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/alembic upgrade head
 # Expected: succeeds
@@ -301,12 +322,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k alem
 #### B6: Harden `tests/integration` isolation and external-service gating
 
 **Problem**: `tests/integration` hangs and calls real external services. Confirmed issues:
+
 - `test_blockchain_nodes.py` calls `https://hub.aitbc.bubuit.net` and performs faucet minting.
 - `test_blockchain_final.py` and `test_blockchain_simple.py` call localhost blockchain services.
 - The integration `conftest.py` creates a new `TestClient` per test while coordinator shutdown sleeps 1 second per teardown.
 - Redis is disabled by default with an in-memory fallback, but tests are not consistently isolated from this state.
 
 **Fix**:
+
 - Add pytest markers: `external`, `blockchain`, `postgres`, `redis`. Register them in `pyproject.toml`.
 - Mark `test_blockchain_nodes.py` and any localhost-dependent blockchain tests with the appropriate markers.
 - Exclude external-service tests from the default `pytest tests/integration` run (use `-m "not external"` as the default command).
@@ -316,6 +339,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k alem
 - Add a runtime budget for the repaired integration suite (target: under 5 minutes for the default non-external subset).
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" -m "not external"
 # Expected: passes within the runtime budget
@@ -332,6 +356,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" 
 **Problem**: CI runs `mypy aitbc/ cli/ --ignore-missing-imports` but the release also requires the stricter `mypy aitbc/`. CI does not enforce the no-`assert`/no-`print` rules, and `tests/coordinator` is missing from the root `testpaths`.
 
 **Fix**:
+
 - Add `mypy --show-error-codes aitbc/` as a separate CI job or step.
 - Add an AST/static check that fails on production `assert` and `print()` across `aitbc/`, `apps/`, `cli/`, and `aitbc/agent_bridge/`. Prefer a small Python script or `ruff` rule over fragile `grep`.
 - Add a version-consistency check to CI that compares `pyproject.toml`, `aitbc/_version.py`, and `aitbc_cli --version`.
@@ -339,6 +364,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts="" 
 - Add the repaired coordinator and integration commands to CI, excluding external tests.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/
 # Expected: no errors
@@ -363,6 +389,7 @@ cd /opt/aitbc && ./venv/bin/python scripts/check_version_consistency.py
 5. Once B5 is complete, both agents can proceed independently on their remaining P1 tasks.
 
 **Ownership clarifications**:
+
 - `aitbc/agent_bridge/src/integration_layer.py` is owned by **Agent B** (shared-boundary implementation). Agent A must not edit it. The `assert` statements there are covered by **B2**, not **A2**.
 - `apps/coordinator-api/alembic/versions/`, `alembic.ini`, and `env.py` are owned by **Agent B** (B5).
 - `tests/integration/conftest.py` and integration markers are owned by **Agent B** (B6).
@@ -392,6 +419,7 @@ cd /opt/aitbc && ./venv/bin/python scripts/check_version_consistency.py
 ## Completion Summary
 
 Planned outcomes:
+
 - ✅ `mypy --show-error-codes aitbc/` passes with no errors
 - ✅ `mypy --show-error-codes aitbc/ cli/ --ignore-missing-imports` passes
 - ✅ `ruff check .` passes

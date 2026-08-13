@@ -24,10 +24,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--already-done-verified-do-not-redo)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [BlockchainTextFormatter backward-compat alias](./agent-a.md#a1-blockchaintextformatter-backward-compat-alias)
@@ -36,6 +38,7 @@ This release documentation has been split into topic-focused files:
 - [Fix test_core.py collection error](./agent-a.md#a4-fix-test_corepy-collection-error)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Register multi-chain and multi-node fixtures](./agent-b.md#b1-register-multi-chain-and-multi-node-fixtures)
@@ -89,6 +92,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -121,9 +125,11 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 #### A3: Update transaction service unit tests
 
 - Update `test_canonical_message_is_pinned_to_node_format`: add `"chain_id": "ait-hub"` to the tx dict and to the expected JSON string. The expected message becomes:
+
   ```
   {"amount":100,"chain_id":"ait-hub","fee":36,"from":"0x...","nonce":0,"payload":{"amount":100},"to":"0x...","type":"TRANSFER"}
   ```
+
 - Update `test_signed_transaction_is_accepted_by_real_node_verifier`: the `tx_data_dict` construction (lines 72-81) must now include `"chain_id": req.chain_id` (the `TransactionRequest` model has this field). This coordinates with B4 — the endpoint will also start including `chain_id` in the dict.
 - Add a new test: `test_cross_chain_replay_rejected` — sign a tx with `chain_id="ait-hub"`, then verify it with `chain_id="ait-island1"` in the dict. The signature must NOT validate because the signed message differs.
 
@@ -142,6 +148,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 **Working directory**: `/opt/aitbc/` (cross-cutting)
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit tests/cli tests/test_multi_chain_fixtures.py -q -o addopts="" && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o addopts=""
 ```
@@ -164,6 +171,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 - **Problem**: `tests/conftest.py` line 29 has the comment `# Register multi-chain and multi-node fixtures so they're available to all tests` but no code follows. The fixtures defined in `tests/fixtures/multi_chain.py` and `tests/harness/multi_node.py` are never imported, so pytest can't discover them.
 - **Fix**: Add after line 29 in `tests/conftest.py`:
+
   ```python
   # Register multi-chain and multi-node fixtures so they're available to all tests
   from tests.fixtures.multi_chain import (  # noqa: E402,F401
@@ -178,6 +186,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
       three_node_network,
   )
   ```
+
   Order imports alphabetically (ruff isort). The `# noqa: E402` suppresses import-not-at-top (needed because of the sys.path manipulation above). The `# noqa: F401` suppresses unused-import (fixtures are registered by import side-effect).
 - **Verify**: `pytest tests/test_multi_chain_fixtures.py -q -o addopts=""` — all 33 tests should pass (or skip if they require async fixtures not yet configured). Zero `fixture not found` errors.
 
@@ -193,6 +202,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 - **Problem**: 15 test files in `tests/cli/` test a `cli/aitbc_cli/handlers/` package that was consolidated into `cli/aitbc_cli/commands/` in v0.5.15. Every test in every file skips with "Cannot import X handlers: No module named 'handlers.X'" or "handlers package no longer exists".
 - **Files to delete** (15 files):
+
   ```
   tests/cli/test_handlers_account.py
   tests/cli/test_handlers_ai.py
@@ -210,12 +220,14 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
   tests/cli/test_handlers_wallet.py
   tests/cli/test_handlers_workflow.py
   ```
+
 - **Verify**: `pytest tests/cli/ -q -o addopts="" --ignore=tests/cli/test_cli_integration.py` — skip count drops by ~25 (from 152 to ~127). No new failures.
 
 #### B4: Add chain_id to verifier tx_data_dict (verifier side)
 
 - **Problem**: `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` lines 95-103 constructs `tx_data_dict` with fields `{from, to, amount, fee, nonce, payload, type, signature}` — no `chain_id`. The verifier (`verify_transaction_signature` in `rpc/utils.py` line 31) builds the signed message from all fields except `signature`, so `chain_id` is currently NOT in the verifier's message. This is consistent with the signer (A2) currently NOT signing `chain_id` — but it means cross-chain replay is possible.
 - **Fix**: Add `"chain_id": chain_id` to the `tx_data_dict` construction at line 95-103. The `chain_id` variable is already in scope (it's resolved earlier in the function and used at line 110).
+
   ```python
   tx_data_dict = {
       "from": tx_data.sender,
@@ -229,6 +241,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
       "signature": tx_data.sig,
   }
   ```
+
 - **⚠️ Wire-format contract**: This change MUST be deployed simultaneously with A2 (signer side). If B4 ships without A2, the verifier includes `chain_id` in the message but the signer doesn't — all signatures break. See Coordination Protocol.
 - **Verify**: `pytest apps/blockchain-node/tests/test_signing_round_trip.py -q -o addopts=""` — all tests pass (after B5 update). `pytest apps/blockchain-node/tests/test_v0516_regression.py -q -o addopts=""` — no regressions.
 
@@ -257,9 +270,11 @@ After B1-B3, the skip count should be ~127. Categorize and triage:
 #### B7: Update change.log with accurate test results
 
 - After all fixes (A1-A4, B1-B6), run the full test suite:
+
   ```bash
   ./venv/bin/python -m pytest tests/unit tests/cli tests/test_multi_chain_fixtures.py apps/blockchain-node/tests/ -q -o addopts=""
   ```
+
 - Update `docs/releases/v0.5.17/change.log` lines 288-304 (Final Test Results table) with actual numbers.
 - Update the "Remaining Skipped CLI Tests" breakdown to reflect post-triage reality.
 - Note the chain_id signing fix (A2+B4) as a production code change, not just test infrastructure.
@@ -273,7 +288,7 @@ After B1-B3, the skip count should be ~127. Categorize and triage:
 | File | Owner | Notes |
 |------|-------|-------|
 | `aitbc/aitbc_logging.py` | Agent A | A1: add BlockchainTextFormatter alias |
-| `aitbc/crypto/transaction_service.py` | Agent A | A2: add chain_id to _SIGNED_FIELDS |
+| `aitbc/crypto/transaction_service.py` | Agent A | A2: add chain_id to_SIGNED_FIELDS |
 | `tests/unit/test_core.py` | Agent A | A4: verify collection fix |
 | `tests/unit/test_transaction_service.py` | Agent A | A3: update canonical message test |
 | `tests/conftest.py` | Agent B | B1: register fixtures |
@@ -288,21 +303,25 @@ After B1-B3, the skip count should be ~127. Categorize and triage:
 The `chain_id`-signing change is the only coordinated change in this release. Both sides must ship together.
 
 **Current signed message** (before):
+
 ```json
 {"amount":100,"fee":36,"from":"0x...","nonce":0,"payload":{"amount":100},"to":"0x...","type":"TRANSFER"}
 ```
 
 **New signed message** (after A2+B4):
+
 ```json
 {"amount":100,"chain_id":"ait-hub","fee":36,"from":"0x...","nonce":0,"payload":{"amount":100},"to":"0x...","type":"TRANSFER"}
 ```
 
 **Execution order**:
+
 1. **Phase 1 (parallel)**: A1, A4, B1, B2, B3 can all proceed independently — no shared files, no wire-format dependency.
 2. **Phase 2 (sequential, coordinated)**: A2 and B4 must be developed together and committed in the same push. A2 goes first (signer), B4 follows immediately (verifier). A3 and B5 (test updates) follow after both code changes are in.
 3. **Phase 3 (parallel)**: B6 (triage) and B7 (change.log) can proceed after all other tasks are done.
 
 **Compatibility note**: This is a **breaking change** for any existing signed transactions in mempools or databases. A transaction signed with the old format (no `chain_id` in the signed set) will fail verification with the new verifier (which includes `chain_id`). This is acceptable because:
+
 1. v0.5.16 just shipped — no production transactions are in-flight yet.
 2. The security improvement (cross-chain replay prevention) outweighs the breakage.
 3. The genesis key migration (B9) already broke compatibility for existing ed25519 wallets.

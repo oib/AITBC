@@ -34,6 +34,7 @@ API keys are obtained via the Coordinator API key management system. For agent o
 Discover and filter GPU resources with intelligent ranking.
 
 **Request:**
+
 ```json
 {
   "gpu_memory_min": 8,
@@ -46,6 +47,7 @@ Discover and filter GPU resources with intelligent ranking.
 ```
 
 **Response:**
+
 ```json
 {
   "resources": [
@@ -73,6 +75,7 @@ Discover and filter GPU resources with intelligent ranking.
 > **⚠️ DEPRECATED (v0.4.7)**: The bid endpoint is no longer supported. Use offer booking instead.
 
 ~~**Request:**~~
+
 ```json
 {
   "gpu_id": "gpu-123",
@@ -88,6 +91,7 @@ Discover and filter GPU resources with intelligent ranking.
 ```
 
 ~~**Response:**~~
+
 ```json
 {
   "transaction_id": "tx-789",
@@ -109,6 +113,7 @@ Discover and filter GPU resources with intelligent ranking.
 Query agent reputation and trust score.
 
 **Response:**
+
 ```json
 {
   "agent_id": "agent-456",
@@ -129,6 +134,7 @@ Query agent reputation and trust score.
 Update agent reputation (internal use by marketplace service).
 
 **Request:**
+
 ```json
 {
   "transaction_id": "tx-789",
@@ -139,6 +145,7 @@ Update agent reputation (internal use by marketplace service).
 ```
 
 **Response:**
+
 ```json
 {
   "agent_id": "agent-456",
@@ -156,6 +163,7 @@ Update agent reputation (internal use by marketplace service).
 Submit a rating for a software service (1-5 scale).
 
 **Request:**
+
 ```json
 {
   "rating": 4.5,
@@ -165,6 +173,7 @@ Submit a rating for a software service (1-5 scale).
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -187,10 +196,12 @@ Submit a rating for a software service (1-5 scale).
 Retrieve ratings for a service with pagination.
 
 **Query Parameters:**
+
 - `limit`: Number of ratings to return (default: 50)
 - `offset`: Pagination offset (default: 0)
 
 **Response:**
+
 ```json
 {
   "service_id": "ollama-llama3.2:3b",
@@ -222,9 +233,11 @@ Retrieve ratings for a service with pagination.
 Fetch ratings that haven't been synced to remote nodes.
 
 **Query Parameters:**
+
 - `limit`: Number of ratings to return (default: 100)
 
 **Response:**
+
 ```json
 {
   "ratings": [
@@ -249,6 +262,7 @@ Fetch ratings that haven't been synced to remote nodes.
 Sync ratings from a remote node with conflict resolution.
 
 **Request:**
+
 ```json
 [
   {
@@ -264,6 +278,7 @@ Sync ratings from a remote node with conflict resolution.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -280,11 +295,13 @@ Sync ratings from a remote node with conflict resolution.
 Mark ratings as synced after successful propagation.
 
 **Request:**
+
 ```json
 ["rating-uuid-1", "rating-uuid-2"]
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -301,6 +318,7 @@ Mark ratings as synced after successful propagation.
 Get current market pricing data and trends.
 
 **Response:**
+
 ```json
 {
   "market_stats": {
@@ -329,6 +347,7 @@ Get current market pricing data and trends.
 Get pricing for specific GPU model.
 
 **Response:**
+
 ```json
 {
   "gpu_model": "A100",
@@ -349,6 +368,7 @@ Get pricing for specific GPU model.
 Register GPU in marketplace (provider agents).
 
 **Request:**
+
 ```json
 {
   "gpu_id": "gpu-123",
@@ -362,6 +382,7 @@ Register GPU in marketplace (provider agents).
 ```
 
 **Response:**
+
 ```json
 {
   "gpu_id": "gpu-123",
@@ -375,6 +396,7 @@ Register GPU in marketplace (provider agents).
 List available GPUs in marketplace.
 
 **Response:**
+
 ```json
 {
   "gpus": [
@@ -396,6 +418,7 @@ List available GPUs in marketplace.
 Book/reserve a GPU for compute.
 
 **Request:**
+
 ```json
 {
   "duration_hours": 4,
@@ -404,6 +427,7 @@ Book/reserve a GPU for compute.
 ```
 
 **Response:**
+
 ```json
 {
   "booking_id": "book-789",
@@ -419,6 +443,7 @@ Book/reserve a GPU for compute.
 Release a booked GPU.
 
 **Response:**
+
 ```json
 {
   "booking_id": "book-789",
@@ -434,6 +459,7 @@ Release a booked GPU.
 Subscribe to real-time pricing updates.
 
 **Connection:**
+
 ```javascript
 const ws = new WebSocket('ws://localhost:8203/v1/marketplace/ws/pricing');
 
@@ -444,6 +470,7 @@ ws.onmessage = (event) => {
 ```
 
 **Message Format:**
+
 ```json
 {
   "gpu_model": "A100",
@@ -458,6 +485,7 @@ ws.onmessage = (event) => {
 Subscribe to resource availability updates.
 
 **Message Format:**
+
 ```json
 {
   "gpu_id": "gpu-123",
@@ -480,6 +508,7 @@ All endpoints return standard error responses:
 ```
 
 **Common Error Codes:**
+
 - `400` - Invalid request parameters
 - `401` - Authentication failed
 - `403` - Insufficient permissions

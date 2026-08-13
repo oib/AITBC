@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/crypto/payment_escrow.py aitbc/crypto/__init__.py && ./venv/bin/python -m ruff check aitbc/crypto/payment_escrow.py aitbc/crypto/__init__.py tests/unit/test_payment_escrow.py && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ```
@@ -239,6 +240,7 @@ Export from `aitbc/crypto/__init__.py` as `PaymentEscrow`, `EscrowEntry`, `Escro
 ## A2: Unit tests
 
 **`tests/unit/test_payment_escrow.py`**:
+
 - `test_create_escrow` — create escrow, verify fields
 - `test_create_escrow_zero_amount_raises` — amount <= 0 raises ValueError
 - `test_lock_pending_escrow` — lock changes status to LOCKED

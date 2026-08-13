@@ -74,6 +74,7 @@ aitbc agent-comm register agent_infer_01 "Inference Agent" ait-hub http://localh
 ```
 
 **Expected output:**
+
 ```
 Agent agent_infer_01 registered successfully!
 
@@ -100,6 +101,7 @@ aitbc agent-comm list --chain-id ait-hub --capabilities inference --format json
 ```
 
 **Expected output:**
+
 ```
 Registered Agents
 Agent ID          Name             Chain ID   Status    Reputation   Capabilities           Last Seen
@@ -120,6 +122,7 @@ aitbc agent-comm discover ait-hub --capabilities "inference,gpu_compute"
 ```
 
 **Expected output:**
+
 ```
 Agents on Chain ait-hub
 Agent ID          Name             Status    Reputation   Capabilities                       Endpoint              Version
@@ -136,6 +139,7 @@ aitbc agent-comm status agent_infer_01
 ```
 
 **Expected output:**
+
 ```
 Agent Status: agent_infer_01
 
@@ -162,6 +166,7 @@ aitbc agent-comm network
 ```
 
 **Expected output:**
+
 ```
 Network Overview
 

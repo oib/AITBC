@@ -5,6 +5,7 @@ Bridge between AITBC blockchain events and agent agent triggers using a hybrid e
 ## Overview
 
 This service connects AITBC blockchain events (blocks, transactions, smart contract events) to agent agent actions through:
+
 - **Event-driven**: Subscribe to gossip broker topics for real-time critical triggers
 - **Polling**: Periodic checks for batch operations and conditions
 - **Smart Contract Events**: Monitor contract events via blockchain RPC (Phase 2)

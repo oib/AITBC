@@ -39,11 +39,13 @@ class Model(SQLModel, table=True):
 ## Dependencies
 
 ### Required
+
 - scikit-learn (ML models for recommendations)
 - numpy (numerical computing)
 - cryptography (sealed bid encryption)
 
 ### Optional
+
 - redis (caching for analytics)
 - celery (async task processing)
 - boto3 (AWS integration)
@@ -53,15 +55,18 @@ class Model(SQLModel, table=True):
 ## Security Considerations
 
 ### API Keys
+
 - External provider API keys stored in database
 - Encryption recommended for production
 
 ### Plugin Security
+
 - Plugins run in same process
 - Implement sandboxing for untrusted plugins
 - Permission system for plugin access
 
 ### Auction Security ~~(DEPRECATED v0.4.7)~~
+
 ~~- Sealed bids encrypted until reveal~~
 ~~- Bid validation before acceptance~~
 ~~- Reserve price enforcement~~
@@ -69,18 +74,22 @@ class Model(SQLModel, table=True):
 ## Performance
 
 ### Indexing
+
 All tables have appropriate indexes for:
+
 - Foreign keys
 - Timestamps
 - Status fields
 - User IDs
 
 ### Caching
+
 - Plugin manager uses singleton pattern
 - Pricing engine uses singleton pattern
 - Consider Redis for distributed caching
 
 ### Async Operations
+
 - Pricing calculations are async
 - External provider sync is async
 - Analytics calculations are async

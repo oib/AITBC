@@ -5,6 +5,7 @@ This document provides a prioritized action plan for addressing security finding
 ## Executive Summary
 
 The security audit identified **20 security findings** across the following categories:
+
 - **Critical:** 3 findings
 - **High:** 10 findings
 - **Medium:** 7 findings
@@ -12,6 +13,7 @@ The security audit identified **20 security findings** across the following cate
 ## Remediation Status (Updated 2026-05-11)
 
 ### Completed (8 findings)
+
 - **Critical (3):** All resolved
   - Missing ECDSA verification in receipt.circom - Mitigated (moved to API layer)
   - Mock ZK proof verification in zk_proofs.py - Resolved (actual Groth16 implemented)
@@ -32,17 +34,21 @@ The security audit identified **20 security findings** across the following cate
   - All Medium findings require smart contract upgrades - Deferred
 
 ### Deferred to Dedicated Smart Contract Security Sprint (8 findings)
+
 **Rationale:** All smart contract fixes require:
+
 - Extensive contract development and testing
 - Migration strategy for existing deployments
 - Security review of new contract logic
 - Potential contract upgrades requiring governance approval
 
 **Deferred findings:**
+
 - Phase 2 High (5): Slashing mechanism, oracle protection, AMM security
 - Phase 3 Medium (3): Escrow security, voting thresholds, rate limiting
 
 The findings span:
+
 - Circom circuits (5 findings)
 - ZK proof implementation (6 findings)
 - Smart contracts (9 findings)
@@ -99,6 +105,7 @@ The findings span:
 **File:** `apps/zk-circuits/receipt.circom`
 
 **Action:**
+
 - Remove placeholder ECDSA verification
 - Implement proper EdDSA verification using circomlib circuits
 - Add proper public key and signature validation
@@ -107,6 +114,7 @@ The findings span:
 **Owner:** Smart Contract Team
 **Deadline:** Day 3
 **Acceptance Criteria:**
+
 - ECDSA verification uses circomlib circuits
 - Proof verification passes with valid signatures
 - Proof verification fails with invalid signatures
@@ -117,6 +125,7 @@ The findings span:
 **File:** `apps/coordinator-api/src/app/services/zk_proofs.py`
 
 **Action:**
+
 - Remove mock verification in `verify_proof` method (lines 125-134)
 - Use the actual verification logic from lines 339-389
 - Ensure verification key is properly loaded
@@ -125,6 +134,7 @@ The findings span:
 **Owner:** Backend Team
 **Deadline:** Day 2
 **Acceptance Criteria:**
+
 - Mock verification removed
 - Actual Groth16 verification implemented
 - Verification fails on invalid proofs
@@ -135,6 +145,7 @@ The findings span:
 **File:** `contracts/contracts/AIToken.sol`
 
 **Action:**
+
 - Add hard cap on total supply (e.g., 1 billion tokens)
 - Add time lock on minting (e.g., 24 hours)
 - Consider governance approval for minting
@@ -143,6 +154,7 @@ The findings span:
 **Owner:** Smart Contract Team
 **Deadline:** Day 5
 **Acceptance Criteria:**
+
 - Total supply cap implemented
 - Time lock on minting added
 - Governance integration (if applicable)
@@ -153,11 +165,13 @@ The findings span:
 #### 2.1 Fix Circom Circuit Constraints
 
 **Files:**
+
 - `apps/zk-circuits/ml_training_verification.circom`
 - `apps/zk-circuits/ml_inference_verification.circom`
 - `apps/zk-circuits/modular_ml_components.circom`
 
 **Action:**
+
 - Replace incorrect learning rate constraint with proper range validation
 - Replace incorrect verification logic with proper comparison circuits
 - Re-implement learning rate validation with efficient circuits
@@ -166,6 +180,7 @@ The findings span:
 **Owner:** ZK Research Team
 **Deadline:** Week 2
 **Acceptance Criteria:**
+
 - All constraints mathematically correct
 - Test vectors pass
 - Circuit compilation succeeds
@@ -174,11 +189,13 @@ The findings span:
 #### 2.2 Fix ZK Proof Implementation Security
 
 **Files:**
+
 - `apps/coordinator-api/src/app/services/zk_memory_verification.py`
 - `apps/coordinator-api/src/app/routers/zk_applications.py`
 - `apps/coordinator-api/src/app/services/zk_proofs.py`
 
 **Action:**
+
 - Replace mock proof generation with actual ZK proofs
 - Implement proper proof validation (not just length checks)
 - Add input validation for all proof generation functions
@@ -187,6 +204,7 @@ The findings span:
 **Owner:** Backend Team
 **Deadline:** Week 2
 **Acceptance Criteria:**
+
 - No mock implementations in production code
 - Proof validation uses cryptographic verification
 - Input validation schemas defined
@@ -195,10 +213,12 @@ The findings span:
 #### 2.3 Fix Smart Contract Economic Security
 
 **Files:**
+
 - `contracts/contracts/AgentStaking.sol`
 - `contracts/contracts/AIServiceAMM.sol`
 
 **Action:**
+
 - Implement slashing mechanism in AgentStaking
 - Add oracle authorization for performance updates
 - Add TWAP protection to AMM
@@ -208,6 +228,7 @@ The findings span:
 **Owner:** Smart Contract Team
 **Deadline:** Week 3
 **Acceptance Criteria:**
+
 - Slashing mechanism functional
 - Oracle manipulation prevented
 - Flash loan protection in place
@@ -221,6 +242,7 @@ The findings span:
 **File:** `contracts/contracts/EscrowService.sol`
 
 **Action:**
+
 - Implement multi-oracle verification with threshold
 - Add percentage-based voting threshold
 - Implement arbiter staking to prevent sybil attacks
@@ -229,6 +251,7 @@ The findings span:
 **Owner:** Smart Contract Team
 **Deadline:** Week 4
 **Acceptance Criteria:**
+
 - Multi-oracle verification implemented
 - Voting threshold percentage-based
 - Arbiter staking mechanism in place
@@ -237,10 +260,12 @@ The findings span:
 #### 3.2 Add Rate Limiting and Enhanced Commitments
 
 **Files:**
+
 - `contracts/contracts/AgentStaking.sol`
 - `apps/coordinator-api/src/app/routers/zk_applications.py`
 
 **Action:**
+
 - Add rate limiting to staking operations
 - Implement Pedersen commitments for identity
 - Add minimum stake amounts and maximum stakes per user
@@ -249,6 +274,7 @@ The findings span:
 **Owner:** Smart Contract Team + Backend Team
 **Deadline:** Week 4
 **Acceptance Criteria:**
+
 - Rate limiting functional
 - Pedersen commitments implemented
 - Stake limits enforced
@@ -257,21 +283,25 @@ The findings span:
 ## Testing Strategy
 
 ### Unit Testing
+
 - All circuit fixes must have test vectors
 - All smart contract changes need comprehensive unit tests
 - All API changes need unit tests with mock data
 
 ### Integration Testing
+
 - Test ZK proof generation and verification end-to-end
 - Test smart contract interactions with local blockchain
 - Test escrow flows with multi-oracle verification
 
 ### Security Testing
+
 - Run enhanced security scanning workflow on all changes
 - Perform manual code review for all critical changes
 - Consider third-party audit for smart contracts
 
 ### Regression Testing
+
 - Run existing test suite after each fix
 - Ensure no breaking changes to existing functionality
 - Monitor for performance degradation
@@ -279,16 +309,19 @@ The findings span:
 ## Deployment Strategy
 
 ### Deployment Order
+
 1. Deploy circuit fixes (no breaking changes)
 2. Deploy API fixes (can be rolled back)
 3. Deploy smart contract upgrades (require careful testing)
 
 ### Rollback Plan
+
 - Maintain previous versions of all components
 - Document rollback procedures
 - Test rollback process before deployment
 
 ### Monitoring
+
 - Add monitoring for ZK proof verification failures
 - Monitor smart contract events for unusual activity
 - Set up alerts for security-related metrics
@@ -296,6 +329,7 @@ The findings span:
 ## Success Metrics
 
 ### Quantitative
+
 - All Critical findings resolved within 1 week
 - All High findings resolved within 2 weeks
 - All Medium findings resolved within 1 month
@@ -303,6 +337,7 @@ The findings span:
 - Zero critical vulnerabilities in production
 
 ### Qualitative
+
 - Third-party audit (if pursued) passes
 - Team confidence in security posture improved
 - Documentation updated with security best practices
@@ -311,18 +346,21 @@ The findings span:
 ## Ongoing Security Practices
 
 ### Development
+
 - Security review required for all circuit changes
 - Security review required for all smart contract changes
 - Code review checklist includes security items
 - Security testing in CI/CD for all changes
 
 ### Operations
+
 - Regular security scanning (weekly)
 - Dependency updates monitored
 - Security alerts monitored and responded to
 - Incident response plan maintained
 
 ### Governance
+
 - Security findings tracked in project management
 - Regular security reviews with stakeholders
 - Security budget allocated for tools and audits
@@ -339,21 +377,25 @@ The findings span:
 ## Appendix: Finding Summary
 
 ### by Severity
+
 - Critical: 3
 - High: 10
 - Medium: 7
 
 ### by Component
+
 - Circom circuits: 5
 - ZK proof implementation: 6
 - Smart contracts: 9
 
 ### by Effort Estimate
+
 - Low (< 1 day): 8
 - Medium (1-3 days): 8
 - High (> 3 days): 4
 
 ### Total Effort
+
 - Estimated: 3-4 weeks
 - Team size: 3-4 developers
 - Recommended: Dedicated security sprint

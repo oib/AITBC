@@ -70,6 +70,7 @@ aitbc <command> <subcommand> [options]
 ```
 
 **Expected output:**
+
 ```
 [Sample output]
 ```

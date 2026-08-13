@@ -7,6 +7,7 @@ This tutorial shows how to extend the AITBC marketplace with custom features, pl
 ## Overview
 
 The AITBC marketplace is designed to be extensible. You can add:
+
 - ~~Custom auction types~~ (deprecated in v0.4.7)
 - Specialized service categories
 - Advanced filtering and search
@@ -611,6 +612,7 @@ describe('DutchAuction', () => {
 ```
 
 **For current marketplace extensions**, focus on testing:
+
 - Service category registration
 - Advanced search filters
 - External system integrations
@@ -620,11 +622,13 @@ describe('DutchAuction', () => {
 ## Deployment
 
 1. **Build your extensions**:
+
 ```bash
 npm run build:extensions
 ```
 
-2. **Deploy to production**:
+1. **Deploy to production**:
+
 ```bash
 # Copy extension files
 cp -r src/extensions/* /var/www/aitbc.bubuit.net/marketplace/extensions/
@@ -650,6 +654,7 @@ ssh aitbc "systemctl restart coordinator-api"
 This tutorial covered creating marketplace extensions including service categories, advanced search filters, external system integrations, and custom pricing models. Auction functionality has been deprecated in v0.4.7 as the marketplace now focuses on hardware+software bundles with fixed pricing.
 
 **Current supported extension areas:**
+
 - Service categories for specialized workloads
 - Advanced search and filtering capabilities
 - External system integrations (Slack, Discord, etc.)

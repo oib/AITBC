@@ -11,11 +11,13 @@ AITBC v0.4.7 migrates the plugin service (port 8109) into the marketplace servic
 ## Architecture Change
 
 ### Before
+
 - aitbc-plugin.service (8109) - JSON file registry at `/var/lib/aitbc/plugins.json`
 - Separate service to manage
 - File-based storage
 
 ### After
+
 - SoftwareService table in marketplace database
 - Part of aitbc-marketplace.service (8102)
 - Database-backed with better scalability
@@ -23,6 +25,7 @@ AITBC v0.4.7 migrates the plugin service (port 8109) into the marketplace servic
 ## New Endpoints
 
 Software service registry is now available at:
+
 - `GET /v1/marketplace/software-services` - List all software services
 - `GET /v1/marketplace/software-services/{plugin_id}` - Get specific service
 - `POST /v1/marketplace/software-services` - Register/update service
@@ -31,6 +34,7 @@ Software service registry is now available at:
 ## API Gateway Routing
 
 Legacy `/v1/plugin/*` requests are automatically rewritten to `/v1/marketplace/software-services/*`:
+
 ```
 /v1/plugin/plugins → /v1/marketplace/software-services
 /v1/plugin/{id} → /v1/marketplace/software-services/{id}
@@ -39,6 +43,7 @@ Legacy `/v1/plugin/*` requests are automatically rewritten to `/v1/marketplace/s
 ## Migration Script
 
 Migration script at `/opt/aitbc/scripts/migration/migrate_plugin_to_marketplace.py`:
+
 - Backs up original JSON file to `/var/lib/aitbc/plugins.json.backup`
 - Converts JSON entries to SoftwareService database records
 - Preserves all metadata (deployment_type, gpu_name, gpu_offer_id)

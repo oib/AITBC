@@ -1,14 +1,17 @@
 # Multi-Region Load Balancer
 
 ## Status
+
 ✅ Operational
 
 ## Overview
+
 Load balancing service for distributing traffic across multiple regions and ensuring high availability and optimal performance.
 
 ## Architecture
 
 ### Core Components
+
 - **Load Balancer**: Distributes traffic across regions
 - **Health Checker**: Monitors regional health status
 - **Traffic Router**: Routes traffic based on load and latency
@@ -18,18 +21,22 @@ Load balancing service for distributing traffic across multiple regions and ensu
 ## Quick Start (End Users)
 
 ### Prerequisites
+
 - Python 3.13+
 - Multiple regional endpoints
 - DNS configuration for load balancing
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/apps/multi-region-load-balancer
 .venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
+
 Set environment variables in `.env`:
+
 ```bash
 REGIONAL_ENDPOINTS=us-east:https://us.example.com,eu-west:https://eu.example.com
 LOAD_BALANCING_STRATEGY=round_robin|least_latency|weighted
@@ -38,6 +45,7 @@ FAILOVER_ENABLED=true
 ```
 
 ### Running the Service
+
 ```bash
 .venv/bin/python main.py
 ```
@@ -45,6 +53,7 @@ FAILOVER_ENABLED=true
 ## Developer Guide
 
 ### Development Setup
+
 1. Clone the repository
 2. Create virtual environment: `python -m venv .venv`
 3. Install dependencies: `pip install -r requirements.txt`
@@ -52,6 +61,7 @@ FAILOVER_ENABLED=true
 5. Run tests: `pytest tests/`
 
 ### Project Structure
+
 ```
 multi-region-load-balancer/
 ├── src/
@@ -65,6 +75,7 @@ multi-region-load-balancer/
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
@@ -81,11 +92,13 @@ pytest tests/test_failover.py
 ### Load Balancing
 
 #### Get Load Balancer Status
+
 ```http
 GET /api/v1/lb/status
 ```
 
 #### Configure Load Balancing Strategy
+
 ```http
 PUT /api/v1/lb/strategy
 Content-Type: application/json
@@ -97,6 +110,7 @@ Content-Type: application/json
 ```
 
 #### Get Regional Status
+
 ```http
 GET /api/v1/lb/regions
 ```
@@ -104,6 +118,7 @@ GET /api/v1/lb/regions
 ### Health Checks
 
 #### Run Health Check
+
 ```http
 POST /api/v1/lb/health/check
 Content-Type: application/json
@@ -114,6 +129,7 @@ Content-Type: application/json
 ```
 
 #### Get Health History
+
 ```http
 GET /api/v1/lb/health/history?region=us-east
 ```
@@ -121,6 +137,7 @@ GET /api/v1/lb/health/history?region=us-east
 ### Failover
 
 #### Trigger Manual Failover
+
 ```http
 POST /api/v1/lb/failover/trigger
 Content-Type: application/json
@@ -132,6 +149,7 @@ Content-Type: application/json
 ```
 
 #### Get Failover Status
+
 ```http
 GET /api/v1/lb/failover/status
 ```
@@ -139,6 +157,7 @@ GET /api/v1/lb/failover/status
 ### Configuration
 
 #### Add Regional Endpoint
+
 ```http
 POST /api/v1/lb/regions
 Content-Type: application/json
@@ -151,6 +170,7 @@ Content-Type: application/json
 ```
 
 #### Remove Regional Endpoint
+
 ```http
 DELETE /api/v1/lb/regions/{region}
 ```
@@ -158,6 +178,7 @@ DELETE /api/v1/lb/regions/{region}
 ## Configuration
 
 ### Environment Variables
+
 - `REGIONAL_ENDPOINTS`: Comma-separated regional endpoints
 - `LOAD_BALANCING_STRATEGY`: Strategy for load distribution
 - `HEALTH_CHECK_INTERVAL`: Interval for health checks (default: 30s)
@@ -165,11 +186,13 @@ DELETE /api/v1/lb/regions/{region}
 - `FAILOVER_THRESHOLD`: Threshold for triggering failover
 
 ### Load Balancing Strategies
+
 - **Round Robin**: Distributes traffic evenly across regions
 - **Least Latency**: Routes to region with lowest latency
 - **Weighted**: Uses configured weights for distribution
 
 ### Health Check Parameters
+
 - **Check Interval**: Frequency of health checks
 - **Timeout**: Timeout for health check responses
 - **Failure Threshold**: Number of failures before marking region down

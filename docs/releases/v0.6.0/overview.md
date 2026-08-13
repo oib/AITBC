@@ -26,10 +26,12 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](#status-baseline--verified-code-targets-from-subagent-investigation)
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Fix BlockchainCache typing](./agent-a.md#a1-fix-blockchaincache-typing--add-block-by-hash)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Verify clean](./agent-a.md#a7-verify-clean)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Add missing indexes](./agent-b.md#b1-add-missing-indexes--alembic-migration)

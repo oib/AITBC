@@ -31,6 +31,7 @@
 **Working directory**: `/opt/aitbc/`
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/
 cd /opt/aitbc && ./venv/bin/python -m ruff check aitbc/
@@ -52,11 +53,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 **Problem**: `aitbc/network/web3_utils.py` imports `geth_poa_middleware` from `web3.middleware`. In Web3.py 7.x the middleware moved; the import raises `ImportError`, which `WalletAdapterFactory` catches and reports as "web3 is required for blockchain operations". All Ethereum-family adapters are therefore unusable.
 
 **Fix**:
+
 - Use the Web3 7.x path: `from web3.middleware.geth_poa import geth_poa_middleware`.
 - Pin `web3 >=7.0` in `pyproject.toml` if 6.x support is not required.
 - Verify `WalletAdapterFactory.create_adapter('ethereum')` succeeds.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -c "from aitbc.network.web3_utils import create_web3_client; print('ok')"
 ```
@@ -68,6 +71,7 @@ cd /opt/aitbc && ./venv/bin/python -c "from aitbc.network.web3_utils import crea
 **Problem**: `alembic check` reported hundreds of missing tables/indexes relative to `SQLModel.metadata`. The coordinator called `metadata.create_all()` on startup, which could create unmanaged schema objects.
 
 **Fix**:
+
 - Stop unconditional `SQLModel.metadata.create_all()` on startup in `storage/db.py` and `init_async_db`; schema is managed by Alembic `upgrade head`.
 - Add `alembic/script.py.mako` so autogenerate can find the template.
 - Fix domain model `sa_column` declarations so `Numeric(20, 8)` monetary columns with `Decimal` defaults are `nullable=False`, matching the existing migration graph.
@@ -75,6 +79,7 @@ cd /opt/aitbc && ./venv/bin/python -c "from aitbc.network.web3_utils import crea
 - Update `tests/unit/test_v0519_tech_debt.py` to assert the new head revision and run `alembic check`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc/apps/coordinator-api
 PYTHONPATH=src DATABASE_URL=sqlite:///tmp/alembic_check.db ../../venv/bin/python -m alembic upgrade head
@@ -89,11 +94,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit/test_v0519_tech_debt.py 
 **Problem**: `database_async.py` `_build_async_url()` splits URLs on `?`, corrupting query strings like `sqlite:///foo.db?mode=ro` and `postgresql://...?sslmode=require`.
 
 **Fix**:
+
 - Parse URLs with `urllib.parse` instead of string slicing.
 - Preserve query parameters after the async driver suffix.
 - Reject unsupported schemes instead of appending `+aiosqlite`.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k database_async
 ```
@@ -107,6 +114,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts="" -k data
 **Working directory**: `/opt/aitbc/`
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ scripts/ tests/
 cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
@@ -141,6 +149,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/security -q -o addopts=""
 Remove hardcoded `GITEA_TOKEN` fallbacks and `curl -k`/`verify=False` from `scripts/utils/workspace-manager.sh`, `scripts/utils/claim-task.py`, and `scripts/monitoring/monitor-prs.py`. Read tokens from environment or file and fail closed. Rotate all exposed credentials outside the repo.
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && grep -R "GITEA_TOKEN\|verify=False\|--insecure\|curl -k" scripts/ --include="*.sh" --include="*.py" | wc -l
 # Expected: 0
@@ -231,10 +240,12 @@ In `apps/blockchain-node/tests/security/test_database_security.py`, update `vali
 ## Coordination
 
 ### Shared files / boundaries
+
 - `SQLModel.metadata` and Alembic versions: Agent A and B coordinate. Agent A first proposes shared-core metadata registration changes; Agent B handles coordinator-api models/migrations.
 - `aitbc/auth/middleware.py` is shared; Agent A owns type annotations, Agent B owns integration into `apps/coordinator-api/src/coordinator_api/main.py`.
 
 ### Coordination Log
+
 | Date | Agent | Request | Status |
 |------|-------|---------|--------|
 | 2026-07-14 | — | Release plan created; no file locks yet | planned |
@@ -244,6 +255,7 @@ In `apps/blockchain-node/tests/security/test_database_security.py`, update `vali
 ## Completion Summary
 
 Pending implementation. Acceptance criteria:
+
 - [ ] No hardcoded secrets in tracked files.
 - [ ] `AuthMiddleware` installed and all P0 routes require authentication.
 - [ ] Marketplace transaction signature verified before state transition.

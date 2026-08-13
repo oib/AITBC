@@ -46,6 +46,7 @@ The AITBC project uses pytest-based testing with comprehensive coverage across a
 ### Global Configuration (`tests/conftest.py`)
 
 The global `conftest.py` manages:
+
 - **Import paths**: Adds app source directories to `sys.path` for test discovery
 - **Environment variables**: Sets `TEST_MODE=true`, `AUDIT_LOG_DIR`, `TEST_DATABASE_URL`
 - **Mock dependencies**: Mocks optional dependencies like `slowapi`
@@ -58,6 +59,7 @@ sys.path.insert(0, str(project_root / "apps" / "app-name"))
 ### Per-App Fixtures
 
 Each app can define fixtures in its test files:
+
 - **Database reset**: For apps with databases (SQLite, PostgreSQL)
 - **State cleanup**: For apps with in-memory state
 - **Mock setup**: For external service dependencies
@@ -65,21 +67,25 @@ Each app can define fixtures in its test files:
 ## Running Tests
 
 ### Run All Tests
+
 ```bash
 python3 -m pytest apps/ -v
 ```
 
 ### Run Specific App Tests
+
 ```bash
 python3 -m pytest apps/<app-name>/tests/ -v
 ```
 
 ### Run Specific Test File
+
 ```bash
 python3 -m pytest apps/<app-name>/tests/test_unit_<app>.py -v
 ```
 
 ### Run Specific Test
+
 ```bash
 python3 -m pytest apps/<app-name>/tests/test_unit_<app>.py::test_function_name -v
 ```
@@ -164,6 +170,7 @@ def test_with_delay(mock_sleep):
 ### SQLite Apps
 
 For apps using SQLite:
+
 - Use in-memory databases for tests
 - Delete database file before/after tests
 - Use fixtures to reset state
@@ -186,6 +193,7 @@ def reset_db():
 ### PostgreSQL Apps
 
 For apps using PostgreSQL:
+
 - Set `TEST_DATABASE_URL` to use test database
 - Use transactions and rollback
 - Clean up test data
@@ -193,17 +201,20 @@ For apps using PostgreSQL:
 ## Coverage Summary
 
 ### Phase 1: Simple Apps (7 apps, 201 tests)
+
 - monitor, ai-engine, simple-explorer, zk-circuits
 - exchange-integration, compliance-service, plugin-registry
 - Test files renamed with app-specific suffixes (e.g., test_unit_monitor.py)
 
 ### Phase 2: Medium Apps (7 apps, 260 tests)
+
 - trading-engine, plugin-security, plugin-analytics
 - global-infrastructure, plugin-marketplace
 - multi-region-load-balancer, global-ai-agents
 - Test files renamed with app-specific suffixes (e.g., test_unit_trading_engine.py)
 
 ### Phase 3: Complex Apps (4 apps)
+
 - miner (44 tests) - GPU miner with coordinator communication
 - marketplace (49 tests) - Agent-first GPU marketplace
 - agent-registry (22 tests) - Agent registry and coordination
@@ -211,6 +222,7 @@ For apps using PostgreSQL:
 - Test files renamed with app-specific suffixes (e.g., test_unit_miner.py)
 
 ### Phase 4: Most Complex App (1 app, 27 tests)
+
 - exchange - Full trading exchange with database
 - Test files renamed with app-specific suffixes (e.g., test_unit_exchange.py)
 
@@ -266,6 +278,7 @@ def test_with_delay(mock_sleep):
 ## Pydantic v2 Compatibility
 
 For apps using Pydantic v2:
+
 - Replace `.dict()` with `.model_dump()`
 - Use `from_attributes = True` in model Config
 - Update validation patterns as needed
@@ -273,6 +286,7 @@ For apps using Pydantic v2:
 ## Continuous Integration
 
 Tests are integrated into CI workflows:
+
 - `python-tests.yml` - Generic Python test runner
 - `api-endpoint-tests.yml` - API endpoint testing
 - Tests run on every pull request

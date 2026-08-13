@@ -6,6 +6,7 @@
 Followers do **NOT** run the migration script. They wipe their local chain.db and re-sync from the hub.
 
 > **Critical lessons from the 2026-06-23 migration:**
+>
 > 1. **Followers MUST wipe chain.db** — flushing Redis alone is not enough. The local DB has stale pre-fork data and the node will think it's "up to date" by comparing against itself.
 > 2. **`default_peer_rpc_url` must point to the hub** — if it points to `http://127.0.0.1:8202`, the follower syncs from itself. Check `/etc/aitbc/blockchain.env` and fix if needed.
 > 3. **`aitbc-blockchain-rpc` must be restarted** — it's a separate service that caches DB connections. If not restarted, it will return stale height/state root even after the node has synced the new chain.
@@ -139,6 +140,7 @@ sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
 
 **RPC returns stale height/state root after sync:**
 The `aitbc-blockchain-rpc` service has a cached DB connection. Restart it:
+
 ```bash
 systemctl restart aitbc-blockchain-rpc
 sleep 3
@@ -150,9 +152,11 @@ Check `default_peer_rpc_url` in `/etc/aitbc/blockchain.env`. If it points to `ht
 
 **Node is not syncing at all:**
 Check logs for errors:
+
 ```bash
 journalctl -u aitbc-blockchain-node --since "5 minutes ago" --no-pager | grep -E "Error|error|WARN|Failed|failed"
 ```
+
 Verify the hub is reachable: `curl -s https://hub.aitbc.bubuit.net/rpc/head | python3 -m json.tool`
 
 ## Related Topics

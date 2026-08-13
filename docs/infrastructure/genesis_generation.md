@@ -9,6 +9,7 @@ This guide explains how to use the unified genesis generation system for AITBC b
 ## Overview
 
 The unified genesis generation system combines:
+
 - **Genesis Block Creation**: Creates the initial block for a blockchain
 - **Genesis Wallet Creation**: Generates a secure genesis wallet with known private key
 - **Wallet Service Integration**: Registers the genesis wallet with the wallet daemon service
@@ -25,11 +26,13 @@ The unified genesis generation system combines:
 ## Installation
 
 The unified genesis script is located at:
+
 ```
 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py
 ```
 
 Make it executable:
+
 ```bash
 chmod +x /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py
 ```
@@ -39,6 +42,7 @@ chmod +x /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py
 ### Basic Usage
 
 Create genesis block and wallet for mainnet:
+
 ```bash
 python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
     --chain-id ait-mainnet \
@@ -164,6 +168,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
 ### Database Locked Error
 
 If you get a database locked error:
+
 ```bash
 # Stop the blockchain node
 systemctl stop aitbc-blockchain-node.service
@@ -180,6 +185,7 @@ systemctl start aitbc-blockchain-node.service
 ### Genesis Already Exists
 
 If genesis already exists in the database:
+
 ```bash
 # Use --force to overwrite
 python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
@@ -191,6 +197,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
 ### Wallet Service Connection Failed
 
 If wallet service registration fails:
+
 ```bash
 # Check if wallet daemon is running
 systemctl status aitbc-wallet-daemon.service
@@ -225,6 +232,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
 ```
 
 The script will:
+
 1. Create the genesis wallet
 2. Register it with the wallet service
 3. Store the wallet credentials securely
@@ -320,6 +328,7 @@ curl http://localhost:8202/health
 ## Support
 
 For issues or questions:
+
 - Check the blockchain node logs: `journalctl -u aitbc-blockchain-node.service -f`
 - Check the wallet daemon logs: `journalctl -u aitbc-wallet-daemon.service -f`
 - Review the script output for error messages

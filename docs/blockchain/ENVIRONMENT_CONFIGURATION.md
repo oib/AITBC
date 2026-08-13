@@ -161,12 +161,14 @@ Followers receive blocks from the hub via a **lease-based subscription system** 
 | `default_peer_rpc_url` | Followers | - | Hub RPC URL (e.g., `http://hub.aitbc.bubuit.net/rpc`) |
 
 **How it works:**
+
 1. Follower registers via `POST <default_peer_rpc_url>/subscribe` to obtain a lease
 2. Follower opens WebSocket to `ws://<hub>/rpc/subscribe/ws` for real-time block push
 3. Follower sends periodic `POST <default_peer_rpc_url>/heartbeat` to extend the lease
 4. If the follower falls behind, it uses bulk sync via `POST /rpc/sync` to catch up
 
 **Example (follower blockchain.env):**
+
 ```bash
 default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc
 subscription_enabled=true
@@ -435,6 +437,7 @@ Rotation is the only remedy once a value has been served publicly. Removing the 
 Systemd services load environment files in the order specified in the `[Service]` section. Later files can override earlier ones.
 
 **Example (aitbc-wallet.service):**
+
 ```ini
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
@@ -442,6 +445,7 @@ EnvironmentFile=/etc/aitbc/node.env
 ```
 
 **Loading order:**
+
 1. `blockchain.env` - Base blockchain configuration
 2. `blockchain-secrets.env` - Authentication secrets (may override blockchain.env if duplicates exist)
 3. `node.env` - Node-specific settings (highest priority)
@@ -451,17 +455,21 @@ EnvironmentFile=/etc/aitbc/node.env
 ## Service Dependencies
 
 ### Blockchain Node Services
+
 - **aitbc-blockchain-node.service:** Loads `blockchain.env`, `node.env`
 - **aitbc-blockchain-rpc.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
 
 ### Agent Services
+
 - **aitbc-agent.service:** Loads `blockchain.env`, `node.env`
 - **aitbc-agent-coordinator.service:** Loads `node.env`
 
 ### Wallet Service
+
 - **aitbc-wallet.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
 
 ### CLI
+
 - **aitbc CLI:** Loads `blockchain.env` and `node.env` via `get_config()`
 
 ---
@@ -471,6 +479,7 @@ EnvironmentFile=/etc/aitbc/node.env
 ### Hub Node (Block Producer)
 
 **Characteristics:**
+
 - `enable_block_production=true`
 - `block_production_chains=<chain-id>`
 - `p2p_peers=` (empty or minimal)
@@ -482,6 +491,7 @@ EnvironmentFile=/etc/aitbc/node.env
 ### Follower Node
 
 **Characteristics:**
+
 - `enable_block_production=false`
 - `block_production_chains=` (empty)
 - `subscription_enabled=true`
@@ -502,6 +512,7 @@ EnvironmentFile=/etc/aitbc/node.env
 **Cause:** Node is receiving blocks but missing intermediate blocks
 
 **Solution:**
+
 ```bash
 # Enable auto-sync
 auto_sync_enabled=true
@@ -513,6 +524,7 @@ default_peer_rpc_url=http://hub-node:8202
 **Cause:** Multiple nodes with same `proposer_id` producing blocks simultaneously
 
 **Solution:**
+
 ```bash
 # On follower nodes
 enable_block_production=false
@@ -523,6 +535,7 @@ enable_block_production=false
 **Cause:** Missing `p2p_bind_host` or `p2p_bind_port` (hub nodes only)
 
 **Solution:**
+
 ```bash
 # Add to node.env (hub nodes only — followers don't need the p2p service)
 p2p_bind_host=0.0.0.0
@@ -534,6 +547,7 @@ p2p_bind_port=7070
 **Cause:** `supported_chains` not set explicitly
 
 **Solution:**
+
 ```bash
 # Always set explicitly in blockchain.env
 supported_chains=ait-mainnet,ait-testnet
@@ -544,6 +558,7 @@ supported_chains=ait-mainnet,ait-testnet
 **Cause:** `blockchain-secrets.env` not loaded or missing
 
 **Solution:**
+
 ```bash
 # Add to service file
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
@@ -562,6 +577,7 @@ reads either variable.
 **Cause:** One of the specified `EnvironmentFile` paths doesn't exist
 
 **Solution:**
+
 ```bash
 # Ensure all referenced files exist
 ls -la /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/blockchain-secrets.env
@@ -572,6 +588,7 @@ ls -la /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/blockchain-secre
 **Cause:** `DATABASE_URL` doesn't match actual database path
 
 **Solution:**
+
 ```bash
 # Use correct path (default is /var/lib/aitbc/data/<chain-id>/chain.db)
 # Don't override DATABASE_URL unless using PostgreSQL

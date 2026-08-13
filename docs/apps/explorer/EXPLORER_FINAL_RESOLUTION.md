@@ -22,6 +22,7 @@ async def api_transaction(tx_hash: str):
 ```
 
 **Evidence:**
+
 - ✅ Endpoint defined at line 441
 - ✅ Proxies to blockchain node RPC
 - ✅ Returns 500 when node is down (expected behavior)
@@ -81,6 +82,7 @@ function formatTimestamp(timestamp) {
 ```
 
 **Evidence:**
+
 - ✅ Handles ISO string timestamps: `new Date(timestamp)`
 - ✅ Handles Unix timestamps: `new Date(timestamp * 1000)`
 - ✅ Error handling for invalid formats
@@ -92,6 +94,7 @@ function formatTimestamp(timestamp) {
 **REALITY:** ✅ **Complete frontend integration**
 
 **Evidence:**
+
 - ✅ Calls API: `fetch('/api/transactions/${query}')`
 - ✅ Displays fields: `tx.hash, tx.from, tx.to, tx.amount, tx.fee`
 - ✅ Uses timestamp formatting: `formatTimestamp(block.timestamp)`
@@ -126,6 +129,7 @@ curl http://localhost:3001/health
 ## 🚀 **TO FULLY VERIFY**
 
 1. **Start blockchain node:**
+
    ```bash
    cd apps/blockchain-node && python -m aitbc_chain.rpc
    ```

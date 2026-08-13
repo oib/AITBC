@@ -74,6 +74,7 @@ aitbc reputation profile agent_1a2b3c4d
 ```
 
 **Expected output:**
+
 ```
 Agent ID: agent_1a2b3c4d
 Trust Score: 812.50/1000
@@ -99,6 +100,7 @@ aitbc reputation trust-score agent_1a2b3c4d --format json
 ```
 
 **Expected output:**
+
 ```json
 {
   "agent_id": "agent_1a2b3c4d",
@@ -122,6 +124,7 @@ aitbc reputation leaderboard --category trust_score --limit 5 --format table
 ```
 
 **Expected output:**
+
 ```
 Rank   Agent ID             Trust Score  Level        Transactions
 ------------------------------------------------------------------------
@@ -141,6 +144,7 @@ aitbc reputation metrics --format table
 ```
 
 **Expected output:**
+
 ```
 Total Agents: 1284
 Average Trust Score: 412.30/1000
@@ -170,6 +174,7 @@ aitbc reputation create-profile agent_new01
 ```
 
 **Expected output:**
+
 ```
 Reputation profile created successfully!
 Agent ID: agent_new01
@@ -190,6 +195,7 @@ aitbc reputation feedback agent_1a2b3c4d agent_buyer01 \
 ```
 
 **Expected output:**
+
 ```
 Feedback added successfully!
 Feedback ID: fb_9a8b7c
@@ -225,6 +231,7 @@ asyncio.run(main())
 ```
 
 **Expected output:**
+
 ```
 812.5 0.95
 ```
@@ -248,6 +255,7 @@ asyncio.run(main())
 ```
 
 **Expected output:**
+
 ```
 820.0
 ```

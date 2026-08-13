@@ -1,14 +1,17 @@
 # Exchange
 
 ## Status
+
 ✅ Operational
 
 ## Overview
+
 Cross-chain exchange and trading platform supporting multiple blockchain networks with real-time price tracking and order matching.
 
 ## Architecture
 
 ### Core Components
+
 - **Order Book**: Central order book for all trading pairs
 - **Matching Engine**: Real-time order matching and execution
 - **Price Ticker**: Real-time price updates and market data
@@ -17,6 +20,7 @@ Cross-chain exchange and trading platform supporting multiple blockchain network
 - **API Server**: RESTful API for exchange operations
 
 ### Supported Features
+
 - Multiple trading pairs
 - Cross-chain asset transfers
 - Real-time price updates
@@ -27,19 +31,23 @@ Cross-chain exchange and trading platform supporting multiple blockchain network
 ## Quick Start (End Users)
 
 ### Prerequisites
+
 - Python 3.13+
 - PostgreSQL database (production default)
 - Redis for caching
 - Access to blockchain RPC endpoints
 
 ### Installation
+
 ```bash
 cd /opt/aitbc/apps/exchange
 .venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
+
 Set environment variables in `.env`:
+
 ```bash
 DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/exchange
 REDIS_URL=redis://localhost:6379
@@ -48,6 +56,7 @@ CROSS_CHAIN_ENABLED=true
 ```
 
 ### Running the Service
+
 ```bash
 # Start the exchange server
 python server.py
@@ -57,11 +66,13 @@ bash deploy_real_exchange.sh
 ```
 
 ### Web Interface
+
 Open `index.html` in a browser to access the web interface.
 
 ## Developer Guide
 
 ### Development Setup
+
 1. Clone the repository
 2. Create virtual environment: `python -m venv .venv`
 3. Install dependencies: `pip install -r requirements.txt`
@@ -70,6 +81,7 @@ Open `index.html` in a browser to access the web interface.
 6. Run tests: `pytest tests/`
 
 ### Project Structure
+
 ```
 exchange/
 ├── server.py                # Main server
@@ -88,6 +100,7 @@ exchange/
 ```
 
 ### Testing
+
 ```bash
 # Run all tests
 pytest tests/
@@ -104,16 +117,19 @@ pytest tests/test_cross_chain.py
 ### Market Data
 
 #### Get Order Book
+
 ```http
 GET /api/v1/orderbook?pair=BTC_AIT
 ```
 
 #### Get Price Ticker
+
 ```http
 GET /api/v1/ticker?pair=BTC_AIT
 ```
 
 #### Get Market Summary
+
 ```http
 GET /api/v1/market/summary
 ```
@@ -121,6 +137,7 @@ GET /api/v1/market/summary
 ### Orders
 
 #### Place Order
+
 ```http
 POST /api/v1/orders
 Content-Type: application/json
@@ -136,16 +153,19 @@ Content-Type: application/json
 ```
 
 #### Get Order Status
+
 ```http
 GET /api/v1/orders/{order_id}
 ```
 
 #### Cancel Order
+
 ```http
 DELETE /api/v1/orders/{order_id}
 ```
 
 #### Get User Orders
+
 ```http
 GET /api/v1/orders?user_id=string&status=open
 ```
@@ -153,6 +173,7 @@ GET /api/v1/orders?user_id=string&status=open
 ### Cross-Chain
 
 #### Initiate Cross-Chain Transfer
+
 ```http
 POST /api/v1/crosschain/transfer
 Content-Type: application/json
@@ -167,6 +188,7 @@ Content-Type: application/json
 ```
 
 #### Get Transfer Status
+
 ```http
 GET /api/v1/crosschain/transfers/{transfer_id}
 ```
@@ -174,11 +196,13 @@ GET /api/v1/crosschain/transfers/{transfer_id}
 ### Health
 
 #### Get Health Status
+
 ```http
 GET /health
 ```
 
 #### Get System Metrics
+
 ```http
 GET /metrics
 ```
@@ -186,6 +210,7 @@ GET /metrics
 ## Configuration
 
 ### Environment Variables
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `REDIS_URL`: Redis connection string
 - `BLOCKCHAIN_RPC_URL`: Blockchain RPC endpoint
@@ -196,6 +221,7 @@ GET /metrics
 - `ORDER_TIMEOUT`: Order timeout in seconds
 
 ### Trading Parameters
+
 - **Order Types**: limit, market, stop orders
 - **Order Sides**: buy, sell
 - **Trading Pairs**: Configurable trading pairs

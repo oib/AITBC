@@ -26,16 +26,19 @@ This guide has been split into topic-focused files for easier navigation.
 ## Quick Navigation
 
 **For New Users:**
+
 1. Start with [Project Overview](./project-overview.md)
 2. Review [Installation Guide](./installation-guide.md)
 3. Check [Usage Examples](./usage-examples.md)
 
 **For Developers:**
+
 1. See [Project Structure](./project-structure.md)
 2. Review [Architecture Overview](./architecture-overview.md)
 3. Check [Contributing](./contributing.md)
 
 **For AI Agent Users:**
+
 1. See [agent Agent Usage](./agent-usage.md)
 2. Review [Project Overview](./project-overview.md)
 3. Check [Achievements](./achievements.md)

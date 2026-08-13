@@ -3,11 +3,14 @@
 ## Phase 1 Results (Completed)
 
 ### SQL Injection: ✅ 0 bugs
+
 - All SQL queries use SQLAlchemy ORM with parameterization
 - No raw SQL with string interpolation found
 
 ### Input Validation: ⚠️ Partially Completed
+
 **Completed:**
+
 - Created shared validators module at `apps/coordinator-api/src/coordinator_api/validators/__init__.py`
 - Applied validators to `agent_identity/domain/agent_identity.py`:
   - Added Ethereum address validation to 5 fields (owner_address, chain_address, wallet_address, verifier_address in 3 models)
@@ -21,6 +24,7 @@
   - Added max_length=42 to address fields
 
 **Remaining Input Validation Work:**
+
 1. **cross_chain domain models** — Need to add validators to:
    - `cross_chain_bridge.py`: BridgeRequest, SupportedToken, ChainConfig, Validator, BridgeTransaction
    - `atomic_swap.py`: initiator_address, participant_address
@@ -45,9 +49,11 @@
    - `governance/domain/governance.py`: title, description fields
 
 ### Resource Leaks: ✅ 1 fixed
+
 - `AgentCommunicationClient` now has `__aenter__/__aexit__` to close the aiohttp session
 
 ### Async Race Conditions: ❌ 11 services NOT YET FIXED
+
 **Remaining work:**
 
 1. **AgentOrchestrator** — Add `self._lock = asyncio.Lock()` to protect:
@@ -89,12 +95,14 @@
    - Lines: 365, 626
 
 10. **PerformanceMonitoring** — Add `self._lock = asyncio.Lock()` to protect:
-   - `system_resources` list, `model_performance` dictionary
-   - Lines: 110, 133
 
-11. **OracleService** — Add `asyncio.Lock` or use thread-safe data structure for:
-   - `_subscribers` list during iteration (subscribe/unsubscribe vs `_update_loop`)
-   - Lines: 253, 308, 312
+- `system_resources` list, `model_performance` dictionary
+- Lines: 110, 133
+
+ 1. **OracleService** — Add `asyncio.Lock` or use thread-safe data structure for:
+
+- `_subscribers` list during iteration (subscribe/unsubscribe vs `_update_loop`)
+- Lines: 253, 308, 312
 
 ---
 
@@ -103,7 +111,7 @@
 1. ✅ `apps/coordinator-api/src/coordinator_api/validators/__init__.py` (created)
 2. ✅ `apps/coordinator-api/src/coordinator_api/contexts/agent_identity/domain/agent_identity.py` (validators added)
 3. ✅ `apps/coordinator-api/src/coordinator_api/contexts/wallet/domain/wallet.py` (validators added)
-4. ✅ `apps/coordinator-api/src/coordinator_api/agent_identity/sdk/communication.py` (added __aenter__/__aexit__)
+4. ✅ `apps/coordinator-api/src/coordinator_api/agent_identity/sdk/communication.py` (added **aenter**/**aexit**)
 5. ✅ `apps/coordinator-api/src/coordinator_api/contexts/cross_chain/domain/cross_chain_bridge.py` (imports added, no validators yet)
 
 ---
@@ -111,11 +119,13 @@
 ## Verification Status
 
 **Current Status:**
+
 - ruff: ✅ All checks passed (on modified files)
 - mypy: ⚠️ Some no-any-return errors in validator field methods (type inference issue, not a runtime bug)
 - tests: ✅ Not run yet since last changes
 
 **To Complete Phase 1:**
+
 1. Fix mypy type inference in validators (add `-> str:` return type to field_validator methods)
 2. Apply validators to remaining domain models (cross_chain, bounty/staking, user, community, governance)
 3. Apply validators to router request models (bounty, developer_platform, marketplace, trading)

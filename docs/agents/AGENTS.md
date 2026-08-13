@@ -16,6 +16,7 @@ This file contains important information for AI agents working on the AITBC code
 ### Strict Options Now Enabled
 
 All 12 MyPy strict options are now enforced:
+
 - `disallow_any_generics` - Requires type parameters for generic types
 - `disallow_subclassing_any` - Prevents subclassing Any
 - `disallow_untyped_calls` - No calls to untyped functions
@@ -62,6 +63,7 @@ All 12 MyPy strict options are now enforced:
 ### Type Checking Commands
 
 Check all applications:
+
 ```bash
 # Check specific app
 cd /opt/aitbc && find apps/APP_NAME/src -name "*.py" -path "*/src/*" | xargs ./venv/bin/python -m mypy --show-error-codes
@@ -76,6 +78,7 @@ done
 ## Common Type Fixes
 
 ### Generic Type Parameters (disallow_any_generics)
+
 - Add explicit type parameters: `dict` → `dict[str, Any]`
 - Add explicit type parameters: `list` → `list[Any]` or `list[str]`
 - Add explicit type parameters: `Callable` → `Callable[[...], ...]`
@@ -84,18 +87,22 @@ done
 - Add explicit type parameters: `Queue` → `Queue[Any]`
 
 ### SQLModel/SQLAlchemy Issues
+
 - Use `scalars().all()` instead of `.all()` for query results
 - Cast Row results to proper types with `cast(dict[str, Any], result)`
 - Add explicit type annotations to dict comprehensions
 
 ### Cryptography Library
+
 - Use `# type: ignore[union-attr]` for key type variations
 - Use `# type: ignore[arg-type,union-attr,call-arg]` for complex crypto operations
 
 ### FastAPI/Decorators
+
 - Use `# type: ignore[untyped-decorator]` for FastAPI decorators
 
 ### Redis Type Issues
+
 - Convert bytes/str unions explicitly: `[str(m) for m in results]`
 - Use explicit dict comprehensions with type annotations
 
@@ -184,6 +191,7 @@ To achieve full strict mode, the following changes were made across the codebase
 The project includes type-specific tests to verify type annotations are correct:
 
 ### Rate Limiting Type Tests
+
 - Location: `tests/test_rate_limiting_types.py`
 - Covers: All rate_limiting module functions and classes
 - Verification: MyPy strict mode (0 errors), Pytest (11 tests passed)
@@ -195,6 +203,7 @@ The project includes type-specific tests to verify type annotations are correct:
   - Optional parameter handling
 
 ### Running Type Tests
+
 ```bash
 # Run MyPy on test file
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes tests/test_rate_limiting_types.py
@@ -216,18 +225,21 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/test_rate_limiting_types.py -
 The project uses pre-commit hooks to enforce code quality automatically on every commit.
 
 ### Enabled Hooks
+
 - **pre-commit-hooks**: Basic file checks (trailing whitespace, YAML, JSON, merge conflicts, etc.)
 - **Ruff**: Linting with auto-fix and formatting
 - **MyPy**: Type checking on the 12 clean apps (coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer)
 - **Bandit**: Security scanning (runs on pre-push only)
 
 ### Installation
+
 ```bash
 # Already installed in venv
 pre-commit install
 ```
 
 ### Usage
+
 ```bash
 # Run manually on all files
 pre-commit run --all-files
@@ -272,6 +284,7 @@ export GPU_BIND_PORT=8101
 ### Backward Compatibility
 
 Old environment variable names are still supported with fallback chains:
+
 - Agent: `BIND_HOST`, `AGENT_PORT` → `AGENT_BIND_HOST`, `AGENT_BIND_PORT`
 - Agent Coordinator: `HOST`, `PORT` → `AGENT_COORDINATOR_BIND_HOST`, `AGENT_COORDINATOR_BIND_PORT`
 - FFmpeg: `FFMPEG_PORT` → `FFMPEG_BIND_PORT`
@@ -285,6 +298,7 @@ Old environment variable names are still supported with fallback chains:
 **Issue**: Uvicorn's `reload=True` enables a development file-watcher that constantly polls the filesystem for source changes. When deployed under systemd in production, this causes sustained high CPU usage (observed: **~37% CPU** on a single core).
 
 **Affected services** (fixed):
+
 - `agent-coordinator`: `apps/agent-coordinator/src/app/main.py` — `reload=True` hardcoded
 - `edge`: `apps/edge/src/aitbc_edge/main.py` — `reload=True` hardcoded
 
@@ -307,6 +321,7 @@ This defaults to `False` in production while allowing `UVICORN_RELOAD=true` for 
 **Detection**: Look for duplicate `python` processes running the same module, or sustained high CPU from a uvicorn worker even when idle.
 
 **Audit command**:
+
 ```bash
 grep -r "reload\s*=\s*True" /opt/aitbc/apps --include="*.py"
 ```
@@ -314,11 +329,13 @@ grep -r "reload\s*=\s*True" /opt/aitbc/apps --include="*.py"
 ## Code Quality Status
 
 ### Ruff Linting
+
 - **Status**: ✅ 0 errors
 - **Total issues resolved**: 1,689
 - **Categories fixed**: W293, UP035, F601, C401, F811, F402, F841, B007, F405, E402, B904, UP031, F821, B023, F403, UP007/UP045, B017, B905, C417/C416, B011, E741/E712
 
 ### MyPy Type Checking
+
 - **Status**: ✅ 0 errors on 12 clean apps
 - **Strict mode**: ✅ 12/12 strict options enabled
 - **Applications clean**: coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer

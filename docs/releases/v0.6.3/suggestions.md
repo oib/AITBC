@@ -1,4 +1,5 @@
 ## Preparation Phase
+
 - Verify that all prerequisite releases are merged and tagged.
 - Set up a test environment matching the target release's dependencies.
 - Run existing test suite to ensure baseline passes before coding.
@@ -8,6 +9,7 @@
 # v0.6.3 Suggestions
 
 ## Status
+
 **3 of 4 CLAIMS STILL OPEN** — Gap #4 partially resolved by v0.6.2. Specific file paths and line numbers added to change.log.
 
 ## Confirmed Gaps (verified in /opt/aitbc)
@@ -48,13 +50,13 @@
 
 ## Additional Suggestions (incorporated)
 
-6. **File ownership for multi-hub subscription client** — `subscription_client.py` rewrite touches shared infrastructure. Split: Agent A creates `SubscriptionManager` (generic multi-hub tracking in `aitbc/network/`), Agent B modifies `subscription_client.py` (WebSocket connection, lease/heartbeat). Interface contract (`SubscriptionClientProtocol`) must be agreed before implementation.
+1. **File ownership for multi-hub subscription client** — `subscription_client.py` rewrite touches shared infrastructure. Split: Agent A creates `SubscriptionManager` (generic multi-hub tracking in `aitbc/network/`), Agent B modifies `subscription_client.py` (WebSocket connection, lease/heartbeat). Interface contract (`SubscriptionClientProtocol`) must be agreed before implementation.
    — ✅ Added to AGENTS.md as A4 task + "Multi-Hub Subscription Client — Interface Contract" section.
 
-7. **CLI commands — verify CLI group structure** — Confirmed: `chain sync-status` → `cli/aitbc_cli/commands/chain.py` (top-level `chain` group), `node island health` → `cli/aitbc_cli/commands/node/__init__.py` (island group at line 46-49), `node island list` → `cli/aitbc_cli/commands/node/island.py` (stub at line 161-174 with hardcoded UUID).
+2. **CLI commands — verify CLI group structure** — Confirmed: `chain sync-status` → `cli/aitbc_cli/commands/chain.py` (top-level `chain` group), `node island health` → `cli/aitbc_cli/commands/node/__init__.py` (island group at line 46-49), `node island list` → `cli/aitbc_cli/commands/node/island.py` (stub at line 161-174 with hardcoded UUID).
    — ✅ Updated AGENTS.md Status Baseline table and B6 instructions with correct paths.
 
-8. **Quick wins for change.log**:
+3. **Quick wins for change.log**:
    - ✅ Added ISLAND_REGISTRY parsing validator (B1 config section)
    - ✅ Added GOSSIP_BACKENDS parsing validator (B1 config section)
    - ✅ Documented bridge_islands CSV format: UUID only, no spaces (B1 validator section)

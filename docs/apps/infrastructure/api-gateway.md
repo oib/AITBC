@@ -7,6 +7,7 @@
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
+
 **🏠 [Documentation Home](../../README.md)** → **📦 Apps** → **🏗️ Infrastructure** → *You are here*
 
 **breadcrumb**: Home → Apps → Infrastructure → API Gateway
@@ -14,6 +15,7 @@
 ---
 
 ## 🎯 **See Also:**
+
 - **📖 About Documentation** - Template standard and audit checklist
 - **🧭 [Master Index](../../MASTER_INDEX.md)** - Full documentation catalog
 - **📁 Infrastructure Overview** - Infrastructure services overview
@@ -47,11 +49,13 @@ poetry install --with api-gateway
 ## Running
 
 ### Development
+
 ```bash
 python -m api_gateway.main
 ```
 
 ### Production (systemd)
+
 ```bash
 systemctl start api-gateway
 systemctl enable api-gateway
@@ -70,21 +74,25 @@ Service URLs are configured in `main.py` under the `SERVICES` dictionary.
 ## Testing
 
 ### Health Check
+
 ```bash
 curl http://localhost:8203/health
 ```
 
 Expected response:
+
 ```json
 {"status": "healthy", "service": "api-gateway"}
 ```
 
 ### Service Registry
+
 ```bash
 curl http://localhost:8203/services
 ```
 
 ### Test Routing
+
 ```bash
 # Route to GPU service
 curl http://localhost:8203/gpu/health
@@ -102,6 +110,7 @@ curl http://localhost:8203/governance/health
 ## Architecture
 
 The API Gateway implements:
+
 - **Request Routing**: Directs requests to appropriate microservices based on URL patterns
 - **Service Discovery**: Maintains a registry of available services
 - **Health Monitoring**: Checks service health before routing
@@ -116,11 +125,13 @@ The API Gateway implements:
 ## Troubleshooting
 
 ### Service Not Responding
+
 1. Check if target microservice is running
 2. Verify service URL configuration
 3. Check gateway logs for routing errors
 
 ### Health Check Failing
+
 1. Verify gateway is running on port 8080
 2. Check systemd service status: `systemctl status api-gateway`
 3. Review logs: `journalctl -u api-gateway -f`

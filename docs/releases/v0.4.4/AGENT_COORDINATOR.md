@@ -17,10 +17,12 @@ AITBC v0.4.4 integrates the Agent Coordinator with the Hermes messaging service,
 ### Hermes Integration
 
 #### Router Integration
+
 - Agent messaging router added to coordinator routers list
 - Main.py conditionally applies /v1 prefix based on router's existing prefix
 
 #### Message Handling
+
 - Hermes service handles message routing and delivery
 - Agent Coordinator manages agent lifecycle and coordination
 - Integration enables agent-to-agent communication via Hermes
@@ -28,6 +30,7 @@ AITBC v0.4.4 integrates the Agent Coordinator with the Hermes messaging service,
 ### CLI Updates
 
 #### Coin Requests
+
 - CLI coin requests updated to use Agent Coordinator
 - agent_coordinator_url added to CLI config
 

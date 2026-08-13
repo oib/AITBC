@@ -76,6 +76,7 @@ aitbc operations governance proposal \
 ```
 
 **Expected output:**
+
 ```
 Proposal created: prop-001
 
@@ -97,6 +98,7 @@ aitbc operations governance get-proposal prop-001
 ```
 
 **Expected output:**
+
 ```
 Proposal ID          prop-001
 Title                Increase Block Gas Limit to 30M
@@ -125,6 +127,7 @@ aitbc operations governance vote prop-001 \
 ```
 
 **Expected output:**
+
 ```
 Vote 'for' cast for proposal prop-001
 
@@ -154,6 +157,7 @@ aitbc operations governance voting-power 0xabc123def456...
 ```
 
 **Expected output:**
+
 ```
 Address             0xabc123def456...
 Voting Power        1500
@@ -174,6 +178,7 @@ aitbc operations governance stake \
 ```
 
 **Expected output:**
+
 ```
 Staked 2000 tokens for 90 days
 
@@ -196,6 +201,7 @@ aitbc operations governance delegate \
 ```
 
 **Expected output:**
+
 ```
 Delegated 1000 voting power from 0xabc123def456... to 0xdelegate789...
 
@@ -214,6 +220,7 @@ aitbc operations governance execute prop-001
 ```
 
 **Expected output:**
+
 ```
 Executed proposal prop-001
 

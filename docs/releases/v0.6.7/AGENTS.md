@@ -28,12 +28,14 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Status Baseline](./overview.md#status-baseline--verified-code-targets)
 - [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
 - [Architecture](./overview.md#architecture-pool-hub-with-blockchain-rewards)
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [RewardPolicy](./agent-a.md#a1-rewardpolicy)
@@ -41,6 +43,7 @@ This release documentation has been split into topic-focused files:
 - [Unit Tests](./agent-a.md#a3-unit-tests)
 
 ### Agent B (Apps & Infrastructure)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Pool-hub Settings](./agent-b.md#b1-pool-hub-settings)
@@ -163,6 +166,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/rewards/ aitbc/crypto/transaction_service.py && ./venv/bin/python -m ruff check aitbc/rewards/ aitbc/crypto/transaction_service.py tests/unit/test_reward_policy.py && ./venv/bin/python -m pytest tests/unit/test_reward_policy.py -q -o addopts=""
 ```
@@ -381,6 +385,7 @@ class RewardPolicy:
 ```
 
 Export from `aitbc/rewards/__init__.py`:
+
 ```python
 from .policy import (
     BASE_BLOCK_REWARD,
@@ -416,12 +421,14 @@ __all__ = [
 In `aitbc/crypto/transaction_service.py`, fix lines 41-42:
 
 **Before:**
+
 ```python
 self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
 self.chain_id = os.getenv("CHAIN_ID", "")
 ```
 
 **After:**
+
 ```python
 self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 self.chain_id = os.getenv("CHAIN_ID", "ait-hub")
@@ -432,6 +439,7 @@ This is a minimal fix — just changing two default values. The port 8202 matche
 #### A3: Unit tests
 
 **`tests/unit/test_reward_policy.py`**:
+
 - `test_calculate_block_reward_genesis` — height 0 → BASE_BLOCK_REWARD
 - `test_calculate_block_reward_after_first_halving` — height 210000 → BASE_BLOCK_REWARD / 2
 - `test_calculate_block_reward_after_second_halving` — height 420000 → BASE_BLOCK_REWARD / 4
@@ -467,6 +475,7 @@ This is a minimal fix — just changing two default values. The port 8202 matche
 **Working directory**: `/opt/aitbc/apps/pool-hub/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/pool-hub/
 cd /opt/aitbc && ./venv/bin/python -m pytest apps/pool-hub/tests/test_v067_rewards.py -q -o addopts="" --timeout=30
@@ -651,15 +660,18 @@ class PoolHubBlockchainClient:
 #### B3: Miner registration with chain_id
 
 In `apps/pool-hub/src/app/registry/miner_registry.py`:
+
 - Add `chain_id: str = "ait-hub"` to `MinerInfo` dataclass
 - Add `wallet_address: str | None = None` to `MinerInfo` (for reward payments)
 - In `register()` method, accept `chain_id` and `wallet_address` parameters
 
 In `apps/pool-hub/src/app/routers/miners.py`:
+
 - Add `chain_id` and `wallet_address` to the registration request model
 - After in-memory registration, call `PoolHubBlockchainClient.register_miner_on_chain()` (feature-flagged)
 
 In `apps/pool-hub/src/poolhub/models.py`:
+
 - Add `chain_id: Mapped[str] = mapped_column(String(64), default="ait-hub", index=True)` to `Miner`
 - Add `wallet_address: Mapped[str | None] = mapped_column(String(128), nullable=True)` to `Miner`
 

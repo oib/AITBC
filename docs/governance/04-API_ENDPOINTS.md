@@ -15,9 +15,11 @@ http://localhost:8105
 ### Health Check
 
 #### GET /health
+
 Health check endpoint.
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -26,9 +28,11 @@ Health check endpoint.
 ```
 
 #### GET /ready
+
 Readiness check - verifies database connectivity.
 
 **Response:**
+
 ```json
 {
   "status": "ready",
@@ -37,9 +41,11 @@ Readiness check - verifies database connectivity.
 ```
 
 #### GET /live
+
 Liveness check - verifies service is not stuck.
 
 **Response:**
+
 ```json
 {
   "status": "alive",
@@ -50,9 +56,11 @@ Liveness check - verifies service is not stuck.
 ### Governance Status
 
 #### GET /v1/governance/status
+
 Get governance service status.
 
 **Response:**
+
 ```json
 {
   "status": "operational",
@@ -66,13 +74,16 @@ Get governance service status.
 ### List Profiles
 
 #### GET /v1/governance/profiles
+
 List governance profiles with optional filters.
 
 **Query Parameters:**
+
 - `role` (optional): Filter by role
 - `user_id` (optional): Filter by user ID
 
 **Response:**
+
 ```json
 [
   {
@@ -88,12 +99,15 @@ List governance profiles with optional filters.
 ### Get Profile
 
 #### GET /v1/governance/profiles/{profile_id}
+
 Get a specific governance profile.
 
 **Path Parameters:**
+
 - `profile_id`: Profile UUID
 
 **Response:**
+
 ```json
 {
   "profile_id": "uuid",
@@ -107,9 +121,11 @@ Get a specific governance profile.
 ### Create Profile
 
 #### POST /v1/governance/profiles
+
 Create a new governance profile.
 
 **Request Body:**
+
 ```json
 {
   "user_id": "user123",
@@ -118,6 +134,7 @@ Create a new governance profile.
 ```
 
 **Response:**
+
 ```json
 {
   "profile_id": "uuid",
@@ -133,14 +150,17 @@ Create a new governance profile.
 ### List Proposals
 
 #### GET /v1/governance/proposals
+
 List governance proposals with optional filters.
 
 **Query Parameters:**
+
 - `status` (optional): Filter by status (draft, active, succeeded, rejected, executed)
 - `category` (optional): Filter by category
 - `proposer_id` (optional): Filter by proposer ID
 
 **Response:**
+
 ```json
 [
   {
@@ -162,12 +182,15 @@ List governance proposals with optional filters.
 ### Get Proposal
 
 #### GET /v1/governance/proposals/{proposal_id}
+
 Get a specific proposal.
 
 **Path Parameters:**
+
 - `proposal_id`: Proposal UUID
 
 **Response:**
+
 ```json
 {
   "proposal_id": "uuid",
@@ -187,9 +210,11 @@ Get a specific proposal.
 ### Create Proposal
 
 #### POST /v1/governance/proposals
+
 Create a new governance proposal.
 
 **Request Body:**
+
 ```json
 {
   "proposer_id": "user123",
@@ -202,6 +227,7 @@ Create a new governance proposal.
 ```
 
 **Response:**
+
 ```json
 {
   "proposal_id": "uuid",
@@ -221,12 +247,15 @@ Create a new governance proposal.
 ### Execute Proposal (v0.4.12)
 
 #### POST /v1/governance/proposals/{proposal_id}/execute
+
 Execute a passed proposal with logging.
 
 **Path Parameters:**
+
 - `proposal_id`: Proposal UUID
 
 **Response:**
+
 ```json
 {
   "proposal_id": "uuid",
@@ -236,6 +265,7 @@ Execute a passed proposal with logging.
 ```
 
 **Error Responses:**
+
 - 404: Proposal not found
 - 400: Proposal not in succeeded state
 
@@ -244,13 +274,16 @@ Execute a passed proposal with logging.
 ### List Votes
 
 #### GET /v1/governance/votes
+
 List votes with optional filters.
 
 **Query Parameters:**
+
 - `proposal_id` (optional): Filter by proposal ID
 - `voter_id` (optional): Filter by voter ID
 
 **Response:**
+
 ```json
 [
   {
@@ -268,9 +301,11 @@ List votes with optional filters.
 ### Create Vote
 
 #### POST /v1/governance/votes
+
 Create a new vote.
 
 **Request Body:**
+
 ```json
 {
   "proposal_id": "proposal_uuid",
@@ -282,6 +317,7 @@ Create a new vote.
 ```
 
 **Response:**
+
 ```json
 {
   "vote_id": "uuid",
@@ -299,9 +335,11 @@ Create a new vote.
 ### Stake Tokens
 
 #### POST /v1/governance/stake
+
 Stake tokens for enhanced voting power.
 
 **Request Body:**
+
 ```json
 {
   "staker_address": "0x1234567890abcdef",
@@ -311,6 +349,7 @@ Stake tokens for enhanced voting power.
 ```
 
 **Response:**
+
 ```json
 {
   "stake_id": "uuid",
@@ -323,17 +362,21 @@ Stake tokens for enhanced voting power.
 ```
 
 **Error Responses:**
+
 - 500: Lock period must be at least 30 days
 
 ### Get Voting Power
 
 #### GET /v1/governance/voting-power/{address}
+
 Get voting power for an address.
 
 **Path Parameters:**
+
 - `address`: Wallet address
 
 **Response:**
+
 ```json
 {
   "address": "0x1234567890abcdef",
@@ -345,9 +388,11 @@ Get voting power for an address.
 ### Delegate Voting Power
 
 #### POST /v1/governance/delegate
+
 Delegate voting power to another address.
 
 **Request Body:**
+
 ```json
 {
   "delegator_address": "0x1234567890abcdef",
@@ -357,6 +402,7 @@ Delegate voting power to another address.
 ```
 
 **Response:**
+
 ```json
 {
   "delegation_id": "uuid",
@@ -368,6 +414,7 @@ Delegate voting power to another address.
 ```
 
 **Error Responses:**
+
 - 500: Insufficient voting power
 
 ## Treasury & Analytics
@@ -375,9 +422,11 @@ Delegate voting power to another address.
 ### Get Treasury
 
 #### GET /v1/governance/treasury
+
 Get DAO treasury information.
 
 **Response:**
+
 ```json
 {
   "treasury_id": "main_treasury",
@@ -387,18 +436,22 @@ Get DAO treasury information.
 ```
 
 **Error Responses:**
+
 - 404: The `main_treasury` row does not exist — the treasury has not been initialised.
   This case previously returned `200` with a body of `null`.
 
 ### Get Analytics
 
 #### GET /v1/governance/analytics
+
 Get governance analytics.
 
 **Query Parameters:**
+
 - `period` (optional): Time period (default: monthly)
 
 **Response:**
+
 ```json
 {
   "period": "monthly",
@@ -414,9 +467,11 @@ Get governance analytics.
 ### Submit Transaction
 
 #### POST /v1/transactions
+
 Submit a governance transaction.
 
 **Request Body:**
+
 ```json
 {
   "type": "governance",
@@ -428,6 +483,7 @@ Submit a governance transaction.
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -438,15 +494,18 @@ Submit a governance transaction.
 ### Query Transactions
 
 #### GET /v1/transactions
+
 Query governance transactions.
 
 **Query Parameters:**
+
 - `transaction_type` (optional): Filter by type
 - `action` (optional): Filter by action (propose, vote)
 - `status` (optional): Filter by status
 - `island_id` (optional): Filter by island ID
 
 **Response:**
+
 ```json
 [
   {
@@ -470,6 +529,7 @@ All endpoints may return error responses:
 ```
 
 **Common HTTP Status Codes:**
+
 - 200: Success
 - 400: Bad Request
 - 404: Not Found
@@ -478,6 +538,7 @@ All endpoints may return error responses:
 ## Rate Limiting
 
 Rate limiting is applied to prevent abuse:
+
 - 100 requests per minute per IP
 - 1000 requests per hour per IP
 

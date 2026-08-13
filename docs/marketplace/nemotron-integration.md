@@ -8,6 +8,7 @@
 ### Enhanced Python Agent Integration
 
 #### Basic Client with Error Handling
+
 ```python
 import requests
 import json
@@ -68,6 +69,7 @@ class NemotronCloudClient:
 ```
 
 #### Batch Processing Example
+
 ```python
 class BatchProcessor:
     def __init__(self, client: NemotronCloudClient):
@@ -116,6 +118,7 @@ for result in results:
 ```
 
 #### Streaming Responses Example
+
 ```python
 class StreamingClient:
     def __init__(self, client: NemotronCloudClient):
@@ -172,6 +175,7 @@ print("\nFull response completed.")
 ```
 
 #### Error Handling Best Practices
+
 ```python
 class RobustNemotronClient:
     def __init__(self, base_url="https://aitbc3.aitbc.bubuit.net"):
@@ -228,6 +232,7 @@ print(response)
 ```
 
 ### Python Agent Integration
+
 ```python
 import requests
 import json
@@ -284,6 +289,7 @@ print(f"Response: {response}")
 ```
 
 ### Agent Agent Integration
+
 ```python
 # For Agent agents that need to respond to messages
 from aitbc.agent_sdk import AgentClient

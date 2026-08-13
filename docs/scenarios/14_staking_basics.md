@@ -74,6 +74,7 @@ aitbc wallet --wallet-name staker stake 100.0 --duration 90
 ```
 
 **Expected output:**
+
 ```
 Staked 100.0 AITBC for 90 days
 wallet: staker
@@ -94,6 +95,7 @@ aitbc wallet --wallet-name staker staking-info
 ```
 
 **Expected output:**
+
 ```
 wallet: staker
 address: 0x1a2b3c4d...
@@ -115,6 +117,7 @@ aitbc wallet --wallet-name staker unstake 7
 ```
 
 **Expected output:**
+
 ```
 Unstaked tokens from stake 7
 wallet: staker
@@ -134,6 +137,7 @@ aitbc wallet --wallet-name staker liquidity-stake 50.0 --pool main --lock-days 9
 ```
 
 **Expected output:**
+
 ```
 Staked 50.0 AITBC into 'main' pool (platinum tier, 12.0% APY)
 stake_id: liq_a1b2c3d4e5f6
@@ -154,6 +158,7 @@ aitbc wallet --wallet-name staker liquidity-unstake liq_a1b2c3d4e5f6
 ```
 
 **Expected output:**
+
 ```
 Withdrawn 51.500000 AITBC (principal: 50.0, rewards: 1.500000)
 stake_id: liq_a1b2c3d4e5f6

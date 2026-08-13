@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/bridge/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && ./venv/bin/python -m ruff check aitbc/bridge/ tests/unit/test_bridge_sdk.py && ./venv/bin/python -m pytest tests/unit/test_bridge_sdk.py -q -o addopts=""
 ```
@@ -263,6 +264,7 @@ class BridgeClient:
 ```
 
 **`aitbc/bridge/__init__.py`** — re-exports:
+
 ```python
 from .client import BridgeClient
 from .types import BridgeConfig, BridgeProof, BridgeStatus, BridgeTransfer
@@ -433,6 +435,7 @@ def dict_to_proof(data: dict[str, Any]) -> BridgeProof:
 ## A3: Unit Tests
 
 **`tests/unit/test_bridge_sdk.py`**:
+
 - `test_bridge_status_values` — enum values match expected strings
 - `test_bridge_transfer_defaults` — default field values
 - `test_bridge_proof_dataclass` — all required fields

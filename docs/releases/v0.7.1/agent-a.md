@@ -10,6 +10,7 @@
 **Working directory**: `/opt/aitbc/aitbc/bridge/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && ./venv/bin/python -m ruff check aitbc/bridge/ tests/unit/test_bridge_security.py && ./venv/bin/python -m pytest tests/unit/test_bridge_security.py tests/unit/test_bridge_sdk.py -q -o addopts=""
 ```
@@ -85,6 +86,7 @@ class ThresholdProof:
 ```
 
 **Extend BridgeProof** — add optional `validator_signatures` field:
+
 ```python
 @dataclass
 class BridgeProof:
@@ -94,6 +96,7 @@ class BridgeProof:
 ```
 
 **Extend BridgeConfig** — add multi-sig config:
+
 ```python
 @dataclass
 class BridgeConfig:
@@ -341,6 +344,7 @@ async def security_status(self) -> dict[str, Any]:
 ```
 
 **`tests/unit/test_bridge_security.py`** — unit tests for A1-A4:
+
 - `test_validator_info_dataclass` — all fields
 - `test_validator_set_addresses_property` — active validators only
 - `test_validator_set_active_count` — counts active

@@ -22,9 +22,11 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Task Split Overview](./overview.md#task-split-overview)
 
 ### Agent A (Type Safety & Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Queue system type fixes](./agent-a.md#a1-queue-system-type-fixes)
@@ -45,6 +47,7 @@ This release documentation has been split into topic-focused files:
 - [Debounce CancelledError bug](./agent-a.md#a16-debounce-cancellederror-bug)
 
 ### Agent B (Bug Fixes, Infrastructure & Apps)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Ruff audit](./agent-b.md#b1-ruff-audit)
@@ -85,6 +88,7 @@ This release documentation has been split into topic-focused files:
 **Working directory**: `/opt/aitbc/aitbc/`
 
 **Verification command**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m ruff check aitbc/
 ```
@@ -118,58 +122,71 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 ### Agent A — Detailed Instructions
 
 #### A1: Queue system type fixes
+
 - Type `last_called: list[float]` and `timer: list[asyncio.Task[Any] | None]` in `decorators.py`
 - Remove unreachable `assert` in `decorators.py`
 - Fix implicit Optional: `kwargs: dict[str, Any] | None = None` in `worker.py`, `task.py`, `scheduler.py`
 
 #### A2: Blockchain service response typing
+
 - `AITBCHTTPClient.get()` and `.post()` return `dict[str, Any]` (already parsed JSON). Remove all redundant `.json()` calls.
 - Cast `tx_hash` to `str` to fix `no-any-return`.
 
 #### A3: Database connection type fixes
+
 - Type `self._connection: sqlite3.Connection | None` in `connection.py`. Use local variable with `assert` in `connect()`. Remove unused `type: ignore`.
 - Type `self.primary_engine: Any`, annotate `self.replica_engines: list[Any]`, add return types to `get_read_engine`, `get_write_engine`, `get_session`, `_setup_monitoring` in `replica.py`.
 
 #### A4: Distributed tracing import fixes
+
 - Add `type: ignore[import-not-found]` for Jaeger and HTTPX OpenTelemetry instrumentor imports.
 - Type `_tracer` and `_provider` as `Any`. Add return types to `get_tracer`, `start_span`, `end_span`.
 - Remove redundant `type: ignore[union-attr]`.
 
 #### A5: Agent bridge integration layer
+
 - Type `self.session: aiohttp.ClientSession | None`.
 - Add `assert self.session is not None` guards before all `self.session.get()`/`.post()` calls.
 - Wrap `response.json()` with `dict()` to satisfy `no-any-return`.
 
 #### A6: API utilities
+
 - Fix implicit Optional defaults in `build_cors_headers` (`allowed_origins`, `allowed_methods`, `allowed_headers`) and `sanitize_response` (`sensitive_fields`).
 
 #### A7: Tracing module
+
 - Add `type: ignore[import-not-found]` for HTTPX instrumentor import.
 - Change `_tracer` and `_tracer_provider` from `object | None` to `Any`.
 - Change `get_tracer()` return type to `Any`.
 
 #### A8: Agent trading and compliance
+
 - Fix `type: ignore` code from `import-not-found` to `import-untyped`.
 - Cast `bool()` on `stop()` return and `dict()` on `get_status()` return.
 
 #### A9: Ethereum RPC, access control, price oracle
+
 - `ethereum_rpc.py`: Type `self._w3: Any = None`, add `-> Any` return type to `_get_web3()`.
 - `access_control.py`: Add `type: ignore[arg-type]` for `jwt.encode()` and `jwt.decode()`.
 - `price_oracle.py`: Cast `json.load()` result to `dict[str, Any]`, add `cast` import.
 
 #### A10: Agent registry discovery
+
 - Fix implicit Optional in `find_agents_by_capability` and `find_agents_by_type` (`filters: dict[str, Any] | None = None`).
 - Update `_matches_filters` signature. Add `Any` import.
 
 #### A11: Config module
+
 - Migrate deprecated `TypeAlias` syntax to `type` annotations (UP040). Remove `TypeAlias` from imports.
 - Clean up unused `type: ignore` codes. Add `type: ignore[import-untyped]` for `yaml` import in `hierarchical_config.py`.
 
 #### A12: Agent registry tests
+
 - Add `type: ignore[import-not-found]` on the **first** `import app` / `from app import ...` in each test file.
 - Remove `type: ignore` from all subsequent `import app` statements in the same file.
 
 #### A13: Additional type fixes
+
 - `task_manager.py`: Type `Task.completed_at: datetime | None`, `Task.result: dict[str, Any] | None`, `Task.error: str | None`.
 - `message_protocol.py`: Type `self.messages: list[dict[str, Any]]` and `self.received_messages: list[dict[str, Any]]`.
 - `events.py`: Fix `Event.timestamp: datetime | None = None`.
@@ -178,14 +195,17 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 - `registration.py`: Fix implicit Optional for `metadata: dict[str, Any] | None = None`.
 
 #### A14: TypeAlias migration
+
 - Part of A11 — migrate `TypeAlias` to `type` statement syntax in `config/__init__.py`.
 
 #### A15: Stale type: ignore cleanup
+
 - Change `type: ignore[import]` to `type: ignore[import-not-found]` on first import in each test file.
 - Remove `type: ignore` from subsequent `import app` in same file.
 - Verify `type: ignore` in `aitbc_logging.py`, `log_utils/logging.py`, `caching/blockchain_cache.py`, `network/web3_utils.py` are still needed.
 
 #### A16: Debounce CancelledError bug
+
 - In `queues/decorators.py`, wrap `await task` in `try/except asyncio.CancelledError` that returns `None` for superseded calls.
 - Verify: superseded caller returns `None`, latest caller returns its value.
 
@@ -198,6 +218,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 **Working directory**: `/opt/aitbc/` (cross-cutting)
 
 **Verification commands**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy --show-error-codes apps/coordinator-api/src apps/blockchain-node/src
 ```
@@ -221,10 +242,12 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 ### Agent B — Detailed Instructions
 
 #### B1: Ruff audit
+
 - Run `ruff check .` across the entire repo. Fix any errors found.
 - Expected result: 0 errors (verified — none found).
 
 #### B2: Duplicate route registration audit
+
 - **Problem**: `agent_router` was included twice in `apps/coordinator-api/src/app/main.py`:
   - Line 313: `app.include_router(agent_router, prefix="/v1")` → routes at `/v1/workflows`, `/v1/executions`
   - Line 378: `app.include_router(agent_router, prefix="/v1/agents")` → routes at `/v1/agents/workflows`, `/v1/agents/executions`
@@ -232,30 +255,36 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 - **Verify**: App starts with 378 routes and 0 duplicates.
 
 #### B3: Circuit breaker unreachable code
+
 - Fix unreachable code in `aitbc/network/circuit_breaker.py` (type `open_time: datetime | None`).
 - **Note**: Coordinate with Agent A's A13 task on `circuit_breaker.py` — Agent A handles the type annotation, Agent B handles the unreachable code logic. Agent A goes first.
 
 #### B4: aitbc-recovery systemd symlink
+
 - **Problem**: Service file at `/opt/aitbc/scripts/utils/aitbc-recovery.service` not symlinked into `/etc/systemd/system/`.
 - **Fix**: `ln -s /opt/aitbc/scripts/utils/aitbc-recovery.service /etc/systemd/system/aitbc-recovery.service && systemctl daemon-reload`
 - **Verify**: `systemctl status aitbc-recovery` shows `Loaded: loaded (...; linked; preset: enabled)`.
 
 #### B5: Broken AgentServiceBridge import
+
 - **Problem**: `trading_agent.py` and `compliance_agent.py` imported from `apps.agent_services.agent_bridge.src.integration_layer` which does not exist. The `type: ignore[import-untyped]` was masking the runtime breakage.
 - **Fix**: Change import to `from aitbc.agent_bridge.src.integration_layer import AgentServiceBridge`. Remove the `type: ignore`.
 - **Verify**: Both modules import cleanly. Bridge method names (`start_agent`, `stop_agent`, `get_agent_status`, `execute_agent_task`) match call sites.
 - **Note**: Coordinate with Agent A's A8 task — Agent A handles the `type: ignore` code fix, Agent B handles the import path fix. Agent B goes first to fix the path, then Agent A adjusts the ignore.
 
 #### B6: Biased read-replica routing
+
 - **Problem**: `ReadReplicaManager.get_read_engine()` used `hash(time.time()) % 100 >= self.read_weight`. `hash()` of a float is not uniform; consecutive calls in tight loops return identical values causing bursty routing.
 - **Fix**: Replace with `random.randint(0, 99) >= self.read_weight`. Add `import random`.
 - **Note**: Coordinate with Agent A's A3 task on `replica.py` — Agent A handles type annotations, Agent B handles the routing logic. Agent A goes first.
 
 #### B7: PoA nonce off-by-one
+
 - **Problem**: In `poa.py`, `Transaction` created with `nonce=sender_account.nonce - 1`. ORM object not refreshed after raw SQL `UPDATE account SET nonce = nonce + 1`, so it double-subtracts.
 - **Fix**: Change to `nonce=tx_data_for_transition["nonce"]` — the exact nonce validated and used for the state transition.
 
 #### B8: CLI workflow API paths
+
 - **Problem**: `cli/aitbc_cli/commands/workflow.py` called `/v1/workflows/execute`, `/v1/workflows/{name}/status`, `/v1/workflows/{name}/stop`. Agent router is at `/v1/agents` prefix.
 - **Fix**: Update to:
   - `run`: `POST /v1/agents/workflows/{workflow_id}/execute` with `AgentExecutionRequest` payload
@@ -263,14 +292,17 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
   - `stop`: `POST /v1/agents/workflows/{workflow_id}/cancel?execution_id=...`
 
 #### B9: Consolidate logging modules
+
 - **Problem**: `aitbc_logging.py` (432+ importers) and `log_utils/logging.py` (1 importer) had near-identical copies.
 - **Fix**: Replace `log_utils/logging.py` with a thin re-export shim from `aitbc_logging.py`. `BlockchainTextFormatter` becomes alias for `JournalFormatter`. Update `log_utils/__init__.py` to export `JournalFormatter` and `configure_uvicorn_logging`.
 
 #### B10: REPO_DIR environment sourcing
+
 - **Problem**: `aitbc/constants.py` hardcoded `REPO_DIR = Path("/opt/aitbc")`.
 - **Fix**: Change to `REPO_DIR = Path(os.environ.get("AITBC_REPO_DIR", "/opt/aitbc"))`. Defaults to `/opt/aitbc` for backward compatibility.
 
 #### B11: PoA session rollback
+
 - **Problem**: In `poa.py`'s `_propose_block()`, per-tx exception handler logged error and continued without rolling back partial state changes.
 - **Fix**: Add `session.rollback()` before `continue` in the exception handler.
 - **Note**: Same file as B7. Both fixes should be applied together to `poa.py`.
@@ -338,6 +370,7 @@ These were identified during the audit but left for future releases:
 **Release theme**: Duplication elimination & large-file decomposition in `apps/` and `cli/`.
 
 **Status of prior phases** (verified on disk 2026-06-24):
+
 - Phase 1 (quick wins): ✅ DONE — committed in `38a0c70cc`
 - Phase 2 (test split): ✅ DONE — `tests/integration/test_agent_coordinator.py` (3,177 lines) split into 9 domain files (`test_auth.py`, `test_agents.py`, `test_ai.py`, `test_consensus.py`, `test_messages.py`, `test_monitoring.py`, `test_tasks.py`, `test_integration_scenarios.py`, `conftest.py`); original deleted.
 - Phase 3 (dedup + indexes): ✅ DONE — database indexes committed (`5d807d7ec`), stale CLI duplicate removed (`00ab4ab25`), blockchain-explorer decomposed (`60c2522c2`), exchange decomposed + dead `api/` package removed (`2f629910f`), DatabaseConfig consolidated via `db_filename` hook (`7ce7484e6`).
@@ -346,6 +379,7 @@ These were identified during the audit but left for future releases:
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
 
 **Verification**:
+
 ```bash
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python -m mypy --show-error-codes apps/coordinator-api/src apps/blockchain-node/src
 ```
@@ -367,37 +401,44 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 ### Detailed Instructions
 
 #### B12: Commit index work
+
 - Stage the 10 modified domain files + the new migration `add_query_performance_indexes.py`.
 - Commit message: `perf(db): add query performance indexes to coordinator-api domain models`.
 - Do NOT touch `tests/integration/` (Agent A's test-split work is uncommitted there).
 - **Audit basis**: indexes were chosen by cross-referencing actual SQL query patterns (`.where(Model.col == ...)` and `order_by(Model.col)`) in the storage/router/service layers — not blanket indexing. Verified all 46 expected indexes generate via `SQLModel.metadata.create_all` on in-memory SQLite.
 
 #### B13: DatabaseConfig consolidation
+
 - **Problem**: `DatabaseConfig` with `effective_url` is copy-pasted in `apps/shared-core/src/app/core/config.py` (canonical, 55 lines), `apps/agent-management/src/app/core/config.py` (65 lines), `apps/coordinator-api/src/app/config.py` (242 lines), `apps/edge/src/aitbc_edge/config.py` (42 lines). Each drifts (different default DB filenames, different postgres URLs).
 - **Fix**: In each non-canonical config, import `DatabaseConfig`/`ServiceSettings` from shared-core and subclass with service-specific overrides only. Keep per-service default DB filename via a subclass override of `effective_url` or a `db_filename` field.
 - **Verify**: `mypy` + `ruff` clean on the 3 modified files; each service still imports its settings correctly.
 
 #### B14: CLI duplicate wallet adapter
+
 - **Problem**: `cli/utils/dual_mode_wallet_adapter.py` (626 lines) and `cli/aitbc_cli/utils/dual_mode_wallet_adapter.py` (626 lines) differ only in import paths (`from utils import ...` vs `from aitbc_cli.utils import ...`). The `cli/utils/` copy is the stale pre-package layout.
 - **Fix**: Delete `cli/utils/dual_mode_wallet_adapter.py`. Grep for importers of `cli.utils.dual_mode_wallet_adapter` and repoint to `aitbc_cli.utils.dual_mode_wallet_adapter`.
 - **Verify**: `ruff check cli/` clean; `grep -r "cli.utils.dual_mode"` returns nothing.
 
 #### B15: blockchain-explorer decomposition
+
 - `main.py` (1,442 lines) defines the FastAPI app + all routes inline.
 - Split into `routers/blocks.py`, `routers/transactions.py`, `routers/chains.py`, `routers/stats.py` (group by existing route prefixes). `main.py` becomes app factory + `include_router` calls + uvicorn entrypoint.
 - Keep the SSRF validation patterns (`TX_HASH_PATTERN`, `CHAIN_ID_PATTERN`) in a shared `validation.py`.
 - **Verify**: app still starts; route count unchanged.
 
 #### B16: exchange simple_exchange_api decomposition
+
 - `simple_exchange_api.py` (1,209 lines) uses stdlib `http.server` (not FastAPI) with inline SQLite.
 - Extract: `db.py` (schema + connection), `handlers.py` (request handlers by path), keep `simple_exchange_api.py` as the `HTTPServer` wiring.
 - This is stdlib HTTP — no router framework, so group handlers into functions keyed by path prefix.
 - **Verify**: server boots; existing exchange tests pass.
 
 #### B17: exchange database.py audit
+
 - `apps/exchange/database.py` (SQLAlchemy `Base` + engine) and `apps/exchange/api/database.py` (sqlite3 + logging) serve different layers. **Decision pending**: likely rename `api/database.py` → `api/db_init.py` to avoid name collision, OR leave as-is with a clarifying docstring. Investigate importers before deciding.
 
 #### B18: systemd symlink audit
+
 - All 12 `aitbc*.service` symlinks verified present (recovery ✅ from v0.5.11). Confirm each symlink target file exists and is non-empty. Report any dangling symlinks.
 
 ### Execution Order

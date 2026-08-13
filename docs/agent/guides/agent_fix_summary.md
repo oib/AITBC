@@ -3,34 +3,42 @@
 **Last Updated:** 2026-05-28
 
 ## Problem Identified
+
 The agent agent was failing with the error:
+
 ```
 Gateway agent failed; falling back to embedded: Error: Pass --to <E.164>, --session-id, or --agent to choose a session
 ```
 
 ## Root Cause
+
 The agent agent requires a session context to function properly. Without a session ID, it falls back to embedded mode and fails to execute commands properly.
 
 ## Solution Implemented
 
 ### 1. Session-Based Agent Communication
+
 Instead of:
+
 ```bash
 agent agent --agent main --message "task"
 ```
 
 Use:
+
 ```bash
 SESSION_ID="workflow-$(date +%s)"
 agent agent --agent main --session-id $SESSION_ID --message "task"
 ```
 
 ### 2. Updated Scripts
+
 - **Pre-flight setup**: `01_preflight_setup_agent_simple.sh`
 - **Wallet operations**: `04_wallet_operations_agent_corrected.sh`
 - **Communication fix**: `fix_agent_communication.sh`
 
 ### 3. Working Command Examples
+
 ```bash
 # Basic agent communication
 agent agent --agent main --session-id blockchain-workflow-1774868955 --message 'your task'
@@ -45,17 +53,20 @@ agent agent --agent main --session-id blockchain-workflow-1774868955 --message '
 ## Verification Results
 
 ### ✅ Agent Communication Working
+
 - Agent responds with intelligent analysis
 - Performs heartbeat checks automatically
 - Provides proactive system monitoring
 - Coordinates blockchain operations successfully
 
 ### ✅ Session Context Established
+
 - Session ID created and used properly
 - Agent maintains conversation context
 - No more "falling back to embedded" errors
 
 ### ✅ Intelligence Demonstrated
+
 - Agent performs development heartbeat analysis
 - Monitors git status and build/test results
 - Provides system health monitoring
@@ -71,6 +82,7 @@ agent agent --agent main --session-id blockchain-workflow-1774868955 --message '
 ## Updated Workflow Commands
 
 ### Correct Usage
+
 ```bash
 # Create session
 SESSION_ID="blockchain-workflow-$(date +%s)"
@@ -83,6 +95,7 @@ agent agent --agent main --session-id $SESSION_ID --message "monitor deployment 
 ```
 
 ### What Works Now
+
 - ✅ Agent coordination of blockchain operations
 - ✅ Intelligent system analysis
 - ✅ Multi-node wallet management
@@ -90,6 +103,7 @@ agent agent --agent main --session-id $SESSION_ID --message "monitor deployment 
 - ✅ Real-time monitoring
 
 ## Files Updated
+
 - `/opt/aitbc/scripts/workflow-agent/01_preflight_setup_agent_simple.sh`
 - `/opt/aitbc/scripts/workflow-agent/04_wallet_operations_agent_corrected.sh`
 - `/opt/aitbc/scripts/workflow-agent/fix_agent_communication.sh`

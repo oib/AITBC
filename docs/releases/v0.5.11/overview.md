@@ -22,9 +22,11 @@ This release documentation has been split into topic-focused files:
 ## Quick Navigation
 
 ### Overview
+
 - [Task Split Overview](#task-split-overview)
 
 ### Agent A (Type Safety & Shared Core)
+
 - [Scope](./agent-a.md#scope)
 - [Tasks](./agent-a.md#tasks)
 - [Queue system type fixes](./agent-a.md#a1-queue-system-type-fixes)
@@ -45,6 +47,7 @@ This release documentation has been split into topic-focused files:
 - [Debounce CancelledError bug](./agent-a.md#a16-debounce-cancellederror-bug)
 
 ### Agent B (Bug Fixes, Infrastructure & Apps)
+
 - [Scope](./agent-b.md#scope)
 - [Tasks](./agent-b.md#tasks)
 - [Ruff audit](./agent-b.md#b1-ruff-audit)

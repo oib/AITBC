@@ -73,6 +73,7 @@ aitbc analytics summary --chain-id ait-hub --hours 48
 ```
 
 **Expected output (cross-chain):**
+
 ```
 Cross-Chain Analysis Overview
 
@@ -95,6 +96,7 @@ ait-testnet  45.00     5.00s        60.0/100
 ```
 
 **Expected output (single chain):**
+
 ```
 Chain Summary: ait-hub
 
@@ -125,6 +127,7 @@ aitbc analytics monitor --realtime --interval 15
 ```
 
 **Expected output (single snapshot, all chains):**
+
 ```
 System Monitor
 
@@ -140,6 +143,7 @@ Critical Alerts       0
 ```
 
 **Expected output (single snapshot, specific chain):**
+
 ```
 Chain Monitor: ait-hub
 
@@ -169,6 +173,7 @@ aitbc analytics predict --chain-id ait-hub --hours 12
 ```
 
 **Expected output (single chain):**
+
 ```
 Performance Predictions: ait-hub
 
@@ -192,6 +197,7 @@ aitbc analytics alerts --severity critical --hours 6
 ```
 
 **Expected output:**
+
 ```
 Performance Alerts (Last 24h)
 
@@ -213,6 +219,7 @@ aitbc analytics optimize
 ```
 
 **Expected output (single chain):**
+
 ```
 Optimization Recommendations: ait-devnet
 
@@ -230,6 +237,7 @@ aitbc analytics dashboard
 ```
 
 **Expected output:**
+
 ```json
 {
   "overview": {

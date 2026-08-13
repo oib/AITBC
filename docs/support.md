@@ -15,6 +15,7 @@ Using this referral link helps support the AITBC project at no additional cost t
 ## Why Windsurf?
 
 Windsurf provides:
+
 - AI-assisted code completion and refactoring
 - Intelligent code understanding and context awareness
 - Seamless integration with development workflows

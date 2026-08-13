@@ -7,11 +7,13 @@ The Fully Homomorphic Encryption (FHE) Service enables encrypted computation on 
 ## Architecture
 
 ### FHE Providers
+
 - **TenSEAL**: Primary provider for rapid prototyping and production use
 - **Concrete ML**: Specialized provider for neural network inference
 - **Abstract Interface**: Extensible provider system for future FHE libraries
 
 ### Encryption Schemes
+
 - **CKKS**: Optimized for approximate computations (neural networks)
 - **BFV**: Optimized for exact integer arithmetic
 - **Concrete**: Specialized for neural network operations
@@ -19,6 +21,7 @@ The Fully Homomorphic Encryption (FHE) Service enables encrypted computation on 
 ## TenSEAL Integration
 
 ### Context Generation
+
 ```python
 from coordinator_api.services.fhe_service import FHEService
 
@@ -32,6 +35,7 @@ context = fhe_service.generate_fhe_context(
 ```
 
 ### Data Encryption
+
 ```python
 # Encrypt ML input data
 encrypted_input = fhe_service.encrypt_ml_data(
@@ -41,6 +45,7 @@ encrypted_input = fhe_service.encrypt_ml_data(
 ```
 
 ### Encrypted Inference
+
 ```python
 # Perform inference on encrypted data
 model = {
@@ -57,6 +62,7 @@ encrypted_result = fhe_service.encrypted_inference(
 ## API Integration
 
 ### FHE Inference Endpoint
+
 ```bash
 POST /v1/ml-zk/fhe/inference
 {
@@ -81,6 +87,7 @@ Response:
 ## Provider Details
 
 ### TenSEAL Provider
+
 ```python
 class TenSEALProvider(FHEProvider):
     def generate_context(self, scheme: str, **kwargs) -> FHEContext:
@@ -105,6 +112,7 @@ class TenSEALProvider(FHEProvider):
 ```
 
 ### Concrete ML Provider
+
 ```python
 class ConcreteMLProvider(FHEProvider):
     def __init__(self):
@@ -127,12 +135,14 @@ class ConcreteMLProvider(FHEProvider):
 ## Security Model
 
 ### Privacy Guarantees
+
 - **Data Confidentiality**: Input data never decrypted during computation
 - **Model Protection**: Model weights can be encrypted during inference
 - **Output Privacy**: Results remain encrypted until client decryption
 - **End-to-End Security**: No trusted third parties required
 
 ### Performance Characteristics
+
 - **Encryption Time**: ~10-100ms per operation
 - **Inference Time**: ~100-500ms (TenSEAL)
 - **Accuracy**: Near-native performance for neural networks
@@ -141,6 +151,7 @@ class ConcreteMLProvider(FHEProvider):
 ## Use Cases
 
 ### Private ML Inference
+
 ```python
 # Client encrypts sensitive medical data
 encrypted_health_data = fhe_service.encrypt_ml_data(health_records, context)
@@ -156,11 +167,13 @@ diagnosis = fhe_service.decrypt(encrypted_diagnosis, private_key)
 ```
 
 ### Federated Learning
+
 - Multiple parties contribute encrypted model updates
 - Coordinator aggregates updates without decryption
 - Final model remains secure throughout process
 
 ### Secure Outsourcing
+
 - Cloud providers perform computation on encrypted data
 - No access to plaintext data or computation results
 - Compliance with privacy regulations (GDPR, HIPAA)
@@ -168,6 +181,7 @@ diagnosis = fhe_service.decrypt(encrypted_diagnosis, private_key)
 ## Development Workflow
 
 ### Testing FHE Operations
+
 ```python
 def test_fhe_inference():
     # Setup FHE context
@@ -187,6 +201,7 @@ def test_fhe_inference():
 ```
 
 ### Performance Benchmarking
+
 ```python
 def benchmark_fhe_performance():
     import time
@@ -211,16 +226,19 @@ def benchmark_fhe_performance():
 ## Deployment Considerations
 
 ### Resource Requirements
+
 - **Memory**: 2-8GB RAM per concurrent FHE operation
 - **CPU**: Multi-core support for parallel operations
 - **Storage**: Minimal (contexts cached in memory)
 
 ### Scaling Strategies
+
 - **Horizontal Scaling**: Multiple FHE service instances
 - **Load Balancing**: Distribute FHE requests across nodes
 - **Caching**: Reuse FHE contexts for repeated operations
 
 ### Monitoring
+
 - **Latency Tracking**: End-to-end FHE operation timing
 - **Error Rates**: FHE operation failure monitoring
 - **Resource Usage**: Memory and CPU utilization metrics

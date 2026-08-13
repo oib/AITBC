@@ -15,18 +15,21 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 ## Critical Secrets
 
 ### 1. JWT_SECRET
+
 - **Location**: `/etc/aitbc/coordinator-api.env`
 - **Service**: `aitbc-coordinator-api.service`
 - **Impact**: JWT token validation and signing
 - **Rotation Window**: 30 minutes (dual-secret overlap)
 
 ### 2. API_KEY_HASH_SECRET
+
 - **Location**: `/etc/aitbc/coordinator-api.env`
 - **Service**: `aitbc-coordinator-api.service`
 - **Impact**: API key hashing and validation
 - **Rotation Window**: 30 minutes (dual-secret overlap)
 
 ### 3. KEYSTORE_PASSWORD
+
 - **Location**: `/etc/aitbc/blockchain.env`
 - **Service**: `aitbc-blockchain-node.service`
 - **Impact**: Blockchain keystore encryption
@@ -39,18 +42,21 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 ### Phase 1: Preparation (5 minutes)
 
 1. **Generate new secret**
+
    ```bash
    # Generate cryptographically secure secret
    openssl rand -hex 32
    ```
 
 2. **Backup current configuration**
+
    ```bash
    cp /etc/aitbc/coordinator-api.env /etc/aitbc/coordinator-api.env.backup
    cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.backup
    ```
 
 3. **Document rotation in SECRET_ROTATION_LOG.md**
+
    ```bash
    echo "$(date): Rotating JWT_SECRET - Old: <first_8_chars>... New: <first_8_chars>..." >> docs/operations/SECRET_ROTATION_LOG.md
    ```
@@ -60,6 +66,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 #### JWT_SECRET Rotation (30-minute window)
 
 1. **Add new secret as secondary**
+
    ```bash
    # Add JWT_SECRET_NEW while keeping JWT_SECRET
    echo "JWT_SECRET=<old_secret>" >> /etc/aitbc/coordinator-api.env
@@ -67,6 +74,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 2. **Update application to accept both secrets**
+
    ```python
    # In app/config.py or auth.py
    def validate_jwt(token: str) -> bool:
@@ -86,11 +94,13 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 3. **Restart service**
+
    ```bash
    systemctl restart aitbc-coordinator-api.service
    ```
 
 4. **Verify service health**
+
    ```bash
    curl http://localhost:8203/health
    ```
@@ -101,6 +111,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    - Check that existing tokens still work
 
 6. **Remove old secret**
+
    ```bash
    # Remove JWT_SECRET, keep JWT_SECRET_NEW
    sed -i '/^JWT_SECRET=/d' /etc/aitbc/coordinator-api.env
@@ -108,6 +119,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 7. **Restart service**
+
    ```bash
    systemctl restart aitbc-coordinator-api.service
    ```
@@ -115,12 +127,14 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 #### API_KEY_HASH_SECRET Rotation (30-minute window)
 
 1. **Add new secret as secondary**
+
    ```bash
    echo "API_KEY_HASH_SECRET=<old_secret>" >> /etc/aitbc/coordinator-api.env
    echo "API_KEY_HASH_SECRET_NEW=<new_secret>" >> /etc/aitbc/coordinator-api.env
    ```
 
 2. **Update application to accept both secrets**
+
    ```python
    # In app/auth.py or security module
    def validate_api_key(api_key: str) -> bool:
@@ -142,6 +156,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 3. **Restart service**
+
    ```bash
    systemctl restart aitbc-coordinator-api.service
    ```
@@ -152,12 +167,14 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    - Check that existing API keys still work
 
 5. **Remove old secret**
+
    ```bash
    sed -i '/^API_KEY_HASH_SECRET=/d' /etc/aitbc/coordinator-api.env
    sed -i 's/API_KEY_HASH_SECRET_NEW/API_KEY_HASH_SECRET/' /etc/aitbc/coordinator-api.env
    ```
 
 6. **Restart service**
+
    ```bash
    systemctl restart aitbc-coordinator-api.service
    ```
@@ -167,6 +184,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 **Note**: This requires blockchain keystore re-encryption and is more complex.
 
 1. **Generate new keystore with new password**
+
    ```bash
    # Backup existing keystore
    cp /var/lib/aitbc/keystore/validator.keystore /var/lib/aitbc/keystore/validator.keystore.backup
@@ -176,12 +194,14 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 2. **Add new password as secondary**
+
    ```bash
    echo "KEYSTORE_PASSWORD=<old_password>" >> /etc/aitbc/blockchain.env
    echo "KEYSTORE_PASSWORD_NEW=<new_password>" >> /etc/aitbc/blockchain.env
    ```
 
 3. **Update blockchain node to try both passwords**
+
    ```python
    # In blockchain node keystore loading
    def load_keystore() -> Keystore:
@@ -199,6 +219,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 4. **Restart blockchain node**
+
    ```bash
    systemctl restart aitbc-blockchain-node.service
    ```
@@ -209,18 +230,21 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    - Check for any decryption errors
 
 6. **Re-encrypt keystore with new password only**
+
    ```bash
    # Use blockchain node's keystore re-encryption tools
    # This removes the old password dependency
    ```
 
 7. **Remove old password**
+
    ```bash
    sed -i '/^KEYSTORE_PASSWORD=/d' /etc/aitbc/blockchain.env
    sed -i 's/KEYSTORE_PASSWORD_NEW/KEYSTORE_PASSWORD/' /etc/aitbc/blockchain.env
    ```
 
 8. **Restart blockchain node**
+
    ```bash
    systemctl restart aitbc-blockchain-node.service
    ```
@@ -228,18 +252,21 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 ### Phase 3: Verification (5 minutes)
 
 1. **Verify service health**
+
    ```bash
    systemctl status aitbc-coordinator-api.service
    systemctl status aitbc-blockchain-node.service
    ```
 
 2. **Verify no errors in logs**
+
    ```bash
    journalctl -u aitbc-coordinator-api.service -n 100 --no-pager
    journalctl -u aitbc-blockchain-node.service -n 100 --no-pager
    ```
 
 3. **Test authentication**
+
    ```bash
    # Test JWT authentication
    curl -H "Authorization: Bearer <new_jwt_token>" http://localhost:8203/v1/jobs
@@ -249,6 +276,7 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
    ```
 
 4. **Clean up backups**
+
    ```bash
    rm /etc/aitbc/coordinator-api.env.backup
    rm /etc/aitbc/blockchain.env.backup
@@ -262,18 +290,21 @@ This runbook provides exact steps for rotating critical secrets with zero-downti
 If rotation causes issues:
 
 1. **Restore from backup**
+
    ```bash
    cp /etc/aitbc/coordinator-api.env.backup /etc/aitbc/coordinator-api.env
    cp /etc/aitbc/blockchain.env.backup /etc/aitbc/blockchain.env
    ```
 
 2. **Restart services**
+
    ```bash
    systemctl restart aitbc-coordinator-api.service
    systemctl restart aitbc-blockchain-node.service
    ```
 
 3. **Document rollback**
+
    ```bash
    echo "$(date): ROLLBACK - JWT_SECRET rotation failed" >> docs/operations/SECRET_ROTATION_LOG.md
    ```
@@ -291,6 +322,7 @@ If rotation causes issues:
 ### Automated Rotation
 
 Consider implementing automated rotation using:
+
 - HashiCorp Vault with automatic rotation
 - AWS Secrets Manager with automatic rotation
 - Kubernetes secrets with rotation controllers

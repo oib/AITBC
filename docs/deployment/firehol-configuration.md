@@ -71,21 +71,25 @@ router br_to_host inface incusbr0 outface any
 To expose a new service on a public port:
 
 1. **Edit the firehol configuration:**
+
    ```bash
    sudo vim /etc/firehol/firehol.conf
    ```
 
 2. **Add the new port rule in the `interface4 any world` section:**
+
    ```bash
    server custom aitbc tcp/8204 default accept
    ```
 
 3. **Restart firehol:**
+
    ```bash
    sudo firehol restart
    ```
 
 4. **Verify the rule is active:**
+
    ```bash
    sudo iptables -L -n | grep 8204
    ```
@@ -95,17 +99,20 @@ To expose a new service on a public port:
 To remove a public service:
 
 1. **Edit the firehol configuration:**
+
    ```bash
    sudo vim /etc/firehol/firehol.conf
    ```
 
 2. **Remove the port rule from the `interface4 any world` section:**
+
    ```bash
    # Remove this line:
    server custom aitbc tcp/8203 default accept
    ```
 
 3. **Restart firehol:**
+
    ```bash
    sudo firehol restart
    ```
@@ -125,14 +132,14 @@ server custom aitbc tcp/8105 default drop
 
 ## Test Firewall Rules
 
-### Check if a port is accessible from external network:
+### Check if a port is accessible from external network
 
 ```bash
 # From external host:
 curl http://<your-server-ip>:8200/health
 ```
 
-### Check firewall rules:
+### Check firewall rules
 
 ```bash
 # List all firewall rules
@@ -142,7 +149,7 @@ sudo iptables -L -n -v
 sudo iptables -L -n | grep 8200
 ```
 
-### Check service binding:
+### Check service binding
 
 ```bash
 # Check if service is listening on localhost only
@@ -167,6 +174,7 @@ router br_to_host inface incusbr0 outface any
 ```
 
 This allows:
+
 - Full communication between containers on the bridge
 - Traffic from containers to the host
 - Traffic from containers to external networks (subject to external interface rules)
@@ -176,21 +184,25 @@ This allows:
 ### Service Not Accessible from External Network
 
 1. **Check firewall rules:**
+
    ```bash
    sudo iptables -L -n | grep <port>
    ```
 
 2. **Check service is running:**
+
    ```bash
    systemctl status <service-name>
    ```
 
 3. **Check service binding:**
+
    ```bash
    ss -lntup | grep <port>
    ```
 
 4. **Check Incus port forwarding:**
+
    ```bash
    incus config device show aitbc
    ```
@@ -198,16 +210,19 @@ This allows:
 ### Firehol Fails to Start
 
 1. **Check configuration syntax:**
+
    ```bash
    sudo firehol try
    ```
 
 2. **Check for syntax errors:**
+
    ```bash
    sudo firehol explain /etc/firehol/firehol.conf
    ```
 
 3. **Review logs:**
+
    ```bash
    sudo journalctl -u firehol -n 50
    ```

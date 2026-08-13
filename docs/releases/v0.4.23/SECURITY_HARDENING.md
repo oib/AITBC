@@ -11,21 +11,25 @@ AITBC v0.4.23 removes hardcoded security values and makes them configurable via 
 ## Current Issues
 
 ### 1. Hardcoded Ports in Wrapper Scripts
+
 - health-check.sh: hardcoded ports
 - Multiple wrapper scripts: hardcoded ports
 - **Solution**: Use aitbc.constants
 
 ### 2. CORS Origins in Coordinator-API
+
 - Current: localhost only
 - **Solution**: Make configurable per environment via AITBC_CORS_ORIGINS
 
 ### 3. Rate Limit Configs as Strings
+
 - Current: String-based configuration
 - **Solution**: Use structured config with validation
 
 ## Implementation Tasks
 
 ### 1. Audit Hardcoded Values
+
 - Search for port numbers in scripts/
 - Search for localhost references
 - Document all findings
@@ -39,11 +43,13 @@ PRODUCTION_CORS_ORIGINS = ["https://aitbc.io"]
 ```
 
 ### 3. Update Configuration
+
 - Add CORS_ORIGINS to hierarchical config
 - Add environment variable support
 - Add validation
 
 ### 4. Update Scripts
+
 - Replace hardcoded ports with constants
 - Replace localhost with configurable values
 - Test in different environments
