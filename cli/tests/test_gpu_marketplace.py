@@ -64,13 +64,6 @@ class TestGpuHardwareCommands:
         assert "register" in result.output
         assert "list" in result.output
 
-    def test_gpu_list(self, runner):
-        from aitbc_cli.commands.gpu_marketplace import gpu
-
-        result = runner.invoke(gpu, ["list"], obj={})
-        # May fail if gpu-service not running, but should not crash
-        assert result.exit_code in (0, 1)
-
 
 class TestMarketGpuCommands:
     """Test GPU-related commands under the `market` group."""

@@ -217,7 +217,6 @@ class TestMessageEncryption:
 
         assert encrypted_msg is None
 
-    @pytest.mark.skip("Isolation failure in full suite")
     def test_decryption_without_sender_key(self):
         """Test decryption fails when sender has no key"""
         sender_id = "agent_010"

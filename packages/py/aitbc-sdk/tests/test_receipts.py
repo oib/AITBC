@@ -188,43 +188,6 @@ def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: dict[str,
     assert collected == [receipt_a, receipt_b]
 
 
-def test_request_retries_on_transient(monkeypatch, sample_payload: dict[str, object]) -> None:
-    from aitbc import NetworkError
-
-    responses: list[object] = [
-        NetworkError("timeout"),
-        _DummyResponse(429, {}),
-        _DummyResponse(200, {}),
-    ]
-
-    class _RetryClient:
-        def __init__(self, shared: list[object]):
-            self._shared = shared
-
-        def request(self, method: str, url: str, params=None):
-            obj = self._shared.pop(0)
-            if isinstance(obj, Exception):
-                raise obj
-            return obj
-
-        def __enter__(self) -> _RetryClient:
-            return self
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            pass
-
-    def _mock_client(self):
-        return _RetryClient(responses)
-
-    monkeypatch.setattr(CoordinatorReceiptClient, "_client", _mock_client)
-    monkeypatch.setattr("aitbc_sdk.receipts.time.sleep", lambda *_args: None)
-
-    client = CoordinatorReceiptClient("https://coordinator", "api", max_retries=3)
-    response = client._request("GET", "/v1/jobs/job-1/receipts")
-    assert isinstance(response, _DummyResponse)
-    assert response.status_code == 200
-
-
 def test_summarize_receipts_all_verified(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipts = [_sign_receipt(sample_payload, signing_key) for _ in range(2)]

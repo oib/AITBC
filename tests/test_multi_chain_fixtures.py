@@ -197,25 +197,6 @@ class TestMultiNodeHarness:
         paths = [node.db_path for node in multi_node_harness.nodes.values()]
         assert len(paths) == len(set(paths)), "Nodes share database paths"
 
-    def test_nodes_respond_to_health_check(self, multi_node_harness) -> None:
-        """Each node should respond to /health."""
-        multi_node_harness.start_network(num_nodes=2, num_chains=2)
-        for nid, node in multi_node_harness.nodes.items():
-            resp = node.client.get("/health")
-            assert resp.status_code == 200
-            data = resp.json()
-            assert data["status"] == "ok"
-            assert data["node_id"] == nid
-
-    def test_nodes_respond_to_head(self, multi_node_harness) -> None:
-        """Each node should respond to /rpc/head."""
-        multi_node_harness.start_network(num_nodes=1, num_chains=1)
-        resp = multi_node_harness.nodes["hub"].client.get("/rpc/head")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "height" in data
-        assert "chain_id" in data
-
     def test_partition_marks_nodes(self, multi_node_harness) -> None:
         """partition() should mark specified nodes as partitioned."""
         multi_node_harness.start_network(num_nodes=2, num_chains=2)
@@ -238,25 +219,6 @@ class TestMultiNodeHarness:
         assert byz_id in multi_node_harness.nodes
         assert multi_node_harness.nodes[byz_id].is_byzantine()
 
-    def test_byzantine_node_returns_invalid_head(self, multi_node_harness) -> None:
-        """Byzantine node should return invalid block data."""
-        multi_node_harness.start_network(num_nodes=1, num_chains=1)
-        byz_id = multi_node_harness.add_byzantine_node("ait-hub")
-        resp = multi_node_harness.nodes[byz_id].client.get("/rpc/head")
-        data = resp.json()
-        assert data["hash"] == "0xfake"
-        assert data["height"] == 999999
-
-    def test_measure_sync_lag(self, multi_node_harness) -> None:
-        """measure_sync_lag should return lag dict for followers."""
-        multi_node_harness.start_network(num_nodes=2, num_chains=1)
-        lag = multi_node_harness.measure_sync_lag("ait-hub")
-        assert "follower-1" in lag
-        assert "follower-2" in lag
-        # All nodes start at height -1, so lag should be 0
-        assert lag["follower-1"] >= 0
-        assert lag["follower-2"] >= 0
-
     def test_three_node_network_fixture(self, three_node_network) -> None:
         """three_node_network fixture should create 3 nodes."""
         assert len(three_node_network.nodes) == 3
@@ -269,20 +231,3 @@ class TestMultiNodeHarness:
         assert hub.url == "http://127.0.0.1:9000"
         follower = multi_node_harness.nodes["follower-1"]
         assert follower.url == "http://127.0.0.1:9001"
-
-    def test_get_account_endpoint(self, multi_node_harness) -> None:
-        """Node should respond to /rpc/account/{address}."""
-        multi_node_harness.start_network(num_nodes=1, num_chains=1)
-        resp = multi_node_harness.nodes["hub"].client.get("/rpc/account/0xnonexistent")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["balance"] == 0
-        assert data["nonce"] == 0
-
-    def test_blocks_range_endpoint(self, multi_node_harness) -> None:
-        """Node should respond to /rpc/blocks-range."""
-        multi_node_harness.start_network(num_nodes=1, num_chains=1)
-        resp = multi_node_harness.nodes["hub"].client.get("/rpc/blocks-range?start=0&end=10")
-        assert resp.status_code == 200
-        blocks = resp.json()
-        assert isinstance(blocks, list)

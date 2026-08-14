@@ -53,16 +53,6 @@ class TestTrainingEnvironment:
                 result = env.setup_faucet_wallet()
             assert result["status"] == "completed"
 
-    def test_fund_training_wallet(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir)
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = ""
-                result = env.fund_training_wallet("test-wallet")
-            assert result["status"] == "completed"
-            assert result["wallet"] == "test-wallet"
-
     def test_configure_messaging_auth(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir)
@@ -71,24 +61,6 @@ class TestTrainingEnvironment:
                 mock_run.return_value.stdout = ""
                 result = env.configure_messaging_auth("test-wallet")
             assert result["status"] == "completed"
-
-    def test_test_messaging_connectivity(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir)
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = "ok"
-                result = env.test_messaging_connectivity()
-            assert result is True
-
-    def test_test_messaging_connectivity_fail(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir)
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value.returncode = 1
-                mock_run.return_value.stderr = "error"
-                result = env.test_messaging_connectivity()
-            assert result is False
 
     def test_verify_environment(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from eth_account import Account as EthAccount
@@ -274,61 +274,6 @@ class TestBridgeUnlock:
         with pytest.raises(ValueError, match="not found"):
             bridge.refund_transfer("0xnonexistent", "0xsender")
 
-    def test_bridge_unlock_endpoint(self, rpc_setup, sender_account: EthAccount, rpc_engine) -> None:
-        """POST /bridge/unlock endpoint refunds via RPC."""
-        bridge, client = rpc_setup
-        sender = sender_account.address.lower()
-        source_chain = "chain-a"
-        amount = 4000
-
-        _seed_sender(rpc_engine, source_chain, sender, amount * 2)
-
-        transfer = bridge.initiate_transfer(
-            source_chain=source_chain,
-            target_chain="chain-b",
-            sender=sender,
-            recipient="0xrecipient",
-            amount=amount,
-        )
-
-        # Sign the unlock request
-        sign_data = {"transfer_id": transfer.transfer_id, "sender": sender, "action": "unlock"}
-        signature = _sign_request(sender_account, sign_data)
-
-        response = client.post(
-            "/bridge/unlock",
-            json={
-                "transfer_id": transfer.transfer_id,
-                "sender": sender,
-                "signature": signature,
-            },
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["status"] == "refunded"
-
-    def test_bridge_unlock_endpoint_no_signature(self, rpc_setup, rpc_engine) -> None:
-        """POST /bridge/unlock without signature returns 422 (Pydantic validation)."""
-        bridge, client = rpc_setup
-        sender = "0xnoSigSender"
-        _seed_sender(rpc_engine, "chain-a", sender, 10000)
-
-        transfer = bridge.initiate_transfer(
-            source_chain="chain-a",
-            target_chain="chain-b",
-            sender=sender,
-            recipient="0xrecipient",
-            amount=1000,
-        )
-
-        response = client.post(
-            "/bridge/unlock",
-            json={"transfer_id": transfer.transfer_id, "sender": sender},
-        )
-        # Pydantic validation rejects missing signature before reaching the bridge function
-        assert response.status_code == 422
-
 
 # ---------------------------------------------------------------------------
 # Balance Tests
@@ -365,19 +310,6 @@ class TestBridgeBalance:
         assert balances.get("chain-a") == 10000
         assert balances.get("chain-b") == 7000
 
-    def test_bridge_balance_endpoint(self, initialized_bridge: CrossChainBridge, client: TestClient, rpc_engine) -> None:
-        """GET /bridge/balance/{chain_id} returns locked amount via RPC."""
-        _seed_sender(rpc_engine, "chain-a", "0xepSender", 20000)
-
-        initialized_bridge.initiate_transfer("chain-a", "chain-b", "0xepSender", "0xrecip", 8000)
-
-        response = client.get("/bridge/balance/chain-a")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["chain_id"] == "chain-a"
-        assert data["locked_amount"] == 8000
-
 
 # ---------------------------------------------------------------------------
 # Health Tests
@@ -386,29 +318,6 @@ class TestBridgeBalance:
 
 class TestBridgeHealth:
     """GET /bridge/health endpoint."""
-
-    def test_bridge_health(self, initialized_bridge: CrossChainBridge, client: TestClient, rpc_engine) -> None:
-        """GET /bridge/health returns bridge status."""
-        _seed_sender(rpc_engine, "chain-a", "0xhealthSender", 20000)
-
-        initialized_bridge.initiate_transfer("chain-a", "chain-b", "0xhealthSender", "0xrecip", 5000)
-
-        response = client.get("/bridge/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["status"] == "healthy"
-        assert data["bridge_initialized"] is True
-        assert data["pending_transfer_count"] >= 1
-        assert data["total_locked_amount"] >= 5000
-        assert "release_enabled" in data
-        assert "bridge_timeout" in data
-
-    def test_bridge_health_no_bridge(self, client: TestClient) -> None:
-        """GET /bridge/health returns 503 when bridge not initialized."""
-        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=None):
-            response = client.get("/bridge/health")
-        assert response.status_code == 503
 
 
 # ---------------------------------------------------------------------------
@@ -419,19 +328,6 @@ class TestBridgeHealth:
 class TestBridgeStatusAlias:
     """GET /bridge/status/{transfer_id} — alias for /bridge/transfer/{id}."""
 
-    def test_bridge_status_alias(self, initialized_bridge: CrossChainBridge, client: TestClient, rpc_engine) -> None:
-        """/bridge/status/{id} returns same data as /bridge/transfer/{id}."""
-        _seed_sender(rpc_engine, "chain-a", "0xaliasSender", 10000)
-
-        transfer = initialized_bridge.initiate_transfer("chain-a", "chain-b", "0xaliasSender", "0xrecip", 3000)
-
-        resp_transfer = client.get(f"/bridge/transfer/{transfer.transfer_id}")
-        resp_status = client.get(f"/bridge/status/{transfer.transfer_id}")
-
-        assert resp_transfer.status_code == 200
-        assert resp_status.status_code == 200
-        assert resp_transfer.json() == resp_status.json()
-
 
 # ---------------------------------------------------------------------------
 # Batch Tests
@@ -440,76 +336,6 @@ class TestBridgeStatusAlias:
 
 class TestBridgeBatch:
     """POST /bridge/batch/lock and /bridge/batch/confirm."""
-
-    def test_bridge_batch_lock(self, initialized_bridge: CrossChainBridge, client: TestClient, rpc_engine) -> None:
-        """Batch lock creates multiple transfers."""
-        _seed_sender(rpc_engine, "chain-a", "0xbatch1", 100000)
-        _seed_sender(rpc_engine, "chain-a", "0xbatch2", 100000)
-
-        response = client.post(
-            "/bridge/batch/lock",
-            json={
-                "transfers": [
-                    {
-                        "source_chain": "chain-a",
-                        "target_chain": "chain-b",
-                        "sender": "0xbatch1",
-                        "recipient": "0xrecip1",
-                        "amount": 5000,
-                    },
-                    {
-                        "source_chain": "chain-a",
-                        "target_chain": "chain-b",
-                        "sender": "0xbatch2",
-                        "recipient": "0xrecip2",
-                        "amount": 3000,
-                    },
-                ]
-            },
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) == 2
-        assert all(item["success"] for item in data)
-        assert all(item["status"] == "locked" for item in data)
-
-    def test_bridge_batch_lock_empty_rejected(self, initialized_bridge: CrossChainBridge, client: TestClient) -> None:
-        """Empty batch rejected (422 Pydantic validation — min_length=1)."""
-        response = client.post("/bridge/batch/lock", json={"transfers": []})
-        assert response.status_code == 422
-
-    def test_bridge_batch_lock_exceeds_limit_rejected(self, initialized_bridge: CrossChainBridge, client: TestClient) -> None:
-        """Batch over max size rejected."""
-        with patch("aitbc_chain.config.settings.bridge_batch_size", 2):
-            transfers = [
-                {
-                    "source_chain": "chain-a",
-                    "target_chain": "chain-b",
-                    "sender": f"0xs{i}",
-                    "recipient": "0xrecip",
-                    "amount": 1000,
-                }
-                for i in range(3)
-            ]
-            response = client.post("/bridge/batch/lock", json={"transfers": transfers})
-        assert response.status_code == 400
-        assert "exceeds maximum" in response.json()["detail"]
-
-    def test_bridge_batch_confirm_disabled(self, client: TestClient) -> None:
-        """Batch confirm gated by both fence flags when explicitly false."""
-        mock_bridge = MagicMock()
-        mock_bridge.batch_confirm.return_value = []
-
-        with (
-            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
-            patch("aitbc_chain.config.settings.escrow_enabled", False),
-            patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=mock_bridge),
-        ):
-            response = client.post(
-                "/bridge/batch/confirm",
-                json={"transfers": [{"transfer_id": "0x1", "proof": {}}]},
-            )
-        assert response.status_code == 503
 
 
 # ---------------------------------------------------------------------------

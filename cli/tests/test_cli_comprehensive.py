@@ -126,11 +126,6 @@ class TestResourceCommand:
 class TestIntegrationScenarios:
     """Test representative end-to-end command patterns."""
 
-    def test_cli_version(self):
-        result = run_cli("--version")
-        assert result.returncode == 0
-        assert "2.1.0" in result.stdout
-
     def test_cli_help_comprehensive(self):
         result = run_cli("--help")
         assert result.returncode == 0

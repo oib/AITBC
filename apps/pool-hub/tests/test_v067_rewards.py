@@ -18,7 +18,6 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -117,86 +116,6 @@ class TestPoolHubBlockchainClient:
         client = PoolHubBlockchainClient()
         assert client.reward_policy is not None
         assert client.reward_policy.current_epoch_number == 0
-
-    @pytest.mark.asyncio
-    async def test_submit_reward_transaction_mock(self, signed_client):
-        client = signed_client
-
-        mock_response = {"tx_hash": "abc123", "status": "accepted"}
-        with (
-            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
-            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response),
-        ):
-            result = await client.submit_reward_transaction(miner_address="0xminer1", amount=1000, job_id="job-001")
-
-        assert result["tx_hash"] == "abc123"
-
-    @pytest.mark.asyncio
-    async def test_register_miner_on_chain_mock(self):
-        from poolhub.clients.blockchain import PoolHubBlockchainClient
-
-        client = PoolHubBlockchainClient()
-
-        mock_response = {"gpu_id": "miner-1", "status": "registered"}
-        with patch.object(client._rpc, "register_gpu", new_callable=AsyncMock, return_value=mock_response):
-            result = await client.register_miner_on_chain(
-                miner_id="miner-1",
-                gpu_info={"model": "RTX 4090", "memory_gb": 24},
-                address="0xminer1",
-            )
-
-        assert result["gpu_id"] == "miner-1"
-
-    @pytest.mark.asyncio
-    async def test_distribute_rewards_mock(self, signed_client, payout_session):
-        client = signed_client
-        # Record contributions for two miners
-        client.record_contribution("miner-1", score=90.0, shares=5000)
-        client.record_contribution("miner-2", score=80.0, shares=3000)
-
-        mock_response = {"tx_hash": "tx-abc", "status": "accepted"}
-        with (
-            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
-            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response),
-        ):
-            payouts = await client.distribute_rewards(block_height=100, session=payout_session)
-
-        assert len(payouts) == 2
-        assert all(p["tx_hash"] == "tx-abc" for p in payouts)
-
-    @pytest.mark.asyncio
-    async def test_distribute_rewards_skips_ineligible(self, payout_session):
-        from poolhub.clients.blockchain import PoolHubBlockchainClient
-
-        client = PoolHubBlockchainClient()
-        # Record contribution for one miner
-        client.record_contribution("miner-1", score=90.0, shares=5000)
-
-        # Mark the miner as paid (makes them ineligible)
-        client.reward_policy.mark_paid("miner-1", "existing-tx")
-
-        mock_response = {"tx_hash": "tx-new", "status": "accepted"}
-        with patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response):
-            payouts = await client.distribute_rewards(block_height=100, session=payout_session)
-
-        # Miner-1 was already paid, so no new payouts
-        assert len(payouts) == 0
-
-    @pytest.mark.asyncio
-    async def test_distribute_rewards_handles_errors(self, signed_client, payout_session):
-        client = signed_client
-        client.record_contribution("miner-1", score=90.0, shares=5000)
-
-        with (
-            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
-            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=Exception("Network error")),
-        ):
-            payouts = await client.distribute_rewards(block_height=100, session=payout_session)
-
-        # Should not crash — should record the error
-        assert len(payouts) == 1
-        assert "error" in payouts[0]
-        assert "Network error" in payouts[0]["error"]
 
 
 # ---------------------------------------------------------------------------

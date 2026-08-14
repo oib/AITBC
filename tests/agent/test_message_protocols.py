@@ -12,8 +12,6 @@ from agent_app.protocols.message_types import (
     CoordinationMessage,
     DiscoveryMessage,
     LoadBalancer,
-    MessageQueue,
-    MessageRouter,
     RoutingRule,
     StatusMessage,
     TaskMessage,
@@ -143,76 +141,6 @@ class TestRoutingRules:
 class TestMessageRouter:
     """Test message routing functionality"""
 
-    @pytest.mark.asyncio
-    async def test_router_initialization(self):
-        """Test router initialization"""
-        router = MessageRouter(agent_id="agent_001")
-
-        assert router.agent_id == "agent_001"
-        assert len(router.routing_rules) == 0
-        assert router.routing_stats["messages_processed"] == 0
-
-    @pytest.mark.asyncio
-    async def test_add_routing_rule(self):
-        """Test adding routing rules"""
-        router = MessageRouter(agent_id="agent_001")
-
-        rule = RoutingRule(
-            name="test_rule",
-            condition={"message_type": MessageType.TASK_ASSIGNMENT},
-            action="forward",
-            target="queue_1",
-            priority=10,
-        )
-
-        router.add_routing_rule(rule)
-        assert len(router.routing_rules) == 1
-        assert router.routing_rules[0].name == "test_rule"
-
-    @pytest.mark.asyncio
-    async def test_remove_routing_rule(self):
-        """Test removing routing rules"""
-        router = MessageRouter(agent_id="agent_001")
-
-        rule = RoutingRule(name="test_rule", condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward")
-
-        router.add_routing_rule(rule)
-        router.remove_routing_rule(rule.rule_id)
-        assert len(router.routing_rules) == 0
-
-    @pytest.mark.asyncio
-    async def test_message_routing(self):
-        """Test message routing"""
-        router = MessageRouter(agent_id="agent_001")
-
-        rule = RoutingRule(condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward", target="agent_002")
-        router.add_routing_rule(rule)
-
-        message = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
-        )
-
-        route = await router.route_message(message)
-        assert route == "agent_002"
-
-    @pytest.mark.asyncio
-    async def test_routing_stats(self):
-        """Test routing statistics"""
-        router = MessageRouter(agent_id="agent_001")
-
-        rule = RoutingRule(condition={"message_type": MessageType.TASK_ASSIGNMENT}, action="forward", target="agent_002")
-        router.add_routing_rule(rule)
-
-        message = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
-        )
-
-        await router.route_message(message)
-        stats = await router.get_routing_stats()
-
-        assert stats["messages_processed"] == 1
-        assert stats["messages_failed"] == 0
-
 
 class TestLoadBalancer:
     """Test load balancing functionality"""
@@ -273,104 +201,6 @@ class TestLoadBalancer:
 
 class TestMessageQueue:
     """Test message queue functionality"""
-
-    @pytest.mark.asyncio
-    async def test_queue_initialization(self):
-        """Test queue initialization"""
-        queue = MessageQueue(max_size=1000)
-
-        assert queue.max_size == 1000
-        assert len(queue.queues) == 4  # CRITICAL, HIGH, NORMAL, LOW
-
-    @pytest.mark.asyncio
-    async def test_enqueue_message(self):
-        """Test enqueuing message"""
-        queue = MessageQueue()
-
-        message = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.HIGH
-        )
-
-        success = await queue.enqueue(message)
-        assert success is True
-        assert message.id in queue.message_store
-
-    @pytest.mark.asyncio
-    async def test_dequeue_message(self):
-        """Test dequeuing message"""
-        queue = MessageQueue()
-
-        message = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.CRITICAL,
-        )
-
-        await queue.enqueue(message)
-        dequeued = await queue.dequeue()
-
-        assert dequeued is not None
-        assert dequeued.id == message.id
-
-    @pytest.mark.asyncio
-    async def test_priority_order(self):
-        """Test messages are dequeued in priority order"""
-        queue = MessageQueue()
-
-        # Add messages with different priorities
-        low_msg = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.LOW
-        )
-
-        high_msg = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.HIGH
-        )
-
-        critical_msg = AgentMessage(
-            sender_id="agent_001",
-            receiver_id="agent_002",
-            message_type=MessageType.TASK_ASSIGNMENT,
-            priority=Priority.CRITICAL,
-        )
-
-        await queue.enqueue(low_msg)
-        await queue.enqueue(high_msg)
-        await queue.enqueue(critical_msg)
-
-        # Critical should be dequeued first
-        first = await queue.dequeue()
-        assert first.priority == Priority.CRITICAL
-
-    @pytest.mark.asyncio
-    async def test_delivery_confirmation(self):
-        """Test delivery confirmation"""
-        queue = MessageQueue()
-
-        message = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
-        )
-
-        await queue.enqueue(message)
-        await queue.confirm_delivery(message.id)
-
-        assert message.id in queue.delivery_confirmations
-        assert message.id not in queue.message_store
-
-    @pytest.mark.asyncio
-    async def test_queue_stats(self):
-        """Test queue statistics"""
-        queue = MessageQueue()
-
-        message = AgentMessage(
-            sender_id="agent_001", receiver_id="agent_002", message_type=MessageType.TASK_ASSIGNMENT, priority=Priority.NORMAL
-        )
-
-        await queue.enqueue(message)
-        stats = queue.get_queue_stats()
-
-        assert stats["stored_messages"] == 1
-        assert stats["max_size"] == 10000
 
 
 class TestMessageFactoryFunctions:

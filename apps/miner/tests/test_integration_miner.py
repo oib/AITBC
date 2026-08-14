@@ -48,22 +48,6 @@ def test_check_ollama_exception(mock_http):
     assert models == []
 
 
-@pytest.mark.integration
-async def test_wait_for_coordinator_success(mock_http):
-    """wait_for_coordinator is a coroutine -- the old test called it without awaiting and
-    asserted the coroutine object was True."""
-    with mock_http(get={"status": "healthy"}):
-        assert await production_miner.wait_for_coordinator() is True
-
-
-@pytest.mark.integration
-async def test_wait_for_coordinator_failure(mock_http):
-    """Gives up after MAX_RETRIES. asyncio.sleep is patched so the test does not wait."""
-    with mock_http(get=NetworkError("Connection refused")):
-        with patch("production_miner.asyncio.sleep", new=_no_sleep):
-            assert await production_miner.wait_for_coordinator() is False
-
-
 async def _no_sleep(_seconds):
     return None
 

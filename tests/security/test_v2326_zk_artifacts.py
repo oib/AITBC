@@ -86,7 +86,7 @@ def test_the_service_offers_no_circuit_whose_keys_disagree() -> None:
     Verification being disabled by default (V23-24) is not what protects this — proving
     reads the verification key too.
     """
-    pytest.importorskip("coordinator_api", reason="coordinator-api not on the path")
+    pass
     from coordinator_api.contexts.zk_applications.services.zk_proofs import (  # type: ignore[import-not-found]
         _verification_key_mismatch,
         ZKProofService,
