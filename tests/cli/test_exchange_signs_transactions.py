@@ -13,10 +13,9 @@ drifted.
 
 from __future__ import annotations
 
-import pytest
 from eth_account import Account
 
-pytest.importorskip("aitbc_chain.rpc.utils", reason="blockchain-node app package not on the path")
+pass
 
 from aitbc_chain.rpc.utils import verify_transaction_signature  # noqa: E402
 

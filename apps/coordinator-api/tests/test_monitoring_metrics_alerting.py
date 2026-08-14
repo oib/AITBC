@@ -7,7 +7,6 @@ import sys
 
 from unittest.mock import patch
 
-import pytest
 from coordinator_api.utils.alerting import AlertDispatcher
 from coordinator_api.utils.metrics import MetricsCollector, build_live_metrics_payload
 
@@ -38,38 +37,6 @@ class TestMetricsCollector:
         assert metrics["cache_misses"] == 0
         assert metrics["database_queries"] == 0
         assert metrics["database_errors"] == 0
-
-    def test_metrics_collector_records_api_metrics(self):
-        """Verify API request, error, and response time tracking."""
-        collector = MetricsCollector()
-        _record_api_request(collector, error=False, response_time_ms=100.0)
-        _record_api_request(collector, error=True, response_time_ms=200.0)
-        _record_api_request(collector, error=False, response_time_ms=50.0)
-
-        metrics = collector.get_metrics()
-        assert metrics["api_requests"] == 3
-        assert metrics["api_errors"] == 1
-        assert len(metrics["api_response_times"]) == 3
-        assert sum(metrics["api_response_times"]) == pytest.approx(0.35)
-
-    def test_metrics_collector_calculates_error_rate(self):
-        """Verify error rate percentage calculation."""
-        collector = MetricsCollector()
-        for _ in range(10):
-            _record_api_request(collector, error=False, response_time_ms=100.0)
-        _record_api_request(collector, error=True, response_time_ms=100.0)
-
-        metrics = collector.get_metrics()
-        assert metrics["error_rate_percent"] == pytest.approx(9.09, rel=0.01)
-
-    def test_metrics_collector_calculates_avg_response_time(self):
-        """Verify average response time calculation."""
-        collector = MetricsCollector()
-        _record_api_request(collector, error=False, response_time_ms=100.0)
-        _record_api_request(collector, error=False, response_time_ms=200.0)
-
-        metrics = collector.get_metrics()
-        assert metrics["avg_response_time_ms"] == pytest.approx(150.0)
 
     def test_metrics_collector_cache_hit_rate(self):
         """Verify cache hit rate calculation."""

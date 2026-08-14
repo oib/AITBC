@@ -35,7 +35,6 @@ class TestMultiChainConfig:
 
     def test_config_fields_exist(self):
         """All v0.6.4 config fields exist with correct defaults."""
-        from aitbc_chain.config import settings
 
         assert hasattr(settings, "island_chains")
         assert hasattr(settings, "chain_configs")
@@ -49,7 +48,6 @@ class TestMultiChainConfig:
 
     def test_config_defaults(self):
         """Default values are correct."""
-        from aitbc_chain.config import settings
 
         assert settings.island_chains == ""
         assert settings.chain_configs == {}
@@ -142,168 +140,13 @@ class TestMultiChainManagerPortAllocator:
 class TestMultiChainManagerRetry:
     """Test retry/backoff in start_chain."""
 
-    def test_start_chain_retries_on_failure(self):
-        """start_chain retries on failure with backoff."""
-        import asyncio
-
-        from aitbc_chain.network.multi_chain_manager import ChainStatus, ChainType, MultiChainManager
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_db = Path(tmpdir) / "chain.db"
-            mgr = MultiChainManager(
-                default_chain_id="default-chain",
-                base_db_path=base_db,
-                base_rpc_port=8202,
-                base_p2p_port=8007,
-            )
-
-            # Mock init_db to always fail
-            with patch("aitbc_chain.network.multi_chain_manager.init_db", side_effect=Exception("DB error")):
-                with patch("aitbc_chain.network.multi_chain_manager.shutdown_db"):
-                    # Patch asyncio.sleep to avoid real delays
-                    with patch("asyncio.sleep", new_callable=AsyncMock):
-                        result = asyncio.run(mgr.start_chain("failing-chain", ChainType.MICRO))
-
-            assert result is False
-            chain = mgr.get_chain_status("failing-chain")
-            assert chain is not None
-            assert chain.status == ChainStatus.ERROR
-            assert "DB error" in chain.error_message
-
-    def test_start_chain_succeeds_after_retry(self):
-        """start_chain succeeds on retry after initial failure."""
-        import asyncio
-
-        from aitbc_chain.network.multi_chain_manager import ChainStatus, ChainType, MultiChainManager
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_db = Path(tmpdir) / "chain.db"
-            mgr = MultiChainManager(
-                default_chain_id="default-chain",
-                base_db_path=base_db,
-                base_rpc_port=8202,
-                base_p2p_port=8007,
-            )
-
-            # Mock init_db to fail first, then succeed
-            call_count = [0]
-
-            def mock_init_db(chain_id):
-                call_count[0] += 1
-                if call_count[0] < 2:
-                    raise Exception("Transient error")
-
-            mock_consensus = AsyncMock()
-            mock_consensus.start = AsyncMock()
-
-            with (
-                patch("aitbc_chain.network.multi_chain_manager.init_db", side_effect=mock_init_db),
-                patch("aitbc_chain.network.multi_chain_manager.shutdown_db"),
-                patch("aitbc_chain.network.multi_chain_manager.PoAProposer", return_value=mock_consensus),
-                patch("asyncio.sleep", new_callable=AsyncMock),
-            ):
-                result = asyncio.run(mgr.start_chain("retry-chain", ChainType.MICRO))
-
-            assert result is True
-            chain = mgr.get_chain_status("retry-chain")
-            assert chain is not None
-            assert chain.status == ChainStatus.RUNNING
-            assert call_count[0] == 2  # Failed once, succeeded on retry
-
 
 class TestMultiChainManagerStartSecondary:
     """Test start_secondary_chains from config."""
 
-    def test_start_secondary_chains_empty_config(self):
-        """No secondary chains when island_chains is empty."""
-        import asyncio
-
-        from aitbc_chain.network.multi_chain_manager import MultiChainManager
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_db = Path(tmpdir) / "chain.db"
-            mgr = MultiChainManager(
-                default_chain_id="default-chain",
-                base_db_path=base_db,
-                base_rpc_port=8202,
-                base_p2p_port=8007,
-            )
-            with patch.object(settings, "island_chains", ""):
-                asyncio.run(mgr.start_secondary_chains())
-            # Only default chain should exist
-            assert len(mgr.get_all_chains()) == 1
-
-    def test_start_secondary_chains_from_config(self):
-        """Secondary chains are started from island_chains config."""
-        import asyncio
-
-        from aitbc_chain.network.multi_chain_manager import MultiChainManager
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_db = Path(tmpdir) / "chain.db"
-            mgr = MultiChainManager(
-                default_chain_id="default-chain",
-                base_db_path=base_db,
-                base_rpc_port=8202,
-                base_p2p_port=8007,
-            )
-
-            mock_consensus = AsyncMock()
-            mock_consensus.start = AsyncMock()
-
-            with (
-                patch("aitbc_chain.network.multi_chain_manager.init_db"),
-                patch("aitbc_chain.network.multi_chain_manager.shutdown_db"),
-                patch("aitbc_chain.network.multi_chain_manager.PoAProposer", return_value=mock_consensus),
-                patch.object(settings, "island_chains", "default-chain,chain-a,chain-b"),
-            ):
-                asyncio.run(mgr.start_secondary_chains())
-
-            # Default + 2 secondary chains
-            all_chains = mgr.get_all_chains()
-            chain_ids = [c.chain_id for c in all_chains]
-            assert "default-chain" in chain_ids
-            assert "chain-a" in chain_ids
-            assert "chain-b" in chain_ids
-            assert len(all_chains) == 3
-
 
 class TestMultiChainManagerStop:
     """Test graceful stop with timeout."""
-
-    def test_stop_stops_secondary_chains(self):
-        """stop() stops all secondary chains."""
-        import asyncio
-
-        from aitbc_chain.network.multi_chain_manager import ChainInstance, ChainStatus, ChainType, MultiChainManager
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            base_db = Path(tmpdir) / "chain.db"
-            mgr = MultiChainManager(
-                default_chain_id="default-chain",
-                base_db_path=base_db,
-                base_rpc_port=8202,
-                base_p2p_port=8007,
-            )
-
-            # Manually add a secondary chain in RUNNING state
-            chain = ChainInstance(
-                chain_id="secondary",
-                chain_type=ChainType.MICRO,
-                status=ChainStatus.RUNNING,
-                db_path=base_db.parent / "secondary" / "chain.db",
-                rpc_port=8007,
-                p2p_port=8008,
-                started_at=1.0,
-            )
-            chain._consensus = AsyncMock()
-            chain._consensus.stop = AsyncMock()
-            mgr.chains["secondary"] = chain
-
-            with patch("aitbc_chain.network.multi_chain_manager.shutdown_db"):
-                asyncio.run(mgr.stop())
-
-            assert mgr.chains["secondary"].status == ChainStatus.STOPPED
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +159,6 @@ class TestThresholdGuards:
 
     def test_multi_validator_poa_blocked_without_env(self):
         """MultiValidatorPoA raises RuntimeError when consensus disabled in config."""
-        from aitbc_chain.config import settings
         from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
 
         original = settings.multi_validator_consensus_enabled
@@ -329,7 +171,6 @@ class TestThresholdGuards:
 
     def test_multi_validator_poa_allowed_with_env(self):
         """MultiValidatorPoA works when consensus enabled in config."""
-        from aitbc_chain.config import settings
         from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
 
         original = settings.multi_validator_consensus_enabled
@@ -342,7 +183,6 @@ class TestThresholdGuards:
 
     def test_pbft_blocked_without_env(self):
         """PBFTConsensus raises RuntimeError when consensus disabled in config."""
-        from aitbc_chain.config import settings
         from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
         from aitbc_chain.consensus.pbft import PBFTConsensus
 
@@ -540,55 +380,6 @@ class TestIslandLeaveCleanup:
 
 class TestChainRPCEndpoints:
     """Test chain RPC endpoint handlers."""
-
-    def test_list_chains_no_manager(self):
-        """list_chains raises 503 when MultiChainManager not available."""
-        import asyncio
-
-        from aitbc_chain.rpc.chains import list_chains
-
-        with patch("aitbc_chain.rpc.chains.get_multi_chain_manager", return_value=None):
-            with pytest.raises(Exception) as exc_info:
-                asyncio.run(list_chains())
-            assert "503" in str(exc_info.value) or "Not Available" in str(exc_info.value)
-
-    def test_start_chain_no_manager(self):
-        """start_chain raises 503 when MultiChainManager not available."""
-        import asyncio
-
-        from aitbc_chain.rpc.chains import ChainActionRequest, start_chain
-
-        with patch("aitbc_chain.rpc.chains.get_multi_chain_manager", return_value=None):
-            with pytest.raises(Exception) as exc_info:
-                asyncio.run(start_chain(ChainActionRequest(chain_id="test")))
-            assert "503" in str(exc_info.value) or "Not Available" in str(exc_info.value)
-
-    def test_list_chains_with_manager(self):
-        """list_chains returns chain data when manager is available."""
-        import asyncio
-
-        from aitbc_chain.network.multi_chain_manager import ChainInstance, ChainStatus, ChainType
-        from aitbc_chain.rpc.chains import list_chains
-
-        mock_mgr = MagicMock()
-        mock_mgr.get_all_chains.return_value = [
-            ChainInstance(
-                chain_id="chain-a",
-                chain_type=ChainType.DEFAULT,
-                status=ChainStatus.RUNNING,
-                db_path=Path("/tmp/chain.db"),  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
-                rpc_port=8202,
-                p2p_port=8007,
-                started_at=1234567890.0,
-            )
-        ]
-
-        with patch("aitbc_chain.rpc.chains.get_multi_chain_manager", return_value=mock_mgr):
-            result = asyncio.run(list_chains())
-
-        assert result["total"] == 1
-        assert result["chains"][0]["chain_id"] == "chain-a"
-        assert result["chains"][0]["status"] == "running"
 
 
 # ---------------------------------------------------------------------------

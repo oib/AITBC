@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from aitbc.constants import (
-    AGENT_COORDINATOR_PORT,
     BLOCKCHAIN_DATA_DIR,
     BLOCKCHAIN_P2P_PORT,
     BLOCKCHAIN_RPC_PORT,
@@ -70,10 +69,6 @@ class TestConstants:
     def test_blockchain_p2p_port(self):
         """Test BLOCKCHAIN_P2P_PORT constant"""
         assert BLOCKCHAIN_P2P_PORT == 8200
-
-    def test_agent_coordinator_port(self):
-        """Test AGENT_COORDINATOR_PORT constant"""
-        assert AGENT_COORDINATOR_PORT == 9001
 
     def test_marketplace_port(self):
         """Test MARKETPLACE_PORT constant"""

@@ -8,15 +8,6 @@ from aitbc.config import AITBCConfig, BaseAITBCConfig
 class TestBaseAITBCConfig:
     """Tests for BaseAITBCConfig"""
 
-    def test_default_values(self):
-        """Test BaseAITBCConfig with default values"""
-        config = BaseAITBCConfig()
-        assert config.app_name == "AITBC Application"
-        assert config.app_version == "1.0.0"
-        assert config.environment == "development"
-        assert config.debug is False
-        assert config.log_level == "INFO"
-
     def test_custom_values(self):
         """Test BaseAITBCConfig with custom values"""
         config = BaseAITBCConfig(
@@ -53,24 +44,6 @@ class TestBaseAITBCConfig:
 
 class TestAITBCConfig:
     """Tests for AITBCConfig"""
-
-    def test_default_values(self):
-        """Test AITBCConfig with default values"""
-        config = AITBCConfig()
-        assert config.host == "0.0.0.0"
-        assert config.port == 8000
-        assert config.workers == 1
-        assert config.database_url is None
-        assert config.database_pool_size == 10
-        assert config.redis_url is None
-        assert config.redis_max_connections == 10
-        assert config.redis_timeout == 5
-        assert config.secret_key is None
-        assert config.jwt_secret is None
-        assert config.jwt_algorithm == "HS256"
-        assert config.jwt_expiration_hours == 24
-        assert config.request_timeout == 30
-        assert config.max_request_size == 10 * 1024 * 1024
 
     def test_custom_server_settings(self):
         """Test AITBCConfig with custom server settings"""

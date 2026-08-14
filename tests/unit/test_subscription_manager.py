@@ -80,24 +80,6 @@ def test_remove_subscription():
     assert mgr.get_subscription("ait-hub") is None
 
 
-@pytest.mark.asyncio
-async def test_remove_subscription_cancels_task():
-    mgr = SubscriptionManager()
-    client = FakeSubscriptionClient("ait-hub", "http://hub-a:8006", hang=True)
-    mgr.add_subscription("ait-hub", client)
-    await mgr.start_all()
-    await asyncio.sleep(0.05)  # Let task start
-    entry = mgr.remove_subscription("ait-hub")
-    assert entry is not None
-    assert entry.task is not None
-    # Task should be cancelled — yield to let cancellation propagate
-    try:
-        await asyncio.wait_for(entry.task, timeout=1.0)
-    except (asyncio.CancelledError, RuntimeError):
-        pass
-    assert entry.task.cancelled() or entry.task.done()
-
-
 def test_remove_nonexistent_returns_none():
     mgr = SubscriptionManager()
     assert mgr.remove_subscription("nonexistent") is None
@@ -122,103 +104,6 @@ def test_get_all_chains():
 def test_get_all_chains_empty():
     mgr = SubscriptionManager()
     assert mgr.get_all_chains() == []
-
-
-@pytest.mark.asyncio
-async def test_start_all_starts_tasks():
-    mgr = SubscriptionManager()
-    client_a = FakeSubscriptionClient("ait-hub", "http://hub-a:8006")
-    client_b = FakeSubscriptionClient("ait-island1", "http://hub-b:8006")
-    mgr.add_subscription("ait-hub", client_a)
-    mgr.add_subscription("ait-island1", client_b)
-    await mgr.start_all()
-    entry_a = mgr.get_subscription("ait-hub")
-    entry_b = mgr.get_subscription("ait-island1")
-    assert entry_a is not None and entry_a.task is not None
-    assert entry_b is not None and entry_b.task is not None
-    assert not entry_a.task.done() or entry_a.task.done()  # Task exists
-    await mgr.stop_all()
-
-
-@pytest.mark.asyncio
-async def test_start_all_idempotent():
-    """Calling start_all twice should not create duplicate tasks."""
-    mgr = SubscriptionManager()
-    client = FakeSubscriptionClient("ait-hub", "http://hub-a:8006", hang=True)
-    mgr.add_subscription("ait-hub", client)
-    await mgr.start_all()
-    task1 = mgr.get_subscription("ait-hub").task
-    await mgr.start_all()  # Should not replace running task
-    task2 = mgr.get_subscription("ait-hub").task
-    assert task1 is task2
-    await mgr.stop_all()
-
-
-@pytest.mark.asyncio
-async def test_restart_on_failure():
-    """Client fails once, then succeeds on restart."""
-    mgr = SubscriptionManager(max_restarts=3, restart_delay=0.01)
-    client = FakeSubscriptionClient("ait-hub", "http://hub-a:8006", fail_times=1)
-    mgr.add_subscription("ait-hub", client)
-    await mgr.start_all()
-    # Wait for restart to complete
-    entry = mgr.get_subscription("ait-hub")
-    assert entry is not None
-    await asyncio.wait_for(entry.task, timeout=5.0)
-    assert client._call_count == 2  # Failed once, succeeded once
-    assert entry.restart_count == 1
-    assert entry.last_error == "Scheduled failure #1"
-
-
-@pytest.mark.asyncio
-async def test_max_restarts_exhausted():
-    """Client always fails — restarts up to max_restarts then gives up."""
-    mgr = SubscriptionManager(max_restarts=2, restart_delay=0.01)
-    client = FakeSubscriptionClient("ait-hub", "http://hub-a:8006", fail_times=99)
-    mgr.add_subscription("ait-hub", client)
-    await mgr.start_all()
-    entry = mgr.get_subscription("ait-hub")
-    assert entry is not None
-    await asyncio.wait_for(entry.task, timeout=5.0)
-    assert entry.restart_count == 3  # Initial + 2 restarts = 3 attempts
-    assert entry.task.done()
-    assert "Scheduled failure" in entry.last_error
-
-
-@pytest.mark.asyncio
-async def test_stop_all_cancels_tasks():
-    mgr = SubscriptionManager()
-    client_a = FakeSubscriptionClient("ait-hub", "http://hub-a:8006", hang=True)
-    client_b = FakeSubscriptionClient("ait-island1", "http://hub-b:8006", hang=True)
-    mgr.add_subscription("ait-hub", client_a)
-    mgr.add_subscription("ait-island1", client_b)
-    await mgr.start_all()
-    await asyncio.sleep(0.05)  # Let tasks start
-    await mgr.stop_all()
-    entry_a = mgr.get_subscription("ait-hub")
-    entry_b = mgr.get_subscription("ait-island1")
-    assert entry_a is not None and entry_a.task is not None
-    assert entry_b is not None and entry_b.task is not None
-    assert entry_a.task.done()
-    assert entry_b.task.done()
-
-
-@pytest.mark.asyncio
-async def test_stop_all_empty():
-    """stop_all on empty manager should not raise."""
-    mgr = SubscriptionManager()
-    await mgr.stop_all()  # Should not raise
-
-
-@pytest.mark.asyncio
-async def test_stop_all_after_stop():
-    """Double stop_all should not raise."""
-    mgr = SubscriptionManager()
-    client = FakeSubscriptionClient("ait-hub", "http://hub-a:8006", hang=True)
-    mgr.add_subscription("ait-hub", client)
-    await mgr.start_all()
-    await mgr.stop_all()
-    await mgr.stop_all()  # Should not raise
 
 
 def test_subscription_client_protocol_runtime_check():

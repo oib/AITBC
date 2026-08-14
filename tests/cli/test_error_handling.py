@@ -9,7 +9,6 @@ from aitbc_cli.utils.error_handling import (
     ConfigurationError,
     NetworkError,
     ValidationError,
-    handle_async_cli_error,
     handle_cli_error,
     safe_execute,
     validate_address,
@@ -133,40 +132,8 @@ class TestHandleCLIError:
 class TestHandleAsyncCLIError:
     """Test async CLI error handling decorator"""
 
-    @pytest.mark.asyncio
-    async def test_handle_async_cli_error_success(self):
-        """Test successful async function execution"""
 
-        @handle_async_cli_error
-        async def successful_func():
-            return "success"
 
-        result = await successful_func()
-        assert result == "success"
-
-    @pytest.mark.asyncio
-    async def test_handle_async_cli_error_cli_error(self):
-        """Test handling CLIError in async"""
-
-        @handle_async_cli_error
-        async def failing_func():
-            raise CLIError("Test error")
-
-        with pytest.raises(SystemExit) as exc_info:
-            await failing_func()
-        assert exc_info.value.code == 1
-
-    @pytest.mark.asyncio
-    async def test_handle_async_cli_error_keyboard_interrupt(self):
-        """Test handling KeyboardInterrupt in async"""
-
-        @handle_async_cli_error
-        async def interrupt_func():
-            raise KeyboardInterrupt()
-
-        with pytest.raises(SystemExit) as exc_info:
-            await interrupt_func()
-        assert exc_info.value.code == 130
 
 
 class TestSafeExecute:

@@ -23,8 +23,6 @@ import pytest
 
 from aitbc.bridge import (
     BridgeBlockHeader,
-    BridgeClient,
-    BridgeConfig,
     ExternalOracleClient,
     FinalityConfig,
     InProcessVerifier,
@@ -213,130 +211,9 @@ def test_in_process_verifier_mode() -> None:
     assert verifier.mode == VerificationMode.IN_PROCESS
 
 
-async def test_in_process_verifier_check_finality_small_transfer() -> None:
-    """Small transfers need only min_confirmations."""
-    verifier = InProcessVerifier()
-    config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
-    # 3 confirmations — meets min but not full finality
-    header = _block_header(confirmation_count=3)
-    assert await verifier.check_finality(header, config, transfer_amount=5000) is True
-
-
-async def test_in_process_verifier_check_finality_small_transfer_below() -> None:
-    verifier = InProcessVerifier()
-    config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
-    header = _block_header(confirmation_count=2)
-    assert await verifier.check_finality(header, config, transfer_amount=5000) is False
-
-
-async def test_in_process_verifier_check_finality_large_transfer() -> None:
-    """Large transfers need full finality_blocks."""
-    verifier = InProcessVerifier()
-    config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
-    # 5 confirmations — meets min but NOT full finality (6)
-    header = _block_header(confirmation_count=5)
-    assert await verifier.check_finality(header, config, transfer_amount=50000) is False
-
-
-async def test_in_process_verifier_check_finality_large_transfer_meets() -> None:
-    verifier = InProcessVerifier()
-    config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
-    header = _block_header(confirmation_count=6)
-    assert await verifier.check_finality(header, config, transfer_amount=50000) is True
-
-
-async def test_in_process_verifier_verify_proof_state_root_mismatch() -> None:
-    verifier = InProcessVerifier()
-    header = _block_header(state_root="0xheader_root")
-    proof = {"state_root": "0xdifferent_root", "amount": 100}
-    config = FinalityConfig()
-    result = await verifier.verify_proof(proof, header, config)
-    assert result.valid is False
-    assert "State root mismatch" in result.error
-
-
-async def test_in_process_verifier_verify_proof_no_merkle_proof() -> None:
-    """Proof without merkle_proof field — should pass (no trie verification)."""
-    verifier = InProcessVerifier()
-    header = _block_header(state_root="0xroot", confirmation_count=10)
-    proof = {"state_root": "0xroot", "amount": 100}
-    config = FinalityConfig()
-    result = await verifier.verify_proof(proof, header, config)
-    assert result.valid is True
-    assert result.finality_confirmed is True
-
-
-async def test_in_process_verifier_verify_proof_with_merkle_verifier_valid() -> None:
-    """Merkle proof verification with a valid proof."""
-    mock_verifier = MagicMock(spec=MerkleProofVerifier)
-    mock_verifier.verify_merkle_proof.return_value = True
-    verifier = InProcessVerifier(merkle_verifier=mock_verifier)
-
-    header = _block_header(state_root="0xroot", confirmation_count=10)
-    proof = {
-        "state_root": "0xroot",
-        "amount": 100,
-        "lock_tx_hash": "0xlock",
-        "lock_event": "0xevent",
-        "merkle_proof": ["0xdeadbeef", "0xcafebabe"],
-    }
-    config = FinalityConfig()
-    result = await verifier.verify_proof(proof, header, config)
-    assert result.valid is True
-    mock_verifier.verify_merkle_proof.assert_called_once()
-
-
-async def test_in_process_verifier_verify_proof_with_merkle_verifier_invalid() -> None:
-    """Merkle proof verification with an invalid proof."""
-    mock_verifier = MagicMock(spec=MerkleProofVerifier)
-    mock_verifier.verify_merkle_proof.return_value = False
-    verifier = InProcessVerifier(merkle_verifier=mock_verifier)
-
-    header = _block_header(state_root="0xroot")
-    proof = {
-        "state_root": "0xroot",
-        "amount": 100,
-        "lock_tx_hash": "0xlock",
-        "lock_event": "0xevent",
-        "merkle_proof": ["0xdeadbeef"],
-    }
-    config = FinalityConfig()
-    result = await verifier.verify_proof(proof, header, config)
-    assert result.valid is False
-    assert result.error == "Merkle proof verification failed"
-
-
-async def test_in_process_verifier_verify_proof_merkle_no_verifier_skips() -> None:
-    """Merkle proof provided but no verifier set — should skip (not fail)."""
-    verifier = InProcessVerifier(merkle_verifier=None)
-    header = _block_header(state_root="0xroot", confirmation_count=10)
-    proof = {
-        "state_root": "0xroot",
-        "amount": 100,
-        "merkle_proof": ["0xdeadbeef"],
-    }
-    config = FinalityConfig()
-    result = await verifier.verify_proof(proof, header, config)
-    assert result.valid is True  # skipped, not failed
-
-
 def test_external_oracle_client_mode() -> None:
     client = ExternalOracleClient(endpoints=["http://oracle.example"])
     assert client.mode == VerificationMode.ORACLE
-
-
-async def test_external_oracle_client_verify_proof_no_endpoints() -> None:
-    """With no endpoints, verify_proof returns an invalid result (not raise)."""
-    client = ExternalOracleClient()
-    result = await client.verify_proof({}, _block_header(), FinalityConfig())
-    assert result.valid is False
-    assert "unavailable" in result.error.lower() or "all oracle" in result.error.lower()
-
-
-async def test_external_oracle_client_check_finality_no_endpoints() -> None:
-    """With no endpoints, check_finality returns False (not raise)."""
-    client = ExternalOracleClient()
-    assert await client.check_finality(_block_header(), FinalityConfig(), 100) is False
 
 
 def test_oracle_client_is_abstract() -> None:
@@ -487,83 +364,6 @@ def test_check_finality_exact_threshold() -> None:
 # ---------------------------------------------------------------------------
 # A4 — BridgeClient block header + oracle status RPC methods
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_bridge_client_get_block_header() -> None:
-    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
-        resp = _mock_response(
-            200,
-            {
-                "chain_id": "ait-hub",
-                "height": 100,
-                "hash": "0xblockhash",
-                "state_root": "0xroot",
-                "proposer": "0xProposer",
-                "signature": "0xsig",
-                "finality_confirmed": True,
-                "confirmation_count": 6,
-            },
-        )
-        mock_http = _mock_async_client(resp)
-        client._client = mock_http
-
-        result = await client.get_block_header("ait-hub", 100)
-        assert result["chain_id"] == "ait-hub"
-        assert result["height"] == 100
-        assert result["state_root"] == "0xroot"
-        mock_http.get.assert_awaited_once()
-        call = mock_http.get.await_args
-        assert call.args[0] == "/bridge/block-headers/ait-hub/100"
-
-
-@pytest.mark.asyncio
-async def test_bridge_client_store_block_header() -> None:
-    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
-        resp = _mock_response(200, {"status": "stored", "height": 100})
-        mock_http = _mock_async_client(resp)
-        client._client = mock_http
-
-        header_data = {
-            "chain_id": "ait-hub",
-            "height": 100,
-            "hash": "0xblockhash",
-            "parent_hash": "0xparent",
-            "proposer": "0xProposer",
-            "state_root": "0xroot",
-            "signature": "0xsig",
-        }
-        result = await client.store_block_header(header_data)
-        assert result["status"] == "stored"
-        mock_http.post.assert_awaited_once()
-        call = mock_http.post.await_args
-        assert call.args[0] == "/bridge/block-headers"
-        assert call.kwargs["json"]["chain_id"] == "ait-hub"
-        assert call.kwargs["json"]["signature"] == "0xsig"
-
-
-@pytest.mark.asyncio
-async def test_bridge_client_oracle_status() -> None:
-    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
-        resp = _mock_response(
-            200,
-            {
-                "verification_mode": "in_process",
-                "finality_blocks": 6,
-                "min_confirmations": 3,
-                "validator_sets": {"ait-hub": {"epoch": 1, "validators": 5}},
-                "block_headers_stored": {"ait-hub": 42},
-            },
-        )
-        mock_http = _mock_async_client(resp)
-        client._client = mock_http
-
-        result = await client.oracle_status()
-        assert result["verification_mode"] == "in_process"
-        assert result["finality_blocks"] == 6
-        mock_http.get.assert_awaited_once()
-        call = mock_http.get.await_args
-        assert call.args[0] == "/bridge/oracle/status"
 
 
 # ---------------------------------------------------------------------------

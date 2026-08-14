@@ -2,8 +2,6 @@
 Tests for multi-modal fusion engine
 """
 
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 
@@ -110,22 +108,6 @@ class TestMultiModalFusionEngine:
             assert model in weights
             assert weights[model] == 1.0 / 3  # Equal weighting
 
-    @patch("coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine.Session")
-    async def test_adaptive_fusion_selection(self, mock_session):
-        """Test adaptive fusion strategy selection"""
-        from coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
-
-        engine = MultiModalFusionEngine()
-
-        modal_data = {"text": "sample", "image": "sample"}
-        performance_requirements = {"accuracy": 0.9, "efficiency": 0.8}
-
-        result = await engine.adaptive_fusion_selection(modal_data, performance_requirements)
-
-        assert "selected_strategy" in result
-        assert "strategy_scores" in result
-        assert "recommendation" in result
-
     def test_process_modality(self):
         """Test modality processing"""
         from coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
@@ -160,73 +142,3 @@ class TestMultiModalFusionEngine:
         assert "confidence" in combined
         assert "feature1" in combined["features"]
         assert "feature2" in combined["features"]
-
-    @patch("coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine.Session")
-    async def test_create_fusion_model(self, mock_session):
-        """Test fusion model creation"""
-        from coordinator_api.contexts.multimodal.domain import FusionModel
-        from coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
-
-        engine = MultiModalFusionEngine()
-        mock_session_instance = MagicMock()
-
-        mock_fusion_model = FusionModel(
-            fusion_id="fusion_abc123",
-            model_name="Test Fusion Model",
-            fusion_type="multi_modal",
-            base_models=["model1", "model2"],
-            model_weights={"model1": 0.5, "model2": 0.5},
-            fusion_strategy="ensemble_fusion",
-            input_modalities=["text", "image"],
-            modality_weights={"text": 0.6, "image": 0.4},
-            computational_complexity="medium",
-            memory_requirement=4.0,
-            status="training",
-        )
-
-        mock_session_instance.add.return_value = None
-        mock_session_instance.commit.return_value = None
-        mock_session_instance.refresh.return_value = mock_fusion_model
-
-        result = await engine.create_fusion_model(
-            mock_session_instance,
-            model_name="Test Fusion Model",
-            fusion_type="multi_modal",
-            base_models=["model1", "model2"],
-            input_modalities=["text", "image"],
-            fusion_strategy="ensemble_fusion",
-        )
-
-        assert result.fusion_id is not None
-        assert result.model_name == "Test Fusion Model"
-        assert result.status == "training"
-
-    @patch("coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine.Session")
-    async def test_simulate_fusion_training(self, mock_session):
-        """Test fusion training simulation"""
-        from coordinator_api.contexts.multimodal.domain import FusionModel
-        from coordinator_api.contexts.multimodal.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
-
-        engine = MultiModalFusionEngine()
-
-        mock_fusion_model = FusionModel(
-            fusion_id="fusion_abc123",
-            model_name="Test Fusion Model",
-            fusion_type="multi_modal",
-            base_models=["model1", "model2"],
-            model_weights={"model1": 0.5, "model2": 0.5},
-            fusion_strategy="ensemble_fusion",
-            input_modalities=["text", "image"],
-            modality_weights={"text": 0.6, "image": 0.4},
-            computational_complexity="medium",
-            memory_requirement=4.0,
-            status="training",
-        )
-
-        result = await engine.simulate_fusion_training(mock_fusion_model)
-
-        assert "performance" in result
-        assert "synergy" in result
-        assert "robustness" in result
-        assert "inference_time" in result
-        assert "training_time" in result

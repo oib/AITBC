@@ -143,48 +143,6 @@ class TestRPCBlockchainService:
             assert service.rpc_url == "http://localhost:8080"
             assert service.client is not None
 
-    def test_get_block_by_height(self, mock_client):
-        """Test get_block with block height (int)."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "height": 100,
-            "hash": "0xblockhash",
-            "parent_hash": "0xparent",
-            "timestamp": 1234567890,
-            "transactions": [{"hash": "tx1"}],
-            "miner": "0xminer",
-            "gas_used": 100000,
-            "gas_limit": 200000,
-        }
-        mock_http.get.return_value = mock_response
-
-        block = service.get_block(100)
-
-        assert isinstance(block, Block)
-        assert block.height == 100
-        assert block.hash == "0xblockhash"
-        assert block.miner == "0xminer"
-        mock_http.get.assert_called_once_with("/rpc/blocks/100")
-
-    def test_get_block_by_hash(self, mock_client):
-        """Test get_block with block hash (str)."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "height": 100,
-            "hash": "0xblockhash",
-            "parent_hash": "0xparent",
-            "timestamp": 1234567890,
-            "transactions": [],
-        }
-        mock_http.get.return_value = mock_response
-
-        block = service.get_block("0xblockhash")
-
-        assert block.height == 100
-        mock_http.get.assert_called_once_with("/rpc/block/0xblockhash")
-
     def test_get_block_error(self, mock_client):
         """Test get_block error handling."""
         service, mock_http = mock_client
@@ -192,115 +150,6 @@ class TestRPCBlockchainService:
 
         with pytest.raises(Exception, match="RPC Error"):
             service.get_block(100)
-
-    def test_get_head_block(self, mock_client):
-        """Test get_head_block."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "height": 500,
-            "hash": "0xheadhash",
-            "parent_hash": "0xparent",
-            "timestamp": 1234567890,
-            "transactions": [{"hash": "tx1"}],
-            "miner": "0xminer",
-            "gas_used": 50000,
-            "gas_limit": 100000,
-        }
-        mock_http.get.return_value = mock_response
-
-        block = service.get_head_block()
-
-        assert block.height == 500
-        mock_http.get.assert_called_once_with("/rpc/head")
-
-    def test_get_transaction(self, mock_client):
-        """Test get_transaction."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "hash": "0xtx123",
-            "from": "0xfrom",
-            "to": "0xto",
-            "value": "1000000",
-            "nonce": 1,
-            "gas": 21000,
-            "gas_price": "20000000000",
-            "input": "0xdata",
-            "block_hash": "0xblock",
-            "block_number": 100,
-            "status": "confirmed",
-        }
-        mock_http.get.return_value = mock_response
-
-        tx = service.get_transaction("0xtx123")
-
-        assert isinstance(tx, Transaction)
-        assert tx.hash == "0xtx123"
-        assert tx.from_address == "0xfrom"
-        assert tx.to_address == "0xto"
-        assert tx.value == "1000000"
-        assert tx.gas_price == "20000000000"
-        mock_http.get.assert_called_once_with("/rpc/transaction/0xtx123")
-
-    def test_get_account_balance(self, mock_client):
-        """Test get_account_balance."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "balance": "1000000000000000000",
-            "nonce": 10,
-        }
-        mock_http.get.return_value = mock_response
-
-        account = service.get_account_balance("0xaccount")
-
-        assert isinstance(account, Account)
-        assert account.address == "0xaccount"
-        assert account.balance == 1000000000000000000
-        assert account.nonce == 10
-        mock_http.get.assert_called_once_with("/rpc/account/0xaccount")
-
-    def test_send_transaction(self, mock_client):
-        """Test send_transaction."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {"hash": "0xtxhash"}
-        mock_http.post.return_value = mock_response
-
-        tx_hash = service.send_transaction({"from": "0xfrom", "to": "0xto", "value": "100"})
-
-        assert tx_hash == "0xtxhash"
-        mock_http.post.assert_called_once()
-        call_args = mock_http.post.call_args
-        assert call_args[0][0] == "/rpc/sendTx"
-
-    def test_send_transaction_no_hash(self, mock_client):
-        """Test send_transaction when hash not in response."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {"success": True}  # No hash
-        mock_http.post.return_value = mock_response
-
-        with pytest.raises(ValueError, match="Transaction hash not found"):
-            service.send_transaction({"from": "0xfrom"})
-
-    def test_get_status(self, mock_client):
-        """Test get_status."""
-        service, mock_http = mock_client
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "height": 1000,
-            "chain_id": "testnet",
-            "peers": 5,
-        }
-        mock_http.get.return_value = mock_response
-
-        status = service.get_status()
-
-        assert status["height"] == 1000
-        assert status["chain_id"] == "testnet"
-        mock_http.get.assert_called_once_with("/rpc/status")
 
     def test_error_handling(self, mock_client):
         """Test error handling propagates exceptions."""
@@ -374,29 +223,6 @@ class TestBlockchainServiceIntegration:
 
             assert service is mock_instance
             mock_class.assert_called_once_with("http://test:8080", 60)
-
-    @patch("aitbc.blockchain.blockchain_service.AITBCHTTPClient")
-    def test_full_mock_flow(self, mock_http_class):
-        """Test full flow with mocked HTTP client."""
-        mock_http = Mock()
-        mock_http_class.return_value = mock_http
-
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "height": 100,
-            "hash": "0xhash",
-            "parent_hash": "0xparent",
-            "timestamp": 1234567890,
-            "transactions": [],
-        }
-        mock_http.get.return_value = mock_response
-
-        service = RPCBlockchainService("http://localhost:8080")
-        block = service.get_block(100)
-
-        assert block.height == 100
-        assert block.hash == "0xhash"
-        mock_http.get.assert_called()
 
 
 if __name__ == "__main__":

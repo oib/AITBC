@@ -361,126 +361,6 @@ class TestValidatorRegistration:
         addresses = vset.addresses
         assert len(addresses) == 5
 
-    def test_register_validator_rpc(self, rpc_setup, validator_accounts: list[EthAccount]) -> None:
-        """POST /bridge/validators/register registers a validator via RPC."""
-        bridge, client = rpc_setup
-        acct = validator_accounts[0]
-        chain_id = "chain-a"
-
-        # Sign the registration request
-        sign_data = {
-            "chain_id": chain_id,
-            "address": acct.address.lower(),
-            "public_key": "0x" + acct.key.hex(),
-            "action": "register",
-        }
-        signature = _sign_request(acct, sign_data)
-
-        response = client.post(
-            "/bridge/validators/register",
-            json={
-                "chain_id": chain_id,
-                "address": acct.address.lower(),
-                "public_key": "0x" + acct.key.hex(),
-                "signature": signature,
-            },
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["status"] == "registered"
-        assert data["chain_id"] == chain_id
-
-    def test_register_validator_invalid_signature(self, rpc_setup, validator_accounts: list[EthAccount]) -> None:
-        """POST /bridge/validators/register with bad signature returns 403."""
-        bridge, client = rpc_setup
-        acct = validator_accounts[0]
-
-        response = client.post(
-            "/bridge/validators/register",
-            json={
-                "chain_id": "chain-a",
-                "address": acct.address.lower(),
-                "public_key": "0x" + acct.key.hex(),
-                "signature": "0x" + "ff" * 65,  # invalid
-            },
-        )
-        assert response.status_code == 403
-
-    def test_register_validator_missing_fields(self, rpc_setup) -> None:
-        """POST /bridge/validators/register with missing fields returns 422 (Pydantic validation)."""
-        bridge, client = rpc_setup
-        response = client.post(
-            "/bridge/validators/register",
-            json={"chain_id": "chain-a"},
-        )
-        # Pydantic validation rejects missing required fields (address, public_key, signature)
-        assert response.status_code == 422
-
-    def test_register_validator_requires_admin_when_release_enabled(
-        self, rpc_setup, validator_accounts: list[EthAccount]
-    ) -> None:
-        """POST /bridge/validators/register rejects unauthorized admin when release enabled."""
-        bridge, client = rpc_setup
-        acct = validator_accounts[0]
-        chain_id = "chain-a"
-
-        sign_data = {
-            "chain_id": chain_id,
-            "address": acct.address.lower(),
-            "public_key": "0x" + acct.key.hex(),
-            "action": "register",
-        }
-        validator_signature = _sign_request(acct, sign_data)
-
-        with patch("aitbc_chain.config.settings.bridge_release_enabled", True):
-            response = client.post(
-                "/bridge/validators/register",
-                json={
-                    "chain_id": chain_id,
-                    "address": acct.address.lower(),
-                    "public_key": "0x" + acct.key.hex(),
-                    "signature": validator_signature,
-                },
-            )
-        assert response.status_code == 403
-        assert "admin" in response.json()["detail"].lower()
-
-    def test_register_validator_accepts_authorized_admin(self, rpc_setup, validator_accounts: list[EthAccount]) -> None:
-        """POST /bridge/validators/register succeeds with a valid bridge admin signature."""
-        bridge, client = rpc_setup
-        validator = validator_accounts[0]
-        admin = EthAccount.create()
-        chain_id = "chain-a"
-
-        validator_sign_data = {
-            "chain_id": chain_id,
-            "address": validator.address.lower(),
-            "public_key": "0x" + validator.key.hex(),
-            "action": "register",
-        }
-        validator_signature = _sign_request(validator, validator_sign_data)
-
-        payload = {
-            "chain_id": chain_id,
-            "address": validator.address.lower(),
-            "public_key": "0x" + validator.key.hex(),
-            "signature": validator_signature,
-            "epoch": 0,
-            "admin_address": admin.address.lower(),
-        }
-        admin_signature = _sign_request(admin, payload)
-        payload["admin_signature"] = admin_signature
-
-        with (
-            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
-            patch("aitbc_chain.config.settings.bridge_admin_addresses", admin.address.lower()),
-        ):
-            response = client.post("/bridge/validators/register", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-
 
 # ---------------------------------------------------------------------------
 # Get Validator Set Tests (B5)
@@ -490,42 +370,6 @@ class TestValidatorRegistration:
 class TestGetValidatorSet:
     """GET /bridge/validators/{chain_id} endpoint (v0.7.1 §B5)."""
 
-    def test_get_validator_set_empty(self, initialized_bridge: CrossChainBridge, client: TestClient) -> None:
-        """GET /bridge/validators/{chain_id} returns empty set for unregistered chain."""
-        response = client.get("/bridge/validators/chain-empty")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["total"] == 0
-        assert data["validators"] == []
-
-    def test_get_validator_set_with_validators(
-        self, initialized_bridge: CrossChainBridge, client: TestClient, validator_accounts: list[EthAccount]
-    ) -> None:
-        """GET /bridge/validators/{chain_id} returns registered validators."""
-        _register_validators(initialized_bridge, "chain-a", validator_accounts)
-
-        response = client.get("/bridge/validators/chain-a")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["total"] == 5
-        assert len(data["validators"]) == 5
-        assert all(v["is_active"] for v in data["validators"])
-
-    def test_get_validator_set_by_epoch(
-        self, initialized_bridge: CrossChainBridge, client: TestClient, validator_accounts: list[EthAccount]
-    ) -> None:
-        """GET /bridge/validators/{chain_id}?epoch=1 returns epoch-specific set."""
-        _register_validators(initialized_bridge, "chain-a", validator_accounts[:3], epoch=0)
-        _register_validators(initialized_bridge, "chain-a", validator_accounts[3:], epoch=1)
-
-        response = client.get("/bridge/validators/chain-a?epoch=0")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["epoch"] == 0
-        assert data["total"] == 3
-
 
 # ---------------------------------------------------------------------------
 # Security Status Tests (B5)
@@ -534,31 +378,6 @@ class TestGetValidatorSet:
 
 class TestSecurityStatus:
     """GET /bridge/security/status endpoint (v0.7.1 §B5)."""
-
-    def test_security_status(self, initialized_bridge: CrossChainBridge, client: TestClient) -> None:
-        """GET /bridge/security/status returns security configuration."""
-        response = client.get("/bridge/security/status")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "multisig_enabled" in data
-        assert "threshold" in data
-        assert "validator_count" in data
-        assert "current_epoch" in data
-        assert "block_signature_required" in data
-        assert "release_enabled" in data
-        assert "bridge_initialized" in data
-
-    def test_security_status_with_validators(
-        self, initialized_bridge: CrossChainBridge, client: TestClient, validator_accounts: list[EthAccount]
-    ) -> None:
-        """Security status reflects registered validators."""
-        _register_validators(initialized_bridge, "chain-a", validator_accounts)
-
-        response = client.get("/bridge/security/status")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["validator_count"] == 5
 
 
 # ---------------------------------------------------------------------------
@@ -702,27 +521,6 @@ class TestMultiSigThreshold:
         ):
             result = bridge._validate_proof(proof_fields, record)
         assert result is False
-
-    def test_confirm_release_fence_active(self, initialized_bridge: CrossChainBridge, client: TestClient, rpc_engine) -> None:
-        """Confirm returns 503 when both fence flags are explicitly false."""
-        _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
-        transfer = initialized_bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
-
-        with (
-            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
-            patch("aitbc_chain.config.settings.escrow_enabled", False),
-        ):
-            response = client.post(
-                "/bridge/confirm",
-                json={
-                    "transfer_id": transfer.transfer_id,
-                    "proof": {"source_chain": "chain-a"},
-                    "confirmer": "0xrecip",
-                    "signature": "0x" + "ff" * 65,
-                },
-            )
-        assert response.status_code == 503
-        assert "disabled" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------

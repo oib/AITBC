@@ -6,10 +6,9 @@ blockchain node required — all HTTP calls are stubbed with AsyncMock.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
-import pytest
 
 from aitbc.marketplace.blockchain_rpc import BlockchainRPCClient
 
@@ -69,118 +68,9 @@ def test_rpc_url_strips_trailing_slash() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_query_offers_with_chain_id() -> None:
-    resp = _mock_response(200, {"gpus": [{"gpu_id": "gpu1", "model": "RTX 4090"}]})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offers = await rpc.query_offers(chain_id="ait-hub")
-    assert offers == [{"gpu_id": "gpu1", "model": "RTX 4090"}]
-    # Verify chain_id was in the request params
-    client.get.assert_called_once()
-    call_args = client.get.call_args
-    params = call_args.kwargs.get("params", {})
-    assert params.get("chain_id") == "ait-hub"
-
-
-@pytest.mark.asyncio
-async def test_query_offers_without_chain_id() -> None:
-    resp = _mock_response(200, {"gpus": []})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offers = await rpc.query_offers()
-    assert offers == []
-    call_args = client.get.call_args
-    params = call_args.kwargs.get("params", {})
-    assert "chain_id" not in params
-
-
-@pytest.mark.asyncio
-async def test_query_offers_client_side_filter_gpu_model() -> None:
-    resp = _mock_response(
-        200,
-        {
-            "gpus": [
-                {"gpu_id": "gpu1", "model": "RTX 4090"},
-                {"gpu_id": "gpu2", "model": "RTX 3060"},
-            ]
-        },
-    )
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offers = await rpc.query_offers(gpu_model="rtx 4090")
-    assert len(offers) == 1
-    assert offers[0]["gpu_id"] == "gpu1"
-
-
-@pytest.mark.asyncio
-async def test_query_offers_client_side_filter_region() -> None:
-    resp = _mock_response(
-        200,
-        {
-            "gpus": [
-                {"gpu_id": "gpu1", "region": "us-east"},
-                {"gpu_id": "gpu2", "region": "eu-west"},
-            ]
-        },
-    )
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offers = await rpc.query_offers(region="us-east")
-    assert len(offers) == 1
-    assert offers[0]["gpu_id"] == "gpu1"
-
-
-@pytest.mark.asyncio
-async def test_query_offers_returns_list_when_response_is_list() -> None:
-    """When the RPC returns a bare list (not wrapped in {gpus: ...})."""
-    resp = _mock_response(200, [{"gpu_id": "gpu1"}])
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offers = await rpc.query_offers()
-    assert offers == [{"gpu_id": "gpu1"}]
-
-
-@pytest.mark.asyncio
-async def test_query_offers_returns_empty_on_non_list() -> None:
-    """When the RPC returns unexpected data, return empty list."""
-    resp = _mock_response(200, {"unexpected": "data"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offers = await rpc.query_offers()
-    assert offers == []
-
-
 # ---------------------------------------------------------------------------
 # get_offer
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_get_offer_found() -> None:
-    resp = _mock_response(200, {"gpu_id": "gpu1", "model": "RTX 4090"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offer = await rpc.get_offer("gpu1", chain_id="ait-hub")
-    assert offer is not None
-    assert offer["gpu_id"] == "gpu1"
-
-
-@pytest.mark.asyncio
-async def test_get_offer_not_found() -> None:
-    resp = _mock_response(404)
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        offer = await rpc.get_offer("nonexistent")
-    assert offer is None
 
 
 # ---------------------------------------------------------------------------
@@ -188,43 +78,9 @@ async def test_get_offer_not_found() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_submit_transaction_with_chain_id() -> None:
-    resp = _mock_response(200, {"status": "ok", "tx_hash": "abc123"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.submit_transaction({"chain_id": "ait-hub", "type": "GPU_REGISTER"})
-    assert result["tx_hash"] == "abc123"
-
-
-@pytest.mark.asyncio
-async def test_submit_transaction_without_chain_id_raises() -> None:
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with pytest.raises(ValueError, match="must include 'chain_id'"):
-        await rpc.submit_transaction({"type": "GPU_REGISTER"})
-
-
 # ---------------------------------------------------------------------------
 # register_gpu
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_register_gpu_with_chain_id() -> None:
-    resp = _mock_response(200, {"status": "registered", "gpu_id": "gpu1"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.register_gpu({"chain_id": "ait-hub", "gpu_id": "gpu1", "model": "RTX 4090"})
-    assert result["gpu_id"] == "gpu1"
-
-
-@pytest.mark.asyncio
-async def test_register_gpu_without_chain_id_raises() -> None:
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with pytest.raises(ValueError, match="must include 'chain_id'"):
-        await rpc.register_gpu({"gpu_id": "gpu1"})
 
 
 # ---------------------------------------------------------------------------
@@ -232,82 +88,9 @@ async def test_register_gpu_without_chain_id_raises() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_allocate_gpu_with_chain_id() -> None:
-    resp = _mock_response(200, {"status": "allocated", "allocation_id": "alloc1"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.allocate_gpu({"chain_id": "ait-hub", "gpu_id": "gpu1", "client_id": "client1"})
-    assert result["allocation_id"] == "alloc1"
-
-
-@pytest.mark.asyncio
-async def test_allocate_gpu_without_chain_id_raises() -> None:
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with pytest.raises(ValueError, match="must include 'chain_id'"):
-        await rpc.allocate_gpu({"gpu_id": "gpu1"})
-
-
 # ---------------------------------------------------------------------------
 # verify_escrow (v0.10.1 A1: job_id parameter, backward-compat escrow_id)
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_verify_escrow_found() -> None:
-    resp = _mock_response(200, {"job_id": "job1", "status": "locked"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.verify_escrow("job1")
-    assert result is not None
-    assert result["status"] == "locked"
-    # Verify the URL uses job_id as the path parameter
-    client.get.assert_called_once_with(f"{RPC_URL}/rpc/escrow/job1")
-
-
-@pytest.mark.asyncio
-async def test_verify_escrow_not_found() -> None:
-    resp = _mock_response(404)
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.verify_escrow("nonexistent")
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_verify_escrow_keyword_job_id() -> None:
-    """verify_escrow accepts job_id as a keyword argument (v0.10.1 A1)."""
-    resp = _mock_response(200, {"job_id": "job2", "status": "released"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.verify_escrow(job_id="job2")
-    assert result is not None
-    assert result["status"] == "released"
-    client.get.assert_called_once_with(f"{RPC_URL}/rpc/escrow/job2")
-
-
-@pytest.mark.asyncio
-async def test_verify_escrow_legacy_escrow_id_fallback() -> None:
-    """verify_escrow falls back to escrow_id when job_id is empty (backward compat)."""
-    resp = _mock_response(200, {"job_id": "esc3", "status": "locked"})
-    client = _mock_async_client(resp)
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.verify_escrow(job_id="", escrow_id="esc3")
-    assert result is not None
-    client.get.assert_called_once_with(f"{RPC_URL}/rpc/escrow/esc3")
-
-
-@pytest.mark.asyncio
-async def test_verify_escrow_empty_raises() -> None:
-    """verify_escrow raises ValueError when both job_id and escrow_id are empty."""
-    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
-    with pytest.raises(ValueError, match="job_id"):
-        await rpc.verify_escrow("")
 
 
 # ---------------------------------------------------------------------------

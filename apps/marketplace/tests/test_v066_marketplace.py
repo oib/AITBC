@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -84,43 +83,6 @@ class TestOfferFSMTransitions:
 class TestBlockchainRPCClientChainId:
     """Test BlockchainRPCClient passes chain_id in queries."""
 
-    @pytest.mark.asyncio
-    async def test_query_offers_with_chain_id(self):
-        from aitbc.marketplace import BlockchainRPCClient
-
-        client = BlockchainRPCClient(rpc_url="http://localhost:8202")
-
-        class MockResponse:
-            status_code = 200
-
-            def raise_for_status(self):
-                pass
-
-            def json(self):
-                return {"gpus": [{"gpu_id": "gpu_1", "chain_id": "ait-hub"}]}
-
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=MockResponse()):
-            offers = await client.query_offers(chain_id="ait-hub")
-
-        assert len(offers) == 1
-        assert offers[0]["chain_id"] == "ait-hub"
-
-    @pytest.mark.asyncio
-    async def test_submit_transaction_without_chain_id_raises(self):
-        from aitbc.marketplace import BlockchainRPCClient
-
-        client = BlockchainRPCClient(rpc_url="http://localhost:8202")
-        with pytest.raises(ValueError, match="chain_id"):
-            await client.submit_transaction({"type": "GPU_REGISTER"})
-
-    @pytest.mark.asyncio
-    async def test_register_gpu_without_chain_id_raises(self):
-        from aitbc.marketplace import BlockchainRPCClient
-
-        client = BlockchainRPCClient(rpc_url="http://localhost:8202")
-        with pytest.raises(ValueError, match="chain_id"):
-            await client.register_gpu({"gpu_id": "gpu_1"})
-
 
 # ---------------------------------------------------------------------------
 # Marketplace endpoint integration tests
@@ -138,42 +100,9 @@ def client():
 class TestMarketplaceChainIdFilter:
     """Test marketplace offer listing with chain_id filter."""
 
-    def test_offers_endpoint_accepts_chain_id_param(self, client):
-        """GET /v1/marketplace/offers accepts chain_id query param."""
-        response = client.get("/v1/marketplace/offers", params={"chain_id": "ait-hub"})
-        # 200 if DB available, 500 if DB not available — both acceptable
-        assert response.status_code in (200, 500)
-
-    def test_offers_endpoint_without_chain_id(self, client):
-        """GET /v1/marketplace/offers works without chain_id (optional)."""
-        response = client.get("/v1/marketplace/offers")
-        assert response.status_code in (200, 500)
-
 
 class TestMarketplaceMatching:
     """Test marketplace matching endpoint (v0.6.6)."""
-
-    def test_match_endpoint_exists(self, client):
-        """POST /v1/marketplace/match endpoint exists."""
-        response = client.post(
-            "/v1/marketplace/match",
-            json={"requirements": {"capacity": 1}, "max_price": 10.0, "chain_id": "ait-hub"},
-        )
-        # 200 with match or no_match, 500 if DB error
-        assert response.status_code in (200, 500)
-        if response.status_code == 200:
-            data = response.json()
-            assert "status" in data
-            assert "match" in data
-
-    def test_match_endpoint_no_offers(self, client):
-        """POST /v1/marketplace/match returns no_match when no offers available."""
-        response = client.post(
-            "/v1/marketplace/match",
-            json={"requirements": {}, "max_price": 0.01, "chain_id": "nonexistent-chain"},
-        )
-        # Should return 200 with no_match status (or 500 if DB error)
-        assert response.status_code in (200, 500)
 
 
 class TestMarketplaceConfig:

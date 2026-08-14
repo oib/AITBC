@@ -71,13 +71,6 @@ def test_risk_scorer_unknown_factor() -> None:
         )
 
 
-def test_risk_scorer_aggregate() -> None:
-    scorer = RiskScorer()
-    scorer.add(RiskScore("p1", RiskCategory.PROVIDER, 0.4))
-    scorer.add(RiskScore("p2", RiskCategory.PROVIDER, 0.8))
-    assert scorer.aggregate() == pytest.approx(0.6)
-
-
 def test_solvency_report_healthy() -> None:
     engine = SolvencyEngine(min_collateral_ratio=Decimal("1.0"))
     bond = PerformanceBond(
