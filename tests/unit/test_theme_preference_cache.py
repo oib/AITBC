@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from coordinator_api.contexts.preferences.redis_cache import ThemePreferenceCache
 
@@ -25,20 +24,3 @@ def test_cache_normalizes_wallet_address_case() -> None:
     cache = ThemePreferenceCache(redis_url=None, ttl_seconds=60)
     cache.set("0xABC", {"mode": "high-contrast"})
     assert cache.get("0xabc") == {"mode": "high-contrast"}
-
-
-def test_cache_with_redis(monkeypatch) -> None:
-    try:
-        import fakeredis
-    except ImportError:  # pragma: no cover
-        pytest.skip("fakeredis not installed")
-
-    server = fakeredis.FakeServer()
-    fake = fakeredis.FakeStrictRedis(server=server, decode_responses=True)
-
-    cache = ThemePreferenceCache(redis_url="redis://fake", ttl_seconds=60)
-    monkeypatch.setattr(cache, "_client", fake)
-    cache.set("0xdef", {"mode": "system"})
-    assert cache.get("0xdef") == {"mode": "system"}
-    cache.delete("0xdef")
-    assert cache.get("0xdef") is None

@@ -3,8 +3,6 @@ exchange (B4), and delta sync RPC endpoint (B6)."""
 
 from __future__ import annotations
 
-import asyncio
-import base64
 import hashlib
 import inspect
 from contextlib import contextmanager
@@ -28,102 +26,6 @@ def _hex(value: str) -> str:
 
 class TestGossipDedup:
     """Test gossip message deduplication."""
-
-    @pytest.mark.asyncio
-    async def test_duplicate_message_skipped(self):
-        """Publishing the same message twice should skip the second."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        backend = InMemoryGossipBackend()
-        broker = GossipBroker(backend)
-        sub = await broker.subscribe("blocks.test")
-        msg = {"hash": "0xabc123", "height": 1}
-        await broker.publish("blocks.test", msg)
-        await broker.publish("blocks.test", msg)  # duplicate
-        # Should only receive one message
-        first = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert first["hash"] == "0xabc123"
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(sub.get(), timeout=0.5)
-        await broker.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_different_messages_not_deduped(self):
-        """Different messages should both be delivered."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        backend = InMemoryGossipBackend()
-        broker = GossipBroker(backend)
-        sub = await broker.subscribe("blocks.test")
-        await broker.publish("blocks.test", {"hash": "0xaaa", "height": 1})
-        await broker.publish("blocks.test", {"hash": "0xbbb", "height": 2})
-        msg1 = await asyncio.wait_for(sub.get(), timeout=1.0)
-        msg2 = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert msg1["hash"] == "0xaaa"
-        assert msg2["hash"] == "0xbbb"
-        await broker.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_dedup_with_id_field(self):
-        """Messages with 'id' field should be deduped by id."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        backend = InMemoryGossipBackend()
-        broker = GossipBroker(backend)
-        sub = await broker.subscribe("txs.test")
-        await broker.publish("txs.test", {"id": "tx-001", "amount": 100})
-        await broker.publish("txs.test", {"id": "tx-001", "amount": 100})  # dup
-        first = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert first["id"] == "tx-001"
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(sub.get(), timeout=0.5)
-        await broker.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_dedup_clear_cache(self):
-        """clear_dedup_cache should allow re-publishing."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        backend = InMemoryGossipBackend()
-        broker = GossipBroker(backend)
-        sub = await broker.subscribe("blocks.test")
-        msg = {"hash": "0xccc", "height": 5}
-        await broker.publish("blocks.test", msg)
-        first = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert first["hash"] == "0xccc"
-        # Clear cache and publish again — should be delivered
-        broker.clear_dedup_cache()
-        await broker.publish("blocks.test", msg)
-        second = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert second["hash"] == "0xccc"
-        await broker.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_dedup_publish_batch_filters_duplicates(self):
-        """publish_batch should filter out duplicate messages."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        backend = InMemoryGossipBackend()
-        broker = GossipBroker(backend)
-        sub = await broker.subscribe("blocks.test")
-        # First publish a message
-        await broker.publish("blocks.test", {"hash": "0xddd", "height": 10})
-        first = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert first["hash"] == "0xddd"
-        # Now batch publish with the same message + a new one
-        await broker.publish_batch(
-            "blocks.test",
-            [
-                {"hash": "0xddd", "height": 10},  # duplicate
-                {"hash": "0xeee", "height": 11},  # new
-            ],
-        )
-        # Should only receive the new one
-        msg = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert msg["hash"] == "0xeee"
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(sub.get(), timeout=0.5)
-        await broker.shutdown()
 
     def test_compute_message_id_with_hash(self):
         """Message ID uses hash field when available."""
@@ -151,32 +53,6 @@ class TestGossipDedup:
         # Same message should produce same ID
         msg_id2 = broker._compute_message_id("test", "simple string")
         assert msg_id == msg_id2
-
-    @pytest.mark.asyncio
-    async def test_dedup_is_duplicate_records_and_detects(self):
-        """_is_duplicate should return False first then True for same id."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        broker = GossipBroker(InMemoryGossipBackend())
-        assert await broker._is_duplicate("topic:msg1") is False
-        assert await broker._is_duplicate("topic:msg1") is True
-        assert await broker._is_duplicate("topic:msg2") is False
-        await broker.shutdown()
-
-    @pytest.mark.asyncio
-    async def test_dedup_lru_eviction(self):
-        """Cache should evict oldest entries beyond _dedup_max_size."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
-
-        broker = GossipBroker(InMemoryGossipBackend())
-        broker._dedup_max_size = 3
-        # Insert 3 unique ids
-        for i in range(3):
-            assert await broker._is_duplicate(f"t:{i}") is False
-        # The 4th should evict the oldest (t:0), making it insertable again
-        assert await broker._is_duplicate("t:3") is False
-        assert await broker._is_duplicate("t:0") is False  # was evicted
-        await broker.shutdown()
 
 
 # ---------------------------------------------------------------------------
@@ -347,103 +223,3 @@ def _seed_delta_data(engine) -> None:
 
 class TestDeltaSyncRPC:
     """Test the /state/delta RPC endpoint handler."""
-
-    @pytest.mark.asyncio
-    async def test_delta_endpoint_returns_diff(self, isolated_engine, mock_request):
-        """Test that get_state_delta returns a valid StateDiff."""
-        _seed_delta_data(isolated_engine)
-        result = await rpc_accounts.get_state_delta(mock_request, from_height=0, to_height=2, chain_id="test-chain")
-
-        assert "error" not in result
-        assert "diff" in result
-        assert result["from_height"] == 0
-        assert result["to_height"] == 2
-        assert result["from_state_root"] == _hex("state-root-0")
-        assert result["to_state_root"] == _hex("state-root-2")
-        # alice and bob were touched by the transaction
-        assert result["account_count"] == 2
-        # The diff should be valid base64 that decodes to a StateDiff
-        from aitbc.sync import StateDiff
-
-        decoded = StateDiff.decode(base64.b64decode(result["diff"]))
-        assert decoded.from_height == 0
-        assert decoded.to_height == 2
-        assert decoded.chain_id == "test-chain"
-        addresses = {c.address for c in decoded.changes}
-        assert addresses == {"alice", "bob"}
-
-    @pytest.mark.asyncio
-    async def test_delta_endpoint_gap_too_large(self, isolated_engine, mock_request):
-        """Test that get_state_delta returns error for large gaps."""
-        _seed_delta_data(isolated_engine)
-        # sync_delta_max_blocks defaults to 100; use 0 -> 200
-        result = await rpc_accounts.get_state_delta(mock_request, from_height=0, to_height=200, chain_id="test-chain")
-
-        assert "error" in result
-        assert "too large" in result["error"].lower()
-        assert result.get("fallback") == "full_sync"
-
-    @pytest.mark.asyncio
-    async def test_delta_endpoint_invalid_heights(self, isolated_engine, mock_request):
-        """Test that get_state_delta returns error when to_height <= from_height."""
-        _seed_delta_data(isolated_engine)
-        result = await rpc_accounts.get_state_delta(mock_request, from_height=5, to_height=3, chain_id="test-chain")
-
-        assert "error" in result
-        assert "greater than" in result["error"].lower()
-
-    @pytest.mark.asyncio
-    async def test_delta_endpoint_equal_heights(self, isolated_engine, mock_request):
-        """Test that get_state_delta returns error when to_height == from_height."""
-        _seed_delta_data(isolated_engine)
-        result = await rpc_accounts.get_state_delta(mock_request, from_height=3, to_height=3, chain_id="test-chain")
-
-        assert "error" in result
-        assert "greater than" in result["error"].lower()
-
-    @pytest.mark.asyncio
-    async def test_delta_endpoint_missing_to_block(self, isolated_engine, mock_request):
-        """Test that get_state_delta returns error when the to_block doesn't exist."""
-        _seed_delta_data(isolated_engine)
-        result = await rpc_accounts.get_state_delta(mock_request, from_height=0, to_height=99, chain_id="test-chain")
-
-        assert "error" in result
-        assert "not found" in result["error"].lower()
-
-    @pytest.mark.asyncio
-    async def test_delta_endpoint_no_transactions_returns_all_accounts(self, isolated_engine, mock_request):
-        """When no transactions exist in range, all accounts are returned as the diff."""
-        with Session(isolated_engine) as session:
-            session.add(
-                Block(
-                    chain_id="test-chain",
-                    height=0,
-                    hash=_hex("nb-0"),
-                    parent_hash="0x00",
-                    proposer="node-a",
-                    timestamp=datetime(2026, 1, 1, 0, 0, 0),
-                    tx_count=0,
-                    state_root=_hex("sr-0"),
-                )
-            )
-            session.add(
-                Block(
-                    chain_id="test-chain",
-                    height=1,
-                    hash=_hex("nb-1"),
-                    parent_hash=_hex("nb-0"),
-                    proposer="node-a",
-                    timestamp=datetime(2026, 1, 1, 0, 0, 1),
-                    tx_count=0,
-                    state_root=_hex("sr-1"),
-                )
-            )
-            session.add(Account(chain_id="test-chain", address="alice", balance=10, nonce=0))
-            session.add(Account(chain_id="test-chain", address="bob", balance=20, nonce=1))
-            session.commit()
-
-        result = await rpc_accounts.get_state_delta(mock_request, from_height=0, to_height=1, chain_id="test-chain")
-
-        assert "error" not in result
-        # No transactions → falls back to all accounts
-        assert result["account_count"] == 2

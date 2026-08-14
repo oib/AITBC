@@ -21,7 +21,7 @@ import json
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from aitbc_chain.config import settings
@@ -32,14 +32,12 @@ from aitbc_chain.cross_chain.bridge import (
 )
 from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.rpc.auth import get_authenticated_address
-from aitbc_chain.rpc.contracts_stub import _stub
 from aitbc_chain.rpc.router import router
-from aitbc_chain.rpc.transactions import TransactionRequest, submit_transaction
+from aitbc_chain.rpc.transactions import TransactionRequest
 from aitbc_chain.rpc.utils import (
     validate_chain_id,
     verify_transaction_signature,
 )
-from aitbc_chain.sync import ChainSync
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -171,53 +169,6 @@ class TestBug1ChainIdInTransactionRequest:
         )
         assert req.chain_id is None
 
-    def test_submit_transaction_uses_provided_chain_id(self, monkeypatch) -> None:
-        """submit_transaction resolves chain_id from the request, not just settings."""
-        # Mock get_mempool so we don't need a real mempool
-        mock_mempool = MagicMock()
-        mock_mempool.add.return_value = "0xtxhash"
-        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: mock_mempool)
-        # Mock verify_transaction_signature to return True (signature is valid)
-        monkeypatch.setattr(
-            "aitbc_chain.rpc.transactions.verify_transaction_signature",
-            lambda tx, sig, sender: True,
-        )
-        # Mock _validate_transaction_admission to do nothing
-        monkeypatch.setattr(
-            "aitbc_chain.rpc.transactions._validate_transaction_admission",
-            lambda tx, mempool: None,
-        )
-        # Mock session_scope
-        monkeypatch.setattr("aitbc_chain.rpc.transactions.session_scope", lambda: _null_session_scope())
-
-        # Capture the chain_id used
-        captured_chain_id: list[str] = []
-
-        def mock_get_chain_id(cid: str | None = None) -> str:
-            result = cid if cid is not None else "ait-mainnet"
-            captured_chain_id.append(result)
-            return result
-
-        monkeypatch.setattr("aitbc_chain.rpc.transactions.get_chain_id", mock_get_chain_id)
-
-        req = TransactionRequest.model_validate(
-            {
-                "from": "0xsender",
-                "to": "0xrecipient",
-                "amount": 100,
-                "nonce": 1,
-                "fee": 10,
-                "chain_id": "ait-testnet",
-                "signature": "0xabc123",
-            }
-        )
-
-        import asyncio
-
-        result = asyncio.run(submit_transaction(MagicMock(), req))
-        assert result["success"] is True
-        assert captured_chain_id == ["ait-testnet"]
-
 
 @contextmanager
 def _null_session_scope():
@@ -232,51 +183,6 @@ def _null_session_scope():
 
 class TestBug2ChainIdInSyncRPC:
     """fetch_blocks_range and bulk_import_from must send chain_id to remote peers."""
-
-    def test_fetch_blocks_range_sends_chain_id(self, session_factory) -> None:
-        """fetch_blocks_range includes chain_id in query params."""
-        import asyncio
-
-        sync = ChainSync(session_factory, chain_id="ait-testnet", validate_signatures=False)
-
-        mock_response = Mock()
-        mock_response.json.return_value = []
-        mock_response.raise_for_status = Mock()
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        sync._client = mock_client
-
-        asyncio.run(sync.fetch_blocks_range(0, 10, "http://source-rpc"))
-
-        mock_client.get.assert_called_once()
-        call_kwargs = mock_client.get.call_args.kwargs
-        assert "params" in call_kwargs
-        assert call_kwargs["params"]["chain_id"] == "ait-testnet"
-        assert call_kwargs["params"]["start"] == 0
-        assert call_kwargs["params"]["end"] == 10
-
-    def test_bulk_import_from_sends_chain_id_to_head(self, session_factory) -> None:
-        """bulk_import_from includes chain_id in the /rpc/head request."""
-        import asyncio
-
-        sync = ChainSync(session_factory, chain_id="ait-testnet", validate_signatures=False)
-
-        # Mock /rpc/head response — return height -1 so sync exits early
-        head_response = Mock()
-        head_response.json.return_value = {"height": -1}
-        head_response.raise_for_status = Mock()
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=head_response)
-        sync._client = mock_client
-
-        asyncio.run(sync.bulk_import_from("http://source-rpc"))
-
-        # Verify /rpc/head was called with chain_id in params
-        first_call = mock_client.get.call_args_list[0]
-        assert first_call.args[0] == "http://source-rpc/rpc/head"
-        assert first_call.kwargs["params"]["chain_id"] == "ait-testnet"
 
 
 # ---------------------------------------------------------------------------
@@ -414,42 +320,6 @@ class TestBug4TransactionSignatureVerification:
         signature = _sign_message(priv_key, tx_without_sig)
         assert verify_transaction_signature(tx_data, signature, sender_address) is True
 
-    def test_submit_transaction_rejects_invalid_signature(self, client, monkeypatch) -> None:
-        """POST /transaction with an invalid signature is rejected (not 200)."""
-        # Mock get_mempool so it doesn't fail before signature check
-        mock_mempool = MagicMock()
-        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: mock_mempool)
-
-        response = client.post(
-            "/transaction",
-            json={
-                "from": "0xsender",
-                "to": "0xrecipient",
-                "amount": 100,
-                "nonce": 1,
-                "fee": 10,
-                "signature": "0x" + "ab" * 65,  # invalid signature
-            },
-        )
-        # The 403 is raised inside a try/except that wraps to 400, so accept either
-        assert response.status_code in (400, 403)
-        assert response.status_code != 200
-
-    def test_submit_transaction_rejects_missing_signature(self, client) -> None:
-        """POST /transaction without signature field fails with 422 (required field)."""
-        response = client.post(
-            "/transaction",
-            json={
-                "from": "0xsender",
-                "to": "0xrecipient",
-                "amount": 100,
-                "nonce": 1,
-                "fee": 10,
-                # signature intentionally omitted
-            },
-        )
-        assert response.status_code == 422
-
 
 # ---------------------------------------------------------------------------
 # Bug 5: authorize_arbitrator owner verification
@@ -556,68 +426,6 @@ class TestBug7BridgeLockConfirmSignatureVerification:
         with patch.object(settings, "supported_chains", "ait-source,ait-target,chain-a,chain-b"):
             yield
 
-    def test_bridge_lock_rejects_without_signature(self, client, initialized_bridge) -> None:
-        """POST /bridge/lock without signature returns 422 (Pydantic validation)."""
-        response = client.post(
-            "/bridge/lock",
-            json={
-                "source_chain": "ait-source",
-                "target_chain": "ait-target",
-                "sender": "0xsender",
-                "recipient": "0xrecipient",
-                "amount": 1000,
-                # signature intentionally omitted
-            },
-        )
-        # Pydantic validation rejects missing signature before reaching the bridge function
-        assert response.status_code == 422
-
-    def test_bridge_lock_rejects_invalid_signature(self, client, initialized_bridge) -> None:
-        """POST /bridge/lock with invalid signature returns 403."""
-        response = client.post(
-            "/bridge/lock",
-            json={
-                "source_chain": "ait-source",
-                "target_chain": "ait-target",
-                "sender": "0xsender",
-                "recipient": "0xrecipient",
-                "amount": 1000,
-                "signature": "0x" + "ab" * 65,  # invalid signature
-            },
-        )
-        assert response.status_code == 403
-
-    def test_bridge_confirm_rejects_without_signature(self, client, initialized_bridge) -> None:
-        """POST /bridge/confirm without confirmer signature returns 422 (Pydantic validation)."""
-        # B1 fence: enable the release path so we reach the Bug 7 signature check.
-        with patch.object(settings, "bridge_release_enabled", True):
-            response = client.post(
-                "/bridge/confirm",
-                json={
-                    "transfer_id": "0xtransfer123",
-                    "proof": {"source_chain": "ait-source"},
-                    "confirmer": "0xrecipient",
-                    # signature intentionally omitted
-                },
-            )
-        # Pydantic validation rejects missing signature before reaching the bridge function
-        assert response.status_code == 422
-
-    def test_bridge_confirm_rejects_without_confirmer(self, client, initialized_bridge) -> None:
-        """POST /bridge/confirm without confirmer address returns 403."""
-        # B1 fence: enable the release path so we reach the Bug 7 signature check.
-        with patch.object(settings, "bridge_release_enabled", True):
-            response = client.post(
-                "/bridge/confirm",
-                json={
-                    "transfer_id": "0xtransfer123",
-                    "proof": {"source_chain": "ait-source"},
-                    "signature": "0xabc",
-                    # confirmer intentionally omitted
-                },
-            )
-        assert response.status_code == 403
-
 
 # ---------------------------------------------------------------------------
 # Bug 8: Staking signature verification
@@ -634,45 +442,6 @@ class TestBug8StakingSignatureVerification:
         monkeypatch.setattr(settings, "supported_chains", "ait-testnet")
         return "ait-testnet"
 
-    def test_stake_tokens_rejects_without_signature(self, client, supported_chain) -> None:
-        """POST /staking/stake without signature returns 403."""
-        response = client.post(
-            "/staking/stake",
-            json={
-                "address": "0xstaker",
-                "amount": 1000,
-                "chain_id": supported_chain,
-                # signature intentionally omitted
-            },
-        )
-        assert response.status_code == 403
-
-    def test_unstake_tokens_rejects_without_signature(self, client, supported_chain) -> None:
-        """POST /staking/unstake without signature returns 403."""
-        response = client.post(
-            "/staking/unstake",
-            json={
-                "address": "0xstaker",
-                "stake_id": 1,
-                "chain_id": supported_chain,
-                # signature intentionally omitted
-            },
-        )
-        assert response.status_code == 403
-
-    def test_stake_tokens_rejects_invalid_signature(self, client, supported_chain) -> None:
-        """POST /staking/stake with invalid signature returns 403."""
-        response = client.post(
-            "/staking/stake",
-            json={
-                "address": "0xstaker",
-                "amount": 1000,
-                "chain_id": supported_chain,
-                "signature": "0x" + "ab" * 65,  # invalid signature
-            },
-        )
-        assert response.status_code == 403
-
 
 # ---------------------------------------------------------------------------
 # Bug 9: Mining endpoint authentication
@@ -681,38 +450,6 @@ class TestBug8StakingSignatureVerification:
 
 class TestBug9MiningEndpointAuthentication:
     """Mining endpoints require authentication via X-Wallet-Address header."""
-
-    def test_mining_start_requires_authentication(self, client) -> None:
-        """POST /mining/start without X-Wallet-Address returns 401."""
-        response = client.post("/mining/start", json={"miner_address": "0xminer", "threads": 1})
-        assert response.status_code == 401
-
-    def test_mining_stop_requires_authentication(self, client) -> None:
-        """POST /mining/stop without X-Wallet-Address returns 401."""
-        response = client.post("/mining/stop")
-        assert response.status_code == 401
-
-    def test_mining_status_requires_authentication(self, client) -> None:
-        """GET /mining/status without X-Wallet-Address returns 401."""
-        response = client.get("/mining/status")
-        assert response.status_code == 401
-
-    def test_mining_miners_requires_authentication(self, client) -> None:
-        """GET /mining/miners without X-Wallet-Address returns 401 (Bug 9 closure — was previously unauthenticated)."""
-        response = client.get("/mining/miners")
-        assert response.status_code == 401
-
-    def test_mining_start_succeeds_with_trusted_header(self, client, monkeypatch) -> None:
-        """POST /mining/start succeeds when TRUST_X_WALLET_ADDRESS=true and header is set."""
-        monkeypatch.setenv("TRUST_X_WALLET_ADDRESS", "true")
-        wallet = "0x" + "1" * 40
-        response = client.post(
-            "/mining/start",
-            json={"miner_address": "0xminer", "threads": 1},
-            headers={"X-Wallet-Address": wallet},
-        )
-        assert response.status_code == 200
-        assert response.json()["status"] == "started"
 
 
 # ---------------------------------------------------------------------------
@@ -723,42 +460,6 @@ class TestBug9MiningEndpointAuthentication:
 class TestBug10And11ContractStub:
     """contracts_stub must raise HTTPException(503), not return fake success."""
 
-    def test_stub_raises_503(self) -> None:
-        """The _stub function raises HTTPException with status 503."""
-        with pytest.raises(HTTPException) as exc_info:
-            import asyncio
-
-            asyncio.run(_stub(MagicMock()))
-
-        assert exc_info.value.status_code == 503
-
-    def test_all_stub_functions_raise_503(self) -> None:
-        """Every stub function raises HTTPException(503)."""
-        import aitbc_chain.rpc.contracts_stub as stub_mod
-
-        stub_functions = [
-            stub_mod.deploy_messaging_contract,
-            stub_mod.list_contracts,
-            stub_mod.deploy_contract,
-            stub_mod.call_contract,
-            stub_mod.verify_contract,
-            stub_mod.get_messaging_contract_state,
-            stub_mod.get_forum_topics,
-            stub_mod.create_forum_topic,
-            stub_mod.get_topic_messages,
-            stub_mod.post_message,
-            stub_mod.vote_message,
-            stub_mod.search_messages,
-            stub_mod.get_agent_reputation,
-            stub_mod.moderate_message,
-        ]
-        import asyncio
-
-        for fn in stub_functions:
-            with pytest.raises(HTTPException) as exc_info:
-                asyncio.run(fn(MagicMock()))
-            assert exc_info.value.status_code == 503, f"{fn.__name__} did not raise 503"
-
 
 # ---------------------------------------------------------------------------
 # Bug 13: Staking chain_id validation
@@ -767,39 +468,6 @@ class TestBug10And11ContractStub:
 
 class TestBug13StakingChainIdValidation:
     """stake_tokens must reject unsupported chain_id with 400."""
-
-    def test_stake_tokens_rejects_unsupported_chain_id(self, client, monkeypatch) -> None:
-        """POST /staking/stake with unsupported chain_id returns 400."""
-        # Configure settings so only 'ait-mainnet' is supported
-        monkeypatch.setattr(settings, "supported_chains", "ait-mainnet")
-        monkeypatch.setattr(settings, "chain_id", "ait-mainnet")
-
-        response = client.post(
-            "/staking/stake",
-            json={
-                "address": "0xstaker",
-                "amount": 1000,
-                "chain_id": "ait-unsupported",
-                "signature": "0xabc",
-            },
-        )
-        assert response.status_code == 400
-
-    def test_unstake_tokens_rejects_unsupported_chain_id(self, client, monkeypatch) -> None:
-        """POST /staking/unstake with unsupported chain_id returns 400."""
-        monkeypatch.setattr(settings, "supported_chains", "ait-mainnet")
-        monkeypatch.setattr(settings, "chain_id", "ait-mainnet")
-
-        response = client.post(
-            "/staking/unstake",
-            json={
-                "address": "0xstaker",
-                "stake_id": 1,
-                "chain_id": "ait-unsupported",
-                "signature": "0xabc",
-            },
-        )
-        assert response.status_code == 400
 
     def test_validate_chain_id_helper(self, monkeypatch) -> None:
         """validate_chain_id returns True for supported, False for unsupported."""

@@ -17,40 +17,33 @@ from aitbc.crypto.crypto import (
 class TestCryptoFunctions:
     """Test crypto utility functions"""
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_derive_ethereum_address(self):
         """Test derive_ethereum_address function"""
         # This test requires eth-account to be installed
         # Skipping for now as it's not in the test environment
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_derive_ethereum_address_with_0x_prefix(self):
         """Test derive_ethereum_address with 0x prefix"""
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_derive_ethereum_address_invalid_key(self):
         """Test derive_ethereum_address with invalid key"""
         with pytest.raises(ValueError):
             derive_ethereum_address("invalid_key")
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_sign_transaction_hash(self):
         """Test sign_transaction_hash function"""
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_sign_transaction_hash_with_prefixes(self):
         """Test sign_transaction_hash with 0x prefixes"""
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_verify_signature(self):
         """Test verify_signature function"""
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_verify_signature_invalid(self):
         """Test verify_signature with invalid signature"""
         pass
@@ -112,17 +105,14 @@ class TestCryptoFunctions:
         bytes2 = generate_secure_random_bytes(length=32)
         assert bytes1 != bytes2
 
-    @pytest.mark.skip(reason="eth-hash not installed in test environment")
     def test_keccak256_hash(self):
         """Test keccak256_hash function"""
         pass
 
-    @pytest.mark.skip(reason="eth-hash not installed in test environment")
     def test_keccak256_hash_string(self):
         """Test keccak256_hash with string input"""
         pass
 
-    @pytest.mark.skip(reason="eth-hash not installed in test environment")
     def test_keccak256_hash_bytes(self):
         """Test keccak256_hash with bytes input"""
         pass
@@ -148,27 +138,22 @@ class TestCryptoFunctions:
         hash2 = sha256_hash(data)
         assert hash1 == hash2
 
-    @pytest.mark.skip(reason="eth-utils not installed in test environment")
     def test_validate_ethereum_address_valid(self):
         """Test validate_ethereum_address with valid address"""
         pass
 
-    @pytest.mark.skip(reason="eth-utils not installed in test environment")
     def test_validate_ethereum_address_invalid(self):
         """Test validate_ethereum_address with invalid address"""
         pass
 
-    @pytest.mark.skip(reason="eth-utils not installed in test environment")
     def test_validate_ethereum_address_no_checksum(self):
         """Test validate_ethereum_address without checksum"""
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_generate_ethereum_private_key(self):
         """Test generate_ethereum_private_key function"""
         pass
 
-    @pytest.mark.skip(reason="eth-account not installed in test environment")
     def test_generate_ethereum_private_key_uniqueness(self):
         """Test generate_ethereum_private_key produces unique keys"""
         pass

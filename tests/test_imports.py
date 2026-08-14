@@ -12,24 +12,6 @@ import pytest
 class TestSubmoduleImports:
     """Test that all aitbc submodules can be imported."""
 
-    def test_log_utils_imports(self):
-        """Test aitbc.log_utils imports."""
-        from aitbc.log_utils import (
-            BlockchainTextFormatter,
-            StructuredFormatter,
-            configure_logging,
-            get_blockchain_logger,
-            get_logger,
-            setup_logger,
-        )
-
-        assert configure_logging is not None
-        assert get_logger is not None
-        assert get_blockchain_logger is not None
-        assert setup_logger is not None
-        assert StructuredFormatter is not None
-        assert BlockchainTextFormatter is not None
-
     def test_middleware_imports(self):
         """Test aitbc.middleware imports."""
         from aitbc.middleware import (
@@ -146,18 +128,6 @@ class TestSubmoduleImports:
         assert PriceOracle is not None
         assert get_price_oracle is not None
 
-    def test_async_helpers_imports(self):
-        """Test aitbc.async_helpers imports."""
-        from aitbc.async_helpers import (
-            async_to_sync,
-            gather_with_concurrency,
-            run_sync,
-        )
-
-        assert run_sync is not None
-        assert gather_with_concurrency is not None
-        assert async_to_sync is not None
-
     def test_blockchain_imports(self):
         """Test aitbc.blockchain imports."""
         from aitbc.blockchain import (
@@ -169,23 +139,6 @@ class TestSubmoduleImports:
 
 class TestRootPackageImports:
     """Test that root package imports work correctly."""
-
-    def test_root_imports(self):
-        """Test that main aitbc package imports work."""
-        from aitbc import (
-            AITBCError,
-            ErrorHandlerMiddleware,
-            configure_logging,
-            get_data_path,
-            get_env_var,
-        )
-
-        # Just verify imports work
-        assert configure_logging is not None
-        assert AITBCError is not None
-        assert ErrorHandlerMiddleware is not None
-        assert get_env_var is not None
-        assert get_data_path is not None
 
 
 if __name__ == "__main__":

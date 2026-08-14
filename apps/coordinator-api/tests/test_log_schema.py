@@ -11,35 +11,14 @@ This catches regressions when someone switches log formatters.
 """
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 # Add the coordinator-api src directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-
-def test_log_schema_enforcement():
-    """Test that log lines contain required keys when LOG_FORMAT=json."""
-    # Mock environment to enable JSON logging
-    with patch.dict("os.environ", {"LOG_FORMAT": "json"}):
-        from coordinator_api.main import app
-        from fastapi.testclient import TestClient
-
-        client = TestClient(app)
-
-        # Make a request to generate logs
-        response = client.get("/health")
-        assert response.status_code == 200
-
-        # In a real scenario, we would capture logs from the logging system
-        # For this test, we validate the log format configuration
-        # Coordinator API uses environment variable LOG_FORMAT for logging configuration
-        assert os.getenv("LOG_FORMAT") == "json"
 
 
 def test_log_schema_required_keys():

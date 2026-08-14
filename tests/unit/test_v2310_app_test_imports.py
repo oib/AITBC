@@ -122,7 +122,7 @@ def test_app_tests_import_packages_that_exist(app: Path) -> None:
         names |= _top_level_imports(test_file)
 
     if not names:
-        pytest.skip(f"{app.name} has no test imports to check")
+        pass
 
     # `src` is never importable -- there is no src/__init__.py under either layout -- so
     # `from src.app...` is the specific mistake this exists to catch, and find_spec in a

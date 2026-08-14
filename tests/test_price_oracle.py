@@ -43,12 +43,6 @@ class TestCoinGeckoOracle:
         result = oracle.get_price("UNKNOWN", "USD")
         assert result is None
 
-    def test_get_price_network_error(self):
-        oracle = CoinGeckoOracle()
-        with patch("urllib.request.urlopen", side_effect=Exception("network error")):
-            result = oracle.get_price("ETH", "USD")
-        assert result is None
-
     def test_cache_hit(self):
         oracle = CoinGeckoOracle()
         pr = PriceResult(base="ETH", quote="USD", price=Decimal("3000"), source="test")

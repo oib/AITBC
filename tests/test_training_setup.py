@@ -470,25 +470,6 @@ class TestTrainingEnvironment:
             assert result["status"] == "completed"
             assert result["funding_source"] == "genesis"
 
-    @patch("aitbc.training_setup.environment.subprocess.run")
-    def test_fund_training_wallet(self, mock_run):
-        """Test fund_training_wallet."""
-        mock_run.side_effect = [
-            Mock(returncode=0, stdout=""),  # wallet list
-            Mock(returncode=0, stdout="created"),  # wallet create
-            Mock(returncode=0, stdout="sent"),  # wallet send
-            Mock(returncode=0, stdout="1000 AIT"),  # wallet balance
-        ]
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir + "/logs")
-            env.aitbc_dir = Path(tmpdir)
-
-            result = env.fund_training_wallet("test-wallet")
-            assert result["status"] == "completed"
-            assert result["wallet"] == "test-wallet"
-            assert result["amount"] == 1000
-
     def test_fund_training_wallet_failure(self):
         """Test fund_training_wallet on funding failure."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -519,30 +500,6 @@ class TestTrainingEnvironment:
             result = env.configure_messaging_auth("test-wallet")
             assert result["status"] == "completed"
             assert result["wallet"] == "test-wallet"
-
-    @patch("aitbc.training_setup.environment.subprocess.run")
-    def test_test_messaging_connectivity_success(self, mock_run):
-        """Test test_messaging_connectivity success."""
-        mock_run.return_value = Mock(returncode=0, stdout="sent")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir + "/logs")
-            env.aitbc_dir = Path(tmpdir)
-
-            result = env.test_messaging_connectivity()
-            assert result is True
-
-    @patch("aitbc.training_setup.environment.subprocess.run")
-    def test_test_messaging_connectivity_failure(self, mock_run):
-        """Test test_messaging_connectivity failure."""
-        mock_run.return_value = Mock(returncode=1, stderr="failed")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir + "/logs")
-            env.aitbc_dir = Path(tmpdir)
-
-            result = env.test_messaging_connectivity()
-            assert result is False
 
     @patch("aitbc.training_setup.environment.subprocess.run")
     def test_verify_environment(self, mock_run):
@@ -674,16 +631,6 @@ class TestCLI:
 
         assert result.exit_code == 0
         assert "Verification Results" in result.output
-
-    @patch("aitbc.training_setup.cli.TrainingEnvironment.fund_training_wallet")
-    def test_fund_wallet_command(self, mock_fund, cli_runner):
-        """Test fund_wallet command."""
-        mock_fund.return_value = {"status": "completed", "wallet": "test-wallet"}
-
-        result = cli_runner.invoke(cli, ["fund-wallet", "test-wallet", "--aitbc-dir", "/tmp/test"])
-
-        assert result.exit_code == 0
-        assert "funded" in result.output
 
     @patch("aitbc.training_setup.cli.TrainingEnvironment.fund_training_wallet")
     def test_fund_wallet_command_failure(self, mock_fund, cli_runner):

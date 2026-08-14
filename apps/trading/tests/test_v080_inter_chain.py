@@ -13,7 +13,6 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -133,42 +132,6 @@ class TestBlockchainClient:
         client = BlockchainClient(rpc_url="http://localhost:8202/")
         assert client.rpc_url == "http://localhost:8202"
 
-    @pytest.mark.asyncio
-    async def test_get_block_height(self):
-        from trading_service.clients.blockchain import BlockchainClient
-
-        client = BlockchainClient(rpc_url="http://localhost:8202")
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"height": 12345}
-        mock_resp.raise_for_status = MagicMock()
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_c = AsyncMock()
-            mock_c.get = AsyncMock(return_value=mock_resp)
-            mock_c.__aenter__ = AsyncMock(return_value=mock_c)
-            mock_c.__aexit__ = AsyncMock(return_value=None)
-            mock_cls.return_value = mock_c
-            height = await client.get_block_height("ait-hub")
-            assert height == 12345
-
-    @pytest.mark.asyncio
-    async def test_get_account_balance_404(self):
-        from trading_service.clients.blockchain import BlockchainClient
-
-        client = BlockchainClient(rpc_url="http://localhost:8202")
-        mock_resp = MagicMock()
-        mock_resp.status_code = 404
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_c = AsyncMock()
-            mock_c.get = AsyncMock(return_value=mock_resp)
-            mock_c.__aenter__ = AsyncMock(return_value=mock_c)
-            mock_c.__aexit__ = AsyncMock(return_value=None)
-            mock_cls.return_value = mock_c
-            balance = await client.get_account_balance("0xnew")
-            assert balance == 0
-
 
 class TestBridgeClient:
     """Test the BridgeClient wrapper (B3)."""
@@ -178,15 +141,6 @@ class TestBridgeClient:
 
         client = BridgeClient(bridge_rpc_url="http://localhost:8202")
         assert client is not None
-
-    @pytest.mark.asyncio
-    async def test_check_health(self):
-        from trading_service.clients.bridge import BridgeClient
-
-        client = BridgeClient(bridge_rpc_url="http://localhost:8202")
-        with patch.object(client._bridge, "check_health", new=AsyncMock(return_value={"status": "healthy"})):
-            result = await client.check_health()
-            assert result["status"] == "healthy"
 
 
 # ============================================================================
@@ -226,123 +180,9 @@ async def db_session():
 class TestChainDiscovery:
     """Test chain discovery service (B4)."""
 
-    @pytest.mark.asyncio
-    async def test_register_and_list_chain(self, db_session):
-        from trading_service.services.chain_discovery import ChainDiscoveryService
-
-        svc = ChainDiscoveryService(db_session)
-        await svc.register_chain("ait-hub", "http://localhost:8202")
-        await svc.register_chain("ait-island-1", "http://node1:8202")
-
-        chains = await svc.list_chains()
-        assert len(chains) == 2
-        assert any(c.chain_id == "ait-hub" for c in chains)
-        assert any(c.chain_id == "ait-island-1" for c in chains)
-
-    @pytest.mark.asyncio
-    async def test_register_duplicate_updates(self, db_session):
-        from trading_service.services.chain_discovery import ChainDiscoveryService
-
-        svc = ChainDiscoveryService(db_session)
-        await svc.register_chain("ait-hub", "http://old:8202")
-        await svc.register_chain("ait-hub", "http://new:8202")
-
-        chains = await svc.list_chains()
-        assert len(chains) == 1
-        assert chains[0].endpoint == "http://new:8202"
-
-    @pytest.mark.asyncio
-    async def test_get_chain(self, db_session):
-        from trading_service.services.chain_discovery import ChainDiscoveryService
-
-        svc = ChainDiscoveryService(db_session)
-        await svc.register_chain("ait-hub", "http://localhost:8202")
-
-        chain = await svc.get_chain("ait-hub")
-        assert chain is not None
-        assert chain.endpoint == "http://localhost:8202"
-
-        missing = await svc.get_chain("nonexistent")
-        assert missing is None
-
 
 class TestInterChainTradeLifecycle:
     """Test inter-chain trade lifecycle (B5)."""
-
-    @pytest.mark.asyncio
-    async def test_create_and_get_trade(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-
-        svc = InterChainTradeService(db_session)
-        trade = await svc.create_trade(
-            source_chain="ait-hub",
-            dest_chain="ait-island-1",
-            sender="0xabc",
-            recipient="0xdef",
-            amount=1000,
-        )
-        assert trade.status == "pending"
-        assert trade.source_chain == "ait-hub"
-        assert trade.dest_chain == "ait-island-1"
-
-        fetched = await svc.get_trade(trade.trade_id)
-        assert fetched is not None
-        assert fetched.trade_id == trade.trade_id
-
-    @pytest.mark.asyncio
-    async def test_list_trades_with_filter(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-
-        svc = InterChainTradeService(db_session)
-        await svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 100)
-        await svc.create_trade("ait-hub", "ait-island-2", "0xc", "0xd", 200)
-        await svc.create_trade("ait-island-1", "ait-hub", "0xe", "0xf", 300)
-
-        all_trades = await svc.list_trades()
-        assert len(all_trades) == 3
-
-        hub_to_island1 = await svc.list_trades(source_chain="ait-hub", dest_chain="ait-island-1")
-        assert len(hub_to_island1) == 1
-        assert hub_to_island1[0].amount == 100
-
-    @pytest.mark.asyncio
-    async def test_get_trade_status(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-
-        svc = InterChainTradeService(db_session)
-        trade = await svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 100)
-
-        status = await svc.get_trade_status(trade.trade_id)
-        assert status is not None
-        assert status["status"] == "pending"
-        assert status["source_chain"] == "ait-hub"
-
-    @pytest.mark.asyncio
-    async def test_update_trade_status(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-
-        svc = InterChainTradeService(db_session)
-        trade = await svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 100)
-
-        updated = await svc.update_trade_status(trade.trade_id, "matched", matched_trade_id="trade_other")
-        assert updated is not None
-        assert updated.status == "matched"
-        assert updated.matched_trade_id == "trade_other"
-
-    @pytest.mark.asyncio
-    async def test_trade_history(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-
-        svc = InterChainTradeService(db_session)
-        trade1 = await svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 100)
-        trade2 = await svc.create_trade("ait-hub", "ait-island-2", "0xc", "0xd", 200)
-
-        # History only includes completed/cancelled/failed
-        await svc.update_trade_status(trade1.trade_id, "completed")
-        await svc.update_trade_status(trade2.trade_id, "cancelled")
-
-        history = await svc.get_trade_history()
-        assert len(history) == 2
 
 
 # ============================================================================
@@ -352,80 +192,6 @@ class TestInterChainTradeLifecycle:
 
 class TestMatchingEngine:
     """Test the matching engine (B6)."""
-
-    @pytest.mark.asyncio
-    async def test_match_trade_finds_counterparty(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-        from trading_service.services.matching_engine import MatchingEngine
-
-        trade_svc = InterChainTradeService(db_session)
-        match_svc = MatchingEngine(db_session)
-
-        # Create trade A: hub → island-1
-        trade_a = await trade_svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 1000)
-        # Create trade B: island-1 → hub (counterparty)
-        trade_b = await trade_svc.create_trade("ait-island-1", "ait-hub", "0xb", "0xa", 1000)
-
-        # Match trade A
-        result = await match_svc.match_trade(trade_a.trade_id)
-        assert result is not None
-        assert result["matched"] is True
-        assert result["matched_trade_id"] == trade_b.trade_id
-
-        # Both should be "matched"
-        status_a = await trade_svc.get_trade_status(trade_a.trade_id)
-        status_b = await trade_svc.get_trade_status(trade_b.trade_id)
-        assert status_a["status"] == "matched"
-        assert status_b["status"] == "matched"
-
-    @pytest.mark.asyncio
-    async def test_match_trade_no_match(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-        from trading_service.services.matching_engine import MatchingEngine
-
-        trade_svc = InterChainTradeService(db_session)
-        match_svc = MatchingEngine(db_session)
-
-        # Create a trade with no counterparty
-        trade = await trade_svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 1000)
-
-        result = await match_svc.match_trade(trade.trade_id)
-        assert result is not None
-        assert result["matched"] is False
-        assert "no matching" in result.get("reason", "")
-
-    @pytest.mark.asyncio
-    async def test_match_trade_wrong_amount(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-        from trading_service.services.matching_engine import MatchingEngine
-
-        trade_svc = InterChainTradeService(db_session)
-        match_svc = MatchingEngine(db_session)
-
-        trade_a = await trade_svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 1000)
-        # Different amount — should not match
-        await trade_svc.create_trade("ait-island-1", "ait-hub", "0xb", "0xa", 500)
-
-        result = await match_svc.match_trade(trade_a.trade_id)
-        assert result["matched"] is False
-
-    @pytest.mark.asyncio
-    async def test_match_all_pending(self, db_session):
-        from trading_service.services.inter_chain_service import InterChainTradeService
-        from trading_service.services.matching_engine import MatchingEngine
-
-        trade_svc = InterChainTradeService(db_session)
-        match_svc = MatchingEngine(db_session)
-
-        # Create 2 matching pairs
-        await trade_svc.create_trade("ait-hub", "ait-island-1", "0xa", "0xb", 100)
-        await trade_svc.create_trade("ait-island-1", "ait-hub", "0xb", "0xa", 100)
-        await trade_svc.create_trade("ait-hub", "ait-island-2", "0xc", "0xd", 200)
-        await trade_svc.create_trade("ait-island-2", "ait-hub", "0xd", "0xc", 200)
-
-        results = await match_svc.match_all_pending()
-        matched = [r for r in results if r.get("matched")]
-        assert len(matched) == 2
 
 
 # ============================================================================

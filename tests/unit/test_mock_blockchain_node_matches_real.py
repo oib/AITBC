@@ -16,7 +16,6 @@ import ast
 import re
 from pathlib import Path
 
-import pytest
 
 MOCK = Path(__file__).resolve().parents[1] / "fixtures" / "mock_blockchain_node.py"
 
@@ -48,7 +47,7 @@ def _mock_routes() -> set[tuple[str, str]]:
 
 def _node_routes() -> set[tuple[str, str]]:
     """(METHOD, path) for the real node, built by import — no running node needed."""
-    pytest.importorskip("aitbc_chain", reason="blockchain-node not importable")
+    pass
     from aitbc_chain.rpc.router import router
 
     return {
