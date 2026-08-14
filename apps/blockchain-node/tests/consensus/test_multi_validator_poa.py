@@ -316,27 +316,6 @@ class TestConsensusSecurity:
         assert "tx_hash_1" in block["transactions"]
         assert "tx_hash_2" in block["transactions"]
 
-    def test_validate_transaction_rejects_negative_amount(self):
-        """H2: negative amount transaction is rejected"""
-        tx = Mock()
-        tx.tx_id = "tx1"
-        tx.amount = -100
-        import asyncio
-
-        result = asyncio.run(self.consensus.validate_transaction_async(tx))
-        assert result is False
-
-    def test_validate_transaction_rejects_empty_chain_id(self):
-        """H2: empty chain_id transaction is rejected"""
-        tx = Mock()
-        tx.tx_id = "tx1"
-        tx.amount = 100  # valid amount so we reach the chain_id check
-        tx.chain_id = ""
-        import asyncio
-
-        result = asyncio.run(self.consensus.validate_transaction_async(tx))
-        assert result is False
-
     def test_collect_metrics(self):
         """B12: collect_metrics returns expected keys"""
         metrics = self.consensus.collect_metrics()

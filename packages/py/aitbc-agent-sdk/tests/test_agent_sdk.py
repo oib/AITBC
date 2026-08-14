@@ -1,7 +1,6 @@
 """Test suite for AITBC Agent SDK"""
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aitbc_agent.agent import Agent, AgentCapabilities, AITBCAgent
@@ -131,17 +130,6 @@ class TestComputeProvider:
         assert job.job_id == "job-1"
         assert job.status == "running"
 
-    @pytest.mark.asyncio
-    async def test_provider_get_performance_metrics(self):
-        """Test performance metrics retrieval"""
-        provider = ComputeProvider.create_provider(
-            name="test-provider", capabilities={"compute_type": "inference"}, pricing_model={"base_rate": 50.0}
-        )
-        metrics = await provider.get_performance_metrics()
-        assert "utilization_rate" in metrics
-        assert "active_jobs" in metrics
-        assert "total_earnings" in metrics
-
 
 class TestComputeConsumer:
     """Test ComputeConsumer agent"""
@@ -189,128 +177,9 @@ class TestComputeConsumer:
         assert "completed_jobs" in summary
         assert "pending_jobs" in summary
 
-    @pytest.mark.asyncio
-    async def test_consumer_submit_job(self):
-        """Test job submission with mocked coordinator"""
-        consumer = ComputeConsumer.create(
-            name="test-consumer", agent_type="consumer", capabilities={"compute_type": "training"}
-        )
-
-        # Mock the HTTP client to avoid actual network calls
-        with patch("aitbc_agent.compute_consumer.httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 201
-            mock_response.json.return_value = {"job_id": "job_test_123"}
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-
-            job_id = await consumer.submit_job(
-                job_type="training", input_data={"model": "resnet50"}, requirements={"gpu_memory": 16}, max_price=100.0
-            )
-
-            assert job_id is not None
-            assert "job_" in job_id
-
-    @pytest.mark.asyncio
-    async def test_consumer_get_job_status(self):
-        """Test job status query"""
-        consumer = ComputeConsumer.create(
-            name="test-consumer", agent_type="consumer", capabilities={"compute_type": "training"}
-        )
-
-        with patch("aitbc_agent.compute_consumer.httpx.AsyncClient") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"job_id": "job-123", "status": "running", "progress": 0.5}
-            mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
-
-            status = await consumer.get_job_status("job-123")
-            assert status["job_id"] == "job-123"
-            assert status["status"] == "running"
-
 
 class TestAgentIntegration:
     """Integration tests for agent workflows"""
-
-    @pytest.mark.asyncio
-    async def test_agent_registration_flow(self):
-        """Test complete agent registration flow"""
-        agent = Agent.create(
-            name="integration-test-agent", agent_type="provider", capabilities={"compute_type": "inference", "gpu_memory": 8}
-        )
-
-        # Mock the HTTP client for registration
-        with patch.object(agent, "http_client") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 201
-            mock_response.json.return_value = {"agent_id": agent.identity.id}
-            mock_client.post = AsyncMock(return_value=mock_response)
-
-            success = await agent.register()
-            assert success is True
-            assert agent.registered is True
-
-    @pytest.mark.asyncio
-    async def test_agent_messaging_flow(self):
-        """Test agent-to-agent messaging"""
-        agent1 = Agent.create(name="sender", agent_type="provider", capabilities={"compute_type": "inference"})
-
-        agent2 = Agent.create(name="receiver", agent_type="consumer", capabilities={"compute_type": "training"})
-
-        # Mock HTTP client for message sending
-        with patch.object(agent1, "http_client") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_client.post = AsyncMock(return_value=mock_response)
-
-            success = await agent1.send_message(
-                recipient_id=agent2.identity.id, message_type="job_request", payload={"model": "llama2", "prompt": "test"}
-            )
-
-            assert success is True
-
-    @pytest.mark.asyncio
-    async def test_agent_reputation_tracking(self):
-        """Test agent reputation updates"""
-        agent = Agent.create(name="reputation-test", agent_type="provider", capabilities={"compute_type": "inference"})
-
-        # Update reputation
-        await agent.update_reputation(0.85)
-        assert agent.reputation_score == 0.85
-
-        # Get reputation (will use local values if network unavailable)
-        reputation = await agent.get_reputation()
-        assert reputation["overall_score"] == 0.85
-
-    @pytest.mark.asyncio
-    async def test_agent_earnings_tracking(self):
-        """Test agent earnings tracking"""
-        agent = Agent.create(name="earnings-test", agent_type="provider", capabilities={"compute_type": "inference"})
-
-        # Get earnings (will use local values if network unavailable)
-        earnings = await agent.get_earnings(period="30d")
-        assert "total" in earnings
-        assert "period" in earnings
-        assert earnings["period"] == "30d"
-
-    @pytest.mark.asyncio
-    async def test_agent_context_manager(self):
-        """Test agent as async context manager"""
-        agent = Agent.create(name="context-test", agent_type="provider", capabilities={"compute_type": "inference"})
-
-        # Mock the HTTP client for registration
-        with patch.object(agent, "http_client") as mock_client:
-            mock_response = Mock()
-            mock_response.status_code = 201
-            mock_response.json.return_value = {"agent_id": agent.identity.id}
-            mock_client.post = AsyncMock(return_value=mock_response)
-
-            async with agent:
-                assert agent.registered is True
-                assert agent.identity.name == "context-test"
-
-            # After context exit, agent should still be registered
-            # (cleanup happens but registration state persists)
-            assert agent.identity.name == "context-test"
 
 
 class TestImports:

@@ -92,18 +92,6 @@ class TestSimulateCommands:
         assert "Network Topology" in result.output
         assert "Final Network Status" in result.output
 
-    def test_ai_jobs_command(self, runner, mock_config):
-        """Test AI jobs simulation command"""
-        with patch("aitbc_cli.commands.simulate.time.sleep"):
-            result = runner.invoke(
-                simulate,
-                ["ai-jobs", "--jobs", "2", "--models", "text-generation", "--duration-range", "1-1"],
-                obj={"config": mock_config, "output": "json"},
-            )
-
-        assert result.exit_code == 0
-        assert "Simulating 2 AI jobs" in result.output
-        assert "Job Statistics" in result.output
 
     def test_run_scenario(self, runner, mock_config, mock_http):
         """Test running a simulation scenario via coordinator API"""

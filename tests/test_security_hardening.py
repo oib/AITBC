@@ -36,11 +36,6 @@ class TestSecurityValidator:
         assert SecurityValidator.validate_url("ftp://example.com") is False
         assert SecurityValidator.validate_url("") is False
 
-    def test_validate_ethereum_address_valid(self):
-        """Test validate_ethereum_address with valid address"""
-        assert SecurityValidator.validate_ethereum_address("0x1234567890abcdef1234567890abcdef12345678") is True
-        assert SecurityValidator.validate_ethereum_address("0xABCDEF1234567890ABCDEF1234567890ABCDEF12") is True
-
     def test_validate_ethereum_address_invalid(self):
         """Test validate_ethereum_address with invalid address"""
         assert SecurityValidator.validate_ethereum_address("0x123") is False

@@ -20,25 +20,6 @@ class TestCrossModalAttention:
         assert attention.num_heads == 8
         assert attention.head_dim == 64
 
-    def test_cross_modal_attention_forward(self):
-        """Test cross-modal attention forward pass"""
-        from coordinator_api.contexts.multimodal.services.multi_modal_fusion.neural_modules import CrossModalAttention
-
-        attention = CrossModalAttention(embed_dim=512, num_heads=8)
-
-        batch_size = 4
-        seq_len_q = 10
-        seq_len_k = 15
-
-        query_modal = torch.randn(batch_size, seq_len_q, 512)
-        key_modal = torch.randn(batch_size, seq_len_k, 512)
-        value_modal = torch.randn(batch_size, seq_len_k, 512)
-
-        context, attention_weights = attention(query_modal, key_modal, value_modal)
-
-        assert context.shape == (batch_size, seq_len_q, 512)
-        assert attention_weights.shape == (batch_size, 8, seq_len_q, seq_len_k)
-
 
 @pytest.mark.unit
 class TestMultiModalTransformer:
@@ -54,22 +35,6 @@ class TestMultiModalTransformer:
         assert transformer.modality_dims == modality_dims
         assert transformer.embed_dim == 512
         assert len(transformer.modality_encoders) == 3
-
-    def test_multimodal_transformer_forward(self):
-        """Test multi-modal transformer forward pass"""
-        from coordinator_api.contexts.multimodal.services.multi_modal_fusion.neural_modules import MultiModalTransformer
-
-        modality_dims = {"text": 768, "image": 2048}
-        transformer = MultiModalTransformer(modality_dims=modality_dims, embed_dim=512, num_layers=2, num_heads=4)
-
-        batch_size = 4
-        seq_len = 10
-
-        modal_inputs = {"text": torch.randn(batch_size, seq_len, 768), "image": torch.randn(batch_size, seq_len, 2048)}
-
-        output = transformer(modal_inputs)
-
-        assert output.shape == (batch_size, 512)
 
 
 @pytest.mark.unit

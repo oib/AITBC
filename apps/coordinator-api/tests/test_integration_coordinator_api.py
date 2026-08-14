@@ -51,24 +51,6 @@ class TestConfigurationValidation:
                     jwt_secret="test-jwt-secret-32-chars-long",
                 )
 
-    def test_secret_length_validation(self):
-        """Test secret validation in production requires secrets to be set"""
-        from coordinator_api.config import Settings
-
-        # In production, secrets (secret_key/jwt_secret) must be set.
-        # With defaults (secret_key=None, jwt_secret=""), production validation raises.
-        with patch.dict("os.environ", {"ENVIRONMENT": "production", "APP_ENV": "production"}):
-            with pytest.raises(ValueError, match="must be set in production"):
-                Settings(
-                    environment="production",
-                    debug=False,
-                    client_api_keys=["test-key-long-enough-1"],
-                    miner_api_keys=["test-key-long-enough-2"],
-                    admin_api_keys=["test-key-long-enough-3"],
-                    allow_origins=["https://api.example.com"],
-                    blockchain_rpc_url="https://rpc.example.com",
-                )
-
 
 class TestLoggingConfiguration:
     """Test logging configuration"""

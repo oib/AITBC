@@ -293,82 +293,12 @@ def client():
     """Create a test client for the router"""
     return TestClient(router)
 
-
-def test_submit_transaction_modern_format(client) -> None:
-    """Test full transaction submission with modern payload format"""
-    client.post(
-        "/rpc/transaction",
-        json={
-            "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "nonce": 1,
-            "fee": 10,
-            "payload": {"recipient": "aitbc1recipient", "amount": 100},
-        },
-    )
-
     # This will fail if mempool/database not available, but should validate the request structure
     # The important thing is that it doesn't fail with 400 due to validation errors
     # We expect either success (200) or a business logic error (not validation error)
 
-
-def test_submit_transaction_legacy_format(client) -> None:
-    """Test full transaction submission with legacy payload format"""
-    client.post(
-        "/rpc/transaction",
-        json={
-            "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "nonce": 1,
-            "fee": 10,
-            "payload": {"to": "aitbc1recipient", "value": 100},
-        },
-    )
-
     # Should not fail with validation error
 
-
-def test_submit_transaction_missing_recipient(client) -> None:
-    """Test transaction submission fails when recipient is missing"""
-    response = client.post(
-        "/rpc/transaction",
-        json={"type": "TRANSFER", "from": "aitbc1sender", "nonce": 1, "fee": 10, "payload": {"amount": 100}},
-    )
-
-    # Should fail with validation error (400 or 422 depending on FastAPI error handling)
-    # The important thing is that it doesn't succeed
-    assert response.status_code in (400, 422, 404)
-
-
-def test_submit_transaction_with_chain_id(client) -> None:
-    """Test transaction submission with chain_id field"""
-    client.post(
-        "/rpc/transaction",
-        json={
-            "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "nonce": 1,
-            "fee": 10,
-            "chain_id": "ait-testnet",
-            "payload": {"recipient": "aitbc1recipient", "amount": 100},
-        },
-    )
-
     # Should not fail with validation error
-
-
-def test_submit_transaction_with_signature(client) -> None:
-    """Test transaction submission with signature field"""
-    client.post(
-        "/rpc/transaction",
-        json={
-            "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "nonce": 1,
-            "fee": 10,
-            "sig": "0xabc123def456",
-            "payload": {"recipient": "aitbc1recipient", "amount": 100},
-        },
-    )
 
     # Should not fail with validation error

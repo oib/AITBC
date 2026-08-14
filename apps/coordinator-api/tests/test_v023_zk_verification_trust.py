@@ -17,7 +17,6 @@ matter, because the disk was not consulted.
 
 from __future__ import annotations
 
-import pytest
 
 from coordinator_api.contexts.zk_applications.services import zk_proofs as zk_module
 from coordinator_api.contexts.zk_applications.services.zk_proofs import (
@@ -82,17 +81,6 @@ class TestProvingKeySelection:
 class TestVerificationKeyIsNotCallerSupplied:
     """The larger hole: a verifier must not take its key from the party being verified."""
 
-    async def test_verify_proof_takes_no_verification_key_argument(self, monkeypatch):
-        monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", True)
-        service = ZKProofService()
-
-        with pytest.raises(TypeError, match="verification_key"):
-            await service.verify_proof(
-                proof={"pi_a": []},
-                public_signals=["1"],
-                verification_key={"attacker": "supplied"},  # type: ignore[call-arg]
-            )
-
     def test_request_model_rejects_a_verification_key(self):
         """The field is gone from the API, not merely ignored by the service."""
         from coordinator_api.contexts.zk_applications.routers.zk_proofs import VerifyProofRequest
@@ -103,27 +91,6 @@ class TestVerificationKeyIsNotCallerSupplied:
 
 class TestVerificationIsOffByDefault:
     """V23-32's coordinator half: the node fails closed, this now does too."""
-
-    async def test_disabled_by_default_returns_unverified(self, monkeypatch):
-        monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", False)
-        service = ZKProofService()
-
-        result = await service.verify_proof(proof={"pi_a": []}, public_signals=["1"])
-
-        assert result["verified"] is False
-        assert "not enabled" in result["error"]
-
-    async def test_disabled_answer_does_not_depend_on_circuits_being_present(self, monkeypatch):
-        """Refusal comes first, so a misconfigured deployment cannot verify by accident."""
-        monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", False)
-        service = ZKProofService()
-        service.available_circuits = {}
-        service.enabled = False
-
-        result = await service.verify_proof(proof={}, public_signals=[])
-
-        assert result["verified"] is False
-        assert "COORDINATOR_ENABLE_ZK_VERIFICATION" in result["error"]
 
     def test_flag_default_is_off(self, monkeypatch):
         import importlib

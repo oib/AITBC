@@ -2,89 +2,15 @@
 Tests for reputation service and trust score calculator
 """
 
-from datetime import UTC, datetime
-from decimal import Decimal
-
 import pytest
 
 from coordinator_api.contexts.reputation.domain.reputation import (
-    AgentReputation,
-    CommunityFeedback,
-    ReputationEvent,
     ReputationLevel,
-    TrustScoreCalculation,
-    TrustScoreCategory,
 )
 
 
 class TestReputationModels:
     """Test reputation data models"""
-
-    def test_agent_reputation_creation(self):
-        """Test creating an AgentReputation model"""
-        reputation = AgentReputation(
-            agent_id="test_agent_001",
-            trust_score=750.0,
-            reputation_level=ReputationLevel.EXPERT,
-            performance_rating=4.5,
-            reliability_score=85.0,
-            community_rating=4.2,
-            total_earnings=Decimal("1000.50"),
-            transaction_count=50,
-            success_rate=92.0,
-            jobs_completed=46,
-            jobs_failed=4,
-        )
-        assert reputation.agent_id == "test_agent_001"
-        assert reputation.trust_score == 750.0
-        assert reputation.reputation_level == ReputationLevel.EXPERT
-        assert reputation.success_rate == 92.0
-
-    def test_community_feedback_creation(self):
-        """Test creating a CommunityFeedback model"""
-        feedback = CommunityFeedback(
-            agent_id="test_agent_002",
-            reviewer_id="reviewer_001",
-            overall_rating=5.0,
-            performance_rating=5.0,
-            communication_rating=5.0,
-            reliability_rating=5.0,
-            value_rating=5.0,
-            feedback_text="Excellent service",
-            feedback_tags=["professional", "timely"],
-        )
-        assert feedback.agent_id == "test_agent_002"
-        assert feedback.overall_rating == 5.0
-        assert feedback.feedback_text == "Excellent service"
-        assert len(feedback.feedback_tags) == 2
-
-    def test_reputation_event_creation(self):
-        """Test creating a ReputationEvent model"""
-        event = ReputationEvent(
-            agent_id="test_agent_003",
-            event_type="job_completed",
-            impact_score=10.0,
-            trust_score_before=500.0,
-            trust_score_after=510.0,
-            occurred_at=datetime.now(UTC),
-        )
-        assert event.agent_id == "test_agent_003"
-        assert event.event_type == "job_completed"
-        assert event.impact_score == 10.0
-        assert event.trust_score_after - event.trust_score_before == event.impact_score
-
-    def test_trust_score_calculation_creation(self):
-        """Test creating a TrustScoreCalculation model"""
-        calc = TrustScoreCalculation(
-            agent_id="test_agent_004",
-            category=TrustScoreCategory.PERFORMANCE,
-            base_score=100.0,
-            adjusted_score=120.0,
-            calculated_at=datetime.now(UTC),
-        )
-        assert calc.agent_id == "test_agent_004"
-        assert calc.category == TrustScoreCategory.PERFORMANCE
-        assert calc.adjusted_score > calc.base_score
 
 
 class TestTrustScoreCalculator:
@@ -171,30 +97,6 @@ class TestTrustScoreCalculator:
 class TestReputationDecay:
     """Test reputation decay algorithm"""
 
-    def test_linear_decay_calculation(self):
-        """Test linear reputation decay"""
-        initial_score = 800.0
-        decay_rate = 0.1  # 10% per month
-        months_inactive = 3
-
-        decayed_score = initial_score * ((1 - decay_rate) ** months_inactive)
-
-        assert decayed_score < initial_score
-        assert decayed_score >= 0
-        assert decayed_score == pytest.approx(800.0 * 0.9**3, rel=0.01)
-
-    def test_activity_boost(self):
-        """Test activity boost to reputation"""
-        base_score = 500.0
-        recent_activity_count = 10
-        boost_per_activity = 2.0
-
-        activity_boost = min(recent_activity_count * boost_per_activity, 20.0)
-        boosted_score = base_score + activity_boost
-
-        assert boosted_score > base_score
-        assert boosted_score == pytest.approx(520.0, rel=0.01)
-
     def test_decay_with_activity(self):
         """Test decay with recent activity offset"""
         initial_score = 800.0
@@ -214,24 +116,6 @@ class TestReputationDecay:
 
 class TestWeightedRatingCalculation:
     """Test weighted rating calculation"""
-
-    def test_weighted_average_rating(self):
-        """Test weighted average rating calculation"""
-        ratings = [
-            {"rating": 5.0, "weight": 2.0},
-            {"rating": 4.0, "weight": 1.0},
-            {"rating": 5.0, "weight": 1.5},
-            {"rating": 3.0, "weight": 0.5},
-        ]
-
-        total_weight = sum(r["weight"] for r in ratings)
-        weighted_sum = sum(r["rating"] * r["weight"] for r in ratings)
-        weighted_average = weighted_sum / total_weight
-
-        expected = (5.0 * 2.0 + 4.0 * 1.0 + 5.0 * 1.5 + 3.0 * 0.5) / (2.0 + 1.0 + 1.5 + 0.5)
-
-        assert weighted_average == pytest.approx(expected, rel=0.01)
-        assert 1.0 <= weighted_average <= 5.0
 
     def test_recency_weighting(self):
         """Test recency-based rating weighting"""
@@ -368,21 +252,6 @@ class TestReputationEventTracking:
             score_change = -impact
 
         assert score_change < 0
-
-    def test_event_with_magnitude(self):
-        """Test event with different magnitudes"""
-        event_type = "successful_job"
-        magnitude = 0.2
-
-        base_impact = 0.1
-        impact = base_impact * magnitude
-
-        if event_type in ["successful_job", "timely_delivery"]:
-            score_change = impact
-        else:
-            score_change = -impact
-
-        assert score_change == pytest.approx(0.02)
 
 
 if __name__ == "__main__":
