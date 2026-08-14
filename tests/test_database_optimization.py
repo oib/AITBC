@@ -278,7 +278,6 @@ class TestConnectionPooling:
             assert engine is not None
             engine.dispose()
 
-    @pytest.mark.skip(reason="Requires PostgreSQL connection string")
     def test_create_pooled_engine_postgresql(self):
         """Test creating pooled engine for PostgreSQL"""
         db_url = "postgresql://user:pass@localhost/test"

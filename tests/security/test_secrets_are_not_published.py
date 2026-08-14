@@ -40,7 +40,7 @@ SECRETS_FILE = re.compile(r"[\w.-]*secrets?[\w.-]*\.env")
 def _read(relative: str) -> str:
     path = REPO / relative
     if not path.exists():
-        pytest.skip(f"{relative} not in this checkout")
+        pass
     return path.read_text()
 
 

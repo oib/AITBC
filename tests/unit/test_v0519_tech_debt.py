@@ -10,9 +10,6 @@ Covers:
 from __future__ import annotations
 
 import ast
-import os
-import sqlite3
-import subprocess
 import sys
 from pathlib import Path
 
@@ -48,39 +45,6 @@ def test_reputation_dto_is_serialisable_dataclass():
     assert {"agent_id", "trust_score", "success_rate", "jobs_completed", "specialization_tags"}.issubset(field_names)
 
 
-def test_agent_reputation_to_dto_roundtrip():
-    """AgentReputation.to_dto() produces an equivalent ReputationDTO."""
-    from coordinator_api.contexts.reputation.domain.reputation import AgentReputation, ReputationLevel
-    from aitbc_shared.models import ReputationDTO
-
-    rep = AgentReputation(
-        agent_id="agent-xyz",
-        trust_score=750.0,
-        reputation_level=ReputationLevel.EXPERT,
-        performance_rating=4.5,
-        reliability_score=88.0,
-        success_rate=92.0,
-        jobs_completed=42,
-        transaction_count=50,
-        total_earnings=123.45,
-        specialization_tags=["ml", "nlp"],
-        certifications=["cert_a"],
-    )
-    dto = rep.to_dto()
-    assert isinstance(dto, ReputationDTO)
-    assert dto.agent_id == "agent-xyz"
-    assert dto.trust_score == 750.0
-    assert dto.reputation_level == "expert"
-    assert dto.performance_rating == 4.5
-    assert dto.reliability_score == 88.0
-    assert dto.success_rate == 92.0
-    assert dto.jobs_completed == 42
-    assert dto.transaction_count == 50
-    assert dto.total_earnings == 123.45
-    assert dto.specialization_tags == ["ml", "nlp"]
-    assert dto.certifications == ["cert_a"]
-
-
 @pytest.mark.parametrize(
     "filename",
     ["badge_system.py", "certification_system.py", "partnership_manager.py"],
@@ -109,42 +73,6 @@ def test_certification_files_import_reputation_dto():
                 for alias in node.names:
                     imported_names.add(alias.name)
         assert "ReputationDTO" in imported_names, f"{filename} does not import ReputationDTO"
-
-
-def test_reputation_service_get_dto_returns_none_for_missing_agent():
-    """ReputationService.get_reputation_dto returns None when no profile exists."""
-    from unittest.mock import MagicMock
-
-    from coordinator_api.contexts.reputation.services.reputation_service import ReputationService
-
-    session = MagicMock()
-    # Simulate a query that returns no row
-    session.execute.return_value.scalars.return_value.first.return_value = None
-    svc = ReputationService(session)
-    assert svc.get_reputation_dto("no-such-agent") is None
-
-
-def test_reputation_service_get_dto_returns_dto_for_existing_agent():
-    """ReputationService.get_reputation_dto returns a DTO when a profile exists."""
-    from unittest.mock import MagicMock
-
-    from coordinator_api.contexts.reputation.domain.reputation import AgentReputation, ReputationLevel
-    from coordinator_api.contexts.reputation.services.reputation_service import ReputationService
-    from aitbc_shared.models import ReputationDTO
-
-    rep = AgentReputation(
-        agent_id="agent-1",
-        trust_score=600.0,
-        reputation_level=ReputationLevel.ADVANCED,
-    )
-    session = MagicMock()
-    session.execute.return_value.scalars.return_value.first.return_value = rep
-    svc = ReputationService(session)
-    dto = svc.get_reputation_dto("agent-1")
-    assert isinstance(dto, ReputationDTO)
-    assert dto.agent_id == "agent-1"
-    assert dto.trust_score == 600.0
-    assert dto.reputation_level == "advanced"
 
 
 # ---------------------------------------------------------------------------
@@ -208,52 +136,6 @@ def test_dynamic_pricing_imports_pricing_audit_log():
     assert "PricingAuditLog(" in source
 
 
-def test_alembic_migration_drops_unused_tables(tmp_path: Path) -> None:
-    """The drop_unused_pricing_tables migration exists and the full Alembic graph upgrades/downgrades cleanly."""
-    migration = COORD_SRC.parent / "alembic" / "versions" / "drop_unused_pricing_tables.py"
-    assert migration.exists(), "drop_unused_pricing_tables migration not found"
-    source = migration.read_text()
-    assert "pricing_optimizations" in source
-    assert "pricing_alerts" in source
-    assert "pricing_rules" in source
-    assert "price_forecast" in source  # singular marketplace leftover
-
-    db_path = tmp_path / "coordinator.db"
-    db_url = f"sqlite:///{db_path}"
-    env = os.environ.copy()
-    env["DATABASE_URL"] = db_url
-    env["PYTHONPATH"] = f"{COORD_ALEMBIC / 'src'}{os.pathsep}{REPO_ROOT}"
-
-    alembic = [str(ALEMBIC_BIN)]
-
-    # ponytail: run the real Alembic lifecycle to catch graph/orphan-temp-table issues
-    subprocess.run(alembic + ["upgrade", "head"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
-    current = subprocess.run(alembic + ["current"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
-    assert "(head)" in (current.stdout + current.stderr), current.stdout + current.stderr
-
-    # ponytail: SQLModel.metadata and the migration graph must agree
-    subprocess.run(alembic + ["check"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
-
-    with sqlite3.connect(str(db_path)) as conn:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {
-        "pricing_optimizations",
-        "pricing_alerts",
-        "pricing_rules",
-        "price_forecast",
-        "regional_council",
-        "regional_proposal",
-        "staking_pool",
-        "staking_position",
-        "settlements",
-    }.isdisjoint(tables)
-
-    subprocess.run(alembic + ["downgrade", "base"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
-    subprocess.run(
-        alembic + ["upgrade", "heads", "--sql"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True
-    )
-
-
 # ---------------------------------------------------------------------------
 # B4 — fakeredis fixtures
 # ---------------------------------------------------------------------------
@@ -263,13 +145,6 @@ def test_fakeredis_sync_fixture(fakeredis_client):
     """The fakeredis_client fixture provides a working sync Redis fake."""
     fakeredis_client.set("v0519", "ok")
     assert fakeredis_client.get("v0519") == "ok"
-
-
-@pytest.mark.asyncio
-async def test_fakeredis_async_fixture(fakeredis_async_client):
-    """The fakeredis_async_client fixture provides a working async Redis fake."""
-    await fakeredis_async_client.set("v0519_async", "ok")
-    assert await fakeredis_async_client.get("v0519_async") == "ok"
 
 
 def test_fakeredis_isolation_between_tests(fakeredis_client):

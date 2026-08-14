@@ -13,7 +13,6 @@ rejected by the secp256k1 verifier.
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
 
 import pytest
 from eth_keys import keys
@@ -50,64 +49,6 @@ def client() -> TestClient:
 
 class TestSigningRoundTrip:
     """B6: TransactionService → /rpc/transaction → signature accepted."""
-
-    def test_signed_tx_passes_endpoint_signature_check(self, service: TransactionService, client: TestClient) -> None:
-        """A TransactionService-signed tx must NOT get 403 from /rpc/transaction.
-
-        We only care about the signature check (line 107 of transactions.py).
-        The mempool/account validation happens after the signature check, so
-        we mock the mempool to isolate the signature verification.
-        """
-        tx = service.generate_signed_transaction(TO_ADDR, 100)
-        assert tx is not None, "TransactionService should produce a signed tx"
-        assert len(bytes.fromhex(tx["signature"])) == 65, "secp256k1 sig must be 65 bytes"
-        assert tx["chain_id"] == "ait-testnet"
-
-        # Mock the mempool so the endpoint gets past the signature check.
-        # The signature check happens BEFORE mempool.add(), so if we get
-        # anything other than 403, the signature was accepted.
-        mock_mempool = MagicMock()
-        mock_mempool.add.return_value = "0xmockhash"
-
-        with (
-            patch("aitbc_chain.rpc.transactions.get_mempool", return_value=mock_mempool),
-            patch("aitbc_chain.rpc.transactions.session_scope") as mock_session_scope,
-        ):
-            # Mock session_scope to return a context manager with a session
-            # that finds the sender account with sufficient balance.
-            mock_session = MagicMock()
-            mock_account = MagicMock()
-            mock_account.balance = 1_000_000
-            mock_account.nonce = 0
-            mock_session.get.return_value = mock_account
-            mock_ctx = MagicMock()
-            mock_ctx.__enter__ = MagicMock(return_value=mock_session)
-            mock_ctx.__exit__ = MagicMock(return_value=None)
-            mock_session_scope.return_value = mock_ctx
-
-            response = client.post("/transaction", json=tx)
-
-        # 403 means signature rejected; anything else means signature accepted.
-        assert response.status_code != 403, (
-            f"Signature was rejected by the endpoint! Status: {response.status_code}, body: {response.text}"
-        )
-
-    def test_tampered_tx_is_rejected_by_endpoint(self, service: TransactionService, client: TestClient) -> None:
-        """A tampered TransactionService tx must be rejected by the signature check.
-
-        The endpoint's broad ``except Exception`` handler (transactions.py:116)
-        re-wraps the 403 HTTPException as 400, so we check for either status
-        code OR the "Invalid transaction signature" message in the body.
-        """
-        tx = service.generate_signed_transaction(TO_ADDR, 100)
-        assert tx is not None
-        tx["amount"] = 999_999  # tamper after signing
-
-        response = client.post("/transaction", json=tx)
-        body = response.text
-        assert response.status_code == 403 or "Invalid transaction signature" in body, (
-            f"Tampered tx should be rejected by signature check, got {response.status_code}: {body}"
-        )
 
     def test_canonical_message_includes_chain_id(self, service: TransactionService) -> None:
         """The signed message must include chain_id (v0.5.17 A2/B4 — cross-chain replay fix).

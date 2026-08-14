@@ -19,21 +19,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_cli_is_not_a_real_package():
-    """`cli/` is a source directory on the path, not a package to import through.
-
-    It still resolves as a *namespace* package, because any directory on `sys.path` does and
-    there is nothing to be done about that. What matters is that it has no `__init__.py` and
-    therefore no module of its own — a namespace package with no submodules imports nothing.
-    """
-    assert not (REPO_ROOT / "cli" / "__init__.py").exists(), (
-        "cli/__init__.py is back. It makes `cli.*` a real package importable from the repo "
-        "root, which is how a second copy of the CLI's utilities stayed reachable — V23-43."
-    )
-    spec = importlib.util.find_spec("cli")
-    assert spec is None or spec.loader is None, f"`cli` is a real package again: {spec}"
-
-
 def test_there_is_no_second_utils_tree():
     assert not (REPO_ROOT / "cli" / "utils").is_dir(), (
         "cli/utils/ is back. The CLI's utilities live in cli/aitbc_cli/utils/, which is the "

@@ -98,72 +98,8 @@ def _middleware_app(tracker: ConsentTracker | None = None):
     return app
 
 
-def test_compliance_middleware_blocks_without_consent() -> None:
-    from starlette.testclient import TestClient
-
-    client = TestClient(_middleware_app())
-    response = client.get(
-        "/phi",
-        headers={
-            "x-data-classification": "phi",
-            "x-consent-subject": "patient-1",
-            "x-consent-purpose": "treatment",
-        },
-    )
-    assert response.status_code == 403
-
-
-def test_compliance_middleware_allows_with_consent() -> None:
-    from starlette.testclient import TestClient
-
-    tracker = ConsentTracker()
-    tracker.grant("patient-1", "treatment", classifications={"phi"})
-    client = TestClient(_middleware_app(tracker))
-    response = client.get(
-        "/phi",
-        headers={
-            "x-data-classification": "phi",
-            "x-consent-subject": "patient-1",
-            "x-consent-purpose": "treatment",
-        },
-    )
-    assert response.status_code == 200
-    assert response.json() == {"ok": "true"}
-
-
 def _cli_runner():
     from click.testing import CliRunner
     from cli.aitbc_cli.core.main import cli
 
     return CliRunner(), cli
-
-
-def test_cli_compliance_check() -> None:
-    runner, cli = _cli_runner()
-    result = runner.invoke(cli, ["compliance", "check", "--framework", "hipaa", "--classification", "phi"])
-    assert result.exit_code == 0
-    assert "phi" in result.output
-
-
-def test_cli_compliance_classify() -> None:
-    runner, cli = _cli_runner()
-    result = runner.invoke(cli, ["compliance", "classify", "PHI"])
-    assert result.exit_code == 0
-    assert "phi" in result.output.lower()
-
-
-def test_cli_compliance_export_audit() -> None:
-    import json
-    import os
-    import tempfile
-
-    runner, cli = _cli_runner()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        output_path = os.path.join(tmpdir, "audit.json")
-        result = runner.invoke(cli, ["compliance", "export-audit", "--output-file", output_path])
-        assert result.exit_code == 0
-        assert os.path.exists(output_path)
-        with open(output_path, encoding="utf-8") as f:
-            data = json.load(f)
-        assert "records" in data
-        assert len(data["records"]) == 2

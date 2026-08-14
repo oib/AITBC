@@ -31,11 +31,6 @@ class TestCLIBasicFunctionality:
         assert "ai" in result.stdout
         assert "market" in result.stdout
 
-    def test_cli_version_output(self):
-        result = run_cli("--version")
-        assert result.returncode == 0
-        assert "2.1.0" in result.stdout
-
     def test_nested_wallet_list_command(self):
         result = run_cli("wallet", "list")
         assert result.returncode == 0

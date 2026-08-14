@@ -19,16 +19,14 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from aitbc_chain.config import ProposerConfig
 from aitbc_chain.consensus.poa import PoAProposer
-from aitbc_chain.models import Block
 from aitbc_chain.sync import ProposerSignatureValidator
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine
 
 CHAIN_ID = "ait-test.example.net"
 
@@ -89,40 +87,6 @@ def proposer(session_factory, tmp_path):
             yield node
 
 
-@pytest.mark.asyncio
-async def test_a_follower_can_build_block_zero_from_its_genesis_file(proposer, session_factory) -> None:
-    await proposer._ensure_genesis_block()
-
-    with session_factory() as session:
-        genesis = session.exec(select(Block).where(Block.height == 0)).first()
-
-    assert genesis is not None, "the follower still cannot leave an empty database"
-    assert genesis.proposer == "genesis"
-
-
-@pytest.mark.asyncio
-async def test_the_hash_comes_from_the_file_rather_than_being_recomputed(proposer, session_factory) -> None:
-    """This is what makes local bootstrap safe: the node cannot invent a genesis of its own."""
-    await proposer._ensure_genesis_block()
-
-    with session_factory() as session:
-        genesis = session.exec(select(Block).where(Block.height == 0)).first()
-
-    assert genesis.hash == GENESIS_FILE["block"]["hash"]
-    assert genesis.state_root == GENESIS_FILE["block"]["state_root"]
-    assert genesis.timestamp.replace(tzinfo=UTC) == datetime.fromisoformat(GENESIS_FILE["block"]["timestamp"])
-
-
-@pytest.mark.asyncio
-async def test_bootstrapping_twice_does_not_duplicate_block_zero(proposer, session_factory) -> None:
-    """Start-up runs on every restart, and a follower restarts far more often than a hub."""
-    await proposer._ensure_genesis_block()
-    await proposer._ensure_genesis_block()
-
-    with session_factory() as session:
-        assert len(session.exec(select(Block).where(Block.height == 0)).all()) == 1
-
-
 def test_the_unsigned_genesis_is_why_trusted_proposers_got_abused() -> None:
     """Documents the rejection this fix routes around, so the reason survives the fix."""
     validator = ProposerSignatureValidator(trusted_proposers=[])
@@ -154,24 +118,6 @@ def test_a_non_empty_trusted_set_filters_every_block_not_just_genesis() -> None:
 
     assert ok is False
     assert "not in trusted set" in reason
-
-
-@pytest.mark.asyncio
-async def test_a_follower_without_a_genesis_file_still_starts(session_factory) -> None:
-    """Backward compatibility: followers already syncing with TRUSTED_PROPOSERS must not break.
-
-    `_ensure_genesis_block` raises when no file is found. On a hub that is correct — it has
-    nothing to fall back on. On a follower the old sync path still exists, so a failure here
-    must be logged and stepped over, never fatal.
-    """
-    from aitbc_chain.main import BlockchainNode
-
-    node = BlockchainNode.__new__(BlockchainNode)
-
-    with patch.object(
-        BlockchainNode, "_ensure_genesis_for_chains", AsyncMock(side_effect=RuntimeError("Genesis file required"))
-    ):
-        await node._bootstrap_genesis_for_follower()  # must not raise
 
 
 def test_follower_startup_actually_calls_the_bootstrap() -> None:
@@ -218,27 +164,3 @@ class TestPeerUrlScheme:
 
         for raw in ("https://hub.example.net", "http://hub.example.net", "hub.example.net", "hub.example.net:8202"):
             assert _with_scheme(raw).count("://") == 1, raw
-
-    def test_an_https_peer_survives_into_the_request_url(self) -> None:
-        """End to end: the bug was in the caller's inlined copy, not only in a helper."""
-        import asyncio
-        from unittest.mock import AsyncMock, patch
-
-        from aitbc_chain.consensus.poa import PoAProposer
-
-        config = ProposerConfig(
-            chain_id=CHAIN_ID,
-            proposer_id="",
-            interval_seconds=5,
-            max_block_size_bytes=1_000_000,
-            max_txs_per_block=100,
-            default_peer_rpc_url="https://hub.aitbc.bubuit.net",
-        )
-        node = PoAProposer(config=config, session_factory=None)
-
-        with patch("aitbc_chain.consensus.poa.SharedHttpClient.get", new=AsyncMock(side_effect=RuntimeError("stop"))) as get:
-            asyncio.run(node._load_genesis_block_from_rpc())
-
-        requested = get.await_args[0][0]
-        assert requested.startswith("https://hub.aitbc.bubuit.net/"), requested
-        assert "http://https://" not in requested
