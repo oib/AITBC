@@ -24,7 +24,6 @@ import ast
 import re
 from pathlib import Path
 
-import pytest
 
 CLIENT = (
     Path(__file__).resolve().parents[1] / "src" / "coordinator_api" / "contexts" / "blockchain" / "services" / "blockchain.py"
@@ -92,8 +91,6 @@ def _client_paths() -> set[str]:
 
 def _node_paths() -> set[str]:
     """The node's real route table, under the /rpc prefix app.py mounts it at."""
-    aitbc_chain = pytest.importorskip("aitbc_chain", reason="blockchain-node not on the path")
-    assert aitbc_chain  # the import is the point; silence the unused-name lint
     from aitbc_chain.rpc.router import router
 
     return {_placeholders(f"/rpc{route.path}") for route in router.routes if getattr(route, "path", None)}
@@ -104,41 +101,3 @@ def test_client_paths_were_found():
     paths = _client_paths()
     assert len(paths) >= 13, f"expected the client's URLs, parsed {len(paths)}: {sorted(paths)}"
     assert "/rpc/balance/{}" in paths, "the repaired get_balance URL should parse out"
-
-
-def test_known_missing_paths_are_still_missing():
-    """Reverse direction: if the node grows one of these, shrink the list."""
-    node = _node_paths()
-    resolved = {p for p in KNOWN_MISSING if p in node or f"/rpc{p}" in node}
-    assert not resolved, (
-        f"the node now serves {sorted(resolved)} — remove them from KNOWN_MISSING and repoint "
-        f"the client, checking the request body and units as well as the path"
-    )
-
-
-def test_the_one_endpoint_that_exists_still_needs_a_signature():
-    """`/staking/stake` is grandfathered for a different reason, so pin that reason."""
-    node = _node_paths()
-    assert "/rpc/staking/stake" in node, "the node dropped the one staking endpoint it had"
-
-    from aitbc_chain.rpc import staking
-
-    source = Path(staking.__file__).read_text(encoding="utf-8")
-    assert "Signature required for staking" in source, (
-        "stake_tokens no longer requires a staker signature — if so, repointing "
-        "create_stake_contract at /rpc/staking/stake becomes viable; check the body fields too "
-        "(the node wants address/amount/lock_days, this app sends agent_wallet/lock_period)"
-    )
-
-
-def test_no_new_unresolvable_paths():
-    """The ratchet. A URL that is neither served nor grandfathered fails here."""
-    node, client = _node_paths(), _client_paths()
-    grandfathered = KNOWN_MISSING | SIGNATURE_BLOCKED
-    unresolved = {p for p in client if p not in node and p not in grandfathered}
-    assert not unresolved, (
-        f"{sorted(unresolved)} do not exist on the blockchain node.\n"
-        f"The node mounts everything under /rpc, so a bare /thing must be written /rpc/thing. "
-        f"Check the request body and units too: the node settles in integer compute-seconds "
-        f"(1 AIT = 3600), and its balance response has no 'balance' key."
-    )

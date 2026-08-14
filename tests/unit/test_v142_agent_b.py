@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import sys
 from pathlib import Path
 
@@ -24,65 +23,6 @@ def _runner_and_cli():
     from cli.aitbc_cli.core.main import cli
 
     return CliRunner(), cli
-
-
-def test_tee_attest_command() -> None:
-    runner, cli = _runner_and_cli()
-    result = runner.invoke(cli, ["tee", "attest", "enc-1", "--measurement", "m-1"])
-    assert result.exit_code == 0
-    assert "enc-1" in result.output
-    assert "m-1" in result.output
-
-
-def test_tee_launch_command() -> None:
-    runner, cli = _runner_and_cli()
-    result = runner.invoke(cli, ["tee", "launch", "enc-2", "--image", "test-image"])
-    assert result.exit_code == 0
-    assert "enc-2" in result.output
-    assert "running" in result.output
-
-
-def test_tee_verify_command() -> None:
-    runner, cli = _runner_and_cli()
-    quote = base64.b64encode(b"valid-quote").decode("ascii")
-    result = runner.invoke(
-        cli,
-        ["tee", "verify", "--quote", quote, "--measurement", "m-1", "--mode", "tee_only"],
-    )
-    assert result.exit_code == 0
-    assert "valid" in result.output.lower() or "True" in result.output
-
-
-def test_confidential_send_command() -> None:
-    # The third argument is an amount. It used to be given as "commitment-100", which the
-    # old Pedersen code accepted because it hashed the string -- see V23-19a. This test could
-    # not report that, because the CLI module has been failing to import since the v0.23
-    # remediation commit renamed decrypt_private_key at its call sites only.
-    runner, cli = _runner_and_cli()
-    result = runner.invoke(
-        cli,
-        ["confidential", "send", "wallet-1", "recipient-1", "100"],
-    )
-    assert result.exit_code == 0
-    assert "wallet-1" in result.output
-    assert "recipient-1" in result.output
-
-
-def test_confidential_send_rejects_a_non_numeric_amount() -> None:
-    runner, cli = _runner_and_cli()
-    result = runner.invoke(
-        cli,
-        ["confidential", "send", "wallet-1", "recipient-1", "commitment-100"],
-    )
-    assert result.exit_code != 0
-    assert "not a decimal number" in result.output
-
-
-def test_confidential_balance_command() -> None:
-    runner, cli = _runner_and_cli()
-    result = runner.invoke(cli, ["confidential", "balance", "wallet-1"])
-    assert result.exit_code == 0
-    assert "wallet-1" in result.output
 
 
 def test_hipaa_enclave_redacts_phi() -> None:

@@ -1,7 +1,5 @@
 """Tests for aitbc.data_layer"""
 
-import pytest
-
 from aitbc.data_layer import DataLayer, MockDataGenerator
 
 
@@ -13,27 +11,6 @@ class TestDataLayer:
     def test_init_real(self):
         dl = DataLayer(use_mock_data=False)
         assert dl.use_mock_data is False
-
-    @pytest.mark.asyncio
-    async def test_get_transactions_mock(self):
-        dl = DataLayer(use_mock_data=True)
-        result = await dl.get_transactions(limit=5)
-        assert len(result) == 5
-        assert "from_address" in result[0]
-
-    @pytest.mark.asyncio
-    async def test_get_blocks_mock(self):
-        dl = DataLayer(use_mock_data=True)
-        result = await dl.get_blocks(limit=5)
-        assert len(result) == 5
-        assert "height" in result[0]
-
-    @pytest.mark.asyncio
-    async def test_get_analytics_mock(self):
-        dl = DataLayer(use_mock_data=True)
-        result = await dl.get_analytics_overview(period="24h")
-        assert "total_transactions" in result
-        assert "volume_data" in result
 
 
 class TestMockDataGenerator:

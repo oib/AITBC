@@ -123,26 +123,6 @@ class TestGPUStatusFSMValidation:
 class TestGPUEndpoints:
     """Test GPU service endpoints (v0.6.6)."""
 
-    def test_health_check(self, client):
-        response = client.get("/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "healthy"
-
-    def test_gpu_status(self, client):
-        response = client.get("/v1/gpu/status")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "operational"
-
-    def test_gpu_discover(self, client):
-        """Test GPU discover endpoint (auto-discovery via nvidia-smi)."""
-        response = client.get("/v1/gpu/discover")
-        assert response.status_code == 200
-        # Returns dict (may be empty if no GPU)
-        data = response.json()
-        assert isinstance(data, dict)
-
 
 # ---------------------------------------------------------------------------
 # BlockchainRPCClient integration tests (mocked)

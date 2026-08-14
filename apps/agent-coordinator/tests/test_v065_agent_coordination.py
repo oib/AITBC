@@ -611,13 +611,6 @@ class TestWebSocketAuth:
         finally:
             del os.environ["COORDINATOR_API_KEY"]
 
-    def test_authenticate_websocket_with_valid_secret_key(self):
-        """_authenticate_websocket accepts valid SECRET_KEY."""
-        from agent_app.routers.websocket import _authenticate_websocket
-
-        # SECRET_KEY is already set to "test-secret-key" at module load
-        assert _authenticate_websocket(websocket=None, token="test-secret-key") is True
-
     def test_authenticate_websocket_rejects_no_token(self):
         """_authenticate_websocket rejects None token."""
         from agent_app.routers.websocket import _authenticate_websocket

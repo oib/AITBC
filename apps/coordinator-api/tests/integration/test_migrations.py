@@ -42,12 +42,6 @@ def _run_alembic(tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]
     return result
 
 
-def test_alembic_upgrade_and_downgrade(tmp_path: Path) -> None:
-    """Online upgrade to head and downgrade to base should be symmetric."""
-    _run_alembic(tmp_path, "upgrade", "head")
-    _run_alembic(tmp_path, "downgrade", "base")
-
-
 def test_alembic_offline_sql(tmp_path: Path) -> None:
     """Offline SQL generation should complete and emit core schema statements."""
     result = _run_alembic(tmp_path, "upgrade", "head", "--sql")

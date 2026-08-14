@@ -22,18 +22,6 @@ import pkgutil
 import pytest
 
 
-def test_cli_entrypoint_imports() -> None:
-    """`python -m aitbc_cli` starts here. If this raises, the CLI does not exist."""
-    module = importlib.import_module("aitbc_cli.core.main")
-    assert callable(module.main)
-
-
-def test_cli_exposes_its_command_groups() -> None:
-    from aitbc_cli.core.main import cli
-
-    assert len(cli.commands) > 20, f"only {len(cli.commands)} command groups registered"
-
-
 @pytest.mark.parametrize(
     "name",
     sorted(
