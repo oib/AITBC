@@ -4632,3 +4632,57 @@ some point*, not tests failing *now* — several had been fixed in the interim, 
 whose fixes landed in the sweep's own parent commit. Gating on a red result in the current run
 would have kept these 128. The remaining ~63 files outside this security subset are untested by
 me and may well be genuinely rotted; nothing here argues otherwise.
+
+---
+
+### V23-62 (fix) — the execute endpoint now consults the request it claims to execute
+
+The four `xfail(strict=True)` tests added above are now passing tests. `request_id` had been
+reaching the handler and going nowhere but a log line; it is now the only field that matters.
+
+`POST /api/v1/agent/coin-requests/execute` loads the row, and everything about the payment comes
+from it: 404 if the hub has no such request, 409 if it is not `APPROVED`, and the amount and
+destination read off the stored request rather than the POST body. A body that disagrees is
+logged as a warning and ignored, which means a tampered request pays the approved recipient the
+approved amount instead of being silently honoured — the mismatch shows up in the log rather
+than in the treasury balance.
+
+**Why the API key was never enough.** It answers "may this caller ask the hub to execute
+something", which is a much weaker question than "may this payment happen". It is one shared
+secret held by every island operator, and it was being served over plain HTTP at
+`/agent/blockchain-secrets.env` (V23-58) — so the endpoint's real authority was the treasury
+balance, 3.6e12, rather than any approval. Now the authority is the row, and the key only
+decides who may ask.
+
+**Replay and concurrency.** A repeat call returns 200 with the original `tx_hash` and
+`already_executed: true` rather than an error. That is the case this endpoint actually meets:
+the CLI posts, the hub signs and submits, the response is lost in transit. An error on retry
+leaves the operator unable to tell whether it paid; the original hash lets them reconcile. Two
+*simultaneous* calls are a different problem — both would pass a plain "has it executed yet"
+check — so the request is claimed with a conditional
+`UPDATE ... WHERE transaction_hash IS NULL` before anything is signed, and the loser of that
+race gets 409. A submission that fails releases its claim, so a blockchain blip does not strand
+the request; if the process dies mid-flight the row keeps a visible `claiming:<timestamp>`
+marker, which fails in the direction of a stuck request rather than a double payment and can be
+cleared by hand.
+
+Success is recorded against the row (`transaction_hash` plus an audit line), which is what makes
+the replay guard work at all and what makes `coin-requests list` show the payment.
+
+Twelve tests, all passing. Six of them fail against the old handler, which is the check that
+they test the fix rather than describe it. The other six are the pins that already held — the
+auth gate, the balance check, and the claim-release path, which passed before only because the
+old code never wrote a claim to release.
+
+**Operational note, needs an operator decision.** The hub now refuses a `request_id` it has no
+row for. Requests created against the hub's own agent WebSocket are in its database and are
+unaffected. A request that only ever existed in a *follower's* database — if that flow is in use
+— will now be refused, and it should be: the hub was taking the follower's word for the amount
+and the destination, which is the defect. Making that flow work again needs the request
+registered at the hub, not the check removed.
+
+Separately, and not fixed here: `get_db_path()` defaults to
+`/var/lib/aitbc/data/agent_coin_requests.db`, but the only such database on this host is
+`hermes_coin_requests.db` (8 rows, 4 approved, 2 executed) from before the v0.5.9 rename. No
+migration moved them and no deployed env file sets `AGENT_DB_PATH` or `HERMES_DB_PATH`. Reads
+and writes agree with each other, so nothing is broken, but the older rows are orphaned.
