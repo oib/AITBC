@@ -7,11 +7,19 @@ import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from aitbc_shared import MarketplaceOffer
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
+
+# Importing the models is what puts them on `marketplace_metadata`; create_all builds nothing
+# otherwise. This service's own tables live there rather than on the global SQLModel registry --
+# see domain/base.py (V23-72).
+from .domain import global_marketplace as _global_models  # noqa: F401
+from .domain import marketplace as _models  # noqa: F401
+from .domain.base import marketplace_metadata
 
 logger = get_logger(__name__)
 DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
@@ -21,9 +29,26 @@ logger.info("Storage module loaded: engine=%s, DATABASE_URL=%s", engine, os.gete
 
 
 async def init_db() -> None:
-    """Initialize database tables"""
+    """Initialize database tables.
+
+    Two registries, deliberately. This service's own twelve tables are on
+    `marketplace_metadata`. `MarketplaceOffer` is not one of ours -- it is a single class in
+    `packages/aitbc-shared` that we share with coordinator-api, so it stays on the global
+    SQLModel registry and is named here explicitly.
+
+    Naming it explicitly is the point of the change. `create_all` over the whole global
+    registry also built `job_payments`, `marketplace_bid` and `payment_escrows`, which this
+    service has no model for and never reads or writes; they arrived only because something in
+    the import graph had touched them. `create_all` never drops, so databases that already have
+    those three keep them (V23-72).
+    """
+    # Looked up by name rather than via `MarketplaceOffer.__table__`: SQLModel does not declare
+    # that attribute, so mypy cannot see it. A rename raises KeyError here at startup, which is
+    # the loud failure we want.
+    shared = [SQLModel.metadata.tables[str(MarketplaceOffer.__tablename__)]]
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(marketplace_metadata.create_all)
+        await conn.run_sync(SQLModel.metadata.create_all, tables=shared)
     logger.info("Marketplace service database initialized")
 
 
