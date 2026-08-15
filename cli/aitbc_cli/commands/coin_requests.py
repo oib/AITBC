@@ -362,8 +362,12 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str) -> bool | None:
     unreachable node is not, and treating the second as the first would invite someone
     to reopen a request that was paid perfectly well.
     """
+    chain_id = TransactionService().chain_id
     try:
-        response = requests.get(f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}", timeout=10)
+        response = requests.get(
+            f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}?chain_id={chain_id}",
+            timeout=10,
+        )
     except Exception as e:
         click.echo(f"  Could not reach {rpc_url}: {e}")
         return None
