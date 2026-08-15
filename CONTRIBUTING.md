@@ -53,6 +53,10 @@ Run the relevant checks for the code or docs you touched:
 # Unit tests
 ./venv/bin/python -m pytest tests/unit -q
 
+# The governance suite needs its own process -- it and coordinator-api map the same
+# table names onto SQLModel's global metadata, so the two cannot be imported together.
+make test-governance
+
 # Docs link check (required for any docs change)
 bash scripts/validate_docs.sh
 
