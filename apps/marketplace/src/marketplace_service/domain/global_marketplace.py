@@ -12,7 +12,9 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column, Numeric
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
+
+from .base import MarketplaceBase
 
 
 class MarketplaceStatus(StrEnum):
@@ -35,11 +37,10 @@ class RegionStatus(StrEnum):
     DEPRECATED = "deprecated"
 
 
-class MarketplaceRegion(SQLModel, table=True):
+class MarketplaceRegion(MarketplaceBase, table=True):
     """Global marketplace region configuration"""
 
     __tablename__ = "marketplace_regions"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"region_{uuid4().hex[:8]}", primary_key=True)
     region_code: str = Field(index=True, unique=True)
@@ -70,11 +71,10 @@ class MarketplaceRegion(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class GlobalMarketplaceConfig(SQLModel, table=True):
+class GlobalMarketplaceConfig(MarketplaceBase, table=True):
     """Global marketplace configuration settings"""
 
     __tablename__ = "global_marketplace_configs"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"config_{uuid4().hex[:8]}", primary_key=True)
     config_key: str = Field(index=True, unique=True)
@@ -95,11 +95,10 @@ class GlobalMarketplaceConfig(SQLModel, table=True):
     last_modified_by: str | None = Field(default=None)
 
 
-class GlobalMarketplaceOffer(SQLModel, table=True):
+class GlobalMarketplaceOffer(MarketplaceBase, table=True):
     """Global marketplace offer with multi-region support"""
 
     __tablename__ = "global_marketplace_offers"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"offer_{uuid4().hex[:8]}", primary_key=True)
     original_offer_id: str = Field(index=True)
@@ -132,11 +131,10 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     expires_at: datetime | None = Field(default=None)
 
 
-class GlobalMarketplaceTransaction(SQLModel, table=True):
+class GlobalMarketplaceTransaction(MarketplaceBase, table=True):
     """Global marketplace transaction with cross-chain support"""
 
     __tablename__ = "global_marketplace_transactions"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"tx_{uuid4().hex[:8]}", primary_key=True)
     transaction_hash: str | None = Field(index=True)
