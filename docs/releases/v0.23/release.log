@@ -5088,3 +5088,46 @@ They passed alone and failed together. The insert was never needed — the repo 
 Not added, because they do not collect: `apps/blockchain-explorer/tests` (1 collection error),
 `apps/miner/tests` (3), `apps/zk-circuits/tests` (3). Each needs its own look; they are named
 in `pyproject.toml` next to the ones that were added so the omission stays deliberate.
+
+---
+
+### V23-70 — the last three app suites, and a guard for the failure that hid them
+
+V23-69 left three suites out because they did not collect: `blockchain-explorer` (1 error),
+`miner` (3), `zk-circuits` (3). The errors were `No module named 'main'`,
+`'production_miner'` and `'zk_cache'` — one shared cause. These three keep their modules at
+the app root instead of under `src/`, so nothing on `pythonpath` reaches them and no import
+of theirs has ever resolved.
+
+The obvious fix reintroduces the bug V23-69 just finished removing. Putting an app root on
+`sys.path` makes pytest derive `tests.test_...` for that app's test modules, because it walks
+up from the test file past `__init__.py` directories to a basedir and shortens the name when
+that basedir is importable. `tests` is already in `sys.modules` — it is the repo-root
+package — so the app's tests either collide with it or silently shadow it.
+
+So each of the three needs **both** halves: a `tests/conftest.py` that inserts its own app
+directory, and deletion of that suite's `tests/__init__.py`. Either half alone is fine; only
+the combination breaks, which is exactly the property that makes it easy to reintroduce. The
+inserted entry is the app directory and never `apps/` — `apps/` sits above all sixteen test
+directories and renames every one of them at once. None of the three suites use relative
+imports, so dropping the package costs nothing. `apps/miner/src` also joins `pythonpath`,
+since miner imports `miner_app.reinvestment` as well.
+
+`tests/unit/test_suite_module_identity.py` now pins both rules: `apps/` is never on
+`sys.path`, and no `tests` package has its own app root on `sys.path`. These are static
+checks over the eighteen app test directories, so they fail on the introduction rather than
+on the symptom — the V23-69 symptom was ten faucet tests reporting an unsigned transaction
+against an endpoint that had signed correctly, which took a day to trace back to a `sys.path`
+line in an unrelated app.
+
+Independently confirmed clean: a collection-time probe over `sys.modules` reports every repo
+file reachable under more than one module name. It finds three, all of them deliberate
+aliases built by `tests/coordinator/test_ignored_modules.py:23`. No conftest or test module is
+imported twice.
+
+blockchain-explorer 11 passed and 4 xfailed, miner 58, zk-circuits 26. The four xfails are
+pre-existing and honest: `TransactionSearch` and `BlockSearch` were removed in a refactor and
+the endpoints take query parameters now.
+
+**All sixteen app suites are collected.** Root 3378 → **3496**, blockchain-node 540, zero
+failures.

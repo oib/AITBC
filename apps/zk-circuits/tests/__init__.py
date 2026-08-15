@@ -1,1 +1,0 @@
-"""ZK circuits service tests"""
