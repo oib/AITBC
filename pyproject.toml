@@ -419,11 +419,12 @@ testpaths = [
     "apps/edge/tests",
     "apps/api-gateway/tests",
     "apps/blockchain-event-bridge/tests",
-    # apps/governance/tests is restored and green, but cannot run in this process: it and
-    # apps/coordinator-api both define governance_profiles, proposals, votes, dao_treasury
-    # and transparency_reports against SQLModel's global metadata, so whichever imports
-    # second raises InvalidRequestError. Run it with `make test-governance` until that is
-    # resolved -- see the V23-71 entry in docs/releases/v0.23/release.log.
+    # Joins the main run as of V23-73. This suite sat outside `testpaths` for two findings'
+    # worth of reasons: it and apps/coordinator-api defined the same five table names against
+    # SQLModel's global metadata (V23-72), and its conftest assigns `DATABASE_URL`
+    # process-wide, which pulled gpu and trading off their own databases (V23-73). Both are
+    # fixed; it collects with everything else now.
+    "apps/governance/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
