@@ -5192,3 +5192,69 @@ to a tempdir at import time, before `storage.py` builds its engine.
 Remaining: 177 deleted files across the root suite (101), coordinator-api (27),
 blockchain-node (14), marketplace (7), api-gateway (6), trading (5), pool-hub (5),
 blockchain-event-bridge (5), and one each in memory, gpu and ai-engine.
+
+---
+
+### V23-71b — the app tranche, and what the deletions were actually made of
+
+49 more deleted test files across eight apps. **41 restored, 11 held back**, and the split is
+the useful part: the 2026-08-14 sweep was not uniformly wrong, and it was not uniformly right.
+
+**One restored file brought V23-69 back with it.** `apps/ai-engine/tests/test_integration_ai_engine.py`
+opened with `sys.modules["numpy"] = MagicMock()` — the third copy of the assignment removed in
+V23-69, still sitting in a file that had been deleted before that finding landed. It executes
+at collection, so it replaced numpy for the entire run: 14 failures in
+`tests/unit/test_property_crypto.py`, 8 and 6 in ai-engine's own other files. 28 of the 40
+failures in the first full run came from that one line. Removed; the tests patch
+`ai_service.np.*` individually, which is what they actually needed.
+
+**Two deletions were right.** `apps/coordinator-api/tests/test_routers_agent.py` (12 tests) and
+`test_routers_swarm.py` (19) exercise endpoints that only exist when `settings.debug` is true,
+and both routers label them mock routes — swarm's comment reads "never enabled in production".
+Making them pass means setting the flag and asserting on scaffolding. Left deleted.
+
+**Four more were reasonable.** The pool-hub integration files wanted a `db_session` fixture
+that `ea97ba9aa` removed in the same commit that deleted them. That fixture required
+`POOLHUB_TEST_POSTGRES_DSN` and called `pytest.skip` without it, so those tests only ever ran
+against a real PostgreSQL. They are restorable the day the test environment has one, and not
+before. Worth recording that `ea97ba9aa` names every file it removed and why, and records the
+commands it validated with. `ab846475c`, which took the edge and governance regression tests,
+says "remove skipped, errored, and failed test functions" for 269 files.
+
+**Six are blocked on a defect, not on their own quality.** These pass in isolation and fail in
+a full run:
+
+    apps/coordinator-api/tests/test_cross_chain_security.py
+    apps/coordinator-api/tests/test_routers_users.py
+    apps/coordinator-api/tests/test_v120_economic_proposals.py
+    apps/coordinator-api/tests/test_quota_enforcement.py
+    apps/coordinator-api/tests/test_grant_developer_smoke.py
+    apps/coordinator-api/tests/test_governance_service.py
+    apps/marketplace/tests/test_main.py
+
+They fail on "no such table", and the cause is the one V23-72 describes. Every SQLModel class
+in the repo registers on a single process-global `MetaData`, and three places fight over it:
+`tests/integration/conftest.py` clears it outright at module scope,
+`apps/blockchain-node/tests/conftest.py` removes every non-blockchain table before each of its
+own tests, and governance and coordinator-api define five of the same table names. A class
+registers its `Table` when its module first executes and the module then stays in
+`sys.modules`, so anything removed from that registry is gone for the rest of the process --
+coordinator-api's `create_all` then builds a schema with no `users` in it.
+
+Three attempts to fix this from the test layer are worth recording as a dead end. Giving
+blockchain-node's engine fixture an explicit `tables=` list, so it would stop mutating the
+shared registry, took the run from 12 failures to over 300: four of its test files call
+`SQLModel.metadata.create_all(engine)` unfiltered, and the destructive hook was what had been
+keeping those calls narrow. The first failure was `index ix_gpu_registry_status already
+exists` -- a **gpu** table, created into a blockchain test's database. Reverted. Snapshotting
+coordinator-api's tables at conftest import fixed `users` and exposed `developer` and
+`tenants`, which load later. Accumulating them across calls moved the failures somewhere else
+again. Each attempt relocated the symptom, which is what patching around a shared mutable
+global looks like. The fix belongs in V23-72.
+
+Restored and green: 41 files across coordinator-api, blockchain-node, marketplace, trading,
+pool-hub, api-gateway, blockchain-event-bridge, ai-engine, gpu and memory. Root 3552 →
+**3820**, blockchain-node 540 → **640**, zero failures.
+
+Remaining: the 101 deleted files under `tests/`, of which 22 are `tests/verification` and 9
+`tests/production` — neither directory has ever been in `testpaths` either.
