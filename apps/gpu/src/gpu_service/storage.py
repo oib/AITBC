@@ -7,9 +7,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
+
+# Importing the models is what puts them on `gpu_metadata`; create_all builds nothing
+# otherwise. This service's tables live there rather than on the global SQLModel registry --
+# see domain/base.py (V23-72).
+from .domain import gpu_marketplace as _models  # noqa: F401
+from .domain.base import gpu_metadata
 
 logger = get_logger(__name__)
 
@@ -24,7 +29,7 @@ async def init_db() -> None:
     """Initialize database tables"""
 
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(gpu_metadata.create_all)
 
     logger.info("GPU service database initialized")
 

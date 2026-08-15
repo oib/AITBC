@@ -9,9 +9,9 @@ from sqlalchemy import engine_from_config, pool
 # Add src directory to sys.path for module imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Import SQLModel metadata
-# Import all models to ensure they're registered with SQLModel.metadata
-from sqlmodel import SQLModel
+# Importing the models is what registers them on governance_metadata.
+from governance_service.domain import governance as _models  # noqa: F401
+from governance_service.domain.base import governance_metadata
 
 # this is the Alembic Config object
 config = context.config
@@ -43,8 +43,13 @@ config.set_main_option("sqlalchemy.url", _sync_database_url())
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-target_metadata = SQLModel.metadata
+# add your model's MetaData object here.
+# This service's tables are on their own MetaData, not the global SQLModel one, because
+# apps/coordinator-api defines five of the same table names -- see
+# governance_service/domain/base.py (V23-72). Autogenerate must read the same registry
+# create_all writes, or it would compare this database against an empty model set and emit a
+# migration dropping every table.
+target_metadata = governance_metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
