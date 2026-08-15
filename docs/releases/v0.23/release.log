@@ -4730,3 +4730,42 @@ pending instead of forwarding an execute that would only 409.
 `test_re_registering_with_a_different_amount_is_refused`: together they say that the two
 endpoints in sequence grant no more than either grants alone, which is the property the whole
 design rests on.
+
+---
+
+### V23-63 — the hub's genesis key was correct; the comparison was wrong
+
+The hub could not sign anything. Every execute returned 500, and the journal said:
+
+    GENESIS_ADDRESS (ait1fe2d63fe87db282083b9159e5857cac788af9e03) does not match the
+    secp256k1 address derived from GENESIS_PRIVATE_KEY (0xFe2d63FE87Db282083b9159e5857Cac788af9E03)
+
+Read the two strings rather than the sentence between them. `fe2d63fe87db282083b9159e5857cac788af9e03`
+against `Fe2d63FE87Db282083b9159e5857Cac788af9E03` — the same forty hex characters, differing only
+in the prefix and the checksum casing. It is one address written two ways, and it is the treasury
+account holding 3.6e12. The key was right the whole time.
+
+`transaction_service.py:113` compared them with `.lower()`, which normalises the casing and not
+the prefix, so `ait1fe2d…` never equals `0xfe2d…` however correct the key is. `canonical_address`
+was written for precisely this under V23-54, when the same mistake was stalling the block-proposer
+check; `TransactionService` never picked it up. This closes the second instance.
+
+This also revises V23-57. That finding read the same symptom as a missing or wrong treasury key on
+the hub. It is neither — the key is present and correct, and no key needs to be supplied.
+
+**Which spelling goes on the wire is a separate bug in the same lines.** The node verifies `from`
+against the recovered signer canonically (`rpc/utils.verify_transaction_signature` → `canonical_address`),
+so either spelling would verify. But its account lookups do not canonicalise anything — all three
+of them, in `rpc/accounts.py`, `sync_state.py` and `consensus/poa.py`, match `Account.address` as an
+exact string. The account is stored under whatever `GENESIS_ADDRESS` says, so signing as the derived
+`0x` form asked for the nonce of an address the chain has no row for, and would have transferred
+from an account that does not exist. `from` and the nonce lookup now use the configured spelling.
+`get_balance` already did, which is why the balance check passed and the failure surfaced at signing.
+
+Seven tests. Four fail against the old code, including the `ait1` case that is the hub's actual
+configuration. Root 2840, blockchain-node 471, both green — this is a shared crypto library, so
+the whole tree is the regression surface.
+
+Not fixed here: the three exact-match account lookups are a latent version of the same defect, and
+any account written in one spelling and queried in another will silently read as absent. That wants
+a single normalisation point on the node's account access rather than three call-site patches.
