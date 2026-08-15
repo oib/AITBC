@@ -22,6 +22,7 @@ from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Account, Block
 from ..models import Transaction
+from ..base_models import _to_ait_address
 from ..state.pure_state_transition import (
     StateDelta,
     apply_delta_to_map,
@@ -265,8 +266,8 @@ class PoAProposer:
             unique_addresses: set[str] = set()
             for tx in pending_txs:
                 tx_data = tx.content
-                sender = tx_data.get("from")
-                recipient = tx_data.get("to")
+                sender = _to_ait_address(tx_data.get("from", ""))
+                recipient = _to_ait_address(tx_data.get("to", ""))
                 if sender:
                     unique_addresses.add(sender)
                 if recipient:
@@ -309,8 +310,8 @@ class PoAProposer:
                     nested = None
                     try:
                         tx_data = tx.content
-                        sender = tx_data.get("from")
-                        recipient = tx_data.get("to")
+                        sender = _to_ait_address(tx_data.get("from", ""))
+                        recipient = _to_ait_address(tx_data.get("to", ""))
                         value = tx_data.get("amount", 0)
                         fee = tx_data.get("fee", 0)
                         self._logger.info(
@@ -797,7 +798,7 @@ class PoAProposer:
         tx_data_map: dict[str, dict[str, Any]] = {}
         for tx in pending_txs:
             tx_data = tx.content.copy()
-            sender = tx_data.get("from", "")
+            sender = _to_ait_address(tx_data.get("from", ""))
             sender_account = account_map.get(sender)
             tx_data["nonce"] = sender_account.nonce if sender_account else 0
             tx_data["value"] = tx_data.get("amount", 0)
@@ -816,7 +817,7 @@ class PoAProposer:
                 # (conflicting txs in later groups need updated nonces from earlier groups)
                 for tx_hash in group:
                     tx_data = tx_data_map[tx_hash]
-                    sender = tx_data.get("from", "")
+                    sender = _to_ait_address(tx_data.get("from", ""))
                     sender_account = account_map.get(sender)
                     if sender_account:
                         tx_data["nonce"] = sender_account.nonce
