@@ -337,7 +337,18 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 # "." is the repo root, so `cli.*` and `aitbc.*` resolve to the checkout under test.
 # importlib import mode does not put rootdir on sys.path the way prepend mode did, and
 # the editable install maps only `aitbc_cli` -> cli/aitbc_cli, not the `cli` package.
-pythonpath = [".", "apps/coordinator-api/src", "apps/agent-coordinator/src"]
+pythonpath = [
+    ".",
+    "apps/coordinator-api/src",
+    "apps/agent-coordinator/src",
+    "apps/ai-engine/src",
+    "apps/bridge-monitor/src",
+    "apps/gpu/src",
+    "apps/marketplace/src",
+    "apps/pool-hub/src",
+    "apps/trading/src",
+    "apps/wallet/src",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 consider_namespace_packages = true
@@ -377,6 +388,23 @@ testpaths = [
     # it ran, which is how the V23-67 prior-grant hole reached production with tests sitting
     # next to it that would have caught nothing anyway (V23-67).
     "apps/agent-coordinator/tests",
+    # None of these had ever run. `testpaths` listed two app suites out of sixteen, so 58
+    # test files sat next to the code doing nothing -- including 112 tests for
+    # coordinator-api, a deployed service. Adding a suite here is the whole cost of
+    # collecting it; the ones below all passed unchanged the first time they were run
+    # (V23-69).
+    "apps/coordinator-api/tests",
+    "apps/ai-engine/tests",
+    "apps/bridge-monitor/tests",
+    "apps/exchange/tests",
+    "apps/gpu/tests",
+    "apps/marketplace/tests",
+    "apps/pool-hub/tests",
+    "apps/trading/tests",
+    "apps/wallet/tests",
+    # Not listed, because they do not collect: apps/blockchain-explorer/tests (1 error),
+    # apps/miner/tests (3), apps/zk-circuits/tests (3). Each needs its own look rather
+    # than a line here -- see the V23-69 entry in docs/releases/v0.23/release.log.
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

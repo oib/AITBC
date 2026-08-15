@@ -5042,3 +5042,49 @@ including the rotation that is now unavoidable.
 **Operator actions, none of which are code:** generate `FOLLOWER_API_KEY`; publish it and
 remove `COORDINATOR_API_KEY` from the public file; rotate `COORDINATOR_API_KEY` and
 `SECRET_KEY`, which are both public and must be assumed compromised; set `MINER_API_KEYS`.
+
+---
+
+### V23-69 — fourteen of sixteen app test suites had never run
+
+V23-67 turned up `apps/agent-coordinator/tests` sitting outside `testpaths`. It was not a
+one-off: `testpaths` listed two app suites out of sixteen, leaving **58 test files** that no
+run has ever collected — including 112 tests for coordinator-api, a deployed service, and the
+suites for wallet, exchange, marketplace, trading, gpu and pool-hub.
+
+Nine of them were healthy and passed unchanged the first time they were run. Adding them cost
+one line each. Root goes 3056 → **3378**.
+
+Three defects only became visible once they ran together, and all three are the kind that a
+per-app run would never have shown.
+
+**A test stubbed numpy for the whole process.** `apps/ai-engine/tests/test_unit_ai_engine.py`
+did `sys.modules["numpy"] = MagicMock()` at module scope, which executes during *collection* —
+before any test runs. `tests/unit/test_property_crypto` then failed all 14 of its tests on
+`No module named 'numpy.random'; 'numpy' is not a package`. numpy has been installed the whole
+time; the stub was never needed. Removed.
+
+**The deployed machine's configuration leaked into every test.** Importing
+`cli/aitbc_cli/commands/coin_requests.py` reads `/etc/aitbc/blockchain.env` and
+`blockchain-secrets.env` into `os.environ` — deliberately, since the CLI needs them before it
+imports storage — so collection put the hub's real `BLOCKCHAIN_RPC_URL`, `GENESIS_*` and
+`AGENT_DB_PATH` in front of every test that followed. Six config tests asserting a default read
+the hub's value instead. The failure direction that matters is the other one: a test can pass
+against deployed state that a clean CI box would never have, and nobody would know. A root
+`conftest.py` now sets `AITBC_SKIP_ENV_FILES`, which `_load_env_file` honours; deployments do
+not set it and are unaffected.
+
+**One `sys.path` insert changed module identity across the whole run.**
+`apps/exchange/tests/conftest.py` did `sys.path.insert(0, parents[2])` under a comment saying
+"repo root". `parents[2]` is `apps/`. With `apps/` on `sys.path`, pytest derives a different
+module name for every other suite — `apps.agent-coordinator.tests.conftest` becomes
+`agent-coordinator.tests.conftest` — so a conftest already imported under the first name was
+imported *again* under the second. Two module objects for one file: the fixture patched
+`FakeTransactionService` in one copy and the test read `instances` from the other, so ten
+faucet tests reported that nothing had been signed while the endpoint had signed correctly.
+They passed alone and failed together. The insert was never needed — the repo root is on
+`pythonpath` — and is gone.
+
+Not added, because they do not collect: `apps/blockchain-explorer/tests` (1 collection error),
+`apps/miner/tests` (3), `apps/zk-circuits/tests` (3). Each needs its own look; they are named
+in `pyproject.toml` next to the ones that were added so the omission stays deliberate.
