@@ -4957,3 +4957,44 @@ answers for its own chain; `--chain-id` stays available on both commands for a n
 several islands, and is sent only when given.
 
 blockchain-node 540, root 2922.
+
+---
+
+### V23-67 — one grant per agent turned out to mean one grant per *name*
+
+`req-follower-1782118019` was granted 100 AIT to `ait1c10f…`. `req-follower-1782118019-v2` was
+granted 100 AIT to the same `ait1c10f…` and auto-approved. Reported from the hub, with the
+cause: the second request declared `sender="follower-ait-reset"` where the first declared
+`sender="follower"`.
+
+`has_prior_grant` keyed on `sender`. `sender` is a string in the registration body — the caller
+writes it, nothing ties it to an identity, and changing it costs nothing. So the faucet's
+one-grant-per-agent rule was one-grant-per-name, and `wallet_address`, the field that actually
+receives the money, was never counted against at all. Rotate the name, collect again.
+
+Now keyed on the destination as well, canonically. The canonical part is not decoration:
+`ait1<body>`, `aitbc1<body>` and `0x<body>` are the same twenty bytes, so matching the stored
+string exactly would have left the identical bypass to anyone who respelled the address —
+V23-63 as a payout mechanism rather than a stall. The sender clause stays; it costs one `OR`
+and catches an agent asking twice for two different wallets.
+
+**The WebSocket handler had the same defect and is the worse of the two.** `/register` writes a
+row an operator later executes; `agent_stream.request_coins_handler` signs and submits on the
+spot, so there a bypass is a completed payout. It also required `transaction_hash IS NOT NULL`,
+counting only *executed* grants — defensible while it was the only way to create a request,
+since it pays microseconds after approving. `/register` is a second way in and writes approved
+rows that stay unexecuted for as long as the operator takes, so the same wallet could collect
+from both paths. Both now count approved rows whether or not they have been paid.
+
+**None of the agent-coordinator tests were running.** `apps/agent-coordinator/tests` was not in
+`testpaths` — not the register tests, not the `/execute` authority tests, not anything. The
+suite that covers whether the hub pays out was sitting next to the code and never ran, which is
+how this reached production with tests beside it that would have caught nothing anyway. Added
+to `testpaths`, with `apps/agent-coordinator/src` on `pythonpath`. Root goes 2922 → 3041.
+
+13 new tests. Seven fail on the old policy, including `test_renaming_the_sender_does_not_buy_a
+_second_grant`, which is the hub's own sequence replayed.
+
+Not fixed here, and worth an operator's attention: the two granted requests to `ait1c10f…` are
+both real. The chain reset discarded the first, so only 100 AIT was ever actually paid to that
+wallet — the double grant did not become a double payout, by luck rather than design.

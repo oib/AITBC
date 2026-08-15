@@ -345,11 +345,20 @@ INITIAL_COIN_AMOUNT = 360000  # AIT granted automatically on first request per n
 TRANSACTION_FEE = 36  # blockchain transaction fee (matches RPC default, 0.01 AIT = 36 seconds)
 
 
-def _has_received_initial_coins(sender: str) -> bool:
-    """Check if a sender has already received initial coins.
+def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
+    """Check whether this destination — or this agent — has already received initial coins.
 
-    Queries the agent coin_requests SQLite database for any prior
-    approved/executed request from this sender.
+    Keyed on the destination as well as the sender (V23-67). `sender` is a self-declared
+    string on an inbound message and nothing ties it to an identity, so keying on it alone
+    meant a caller could take a second automatic grant to the same wallet by renaming itself.
+    This path matters more than the registration one: it signs and submits on the spot, so a
+    bypass here is a payout rather than a row waiting for an operator.
+
+    Approved rows count whether or not they carry a transaction hash. The old query required
+    one, which was defensible while this handler was the only way to create a request — it
+    pays microseconds after approving, so there was no window. `/register` is now a second
+    way in and it writes approved rows that stay unexecuted until an operator runs `execute`,
+    and those rows have to count here too or the same wallet collects from both paths.
     """
     db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     if not os.path.exists(db_path):
@@ -357,10 +366,14 @@ def _has_received_initial_coins(sender: str) -> bool:
     try:
         import sqlite3
 
+        from ..services.faucet_policy import address_spellings
+
+        spellings = address_spellings(wallet_address)
         conn = sqlite3.connect(db_path)
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM coin_requests WHERE sender = ? AND status IN ('APPROVED') AND transaction_hash IS NOT NULL",
-            (sender,),
+            "SELECT COUNT(*) FROM coin_requests WHERE status IN ('APPROVED') "
+            f"AND (sender = ? OR lower(wallet_address) IN ({','.join('?' * len(spellings))}))",
+            (sender, *spellings),
         )
         count = cursor.fetchone()[0]
         conn.close()
@@ -493,7 +506,7 @@ async def request_coins_handler(
             return {"action": "coin_request_failed", "error": "No wallet address provided"}
 
         # Check if this sender has already received initial coins
-        if _has_received_initial_coins(sender):
+        if _has_received_initial_coins(sender, wallet_address):
             logger.info("Coin request from %s: already received initial coins — running approval strategy", sender)
             strategy, approval_mode = _get_approval_strategy()
             approval_request = {

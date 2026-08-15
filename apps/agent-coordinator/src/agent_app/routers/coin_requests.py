@@ -109,7 +109,7 @@ async def register_coin_request(req: RegisterRequest, x_api_key: str | None = He
                 "reason": "already registered",
             }
 
-        status, reason = faucet_policy.decide(session, req.sender, req.amount)
+        status, reason = faucet_policy.decide(session, req.sender, req.amount, req.wallet_address)
         now = datetime.now(UTC).replace(tzinfo=None)
         approved = status is CoinRequestStatus.APPROVED
         session.add(

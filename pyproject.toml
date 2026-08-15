@@ -337,7 +337,7 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 # "." is the repo root, so `cli.*` and `aitbc.*` resolve to the checkout under test.
 # importlib import mode does not put rootdir on sys.path the way prepend mode did, and
 # the editable install maps only `aitbc_cli` -> cli/aitbc_cli, not the `cli` package.
-pythonpath = [".", "apps/coordinator-api/src"]
+pythonpath = [".", "apps/coordinator-api/src", "apps/agent-coordinator/src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 consider_namespace_packages = true
@@ -372,6 +372,11 @@ testpaths = [
     "tests/core",
     "tests/property_tests",
     "apps/blockchain-node/tests",
+    # The agent-coordinator suite holds the faucet-policy and /execute authority tests --
+    # the rules that decide whether the hub pays out. It was never in testpaths, so none of
+    # it ran, which is how the V23-67 prior-grant hole reached production with tests sitting
+    # next to it that would have caught nothing anyway (V23-67).
+    "apps/agent-coordinator/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
