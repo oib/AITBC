@@ -5341,3 +5341,71 @@ and marketplace all read `DATABASE_URL` at import time. Which exposed the larger
 nothing setting that variable, those three suites resolve to
 `/var/lib/aitbc/data/{gpu,trading,marketplace}_service.db`, the deployed databases. That is
 its own finding as well, and governance joins `testpaths` when it lands.
+
+### V23-73 — the test suite was running against the deployed databases
+
+Adding `apps/governance/tests` to `testpaths`, which V23-72 was supposed to make possible, broke
+five gpu and trading tests instead. Governance's conftest assigns `os.environ["DATABASE_URL"]`
+at import — correctly, and for a reason its own docstring explains — but the assignment is
+process-global and never restored, and gpu and trading both read `DATABASE_URL` at import time
+to build their engines. Collecting governance moved them onto governance's database.
+
+The interesting part is what that implies about the state before. If those suites were reading
+governance's database when governance was collected, what were they reading when it was not?
+
+    gpu_service            -> sqlite+aiosqlite:////var/lib/aitbc/data/gpu_service.db
+    trading_service        -> sqlite+aiosqlite:////var/lib/aitbc/data/trading_service.db
+    marketplace_service    -> sqlite+aiosqlite:////var/lib/aitbc/data/marketplace_service.db
+
+The deployed services' databases, with the units serving them. `init_db()` runs in the FastAPI
+lifespan, so `TestClient(app)` ran `create_all` against live files; `test_get_consumer_gpu_profiles`
+asserted `len(profiles) > 0` and passed because production had rows, which is a test that would
+fail on any clean machine and tell you nothing on this one. Governance had the same defect and
+had already fixed it locally — that conftest is what the fix looked like, one service at a time.
+
+The blockchain suite was worse, because it creates rather than reads. `/var/lib/aitbc/data/`
+currently contains:
+
+    drwxr-xr-x chain-a/     chain.db  548864 bytes
+    drwxr-xr-x chain-sig/   chain.db  548864 bytes
+
+`chain-a` and `chain-sig` are test-only chain IDs, from the `_TEST_CHAIN_IDS` set in
+`apps/blockchain-node/tests/conftest.py`. Two test fixtures' databases, sitting in the deployed
+data directory next to the real chain. They are inert — no service is configured for those
+chain IDs — but nothing removes them, and they are left for an operator to delete rather than
+deleted here.
+
+**The fix is one variable.** `aitbc.constants.DATA_DIR` already reads `AITBC_DATA_DIR`, and
+every service derives its database path from `DATA_DIR`. Setting it to a temporary directory in
+the repo-root conftest moves all of them at once, including services added later — which is the
+reason to fix it there rather than in a conftest per app. Three places had to stop bypassing it:
+`gpu_service.storage` and `governance_service.storage` spelled `/var/lib/aitbc/...` out as a
+literal default, and `aitbc_chain/config.py` kept its own `DATA_DIR = Path("/var/lib/aitbc")`,
+which is the same value the shared constant resolves to except that the shared one is
+overridable. Its `get_db_path` also had a "legacy path" fallback that was byte-for-byte what
+the standard path already produced, and so had never once been reached; with `DATA_DIR`
+following the environment it would have become a live bug, sending a temporary run back to the
+deployed directory. Removed.
+
+**A guard, because a default is not a guarantee.** A service can reach a deployed path without
+going through `DATABASE_URL` at all, so `pytest_sessionfinish` walks every SQLAlchemy engine
+alive at the end of the run and fails the session if any of them resolves under the deployed
+data directory. It reports the URLs. That covers services nobody thought to check, which is
+where all four of these came from. It is a hook rather than a test because a test would have to
+import the storage modules to inspect them, and importing them is what binds the engine — the
+guard would have decided the answer it was meant to measure.
+
+**Two findings fell out of the fixtures.** `trading_service.init_db()` deliberately creates
+nothing ("Schema management is Alembic's job"), so a database nobody has migrated has no tables
+— which is precisely why that suite had to use the deployed file. But `alembic upgrade head`
+builds `inter_chain_trades` and `island_registry` and stops: the seven tables in
+`domain/trading.py` have never had a migration. **A fresh trading deployment comes up with two
+of its nine tables.** The suite's fixture creates the remaining seven from the models and says
+so; the migration gap itself is left as its own finding. Second, `marketplace_service.init_db`
+now takes `MarketplaceOffer.__table__` off the class instead of looking the name up in
+`SQLModel.metadata`, because the two conftest hooks from V23-72 unregister tables from that
+registry and a name lookup then raises `KeyError` for a table that is perfectly intact.
+
+`apps/governance/tests` joins `testpaths`, which was the point. Root 3820 → **3920**,
+blockchain-node **640**, both green, and `make test-governance` is gone along with its
+explanation.

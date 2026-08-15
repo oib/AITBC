@@ -8,8 +8,13 @@ from pathlib import Path
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Use the actual data directory where the blockchain database is located
-DATA_DIR = Path("/var/lib/aitbc")
+# Re-exported from aitbc.constants rather than spelled out again. This module used to hold its
+# own `Path("/var/lib/aitbc")`, which is the same value the shared constant already resolves
+# to -- except that the shared one honours `AITBC_DATA_DIR` and this copy did not. That is how
+# the test suite came to create `chain-a/` and `chain-sig/`, named after test-only chain IDs,
+# inside the deployed data directory: nothing the tests could set moved this path (V23-73).
+from aitbc.constants import DATA_DIR
+
 KEYSTORE_DIR = DATA_DIR / "keystore"
 
 
@@ -66,18 +71,12 @@ class ChainSettings(BaseSettings):
         # Resolve chain_id: parameter > settings > environment > empty
         resolved_chain_id = chain_id or self.chain_id or os.getenv("CHAIN_ID", "")
 
-        # First try the standard path: DATA_DIR/data/{chain_id}/chain.db
-        standard_path = DATA_DIR / "data" / resolved_chain_id / "chain.db"
-        if standard_path.exists():
-            return standard_path
-
-        # Fallback to legacy path: /var/lib/aitbc/data/{chain_id}/chain.db
-        legacy_path = Path("/var/lib/aitbc/data") / resolved_chain_id / "chain.db"
-        if legacy_path.exists():
-            return legacy_path
-
-        # If neither exists, return the standard path for creation
-        return standard_path
+        # The "legacy path" fallback that used to sit here was `Path("/var/lib/aitbc/data") /
+        # chain_id / "chain.db"` -- byte for byte what this expression produced, since DATA_DIR
+        # was that literal. It could never be reached. Now that DATA_DIR follows
+        # AITBC_DATA_DIR, keeping it would have been worse than dead: a run pointed at a
+        # temporary directory would have fallen back to the deployed one (V23-73).
+        return DATA_DIR / "data" / resolved_chain_id / "chain.db"
 
     @model_validator(mode="after")
     def _default_supported_chains(self) -> ChainSettings:
