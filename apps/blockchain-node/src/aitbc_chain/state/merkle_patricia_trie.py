@@ -435,8 +435,15 @@ class StateManager:
         return computed_root == expected_root
 
     def _encode_address(self, address: str) -> bytes:
-        """Encode an address as bytes for the trie."""
-        return address.encode("utf-8")
+        """Encode an address as bytes for the trie.
+
+        Normalises the address to the same `ait1` spelling the DB layer uses,
+        so the trie key is independent of whether the address was supplied as
+        `ait1...`, `aitbc1...` or `0x...`.
+        """
+        from aitbc_chain.base_models import _to_ait_address
+
+        return _to_ait_address(address).encode("utf-8")
 
     def _encode_account(self, balance: int, nonce: int) -> bytes:
         """Encode account data as bytes for the trie."""
