@@ -4998,3 +4998,47 @@ _second_grant`, which is the hub's own sequence replayed.
 Not fixed here, and worth an operator's attention: the two granted requests to `ait1c10f…` are
 both real. The chain reset discarded the first, so only 100 AIT was ever actually paid to that
 wallet — the double grant did not become a double payout, by luck rather than design.
+
+---
+
+### V23-68 — a key named for a coordinator, published as if it were a faucet token
+
+The hub publishes `COORDINATOR_API_KEY` in `https://hub.aitbc.bubuit.net/agent/blockchain.env`,
+a file it serves to anyone (200, 1215 bytes). The intent is sound — an island needs to call
+`/register` and `/execute` without an operator handing out credentials — but that key is not
+scoped to those two endpoints:
+
+  - `WS /api/v1/agent/messages/stream` accepts it, and `agent_id` there is a query parameter
+    with the key as the only check. The holder connects *as any agent*, and that path carries
+    `request_coins_handler`, which signs and submits a treasury transfer on the spot rather
+    than writing a row for review.
+  - `require_miner_api_key` falls back to it when `miner_api_keys` is empty. It defaults to
+    `[]` and nothing under `/etc/aitbc/` sets `MINER_API_KEYS`, so the fallback is live and
+    the key is a miner credential on coordinator-api's miner, settlement and marketplace
+    routers — roughly nineteen endpoints.
+
+Withholding `SECRET_KEY` while publishing this one buys nothing either: `_require_api_key`
+accepts either. On the machine this was written from the two variables hold the same value.
+
+`FOLLOWER_API_KEY` is the key that can be published, because it reaches `/register` and
+`/execute` and nothing else. Those two are bounded by the hub's own records rather than the
+caller's word — `/execute` takes amount and destination from the stored row (V23-62), and
+`/register` writes rows the faucet policy has ruled on (V23-67). A holder can ask for a first
+grant to a wallet, which is what a faucet is for, and can do nothing else. The hub keys are
+still accepted there so operators keep working.
+
+The interesting tests are the negative ones. `test_the_follower_key_does_not_open_the_agent
+_websocket` and `test_the_follower_key_is_not_a_miner_credential` are what make the key
+publishable; both fail if anyone widens a check later, which was confirmed by widening one.
+`test_the_miner_fallback_still_accepts_the_hub_key` pins the fallback as deployed behaviour —
+not an endorsement, but better in a test than discovered from a published file.
+
+The fallback is warned about rather than removed, since deployed miners may rely on it; the
+silent promotion is the part worth ending. `docs/ops/follower-api-key.md` carries the rollout,
+including the rotation that is now unavoidable.
+
+15 new tests. Root 3041 → 3056, blockchain-node 540.
+
+**Operator actions, none of which are code:** generate `FOLLOWER_API_KEY`; publish it and
+remove `COORDINATOR_API_KEY` from the public file; rotate `COORDINATOR_API_KEY` and
+`SECRET_KEY`, which are both public and must be assumed compromised; set `MINER_API_KEYS`.
