@@ -5307,33 +5307,37 @@ and `alembic/env.py` point at the private registry — autogenerate in particula
 the same one `create_all` writes, or it would compare the live database against an empty model
 set and emit a migration dropping every table.
 
-Done for `apps/governance` (9 models) and `apps/gpu` (6 models). Nothing on disk needs
-migrating and no migration was run: the generated DDL is byte-identical before and after —
-governance 9 tables and 24 indexes, gpu 6 tables and 18 indexes, same `CREATE TABLE` and
-`CREATE INDEX` text in both cases. The production databases at
-`/var/lib/aitbc/data/governance_service.db` and `gpu_service.db` are untouched.
+Done for `apps/governance` (9 models), `apps/gpu` (6) and `apps/marketplace` (12). Nothing on
+disk needs migrating and no migration was run: for governance and gpu the generated DDL is
+byte-identical before and after — 9 tables and 24 indexes, 6 tables and 18 indexes, same
+`CREATE TABLE` and `CREATE INDEX` text in both cases.
 
-Root 3820 tests, blockchain-node 640, both green.
+Marketplace is the one intended difference, and it needed a decision rather than a mechanism.
+Its database also received four tables it does not define, arriving on the global metadata by
+transitive import from `packages/aitbc-shared`. `marketplaceoffer` is genuinely shared —
+`MarketplaceOffer` is one class used by both services, with 41 references in marketplace's own
+code and 4 rows in the production database — so it stays on the global registry and `init_db`
+names it explicitly. `job_payments`, `marketplace_bid` and `payment_escrows` have no
+references in marketplace code and 0 rows, and are no longer created. `create_all` never
+drops, so the deployed database keeps the three it already has; only a fresh bootstrap differs.
+Verified by running the real `init_db` against a temporary file: the diff against the previous
+output is exactly those three tables and their seven indexes, and nothing else.
 
-**What is left, and why it is not in this change.** Two registries still share the global one.
+Root 3820 tests, blockchain-node 640, both green. The production databases under
+`/var/lib/aitbc/data/` were not touched.
 
-`aitbc_chain` is what rows 1 and 2 of that table are actually about — the coordinator's
-`Transaction` and the chain's collide by name. Isolating it is the same three-line pattern,
-but ~20 blockchain-node test files call `SQLModel.metadata.create_all(engine)` unfiltered and
-would need to name the chain registry instead, and it is the live blockchain package. It is
-its own finding, not a rider on this one.
+**What is left.** `aitbc_chain` still shares the global registry, and it is what rows 1 and 2
+of that table are actually about — the coordinator's `Transaction` and the chain's collide by
+name, which is what both conftest hooks exist to work around. Isolating it is the same
+three-line pattern, but ~20 blockchain-node test files call
+`SQLModel.metadata.create_all(engine)` unfiltered and would need to name the chain registry
+instead, and it is the live blockchain package. Its own finding, not a rider on this one.
 
-`marketplace_service` is a decision rather than a mechanism. Its 12 models duplicate
-coordinator-api's marketplace context and isolate cleanly, but its database also receives four
-tables it does not define, which arrive on the global metadata by transitive import:
-`marketplaceoffer`, `job_payments`, `marketplace_bid`, `payment_escrows`. Those come from
-`packages/aitbc-shared`, and `marketplaceoffer` is genuinely shared — `MarketplaceOffer` has
-41 references in marketplace's own code and 4 rows in the production database, so it is not an
-accident and must keep being created. The other three have no references in marketplace code
-and 0 rows. Isolating marketplace would stop creating those three on a *fresh* database
-(`create_all` never drops, so existing ones are unaffected). That is a live-service
-schema-bootstrap change and belongs to whoever owns the service, not to a test fix.
-
-`apps/governance/tests` therefore stays out of `testpaths` for now: `test_v074_deferred.py`
-imports `marketplace_service` alongside `coordinator_api`, and that pair is still blocked.
-`make test-governance` runs it in its own process.
+`apps/governance/tests` was expected to join `testpaths` here and does not, for a reason that
+turned out to have nothing to do with metadata: adding it made five gpu and trading tests
+fail. Its conftest assigns `os.environ["DATABASE_URL"]` at import — correctly, and for a
+documented reason — but the assignment is process-global and never restored, and gpu, trading
+and marketplace all read `DATABASE_URL` at import time. Which exposed the larger half: with
+nothing setting that variable, those three suites resolve to
+`/var/lib/aitbc/data/{gpu,trading,marketplace}_service.db`, the deployed databases. That is
+its own finding as well, and governance joins `testpaths` when it lands.
