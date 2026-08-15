@@ -339,6 +339,8 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 # the editable install maps only `aitbc_cli` -> cli/aitbc_cli, not the `cli` package.
 pythonpath = [
     ".",
+    "apps/api-gateway/src",
+    "apps/blockchain-event-bridge/src",
     "apps/coordinator-api/src",
     "apps/agent-coordinator/src",
     "apps/ai-engine/src",
@@ -415,6 +417,8 @@ testpaths = [
     # errored, and failed". They were none of those -- this suite was simply never listed
     # here, so it produced no results and was read as producing no value (V23-71).
     "apps/edge/tests",
+    "apps/api-gateway/tests",
+    "apps/blockchain-event-bridge/tests",
     # apps/governance/tests is restored and green, but cannot run in this process: it and
     # apps/coordinator-api both define governance_profiles, proposals, votes, dao_treasury
     # and transparency_reports against SQLModel's global metadata, so whichever imports
