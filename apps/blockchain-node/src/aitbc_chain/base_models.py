@@ -44,6 +44,24 @@ def _to_ait_address(address: str) -> str:
     return canonical
 
 
+def address_spellings(address: str) -> list[str]:
+    """Every lowercase spelling of ``address`` a verbatim column may be holding.
+
+    `Account.address` is normalised on the way in, so looking one up is a plain equality.
+    `Transaction.sender`/`recipient` are not — they keep whatever the signer wrote — so a
+    query has to ask for all the spellings that mean the same account. The mapping is
+    one-to-one on the 40-hex body, so this cannot widen a search to a different account.
+
+    Compare against ``lower(column)``: a checksummed `0x` address differs from its
+    lowercase form only in case, and enumerating case variants is not tractable.
+    """
+    canonical = _to_ait_address(address)
+    body = canonical.removeprefix("ait1")
+    if canonical.startswith("ait1") and len(body) == 40:
+        return [f"ait1{body}", f"0x{body}", f"aitbc1{body}"]
+    return [canonical]
+
+
 class AccountAddress(TypeDecorator):
     """Canonical ait address column for chain account tables.
 
@@ -140,8 +158,13 @@ class Transaction(SQLModel, table=True):
         default=None,
         index=True,
     )
-    sender: str = Field(sa_column=Column(AccountAddress(), index=True))
-    recipient: str = Field(sa_column=Column(AccountAddress(), index=True))
+    # Plain columns, deliberately. These two are `from` and `to` in the message the
+    # client signed, and `verify_transaction_signature` rebuilds that message out of
+    # them — normalising either one changes the bytes and the signature stops
+    # recovering. Lookups canonicalise the value they search for instead; see
+    # `address_spellings` (V23-65).
+    sender: str = Field(index=True)
+    recipient: str = Field(index=True)
     payload: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),

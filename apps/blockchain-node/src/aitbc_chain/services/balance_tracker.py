@@ -20,6 +20,7 @@ from typing import Any
 from sqlmodel import Session, select
 from sqlmodel import func as sql_func
 
+from ..base_models import address_spellings
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Stake, Transaction
 
@@ -282,11 +283,14 @@ class BalanceTracker:
             current_balance = account.balance if account else 0
             initial = 0
             received_stmt = select(sql_func.sum(Transaction.value)).where(
-                Transaction.chain_id == chain_id, Transaction.recipient == address
+                Transaction.chain_id == chain_id,
+                # Verbatim column, so match every spelling of the account (V23-65).
+                sql_func.lower(Transaction.recipient).in_(address_spellings(address)),
             )
             total_received = session.exec(received_stmt).one() or 0
             sent_stmt = select(sql_func.sum(Transaction.value + Transaction.fee)).where(
-                Transaction.chain_id == chain_id, Transaction.sender == address
+                Transaction.chain_id == chain_id,
+                sql_func.lower(Transaction.sender).in_(address_spellings(address)),
             )
             total_sent = session.exec(sent_stmt).one() or 0
             staked_stmt = select(sql_func.sum(Stake.amount)).where(

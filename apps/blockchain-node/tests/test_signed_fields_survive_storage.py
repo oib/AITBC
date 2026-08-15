@@ -10,18 +10,17 @@ the message the client signed, and the node reconstructs that message from them 
 either one changes the message, and a changed message does not recover to the signer.
 
 The node accepts a transaction signed with `0x` spellings — `verify_signature` compares the
-recovered address canonically, so hex-form clients verify fine on submission. Storage then
-rewrites both fields, and the transaction a peer is served no longer verifies against the
-signature stored with it. `state/state_transition.py` rejects it, and a follower replaying that
-block stops there. That is the shape of the stall that left the follower nine days and 12,287
-blocks behind on a different cause.
+recovered address canonically, so hex-form clients verify fine on submission. While storage
+rewrote both fields, the transaction a peer was served no longer verified against the signature
+stored with it: `state/state_transition.py` rejects it, and a follower replaying that block
+stops there. That is the shape of the stall that left the follower nine days and 12,287 blocks
+behind on a different cause. It never fired in production only because the chain was reset to an
+all-canonical history — it needed one client that signs in hex form.
 
-Nothing has tripped it since the chain was reset to an all-canonical history, because every
-address on it is already `ait1`. It needs one client that signs in hex form.
-
-The fix is a split rather than a revert: `Account.address` and the escrow columns keep the
-normalisation, and the two signature-covered columns store verbatim, with lookups canonicalising
-the value they search for instead of the value they store.
+The resolution is a split rather than a revert. `Account.address` and the escrow columns keep
+the normalisation, because they are keys and nothing signs them. These two store verbatim, and
+lookups canonicalise the value they search *for* instead of the value they store — see
+`address_spellings`.
 """
 
 from __future__ import annotations
@@ -98,7 +97,6 @@ def test_the_node_accepts_a_transaction_signed_in_hex_form() -> None:
     assert verify_transaction_signature(dict(transaction), signature, sender)
 
 
-@pytest.mark.xfail(strict=True, reason="V23-65: AccountAddress rewrites from/to, which are signed fields")
 def test_the_addresses_come_back_out_as_they_went_in(session) -> None:
     transaction, signature, _ = _signed_transaction()
 
@@ -108,7 +106,6 @@ def test_the_addresses_come_back_out_as_they_went_in(session) -> None:
     assert stored.recipient == transaction["to"]
 
 
-@pytest.mark.xfail(strict=True, reason="V23-65: the served transaction no longer recovers to its signer")
 def test_a_stored_transaction_still_verifies_when_served_to_a_peer(session) -> None:
     """What a syncing follower does, and where it stops.
 
@@ -148,3 +145,60 @@ def test_an_all_canonical_transaction_is_unaffected(session) -> None:
 
     assert stored.sender == canonical["from"]
     assert stored.recipient == canonical["to"]
+
+
+# --- Lookups, now that the column holds whatever the signer wrote ------------------------
+
+
+@pytest.mark.parametrize("stored_as", ["ait1", "0x", "0X-upper", "aitbc1"])
+@pytest.mark.parametrize("searched_as", ["ait1", "0x", "aitbc1"])
+def test_a_transaction_is_found_by_any_spelling_of_its_address(session, stored_as: str, searched_as: str) -> None:
+    """Storing verbatim would reintroduce V23-63 if the search did not widen to match."""
+    from sqlmodel import func as sql_func
+
+    from aitbc_chain.base_models import address_spellings
+
+    written = {
+        "ait1": f"ait1{RECIPIENT_BODY}",
+        "0x": f"0x{RECIPIENT_BODY}",
+        "0X-upper": f"0x{RECIPIENT_BODY.upper()}",
+        "aitbc1": f"aitbc1{RECIPIENT_BODY}",
+    }[stored_as]
+    searched = {
+        "ait1": f"ait1{RECIPIENT_BODY}",
+        "0x": f"0x{RECIPIENT_BODY}",
+        "aitbc1": f"aitbc1{RECIPIENT_BODY}",
+    }[searched_as]
+    transaction, signature, _ = _signed_transaction()
+    transaction["to"] = written
+    _store_and_read(session, transaction, signature)
+
+    found = session.exec(
+        select(Transaction).where(sql_func.lower(Transaction.recipient).in_(address_spellings(searched)))
+    ).first()
+
+    assert found is not None
+    assert found.recipient == written
+
+
+def test_the_search_does_not_widen_to_a_different_account(session) -> None:
+    from sqlmodel import func as sql_func
+
+    from aitbc_chain.base_models import address_spellings
+
+    transaction, signature, _ = _signed_transaction()
+    _store_and_read(session, transaction, signature)
+
+    found = session.exec(
+        select(Transaction).where(sql_func.lower(Transaction.recipient).in_(address_spellings("0x" + "d4" * 20)))
+    ).first()
+
+    assert found is None
+
+
+def test_a_non_address_value_is_searched_for_as_itself(session) -> None:
+    """Proposer ids and aliases share these columns and must not be expanded into spellings."""
+    from aitbc_chain.base_models import address_spellings
+
+    assert address_spellings("hub-coordinator") == ["hub-coordinator"]
+    assert address_spellings("genesis") == ["genesis"]
