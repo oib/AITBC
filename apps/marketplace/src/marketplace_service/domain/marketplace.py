@@ -7,16 +7,17 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column, Numeric
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
+
+from .base import MarketplaceBase
 
 # Re-export MarketplaceOffer from aitbc_shared for compatibility
 __all__ = ["MarketplaceOffer"]
 
 
 # Additional marketplace-specific models
-class Plugin(SQLModel, table=True):
+class Plugin(MarketplaceBase, table=True):
     __tablename__ = "plugin"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     name: str = Field(index=True)
@@ -33,11 +34,10 @@ class Plugin(SQLModel, table=True):
     rating: float = Field(default=0.0)
 
 
-class SoftwareService(SQLModel, table=True):
+class SoftwareService(MarketplaceBase, table=True):
     """Software service registry for marketplace (migrated from plugin service)"""
 
     __tablename__ = "softwareservice"
-    __table_args__ = {"extend_existing": True}
 
     plugin_id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, peertube_transcoder, cloud_ollama
@@ -68,11 +68,10 @@ class SoftwareService(SQLModel, table=True):
     block_timestamp: datetime | None = Field(default=None)
 
 
-class Bid(SQLModel, table=True):
+class Bid(MarketplaceBase, table=True):
     """Bid/offer booking record."""
 
     __tablename__ = "bids"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     offer_id: str = Field(index=True)
@@ -84,11 +83,10 @@ class Bid(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
 
 
-class ServiceRating(SQLModel, table=True):
+class ServiceRating(MarketplaceBase, table=True):
     """Service-specific ratings for marketplace offers"""
 
     __tablename__ = "servicerating"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     service_id: str = Field(index=True)  # Foreign key to SoftwareService.plugin_id
@@ -100,9 +98,8 @@ class ServiceRating(SQLModel, table=True):
     source_node: str = Field(default="local", index=True)  # Origin node of the rating
 
 
-class KnowledgeGraph(SQLModel, table=True):
+class KnowledgeGraph(MarketplaceBase, table=True):
     __tablename__ = "knowledgegraph"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     name: str = Field(index=True)
@@ -113,9 +110,8 @@ class KnowledgeGraph(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
-class GraphNode(SQLModel, table=True):
+class GraphNode(MarketplaceBase, table=True):
     __tablename__ = "graphnode"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     graph_id: str = Field(index=True)
@@ -126,9 +122,8 @@ class GraphNode(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
-class GraphEdge(SQLModel, table=True):
+class GraphEdge(MarketplaceBase, table=True):
     __tablename__ = "graphedge"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     graph_id: str = Field(index=True)
@@ -141,11 +136,10 @@ class GraphEdge(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
-class EdgeNodeAdvertisement(SQLModel, table=True):
+class EdgeNodeAdvertisement(MarketplaceBase, table=True):
     """Edge node advertisement registered via POST /v1/marketplace/edge-advertise (v0.6.6)."""
 
     __tablename__ = "edge_node_advertisements"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     node_id: str = Field(index=True, unique=True)
