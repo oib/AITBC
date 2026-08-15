@@ -13,6 +13,10 @@ from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
+from aitbc.aitbc_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class APIKeyAuthenticator:
     """Shared service API-key dependency.
@@ -166,6 +170,15 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
     if not allowed_keys:
         coord_key = os.getenv("COORDINATOR_API_KEY", "")
         if coord_key:
+            # This is why COORDINATOR_API_KEY must never be published (V23-68): with
+            # `miner_api_keys` unset — the default — it silently becomes a miner credential
+            # for every endpoint behind this dependency. Set MINER_API_KEYS to stop the
+            # fallback. Warned rather than removed because deployed miners may rely on it;
+            # a silent promotion is the part worth ending.
+            logger.warning(
+                "miner_api_keys is empty; accepting COORDINATOR_API_KEY as a miner credential. "
+                "Set MINER_API_KEYS to scope miner access properly."
+            )
             allowed_keys = [coord_key]
 
     if not api_key:
