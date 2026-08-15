@@ -9,7 +9,9 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
+
+from .base import GpuBase
 
 # Consumer GPU profiles for edge computing
 CONSUMER_GPU_PROFILES: dict[str, dict[str, Any]] = {
@@ -79,11 +81,10 @@ class GPUArchitecture(StrEnum):
     UNKNOWN = "unknown"
 
 
-class GPURegistry(SQLModel, table=True):
+class GPURegistry(GpuBase, table=True):
     """Registered GPUs available in the marketplace."""
 
     __tablename__ = "gpu_registry"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"gpu_{uuid4().hex[:8]}", primary_key=True)
     miner_id: str = Field(index=True)
@@ -101,11 +102,10 @@ class GPURegistry(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now, nullable=False, index=True)
 
 
-class ConsumerGPUProfile(SQLModel, table=True):
+class ConsumerGPUProfile(GpuBase, table=True):
     """Consumer GPU optimization profiles for edge computing"""
 
     __tablename__ = "consumer_gpu_profiles"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"cgp_{uuid4().hex[:8]}", primary_key=True)
     gpu_model: str = Field(index=True)
@@ -150,11 +150,10 @@ class ConsumerGPUProfile(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
 
 
-class EdgeGPUMetrics(SQLModel, table=True):
+class EdgeGPUMetrics(GpuBase, table=True):
     """Real-time edge GPU performance metrics"""
 
     __tablename__ = "edge_gpu_metrics"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"egm_{uuid4().hex[:8]}", primary_key=True)
     gpu_id: str = Field(foreign_key="gpu_registry.id")
@@ -184,11 +183,10 @@ class EdgeGPUMetrics(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
 
 
-class GPUBooking(SQLModel, table=True):
+class GPUBooking(GpuBase, table=True):
     """Active and historical GPU bookings."""
 
     __tablename__ = "gpu_bookings"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"bk_{uuid4().hex[:10]}", primary_key=True)
     gpu_id: str = Field(index=True)
@@ -202,11 +200,10 @@ class GPUBooking(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 
 
-class GPUReview(SQLModel, table=True):
+class GPUReview(GpuBase, table=True):
     """Reviews for GPUs."""
 
     __tablename__ = "gpu_reviews"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"rv_{uuid4().hex[:10]}", primary_key=True)
     gpu_id: str = Field(index=True)
@@ -225,11 +222,10 @@ class GPUJobStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class GPUJobQueue(SQLModel, table=True):
+class GPUJobQueue(GpuBase, table=True):
     """Priority queue for GPU jobs."""
 
     __tablename__ = "gpu_job_queue"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"jobq_{uuid4().hex[:8]}", primary_key=True)
     gpu_id: str = Field(index=True)

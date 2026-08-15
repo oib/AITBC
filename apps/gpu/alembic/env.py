@@ -24,14 +24,18 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from gpu_service.domain import gpu_marketplace  # noqa: E402,F401  (registers the tables)
-from sqlmodel import SQLModel  # noqa: E402
+from gpu_service.domain.base import gpu_metadata  # noqa: E402
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = SQLModel.metadata
+# This service's tables are on their own MetaData, not the global SQLModel one, because
+# apps/coordinator-api defines the same six table names -- see gpu_service/domain/base.py
+# (V23-72). Autogenerate must read the same registry create_all writes, or it would compare
+# this database against an empty model set and emit a migration dropping every table.
+target_metadata = gpu_metadata
 
 
 def _sync_database_url() -> str:

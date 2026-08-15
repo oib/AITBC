@@ -10,7 +10,9 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import DateTime, Numeric, String
-from sqlmodel import JSON, Column, Field, Index, SQLModel
+from sqlmodel import JSON, Column, Field, Index
+
+from .base import GovernanceBase
 
 
 class ProposalStatus(StrEnum):
@@ -35,7 +37,7 @@ class GovernanceRole(StrEnum):
     ADMIN = "admin"
 
 
-class GovernanceProfile(SQLModel, table=True):
+class GovernanceProfile(GovernanceBase, table=True):
     """Profile for a participant in the AITBC DAO"""
 
     __tablename__ = "governance_profiles"
@@ -57,7 +59,7 @@ class GovernanceProfile(SQLModel, table=True):
     last_voted_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
 
-class Proposal(SQLModel, table=True):
+class Proposal(GovernanceBase, table=True):
     """A governance proposal submitted to the DAO"""
 
     __tablename__ = "proposals"
@@ -116,7 +118,7 @@ class Proposal(SQLModel, table=True):
     executed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
 
-class Vote(SQLModel, table=True):
+class Vote(GovernanceBase, table=True):
     """A vote cast on a specific proposal"""
 
     __tablename__ = "votes"
@@ -150,7 +152,7 @@ class Vote(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
 
 
-class Delegation(SQLModel, table=True):
+class Delegation(GovernanceBase, table=True):
     """Voting power delegation from one address to another"""
 
     __tablename__ = "delegations"
@@ -169,7 +171,7 @@ class Delegation(SQLModel, table=True):
     is_active: bool = Field(default=True)
 
 
-class GovernanceToken(SQLModel, table=True):
+class GovernanceToken(GovernanceBase, table=True):
     """Governance token holdings and voting power for an address"""
 
     __tablename__ = "governance_tokens"
@@ -188,7 +190,7 @@ class GovernanceToken(SQLModel, table=True):
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class TokenStake(SQLModel, table=True):
+class TokenStake(GovernanceBase, table=True):
     """Token staking for enhanced voting power"""
 
     __tablename__ = "token_stakes"
@@ -208,7 +210,7 @@ class TokenStake(SQLModel, table=True):
     rewards_earned: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
 
-class ProposalExecutionLog(SQLModel, table=True):
+class ProposalExecutionLog(GovernanceBase, table=True):
     """Log of proposal execution steps and results"""
 
     __tablename__ = "proposal_execution_log"
@@ -227,7 +229,7 @@ class ProposalExecutionLog(SQLModel, table=True):
     executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class DaoTreasury(SQLModel, table=True):
+class DaoTreasury(GovernanceBase, table=True):
     """Record of the DAO's treasury funds and allocations"""
 
     __tablename__ = "dao_treasury"
@@ -242,7 +244,7 @@ class DaoTreasury(SQLModel, table=True):
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class TransparencyReport(SQLModel, table=True):
+class TransparencyReport(GovernanceBase, table=True):
     """Automated transparency and analytics report for the governance system"""
 
     __tablename__ = "transparency_reports"

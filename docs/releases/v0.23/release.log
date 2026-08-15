@@ -5258,3 +5258,82 @@ pool-hub, api-gateway, blockchain-event-bridge, ai-engine, gpu and memory. Root 
 
 Remaining: the 101 deleted files under `tests/`, of which 22 are `tests/verification` and 9
 `tests/production` — neither directory has ever been in `testpaths` either.
+
+### V23-72 — two services, one table registry, four workarounds
+
+Every SQLModel class in this repo registers its `Table` on one process-global `MetaData`
+unless it says otherwise. `apps/governance` and `apps/coordinator-api` both model governance
+and both name their tables `governance_profiles`, `proposals`, `votes`, `dao_treasury` and
+`transparency_reports`. Two services, one registry, five shared names: whichever imported
+second raised `Table 'governance_profiles' is already defined for this MetaData instance`, so
+the two could never be imported into the same process.
+
+Production never saw this. Each service runs alone against its own database, and the tables
+are correct in both. What it broke was every attempt to run them together, and the four
+workarounds it grew cost considerably more than the collision did.
+
+| where | what it does |
+|---|---|
+| `tests/integration/conftest.py` | `SQLModel.metadata.clear()` at module scope |
+| `apps/blockchain-node/tests/conftest.py` | removes every table it does not own, before each test |
+| `apps/gpu` domain models | `__table_args__ = {"extend_existing": True}` on all 6 |
+| `apps/marketplace` domain models | `__table_args__ = {"extend_existing": True}` on all 12 |
+
+The first two are process-wide and permanent. A class registers its `Table` when its module
+first executes, and the module then stays in `sys.modules`, so re-importing re-registers
+nothing — a table removed that way is gone for the rest of the run. Suites collected
+afterwards built schemas with tables missing from them, which is why six restored
+coordinator-api files failed on "no such table: users" while passing in isolation (V23-71b).
+
+`extend_existing` deserves its own note, because it reads like the intended answer and is not.
+It does not give each service its own table. It merges the second definition into whichever
+`Table` registered first, so whoever imports second silently redefines the first service's
+columns, and the merge appends `Index` objects whose names are already on the table.
+`create_all` then emits `CREATE INDEX ix_gpu_reviews_created_at` twice and the second fails.
+The failure lands wherever `create_all` next happens to run rather than where the two
+definitions met: this one surfaced in `tests/integration/test_atomic_settlement.py`, a test
+that touches neither service and passes in isolation. It reads exactly like a flake.
+
+**The fix.** A service that owns its tables declares its own `MetaData` and stops taking part:
+
+    governance_metadata = MetaData()
+
+    class GovernanceBase(SQLModel):
+        metadata = governance_metadata
+
+Table models subclass that instead of `SQLModel`. The duplicate definitions then coexist
+without either editing the other, and `extend_existing` comes off. Both services' `storage.py`
+and `alembic/env.py` point at the private registry — autogenerate in particular *must* read
+the same one `create_all` writes, or it would compare the live database against an empty model
+set and emit a migration dropping every table.
+
+Done for `apps/governance` (9 models) and `apps/gpu` (6 models). Nothing on disk needs
+migrating and no migration was run: the generated DDL is byte-identical before and after —
+governance 9 tables and 24 indexes, gpu 6 tables and 18 indexes, same `CREATE TABLE` and
+`CREATE INDEX` text in both cases. The production databases at
+`/var/lib/aitbc/data/governance_service.db` and `gpu_service.db` are untouched.
+
+Root 3820 tests, blockchain-node 640, both green.
+
+**What is left, and why it is not in this change.** Two registries still share the global one.
+
+`aitbc_chain` is what rows 1 and 2 of that table are actually about — the coordinator's
+`Transaction` and the chain's collide by name. Isolating it is the same three-line pattern,
+but ~20 blockchain-node test files call `SQLModel.metadata.create_all(engine)` unfiltered and
+would need to name the chain registry instead, and it is the live blockchain package. It is
+its own finding, not a rider on this one.
+
+`marketplace_service` is a decision rather than a mechanism. Its 12 models duplicate
+coordinator-api's marketplace context and isolate cleanly, but its database also receives four
+tables it does not define, which arrive on the global metadata by transitive import:
+`marketplaceoffer`, `job_payments`, `marketplace_bid`, `payment_escrows`. Those come from
+`packages/aitbc-shared`, and `marketplaceoffer` is genuinely shared — `MarketplaceOffer` has
+41 references in marketplace's own code and 4 rows in the production database, so it is not an
+accident and must keep being created. The other three have no references in marketplace code
+and 0 rows. Isolating marketplace would stop creating those three on a *fresh* database
+(`create_all` never drops, so existing ones are unaffected). That is a live-service
+schema-bootstrap change and belongs to whoever owns the service, not to a test fix.
+
+`apps/governance/tests` therefore stays out of `testpaths` for now: `test_v074_deferred.py`
+imports `marketplace_service` alongside `coordinator_api`, and that pair is still blocked.
+`make test-governance` runs it in its own process.
