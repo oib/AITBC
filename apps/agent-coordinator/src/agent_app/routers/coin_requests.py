@@ -1,8 +1,8 @@
-"""Coin request execution endpoint.
+"""Coin request registration and execution endpoints.
 
-Ported from the Hermes service in v0.5.9 §2. This is a hub-only endpoint
-that executes an approved coin request by signing and submitting a
-blockchain transaction from the genesis wallet.
+Ported from the Hermes service in v0.5.9 §2. These are hub-only endpoints. `/execute`
+signs and submits a blockchain transaction from the genesis wallet; `/register` is how
+a request that originated on a follower island gets a row here first.
 
 Authority note (V23-62): the stored request is the authority for *what* gets paid.
 The API key answers "may this caller ask the hub to execute something", which is a
@@ -11,10 +11,16 @@ every island operator, so on its own it authorises an arbitrary treasury transfe
 The amount and destination therefore come from the row, never from the request body,
 and a request that the hub has not itself recorded as approved is refused rather
 than paid on the caller's word.
+
+Which is why `/register` cannot simply write an approved row on request — that would
+hand back exactly what `/execute` stopped giving away, one call further along. It
+writes a row under the hub's own faucet policy instead: within the policy the request
+is approved and the island keeps working unattended, outside it the request waits for
+an operator. See `services.faucet_policy`.
 """
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -24,6 +30,8 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.crypto import TransactionService
 from aitbc.db import get_db_session
 from aitbc.models import CoinRequest, CoinRequestStatus
+
+from ..services import faucet_policy
 
 logger = get_logger(__name__)
 
@@ -38,6 +46,98 @@ TRANSACTION_FEE = 10
 # against the chain and clear it by hand. It is deliberately not a valid hash, so
 # nothing downstream can mistake it for a settled payment.
 EXECUTION_CLAIM_PREFIX = "claiming:"
+
+# How long a registered request stays executable, matching the window the WebSocket
+# handler already gives a pending request.
+REQUEST_TTL = timedelta(hours=24)
+
+
+def _require_api_key(x_api_key: str | None) -> None:
+    """Answer only "may this caller ask", never "may this payment happen"."""
+    expected_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
+    if not expected_key or x_api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+class RegisterRequest(BaseModel):
+    """A coin request raised on a follower island, presented to the hub for a decision."""
+
+    request_id: str
+    sender: str
+    amount: int
+    wallet_address: str
+    recipient: str | None = None
+
+
+@router.post("/register")
+async def register_coin_request(req: RegisterRequest, x_api_key: str | None = Header(default=None)) -> dict[str, Any]:
+    """Record a follower's coin request here so it can later be executed.
+
+    The hub decides the status; the caller only supplies the facts. Registering is
+    idempotent on `request_id` so a retry after a lost response is safe, and a second
+    registration that contradicts the first is refused rather than allowed to overwrite
+    an amount the hub has already ruled on.
+    """
+    _require_api_key(x_api_key)
+
+    if req.amount <= 0:
+        raise HTTPException(status_code=422, detail="Amount must be positive")
+
+    with get_db_session() as session:
+        existing = session.query(CoinRequest).filter(CoinRequest.id == req.request_id).first()
+        if existing is not None:
+            if int(existing.amount or 0) != req.amount or str(existing.wallet_address) != req.wallet_address:
+                logger.warning(
+                    "Register refused: %s already exists for %s to %s, re-registered as %s to %s",
+                    req.request_id,
+                    existing.amount,
+                    existing.wallet_address,
+                    req.amount,
+                    req.wallet_address,
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Coin request {req.request_id} is already registered with different terms",
+                )
+            status = existing.status
+            return {
+                "request_id": req.request_id,
+                "status": status.value if status is not None else "unknown",
+                "amount": int(existing.amount or 0),
+                "wallet_address": str(existing.wallet_address),
+                "already_registered": True,
+                "reason": "already registered",
+            }
+
+        status, reason = faucet_policy.decide(session, req.sender, req.amount)
+        now = datetime.now(UTC).replace(tzinfo=None)
+        approved = status is CoinRequestStatus.APPROVED
+        session.add(
+            CoinRequest(
+                id=req.request_id,
+                sender=req.sender,
+                recipient=req.recipient or os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+                amount=req.amount,
+                wallet_address=req.wallet_address,
+                status=status,
+                approval_mode="automatic" if approved else "manual",
+                approved_by="faucet-policy" if approved else None,
+                approved_at=now if approved else None,
+                created_at=now,
+                expires_at=now + REQUEST_TTL,
+                audit_log=f"Registered by follower at {now.isoformat()} | {status.value}: {reason}",
+            )
+        )
+
+    logger.info("Registered coin request %s for %s: %s — %s", req.request_id, req.sender, status.value, reason)
+    return {
+        "request_id": req.request_id,
+        "status": status.value,
+        "amount": req.amount,
+        "wallet_address": req.wallet_address,
+        "already_registered": False,
+        "reason": reason,
+    }
 
 
 class RemoteExecuteRequest(BaseModel):
@@ -82,15 +182,16 @@ async def remote_execute_coin_request(
     Hub-only endpoint — requires COORDINATOR_API_KEY authentication.
     Signs and submits the transaction using the genesis wallet.
     """
-    expected_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
-    if not expected_key or x_api_key != expected_key:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    _require_api_key(x_api_key)
 
     with get_db_session() as session:
         stored = session.query(CoinRequest).filter(CoinRequest.id == req.request_id).first()
         if stored is None:
             logger.warning("Execute refused: request %s is not known to this hub", req.request_id)
-            raise HTTPException(status_code=404, detail=f"Coin request {req.request_id} not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Coin request {req.request_id} not found — register it first",
+            )
 
         status = stored.status
         amount = int(stored.amount or 0)

@@ -25,116 +25,36 @@ island operator holds and that was being served over plain HTTP.
 
 from __future__ import annotations
 
-import os
-from datetime import UTC, datetime, timedelta
-
 import pytest
 
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
+from aitbc.models import CoinRequestStatus
+from agent_app.routers import coin_requests
 
-pytest.importorskip("fastapi", reason="agent-coordinator app dependencies not installed")
-
-from fastapi import FastAPI  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-
-from aitbc.db import agent_db  # noqa: E402
-from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
-from agent_app.routers import coin_requests  # noqa: E402
-
-API_KEY = "test-coordinator-api-key"
-TREASURY_BALANCE = 3_600_000_000_000
-PAYOUT = 100
-TX_HASH = "0x" + "cd" * 32
+from .conftest import (
+    API_KEY,
+    FakeTransactionService,
+    PAYOUT,
+    TREASURY_BALANCE,
+    TX_HASH,
+    FakeHttpClient,
+    signed_transactions,
+    store_request,
+    stored_request,
+)
 
 APPROVED = {"id": "req-0001", "amount": PAYOUT, "wallet_address": "ait1" + "ab" * 20}
 PENDING = {"id": "req-0002", "amount": 250, "wallet_address": "ait1" + "ba" * 20}
 
 
-class _FakeTransactionService:
-    """Stands in for the real signer so no test can emit a transaction."""
-
-    instances: list[_FakeTransactionService] = []
-
-    def __init__(self) -> None:
-        self.genesis_private_key = "0x" + "11" * 32
-        self.genesis_address = "ait1" + "fe" * 20
-        self.rpc_url = "http://localhost:8202"
-        self.signed: list[dict] = []
-        _FakeTransactionService.instances.append(self)
-
-    def get_balance(self, _address: str) -> int:
-        return TREASURY_BALANCE
-
-    def generate_signed_transaction(self, to_address: str, amount: int, fee: int) -> dict:
-        payload = {"to": to_address, "amount": amount, "fee": fee}
-        self.signed.append(payload)
-        return payload
-
-
-class _FakeHttpClient:
-    def __init__(self, *_args, **_kwargs) -> None:
-        pass
-
-    def post(self, _path: str, json: dict) -> dict:  # noqa: A002
-        return {"transaction_hash": TX_HASH}
-
-
-def _signed() -> list[dict]:
-    """Every transaction any service instance signed during this test."""
-    return [tx for service in _FakeTransactionService.instances for tx in service.signed]
-
-
-def _row(request_id: str) -> CoinRequest | None:
-    with agent_db.get_db_session() as session:
-        found = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
-        if found is not None:
-            session.expunge(found)
-        return found
-
-
-def _store(session, spec: dict, status: CoinRequestStatus) -> None:
-    now = datetime.now(UTC).replace(tzinfo=None)
-    session.add(
-        CoinRequest(
-            id=spec["id"],
-            sender="agent-under-test",
-            recipient=spec["wallet_address"],
-            amount=spec["amount"],
-            wallet_address=spec["wallet_address"],
-            status=status,
-            approval_mode="manual",
-            approved_by="cli" if status is CoinRequestStatus.APPROVED else None,
-            created_at=now,
-            expires_at=now + timedelta(days=1),
-        )
-    )
-
-
 @pytest.fixture
-def client(monkeypatch, tmp_path):
-    _FakeTransactionService.instances.clear()
-    monkeypatch.setenv("COORDINATOR_API_KEY", API_KEY)
-    monkeypatch.delenv("SECRET_KEY", raising=False)
-    monkeypatch.setattr(coin_requests, "TransactionService", _FakeTransactionService)
-    monkeypatch.setattr("aitbc.network.AITBCHTTPClient", _FakeHttpClient, raising=False)
-
-    # The engine is a module global cached on first use, so pointing AGENT_DB_PATH at a
-    # fresh file is not enough on its own.
-    monkeypatch.setenv("AGENT_DB_PATH", str(tmp_path / "coin_requests.db"))
-    monkeypatch.setattr(agent_db, "_engine", None)
-    monkeypatch.setattr(agent_db, "_SessionLocal", None)
-    agent_db.init_db()
+def client(bare_client, faucet_env):
+    """A hub holding one approved request and one still pending."""
+    from aitbc.db import agent_db
 
     with agent_db.get_db_session() as session:
-        _store(session, APPROVED, CoinRequestStatus.APPROVED)
-        _store(session, PENDING, CoinRequestStatus.PENDING)
-
-    app = FastAPI()
-    app.include_router(coin_requests.router)
-    yield TestClient(app)
-
-    agent_db._engine = None
-    agent_db._SessionLocal = None
+        store_request(session, APPROVED, CoinRequestStatus.APPROVED)
+        store_request(session, PENDING, CoinRequestStatus.PENDING)
+    return bare_client
 
 
 def _body(**overrides) -> dict:
@@ -149,7 +69,7 @@ def _body(**overrides) -> dict:
     return body
 
 
-def _execute(client: TestClient, key: str | None = API_KEY, **overrides):
+def _execute(client, key: str | None = API_KEY, **overrides):
     headers = {"x-api-key": key} if key is not None else {}
     return client.post("/api/v1/agent/coin-requests/execute", json=_body(**overrides), headers=headers)
 
@@ -159,12 +79,12 @@ def _execute(client: TestClient, key: str | None = API_KEY, **overrides):
 
 def test_a_request_with_no_key_is_refused(client) -> None:
     assert _execute(client, key=None).status_code == 401
-    assert _signed() == []
+    assert signed_transactions() == []
 
 
 def test_a_request_with_the_wrong_key_is_refused(client) -> None:
     assert _execute(client, key="not-the-key").status_code == 401
-    assert _signed() == []
+    assert signed_transactions() == []
 
 
 def test_the_secret_key_is_accepted_interchangeably(client, monkeypatch) -> None:
@@ -183,16 +103,18 @@ def test_a_valid_key_signs_a_transfer_from_the_treasury(client) -> None:
     response = _execute(client)
 
     assert response.status_code == 200
-    assert _signed() == [{"to": APPROVED["wallet_address"], "amount": PAYOUT, "fee": coin_requests.TRANSACTION_FEE}]
+    assert signed_transactions() == [
+        {"to": APPROVED["wallet_address"], "amount": PAYOUT, "fee": coin_requests.TRANSACTION_FEE}
+    ]
 
 
 def test_a_payout_above_the_treasury_balance_is_refused(client, monkeypatch) -> None:
-    monkeypatch.setattr(_FakeTransactionService, "get_balance", lambda _self, _address: PAYOUT - 1)
+    monkeypatch.setattr(FakeTransactionService, "get_balance", lambda _self, _address: PAYOUT - 1)
 
     response = _execute(client)
 
     assert response.status_code == 400
-    assert _signed() == []
+    assert signed_transactions() == []
 
 
 # --- The stored request is the authority ------------------------------------------------
@@ -208,7 +130,7 @@ def test_the_amount_comes_from_the_stored_request_not_the_request_body(client) -
     response = _execute(client, amount=TREASURY_BALANCE - 1)
 
     assert response.status_code == 200
-    assert _signed()[0]["amount"] == PAYOUT
+    assert signed_transactions()[0]["amount"] == PAYOUT
     assert response.json()["amount"] == PAYOUT
 
 
@@ -218,7 +140,7 @@ def test_the_destination_comes_from_the_stored_request_not_the_request_body(clie
     response = _execute(client, wallet_address=attacker)
 
     assert response.status_code == 200
-    assert _signed()[0]["to"] == APPROVED["wallet_address"]
+    assert signed_transactions()[0]["to"] == APPROVED["wallet_address"]
     assert response.json()["recipient"] == APPROVED["wallet_address"]
 
 
@@ -226,7 +148,7 @@ def test_an_unknown_request_id_is_refused(client) -> None:
     response = _execute(client, request_id="req-does-not-exist")
 
     assert response.status_code == 404
-    assert _signed() == []
+    assert signed_transactions() == []
 
 
 def test_a_request_that_was_never_approved_is_refused(client) -> None:
@@ -234,7 +156,7 @@ def test_a_request_that_was_never_approved_is_refused(client) -> None:
 
     assert response.status_code == 409
     assert "not approved" in response.json()["detail"]
-    assert _signed() == []
+    assert signed_transactions() == []
 
 
 def test_the_same_request_cannot_be_executed_twice(client) -> None:
@@ -253,14 +175,14 @@ def test_the_same_request_cannot_be_executed_twice(client) -> None:
     assert second.status_code == 200
     assert second.json()["already_executed"] is True
     assert second.json()["tx_hash"] == first.json()["tx_hash"]
-    assert len(_signed()) == 1
+    assert len(signed_transactions()) == 1
 
 
 def test_a_successful_execution_is_recorded_against_the_request(client) -> None:
     """Without this the replay guard has nothing to consult, and `list` never shows it paid."""
     _execute(client)
 
-    stored = _row(APPROVED["id"])
+    stored = stored_request(APPROVED["id"])
     assert stored is not None
     assert stored.transaction_hash == TX_HASH
     assert TX_HASH in (stored.audit_log or "")
@@ -269,16 +191,16 @@ def test_a_successful_execution_is_recorded_against_the_request(client) -> None:
 def test_a_failed_submission_leaves_the_request_executable(client, monkeypatch) -> None:
     """A claim that does not result in a payment must be released, or a blip strands the request."""
 
-    class _RejectingHttpClient(_FakeHttpClient):
+    class _RejectingHttpClient(FakeHttpClient):
         def post(self, _path: str, json: dict) -> dict:  # noqa: A002
             raise RuntimeError("blockchain unreachable")
 
     monkeypatch.setattr("aitbc.network.AITBCHTTPClient", _RejectingHttpClient, raising=False)
     assert _execute(client).status_code == 502
 
-    stored = _row(APPROVED["id"])
+    stored = stored_request(APPROVED["id"])
     assert stored is not None
     assert stored.transaction_hash is None
 
-    monkeypatch.setattr("aitbc.network.AITBCHTTPClient", _FakeHttpClient, raising=False)
+    monkeypatch.setattr("aitbc.network.AITBCHTTPClient", FakeHttpClient, raising=False)
     assert _execute(client).status_code == 200
