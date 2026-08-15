@@ -3,7 +3,9 @@ Constants Tests
 Tests for AITBC common constants
 """
 
+import os
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -27,8 +29,20 @@ class TestConstants:
     """Test AITBC constants"""
 
     def test_data_dir(self):
-        """Test DATA_DIR constant"""
-        assert DATA_DIR == Path("/var/lib/aitbc")
+        """DATA_DIR defaults to /var/lib/aitbc when AITBC_DATA_DIR is unset.
+
+        Asserted against a clean import rather than against the imported value, because the
+        test process deliberately does not use the default: the repo-root conftest sets
+        ``AITBC_DATA_DIR`` to a temporary directory so that no test writes into the deployed
+        data directory (V23-73). Reading the module attribute here would test the override and
+        say nothing about the default, which is the part that ships.
+        """
+        source = Path(__file__).resolve().parents[1] / "aitbc" / "constants.py"
+        env = {k: v for k, v in os.environ.items() if k not in ("AITBC_DATA_DIR", "AITBC_HOME")}
+        namespace: dict[str, object] = {"__name__": "aitbc.constants", "__file__": str(source)}
+        with mock.patch.dict(os.environ, env, clear=True):
+            exec(compile(source.read_text(), str(source), "exec"), namespace)  # noqa: S102
+        assert namespace["DATA_DIR"] == Path("/var/lib/aitbc")
 
     def test_config_dir(self):
         """Test CONFIG_DIR constant"""

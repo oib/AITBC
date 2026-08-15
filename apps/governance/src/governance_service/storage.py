@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 # Importing the models is what puts them on `governance_metadata`; create_all builds nothing
 # otherwise. This service's tables live there rather than on the global SQLModel registry --
@@ -29,7 +30,7 @@ def _build_database_url() -> str:
         user = os.getenv("DB_USER", "aitbc")
         password = os.getenv("DB_PASS", "")
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
-    return os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/governance_service.db")
+    return os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/data/governance_service.db")
 
 
 def _create_engine() -> AsyncEngine:

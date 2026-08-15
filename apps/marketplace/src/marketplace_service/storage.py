@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 
 from aitbc_shared import MarketplaceOffer
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
@@ -42,13 +41,15 @@ async def init_db() -> None:
     the import graph had touched them. `create_all` never drops, so databases that already have
     those three keep them (V23-72).
     """
-    # Looked up by name rather than via `MarketplaceOffer.__table__`: SQLModel does not declare
-    # that attribute, so mypy cannot see it. A rename raises KeyError here at startup, which is
-    # the loud failure we want.
-    shared = [SQLModel.metadata.tables[str(MarketplaceOffer.__tablename__)]]
+    # Straight off the class, not looked up in `SQLModel.metadata`: two test conftests mutate
+    # that registry -- one clears it, the other removes every table it does not own -- and a
+    # name lookup then raises KeyError for a table that is perfectly intact. The `Table` object
+    # the class holds survives being unregistered. The ignore is because SQLModel declares
+    # `__tablename__` but not `__table__`, which SQLAlchemy adds when the class is mapped.
+    shared = MarketplaceOffer.__table__  # type: ignore[attr-defined]
     async with engine.begin() as conn:
         await conn.run_sync(marketplace_metadata.create_all)
-        await conn.run_sync(SQLModel.metadata.create_all, tables=shared)
+        await conn.run_sync(lambda sync_conn: shared.create(sync_conn, checkfirst=True))
     logger.info("Marketplace service database initialized")
 
 
