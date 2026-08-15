@@ -4575,3 +4575,60 @@ That commit deleted 269 files, 41,658 lines. Across the five `test(cleanup)` com
 went from 4,300 passing to 2,748 — the gates went green by removing about a third of the
 tests, not by fixing them. Only these two files are restored here, because those are the two
 whose green status I verified; the remaining 191 need a decision that is not mine to make.
+
+---
+
+### V23-62 — the faucet's treasury endpoint had no tests, and the deleted ones were green
+
+Two findings, from following up the `test(cleanup)` sweep.
+
+**1. `POST /api/v1/agent/coin-requests/execute` was untested on both sides.**
+
+It is the only path in the tree that moves money without a signature from the payer: past one
+bearer-token check it calls `generate_signed_transaction` against the genesis wallet. The CLI
+that drives it was covered by `tests/cli/test_commands_coin_requests.py`, which the sweep
+deleted — so the whole path was uncovered while the hub was publishing the key that opens it
+(V23-58).
+
+New: `apps/agent-coordinator/tests/test_coin_request_execute_auth.py`, 9 tests. Five pin what
+holds today — no key and a wrong key are refused, either `COORDINATOR_API_KEY` *or*
+`SECRET_KEY` is accepted (the two are one credential), a valid key signs from the treasury, and
+a payout above the balance is refused. A fake `TransactionService` stands in for the signer so
+no test can emit a transaction.
+
+The other four are `xfail(strict=True)`, which keeps the suite green today and fails loudly the
+moment the endpoint is fixed rather than sitting as a comment nobody reads. They state what
+should hold and does not: the amount and destination should come from the stored request rather
+than the POST body, an unknown `request_id` should be refused, and the same request should not
+pay twice. `request_id` reaches the handler and is used in exactly one place — a log line. The
+hub never loads the request, never checks it was approved, never checks it exists, never records
+that it paid. So the endpoint is a general "send N from the treasury to X" primitive wearing the
+name of a narrower operation, and its authority is the treasury balance rather than the approval.
+
+**2. Every security-sensitive file the sweep deleted that I could run, passes.**
+
+The rationale for deleting 191 files was that they were failing and the debugging cost was not
+worth it — reasonable on its face. Measured against the current tree, it does not hold for this
+subset. Twelve of the deleted files sit in auth, crypto, signing, escrow or payment paths and
+run under a context I could reproduce. All twelve pass: **128 tests, zero failures.** Among
+them:
+
+- `test_block_signature_roundtrip.py` (4) — the regression guard for the signature being
+  dropped across the RPC boundary, the defect that left the follower stalled at height 93,274
+  for nine days with 12,287 blocks of backlog.
+- `test_commands_coin_requests.py` (6) — the CLI half of the treasury path above.
+- `test_auth_middleware.py` (4), `test_security.py` (10), `test_security_headers.py` (23),
+  `test_confidential_transactions.py` (32), `test_property_crypto.py` (14),
+  `test_dispute_auth.py` (11), `test_escrow.py` (13), `test_security_init.py` (2).
+
+Restored all ten not already recovered under V23-61. Root suite 2,748 → **2,833**;
+blockchain-node → **471**. Both green.
+
+Four more (`coordinator-api`, `api-gateway`, `aitbc-sdk`) need their own PYTHONPATH per CI's
+separate invocations and were not measured, so their status is unknown rather than green.
+
+**What this says about the sweep, narrowly:** its criterion caught tests that were failing *at
+some point*, not tests failing *now* — several had been fixed in the interim, including two
+whose fixes landed in the sweep's own parent commit. Gating on a red result in the current run
+would have kept these 128. The remaining ~63 files outside this security subset are untested by
+me and may well be genuinely rotted; nothing here argues otherwise.
