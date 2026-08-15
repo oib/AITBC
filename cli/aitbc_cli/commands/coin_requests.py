@@ -355,19 +355,23 @@ def show(ctx, request_id):
         click.echo(f"Audit Log: {req.audit_log}")
 
 
-def _chain_has_transaction(rpc_url: str, tx_hash: str) -> bool | None:
+def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = None) -> bool | None:
     """Does the chain hold this transaction? None when the chain could not be reached.
 
     The distinction matters: a missing transaction is a discrepancy to act on, an
     unreachable node is not, and treating the second as the first would invite someone
     to reopen a request that was paid perfectly well.
+
+    `chain_id` is left off unless asked for. The node knows which chain it is serving and
+    the caller does not: guessing here — from `CHAIN_ID`, which defaults to `ait-hub` while
+    the hub actually serves `ait-hub.aitbc.bubuit.net` — sends a chain nobody has, and every
+    hash comes back 404. That failure reads as "no payout was ever made", which is exactly
+    the state that invites reopening requests that were paid. Pass `--chain-id` to query a
+    node serving several islands.
     """
-    chain_id = TransactionService().chain_id
+    url = f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}"
     try:
-        response = requests.get(
-            f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}?chain_id={chain_id}",
-            timeout=10,
-        )
+        response = requests.get(url, params={"chain_id": chain_id} if chain_id else None, timeout=10)
     except Exception as e:
         click.echo(f"  Could not reach {rpc_url}: {e}")
         return None
@@ -382,8 +386,9 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str) -> bool | None:
 @coin_requests.command()
 @click.option("--rpc-url", default=None, help="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
 @click.option("--annotate", is_flag=True, help="Record the discrepancy in each affected request's audit log")
+@click.option("--chain-id", default=None, help="Island to query; omit to let the node answer for its own chain")
 @click.pass_context
-def reconcile(ctx, rpc_url, annotate):
+def reconcile(ctx, rpc_url, annotate, chain_id):
     """Check executed requests against the chain and report any the chain has never heard of.
 
     A coin request records its `transaction_hash` here, in a database the chain knows nothing
@@ -407,7 +412,7 @@ def reconcile(ctx, rpc_url, annotate):
                 click.echo(f"{req.id}: stranded mid-execution ({tx_hash}) — reconcile against the chain by hand")
                 continue
             checked += 1
-            present = _chain_has_transaction(rpc_url, tx_hash)
+            present = _chain_has_transaction(rpc_url, tx_hash, chain_id)
             if present is None:
                 unreachable += 1
                 continue
@@ -431,8 +436,9 @@ def reconcile(ctx, rpc_url, annotate):
 @click.argument("request_id")
 @click.option("--rpc-url", default=None, help="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
 @click.option("--force", is_flag=True, help="Reopen even though the chain still has the transaction")
+@click.option("--chain-id", default=None, help="Island to query; omit to let the node answer for its own chain")
 @click.pass_context
-def reopen(ctx, request_id, rpc_url, force):
+def reopen(ctx, request_id, rpc_url, force, chain_id):
     """Clear one request's transaction hash so it can be executed again.
 
     Named explicitly and one at a time, because this is the operation that can pay twice: the
@@ -451,7 +457,7 @@ def reopen(ctx, request_id, rpc_url, force):
 
         tx_hash = str(req.transaction_hash)
         if not tx_hash.startswith("claiming:"):
-            present = _chain_has_transaction(rpc_url, tx_hash)
+            present = _chain_has_transaction(rpc_url, tx_hash, chain_id)
             if present is None and not force:
                 click.echo("Refusing to reopen: could not confirm with the chain whether this was paid.")
                 return

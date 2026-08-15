@@ -57,13 +57,19 @@ def chain(monkeypatch):
         with Session(engine) as open_session:
             yield open_session
 
+    from aitbc_chain.rpc import utils as rpc_utils
+
     monkeypatch.setattr(transactions_module, "session_scope", _session_scope)
-    monkeypatch.setattr(transactions_module, "get_chain_id", lambda _requested: CHAIN_ID)
+    # Deliberately not monkeypatching `get_chain_id`. Stubbing it as `lambda _requested: ...`
+    # swallows the argument, which is how the omitted-parameter defect below reached the hub
+    # and 404'd every hash on the chain. Configure the node instead and let the real
+    # resolution run.
+    monkeypatch.setattr(rpc_utils.settings, "chain_id", CHAIN_ID)
     return transactions_module
 
 
-async def _get(module, tx_hash: str):
-    return await module.get_transaction.__wrapped__(None, tx_hash, CHAIN_ID)
+async def _get(module, tx_hash: str, chain_id: str | None = CHAIN_ID):
+    return await module.get_transaction.__wrapped__(None, tx_hash, chain_id)
 
 
 async def test_a_transaction_the_chain_holds_is_returned(chain) -> None:
@@ -84,11 +90,24 @@ async def test_a_transaction_the_chain_does_not_hold_is_a_404(chain) -> None:
     assert "not found" in raised.value.detail
 
 
-async def test_the_lookup_is_scoped_to_the_chain(chain, monkeypatch) -> None:
+async def test_the_lookup_is_scoped_to_the_chain(chain) -> None:
     """A hash from another island must not read as present on this one."""
-    monkeypatch.setattr(chain, "get_chain_id", lambda _requested: "ait-other")
-
     with pytest.raises(HTTPException) as raised:
-        await _get(chain, TX_HASH)
+        await _get(chain, TX_HASH, chain_id="ait-other")
 
     assert raised.value.status_code == 404
+
+
+@pytest.mark.parametrize("omitted", [None, ""])
+async def test_an_omitted_chain_id_means_this_node_s_own_chain(chain, omitted) -> None:
+    """The defect that reached the hub, in one test.
+
+    `get_chain_id` falls back to the configured chain for None only; an empty string comes
+    back as an empty string, and `chain_id == ""` matches nothing. Callers that omitted the
+    parameter — the documented default, and what `coin-requests reconcile` did — got a 404
+    for every hash on the chain. That reads as "no payout was ever made", which is the exact
+    state that invites reopening requests that were paid perfectly well.
+    """
+    result = await _get(chain, TX_HASH, chain_id=omitted)
+
+    assert result["chain_id"] == CHAIN_ID
