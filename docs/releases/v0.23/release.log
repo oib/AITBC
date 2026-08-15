@@ -4536,3 +4536,42 @@ matching the hub.
 **Verified:** 749 passed / 17 skipped (blockchain-node, +5 new), ruff clean. V23-59 confirmed
 working in production — this follower built block 0 as `0x7a444401f721fd10…`, the hub's exact
 hash, and resumed syncing.
+
+---
+
+### V23-61 — two passing test files were deleted by the red-CI cleanup
+
+While diagnosing the red gates on `main`, I traced the four remaining local failures to three
+root causes, none of which was the event-loop misconfiguration this log previously blamed:
+
+1. Nine tests in `tests/cross_phase/test_critical_failures.py` errored because
+   `MultiValidatorPoA.__init__` raises unless `multi_validator_consensus_enabled` is set. That
+   flag defaults False pending security review. The guard governs what a *node* may run in
+   production; it is not a property those tests assert. Fixed with an autouse fixture that
+   patches the setting on the object the constructor reads — an env var would arrive too late,
+   since the setting resolves at import.
+2. `calculate_dest_timelock()` gained two required arguments when someone correctly observed
+   that block heights on two chains are independent, so the remaining *duration* is what
+   converts between them. The tests still called the three-argument form, and the assertion
+   they made — `dest_tl * 3 < source_tl * 5` — multiplies absolute heights on unrelated
+   chains. Rewritten to compare remaining durations against the margin.
+3. `/v1/register` and `/v1/login` moved to a wallet-signature challenge. The tests still
+   posted a bare email and username, and one used `auth_login_wallet_<hex>` as a wallet
+   address, which is not 20 hex bytes.
+
+**The correction that matters more than any of the three:** the earlier entry in this log
+attributing ~999 failures to `Runner.run() cannot be called from a running event loop` was
+wrong. `asyncio_mode = "auto"` has been set in `pyproject.toml` throughout. That number came
+from a measurement I did not re-derive before repeating, and re-running the suite locally
+produced 4 failures, not 514.
+
+**Restored:** `tests/integration/test_auth.py` and `tests/integration/test_atomic_settlement.py`
+were deleted by `ab846475c` ("remove skipped, errored, and failed test functions"). Both were
+already **passing** at its parent — fixes for (2) and (3) had landed in that same parent — and
+both pass now, 24 tests between them. They were removed while green.
+
+That commit deleted 269 files, 41,658 lines. Across the five `test(cleanup)` commits
+(`0edfb53b7..ab846475c`) it is 193 test files and roughly 51,000 lines. The configured suite
+went from 4,300 passing to 2,748 — the gates went green by removing about a third of the
+tests, not by fixing them. Only these two files are restored here, because those are the two
+whose green status I verified; the remaining 191 need a decision that is not mine to make.
