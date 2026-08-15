@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 # Importing the models is what puts them on `gpu_metadata`; create_all builds nothing
 # otherwise. This service's tables live there rather than on the global SQLModel registry --
@@ -19,7 +20,8 @@ from .domain.base import gpu_metadata
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/gpu_service.db")
+DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/gpu_service.db"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB)
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
