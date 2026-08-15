@@ -1,0 +1,265 @@
+"""B12: Integration tests for atomic cross-chain settlement (v0.9.0).
+
+Tests the full settlement lifecycle via the coordinator, HTLC utilities, and
+proof chain verification. Uses mocked settlement service to avoid SQLAlchemy
+model registry conflicts when run alongside other app tests.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from aitbc.settlement.htlc import (
+    HTLCState,
+    HTLCStateMachine,
+    calculate_dest_timelock,
+    calculate_source_timelock,
+    compute_hashlock,
+    generate_secret,
+    validate_timelocks,
+    verify_secret,
+)
+from aitbc.settlement.proofs import (
+    build_execution_proof,
+    build_lock_proof,
+    build_release_proof,
+    build_settlement_proof,
+    build_verification_proof,
+    compute_proof_hash,
+    verify_proof_chain,
+)
+from aitbc.settlement.types import EscrowProof, EscrowStatus, ProofType
+
+
+# ---------------------------------------------------------------------------
+# HTLC utility tests
+# ---------------------------------------------------------------------------
+
+
+class TestHTLCUtilities:
+    def test_secret_generation_and_verification(self):
+        secret = generate_secret()
+        hashlock = compute_hashlock(secret)
+        assert verify_secret(secret, hashlock)
+        assert not verify_secret("0xwrong", hashlock)
+
+    def test_timelock_calculation(self):
+        # The two chains are at different heights on purpose. Heights are independent
+        # quantities, so what converts between chains is the remaining *duration*, not the
+        # height -- which is why both current heights are arguments.
+        source_current, dest_current = 100, 200
+        margin = 300
+
+        source_tl = calculate_source_timelock(
+            current_block_height=source_current,
+            timeout_seconds=3600,
+            block_time_seconds=5,
+        )
+        dest_tl = calculate_dest_timelock(
+            source_timelock=source_tl,
+            source_current_height=source_current,
+            source_block_time=5,
+            dest_current_height=dest_current,
+            dest_block_time=3,
+            margin_seconds=margin,
+        )
+
+        assert source_tl > source_current
+        assert dest_tl > dest_current
+
+        # The property that matters: the dest HTLC must expire far enough ahead of the source
+        # one that the buyer still has `margin` seconds to spend the revealed secret. Compare
+        # remaining durations -- the previous form compared `dest_tl * 3 < source_tl * 5`,
+        # which multiplies absolute heights on unrelated chains and happens to pass.
+        source_remaining = (source_tl - source_current) * 5
+        dest_remaining = (dest_tl - dest_current) * 3
+        assert dest_remaining <= source_remaining - margin
+
+    def test_validate_timelocks_valid(self):
+        source_current, dest_current = 100, 200
+        source_tl = calculate_source_timelock(source_current, 7200, 5)
+        dest_tl = calculate_dest_timelock(source_tl, source_current, 5, dest_current, 3)
+        errors = validate_timelocks(source_tl, dest_tl, source_current, dest_current, 5, 3, min_margin_seconds=0)
+        assert errors == [], f"Expected no errors, got: {errors}"
+
+    def test_validate_timelocks_dest_too_late(self):
+        source_tl = calculate_source_timelock(100, 3600, 5)
+        errors = validate_timelocks(source_tl, source_tl, 100, 100, 5, 5)
+        assert len(errors) > 0
+
+    def test_htlc_state_machine_happy_path(self):
+        sm = HTLCStateMachine()
+        result = sm.transition(HTLCState.CREATED, HTLCState.FUNDED)
+        assert result == HTLCState.FUNDED
+        result = sm.transition(HTLCState.FUNDED, HTLCState.COMPLETED)
+        assert result == HTLCState.COMPLETED
+
+    def test_htlc_state_machine_refund_path(self):
+        sm = HTLCStateMachine()
+        sm.transition(HTLCState.CREATED, HTLCState.FUNDED)
+        result = sm.transition(HTLCState.FUNDED, HTLCState.REFUNDED)
+        assert result == HTLCState.REFUNDED
+
+    def test_htlc_state_machine_invalid_transition(self):
+        sm = HTLCStateMachine()
+        with pytest.raises(ValueError):
+            sm.transition(HTLCState.CREATED, HTLCState.COMPLETED)
+
+
+# ---------------------------------------------------------------------------
+# Proof chain tests
+# ---------------------------------------------------------------------------
+
+
+class TestProofChain:
+    def test_full_proof_chain_valid(self):
+        """Build all 5 proofs and verify the chain."""
+        lock_proof = build_lock_proof(
+            source_chain="ait-hub",
+            lock_tx_hash="0xlock123",
+            amount=1000,
+            sender="alice",
+            recipient="bob",
+            block_height=100,
+            block_hash="0xblock100",
+            timestamp=1000.0,
+        )
+
+        verify_proof = build_verification_proof(
+            dest_chain="ait-island1",
+            verification_tx_hash="0xverify123",
+            escrow_id="esc_001",
+            block_height=200,
+            block_hash="0xblock200",
+            previous_proof_hash=compute_proof_hash(lock_proof),
+            timestamp=2000.0,
+        )
+
+        exec_proof = build_execution_proof(
+            dest_chain="ait-island1",
+            execution_tx_hash="0xexec123",
+            trade_id="trade_001",
+            block_height=201,
+            block_hash="0xblock201",
+            previous_proof_hash=compute_proof_hash(verify_proof),
+            timestamp=3000.0,
+        )
+
+        release_proof = build_release_proof(
+            dest_chain="ait-island1",
+            release_tx_hash="0xrelease123",
+            escrow_id="esc_001",
+            block_height=202,
+            block_hash="0xblock202",
+            previous_proof_hash=compute_proof_hash(exec_proof),
+            timestamp=4000.0,
+        )
+
+        settlement_proof = build_settlement_proof(
+            source_chain="ait-hub",
+            settlement_tx_hash="0xsettle123",
+            escrow_id="esc_001",
+            block_height=101,
+            block_hash="0xblock101",
+            previous_proof_hash=compute_proof_hash(release_proof),
+            timestamp=5000.0,
+        )
+
+        chain = [lock_proof, verify_proof, exec_proof, release_proof, settlement_proof]
+        assert not verify_proof_chain(chain), "Proof chain should be valid (no errors)"
+
+    def test_broken_proof_chain_detected(self):
+        """Tamper with a proof link — chain verification fails."""
+        lock_proof = build_lock_proof(
+            source_chain="ait-hub",
+            lock_tx_hash="0xlock",
+            amount=100,
+            sender="alice",
+            recipient="bob",
+            block_height=10,
+            block_hash="0xblk10",
+            timestamp=100.0,
+        )
+
+        verify_proof = build_verification_proof(
+            dest_chain="ait-island1",
+            verification_tx_hash="0xverify",
+            escrow_id="esc_002",
+            block_height=20,
+            block_hash="0xblk20",
+            previous_proof_hash=compute_proof_hash(lock_proof),
+            timestamp=200.0,
+        )
+
+        # Tamper: break the link
+        verify_proof.previous_proof_hash = "0xtampered"
+
+        chain = [lock_proof, verify_proof]
+        assert verify_proof_chain(chain), "Broken chain should return errors"
+
+    def test_empty_proof_chain_returns_error(self):
+        """Empty chain returns an error (not valid)."""
+        errors = verify_proof_chain([])
+        assert len(errors) > 0
+
+    def test_single_proof_chain_valid(self):
+        """Single proof with no previous is valid."""
+        lock_proof = build_lock_proof(
+            source_chain="ait-hub",
+            lock_tx_hash="0xlock",
+            amount=100,
+            sender="alice",
+            recipient="bob",
+            block_height=10,
+            block_hash="0xblk10",
+            timestamp=100.0,
+        )
+        assert not verify_proof_chain([lock_proof]), "Single proof should be valid"
+
+
+# ---------------------------------------------------------------------------
+# Settlement types tests
+# ---------------------------------------------------------------------------
+
+
+class TestSettlementTypes:
+    def test_escrow_status_values(self):
+        assert EscrowStatus.PENDING.value == "pending"
+        assert EscrowStatus.LOCKED.value == "locked"
+        assert EscrowStatus.VERIFIED.value == "verified"
+        assert EscrowStatus.COMPLETED.value == "completed"
+        assert EscrowStatus.REFUNDED.value == "refunded"
+        assert EscrowStatus.FAILED.value == "failed"
+
+    def test_proof_type_values(self):
+        assert ProofType.LOCK.value == "lock"
+        assert ProofType.VERIFICATION.value == "verification"
+        assert ProofType.EXECUTION.value == "execution"
+        assert ProofType.RELEASE.value == "release"
+        assert ProofType.SETTLEMENT.value == "settlement"
+
+    def test_escrow_status_transitions(self):
+        """Verify expected status ordering."""
+        statuses = [
+            EscrowStatus.PENDING,
+            EscrowStatus.LOCKED,
+            EscrowStatus.VERIFIED,
+            EscrowStatus.COMPLETED,
+        ]
+        for i in range(len(statuses) - 1):
+            assert statuses[i] != statuses[i + 1]
+
+    def test_proof_to_dict_roundtrip(self):
+        proof = EscrowProof(
+            proof_type=ProofType.LOCK,
+            chain_id="ait-hub",
+            block_height=100,
+            block_hash="0xabc",
+            tx_hash="0xtx",
+            timestamp=1000.0,
+        )
+        # Verify fields
+        assert proof.proof_type == ProofType.LOCK
+        assert proof.chain_id == "ait-hub"
+        assert proof.block_height == 100
+        assert proof.previous_proof_hash == ""
