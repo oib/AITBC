@@ -1,14 +1,8 @@
 """Unit tests for AI engine service"""
 
-import sys
-from unittest.mock import MagicMock
-
 import pytest
 
-# Mock numpy before importing
-sys.modules["numpy"] = MagicMock()
-
-from ai_service import AnalysisRequest, SimpleAITradingEngine, TradingRequest  # noqa: E402
+from ai_service import AnalysisRequest, SimpleAITradingEngine, TradingRequest
 
 
 @pytest.mark.unit

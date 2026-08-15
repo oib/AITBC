@@ -1,15 +1,11 @@
 """Edge case and error handling tests for AI engine service"""
 
-import sys
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-# Mock numpy before importing
-sys.modules["numpy"] = MagicMock()
-
-from ai_service import SimpleAITradingEngine  # noqa: E402
+from ai_service import SimpleAITradingEngine
 
 
 @pytest.mark.unit

@@ -9,6 +9,13 @@ import requests
 
 
 def _load_env_file(path: str, override: bool = False):
+    # AITBC_SKIP_ENV_FILES lets a process opt out of inheriting the machine's deployed
+    # configuration. The test suite sets it in the root conftest, because importing this
+    # module puts the hub's real BLOCKCHAIN_RPC_URL, GENESIS_* and AGENT_DB_PATH in front of
+    # every test that runs afterwards, and a suite whose results depend on what is deployed
+    # on the box is not measuring the code (V23-69).
+    if os.getenv("AITBC_SKIP_ENV_FILES"):
+        return
     if os.path.exists(path):
         with open(path) as f:
             for line in f:
