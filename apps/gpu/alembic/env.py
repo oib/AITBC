@@ -47,7 +47,9 @@ def _sync_database_url() -> str:
     """
     import os
 
-    url = os.getenv("DATABASE_URL", "sqlite:////var/lib/aitbc/data/gpu_service.db")
+    from aitbc.constants import DATA_DIR
+
+    url = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR}/data/gpu_service.db")
     return url.replace("+aiosqlite", "").replace("+asyncpg", "")
 
 

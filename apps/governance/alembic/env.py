@@ -31,7 +31,9 @@ def _sync_database_url() -> str:
         user = os.getenv("DB_USER", "aitbc")
         password = os.getenv("DB_PASS", "")
         return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
-    url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/governance_service.db")
+    from aitbc.constants import DATA_DIR
+
+    url = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/data/governance_service.db")
     # Convert async driver to sync for Alembic
     return url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 

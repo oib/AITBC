@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+import atexit
 import os
+import shutil
 import socket
+import tempfile
 from pathlib import Path
 
 import pytest
+
+# Keep chain databases out of the deployed data directory. The repo-root conftest already
+# does this for a full run, but this suite is also run on its own from apps/blockchain-node,
+# where that file is not collected — and on its own is how it created `chain-a/` and
+# `chain-sig/` under /var/lib/aitbc/data, named after the test-only chain IDs below (V23-73).
+# `setdefault`, so the root conftest's directory wins when both are in play.
+_TEST_DATA_DIR = tempfile.mkdtemp(prefix="aitbc-chain-tests-data-")
+atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
+os.makedirs(os.path.join(_TEST_DATA_DIR, "data"), exist_ok=True)
+os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
 
 # Disable rate limiting in tests to avoid 429s from tight loops
 os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
