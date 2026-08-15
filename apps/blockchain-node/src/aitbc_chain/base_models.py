@@ -22,29 +22,20 @@ def _validate_optional_hex(value: str | None, field_name: str) -> str | None:
     return _validate_hex(value, field_name)
 
 
-_AIT_PREFIXES = ("aitbc1", "ait1")
-_HEX_CHARS = frozenset("0123456789abcdef")
-
-
 def _to_ait_address(address: str) -> str:
     """Return the canonical `ait1` spelling of a chain account address.
 
-    Accepts `0x...`, `ait1...` and `aitbc1...` spellings. Anything that does
-    not look like a 40-hex address is passed through unchanged so callers that
-    use short/alias values do not break.
+    Delegates parsing to ``canonical_address`` from the signature layer so the
+    definition of what counts as an address is not duplicated. Valid `0x...`,
+    `ait1...` and `aitbc1...` spellings become lowercase `ait1` 40-hex; anything
+    that does not parse is passed through unchanged.
     """
-    lowered = address.strip().lower()
-    for prefix in _AIT_PREFIXES:
-        if lowered.startswith(prefix):
-            body = lowered[len(prefix) :]
-            if len(body) == 40 and _HEX_CHARS.issuperset(body):
-                return f"ait1{body}"
-            break
-    if lowered.startswith("0x"):
-        body = lowered[2:]
-        if len(body) == 40 and _HEX_CHARS.issuperset(body):
-            return f"ait1{body}"
-    return lowered
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    c = canonical_address(address)
+    if c.startswith("0x") and len(c) == 42:
+        return f"ait1{c[2:]}"
+    return c
 
 
 class AccountAddress(TypeDecorator):
