@@ -4895,3 +4895,39 @@ The index caveat is deliberate: `lower(column)` will not use the plain index on 
 `recipient`. These three queries are balance reconciliation and transaction history, not the
 block path, and a functional index can be added if either becomes hot. Correctness on money
 first.
+
+---
+
+### V23-66 — the coin-request database claims a payout the chain has never heard of
+
+`req-follower-1782118019` records a `transaction_hash` for a transaction that no longer exists.
+The hub's chain was reset on 2026-08-15 and rebuilt from genesis; the coin-request database was
+not, and nothing connects them. So it goes on asserting that a payout settled, on a chain nobody
+has any more.
+
+Fixing that one row by hand would have taken a minute and taught nothing. The two stores can
+disagree by construction — one is the chain, the other is an application database beside it —
+and there was no way to find out that they had.
+
+**The chain could not be asked.** `/rpc/transactions` describes transactions in bulk with
+filters for type, island and order, but there was no way to ask "do you have this hash". Added
+`GET /rpc/transaction/{tx_hash}`, 404 when it does not. The 404 is the part with a consumer.
+
+**`aitbc coin-requests reconcile`** checks every request holding a hash against the chain and
+reports the ones it has never heard of. Read-only by default, so it is safe on a schedule;
+`--annotate` writes the finding into each affected request's audit log and still clears nothing.
+
+**`aitbc coin-requests reopen <id>`** clears one hash so the request can be paid again. Separate
+command, one request at a time, named explicitly — because that hash is the only thing standing
+between a request and a second payout, here and at `/execute`. It refuses when the chain still
+holds the transaction, and refuses when the chain cannot be reached to say either way. That
+second refusal is the one worth having: an unreachable node looks exactly like a missing
+transaction unless the code distinguishes them, and treating them alike invites reissuing a
+payout that was made perfectly well. `--force` exists and says so in the output.
+
+For `req-follower-1782118019` specifically the answer is *not* to reopen it: `-v2` was already
+issued and paid. Annotate it, so the record says what happened rather than nothing.
+
+14 tests. The three that carry the design are the two refusals in `reopen` and
+`test_annotate_records_the_discrepancy_but_still_does_not_clear_it` — annotating a whole
+database must never make anything payable. blockchain-node 538, root 2918, both green.

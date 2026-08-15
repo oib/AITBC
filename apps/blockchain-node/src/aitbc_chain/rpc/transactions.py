@@ -259,3 +259,38 @@ async def query_transactions(
         _logger.info(f"Returning {len(results)} transactions after filtering")
 
         return results
+
+
+@rate_limit(rate=200, per=60)
+async def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Look up one transaction by hash (V23-66).
+
+    The chain could describe its transactions in bulk but could not answer "do you have
+    this one", so nothing outside it could check a hash it had recorded. That matters for
+    any record kept beside the chain rather than in it — the coin-request database stores
+    a `transaction_hash` against every executed request, and a chain reset leaves those
+    hashes pointing at transactions that no longer exist, with no way to find out.
+    """
+    resolved_chain_id = get_chain_id(chain_id if chain_id else "")
+    with session_scope() as session:
+        tx = session.exec(
+            select(Transaction).where(Transaction.chain_id == resolved_chain_id, Transaction.tx_hash == tx_hash)
+        ).first()
+        if tx is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction {tx_hash} not found")
+        return {
+            "transaction_id": tx.id,
+            "tx_hash": tx.tx_hash,
+            "chain_id": tx.chain_id,
+            "block_height": tx.block_height,
+            "sender": tx.sender,
+            "recipient": tx.recipient,
+            "payload": tx.payload,
+            "type": tx.type,
+            "status": tx.status,
+            "created_at": tx.created_at.isoformat(),
+            "timestamp": tx.timestamp,
+            "nonce": tx.nonce,
+            "value": tx.value,
+            "fee": tx.fee,
+        }

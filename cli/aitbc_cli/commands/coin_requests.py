@@ -353,3 +353,111 @@ def show(ctx, request_id):
         click.echo(f"Expires At: {req.expires_at}")
         click.echo(f"Transaction Hash: {req.transaction_hash}")
         click.echo(f"Audit Log: {req.audit_log}")
+
+
+def _chain_has_transaction(rpc_url: str, tx_hash: str) -> bool | None:
+    """Does the chain hold this transaction? None when the chain could not be reached.
+
+    The distinction matters: a missing transaction is a discrepancy to act on, an
+    unreachable node is not, and treating the second as the first would invite someone
+    to reopen a request that was paid perfectly well.
+    """
+    try:
+        response = requests.get(f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}", timeout=10)
+    except Exception as e:
+        click.echo(f"  Could not reach {rpc_url}: {e}")
+        return None
+    if response.status_code == 200:
+        return True
+    if response.status_code == 404:
+        return False
+    click.echo(f"  Unexpected {response.status_code} from {rpc_url}: {response.text[:200]}")
+    return None
+
+
+@coin_requests.command()
+@click.option("--rpc-url", default=None, help="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
+@click.option("--annotate", is_flag=True, help="Record the discrepancy in each affected request's audit log")
+@click.pass_context
+def reconcile(ctx, rpc_url, annotate):
+    """Check executed requests against the chain and report any the chain has never heard of.
+
+    A coin request records its `transaction_hash` here, in a database the chain knows nothing
+    about. The two can disagree — a chain reset is the obvious way, and it happened on
+    2026-08-15 — and when they do this database keeps claiming a payout that no longer exists
+    anywhere. Nothing detects that on its own.
+
+    Reporting is all this does by default. It deliberately will not clear a hash, because
+    clearing one makes the request payable again and the operator has usually already reissued
+    it; use `reopen` for that, one request at a time, once you know what happened.
+    """
+    rpc_url = rpc_url or os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    click.echo(f"Checking executed coin requests against {rpc_url}\n")
+
+    checked = missing = unreachable = 0
+    with get_db_session() as session:
+        executed = session.query(CoinRequest).filter(CoinRequest.transaction_hash.isnot(None)).all()
+        for req in executed:
+            tx_hash = str(req.transaction_hash)
+            if tx_hash.startswith("claiming:"):
+                click.echo(f"{req.id}: stranded mid-execution ({tx_hash}) — reconcile against the chain by hand")
+                continue
+            checked += 1
+            present = _chain_has_transaction(rpc_url, tx_hash)
+            if present is None:
+                unreachable += 1
+                continue
+            if present:
+                continue
+            missing += 1
+            amount = format_ait(req.amount) if req.amount is not None else "N/A"
+            click.echo(f"{req.id}: chain has no {tx_hash}")
+            click.echo(f"  claims {amount} paid to {req.wallet_address}")
+            if annotate:
+                entry = f" | Reconciled {datetime.now(UTC).isoformat()}: {tx_hash} absent from chain at {rpc_url}"
+                req.audit_log = (req.audit_log or "") + entry
+                click.echo("  recorded in audit log")
+
+    click.echo(f"\n{checked} checked, {missing} not on chain, {unreachable} unverifiable")
+    if missing and not annotate:
+        click.echo("Re-run with --annotate to record these, or `reopen <id>` to make one executable again.")
+
+
+@coin_requests.command()
+@click.argument("request_id")
+@click.option("--rpc-url", default=None, help="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
+@click.option("--force", is_flag=True, help="Reopen even though the chain still has the transaction")
+@click.pass_context
+def reopen(ctx, request_id, rpc_url, force):
+    """Clear one request's transaction hash so it can be executed again.
+
+    Named explicitly and one at a time, because this is the operation that can pay twice: the
+    hash is the only thing stopping a second payout, here and at the hub. It refuses when the
+    chain still has the transaction, and when the chain cannot be reached to say either way.
+    """
+    rpc_url = rpc_url or os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    with get_db_session() as session:
+        req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
+        if not req:
+            click.echo(f"Request {request_id} not found.")
+            return
+        if not req.transaction_hash:
+            click.echo(f"Request {request_id} has no transaction hash — it is already executable.")
+            return
+
+        tx_hash = str(req.transaction_hash)
+        if not tx_hash.startswith("claiming:"):
+            present = _chain_has_transaction(rpc_url, tx_hash)
+            if present is None and not force:
+                click.echo("Refusing to reopen: could not confirm with the chain whether this was paid.")
+                return
+            if present:
+                click.echo(f"Refusing to reopen: the chain has {tx_hash}. This request was paid.")
+                if not force:
+                    return
+                click.echo("--force given; reopening a request the chain says was paid.")
+
+        entry = f" | Reopened {datetime.now(UTC).isoformat()}: cleared {tx_hash} (absent from chain at {rpc_url})"
+        req.audit_log = (req.audit_log or "") + entry
+        req.transaction_hash = None
+        click.echo(f"Reopened {request_id}. It is executable again — the hub will pay it if you execute it.")
