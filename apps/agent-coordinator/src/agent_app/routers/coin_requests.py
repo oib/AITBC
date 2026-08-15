@@ -19,6 +19,7 @@ is approved and the island keeps working unattended, outside it the request wait
 an operator. See `services.faucet_policy`.
 """
 
+import hmac
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -53,9 +54,31 @@ REQUEST_TTL = timedelta(hours=24)
 
 
 def _require_api_key(x_api_key: str | None) -> None:
-    """Answer only "may this caller ask", never "may this payment happen"."""
-    expected_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
-    if not expected_key or x_api_key != expected_key:
+    """Answer only "may this caller ask", never "may this payment happen".
+
+    Two keys open these two endpoints, and the difference is the point (V23-68).
+
+    `FOLLOWER_API_KEY` is meant to be published — it goes in the public bootstrap file that
+    every island reads, so anyone at all can hold it. It is safe to publish only because it
+    reaches nothing but `/register` and `/execute`, and neither of those will pay outside the
+    hub's own faucet policy: `/execute` takes the amount and destination from the stored row,
+    and `/register` writes rows the policy has ruled on.
+
+    `COORDINATOR_API_KEY` is not that kind of key, whatever its name suggests. It also
+    authenticates the agent WebSocket, where `agent_id` is a query parameter and the key is
+    the only check — so it connects *as any agent* and reaches `request_coins_handler`, which
+    signs and submits on the spot. And `aitbc.auth.dependencies.require_miner_api_key` falls
+    back to it when `miner_api_keys` is empty, which is the default, so it is a miner
+    credential on coordinator-api's miner, settlement and marketplace routers too. It is
+    accepted here so hub operators keep working, and it must stay off the public file.
+
+    `SECRET_KEY` is accepted for the same reason and carries the same warning.
+    """
+    offered = x_api_key or ""
+    accepted = [os.getenv(name) or "" for name in ("FOLLOWER_API_KEY", "COORDINATOR_API_KEY", "SECRET_KEY")]
+    # Constant-time across every configured key; the number of keys is not secret and
+    # comparing them one at a time with `==` leaks where the first mismatch is.
+    if not offered or not any(hmac.compare_digest(offered, candidate) for candidate in accepted if candidate):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 

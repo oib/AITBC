@@ -192,10 +192,15 @@ def execute(ctx, request_id):
         # If no local genesis key, forward to hub for execution
         if not tx_service.genesis_private_key:
             hub_url = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
-            api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
+            # FOLLOWER_API_KEY first: it is the one an island is meant to hold, published in
+            # the public bootstrap file and scoped to /register and /execute. The other two
+            # also open the agent WebSocket and coordinator-api's miner endpoints, so they
+            # belong to hub operators only and are accepted here as a fallback (V23-68).
+            api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
             if not api_key:
-                click.echo("Error: No GENESIS_PRIVATE_KEY locally and COORDINATOR_API_KEY not set.")
-                click.echo("Ensure /etc/aitbc/blockchain-secrets.env contains COORDINATOR_API_KEY.")
+                click.echo("Error: No GENESIS_PRIVATE_KEY locally and no API key set.")
+                click.echo("Followers: FOLLOWER_API_KEY comes from the hub's public bootstrap file,")
+                click.echo("  /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.")
                 return
             base_url = f"{hub_url.rstrip('/')}/coin-requests"
             execute_url = f"{base_url}/execute"
