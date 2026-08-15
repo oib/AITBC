@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from ..logger import get_logger
+from ..base_models import _to_ait_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_transaction_signature
 from .gpu_resources import GPUAllocation, GPURegistration
@@ -78,7 +79,7 @@ class StateTransition:
         if persisted_tx is not None:
             logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
             return (False, f"Transaction {tx_hash} already processed (replay attack)")
-        sender_addr = tx_data.get("from")
+        sender_addr = _to_ait_address(tx_data.get("from") or "")
         signature = tx_data.get("signature")
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
@@ -115,7 +116,7 @@ class StateTransition:
             total_cost = value + fee
         if sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
-        recipient_addr = tx_data.get("to")
+        recipient_addr = _to_ait_address(tx_data.get("to") or "")
         if tx_type not in {"MESSAGE", "RECEIPT_CLAIM"}:
             recipient_account = session.get(Account, (chain_id, recipient_addr))
             if not recipient_account:
@@ -154,8 +155,8 @@ class StateTransition:
         is_valid, error_msg = self.validate_transaction(session, chain_id, tx_data, tx_hash)
         if not is_valid:
             return (False, error_msg)
-        sender_addr = tx_data.get("from")
-        recipient_addr = tx_data.get("to")
+        sender_addr = _to_ait_address(tx_data.get("from") or "")
+        recipient_addr = _to_ait_address(tx_data.get("to") or "")
         sender_account = session.get(Account, (chain_id, sender_addr))
         tx_record = session.exec(
             select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)

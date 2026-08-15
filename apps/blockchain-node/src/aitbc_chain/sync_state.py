@@ -10,7 +10,7 @@ from sqlmodel import select
 
 from aitbc.sync import apply_state_diff, decode_state_diff
 
-from .base_models import Account
+from .base_models import Account, _to_ait_address
 from .config import settings
 from .logger import get_logger
 from .state import state_root_utils
@@ -57,9 +57,9 @@ class StateSyncMixin(SyncBase):
             # Batch-fetch all existing accounts for the chain in one query
             # (eliminates the N+1 per-account session.get() lookup).
             existing_accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
-            account_map: dict[str, Account] = {acc.address: acc for acc in existing_accounts}
+            account_map: dict[str, Account] = {_to_ait_address(acc.address): acc for acc in existing_accounts}
             for acct_data in remote_accounts:
-                addr = acct_data["address"]
+                addr = _to_ait_address(acct_data["address"])
                 balance = acct_data["balance"]
                 nonce = acct_data["nonce"]
                 existing = account_map.get(addr)
@@ -167,10 +167,11 @@ class StateSyncMixin(SyncBase):
         # Apply delta to local state
         with self._session_factory() as session:
             existing_accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
-            account_map: dict[str, Any] = {acc.address: acc for acc in existing_accounts}
+            account_map: dict[str, Any] = {_to_ait_address(acc.address): acc for acc in existing_accounts}
             changed = apply_state_diff(diff, account_map)
             # Handle new accounts (created as dicts by apply_state_diff)
-            for addr in changed:
+            for raw_addr in changed:
+                addr = _to_ait_address(raw_addr)
                 acc = account_map.get(addr)
                 if acc is not None and isinstance(acc, dict):
                     # New account created as dict — convert to Account model

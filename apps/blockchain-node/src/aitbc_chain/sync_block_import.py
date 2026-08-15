@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 
 from aitbc.parallel import DependencyGraph, ParallelExecutor
 
-from .base_models import Account, Block
+from .base_models import Account, Block, _to_ait_address
 from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
@@ -190,8 +190,8 @@ class BlockImportMixin(SyncBase):
                     # Batch-fetch all sender/recipient accounts into account_map.
                     unique_addresses: set[str] = set()
                     for tx_data in transactions:
-                        sender_addr = tx_data.get("from", "")
-                        recipient_addr = tx_data.get("to", "")
+                        sender_addr = _to_ait_address(tx_data.get("from", ""))
+                        recipient_addr = _to_ait_address(tx_data.get("to", ""))
                         if sender_addr:
                             unique_addresses.add(sender_addr)
                         if recipient_addr:
@@ -231,7 +231,7 @@ class BlockImportMixin(SyncBase):
                             # (conflicting txs in later groups need updated nonces)
                             for txh in group:
                                 tx_data = tx_hash_to_data[txh]
-                                sender = tx_data.get("from", "")
+                                sender = _to_ait_address(tx_data.get("from", ""))
                                 sender_account = account_map.get(sender)
                                 if sender_account:
                                     tx_data["nonce"] = sender_account.nonce
@@ -283,8 +283,8 @@ class BlockImportMixin(SyncBase):
                 # Sequential path (fallback when parallel_tx_validation is off
                 # or the conflict rate exceeds the threshold).
                 for tx_data in transactions:
-                    sender_addr = tx_data.get("from", "")
-                    recipient_addr = tx_data.get("to", "")
+                    sender_addr = _to_ait_address(tx_data.get("from", ""))
+                    recipient_addr = _to_ait_address(tx_data.get("to", ""))
                     int(tx_data.get("amount", 0) or 0)
                     int(tx_data.get("fee", 0) or 0)
                     tx_hash = tx_data.get("tx_hash", "")
