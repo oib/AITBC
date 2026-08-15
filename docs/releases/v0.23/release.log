@@ -4769,3 +4769,50 @@ the whole tree is the regression surface.
 Not fixed here: the three exact-match account lookups are a latent version of the same defect, and
 any account written in one spelling and queried in another will silently read as absent. That wants
 a single normalisation point on the node's account access rather than three call-site patches.
+
+---
+
+### V23-64 — the account canonicalisation is right; it dropped escrow's foreign keys on the way
+
+`bee3e4a83` closed the latent half of V23-63: an `AccountAddress` column type that normalises
+`0x…`, `ait1…` and `aitbc1…` to one lowercase `ait1` form on both bind and result, plus the same
+normalisation on trie keys. That is the right shape of fix — one normalisation point on account
+access rather than patches at each call site — and it works. Two things came with it.
+
+**The escrow foreign keys are gone.** The new columns were written as
+`Field(sa_column=Column(AccountAddress(), foreign_key="account.address"))`. `foreign_key=` is
+SQLModel's `Field` argument, not SQLAlchemy's `Column` argument; `Column` reads unrecognised
+keywords as `<dialect>_<option>`, so it parsed this as a dialect named `foreign` with an option
+`key` and dropped the constraint. SQLAlchemy said so —
+`SAWarning: Can't validate argument 'foreign_key'; can't locate any SQLAlchemy dialect named 'foreign'`
+— at import, where nothing was watching. `Escrow.__table__.foreign_keys` was empty. Now
+`ForeignKey("account.address")`, and asserted.
+
+**It arrived without tests, and the suite could not have caught it.** 471 tests passed both
+before and after, and the SAWarning does not surface in a pytest run. Added 46, in
+`test_account_address_canonicalization.py`. Most are the round trip — 25 of them are every
+spelling written against every spelling queried — but two carry real weight:
+
+- `test_the_state_root_does_not_move_for_an_already_canonical_chain`. Trie keys feed the state
+  root and the state root is recorded in every block. If normalisation changed the key for
+  accounts already spelled `ait1`, every historical block would fail verification and the node
+  would diverge from its peers. Measured: unchanged for a canonical chain, changed for a chain
+  holding any `0x`, `aitbc1` or mixed-case account. So the change is safe exactly to the degree
+  the chain is already canonical, which is a fact about the deployed data, not about the code.
+- `test_escrow_still_references_the_account_table`, which fails against `bee3e4a83`.
+
+**Also folded in:** `_to_ait_address` now delegates its parsing to `canonical_address` rather
+than reimplementing the prefix and hex-length rules. There are now two spellings of "canonical"
+in the tree — `0x` for the signature layer, `ait1` for storage — and that is fine as long as they
+agree on *what counts as an address*. Two independent copies of that rule is how they stop
+agreeing, and the failure would be the chain and the signature layer disagreeing about who owns
+an account.
+
+Root 2886, blockchain-node 517, both green.
+
+**Unresolved, and it needs the hub's data to answer.** `process_bind_param` normalises the value
+in a query but does not rewrite rows already stored. Any existing account, transaction or escrow
+row written as `0x…` is now unreachable — queries bind `ait1…` and miss it — and an insert for
+that same account will succeed as a second row with a separate balance. The local chain database
+is empty post-reset, so this could not be measured here. Before this reaches a node with history,
+count the non-canonical rows and migrate them.
