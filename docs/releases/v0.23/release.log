@@ -4686,3 +4686,86 @@ Separately, and not fixed here: `get_db_path()` defaults to
 `hermes_coin_requests.db` (8 rows, 4 approved, 2 executed) from before the v0.5.9 rename. No
 migration moved them and no deployed env file sets `AGENT_DB_PATH` or `HERMES_DB_PATH`. Reads
 and writes agree with each other, so nothing is broken, but the older rows are orphaned.
+
+---
+
+### V23-62 (registration) — how a follower's request gets a row at the hub
+
+The execute fix refuses a `request_id` the hub has never seen, which is correct and broke a
+real flow: the hub's own database showed `req-follower-1782118019`, so requests raised on
+follower islands do reach it. Those requests exist only in the island's database, so the hub
+has nothing to consult. `POST /api/v1/agent/coin-requests/register` is how it gets a row.
+
+The whole design question is what status that row may take. If registering wrote an approved
+row on the caller's word, register-then-execute would hand back exactly what the execute fix
+stopped giving away — an arbitrary treasury transfer for anyone holding the shared API key,
+one call further along. So the hub decides, and it decides with the policy it was already
+applying over the WebSocket: an agent's first request is granted automatically, anything after
+that waits for a human.
+
+That rule lived inside `request_coins_handler`, which was fine while the WebSocket was the only
+way to create a request. It now lives in `services/faucet_policy.py` where both entry points
+can reach it. A registered request is approved when it is the sender's first grant *and* within
+`FAUCET_AUTO_APPROVE_MAX` (default 360000, the 100 AIT the hub has always granted); otherwise
+it is recorded as pending with a reason the caller can read, and an operator approves it by
+hand. Setting the ceiling to 0 turns automatic approval off entirely.
+
+One deliberate difference from the WebSocket version: the prior-grant check counts approved
+requests whether or not they have been executed. `agent_stream` counts only executed ones,
+which is safe there because it signs immediately — the gap between approving and paying is
+microseconds. Here the gap is however long the operator takes to run `execute`, so counting
+only executed grants would let an agent register twice, collect two approvals and spend both.
+The WebSocket copy is untouched; its narrower check is noted as debt rather than changed in a
+security fix, since it means editing the live grant path.
+
+Registration is idempotent on `request_id`, and a second registration with different terms is
+refused with 409 rather than allowed to overwrite. Without that, register-100, collect the
+approval, re-register-3.6e12 walks the amount up past the ceiling that just rejected it.
+
+The CLI registers before forwarding, and stops with the hub's reason when the answer is
+pending instead of forwarding an execute that would only 409.
+
+24 tests across the two files, all passing. The ones that carry the argument are
+`test_a_pending_registration_cannot_be_executed` and
+`test_re_registering_with_a_different_amount_is_refused`: together they say that the two
+endpoints in sequence grant no more than either grants alone, which is the property the whole
+design rests on.
+
+---
+
+### V23-63 — the hub's genesis key was correct; the comparison was wrong
+
+The hub could not sign anything. Every execute returned 500, and the journal said:
+
+    GENESIS_ADDRESS (ait1fe2d63fe87db282083b9159e5857cac788af9e03) does not match the
+    secp256k1 address derived from GENESIS_PRIVATE_KEY (0xFe2d63FE87Db282083b9159e5857Cac788af9E03)
+
+Read the two strings rather than the sentence between them. `fe2d63fe87db282083b9159e5857cac788af9e03`
+against `Fe2d63FE87Db282083b9159e5857Cac788af9E03` — the same forty hex characters, differing only
+in the prefix and the checksum casing. It is one address written two ways, and it is the treasury
+account holding 3.6e12. The key was right the whole time.
+
+`transaction_service.py:113` compared them with `.lower()`, which normalises the casing and not
+the prefix, so `ait1fe2d…` never equals `0xfe2d…` however correct the key is. `canonical_address`
+was written for precisely this under V23-54, when the same mistake was stalling the block-proposer
+check; `TransactionService` never picked it up. This closes the second instance.
+
+This also revises V23-57. That finding read the same symptom as a missing or wrong treasury key on
+the hub. It is neither — the key is present and correct, and no key needs to be supplied.
+
+**Which spelling goes on the wire is a separate bug in the same lines.** The node verifies `from`
+against the recovered signer canonically (`rpc/utils.verify_transaction_signature` → `canonical_address`),
+so either spelling would verify. But its account lookups do not canonicalise anything — all three
+of them, in `rpc/accounts.py`, `sync_state.py` and `consensus/poa.py`, match `Account.address` as an
+exact string. The account is stored under whatever `GENESIS_ADDRESS` says, so signing as the derived
+`0x` form asked for the nonce of an address the chain has no row for, and would have transferred
+from an account that does not exist. `from` and the nonce lookup now use the configured spelling.
+`get_balance` already did, which is why the balance check passed and the failure surfaced at signing.
+
+Seven tests. Four fail against the old code, including the `ait1` case that is the hub's actual
+configuration. Root 2840, blockchain-node 471, both green — this is a shared crypto library, so
+the whole tree is the regression surface.
+
+Not fixed here: the three exact-match account lookups are a latent version of the same defect, and
+any account written in one spelling and queried in another will silently read as absent. That wants
+a single normalisation point on the node's account access rather than three call-site patches.
