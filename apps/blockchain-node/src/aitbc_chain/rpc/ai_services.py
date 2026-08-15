@@ -11,11 +11,12 @@ from typing import Any
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import func as sql_func
 from sqlmodel import select
 
 from aitbc.utils import ait_to_seconds
 
-from ..base_models import Transaction
+from ..base_models import Transaction, address_spellings
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
@@ -174,7 +175,8 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
         with session_scope("") as session:
             stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             if wallet_address:
-                stmt = stmt.where(Transaction.sender == wallet_address)
+                # Verbatim column, so match every spelling of the account (V23-65).
+                stmt = stmt.where(sql_func.lower(Transaction.sender).in_(address_spellings(wallet_address)))
             if status:
                 stmt = stmt.where(Transaction.status == status)
             stmt = stmt.order_by(Transaction.created_at.desc())  # type: ignore[attr-defined]
