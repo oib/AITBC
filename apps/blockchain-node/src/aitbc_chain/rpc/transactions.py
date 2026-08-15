@@ -271,7 +271,10 @@ async def get_transaction(request: Request, tx_hash: str, chain_id: str | None =
     a `transaction_hash` against every executed request, and a chain reset leaves those
     hashes pointing at transactions that no longer exist, with no way to find out.
     """
-    resolved_chain_id = get_chain_id(chain_id if chain_id else "")
+    # `get_chain_id` falls back to this node's own chain only for None — an empty string is
+    # returned as-is, and `chain_id == ""` matches no transaction, so an omitted parameter
+    # 404'd every hash on the chain until this said `or None`.
+    resolved_chain_id = get_chain_id(chain_id or None)
     with session_scope() as session:
         tx = session.exec(
             select(Transaction).where(Transaction.chain_id == resolved_chain_id, Transaction.tx_hash == tx_hash)

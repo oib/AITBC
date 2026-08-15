@@ -41,11 +41,12 @@ class _Response:
 @pytest.fixture
 def chain(monkeypatch):
     """A chain that has PAID_HASH and nothing else, unless a test says otherwise."""
-    state = {"known": {PAID_HASH}, "error": None}
+    state = {"known": {PAID_HASH}, "error": None, "params": []}
 
-    def _get(url: str, timeout: int = 10):
+    def _get(url: str, params=None, timeout: int = 10):
         if state["error"]:
             raise state["error"]
+        state["params"].append(params)
         return _Response(200 if url.rsplit("/", 1)[-1] in state["known"] else 404)
 
     monkeypatch.setattr("aitbc_cli.commands.coin_requests.requests.get", _get)
@@ -141,6 +142,25 @@ def test_a_request_stranded_mid_execution_is_reported_not_checked(db, chain) -> 
 
     assert "stranded mid-execution" in result.output
     assert "1 checked" in result.output
+
+
+def test_the_node_is_left_to_say_which_chain_it_serves(db, chain) -> None:
+    """No client-side guess at `chain_id`, because a wrong guess 404s every hash.
+
+    That reads as "not one of these payouts happened", which is the state that invites
+    reopening requests that were paid. The hub serves `ait-hub.aitbc.bubuit.net` while
+    `CHAIN_ID` defaults to `ait-hub`, so the guess is wrong exactly where it is load-bearing.
+    """
+    _run("reconcile", "--rpc-url", RPC)
+
+    assert chain["params"] == [None, None]
+
+
+def test_an_explicit_chain_id_is_passed_through(db, chain) -> None:
+    """Still available for a node serving several islands — but only when asked for."""
+    _run("reconcile", "--rpc-url", RPC, "--chain-id", "ait-island-2")
+
+    assert chain["params"] == [{"chain_id": "ait-island-2"}] * 2
 
 
 # --- reopen, which is the one that can pay twice ----------------------------------------

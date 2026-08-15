@@ -4931,3 +4931,29 @@ issued and paid. Annotate it, so the record says what happened rather than nothi
 14 tests. The three that carry the design are the two refusals in `reopen` and
 `test_annotate_records_the_discrepancy_but_still_does_not_clear_it` — annotating a whole
 database must never make anything payable. blockchain-node 538, root 2918, both green.
+
+**V23-66a — the endpoint 404'd every hash, and the test that should have caught it mocked it away.**
+Reported from the hub: `reconcile` called `GET /rpc/transaction/{tx_hash}` without a `chain_id`
+and got a 404 for all nine executed requests. The endpoint's fault, not the caller's —
+
+    resolved_chain_id = get_chain_id(chain_id if chain_id else "")
+
+`get_chain_id` falls back to the node's own chain for `None` only; an empty string comes back
+unchanged, and `chain_id == ""` matches no transaction. So the documented default — omit the
+parameter, get this node's chain — answered "no such transaction" for every hash on the chain.
+Now `get_chain_id(chain_id or None)`.
+
+`test_rpc_get_transaction.py` stubbed `get_chain_id` as `lambda _requested: CHAIN_ID`, which
+swallows the argument and returns the right answer no matter what is passed. It pinned that the
+call happened, not that it was right. It now configures `settings.chain_id` and lets the real
+resolution run; the two new cases fail on the old code and pass on the new.
+
+The hub's fix passed `chain_id` from `TransactionService().chain_id` at the call site. Reverted:
+that is `CHAIN_ID` from the environment, defaulting to `ait-hub`, while the hub actually serves
+`ait-hub.aitbc.bubuit.net` — a client-side guess at something the node already knows, wrong
+exactly where it matters. A wrong guess 404s every hash, which reads as "not one of these
+payouts happened", which is the state that invites reopening requests that were paid. The node
+answers for its own chain; `--chain-id` stays available on both commands for a node serving
+several islands, and is sent only when given.
+
+blockchain-node 540, root 2922.
