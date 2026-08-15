@@ -7,9 +7,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
+
+# Importing the models is what puts them on `governance_metadata`; create_all builds nothing
+# otherwise. This service's tables live there rather than on the global SQLModel registry --
+# see domain/base.py (V23-72).
+from .domain import governance as _models  # noqa: F401
+from .domain.base import governance_metadata
 
 logger = get_logger(__name__)
 
@@ -52,7 +57,7 @@ async def init_db() -> None:
     """
     if os.getenv("DB_TYPE", "sqlite") != "postgresql":
         async with engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
+            await conn.run_sync(governance_metadata.create_all)
 
     logger.info("Governance service database initialized")
 
