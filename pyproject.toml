@@ -345,6 +345,7 @@ pythonpath = [
     "apps/bridge-monitor/src",
     "apps/gpu/src",
     "apps/marketplace/src",
+    "apps/miner/src",
     "apps/pool-hub/src",
     "apps/trading/src",
     "apps/wallet/src",
@@ -402,9 +403,12 @@ testpaths = [
     "apps/pool-hub/tests",
     "apps/trading/tests",
     "apps/wallet/tests",
-    # Not listed, because they do not collect: apps/blockchain-explorer/tests (1 error),
-    # apps/miner/tests (3), apps/zk-circuits/tests (3). Each needs its own look rather
-    # than a line here -- see the V23-69 entry in docs/releases/v0.23/release.log.
+    # These three keep their modules at the app root rather than under src/, so each has a
+    # conftest that puts its own app directory on sys.path -- and, necessarily, no
+    # __init__.py in tests/. See those conftests for why both halves are required (V23-70).
+    "apps/blockchain-explorer/tests",
+    "apps/miner/tests",
+    "apps/zk-circuits/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
