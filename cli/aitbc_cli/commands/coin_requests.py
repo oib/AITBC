@@ -197,10 +197,35 @@ def execute(ctx, request_id):
                 click.echo("Error: No GENESIS_PRIVATE_KEY locally and COORDINATOR_API_KEY not set.")
                 click.echo("Ensure /etc/aitbc/blockchain-secrets.env contains COORDINATOR_API_KEY.")
                 return
-            execute_url = f"{hub_url.rstrip('/')}/coin-requests/execute"
+            base_url = f"{hub_url.rstrip('/')}/coin-requests"
+            execute_url = f"{base_url}/execute"
             click.echo(f"No local genesis key — forwarding execution to hub: {execute_url}")
             try:
                 import httpx
+
+                # The hub pays from its own record of the request, not from what we send it,
+                # so a request raised on this island has to exist there before it can execute.
+                # Registering is idempotent, so re-running after a failure is safe.
+                reg = httpx.post(
+                    f"{base_url}/register",
+                    json={
+                        "request_id": req.id,
+                        "sender": req.sender,
+                        "amount": req.amount,
+                        "wallet_address": req.wallet_address,
+                        "recipient": req.recipient,
+                    },
+                    headers={"x-api-key": api_key},
+                    timeout=30,
+                )
+                if reg.status_code != 200:
+                    click.echo(f"Hub registration failed: {reg.status_code} {reg.text}")
+                    return
+                registered = reg.json()
+                if registered.get("status") != "approved":
+                    click.echo(f"Hub has not approved {req.id}: {registered.get('reason', 'no reason given')}")
+                    click.echo(f"Status at hub: {registered.get('status')}. A hub operator must approve it.")
+                    return
 
                 resp = httpx.post(
                     execute_url,
