@@ -343,6 +343,8 @@ pythonpath = [
     "apps/agent-coordinator/src",
     "apps/ai-engine/src",
     "apps/bridge-monitor/src",
+    "apps/edge/src",
+    "apps/governance/src",
     "apps/gpu/src",
     "apps/marketplace/src",
     "apps/miner/src",
@@ -409,6 +411,15 @@ testpaths = [
     "apps/blockchain-explorer/tests",
     "apps/miner/tests",
     "apps/zk-circuits/tests",
+    # Restored: aitbc-edge is a deployed unit whose test files were deleted as "skipped,
+    # errored, and failed". They were none of those -- this suite was simply never listed
+    # here, so it produced no results and was read as producing no value (V23-71).
+    "apps/edge/tests",
+    # apps/governance/tests is restored and green, but cannot run in this process: it and
+    # apps/coordinator-api both define governance_profiles, proposals, votes, dao_treasury
+    # and transparency_reports against SQLModel's global metadata, so whichever imports
+    # second raises InvalidRequestError. Run it with `make test-governance` until that is
+    # resolved -- see the V23-71 entry in docs/releases/v0.23/release.log.
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
