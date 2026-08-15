@@ -232,6 +232,15 @@ async def query_transactions_route(
     return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id)  # type: ignore[no-any-return]
 
 
+@router.get("/transaction/{tx_hash}", summary="Get one transaction by hash")
+@rate_limit(rate=200, per=60)
+async def get_transaction_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Look up a single transaction by hash; 404 when the chain does not have it."""
+    from ..transactions import get_transaction
+
+    return await get_transaction(request, tx_hash, chain_id)  # type: ignore[no-any-return]
+
+
 @router.get("/account/{address}", summary="Get account information")
 @rate_limit(rate=200, per=60)
 async def get_account_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
