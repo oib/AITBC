@@ -1,1 +1,0 @@
-"""Miner service tests"""
