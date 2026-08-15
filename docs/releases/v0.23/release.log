@@ -5131,3 +5131,64 @@ the endpoints take query parameters now.
 
 **All sixteen app suites are collected.** Root 3378 → **3496**, blockchain-node 540, zero
 failures.
+
+---
+
+### V23-71 — 184 test files were deleted for producing no results
+
+Five commits dated 2026-08-14 — `0edfb53b7` through `ab846475c`, the last titled "remove
+skipped, errored, and failed test functions" — deleted **184 test files, about 51,000 lines**.
+
+Two of them were regression tests for findings in this backlog:
+
+- `apps/edge/tests/test_v023_sync_honesty.py` (V23-17) — pins that `sync_database` refuses to
+  fabricate `last_sync_at` and `records_synced` rather than reporting a sync it did not do
+- `apps/governance/tests/test_v023_execution_timelock.py` (V23-18) — pins that the execution
+  timelock is enforced independently of `enable_onchain_submission`, which is False in the
+  shipped configuration
+
+Both fixes are still in the source. `SyncNotImplementedError` still guards the edge write and
+`_enforce_execution_timelock` still runs before anything is committed. Only the tests holding
+them there were gone.
+
+They were not skipped, errored or failed. Restored unchanged, all 26 pass. What they were is
+*never collected* — `apps/edge/tests` and `apps/governance/tests` were two of the fourteen
+suites V23-69 found had never been in `testpaths`. A suite that is not collected reports
+nothing, and nothing was read as no value. V23-69 and V23-70 fixed the collection; this entry
+is about what the gap cost while it was open.
+
+Four apps were left with a `tests/` directory holding only `conftest.py` and `__init__.py`:
+api-gateway, blockchain-event-bridge, edge and governance. Two of those are deployed units.
+
+**This tranche restores edge and governance** — 7 files, 111 tests, all passing unchanged.
+Root 3496 → **3507**.
+
+**A cross-service defect surfaced on the way.** With both suites collected,
+`apps/governance/tests` fails at import with `Table 'governance_profiles' is already defined
+for this MetaData instance`. It is not a double import. `apps/governance` and
+`apps/coordinator-api` each define `governance_profiles`, `proposals`, `votes`, `dao_treasury`
+and `transparency_reports`, and every SQLModel class registers on one process-global
+`MetaData`, so whichever imports second raises. Both services are deployed, both sets of
+models are routed, and the schemas have diverged — coordinator-api stores `voting_power` and
+`delegated_power` as `float`, governance as `Numeric(20, 8)`; governance carries indexes,
+timezone-aware timestamps and four tables coordinator-api does not have, while coordinator-api
+has `regional_councils`, which governance does not.
+
+Nothing breaks in production, where the two run as separate processes against separate
+databases. It is a landmine rather than an outage, and the float columns on a governance
+weight derived from stake are their own problem.
+
+That fix belongs to the services, not to a test restore: both deliberately rely on the global
+registry for `create_all` at startup, with comments in coordinator-api saying so, so giving
+either side a private `MetaData` changes how a deployed service builds its schema. Left as its
+own finding. Meanwhile the governance suite is restored, green, and runs via
+`make test-governance` in its own process rather than sitting in the tree uncollected — the
+condition this entry exists to describe.
+
+The production governance database at `/var/lib/aitbc/data/governance_service.db` was
+byte-identical before and after every run here; the suite's conftest redirects `DATABASE_URL`
+to a tempdir at import time, before `storage.py` builds its engine.
+
+Remaining: 177 deleted files across the root suite (101), coordinator-api (27),
+blockchain-node (14), marketplace (7), api-gateway (6), trading (5), pool-hub (5),
+blockchain-event-bridge (5), and one each in memory, gpu and ai-engine.
