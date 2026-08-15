@@ -390,8 +390,9 @@ class PoAProposer:
                         transaction = Transaction(
                             chain_id=self._config.chain_id,
                             tx_hash=tx.tx_hash,
-                            sender=sender,
-                            recipient=recipient,
+                            # Raw, not the canonicalised locals: these are signed (V23-65).
+                            sender=tx_data.get("from", ""),
+                            recipient=tx_data.get("to", ""),
                             payload=original_payload,
                             value=value,
                             fee=fee,
@@ -876,8 +877,9 @@ class PoAProposer:
             transaction = Transaction(
                 chain_id=chain_id,
                 tx_hash=tx.tx_hash,
-                sender=sender,
-                recipient=recipient,
+                # Raw, not the canonicalised locals: these are signed (V23-65).
+                sender=tx_data.get("from", sender),
+                recipient=tx_data.get("to", recipient),
                 payload=original_payload,
                 value=value,
                 fee=fee,

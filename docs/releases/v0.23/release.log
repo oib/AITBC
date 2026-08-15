@@ -4858,3 +4858,40 @@ store verbatim, and lookups should canonicalise the value they search *for* rath
 they store: given an address, search the three spellings of it. Not implemented here because
 these are live consensus files under simultaneous edit from the hub, and a conflicting change to
 them would cost more than a latent defect with a strict-xfail pointing at it.
+
+---
+
+### V23-65 (fix) — signed columns store what was signed
+
+The two `xfail(strict=True)` tests above are now passing tests.
+
+`Transaction.sender` and `Transaction.recipient` are plain columns again. They hold whatever
+spelling the signer used, because they are `from` and `to` in the message the signature covers
+and `verify_transaction_signature` rebuilds that message out of them. `Account.address` and the
+escrow columns keep `AccountAddress` — they are keys, nothing signs them, and normalising them
+is what closed V23-63. That split is the whole fix.
+
+Reverting the column type was not enough on its own. Every writer was passing the canonicalised
+local it had just computed for the account lookup, so the row would have been normalised anyway
+with the type gone. All four now take the raw `from`/`to` off `tx_data` at the point of
+construction — `consensus/poa.py` twice, `sync_block_import.py` twice — while the canonicalised
+locals stay where they belong, addressing `Account` rows and keying `account_map`.
+
+Storing verbatim would have reintroduced V23-63 for transaction history, so the three lookups
+that search by address now widen instead: `lower(column) IN (ait1…, 0x…, aitbc1…)`, via
+`address_spellings`. Lowercasing the column is what catches a checksummed `0x` spelling, whose
+case cannot be enumerated. The mapping is one-to-one on the 40-hex body so this cannot reach a
+different account, and a value that is not an address — a proposer id, an alias — is searched
+for as itself rather than expanded.
+
+18 tests in `test_signed_fields_survive_storage.py`: the round trip, the end-to-end verification
+a syncing follower performs, 12 combinations of stored-spelling against searched-spelling, and
+the two negative cases. blockchain-node 535, root 2904, both green.
+
+No migration. The hub's chain was reset to an all-canonical history, so every stored row is
+already `ait1`, and the widened lookup finds both those and anything written verbatim from here.
+
+The index caveat is deliberate: `lower(column)` will not use the plain index on `sender` and
+`recipient`. These three queries are balance reconciliation and transaction history, not the
+block path, and a functional index can be added if either becomes hot. Correctness on money
+first.

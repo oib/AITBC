@@ -264,8 +264,9 @@ class BlockImportMixin(SyncBase):
                             chain_id=self._chain_id,
                             tx_hash=delta.tx_hash,
                             block_height=block_data["height"],
-                            sender=delta.sender,
-                            recipient=delta.recipient,
+                            # Raw, not the canonicalised delta: these are signed (V23-65).
+                            sender=tx_data.get("from", delta.sender),
+                            recipient=tx_data.get("to", delta.recipient),
                             payload=tx_data,
                             type=delta.tx_type,
                             value=tx_data.get("value", tx_data.get("amount", 0)),
@@ -311,8 +312,9 @@ class BlockImportMixin(SyncBase):
                         chain_id=self._chain_id,
                         tx_hash=tx_hash,
                         block_height=block_data["height"],
-                        sender=sender_addr,
-                        recipient=recipient_addr,
+                        # Raw, not the canonicalised locals: these are signed (V23-65).
+                        sender=tx_data.get("from", sender_addr),
+                        recipient=tx_data.get("to", recipient_addr),
                         payload=tx_data,
                         type=tx_type,
                     )
