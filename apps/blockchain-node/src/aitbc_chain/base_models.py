@@ -3,9 +3,11 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, Column, Index, String, TypeDecorator, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKey, Index, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
+
+from aitbc.crypto.signature_recovery import canonical_address
 
 _HEX_PATTERN = re.compile(r"^(0x)?[0-9a-fA-F]+$")
 
@@ -22,29 +24,24 @@ def _validate_optional_hex(value: str | None, field_name: str) -> str | None:
     return _validate_hex(value, field_name)
 
 
-_AIT_PREFIXES = ("aitbc1", "ait1")
-_HEX_CHARS = frozenset("0123456789abcdef")
-
-
 def _to_ait_address(address: str) -> str:
     """Return the canonical `ait1` spelling of a chain account address.
 
     Accepts `0x...`, `ait1...` and `aitbc1...` spellings. Anything that does
     not look like a 40-hex address is passed through unchanged so callers that
     use short/alias values do not break.
+
+    Delegates the parsing to :func:`canonical_address`, which answers the same
+    question for signature verification. The two must agree on what counts as an
+    address or the chain and the signature layer would disagree about who an
+    account belongs to; they differ only in which spelling they hand back —
+    `0x` there, `ait1` here, because that is what each layer stores (V23-64).
     """
-    lowered = address.strip().lower()
-    for prefix in _AIT_PREFIXES:
-        if lowered.startswith(prefix):
-            body = lowered[len(prefix) :]
-            if len(body) == 40 and _HEX_CHARS.issuperset(body):
-                return f"ait1{body}"
-            break
-    if lowered.startswith("0x"):
-        body = lowered[2:]
-        if len(body) == 40 and _HEX_CHARS.issuperset(body):
-            return f"ait1{body}"
-    return lowered
+    canonical = canonical_address(address)
+    body = canonical.removeprefix("0x")
+    if canonical.startswith("0x") and len(body) == 40:
+        return f"ait1{body}"
+    return canonical
 
 
 class AccountAddress(TypeDecorator):
@@ -235,8 +232,11 @@ class Escrow(SQLModel, table=True):
     __tablename__ = "escrow"
     __table_args__ = {"extend_existing": True}
     job_id: str = Field(primary_key=True)
-    buyer: str = Field(sa_column=Column(AccountAddress(), foreign_key="account.address"))
-    provider: str = Field(sa_column=Column(AccountAddress(), foreign_key="account.address"))
+    # `ForeignKey`, not `foreign_key=`: the latter is SQLModel's `Field` argument, and
+    # passing it to `Column` makes SQLAlchemy read it as a dialect option named
+    # `foreign.key`, silently dropping the constraint (V23-64).
+    buyer: str = Field(sa_column=Column(AccountAddress(), ForeignKey("account.address")))
+    provider: str = Field(sa_column=Column(AccountAddress(), ForeignKey("account.address")))
     amount: int  # in compute-seconds (1 AIT = 3600)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
