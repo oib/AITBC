@@ -4816,3 +4816,45 @@ row written as `0x…` is now unreachable — queries bind `ait1…` and miss it
 that same account will succeed as a second row with a separate balance. The local chain database
 is empty post-reset, so this could not be measured here. Before this reaches a node with history,
 count the non-canonical rows and migrate them.
+
+---
+
+### V23-65 — the account normalisation rewrites two fields that a signature covers
+
+The chain reset cleared the one `aitbc1` row that had already tripped this. It did not remove
+the cause, and the cause is reachable from outside.
+
+`AccountAddress` normalises on bind *and* on result. For `Account.address` that is right: it is
+a lookup key, nothing signs it, and normalising it is what closed V23-63. `Transaction.sender`
+and `Transaction.recipient` are a different kind of column. They are `from` and `to` in the
+message the client signed, and `rpc/utils.verify_transaction_signature` rebuilds that message
+out of them to check it. Rewriting either one changes the message, and a changed message does
+not recover to the signer.
+
+The node accepts a transaction signed with `0x` spellings — `verify_signature` compares the
+recovered address canonically, so a hex-form client verifies fine on submission. Measured:
+
+    verifies as submitted        : True
+    submitted from / to          : 0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A / 0xc1c1…c1
+    served    from / to          : ait119e7e376e7c213b7e7e7e46cc70a5dd086daff2a / ait1c1c1…c1
+    verifies as served to a peer : False
+
+A follower replaying that block rebuilds the message from what it was served, the signature does
+not recover, and `state/state_transition.py:86` returns `Invalid signature`. The follower stops
+at that block. That is the shape of the stall that left it nine days and 12,287 blocks behind on
+a different cause.
+
+Nothing is broken today because every address on the post-reset chain is `ait1`, and normalising
+an address already in that form is the identity. It needs one client that signs in hex form. The
+API does not stop anyone being that client.
+
+Two `xfail(strict=True)` tests state it, so CI stays green now and fails the moment it is fixed,
+plus two that pass: the premise (the node really does accept a hex-form signature) and the reason
+today is safe (an all-canonical transaction round-trips unchanged).
+
+**The fix is a split, not a revert.** `Account.address` and the escrow columns keep the
+normalisation — they are keys and nothing signs them. The two signature-covered columns should
+store verbatim, and lookups should canonicalise the value they search *for* rather than the value
+they store: given an address, search the three spellings of it. Not implemented here because
+these are live consensus files under simultaneous edit from the hub, and a conflicting change to
+them would cost more than a latent defect with a strict-xfail pointing at it.
