@@ -22,6 +22,7 @@ from typing import Any
 from sqlmodel import Session, select
 from sqlalchemy import text
 
+from ..base_models import _to_ait_address
 from ..models import Account, Receipt
 
 
@@ -84,8 +85,8 @@ def compute_state_delta(
     Returns:
         StateDelta with balance/nonce changes, or success=False with error.
     """
-    sender = tx_data.get("from", "")
-    recipient = tx_data.get("to", "")
+    sender = _to_ait_address(tx_data.get("from", ""))
+    recipient = _to_ait_address(tx_data.get("to", ""))
     tx_type = _determine_tx_type(tx_data)
     value = tx_data.get("value", tx_data.get("amount", 0))
     fee = tx_data.get("fee", 0)
@@ -405,8 +406,8 @@ def extract_read_write_sets(tx_data: dict[str, Any]) -> tuple[frozenset[str], fr
     Returns:
         Tuple of (read_set, write_set) — sets of account addresses.
     """
-    sender = tx_data.get("from", "")
-    recipient = tx_data.get("to", "")
+    sender = _to_ait_address(tx_data.get("from", ""))
+    recipient = _to_ait_address(tx_data.get("to", ""))
     tx_type = _determine_tx_type(tx_data)
 
     read_set: set[str] = set()
