@@ -125,6 +125,13 @@ class TransactionService:
                 return None
 
             actual_chain_id = chain_id if chain_id is not None else self.chain_id
+            # Use the operator's spelling of the address, not the `0x` form recovery
+            # produces. The node compares `from` to the recovered signer canonically
+            # (`rpc/utils.verify_transaction_signature`), so either spelling verifies —
+            # but its account lookups are exact string matches
+            # (`rpc/accounts.get_account`), and the account this key controls is stored
+            # under whatever `GENESIS_ADDRESS` says. Signing with the derived spelling
+            # would look up a nonce for an address the chain has no row for (V23-63).
             actual_nonce = self.get_nonce(self.genesis_address)
 
             # Replicate the node's payload defaulting: for a TRANSFER posted via the
