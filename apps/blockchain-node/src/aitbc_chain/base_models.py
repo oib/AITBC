@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, Column, Index, UniqueConstraint
+from sqlalchemy import BigInteger, Column, Index, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -20,6 +20,53 @@ def _validate_optional_hex(value: str | None, field_name: str) -> str | None:
     if value is None:
         return value
     return _validate_hex(value, field_name)
+
+
+_AIT_PREFIXES = ("aitbc1", "ait1")
+_HEX_CHARS = frozenset("0123456789abcdef")
+
+
+def _to_ait_address(address: str) -> str:
+    """Return the canonical `ait1` spelling of a chain account address.
+
+    Accepts `0x...`, `ait1...` and `aitbc1...` spellings. Anything that does
+    not look like a 40-hex address is passed through unchanged so callers that
+    use short/alias values do not break.
+    """
+    lowered = address.strip().lower()
+    for prefix in _AIT_PREFIXES:
+        if lowered.startswith(prefix):
+            body = lowered[len(prefix) :]
+            if len(body) == 40 and _HEX_CHARS.issuperset(body):
+                return f"ait1{body}"
+            break
+    if lowered.startswith("0x"):
+        body = lowered[2:]
+        if len(body) == 40 and _HEX_CHARS.issuperset(body):
+            return f"ait1{body}"
+    return lowered
+
+
+class AccountAddress(TypeDecorator):
+    """Canonical ait address column for chain account tables.
+
+    Both inserts and lookups are normalised to lowercase `ait1` 40-hex. This
+    is the single normalisation point for on-chain account access; the trie
+    layer (``StateManager._encode_address``) canonicalises to the same value.
+    """
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return _to_ait_address(value)
+
+    def process_result_value(self, value: Any, dialect: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return _to_ait_address(value)
 
 
 class Block(SQLModel, table=True):
@@ -96,8 +143,8 @@ class Transaction(SQLModel, table=True):
         default=None,
         index=True,
     )
-    sender: str = Field(index=True)
-    recipient: str = Field(index=True)
+    sender: str = Field(sa_column=Column(AccountAddress(), index=True))
+    recipient: str = Field(sa_column=Column(AccountAddress(), index=True))
     payload: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
@@ -178,7 +225,7 @@ class Account(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     chain_id: str = Field(primary_key=True)
-    address: str = Field(primary_key=True)
+    address: str = Field(sa_column=Column(AccountAddress(), primary_key=True))
     balance: int = Field(default=0, sa_type=BigInteger)  # in compute-seconds (1 AIT = 3600)
     nonce: int = Field(default=0, sa_type=BigInteger)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -188,8 +235,8 @@ class Escrow(SQLModel, table=True):
     __tablename__ = "escrow"
     __table_args__ = {"extend_existing": True}
     job_id: str = Field(primary_key=True)
-    buyer: str = Field(foreign_key="account.address")
-    provider: str = Field(foreign_key="account.address")
+    buyer: str = Field(sa_column=Column(AccountAddress(), foreign_key="account.address"))
+    provider: str = Field(sa_column=Column(AccountAddress(), foreign_key="account.address"))
     amount: int  # in compute-seconds (1 AIT = 3600)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
