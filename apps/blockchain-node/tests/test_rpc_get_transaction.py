@@ -17,7 +17,9 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi import HTTPException
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.base_models import Transaction
 
@@ -29,7 +31,7 @@ TX_HASH = "0x" + "2d" * 32
 def chain(monkeypatch):
     """A one-transaction chain, wired in place of the node's real session."""
     engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     with Session(engine) as session:
         session.add(
             Transaction(

@@ -9,7 +9,9 @@ from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.models import Block, Transaction
 from aitbc_chain.sync import ChainSync, ProposerSignatureValidator
 from aitbc_chain.sync import settings as sync_settings
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +25,7 @@ def reset_metrics():
 def db_engine(tmp_path):
     db_path = tmp_path / "test_sync.db"
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     try:
         yield engine
     finally:

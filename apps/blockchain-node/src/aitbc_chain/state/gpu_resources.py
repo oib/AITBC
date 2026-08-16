@@ -5,14 +5,16 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import JSON, Column, UniqueConstraint
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
+
+from ..metadata import ChainBase
 
 
-class GPURegistration(SQLModel, table=True):
+class GPURegistration(ChainBase, table=True):
     """On-chain GPU registration record with immutable specs."""
 
     __tablename__ = "gpu_registration"
-    __table_args__ = (UniqueConstraint("chain_id", "gpu_id", name="uix_gpu_registration_chain_gpu"), {"extend_existing": True})
+    __table_args__ = (UniqueConstraint("chain_id", "gpu_id", name="uix_gpu_registration_chain_gpu"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -33,14 +35,11 @@ class GPURegistration(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class GPUAllocation(SQLModel, table=True):
+class GPUAllocation(ChainBase, table=True):
     """On-chain GPU allocation/booking record."""
 
     __tablename__ = "gpu_allocation"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "allocation_id", name="uix_gpu_allocation_chain_id"),
-        {"extend_existing": True},
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "allocation_id", name="uix_gpu_allocation_chain_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -56,14 +55,11 @@ class GPUAllocation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class EdgeNodeRegistration(SQLModel, table=True):
+class EdgeNodeRegistration(ChainBase, table=True):
     """On-chain edge node registration record (v0.6.6)."""
 
     __tablename__ = "edge_node_registration"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "node_id", name="uix_edge_node_chain_node"),
-        {"extend_existing": True},
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "node_id", name="uix_edge_node_chain_node"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)

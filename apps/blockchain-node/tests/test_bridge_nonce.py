@@ -11,14 +11,16 @@ from unittest.mock import patch
 import pytest
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
 from aitbc_chain.models import Account, Transaction
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 from sqlalchemy.pool import StaticPool
 
 
 @pytest.fixture
 def engine():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     try:
         yield engine
     finally:
