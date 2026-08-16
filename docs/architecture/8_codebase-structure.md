@@ -42,9 +42,8 @@ aitbc/
 ├── .editorconfig
 ├── .secrets.baseline        # detect-secrets baseline
 ├── LICENSE                  # MIT License
-├── pyproject.toml           # Python project configuration
+├── pyproject.toml           # Python project configuration, incl. all pytest settings
 ├── poetry.lock              # Poetry lock file
-├── pytest.ini               # Pytest settings and markers
 ├── uv.lock                  # uv lock file
 └── README.md
 ```

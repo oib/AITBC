@@ -13,7 +13,7 @@ help:
 	@echo "make lint            ruff over the repo"
 	@echo "make typecheck       mypy over aitbc/ (the mypy-clean scope)"
 	@echo "make test            unit tests"
-	@echo "make test-governance the governance suite, which needs its own process"
+	@echo "make test-governance just the governance suite (a bare pytest also covers it)"
 	@echo "make openapi       regenerate docs/api/*-openapi.json from the running apps"
 	@echo "make openapi-check fail if the committed specs differ from what the apps produce"
 
@@ -26,12 +26,13 @@ typecheck:
 test:
 	$(PYTHON) -m pytest tests/unit -q
 
-# Separate process, not a preference. apps/governance and apps/coordinator-api both map
-# governance_profiles, proposals, votes, dao_treasury and transparency_reports onto
-# SQLModel's process-global metadata, with different columns on each side -- coordinator-api
-# stores voting_power as float, governance as Numeric(20, 8). Importing both raises
-# InvalidRequestError, so governance stays out of `testpaths` and runs here instead. Fold it
-# back into the main run once the two model sets stop sharing a registry.
+# A convenience for running one suite, not a workaround any more. This used to be the only
+# way governance ran: it and apps/coordinator-api mapped governance_profiles, proposals,
+# votes, dao_treasury and transparency_reports onto SQLModel's process-global metadata with
+# different columns on each side, importing both raised InvalidRequestError, and the suite
+# stayed out of `testpaths` because of it. Fixed in V23-72 and V23-73; `apps/governance/tests`
+# has been in `testpaths` since, so a bare `pytest` covers it. (`make test` does not -- that
+# target runs tests/unit only.)
 test-governance:
 	$(PYTHON) -m pytest apps/governance/tests -q
 
