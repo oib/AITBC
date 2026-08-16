@@ -12,12 +12,9 @@ cli/
 ├── README.md                       # User-facing CLI overview & command reference
 ├── CLI_USAGE_GUIDE.md              # Detailed usage guide with workflows
 ├── FILE_ORGANIZATION_SUMMARY.md    # This file
-├── __init__.py                     # Package marker
 ├── setup.py                        # setuptools setup (entry point: aitbc_cli.core.main:main)
 ├── requirements-cli.txt            # CLI-specific dependencies
-├── pytest.ini                      # CLI test config
 ├── integrate_miner_cli.sh          # Miner CLI integration helper
-├── advanced_wallet.py              # Advanced wallet helpers (legacy module)
 ├── extended_features.py            # Extended feature helpers (legacy module)
 ├── keystore_auth.py                # Keystore auth helper (legacy module)
 ├── miner_cli.py                    # Miner CLI helper (legacy module)
@@ -160,8 +157,13 @@ Most command groups are single-file modules (e.g. `network.py`, `agent.py`). Fou
 A small package that re-exports from `aitbc_cli` for legacy import paths.
 
 ### Tests
-- `cli/tests/` — 6 CLI-internal smoke tests
-- `tests/cli/` (project root) — 119 comprehensive command & integration tests
+- `cli/tests/` — 87 tests over 7 files: the `explorer` subcommands and `exchange` validation
+  in-process through Click's `CliRunner`, plus subprocess smoke tests of the command tree.
+  See [docs/cli/testing.md](../docs/cli/testing.md).
+- `tests/cli/` (project root) — 1,012 command and integration tests
+
+Both are in `testpaths` in the root `pyproject.toml`, so a bare `pytest` collects them.
+`cli/tests` was not, until V23-84.
 
 ### Removed
 - `cli/debian/` — Debian packaging tree (removed 2026-06-22; the deployment script installs via `pip install -e .` directly)

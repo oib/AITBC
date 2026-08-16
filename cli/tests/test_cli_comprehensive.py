@@ -5,8 +5,12 @@ import subprocess
 import time
 from pathlib import Path
 
-PROJECT_ROOT = Path("/opt/aitbc")
-CLI_BIN = Path("/usr/local/bin/aitbc")
+# Derived rather than hard-coded to `/opt/aitbc`, and pointed at the launcher in the tree
+# rather than the `/usr/local/bin/aitbc` symlink that points at it. Both were assumptions
+# about the machine rather than about the CLI, and neither had ever been tested: this suite
+# was outside `testpaths` until V23-84 (see `test_cli_basic.py` for the same change).
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CLI_BIN = PROJECT_ROOT / "scripts" / "aitbc-cli"
 
 
 def run_cli(*args):

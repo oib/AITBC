@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Basic CLI tests for the unified AITBC command hierarchy."""
 
+import os
 import subprocess
 from pathlib import Path
 
 CLI_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = CLI_DIR.parent
-CLI_BIN = Path("/usr/local/bin/aitbc")
+# The launcher in the tree, not the `/usr/local/bin/aitbc` symlink that points at it. Same
+# file either way, and one fewer thing that has to be true of the machine: these tests joined
+# the main suite in V23-84, and a checkout without the symlink installed would have failed all
+# eight here for a reason that has nothing to do with the CLI.
+CLI_BIN = PROJECT_ROOT / "scripts" / "aitbc-cli"
 
 
 def run_cli(*args):
@@ -64,7 +69,11 @@ class TestCLIConfiguration:
     """Test CLI file presence and launcher availability."""
 
     def test_cli_bin_exists(self):
+        # The launcher every other test in this file shells out to. It used to assert the
+        # presence of `/usr/local/bin/aitbc`, which is a property of the host rather than of
+        # the CLI -- and in a suite nothing ran, so it had never reported either way.
         assert CLI_BIN.exists()
+        assert os.access(CLI_BIN, os.X_OK)
 
     def test_explorer_command_available(self):
         result = run_cli("explorer", "--help")
