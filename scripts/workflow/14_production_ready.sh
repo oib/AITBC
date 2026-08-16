@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # AITBC Production Ready Script
 # Complete production deployment and verification
 
@@ -84,7 +85,7 @@ echo "   aitbc services: $AITBC_SERVICES/2 active"
 # Blockchain status
 echo "4. Blockchain Status:"
 AITBC1_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
 
 echo "   aitbc1 height: $AITBC1_HEIGHT"
 echo "   aitbc height: $AITBC_HEIGHT"

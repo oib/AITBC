@@ -16,7 +16,7 @@ else
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
-set -e
+set -euo pipefail
 
 # Configuration
 AITBC1_HOST="aitbc1"
@@ -73,7 +73,7 @@ execute_on_node() {
     local command=$2
 
     if [ "$node" = "localhost" ]; then
-        eval "$command"
+        bash -c "$command"
     else
         ssh -o ConnectTimeout=10 "$node" "cd /opt/aitbc && $command"
     fi

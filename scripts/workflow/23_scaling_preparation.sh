@@ -3,7 +3,7 @@
 # AITBC Scaling Preparation Script
 # Prepares the system for horizontal scaling and multi-node expansion
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -358,7 +358,7 @@ update_discovery() {
     local timestamp=$(date -Iseconds)
 
     # Update node statuses
-    python3 << EOF
+    python3 << PYEOF
 import json
 import sys
 
@@ -391,7 +391,7 @@ try:
 except Exception as e:
     print(f"Error updating discovery: {e}")
     sys.exit(1)
-EOF
+PYEOF
 }
 
 # Main function

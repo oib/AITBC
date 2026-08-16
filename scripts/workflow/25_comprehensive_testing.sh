@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # AITBC Comprehensive Testing Suite
 # Tests all blockchain functionality including marketplace scenarios
@@ -59,7 +60,7 @@ run_test() {
     echo "[TEST] Testing: $test_name"
     echo "================================"
 
-    if eval "$test_command" >/dev/null 2>&1; then
+    if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
@@ -79,7 +80,7 @@ run_test_verbose() {
     echo "[TEST] Testing: $test_name"
     echo "================================"
 
-    if eval "$test_command"; then
+    if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
