@@ -1,0 +1,80 @@
+# v0.23.11 — High — a deploy script that defaults to destroying the local checkout
+
+## High — a deploy script that defaults to destroying the local checkout
+
+### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED → RESOLVED
+
+`scripts/deployment/deploy/deploy-to-server.sh`, lines 8-9 and 34-36:
+
+```bash
+SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
+PROJECT_DIR="/opt/aitbc"
+...
+ssh $SERVER "rm -rf $PROJECT_DIR 2>/dev/null || true"
+scp -r /opt/aitbc $SERVER:/opt/
+```
+
+Run without `AITBC_DEPLOY_SERVER` set, this sshes to **localhost as root**, `rm -rf`s
+`/opt/aitbc` — the working checkout — and then attempts to `scp` from that same, now
+deleted, path. The `2>/dev/null || true` suppresses any complaint.
+
+`scripts/deployment/deploy/deploy-explorer.sh:7` has the identical default.
+
+This is the shape of v0.22's OPS-08, where the balance-migration script defaulted to the
+production chain: a destructive operation with a default target. Here the default target is
+the developer's own repository.
+
+```
+sed -n '1,12p;33,37p' scripts/deployment/deploy/deploy-to-server.sh
+git grep -n "AITBC_DEPLOY_SERVER" -- scripts/
+```
+
+> **Fix**: no default. `SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER}"` fails
+> immediately with a usable message. Then reverse the order — copy first, swap second — so
+> a failed transfer cannot leave the target with nothing. Both scripts.
+
+**RESOLVED** — both scripts, as recommended, plus two things the finding did not ask for.
+
+```
+$ env -u AITBC_DEPLOY_SERVER bash scripts/deployment/deploy/deploy-to-server.sh
+deploy-to-server.sh: line 16: AITBC_DEPLOY_SERVER: set AITBC_DEPLOY_SERVER
+  (e.g. root@10.1.223.93) — there is no default target
+$ echo $?
+1
+```
+
+The copy now stages to `$PROJECT_DIR.incoming` and swaps, keeping the previous release as
+`$PROJECT_DIR.previous` rather than deleting it. A transfer that dies half-way leaves the
+target with a working tree instead of nothing, and the swap is two `mv`s rather than a
+delete-then-copy.
+
+**The source is no longer hardcoded.** `scp -r /opt/aitbc` copied whatever sat at that path
+on the machine running the script, which is what made "delete the target, then copy from the
+target" possible in the first place. It now derives from the script's own location, so it
+copies the checkout it belongs to.
+
+**An explicit refusal for the case the finding describes**, since removing the default is not
+quite sufficient — someone can still pass `root@127.0.0.1` by hand:
+
+```
+$ AITBC_DEPLOY_SERVER=root@127.0.0.1 AITBC_DEPLOY_SOURCE=/opt/aitbc \
+  AITBC_DEPLOY_PROJECT_DIR=/opt/aitbc bash scripts/deployment/deploy/deploy-to-server.sh
+❌ Refusing to deploy: the target is this machine and PROJECT_DIR (/opt/aitbc)
+   is the directory being deployed from. This would delete its own source.
+```
+
+#### A second hardcoded path, in the same pair of scripts
+
+`deploy-explorer.sh` built from `/home/oib/windsurf/aitbc/apps/explorer-web` — a path that
+exists on exactly one machine. Anywhere else the `cd` failed and `set -e` stopped the
+deploy, which is the least bad outcome available but not one to rely on: it is the same
+class as the `/opt/aitbc` assumption, and it survived because failing loudly on every other
+machine looks like the script simply not being used. It now builds from the repository root
+and says so if the directory is missing.
+
+Both scripts also moved from `set -e` to `set -euo pipefail` (V23-23's shape) — without
+`set -u`, `${AITBC_DEPLOY_SERVER:?}` is the only guard against an unset variable, and every
+other one in the script would still expand to empty. `$SERVER` is quoted at all 22 `ssh`
+call sites.
+
+---

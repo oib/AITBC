@@ -1,0 +1,89 @@
+# v0.23.12 — Medium — shell safety is inconsistent across 266 scripts
+
+## Medium — shell safety is inconsistent across 266 scripts
+
+### V23-23 — `set -e` without `set -u` in about 166 scripts · OBSERVED → RESOLVED
+
+```
+git ls-files 'scripts/**/*.sh' | wc -l                        # 266
+git grep -l "set -e"     -- 'scripts/**/*.sh' | wc -l         # 210
+git grep -lE "set -[a-z]*u" -- 'scripts/**/*.sh' | wc -l      #  44
+git grep -l "pipefail"   -- 'scripts/**/*.sh' | wc -l         #  44
+```
+
+210 scripts stop on error; only 44 stop on an unset variable, and only 44 catch a failure
+mid-pipeline. So a typo in a variable name expands to empty and the script continues
+confidently — which is precisely the mechanism that makes V23-22 dangerous rather than
+merely untidy.
+
+Unquoted expansions are still present alongside this, e.g.
+`scripts/deployment/build-release.sh:14` — `rm -rf ${BUILD_DIR}`, in a script with `set -e`
+and no `set -u`. `BUILD_DIR` is a literal two lines above, so that one is safe today; it is
+listed as the pattern, not as a live hazard.
+
+> **Fix**: `set -euo pipefail` as the standard preamble, applied when a script is touched
+> rather than in one sweep — turning it on wholesale will surface genuine latent failures,
+> and doing that across 166 scripts at once gives no way to tell which break was real. A
+> pre-commit check on new scripts stops the count growing.
+
+**RESOLVED** — as a ratchet, which is what the fix note asks for. Deliberately **not** a
+sweep: `scripts/ci/check-shell-strict-mode.py` runs from pre-commit on the scripts in the
+current commit, so touching a script means bringing it up to standard and the count can only
+fall. `--all` audits the tree and never fails, for seeing where the number stands.
+
+Measured across the whole tree rather than `scripts/**/*.sh` alone: **501 shell scripts, 77
+with all three settings.** Restricted to the audit's scope, `scripts/*.sh` is 269 files with
+47 compliant — close to its 266/44, and the difference is that this counts shebang scripts
+without a `.sh` suffix too.
+
+> **The checker had the defect it was written to catch.** The first `pipefail` pattern
+> required `-o\s+pipefail`, which does not match `set -euo pipefail` — the canonical
+> spelling, where the `o` belongs to the `-euo` bundle. It reported 501 scripts with **1**
+> compliant, including the two deploy scripts hardened under V23-22. A checker that says
+> "one out of five hundred" is one nobody believes, and it would have been deleted rather
+> than fixed. Caught by disbelieving the number and testing against a script known to be
+> right.
+
+#### A committed merge conflict, and the hook that could not see it
+
+Found while working this finding. `docs/releases/v0.23/release.log:535` carried a full
+conflict block — `<<<<<<< HEAD` / `=======` / `>>>>>>> f9d378797` — sitting in the
+second-pass totals since the V23-17 merge. One side said V23-17 was resolved, the other
+V23-18. Both were true; both were stale.
+
+`.pre-commit-config.yaml` runs `check-merge-conflict`, and it **passed on every commit that
+touched this file**, including a dozen of mine. Its source says why:
+
+```python
+if not is_in_merge() and not args.assume_in_merge:
+    return 0
+```
+
+It inspects files only while git is *mid-merge*. Once a bad resolution is committed the
+markers are ordinary text and it never looks again — so it catches the mistake you are about
+to make and is blind to the one already in the tree. The second is the one that matters,
+because nobody is looking at it.
+
+`--assume-in-merge` would make it always run, but it flags a bare `=======`, and
+`docs/scenarios/07_ai_job_submission.md:110` has one inside a fenced code block as a heading
+underline. A check that cries wolf on documentation gets switched off.
+
+`scripts/ci/check-merge-markers.py` requires the **pair**: `<<<<<<< ` or `>>>>>>> ` is
+unambiguous, and a lone `=======` is reported only when the file also carries one of those.
+Zero false positives on this tree, runs on every commit. The upstream hook is kept — between
+them, one catches the conflict being resolved and the other the one already committed.
+
+This is the same shape as V23-32 (a flag manifest nothing read) and V23-26a (a status
+endpoint answering from a literal): **a check that exists, passes, and cannot fail.**
+
+---
+
+# Third pass — 2026-08-09
+
+Covering what the second pass left: JavaScript/Solidity dependencies, `zk-circuits`, and
+`api-gateway`.
+
+**Third-pass totals**: 5 findings — 4 confirmed, 1 observed. Two positives recorded.
+**V23-24 is resolved**, and V23-24a was added to this section afterwards.
+
+---

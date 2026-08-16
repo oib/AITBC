@@ -1,0 +1,134 @@
+# v0.23.4 — High — structural hazards
+
+## High — structural hazards
+
+### V23-08 — two apps ship a package called `agent_app` · CONFIRMED → RESOLVED
+
+`apps/agent-coordinator/src/agent_app/` (53 files, the real application) and
+`apps/coordinator-api/src/agent_app/` (7 files, no `__init__.py`). Both parent directories
+are on `mypy_path` in `pyproject.toml` (lines 133–134), and pytest runs with
+`consider_namespace_packages = true`. Which one `import agent_app` resolves to depends on
+path order.
+
+```
+ls apps/agent-coordinator/src/agent_app apps/coordinator-api/src/agent_app
+```
+
+This is the same failure mode as v0.22's `tests/cli` shadowing the real `cli` package, which
+cost an afternoon to diagnose because the error pointed nowhere near the cause.
+
+### V23-09 — the shadowing package is dead test scaffolding in a `routers/` directory · CONFIRMED → RESOLVED
+
+All seven files in `apps/coordinator-api/src/agent_app/routers/` are named
+`b{N}_self_check.py`, contain `def test_*` functions with asserts and a `__main__` block,
+and define no router. Nothing references them:
+
+```
+git grep -ln "_self_check" -- . | grep -v "src/agent_app/routers"    # no output
+```
+
+They are in application source, under a directory named for something they are not, and they
+create the namespace collision in V23-08. Because they match `test_*.py`, they are also
+collectable by pytest if `apps/coordinator-api/src` is ever added to `testpaths`.
+
+> **Fix for V23-08 and V23-09 together**: delete
+> `apps/coordinator-api/src/agent_app/`. Verify first that the b2–b8 checks are genuinely
+> superseded — they read as one-off release verification from a "B" workstream — and if any
+> still carry meaning, move them to `tests/` as real tests. That removes the collision and
+> the dead code in one step.
+
+### V23-10 — seven apps do not use the `src/` layout · OBSERVED → RESOLVED
+
+`src/`-layout: 17. Flat: `archive`, `blockchain-explorer`, `exchange`, `ffmpeg`, `miner`,
+`whisper`, `zk-circuits`.
+
+```
+ls -d apps/*/src | sed 's|/src||'   # compare against ls apps/
+```
+
+v0.22's APP-54 covers `exchange` and found the concrete cost: the flat layout is why it
+cannot use shared `aitbc.auth` and hand-rolls its own request handling and API-key check.
+The other six carry the same risk of divergence.
+
+> **Fix**: not a batch job. Take them one at a time when there is a reason to touch them, and
+> treat "can it use `aitbc.auth`?" as the test of whether the migration is finished. Record
+> the intended layout somewhere enforceable — a CI check over `apps/*/` is a few lines — so
+> the count does not grow.
+
+**RESOLVED** — the enforceable check exists (`tests/unit/test_v2310_app_test_imports.py`),
+and writing it corrected the count. **It is five, not seven:**
+
+- **`archive` is not an app.** Three tracked files under `peertube-transcoder/`, one of them
+  `DEPRECATED.md`. A deprecation graveyard was counted as a flat-layout service.
+- **`miner` is half-migrated**, not flat: `src/miner_app/` exists *and*
+  `production_miner.py` is still at the root. Which turned out to matter — see V23-10a.
+
+The remaining five are `blockchain-explorer`, `exchange`, `ffmpeg`, `whisper`,
+`zk-circuits`. The guard pins that set: a new flat-layout app fails, and a migration fails
+until the name is removed from the list, so the count can only fall.
+
+### V23-10a — whole app test suites have been dark for a month, and nothing reports it · CONFIRMED → RESOLVED
+
+Found while writing V23-10's check. The layout question is cosmetic next to what it was
+hiding.
+
+**`apps/agent-coordinator`**: `3fc1333fe` (2026-07-07) renamed `src/app` → `src/agent_app`
+and did not update the tests, which import `from src.app...`. **All three modules failed at
+collection from that day on**, including `test_security_agent_coordinator.py`. Thirty-four
+days.
+
+**`apps/miner`**: `apps/miner/pyproject.toml` sets `pythonpath = ["src"]`, but the tests
+import `production_miner`, which is at the app root — the half-migration above. All three
+modules failed to collect. Separately, the mere presence of that file makes it pytest's
+config for anything under `apps/miner`, so the root `pyproject.toml`'s marker registrations
+do not apply and every `@pytest.mark.unit` became an unknown mark.
+
+**Why nothing noticed**: CI runs exactly two app suites — `coordinator-api` and
+`blockchain-node` (`.github/workflows/ci.yml`). No other app's tests are executed by any job.
+A suite that stops collecting is indistinguishable from one that passes.
+
+**Fixed here — agent-coordinator**: imports repointed at `agent_app`; the suite runs, **76
+passing**. The two failures that surfaced were both stale tests, not product bugs, and both
+are worth recording because they fail in opposite directions:
+
+- `test_assign_task_accepts_chain_id` built its subject with `LoadBalancer.__new__` and set
+  attributes by hand. `__init__` later gained `self._lock`, the hand-built object did not,
+  and the test raised `AttributeError` against correct code. All five `__new__` call sites
+  now use the real constructor, so the object cannot drift out from under them again.
+- `test_agent_stream_default_rpc_url_is_8202` asserted `"8202" in inspect.getsource(...)`.
+  It broke when the literal was replaced by `aitbc.constants.BLOCKCHAIN_RPC_URL` — **the
+  port was still 8202; the test failed because the code improved.** It now asserts where the
+  request actually goes.
+
+**Fixed here — miner's collection**: `pythonpath = ["src", "."]` and the two markers
+registered. The suite collects again.
+
+**Miner's 33 failures, now fixed.** Left open in the first pass on the grounds that deciding
+per test whether the test or the code is wrong is real work. Done properly, every one was a
+stale test — but establishing that meant checking each against a consumer, not against
+plausibility:
+
+| Failure class | Count | Which side was wrong, and how it was decided |
+|---|---|---|
+| Mocked `production_miner.httpx.get/post` | 25 | The module goes through `AITBCHTTPClient`, whose `get`/`post` return **parsed JSON** and raise `NetworkError` — it never sees a status code. The mocks described an interface the code does not touch. |
+| Asserted `result["gpu"]["model"]` | 6 | The code emits `"gpus"`, a list. Settled by the consumer: `apps/coordinator-api/.../services/jobs.py:152` reads `capabilities.get("gpus", [])`. |
+| `poll_for_jobs` returning `{}` | 1 | Asserted `result is not None`; the code returns `None`. The code is right — handing a job-shaped empty object to the mining loop is the bug. |
+| `wait_for_coordinator` | 2 | Called without `await` and asserted the coroutine object was `True`. The app's own pytest config lacked `asyncio_mode`, so the root setting did not apply. |
+
+Two tests were asserting on mocks so far from the real interface that they would have passed
+whatever the module did — `test_register_miner_failure` drove a `Mock(status_code=400)` past
+code that never inspects a status code. Rewritten to assert the actual contract: a
+registration that returns no `session_token` is a failure.
+
+One product change: `poll_for_jobs` had `import requests` **inside the function** — the only
+call site in the module not on `AITBCHTTPClient`, with its dependency invisible at the top of
+the file and unpatchable at `production_miner.requests`. Hoisted to module scope. It is still
+the one unmigrated function, which is now at least legible.
+
+**60 passing, 0 failing.** Verified non-vacuous: renaming `"gpus"` to `"gpu_list"` in the
+production code fails 6 tests, so the suite detects the regression class it exists for.
+
+> **The larger gap**: no CI job runs the other ~22 app suites. The import guard added here
+> catches only the cheapest class of breakage. Running them is the actual fix.
+
+---

@@ -1,0 +1,86 @@
+# v0.23.30 — High — the type-checker backlog was hiding runtime crashes
+
+## High — the type-checker backlog was hiding runtime crashes
+
+### V23-46 — 29 baselined mypy errors to 0, and five of them were `TypeError`s · CONFIRMED → RESOLVED
+
+V23-35 fixed a pre-commit hook that had been printing "✅ All clean apps pass" while checking
+zero files, and the 29 errors it surfaced went into a ratchet baseline so the backlog would
+not block commits. The baseline is now **empty**, and the hook is a plain gate again.
+
+The backlog was not type noise. **Five entries were calls that could never succeed.**
+
+#### `PaymentService` was called with the wrong arguments in four places
+
+```python
+async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate)
+async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason=None)
+```
+
+`client_id` is an authorisation identity — both methods start with
+`self._require_owned_job(job_id, client_id)`, which 403s unless the job belongs to that
+client. Every call site got it wrong, and what each did next differed:
+
+| call site | the call | what happened |
+|---|---|---|
+| `infrastructure/routers/client.py` | `create_payment(job.id, payment_create)` | `TypeError`, caught by the `except Exception` below it → **every job with a payment amount was silently marked `payment_status="skipped"`** and no escrow was ever created. The API returned 200. |
+| `infrastructure/routers/miner.py` | `release_payment(job.id, job.payment_id, reason=…)` | `TypeError`, **not** caught → 500 to the miner, *after* the job was committed as completed with its receipt. Payment never released. |
+| `marketplace/routers/marketplace_gpu.py` (buy_gpu) | `create_payment(job_id=…, payment_data=…)` | `client_id` missing entirely; caught and logged |
+| `marketplace/routers/marketplace_gpu.py` (send_payment) | same | caught and logged |
+
+The identities were recoverable in each case: the client router has `user["sub"]`; the miner
+router does not own the job, so it uses `job.client_id`; `buy_gpu` creates the job with
+`client_id=request.buyer_id`; `send_payment`'s payer is the authenticated caller.
+
+#### The fifth: a bridge timelock that has never been computed
+
+`calculate_dest_timelock` requires `source_current_height` and `dest_current_height`, and its
+docstring is explicit about why — *"block heights on two chains are independent quantities"*.
+`bridge_client_adapter._create_htlc_contract` never passed them, so the entire
+`direction != "source"` branch raised `TypeError` on every call.
+
+They are now passed, using the same placeholder the rest of that method already uses — and
+that placeholder is named as the real problem in a comment rather than papered over: both
+chains are assumed to produce blocks every 5 seconds and to be at **height 0**. Every timelock
+computed there is nominal. Fixing that needs a client for each chain's head, which this
+adapter does not have.
+
+#### Two annotations accounted for most of the rest
+
+**pool-hub declared `db: Session` while every caller passes an `AsyncSession`.** One word,
+and it had grown **23 `# type: ignore` comments** to cover for itself — one on every `await
+self.db.execute(...)`, plus `[arg-type]` at each construction site. Correcting it removed all
+23 and surfaced two more real errors underneath (`.scalars().all()` returns `Sequence[T]`, not
+`list[T]`), which are also fixed.
+
+**apps/edge's two clients had an unannotated `__aenter__`.** `async with GPUServiceClient() as
+c` therefore bound `c` as `Any`, and every result off it was `Any` too — which is all eight of
+that app's `Returning Any from function declared to return …` errors. The client methods had
+been annotated correctly the whole time; nothing about the return types was wrong.
+
+> Both are the same shape: **a suppression that is cheaper than the fix will be taken, and
+> then it compounds.** 23 ignores is 23 opportunities to have noticed one word.
+
+#### The remainder
+
+- **zk_proofs (7)** — `Path | None` flowing through a dict. `_resolve_proving_key` may return
+  None, so the dict's value type unions it, and `if paths["zkey_path"] is None: continue` does
+  not narrow a subscript. Binding to a local does. `available_circuits` is now
+  `dict[str, dict[str, Path]]`, which by construction it always was.
+- **blockchain-explorer (4)** — `row = await cursor.fetchone()` then `row[0]`. An aggregate
+  always returns a row, but only while the table exists; otherwise it is a `TypeError` on
+  None. Now `row[0] if row else 0`.
+- **api-gateway (2)** — `def rate_limit(limit: str) -> object` made `@rate_limit(...)` a
+  non-callable decorator. Typed as `Callable[[_F], _F]`; the `type: ignore[misc]` it needed on
+  the route is gone.
+- **access_control (1)** — a stale `no-any-return` ignore on `return datetime.now(UTC) <=
+  expiry_date`, which is a plain `bool`.
+
+**26 `# type: ignore` comments removed net.** All 12 checkable apps: `Success: no issues found
+in 774 source files`. Test suites unchanged — pool-hub 41, edge 11, blockchain-explorer 63,
+api-gateway 18, coordinator-api 318 passed with its 48 known failures byte-identical to `main`.
+
+The hook's header now says to keep the baseline empty, for the same reason the float-money
+guard's does: **a baseline that grows back is a baseline nobody reads.**
+
+---

@@ -1,0 +1,69 @@
+# v0.23.33 — High — the migration that reported success against the wrong database
+
+## High — the migration that reported success against the wrong database
+
+### V23-49 — the deployed chain migrated, and why it had not been · CONFIRMED → RESOLVED
+
+V23-40 left this open: apply the blockchain-node migrations to the deployed chain database.
+Doing it turned up the reason it had never been done, which is worth more than the migration.
+
+`alembic current` against blockchain-node's default target reported `d4e8b91c0a37 (head)` —
+fully migrated, nothing pending. That database is `/var/lib/aitbc/data/chain.db`, from
+`settings.db_path`. It holds **five tables and zero rows**.
+
+The running node does not use it. `lsof` on the node and the RPC service shows both hold
+`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db` — a **per-island** file, 63 MB, 21
+tables, 93,275 blocks. It had **no `alembic_version` table at all**. It had never been under
+Alembic control.
+
+The head migration converts `gpu_registration.price_per_hour` and `gpu_allocation.total_cost`
+from `Float` to `Numeric(20, 8)`. Neither table exists in the empty default database, so the
+migration's own `_table_exists` guard skipped both, wrote its version row, and exited 0. The
+tables it was written for, holding one row each, were in the file it never opened.
+
+**A migration that reports success is not evidence that anything was migrated.** The guard was
+right to skip missing tables; the version row was right about the database it was applied to.
+Both were true, and the schema was still `FLOAT`.
+
+#### What was applied
+
+Against `/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`, rehearsed first on a
+`.backup()` snapshot and then run for real with both services stopped:
+
+    stamp 459d59e234e4   the schema already matched everything up to the mergepoint
+    upgrade head         d4e8b91c0a37, 0.6s
+
+Verified against a fingerprint taken before: 21 tables identical, all row counts identical
+(93,352 rows), max height 93,274 unchanged, all 12 account balances and nonces identical,
+`integrity_check` ok. **The only column definitions that changed were the two intended ones.**
+The single index delta is `alembic_version`'s own autoindex.
+
+Read back through the live RPC after restart, `/rpc/gpus` returns
+`"price_per_hour":"0.05000000"` and `/rpc/gpu/allocations/...` returns
+`"total_cost":"0.05000000"` — full `Numeric(20, 8)` precision, serialised as decimal strings.
+
+Backups kept alongside the database as `chain.db{,-wal,-shm}.pre-v23mig.20260812_081043`.
+
+#### The fix in code
+
+`migrations/env.py` now prints the resolved URL to stderr before doing anything, the same
+change V23-47 made to gpu and edge for the same reason. There is no correct default to set
+here — the island is chosen at runtime, so no single file is the right one — which is
+precisely why it has to be printed rather than assumed.
+
+#### Two things found and not changed
+
+- **The node has been stuck at height 93,274 since 2026-08-03.** It fetches
+  `blocks-range?start=93275&end=93886` from the hub and rejects every block: *"Unsigned block
+  and no trusted proposer set configured."* 8,266 occurrences in the 32 hours before this work
+  began, first at Aug 03 19:54 — long predating it, and unchanged by it. The chain is 612
+  blocks behind. Recorded here because it explains why the database was quiescent enough to
+  migrate safely, and because nobody appears to have noticed for nine days.
+- **`escrow` declares a foreign key to a non-unique parent column.** `PRAGMA foreign_key_check`
+  raises `foreign key mismatch - "escrow" referencing "account"` — identical before and after,
+  so pre-existing. SQLite only surfaces this when enforcement is on, which it is not.
+
+`/var/lib/aitbc/data/ait-hub/chain.db` is a third file, 15 tables, every one empty, holding
+neither of the migrated tables. Left alone.
+
+---
