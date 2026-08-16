@@ -5,7 +5,6 @@ import os
 import shutil
 import socket
 import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -25,8 +24,9 @@ os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 os.environ.setdefault("MULTI_VALIDATOR_CONSENSUS_ENABLED", "true")
 
 from aitbc_chain.config import settings
+from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
 
 # Chain IDs used by isolated blockchain-node tests. AITBC's real chain whitelist
@@ -55,30 +55,19 @@ def _allow_test_chain_ids(monkeypatch) -> None:
     monkeypatch.setattr(settings, "supported_chains", supported)
 
 
-def _blockchain_table_names() -> set[str]:
-    """Return mapped table names owned by the blockchain package."""
-    names: set[str] = set()
-    for model in SQLModel._sa_registry._class_registry.values():
-        if getattr(model, "__module__", "").startswith("aitbc_chain."):
-            table = getattr(model, "__table__", None)
-            if table is not None:
-                names.add(table.name)
-    return names
-
-
-def _is_blockchain_test(item: pytest.Item) -> bool:
-    return "apps/blockchain-node/tests" in str(Path(str(item.fspath)).resolve())
-
-
-def pytest_runtest_setup(item: pytest.Item) -> None:
-    """Keep coordinator tables out of blockchain test schemas."""
-    if not _is_blockchain_test(item):
-        return
-    blockchain_tables = _blockchain_table_names()
-    for table in list(SQLModel.metadata.tables.values()):
-        if table.name not in blockchain_tables:
-            SQLModel.metadata.remove(table)
-
+# A `pytest_runtest_setup` hook used to sit here. It walked SQLModel's global metadata before
+# every test in this directory and removed each table that did not belong to `aitbc_chain`,
+# because this suite's fixtures called `SQLModel.metadata.create_all` and would otherwise have
+# built coordinator-api's schema into a blockchain test's database.
+#
+# The cost was out of all proportion to that. `MetaData.remove` is permanent: a class registers
+# its `Table` when its module first executes, and the module then stays in `sys.modules`, so
+# nothing ever put those tables back. Every suite collected after this one ran with a registry
+# this hook had emptied -- which is what left six coordinator-api test files failing on "no
+# such table: users" while passing in isolation (V23-71b).
+#
+# `aitbc_chain` now owns its tables on `chain_metadata`, so the fixtures name that registry and
+# there is nothing to keep out (V23-74).
 
 # ---------------------------------------------------------------------------
 # Auto-skip infrastructure-dependent tests when the resource is unreachable.
@@ -192,11 +181,11 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 @pytest.fixture(name="engine")
 def engine_fixture():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     try:
         yield engine
     finally:
-        SQLModel.metadata.drop_all(engine)
+        chain_metadata.drop_all(engine)
         engine.dispose()
 
 

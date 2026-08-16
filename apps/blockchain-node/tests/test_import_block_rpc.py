@@ -15,7 +15,9 @@ from aitbc_chain.models import Block
 from aitbc_chain.rpc import blocks as rpc_blocks
 from eth_account import Account as EthAccount
 from fastapi import HTTPException
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc.crypto.consensus_signing import sign_block_hash
 
@@ -28,7 +30,7 @@ def _hex(value: str) -> str:
 def isolated_engine(tmp_path, monkeypatch):
     db_path = tmp_path / "test_import_block_rpc.db"
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
 
     @contextmanager
     def _session_scope(*args, **kwargs):

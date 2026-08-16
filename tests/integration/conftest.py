@@ -1,7 +1,6 @@
 """Shared fixtures and setup for agent coordinator integration tests."""
 
 import os
-import sys
 from collections.abc import Generator
 from typing import Any
 from unittest.mock import patch
@@ -32,23 +31,22 @@ async def _noop_async() -> None:
 
 
 def _reset_coordinator_modules() -> None:
-    """Clear cached coordinator app modules and SQLModel metadata tables.
+    """Clear the Prometheus registry so re-imported apps can register their metrics again.
 
-    Several integration tests import other AITBC apps that also use SQLModel.
-    Those apps share the global SQLModel metadata, so model classes with the
-    same name (e.g., Transaction) can conflict. Resetting the metadata before
-    importing the coordinator app gives the session a clean registry.
+    This used to do considerably more. It dropped every ``aitbc_chain`` module from
+    ``sys.modules`` and then called ``SQLModel._sa_registry.dispose()`` and
+    ``SQLModel.metadata.clear()``, because the chain's ``Transaction``, ``Block`` and
+    ``Receipt`` collided by name with coordinator-api's on the one global registry, and this
+    file's own docstring said as much.
+
+    Clearing that registry is not a reset. A class registers its ``Table`` when its module
+    first executes, and the module then stays in ``sys.modules``, so nothing re-registers what
+    was cleared -- and this ran at *module scope*, during collection, before a single test in
+    the repo had started. Every suite collected afterwards inherited the empty registry.
+
+    ``aitbc_chain`` now keeps its tables on its own metadata, so the two model sets no longer
+    meet and none of that is needed (V23-74).
     """
-    for mod_name in list(sys.modules.keys()):
-        if mod_name == "aitbc_chain" or mod_name.startswith("aitbc_chain."):
-            del sys.modules[mod_name]
-    # Ensure any pending SQLModel mappers (e.g., from aitbc_chain) are fully
-    # configured before we clear the metadata, so the coordinator models can be
-    # re-registered cleanly in a fresh registry without ambiguous path errors.
-    SQLModel._sa_registry.configure()
-    SQLModel._sa_registry.dispose()
-    SQLModel.metadata.clear()
-    # Clear Prometheus registry to avoid duplicate metric errors on re-import
     try:
         from prometheus_client import REGISTRY
 

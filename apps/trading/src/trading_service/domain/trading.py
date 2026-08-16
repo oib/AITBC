@@ -10,7 +10,9 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import Numeric
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlmodel import JSON, Column, Field
+
+from .base import TradingBase
 
 
 class TradeStatus(StrEnum):
@@ -57,11 +59,10 @@ class SettlementType(StrEnum):
     SUBSCRIPTION = "subscription"
 
 
-class TradeRequest(SQLModel, table=True):
+class TradeRequest(TradingBase, table=True):
     """P2P trade request from buyer agent"""
 
     __tablename__ = "trade_requests"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"req_{uuid4().hex[:8]}", primary_key=True)
     request_id: str = Field(unique=True, index=True)
@@ -104,11 +105,10 @@ class TradeRequest(SQLModel, table=True):
     trading_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
 
-class TradeMatch(SQLModel, table=True):
+class TradeMatch(TradingBase, table=True):
     """Trade match between buyer request and seller offer"""
 
     __tablename__ = "trade_matches"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"match_{uuid4().hex[:8]}", primary_key=True)
     match_id: str = Field(unique=True, index=True)
@@ -146,11 +146,10 @@ class TradeMatch(SQLModel, table=True):
     interaction_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
-class TradeNegotiation(SQLModel, table=True):
+class TradeNegotiation(TradingBase, table=True):
     """Negotiation process between buyer and seller"""
 
     __tablename__ = "trade_negotiations"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"neg_{uuid4().hex[:8]}", primary_key=True)
     negotiation_id: str = Field(unique=True, index=True)
@@ -191,11 +190,10 @@ class TradeNegotiation(SQLModel, table=True):
     ai_recommendations: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
 
-class TradeAgreement(SQLModel, table=True):
+class TradeAgreement(TradingBase, table=True):
     """Final trade agreement between buyer and seller"""
 
     __tablename__ = "trade_agreements"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"agree_{uuid4().hex[:8]}", primary_key=True)
     agreement_id: str = Field(unique=True, index=True)
@@ -240,11 +238,10 @@ class TradeAgreement(SQLModel, table=True):
     attachments: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
-class TradeSettlement(SQLModel, table=True):
+class TradeSettlement(TradingBase, table=True):
     """Trade settlement and payment processing"""
 
     __tablename__ = "trade_settlements"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"settle_{uuid4().hex[:8]}", primary_key=True)
     settlement_id: str = Field(unique=True, index=True)
@@ -292,11 +289,10 @@ class TradeSettlement(SQLModel, table=True):
     audit_trail: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
-class TradeFeedback(SQLModel, table=True):
+class TradeFeedback(TradingBase, table=True):
     """Trade feedback and rating system"""
 
     __tablename__ = "trade_feedback"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"feedback_{uuid4().hex[:8]}", primary_key=True)
 
@@ -330,11 +326,10 @@ class TradeFeedback(SQLModel, table=True):
     performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
 
-class TradingAnalytics(SQLModel, table=True):
+class TradingAnalytics(TradingBase, table=True):
     """P2P trading system analytics and metrics"""
 
     __tablename__ = "trading_analytics"
-    __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"analytics_{uuid4().hex[:8]}", primary_key=True)
 

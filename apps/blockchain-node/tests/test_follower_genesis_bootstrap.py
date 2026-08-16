@@ -26,7 +26,9 @@ import pytest
 from aitbc_chain.config import ProposerConfig
 from aitbc_chain.consensus.poa import PoAProposer
 from aitbc_chain.sync import ProposerSignatureValidator
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 
 CHAIN_ID = "ait-test.example.net"
 
@@ -52,7 +54,7 @@ GENESIS_FILE = {
 @pytest.fixture
 def session_factory(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'chain.db'}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
 
     @contextmanager
     def _factory():

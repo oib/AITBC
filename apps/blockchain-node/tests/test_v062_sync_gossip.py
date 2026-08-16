@@ -12,7 +12,9 @@ from unittest.mock import Mock
 import pytest
 from aitbc_chain.models import Account, Block, Transaction
 from aitbc_chain.rpc import accounts as rpc_accounts
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 
 
 def _hex(value: str) -> str:
@@ -148,7 +150,7 @@ def isolated_engine(tmp_path, monkeypatch):
     """Create an isolated SQLite engine and patch session_scope in rpc.accounts."""
     db_path = tmp_path / "test_delta_sync.db"
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
 
     @contextmanager
     def _session_scope(*args, **kwargs):

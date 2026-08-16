@@ -11,7 +11,9 @@ from aitbc_chain.rpc import sync as rpc_sync
 from eth_account import Account as EthAccount
 from eth_keys import keys
 from eth_utils import keccak
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 
 def _hex(value: str) -> str:
@@ -38,7 +40,7 @@ def admin_signer(monkeypatch):
 def isolated_engine(tmp_path, monkeypatch):
     db_path = tmp_path / "test_force_sync_endpoints.db"
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
 
     @contextmanager
     def _session_scope(*args, **kwargs):
