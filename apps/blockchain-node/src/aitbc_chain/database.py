@@ -6,11 +6,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Engine, event, inspect, text
+from sqlalchemy import Column, ColumnDefault, Engine, event, inspect, literal, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.database.pooling import create_pooled_engine
 
 # Import all models to ensure they are registered on chain_metadata. Every table this
@@ -26,6 +27,8 @@ _DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_chan
 
 # Registry of chain-specific database engines
 _db_temp_paths: dict[str, object] = {}
+
+logger = get_logger(__name__)
 
 
 def get_encryption_key(key_path: os.PathLike[str] | None) -> bytes | None:
@@ -214,10 +217,55 @@ _engine_internal = _engine
 
 
 def _is_valid_sql_identifier(name: str) -> bool:
-    """Validate that a string is a safe SQL identifier (table/column name)."""
+    """Validate that a string is a safe SQL identifier (table/column name).
+
+    Kept alongside the dialect quoting in `_migrate_existing_columns` rather than replaced by
+    it: this rejects a name outright, quoting merely makes one safe to interpolate. Note what
+    it does *not* tell you -- `transaction` passes, and `transaction` is a SQLite keyword.
+    """
     if not name or len(name) > 128:
         return False
     return name.replace("_", "").isalnum() and name[0].isalpha()
+
+
+def _default_clause(column: Column[Any], engine: Engine) -> str:
+    """Render a column's model-side default as a SQL DEFAULT clause, or "" if it cannot be.
+
+    Both halves of this used to be done by string formatting, and both were wrong:
+
+    * A callable default -- `Field(default_factory=lambda: datetime.now(UTC))` -- arrived here
+      as the function object and got interpolated by `repr`, producing
+      `DEFAULT <function Account.<lambda> at 0x7f...>`. 24 columns in this schema have one,
+      every `created_at` / `updated_at` / `timestamp` on every core table, and all 24 are
+      NOT NULL, so the ALTER could not have been skipped either. It is evaluated once here
+      and the result becomes a constant, which is what a hand-written backfill would do.
+    * A literal was rendered by `isinstance(val, str)` and an f-string. The dialect knows how
+      to write a literal of any type it supports, including the quoting, so it does it.
+
+    Returns "" when the dialect cannot render the value, so the caller emits an ALTER with no
+    DEFAULT -- which succeeds for a nullable column and fails loudly for one that is not,
+    rather than writing something that parses into the wrong value (V23-77).
+    """
+    default = column.default
+    # `Column.default` is a `DefaultGenerator`; only the `ColumnDefault` branch of that carries
+    # a value at all. A server-side or sequence default is not something to re-render here.
+    if not isinstance(default, ColumnDefault) or default.arg is None:
+        return ""
+    try:
+        # SQLAlchemy wraps a zero-argument `default_factory` in a callable that takes an
+        # execution context and ignores it. There is no context at DDL time, so it gets None --
+        # and a default that genuinely reads the context cannot be reduced to a constant
+        # anyway, so it fails here and is reported as one this cannot render.
+        value = default.arg(None) if default.is_callable else default.arg  # type: ignore[arg-type]
+        rendered = literal(value, column.type).compile(engine, compile_kwargs={"literal_binds": True})
+    except Exception:  # noqa: BLE001 - evaluating or compiling failed: we cannot express this
+        logger.warning(
+            "Cannot render a DEFAULT for %s.%s; adding the column without one",
+            column.table.name,
+            column.name,
+        )
+        return ""
+    return f" DEFAULT {rendered}"
 
 
 def _migrate_existing_columns(engine: Engine) -> None:
@@ -226,8 +274,20 @@ def _migrate_existing_columns(engine: Engine) -> None:
     `chain_metadata.create_all` only creates new tables — it does not add
     columns to tables that already exist. This function inspects each table
     in the metadata and adds any columns that are missing from the DB schema.
+
+    Identifiers go through the dialect's quoter. They used to be interpolated bare, which
+    made this a startup crash rather than a migration on any chain database old enough to
+    be missing a column on `transaction`: that is a reserved word in SQLite, so
+    `ALTER TABLE transaction ADD COLUMN nonce INTEGER DEFAULT 0` is a syntax error. It is
+    the only identifier of the 164 in this schema that needs quoting, and it names the
+    chain's central table — the one most likely to gain a column (V23-77).
+
+    It reconciles columns and nothing else: a table that exists keeps whatever indexes and
+    constraints it has, so an old database ends up with the current columns and its original
+    index set. Alembic under `migrations/` is what covers the rest.
     """
     inspector = inspect(engine)
+    quote = engine.dialect.identifier_preparer.quote
     with engine.begin() as conn:
         for table_obj in chain_metadata.sorted_tables:
             table_name = table_obj.name
@@ -242,17 +302,25 @@ def _migrate_existing_columns(engine: Engine) -> None:
                 if not _is_valid_sql_identifier(col.name):
                     continue
                 coltype = col.type.compile(engine.dialect)
-                default = ""
-                if col.default is not None and col.default.arg is not None:  # type: ignore[attr-defined]
-                    val = col.default.arg  # type: ignore[attr-defined]
-                    if isinstance(val, str):
-                        default = f" DEFAULT '{val}'"
-                    else:
-                        default = f" DEFAULT {val}"
-                elif not col.nullable:
-                    # Non-nullable column without a default — supply empty string for text cols
-                    default = " DEFAULT ''"
-                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col.name} {coltype}{default}"))
+                default = _default_clause(col, engine)
+                if not default and not col.nullable:
+                    # This used to emit `DEFAULT ''` and carry on, on a comment about text
+                    # columns. 91 columns in this schema are NOT NULL with no model default,
+                    # and they are the ones that matter: `block.height INTEGER DEFAULT ''`,
+                    # `escrow.amount INTEGER DEFAULT ''`, `transaction.payload JSON DEFAULT ''`,
+                    # `governance_proposal.voting_ends DATETIME DEFAULT ''`. That does not fail
+                    # -- it writes a schema whose default is nonsense for the type, and the
+                    # first insert that omits the column stores it.
+                    #
+                    # A NOT NULL column with no default genuinely cannot be back-filled into a
+                    # table that has rows; SQLite rejects it too. So say which column, and stop.
+                    # Unreachable for a table `create_all` built, since it builds the column.
+                    raise RuntimeError(
+                        f"{table_name}.{col.name} is NOT NULL with no default that can be "
+                        f"rendered as SQL, so it cannot be added to a table that already has "
+                        f"rows. It needs a migration under migrations/, not this."
+                    )
+                conn.execute(text(f"ALTER TABLE {quote(table_name)} ADD COLUMN {quote(col.name)} {coltype}{default}"))
 
 
 def init_db(chain_id: str = "") -> None:
@@ -270,12 +338,16 @@ def init_db(chain_id: str = "") -> None:
     # Get or create chain-specific engine
     engine = get_engine(resolved_chain_id)
 
-    try:
-        chain_metadata.create_all(engine)
-    except Exception as e:
-        # If tables already exist, that's okay
-        if "already exists" not in str(e):
-            raise
+    # No try/except here. This used to swallow anything whose message contained "already
+    # exists", on the reasoning that existing tables are fine -- but `create_all` defaults to
+    # `checkfirst=True` and skips what is already there, so it does not raise for that reason.
+    # What it did raise for, until V23-74, was a duplicate `CREATE INDEX`: every service shared
+    # one global `MetaData` and `extend_existing` appended index objects a table already had.
+    # `aitbc_chain` owns its tables now, that cause is gone, and matching on an exception's
+    # *message* was never a safe way to tell a benign collision from a corrupt schema anyway
+    # -- the wording belongs to SQLAlchemy and the driver, not to us. Anything raised here is
+    # a real problem with this node's database and should stop it starting (V23-77).
+    chain_metadata.create_all(engine)
 
     # Add missing columns to existing tables (create_all only creates new tables)
     _migrate_existing_columns(engine)

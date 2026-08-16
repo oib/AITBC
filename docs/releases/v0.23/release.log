@@ -5775,3 +5775,97 @@ agent SDK, which only `PUT`s. `apps/exchange` matches the same path prefix in it
 and does not call this service.
 
 Marketplace suite green; root **6,361** collected, exit 0.
+
+### V23-77 — node startup could not tell a corrupt schema from a second start · CONFIRMED → RESOLVED
+
+`init_db` wrapped `chain_metadata.create_all(engine)` in an `except Exception` that re-raised
+only when the message did **not** contain "already exists". The reported finding is that this
+swallows real errors. Verifying it turned up three more defects in the same twelve lines, all
+in the path every node runs on every start, and none of them covered by a test — the two
+functions involved had no test file at all before this.
+
+**1. The handler was dead, and could only ever have been harmful.**
+
+`create_all` defaults to `checkfirst=True`: it queries the existing schema and emits DDL only
+for what is missing, so "already exists" is not an error it produces. What it *did* raise, until
+V23-74, was a duplicate `CREATE INDEX` — every service shared one global SQLModel `MetaData` and
+`extend_existing` appended index objects a table already had. That is fixed at the source;
+`aitbc_chain` owns its tables now.
+
+Verified rather than reasoned: the startup path was run twice each against copies of all eight
+chain databases on this host — the live hub (21 tables, 4,212 blocks), `ait-hub` (15 tables),
+the legacy 5-table `chain.db`, `chain-a`, and the partial and brand-new fixtures. No raise, in
+sixteen runs. Every one of those ran against a **copy** in a scratch directory; nothing under
+`/var/lib/aitbc/` was opened for writing.
+
+Matching on an exception's *message* was never a safe way to sort benign collisions from
+corruption in any case — that wording belongs to SQLAlchemy and pysqlite, not to us, and it
+moves between versions. A disk I/O error, a malformed file, a permissions failure: all
+re-raised, correctly, but only because the string happened not to match. The handler is gone.
+
+**2. `ALTER TABLE transaction ADD COLUMN ...` is a syntax error.**
+
+`_migrate_existing_columns` — which runs immediately after, and adds columns to tables that
+already exist — interpolated table and column names into DDL bare. `transaction` is a SQLite
+keyword, so the statement it builds for that table does not parse:
+
+    sqlite3.OperationalError: near "transaction": syntax error
+
+Reproduced against a copy of the deployed `/var/lib/aitbc/data/chain.db` with one column staged
+missing, which is the state a node upgrade leaves behind. It is exactly **one** identifier out
+of the 164 in this schema that needs quoting, which is why nothing has tripped over it — and it
+names the chain's central table, the one most likely to gain a column. The failure mode is not a
+skipped migration; it is an unhandled exception in `init_db`, so the node does not start.
+
+Identifiers now go through `engine.dialect.identifier_preparer.quote`. The existing
+`_is_valid_sql_identifier` check stays: it rejects a name outright, where quoting only makes one
+safe to interpolate, and it is worth keeping the note that it returns `True` for `transaction`.
+
+**3. Callable defaults were interpolated by `repr`.**
+
+The same function built its DEFAULT clause with an f-string over `col.default.arg`. For a
+`Field(default_factory=lambda: datetime.now(UTC))` that attribute is the function object:
+
+    ALTER TABLE account ADD COLUMN updated_at DATETIME DEFAULT <function Account.<lambda> at 0x7f...>
+
+24 columns in this schema have a callable default — every `created_at`, `updated_at` and
+`timestamp` on every core table — and all 24 are NOT NULL, so none of them could have been
+skipped. The factory is now evaluated once and the result rendered by the dialect
+(`DEFAULT '2026-08-16 10:14:22.936346'`), which is what a hand-written backfill does. Literals go
+through the same path instead of `isinstance(val, str)` and an f-string, so the dialect owns the
+quoting for every type rather than for the one that was special-cased.
+
+**4. Everything else got `DEFAULT ''`.**
+
+The remaining branch read `elif not col.nullable: default = " DEFAULT ''"`, under a comment about
+text columns. **91 columns** in this schema are NOT NULL with no model-side default, and only 68
+of them are textual. The branch was writing:
+
+    block.height                     INTEGER  DEFAULT ''
+    escrow.amount                    INTEGER  DEFAULT ''
+    transaction.payload              JSON     DEFAULT ''
+    governance_proposal.voting_ends  DATETIME DEFAULT ''
+    mempool.received_at              FLOAT    DEFAULT ''
+
+None of that raises. SQLite accepts the DDL and stores the empty string on the first insert that
+omits the column — a block at height `''`, an escrow holding `''` tokens. This is the worst of
+the four precisely because it is the one that appears to work.
+
+A NOT NULL column with no default genuinely cannot be back-filled into a table that has rows;
+there is no value to give the rows already there, and SQLite refuses it too. So the function now
+raises, naming the column and pointing at `migrations/`, instead of inventing a value that parses
+into the wrong one. It is unreachable for any table `create_all` built — that builds the column —
+which is why all eight database copies migrate clean; it fires only for a table that predates a
+column the models now require, and that is a case for a real migration written by a human.
+
+**Tests.** `apps/blockchain-node/tests/test_schema_bootstrap.py`, five of them, against the two
+functions that had none. Bootstrapping three times over the same database pins that no exception
+handling is needed. A column dropped from `transaction` and re-added pins the quoting, and would
+have failed with the syntax error above. The broad one drops all 103 back-fillable columns across
+20 of the 21 tables and asserts every one comes back — the state the hub's database was in, at
+the width the function claims to cover. `escrow.amount` dropped and refused by name pins the
+raise. The last asserts that `transaction` is still the *only* identifier of the 164 that needs
+quoting, so a future `order` or `group` column is named by a test rather than by a node that will
+not start.
+
+Blockchain-node **645** collected (640 + 5), 12 skipped; root **6,366**, exit 0.
