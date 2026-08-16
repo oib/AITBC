@@ -179,9 +179,9 @@ class SettlementChaosHarness:
             connect_args={"check_same_thread": False},
             echo=False,
         )
-        from aitbc_chain.base_models import SQLModel as ChainSQLModel
+        from aitbc_chain.metadata import chain_metadata
 
-        ChainSQLModel.metadata.create_all(source_engine)
+        chain_metadata.create_all(source_engine)
 
         # Dest chain DB
         dest_db = os.path.join(tmpdir.name, "dest.db")
@@ -190,7 +190,7 @@ class SettlementChaosHarness:
             connect_args={"check_same_thread": False},
             echo=False,
         )
-        ChainSQLModel.metadata.create_all(dest_engine)
+        chain_metadata.create_all(dest_engine)
 
         # Fund the sender on source chain
         from aitbc_chain.base_models import Account
