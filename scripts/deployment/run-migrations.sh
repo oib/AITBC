@@ -106,8 +106,10 @@ run_migrations() {
             svc_db_url=$(
                 unset DATABASE_URL SQLITE_URL
                 set +u
+                set -a
                 # shellcheck disable=SC1090
-                set -a; source "$env_file" 2>/dev/null || true; set +a
+                source "$env_file" 2>/dev/null || true
+                set +a
                 printf '%s' "${DATABASE_URL:-}"
             )
         fi
@@ -150,17 +152,23 @@ run_migrations() {
             unset DATABASE_URL SQLITE_URL
             if [ -n "$env_file" ]; then
                 set +u
+                set -a
                 # shellcheck disable=SC1090
-                set -a; source "$env_file" 2>/dev/null || true; set +a
+                source "$env_file" 2>/dev/null || true
+                set +a
                 set -u
             fi
             cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /'
         ); then
             success "  migrated: $svc_name"
             migrated=$((migrated + 1))
-            [ "$was_active" = "true" ] && systemctl start "aitbc-${svc_name}" || true
+            if [ "$was_active" = "true" ]; then
+                systemctl start "aitbc-${svc_name}" || true
+            fi
         else
-            [ "$was_active" = "true" ] && systemctl start "aitbc-${svc_name}" || true
+            if [ "$was_active" = "true" ]; then
+                systemctl start "aitbc-${svc_name}" || true
+            fi
             error "  migration failed for $svc_name (multiple heads, missing baseline, or DB unreachable)"
             error "  inspect: cd $svc_dir && PYTHONPATH=$pythonpath $alembic_bin upgrade head"
             failed=$((failed + 1))

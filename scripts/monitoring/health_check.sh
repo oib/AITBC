@@ -4,7 +4,7 @@
 # Comprehensive health monitoring for AITBC services
 # Checks service health endpoints, resource usage, and logs results
 
-set -e
+set -euo pipefail
 
 # Configuration
 REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
@@ -33,25 +33,29 @@ declare -A SERVICE_ENDPOINTS=(
 
 # Logging functions
 log() {
-    local msg="[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+    local msg
+    msg="[$(date +'%Y-%m-%d %H:%M:%S')] $1"
     echo -e "${BLUE}$msg${NC}"
     echo "$msg" >> "$HEALTH_CHECK_LOG" 2>/dev/null || true
 }
 
 error() {
-    local msg="[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1"
+    local msg
+    msg="[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1"
     echo -e "${RED}$msg${NC}"
     echo "$msg" >> "$HEALTH_CHECK_LOG" 2>/dev/null || true
 }
 
 success() {
-    local msg="[$(date +'%Y-%m-%d %H:%M:%S')] SUCCESS: $1"
+    local msg
+    msg="[$(date +'%Y-%m-%d %H:%M:%S')] SUCCESS: $1"
     echo -e "${GREEN}$msg${NC}"
     echo "$msg" >> "$HEALTH_CHECK_LOG" 2>/dev/null || true
 }
 
 warning() {
-    local msg="[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1"
+    local msg
+    msg="[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1"
     echo -e "${YELLOW}$msg${NC}"
     echo "$msg" >> "$HEALTH_CHECK_LOG" 2>/dev/null || true
 }
@@ -102,7 +106,8 @@ check_resource_usage() {
     local service="$1"
 
     # Get PID of service
-    local pid=$(systemctl show -p MainPID --value "$service" 2>/dev/null || echo "")
+    local pid
+    pid=$(systemctl show -p MainPID --value "$service" 2>/dev/null || echo "")
 
     if [[ -z "$pid" ]] || [[ "$pid" == "0" ]]; then
         warning "Cannot get PID for $service"
@@ -111,7 +116,8 @@ check_resource_usage() {
 
     # Check CPU usage
     if [[ -f "/proc/$pid/stat" ]]; then
-        local cpu_usage=$(ps -p "$pid" -o %cpu --no-headers 2>/dev/null | tr -d ' ' || echo "0")
+        local cpu_usage
+        cpu_usage=$(ps -p "$pid" -o %cpu --no-headers 2>/dev/null | tr -d ' ' || echo "0")
         local cpu_int=${cpu_usage%.*}
         if [[ $cpu_int -gt $ALERT_THRESHOLD_CPU ]]; then
             error "$service CPU usage high: ${cpu_usage}%"
@@ -121,7 +127,8 @@ check_resource_usage() {
     fi
 
     # Check memory usage
-    local mem_usage=$(ps -p "$pid" -o %mem --no-headers 2>/dev/null | tr -d ' ' || echo "0")
+    local mem_usage
+    mem_usage=$(ps -p "$pid" -o %mem --no-headers 2>/dev/null | tr -d ' ' || echo "0")
     local mem_int=${mem_usage%.*}
     if [[ $mem_int -gt $ALERT_THRESHOLD_MEM ]]; then
         error "$service memory usage high: ${mem_usage}%"
@@ -139,7 +146,8 @@ check_disk_usage() {
         return 0
     fi
 
-    local disk_usage=$(df "$path" | awk 'NR==2 {print $5}' | tr -d '%')
+    local disk_usage
+    disk_usage=$(df "$path" | awk 'NR==2 {print $5}' | tr -d '%' || echo "0")
     local disk_int=${disk_usage%.*}
 
     if [[ $disk_int -gt $ALERT_THRESHOLD_DISK ]]; then
@@ -151,9 +159,12 @@ check_disk_usage() {
 
 # Check system memory
 check_system_memory() {
-    local mem_info=$(free | awk '/^(Mem|Speicher):/ {print $2, $3}')
-    local total=$(echo "$mem_info" | awk '{print $1}')
-    local used=$(echo "$mem_info" | awk '{print $2}')
+    local mem_info
+    mem_info=$(free | awk '/^(Mem|Speicher):/ {print $2, $3}' || true)
+    local total
+    total=$(echo "$mem_info" | awk '{print $1}')
+    local used
+    used=$(echo "$mem_info" | awk '{print $2}')
     if [[ -z "$total" || -z "$used" || "$total" -eq 0 ]]; then
         warning "Could not determine system memory usage"
         return 0
@@ -176,7 +187,8 @@ check_blockchain_sync() {
         return 0
     fi
 
-    local block_height=$(curl -s "$rpc_url/rpc/head" | jq -r '.height' 2>/dev/null || echo "0")
+    local block_height
+    block_height=$(curl -s "$rpc_url/rpc/head" | jq -r '.height' 2>/dev/null || echo "0")
 
     if [[ "$block_height" != "0" ]] && [[ "$block_height" != "null" ]]; then
         success "Blockchain current height: $block_height"
@@ -221,7 +233,7 @@ check_redis() {
 
 # Check network connectivity
 check_network() {
-    local target_host="${1:-8.8.8.8}"
+    local target_host="8.8.8.8"
 
     if ping -c 1 -W 2 "$target_host" &> /dev/null; then
         success "Network connectivity OK (ping to $target_host)"

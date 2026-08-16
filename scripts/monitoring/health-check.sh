@@ -2,9 +2,10 @@
 
 # AITBC Health Check Script
 
+set -euo pipefail
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 check_service() {
@@ -67,6 +68,6 @@ check_service "Modality Optimization" "http://localhost:8021/health"
 # Check process status
 echo ""
 echo "Process Status:"
-ps aux | grep -E "simple_daemon|uvicorn|apps.exchange.simple_exchange.server" | grep -v grep | while read line; do
+pgrep -af "simple_daemon|uvicorn|apps.exchange.simple_exchange.server" | while IFS= read -r line; do
     echo -e "${GREEN}✓${NC} $line"
-done
+done || true
