@@ -238,6 +238,25 @@ initialize_databases() {
     success "Database initialization completed"
 }
 
+# Bring every Alembic-managed service's schema to head.
+#
+# This step did not exist. `initialize_databases` above creates the Postgres databases and
+# nothing else, and `main` went straight from there to `start_services`, so a fresh install
+# brought every service up against whatever schema happened to be present -- for services
+# whose `init_db()` deliberately creates nothing, that is no schema at all. Only update.sh
+# migrated, and update.sh is the path for a node that is already installed (V23-79).
+#
+# Shared with update.sh so the install and update paths cannot drift apart.
+run_database_migrations() {
+    log "Running Alembic DB migrations..."
+    if ! AITBC_ROOT="$REPO_ROOT" VENV_DIR="$VENV_DIR" "$REPO_ROOT/scripts/deployment/run-migrations.sh"; then
+        # `error` in deploy_common.sh exits. That is the right behaviour here: starting
+        # services against a schema that failed to migrate is what this step exists to stop.
+        error "Database migrations failed — not starting services"
+    fi
+    success "Database migrations completed"
+}
+
 # Setup systemd services
 setup_systemd_services() {
     log "Setting up systemd services..."
@@ -444,6 +463,10 @@ main() {
             configure_environment
             initialize_databases
             setup_systemd_services
+            # After the units are linked, not before: run-migrations.sh skips any service
+            # whose unit is absent, which is how it stays role-aware. Before start_services,
+            # because migrating under a running service is what corrupts one.
+            run_database_migrations
             start_services
             run_health_checks
             display_status
