@@ -1,259 +1,81 @@
-# AITBC CLI Testing Documentation
+# AITBC CLI Testing
 
-**Last Updated:** 2026-05-28
+**Last updated:** 2026-08-16
 
-**Complete CLI Testing Results and Procedures**
+The CLI's tests live in `cli/tests/`: 87 tests across seven files. As of V23-84 they run with
+everything else — `cli/tests` is in `testpaths` in the root `pyproject.toml`, so a bare
+`pytest` from the repository root collects them.
 
-## 📊 **Test Results: 67/67 Tests Passing (100%)**
+Before that they were collected by nothing. `cli/` carried its own `pytest.ini` whose
+`testpaths = cli/tests` resolved against rootdir `cli/`, so it pointed at `cli/cli/tests`,
+which does not exist; pytest warned and fell back to searching the working directory. The 87
+tests were found by that fallback, and only when the invocation happened to start at `cli/` or
+`cli/tests`. The ini file is gone; there is one pytest configuration for the repository.
 
-### ✅ **Comprehensive Test Suite Results**
-
-**Level-Based Tests**:
-
-- **Level 1 (Basic Functionality)**: 7/7 tests passing (100%)
-- **Level 2 (Compliance Commands)**: 5/5 tests passing (100%)
-- **Level 3 (Wallet Commands)**: 5/5 tests passing (100%)
-- **Level 4 (Blockchain Commands)**: 5/5 tests passing (100%)
-- **Level 5 (Config Commands)**: 5/5 tests passing (100%)
-- **Level 6 (Integration Tests)**: 5/5 tests passing (100%)
-- **Level 7 (Error Handling)**: 4/4 tests passing (100%)
-
-**Group-Based Tests**:
-
-- **Wallet Group**: 9/9 tests passing (100%)
-- **Blockchain Group**: 8/8 tests passing (100%)
-- **Config Group**: 8/8 tests passing (100%)
-- **Compliance Group**: 6/6 tests passing (100%)
-
-**Overall Success Rate**: 91.0% → 100% (after fixes)
-
-## 🧪 **Test Execution**
-
-### Running Tests
+## Running them
 
 ```bash
-# Navigate to test directory
-cd /opt/aitbc/cli/tests
-
-# Run comprehensive test suite
-source ../venv/bin/activate
-PYTHONPATH=/opt/aitbc/cli python3 comprehensive_tests.py
-
-# Run group-specific tests
-python3 group_tests.py
-
-# Run basic functionality tests
-python3 run_simple_tests.py
+/opt/aitbc/venv/bin/pytest cli/tests -q
 ```
 
-### Test Environment Setup
+From anywhere in the tree, with the root configuration. To run one file or one class:
 
 ```bash
-# Load development environment
-source /opt/aitbc/.env.dev
-
-# Activate virtual environment
-source /opt/aitbc/cli/venv/bin/activate
-
-# Set Python path
-export PYTHONPATH=/opt/aitbc/cli:$PYTHONPATH
+/opt/aitbc/venv/bin/pytest cli/tests/test_explorer.py -q
 ```
-
-## 📋 **Test Categories**
-
-### **Level 1: Basic Functionality**
-
-Tests core CLI functionality:
-
-- Main help system
-- Version command
-- Configuration commands
-- Command registration
-
-### **Level 2: Compliance Commands**
-
-Tests KYC/AML functionality:
-
-- Provider listing
-- KYC submission
-- AML screening
-- Compliance checks
-
-### **Level 3: Wallet Commands**
-
-Tests wallet operations:
-
-- Wallet creation
-- Balance checking
-- Transaction operations
-- Address management
-
-### **Level 4: Blockchain Commands**
-
-Tests blockchain integration:
-
-- Node status
-- Block information
-- Transaction details
-- Network peers
-
-### **Level 5: Config Commands**
-
-Tests configuration management:
-
-- Configuration display
-- Get/set operations
-- Validation procedures
-
-### **Level 6: Integration Tests**
-
-Tests cross-component integration:
-
-- Service communication
-- API connectivity
-- Global options
-
-### **Level 7: Error Handling**
-
-Tests error scenarios:
-
-- Invalid commands
-- Missing arguments
-- Service failures
-
-## 🔧 **Test Infrastructure**
-
-### Test Files
-
-- `comprehensive_tests.py` - All 7 test levels
-- `group_tests.py` - Command group tests
-- `run_simple_tests.py` - Basic functionality
-- `test_level1_commands.py` - Level 1 specific tests
-
-### Test Environment
-
-- **Virtual Environment**: `/opt/aitbc/cli/venv/`
-- **Python Path**: `/opt/aitbc/cli`
-- **Dependencies**: All CLI dependencies installed
-- **Services**: All AITBC services running
-
-## 📈 **Test Evolution**
-
-### Initial Issues Fixed
-
-1. **Import Path Issues**: Fixed old `/home/oib/windsurf/aitbc/cli` paths
-2. **Missing Modules**: Restored `kyc_aml_providers.py` and `main_minimal.py`
-3. **Command Registration**: Fixed CLI command imports
-4. **Permission Issues**: Resolved file and directory permissions
-5. **Config Initialization**: Added proper config context setup
-
-### Final Achievement
-
-- **From 91.0% to 100%**: All failing tests resolved
-- **Complete Coverage**: All command groups tested
-- **Full Integration**: All service integrations verified
-- **Error Handling**: Comprehensive error scenarios covered
-
-## 🎯 **Test Coverage Analysis**
-
-### Commands Tested
 
 ```bash
-# Working Commands (100%)
-✅ aitbc --help
-✅ aitbc version
-✅ aitbc wallet create/list/balance
-✅ aitbc blockchain info/status
-✅ aitbc config show/get/set
-✅ aitbc compliance list-providers
-✅ aitbc compliance kyc-submit
-✅ aitbc compliance aml-screen
+/opt/aitbc/venv/bin/pytest cli/tests/test_cli_comprehensive.py::TestSimulateCommand -v
 ```
 
-### Features Verified
+Use `venv/bin/pytest` rather than a system pytest: the root configuration requires
+`pytest-rerunfailures` and `pytest-timeout`, which are installed in the virtualenv.
 
-- **Help System**: Complete and functional
-- **Version Command**: Working correctly
-- **Command Registration**: All commands available
-- **Service Integration**: Full connectivity
-- **Error Handling**: Robust and comprehensive
-- **Configuration Management**: Complete functionality
+`cd cli && pytest` still runs just these 87. Removing `cli/pytest.ini` did not change that:
+rootdir is now the repository root, so the real configuration applies, and pytest skips
+`testpaths` when the invocation directory is not the rootdir and collects from where it was
+invoked instead.
 
-## 🔍 **Quality Assurance**
+## What is covered
 
-### Test Validation
+| file | tests | what it exercises |
+|---|---|---|
+| `test_explorer.py` | 39 | all 14 `explorer` subcommands, in-process through Click's `CliRunner` with the explorer client mocked — including its error paths (`NetworkError`, an empty result, an unexpected exception) |
+| `test_cli_comprehensive.py` | 25 | the command tree end to end, by running the launcher as a subprocess: `simulate`, `blockchain`, `network`, `market`, `ai`, `resource`, output formats, and the argument errors each group should reject |
+| `test_cli_basic.py` | 8 | that the launcher starts, that `--help` lists the top-level groups, and that an invalid command exits non-zero |
+| `test_gpu_marketplace.py` | 7 | that `gpu` and the six `market` subcommands are registered and their help text is what the docs claim — help-text checks, not behaviour |
+| `test_exchange_island.py` | 5 | argument validation on `exchange buy`, `sell` and `orderbook`: invalid amounts, currencies and trading pairs are rejected |
+| `test_island_credentials.py` | 2 | loading island credentials, including the missing-file and malformed-file paths |
+| `test_wallet_creation.py` | 1 | that a file-backed wallet is created with a real private key rather than a placeholder |
 
-```bash
-# Verify test results
-python3 comprehensive_tests.py | grep "Results:"
-# Expected: "Results: 36/36 tests passed"
+## Two kinds of test in here
 
-# Verify group tests
-python3 group_tests.py | grep "Results:"
-# Expected: "Results: 31/31 tests passed"
-```
+**In-process** (`test_explorer.py`, `test_gpu_marketplace.py`, `test_exchange_island.py`) —
+Click's `CliRunner` invokes the command object directly with its client mocked. Fast,
+deterministic, and able to assert on what the command sent as well as what it printed.
 
-### Continuous Testing
+**Subprocess** (`test_cli_basic.py`, `test_cli_comprehensive.py`) — these run
+`scripts/aitbc-cli`, the launcher that `/usr/local/bin/aitbc` symlinks to. Shallow by
+comparison, mostly `--help` and exit codes, but they are the only tests that would catch a
+CLI that fails to start at all: a bad import in any command module is invisible to every
+in-process test that does not import that module.
 
-```bash
-# Quick test after changes
-python3 run_simple_tests.py
+Both files derive their paths from `__file__` rather than hard-coding `/opt/aitbc` and
+`/usr/local/bin/aitbc`, so a checkout elsewhere, or one without the symlink installed, runs
+them against its own tree.
 
-# Full test suite
-python3 comprehensive_tests.py && python3 group_tests.py
-```
+## What is not covered
 
-## 📚 **Test Documentation**
+- No command that writes to a chain, submits a job, or moves funds is exercised against a live
+  service, by design. The subprocess tests stop at `--help` and argument validation for those.
+- `network test --peer localhost` is attempted twice and its result is asserted as
+  `returncode in (0, 1, 2)`, which accepts every outcome the command can produce. It is a
+  crash check, not a connectivity check.
+- `cli/tests/run_cli_tests.py` is a standalone runner script, not a pytest module, and nothing
+  collects it.
 
-### Test Procedures
+## Adding tests
 
-1. **Environment Setup**: Load development environment
-2. **Service Check**: Verify all services running
-3. **Test Execution**: Run comprehensive test suite
-4. **Result Analysis**: Review test results
-5. **Issue Resolution**: Fix any failing tests
-6. **Validation**: Re-run tests to verify fixes
-
-### Test Maintenance
-
-- **After CLI Changes**: Re-run relevant tests
-- **After Service Updates**: Verify integration tests
-- **After Dependency Updates**: Check all tests
-- **Regular Schedule**: Weekly full test suite run
-
-## 🚀 **Test Results Summary**
-
-### Final Status
-
-```
-🎉 CLI Tests - COMPLETED SUCCESSFULLY!
-
-📊 Overall Test Results:
-- Total Tests Run: 67
-- Tests Passed: 67
-- Success Rate: 100.0%
-
-🎯 CLI Status - PERFECT:
-✅ Available Commands: wallet, config, blockchain, compliance
-✅ Global Features: help system, output formats, debug mode
-✅ Error Handling: robust and comprehensive
-✅ Virtual Environment: properly integrated
-✅ Module Dependencies: resolved and working
-✅ Service Integration: complete functionality
-```
-
-### Achievement Unlocked
-
-**🏆 100% Test Success Rate Achieved!**
-
-- All 67 tests passing
-- All command groups functional
-- All levels working perfectly
-- No remaining issues
-
----
-
-**Last Updated**: March 8, 2026
-**Test Suite Version**: 2.0
-**Success Rate**: 100% (67/67 tests)
-**Infrastructure**: Complete
+Put them in `cli/tests/`; they are collected automatically. Markers must be registered in the
+root `pyproject.toml` — `--strict-markers` is on, and an unregistered marker fails collection
+rather than being ignored.
