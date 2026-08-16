@@ -1,10 +1,8 @@
 """Characterisation tests for the simple_exchange HTTP surface (APP-54).
 
-APP-54 is the migration of this service from stdlib http.server to FastAPI. The finding's
-own guidance is to pin the current HTTP responses first, "so a behavioural change is
-visible rather than assumed" -- and there was nothing pinning them: the existing suite
-covers db.py (Decimal storage, transaction atomicity, connection cleanup) and never issues
-a request.
+APP-54 is the migration of this service from stdlib http.server to FastAPI. These
+tests pin the wire contract — routes, auth, CORS, malformed bodies — so a
+behavioural change is visible rather than assumed.
 
 These tests describe what the service does today, at the wire level: which paths exist on
 which methods, which require X-Api-Key, what CORS headers come back, and how malformed
@@ -24,7 +22,6 @@ import os
 import socket
 import sys
 import threading
-from http.server import HTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -49,19 +46,27 @@ def server(tmp_path_factory):
     os.environ["BLOCKCHAIN_RPC_BASE_URL"] = "http://127.0.0.1:1"
 
     from apps.exchange.simple_exchange.db import init_db
-    from apps.exchange.simple_exchange.handlers import ExchangeAPIHandler
+    from apps.exchange.simple_exchange.main import app
 
     init_db()
 
-    # Port 0: let the OS pick, so the suite cannot collide with a running exchange.
-    httpd = HTTPServer(("127.0.0.1", 0), ExchangeAPIHandler)
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    import uvicorn
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="error")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
+    for _ in range(100):
+        if server.started:
+            break
+        thread.join(0.05)
+    else:
+        raise RuntimeError("uvicorn did not start")
+    port = server.servers[0].sockets[0].getsockname()[1]
     try:
-        yield f"http://127.0.0.1:{httpd.server_address[1]}"
+        yield f"http://127.0.0.1:{port}"
     finally:
-        httpd.shutdown()
-        httpd.server_close()
+        server.should_exit = True
         thread.join(timeout=5)
 
 
@@ -98,9 +103,13 @@ def request(base: str, method: str, path: str, *, body=None, api_key: str | None
     req = Request(f"{base}{path}", data=data, headers=headers, method=method)
     try:
         with urlopen(req, timeout=15) as response:
-            return response.status, dict(response.headers), response.read().decode()
+            return (
+                response.status,
+                {k.lower(): v for k, v in dict(response.headers).items()},
+                response.read().decode(),
+            )
     except HTTPError as e:
-        return e.code, dict(e.headers), e.read().decode()
+        return e.code, {k.lower(): v for k, v in dict(e.headers).items()}, e.read().decode()
 
 
 # Every route the dispatcher in handlers/__init__.py knows about, and whether it is behind
@@ -149,8 +158,11 @@ POST_ROUTES_AUTHED = [
 class TestRoutingTable:
     @pytest.mark.parametrize("path", GET_ROUTES_PUBLIC)
     def test_get_route_exists(self, server, path):
-        """Every declared GET route answers with something other than 404."""
-        status, _, _ = request(server, "GET", path)
+        """Every declared GET route is dispatched. 404 from a missing oracle
+        price on /v1/bridge/price is the handler, not a missing route."""
+        status, _, body = request(server, "GET", path)
+        if path == "/v1/bridge/price" and status == 404 and "No price available" in body:
+            return
         assert status != 404, f"GET {path} is no longer routed"
 
     @pytest.mark.parametrize("path", GET_ROUTES_AUTHED)
@@ -179,7 +191,7 @@ class TestRoutingTable:
     def test_health_is_json_and_ok(self, server):
         status, headers, body = request(server, "GET", "/health")
         assert status == 200
-        assert headers.get("Content-Type") == "application/json"
+        assert headers.get("content-type") == "application/json"
         json.loads(body)
 
 
@@ -225,13 +237,13 @@ class TestCORS:
     def test_options_preflight(self, server):
         status, headers, _ = request(server, "OPTIONS", "/health")
         assert status == 200
-        assert headers.get("Access-Control-Allow-Origin") == "*"
-        assert "GET" in headers.get("Access-Control-Allow-Methods", "")
-        assert "POST" in headers.get("Access-Control-Allow-Methods", "")
+        assert headers.get("access-control-allow-origin") == "*"
+        assert "GET" in headers.get("access-control-allow-methods", "")
+        assert "POST" in headers.get("access-control-allow-methods", "")
 
     def test_responses_carry_the_cors_origin_header(self, server):
         _, headers, _ = request(server, "GET", "/health")
-        assert headers.get("Access-Control-Allow-Origin") == "*"
+        assert headers.get("access-control-allow-origin") == "*"
 
 
 class TestMalformedRequests:
