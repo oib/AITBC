@@ -1,1 +1,1 @@
-"""AITBC Simple Exchange — stdlib http.server backend package."""
+"""AITBC Simple Exchange — FastAPI-wrapped exchange service."""

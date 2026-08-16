@@ -6,7 +6,7 @@
 
 ## Description
 
-AITBC Trade Exchange service — order matching, price discovery, treasury balance, marketplace, and bridge endpoints. Uses stdlib `http.server` backend with SQLite (TEXT-stored Decimal columns for exact monetary arithmetic).
+AITBC Trade Exchange service — order matching, price discovery, treasury balance, marketplace, and bridge endpoints. Uses FastAPI with SQLite (TEXT-stored Decimal columns for exact monetary arithmetic).
 
 ## Node Type
 
