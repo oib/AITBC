@@ -3,7 +3,7 @@
 # AITBC Full Development Environment Startup Script
 # Starts incus containers, services inside containers, and all AITBC services on localhost
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -120,17 +120,19 @@ done
 print_status "Starting AITBC systemd services on localhost..."
 
 # Get all AITBC services (filter out invalid characters)
-aitbc_services=$(systemctl list-units --all | grep "aitbc-" | grep -v "●" | awk '{print $1}' | grep -v "not-found" | grep -v "loaded")
+aitbc_services=$(systemctl list-units --all | grep "aitbc-" | grep -v "●" | awk '{print $1}' | grep -v "not-found" | grep -v "loaded") || true
 
 if [ -z "$aitbc_services" ]; then
     print_warning "No AITBC services found on localhost"
 else
     print_status "Found AITBC services:"
-    echo "$aitbc_services" | sed 's/^/  - /'
+    for svc in $aitbc_services; do
+        echo "  - $svc"
+    done
 
     # Start each service
     for service in $aitbc_services; do
-        service_name=$(echo "$service" | sed 's/\.service$//')
+        service_name=${service%.service}
         print_status "Starting service: $service_name"
 
         if is_service_running "$service_name"; then
@@ -156,7 +158,7 @@ print_status "Checking service status..."
 if [ -n "$aitbc_services" ]; then
     print_status "Local Systemd Services Status:"
     for service in $aitbc_services; do
-        service_name=$(echo "$service" | sed 's/\.service$//')
+        service_name=${service%.service}
         if is_service_running "$service_name"; then
             print_success "$service_name: RUNNING"
         else

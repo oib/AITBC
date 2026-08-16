@@ -7,6 +7,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/../utils/deploy_common.sh"
 
 # Configuration
@@ -25,6 +26,7 @@ check_prerequisites() {
     if [[ ! -f /etc/os-release ]]; then
         error "Cannot detect Linux distribution"
     fi
+    # shellcheck disable=SC1091
     source /etc/os-release
     log "Detected OS: $PRETTY_NAME"
 
@@ -132,6 +134,7 @@ install_python_dependencies() {
     log "Installing Python dependencies..."
 
     # Activate virtual environment
+    # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
 
     # Upgrade pip
@@ -270,7 +273,7 @@ setup_systemd_services() {
         mkdir -p /etc/systemd/system
         for service in "$REPO_ROOT/systemd"/*.service; do
             if [[ -f "$service" ]]; then
-                ln -sf "$service" "/etc/systemd/system/$(basename $service)"
+                ln -sf "$service" "/etc/systemd/system/$(basename "$service")"
             fi
         done
     fi
@@ -382,7 +385,7 @@ rollback_deployment() {
     log "Rolling back deployment..."
 
     # Find latest backup
-    LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/backup_* 2>/dev/null | head -1)
+    LATEST_BACKUP=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'backup_*' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -n 1 | cut -d' ' -f2-)
 
     if [[ -z "$LATEST_BACKUP" ]]; then
         error "No backup found for rollback"
