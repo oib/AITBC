@@ -8,6 +8,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# `tests/load_test.py` is a Locust scenario, not a pytest module, but its name matches
+# pytest's default `*_test.py` pattern so a run that collects this directory imports it.
+# Importing a Locust file pulls in gevent's monkey patching mid-collection, and collection
+# then wedges -- no error, no output, just a run that never finishes. `tests/load/`
+# already carries a `conftest.py` doing the same thing for the three scenarios in there,
+# for the same reason and with the same reasoning about not renaming them: the paths are
+# passed verbatim to `locust -f` by .github/workflows/load-tests.yml,
+# scripts/performance/run_load_tests.sh and docs/testing/README.md.
+#
+# This is what kept the 58 pytest modules at `tests/` root out of `testpaths` (V23-71).
+collect_ignore = ["load_test.py"]
+
 # Register a custom datetime adapter for sqlite3 to suppress the Python 3.12+
 # deprecation warning about the default datetime adapter. SQLAlchemy uses
 # sqlite3 under the hood for test databases.
