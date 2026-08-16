@@ -1,0 +1,42 @@
+# v0.23.3 — High — things that are named for what they do not do
+
+## High — things that are named for what they do not do
+
+### V23-06 — `TEEChannel.send` base64-encodes and calls it encryption · CONFIRMED → RESOLVED
+
+`aitbc/tee/channel.py:73`. The method is `send`, the docstring is *"Send an encrypted
+message on the channel"*, the local is `ciphertext`, the field is `payload` on a type called
+`TEEMessage` — and the operation is `base64.b64encode`. `receive` is `b64decode`. The
+module docstring does say it is a simulator placeholder, at the top of the file, which is
+not where a caller looks.
+
+Consumed by `apps/edge/src/edge_app/tee_proxy.py`.
+
+> **Fix**: either implement it (the docstring names AES-GCM or ChaCha20-Poly1305 with the
+> session's shared secret — `cryptography` is already a dependency), or rename the methods
+> to `encode`/`decode` and the type to something that does not say TEE. A placeholder is
+> fine; a placeholder that reads as a security control at every call site is not. Same class
+> as v0.22's APP-33 and CORE-24.
+
+### V23-07 — two functions named `encrypt_value`, opposite guarantees · CONFIRMED → RESOLVED
+
+- `aitbc/security/encryption.py:49` — PBKDF2 + Fernet, requires a password, rejects weak ones.
+- `cli/aitbc_cli/utils/__init__.py:52` — `base64.b64encode`, password argument accepted and
+  ignored.
+
+`cli/aitbc_cli/commands/config.py:423` calls the second, then reports
+`success("Secret '{key}' saved (encrypted)")` and emits `{"status": "encrypted"}` (lines
+438–439). `cli/aitbc_cli/commands/wallet/__init__.py:34` imports the first.
+
+```
+grep -n "def encrypt_value" -A3 aitbc/security/encryption.py cli/aitbc_cli/utils/__init__.py
+```
+
+This was raised in v0.22 as an adjacent finding and never ticketed. It is ticketed now.
+
+> **Fix**: rename the CLI one to `encode_value`/`decode_value` — its own docstring already
+> calls it "lightweight reversible encoding", so the name is the only thing lying — and stop
+> `config set-secret` reporting "encrypted". If secrets stored by `set-secret` are meant to
+> be encrypted, point it at `aitbc.security.encryption` and require the password.
+
+---

@@ -1,0 +1,24 @@
+# v0.23.18 — What the fourth pass changes about the shape of this audit
+
+## What the fourth pass changes about the shape of this audit
+
+The first three passes found things that were *missing* — a normalisation step, a lock, a
+declared dependency, a ceremony record. This one found something different: a calculation
+that is confidently wrong, wrapped in a test that shares its confusion, with the correct
+version sitting twenty lines below it in the same file.
+
+That combination — right answer present, wrong answer used, test agreeing with the wrong
+answer — is not caught by any gate this repository has. Lint, mypy, the test suite and the
+doc-link checker all pass on `main` today. It is worth asking what else is in that
+category, and the honest answer is that only reading finds it.
+
+**What fixing it added to that conclusion.** The repair (PR #101) turned up a second copy of
+the same mistake on the *checking* side, which the audit had not seen — see V23-30. The two
+sides were wrong in matching units, so the system was self-consistent and no test could tell.
+That sharpens the lesson rather than softening it: a wrong unit does not stay in one
+function. It propagates to whatever compares against it, and the comparison then *hides* it.
+When auditing the rest of the economics and consensus code, the question to ask is not "is
+this calculation right" but "what else consumes this quantity, and does it agree for the same
+wrong reason".
+
+---
