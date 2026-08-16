@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import ForeignKey
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.base_models import Account, Escrow, _to_ait_address
 from aitbc_chain.state.merkle_patricia_trie import StateManager
@@ -30,7 +32,7 @@ SPELLINGS = [f"ait1{BODY}", f"0x{BODY}", f"0x{BODY.upper()}", f"aitbc1{BODY}", f
 @pytest.fixture
 def session():
     engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     with Session(engine) as open_session:
         yield open_session
 

@@ -9,13 +9,17 @@ from typing import Any
 from sqlalchemy import Engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
 from aitbc.database.pooling import create_pooled_engine
 
-# Import all models to ensure they are registered with SQLModel.metadata
+# Import all models to ensure they are registered on chain_metadata. Every table this
+# package owns has to be imported here, or `create_all` below silently skips it.
 from .base_models import Account, Block, Escrow, Receipt, SmartContract, Transaction  # noqa: F401
 from .config import settings
+from .mempool import MempoolEntry  # noqa: F401
+from .metadata import chain_metadata
+from .state.gpu_resources import EdgeNodeRegistration, GPUAllocation, GPURegistration  # noqa: F401
 
 # Database encryption key (in production, this should come from HSM or secure key storage)
 _DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_change_in_production")
@@ -219,13 +223,13 @@ def _is_valid_sql_identifier(name: str) -> bool:
 def _migrate_existing_columns(engine: Engine) -> None:
     """Add missing columns to existing SQLite tables.
 
-    SQLModel.metadata.create_all only creates new tables — it does not add
+    `chain_metadata.create_all` only creates new tables — it does not add
     columns to tables that already exist. This function inspects each table
     in the metadata and adds any columns that are missing from the DB schema.
     """
     inspector = inspect(engine)
     with engine.begin() as conn:
-        for table_obj in SQLModel.metadata.sorted_tables:
+        for table_obj in chain_metadata.sorted_tables:
             table_name = table_obj.name
             if not _is_valid_sql_identifier(table_name):
                 continue
@@ -267,7 +271,7 @@ def init_db(chain_id: str = "") -> None:
     engine = get_engine(resolved_chain_id)
 
     try:
-        SQLModel.metadata.create_all(engine)
+        chain_metadata.create_all(engine)
     except Exception as e:
         # If tables already exist, that's okay
         if "already exists" not in str(e):

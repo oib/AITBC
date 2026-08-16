@@ -28,7 +28,9 @@ from __future__ import annotations
 import json
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.base_models import Transaction
 from aitbc_chain.rpc.utils import verify_transaction_signature
@@ -64,7 +66,7 @@ def _signed_transaction() -> tuple[dict, str, str]:
 @pytest.fixture
 def session():
     engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     with Session(engine) as open_session:
         yield open_session
 

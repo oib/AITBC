@@ -18,7 +18,9 @@ import pytest
 from eth_account import Account as EthAccount
 from eth_keys import keys
 from eth_utils import keccak
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 from sqlalchemy.pool import StaticPool
 
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
@@ -133,9 +135,9 @@ def engine():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    SQLModel.metadata.create_all(eng)
+    chain_metadata.create_all(eng)
     yield eng
-    SQLModel.metadata.drop_all(eng)
+    chain_metadata.drop_all(eng)
 
 
 @pytest.fixture

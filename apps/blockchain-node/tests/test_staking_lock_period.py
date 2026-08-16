@@ -20,7 +20,9 @@ import pytest
 from aitbc_chain.models import Account, Stake
 from aitbc_chain.rpc import staking as staking_module
 from fastapi import HTTPException
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 STAKER = "0x1111111111111111111111111111111111111111"
 
@@ -28,7 +30,7 @@ STAKER = "0x1111111111111111111111111111111111111111"
 @pytest.fixture
 def engine(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'staking.db'}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     try:
         yield engine
     finally:

@@ -18,10 +18,12 @@ from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import Column, Numeric
-from sqlmodel import Field, Index, SQLModel
+from sqlmodel import Field, Index
+
+from .base import TradingBase
 
 
-class InterChainTrade(SQLModel, table=True):
+class InterChainTrade(TradingBase, table=True):
     """An inter-chain trade between two AITBC chains."""
 
     __tablename__ = "inter_chain_trades"
@@ -55,7 +57,7 @@ class InterChainTrade(SQLModel, table=True):
     dest_timelock: int = 0  # destination chain timelock (must be < source)
 
 
-class IslandRegistryEntry(SQLModel, table=True):
+class IslandRegistryEntry(TradingBase, table=True):
     """Registry of known AITBC chains for inter-chain trading."""
 
     __tablename__ = "island_registry"

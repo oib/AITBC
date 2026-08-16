@@ -40,7 +40,9 @@ from aitbc_chain.rpc.utils import (
 )
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +93,7 @@ def client():
 def db_engine(tmp_path):
     """In-memory SQLite engine for sync/bridge tests."""
     engine = create_engine(f"sqlite:///{tmp_path / 'test_v0516.db'}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     try:
         yield engine
     finally:

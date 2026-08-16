@@ -18,27 +18,6 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("TRADING_API_KEY", "test-trading-key")
 
 
-def _model_tables():
-    """The tables declared by this service's own domain modules.
-
-    Named explicitly rather than calling ``create_all`` over the whole registry: in a full
-    repo run that registry holds every other service's tables too, and building them into this
-    service's database is how a schema ends up with tables nobody can account for.
-    """
-    from sqlmodel import SQLModel
-
-    from trading_service.domain import inter_chain, trading
-
-    tables = []
-    for module in (inter_chain, trading):
-        for value in vars(module).values():
-            if isinstance(value, type) and issubclass(value, SQLModel):
-                table = getattr(value, "__table__", None)
-                if table is not None:
-                    tables.append(table)
-    return tables
-
-
 @pytest.fixture(scope="session", autouse=True)
 def _test_database():
     """Build the schema this suite needs.
@@ -54,23 +33,26 @@ def _test_database():
     ``trade_agreements``, ``trade_settlements``, ``trade_feedback``, ``trading_analytics`` —
     have never had a migration. The deployed database has them because something ran
     ``create_all`` before that comment was written, so a fresh deployment would come up with
-    two of this service's nine tables. Recorded as a finding; ``checkfirst`` leaves anything
+    two of this service's nine tables. Recorded as a finding; ``checkfirst`` leaves the two
     Alembic already built alone.
+
+    ``trading_metadata`` holds exactly this service's tables and nothing else (V23-74), so
+    ``create_all`` over it cannot build another service's schema into this database.
     """
     from alembic import command
     from alembic.config import Config
     from sqlalchemy import create_engine
+
+    from trading_service.domain.base import trading_metadata
+    from trading_service.storage import DATABASE_URL
 
     app_dir = Path(__file__).resolve().parent.parent
     config = Config(str(app_dir / "alembic.ini"))
     config.set_main_option("script_location", str(app_dir / "alembic"))
     command.upgrade(config, "head")
 
-    from trading_service.storage import DATABASE_URL
-
     engine = create_engine(DATABASE_URL.replace("+aiosqlite", ""))
-    for table in _model_tables():
-        table.create(engine, checkfirst=True)
+    trading_metadata.create_all(engine, checkfirst=True)
     engine.dispose()
 
 

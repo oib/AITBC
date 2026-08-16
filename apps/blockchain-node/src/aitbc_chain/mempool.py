@@ -8,14 +8,16 @@ from threading import Lock, RLock
 from typing import Any, cast
 
 from sqlalchemy import Column, Float, Index, Integer, MetaData, Text, delete, func
-from sqlmodel import Field, Session, SQLModel, create_engine, select, text
+from sqlmodel import Field, Session, create_engine, select, text
+
+from .metadata import ChainBase
 
 from .metrics import metrics_registry
 
 mempool_metadata = MetaData()
 
 
-class MempoolEntry(SQLModel, table=True):
+class MempoolEntry(ChainBase, table=True):
     __tablename__ = "mempool"
     __table_args__: Any = (
         Index("idx_mempool_fee", "fee", postgresql_ops={"fee": "DESC"}),
