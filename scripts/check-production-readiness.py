@@ -59,26 +59,6 @@ def check_systemd_services() -> bool:
     return all_ok
 
 
-def check_json_logging() -> bool:
-    """Check if coordinator-api has JSON logging enabled."""
-    try:
-        result = subprocess.run(
-            ["systemctl", "show", "aitbc-coordinator-api.service", "--property=Environment"],
-            capture_output=True,
-            text=True,
-        )
-        env_vars = result.stdout.strip()
-        if "LOG_FORMAT=json" in env_vars:
-            print("✅ JSON logging: enabled in coordinator-api")
-            return True
-        else:
-            print("❌ JSON logging: NOT enabled in coordinator-api")
-            return False
-    except Exception as e:
-        print(f"❌ JSON logging check: ERROR - {e}")
-        return False
-
-
 def check_secrets() -> bool:
     """Check for placeholder secrets in service files."""
     service_dir = Path("/opt/aitbc/apps")
@@ -198,7 +178,6 @@ def main() -> int:
     results = {
         "Redis connectivity": check_redis_connectivity(),
         "Systemd services": check_systemd_services(),
-        "JSON logging": check_json_logging(),
         "Secrets": check_secrets(),
         "Migrations": check_migrations(),
     }

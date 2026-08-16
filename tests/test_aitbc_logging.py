@@ -111,29 +111,27 @@ class TestSetupLogger:
         assert logger.name == "test_logger"
         assert logger.level == logging.DEBUG
 
-    def test_setup_logger_custom_format(self):
-        """Test setting up logger with custom format"""
-        logger = setup_logger("test_logger", format_string="%(levelname)s - %(message)s")
+    def test_console_output_is_always_the_journal_formatter(self):
+        """The console formatter is not selectable, and the parameters that offered to are gone.
 
-        assert logger.name == "test_logger"
-        assert len(logger.handlers) > 0
+        `setup_logger` used to take `structured` and `format_string`. Neither reached the
+        console handler, or anything else: 1b81d840 removed the conditional they fed and left
+        them in the signature, so from June 2026 on, a caller passing either got exactly the
+        logger a caller passing nothing got. Both are deleted; this asserts the contract that
+        replaced them (V23-78).
+        """
+        logging.getLogger("test_logger_console").handlers.clear()
+        logger = setup_logger("test_logger_console")
 
-    def test_setup_logger_structured(self):
-        """Test setting up logger with structured formatting"""
-        # Remove existing handlers first
-        logger = logging.getLogger("test_logger_structured")
-        logger.handlers.clear()
+        assert [type(h.formatter) for h in logger.handlers] == [JournalFormatter]
 
-        logger = setup_logger("test_logger_structured", structured=True)
+    def test_file_output_is_always_the_structured_formatter(self, tmp_path, monkeypatch):
+        """The other half of that contract: a file gets JSON regardless, for aggregation."""
+        monkeypatch.setenv("LOG_DIR", str(tmp_path))
+        logging.getLogger("test_logger_file").handlers.clear()
+        logger = setup_logger("test_logger_file", service_name="svc", to_file=True)
 
-        assert logger.name == "test_logger_structured"
-        assert len(logger.handlers) > 0
-        # `structured` does not reach the console handler: setup_logger installs
-        # JournalFormatter unconditionally and gives StructuredFormatter to the *file*
-        # handler, which only exists when to_file and service_name are both passed. The
-        # parameter is dead, which this file would have said years ago had it ever run.
-        # Recorded as its own finding; asserted here as it behaves.
-        assert isinstance(logger.handlers[0].formatter, JournalFormatter)
+        assert [type(h.formatter) for h in logger.handlers] == [JournalFormatter, StructuredFormatter]
 
     def test_setup_logger_no_duplicate_handlers(self):
         """Test that setup_logger doesn't add duplicate handlers"""
@@ -182,15 +180,19 @@ class TestConfigureLogging:
         root_logger = logging.getLogger()
         assert root_logger.level == logging.DEBUG
 
-    def test_configure_logging_structured(self):
-        """Test configuring root logging with structured formatting"""
-        configure_logging(structured=True)
+    def test_configure_logging_replaces_root_handlers_with_the_journal_formatter(self):
+        """Same contract at the root logger, which is what every service actually calls.
+
+        This one took a `structured` flag too, equally unread. Note the clearing: unlike
+        `setup_logger`, this replaces whatever handlers the root logger already had, so it is
+        the last caller that wins.
+        """
+        logging.getLogger().addHandler(logging.StreamHandler(StringIO()))
+        configure_logging()
 
         root_logger = logging.getLogger()
         assert root_logger.level == logging.INFO
-        assert len(root_logger.handlers) > 0
-        # Same dead parameter as setup_logger's: the console handler is always Journal.
-        assert isinstance(root_logger.handlers[0].formatter, JournalFormatter)
+        assert [type(h.formatter) for h in root_logger.handlers] == [JournalFormatter]
 
 
 class TestLogContext:
@@ -266,11 +268,17 @@ class TestLogContextClass:
 
 
 class TestStructuredLoggingIntegration:
-    """Test structured logging integration"""
+    """StructuredFormatter end to end, over a handler attached by hand.
+
+    These used to pass `structured=True` to `setup_logger` and then attach their own handler
+    carrying a `StructuredFormatter`, which is what every assertion below actually runs
+    through — the flag changed nothing and its removal changes nothing here. Attaching the
+    formatter explicitly is also how file output gets it, so this is the real path (V23-78).
+    """
 
     def test_structured_logging_end_to_end(self):
         """Test end-to-end structured logging"""
-        logger = setup_logger("test_logger", level="INFO", structured=True)
+        logger = setup_logger("test_logger", level="INFO")
 
         # Capture log output
         stream = StringIO()
@@ -292,7 +300,7 @@ class TestStructuredLoggingIntegration:
 
     def test_structured_logging_with_context(self):
         """Test structured logging with contextual information"""
-        logger = setup_logger("test_logger", level="INFO", structured=True)
+        logger = setup_logger("test_logger", level="INFO")
 
         # Capture log output
         stream = StringIO()
@@ -315,7 +323,7 @@ class TestStructuredLoggingIntegration:
 
     def test_structured_logging_different_levels(self):
         """Test structured logging at different log levels"""
-        logger = setup_logger("test_logger", level="DEBUG", structured=True)
+        logger = setup_logger("test_logger", level="DEBUG")
 
         # Capture log output
         stream = StringIO()
@@ -360,24 +368,6 @@ class TestBackwardCompatibility:
 
         output = stream.getvalue()
         assert "INFO - Traditional message" in output
-
-        # Clean up
-        logger.removeHandler(handler)
-
-    def test_traditional_format_string(self):
-        """Test traditional format string still works"""
-        logger = setup_logger("test_logger", format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-        # Capture log output
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        logger.addHandler(handler)
-
-        logger.info("Test message")
-
-        output = stream.getvalue()
-        assert "Test message" in output
 
         # Clean up
         logger.removeHandler(handler)
