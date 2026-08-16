@@ -5,7 +5,9 @@ from typing import Any, Optional
 from pydantic import field_validator
 from sqlalchemy import BigInteger, Column, ForeignKey, Index, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
+
+from .metadata import ChainBase
 
 from aitbc.crypto.signature_recovery import canonical_address
 
@@ -84,12 +86,11 @@ class AccountAddress(TypeDecorator):
         return _to_ait_address(value)
 
 
-class Block(SQLModel, table=True):
+class Block(ChainBase, table=True):
     __tablename__ = "block"
     __table_args__ = (
         UniqueConstraint("chain_id", "height", name="uix_block_chain_height"),
         UniqueConstraint("chain_id", "hash", name="uix_block_chain_hash"),
-        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -143,12 +144,11 @@ class Block(SQLModel, table=True):
         return _validate_optional_hex(value, "Block.state_root")
 
 
-class Transaction(SQLModel, table=True):
+class Transaction(ChainBase, table=True):
     __tablename__ = "transaction"
     __table_args__ = (
         UniqueConstraint("chain_id", "tx_hash", name="uix_transaction_chain_hash"),
         Index("idx_tx_chain_height", "chain_id", "block_height"),
-        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -195,9 +195,9 @@ class Transaction(SQLModel, table=True):
         return _validate_hex(value, "Transaction.tx_hash")
 
 
-class Receipt(SQLModel, table=True):
+class Receipt(ChainBase, table=True):
     __tablename__ = "receipt"
-    __table_args__ = (UniqueConstraint("chain_id", "receipt_id", name="uix_receipt_chain_id"), {"extend_existing": True})
+    __table_args__ = (UniqueConstraint("chain_id", "receipt_id", name="uix_receipt_chain_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -240,9 +240,8 @@ class Receipt(SQLModel, table=True):
         return _validate_hex(value, "Receipt.receipt_id")
 
 
-class Account(SQLModel, table=True):
+class Account(ChainBase, table=True):
     __tablename__ = "account"
-    __table_args__ = {"extend_existing": True}
 
     chain_id: str = Field(primary_key=True)
     address: str = Field(sa_column=Column(AccountAddress(), primary_key=True))
@@ -251,9 +250,8 @@ class Account(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class Escrow(SQLModel, table=True):
+class Escrow(ChainBase, table=True):
     __tablename__ = "escrow"
-    __table_args__ = {"extend_existing": True}
     job_id: str = Field(primary_key=True)
     # `ForeignKey`, not `foreign_key=`: the latter is SQLModel's `Field` argument, and
     # passing it to `Column` makes SQLAlchemy read it as a dialect option named
@@ -266,11 +264,10 @@ class Escrow(SQLModel, table=True):
     job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
 
 
-class CrossChainTransfer(SQLModel, table=True):
+class CrossChainTransfer(ChainBase, table=True):
     """Cross-chain bridge transfer record"""
 
     __tablename__ = "cross_chain_transfer"
-    __table_args__ = {"extend_existing": True}
 
     transfer_id: str = Field(primary_key=True)
     source_chain: str = Field(index=True)
@@ -288,7 +285,7 @@ class CrossChainTransfer(SQLModel, table=True):
     proof_hash: str | None = Field(default=None, index=True)
 
 
-class BridgeValidator(SQLModel, table=True):
+class BridgeValidator(ChainBase, table=True):
     """Bridge validator registration (v0.7.1).
 
     Persists validator set memberships per chain per epoch. Loaded into
@@ -297,10 +294,7 @@ class BridgeValidator(SQLModel, table=True):
     """
 
     __tablename__ = "bridge_validators"
-    __table_args__ = (
-        Index("ix_bridge_validators_chain_epoch", "chain_id", "epoch"),
-        {"extend_existing": True},
-    )
+    __table_args__ = (Index("ix_bridge_validators_chain_epoch", "chain_id", "epoch"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)  # chain this validator serves
@@ -311,7 +305,7 @@ class BridgeValidator(SQLModel, table=True):
     registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class BridgeBlockHeader(SQLModel, table=True):
+class BridgeBlockHeader(ChainBase, table=True):
     """Block header from a remote (source) chain (v0.7.2 §B2).
 
     Stored by the bridge when it learns about source chain blocks (via
@@ -325,7 +319,6 @@ class BridgeBlockHeader(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("chain_id", "height", name="uix_bridge_block_chain_height"),
         Index("idx_bridge_block_chain_finality", "chain_id", "finality_confirmed"),
-        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -341,11 +334,10 @@ class BridgeBlockHeader(SQLModel, table=True):
     confirmation_count: int = 0  # number of confirmations seen (child blocks)
 
 
-class Stake(SQLModel, table=True):
+class Stake(ChainBase, table=True):
     """On-chain staking record"""
 
     __tablename__ = "stake"
-    __table_args__ = {"extend_existing": True}
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -357,14 +349,11 @@ class Stake(SQLModel, table=True):
     status: str = Field(default="active", index=True)  # active, withdrawn, slashed
 
 
-class AgentIdentity(SQLModel, table=True):
+class AgentIdentity(ChainBase, table=True):
     """On-chain agent identity record for verification"""
 
     __tablename__ = "agent_identity"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "agent_id", name="uix_agent_identity_chain_agent"),
-        {"extend_existing": True},
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "agent_id", name="uix_agent_identity_chain_agent"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -384,11 +373,11 @@ class AgentIdentity(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class GovernanceProposal(SQLModel, table=True):
+class GovernanceProposal(ChainBase, table=True):
     """On-chain governance proposal record"""
 
     __tablename__ = "governance_proposal"
-    __table_args__ = (UniqueConstraint("chain_id", "proposal_id", name="uix_gov_proposal_chain_id"), {"extend_existing": True})
+    __table_args__ = (UniqueConstraint("chain_id", "proposal_id", name="uix_gov_proposal_chain_id"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -414,14 +403,11 @@ class GovernanceProposal(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class GovernanceVote(SQLModel, table=True):
+class GovernanceVote(ChainBase, table=True):
     """On-chain governance vote record"""
 
     __tablename__ = "governance_vote"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "proposal_id", "voter_address", name="uix_gov_vote_unique"),
-        {"extend_existing": True},
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "proposal_id", "voter_address", name="uix_gov_vote_unique"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -433,7 +419,7 @@ class GovernanceVote(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class ConsensusState(SQLModel, table=True):
+class ConsensusState(ChainBase, table=True):
     """Persisted multi-validator consensus state (v0.7.5 B11).
 
     Survives node restart so that validator set, PBFT view/sequence,
@@ -441,7 +427,6 @@ class ConsensusState(SQLModel, table=True):
     """
 
     __tablename__ = "consensus_state"
-    __table_args__ = ({"extend_existing": True},)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True, unique=True)
@@ -453,7 +438,7 @@ class ConsensusState(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class CrossChainEscrowRecord(SQLModel, table=True):
+class CrossChainEscrowRecord(ChainBase, table=True):
     """Cross-chain escrow record for atomic settlement (v0.9.0).
 
     Persists the HTLC escrow lifecycle: pending → locked → verified →
@@ -465,7 +450,6 @@ class CrossChainEscrowRecord(SQLModel, table=True):
         UniqueConstraint("escrow_id", name="uix_escrow_id"),
         Index("ix_escrow_trade_id", "trade_id"),
         Index("ix_escrow_status", "status"),
-        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -494,7 +478,7 @@ class CrossChainEscrowRecord(SQLModel, table=True):
     refunded_at: datetime | None = None
 
 
-class EscrowProofRecord(SQLModel, table=True):
+class EscrowProofRecord(ChainBase, table=True):
     """Proof record in the settlement proof chain (v0.9.0).
 
     Each escrow has up to 5 proofs: lock → verification → execution →
@@ -505,7 +489,6 @@ class EscrowProofRecord(SQLModel, table=True):
     __table_args__ = (
         Index("ix_proof_escrow_id", "escrow_id"),
         Index("ix_proof_type", "proof_type"),
-        {"extend_existing": True},
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -522,7 +505,7 @@ class EscrowProofRecord(SQLModel, table=True):
     timestamp: float = 0.0
 
 
-class HTLCSwapState(SQLModel, table=True):
+class HTLCSwapState(ChainBase, table=True):
     """Persistent HTLC swap state (v0.9.0 B4).
 
     Mirrors the Solidity ``mapping(bytes32 => Swap)`` storage. Each row
@@ -535,7 +518,6 @@ class HTLCSwapState(SQLModel, table=True):
         Index("ix_htlc_initiator", "initiator"),
         Index("ix_htlc_participant", "participant"),
         Index("ix_htlc_status", "status"),
-        {"extend_existing": True},
     )
 
     swap_id: str = Field(primary_key=True)
@@ -552,7 +534,7 @@ class HTLCSwapState(SQLModel, table=True):
     refunded_at: float | None = None
 
 
-class SmartContract(SQLModel, table=True):
+class SmartContract(ChainBase, table=True):
     """Deployed smart contract registry entry.
 
     Stores contract metadata and deployed bytecode/ABI. The contract address
@@ -561,10 +543,7 @@ class SmartContract(SQLModel, table=True):
     """
 
     __tablename__ = "smart_contract"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "address", name="uix_smart_contract_chain_address"),
-        {"extend_existing": True},
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "address", name="uix_smart_contract_chain_address"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)

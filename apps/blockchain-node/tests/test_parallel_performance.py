@@ -16,7 +16,9 @@ import pytest
 from sqlalchemy import create_engine as sa_create_engine
 from sqlalchemy import text
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc.parallel import DependencyGraph, ParallelExecutor
 from aitbc_chain.models import Account
@@ -71,7 +73,7 @@ def _make_engine():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     return engine
 
 

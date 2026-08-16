@@ -36,7 +36,9 @@ from aitbc_chain.block_cache import get_block_header_cache
 from aitbc_chain.models import Block
 from aitbc_chain.rpc import blocks as rpc_blocks
 from eth_account import Account as EthAccount
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc.crypto.consensus_signing import sign_block_hash, verify_block_signature
 
@@ -49,7 +51,7 @@ def _hex(value: str) -> str:
 
 def _engine_for(tmp_path, name):
     engine = create_engine(f"sqlite:///{tmp_path / name}", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     return engine
 
 

@@ -6,13 +6,15 @@ from contextlib import contextmanager
 
 import pytest
 from aitbc_chain.sync import ChainSync
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 
 
 @pytest.fixture
 def db_engine(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path}/test_sync_opt.db", echo=False)
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     try:
         yield engine
     finally:

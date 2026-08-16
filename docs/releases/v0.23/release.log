@@ -5409,3 +5409,56 @@ registry and a name lookup then raises `KeyError` for a table that is perfectly 
 `apps/governance/tests` joins `testpaths`, which was the point. Root 3820 → **3920**,
 blockchain-node **640**, both green, and `make test-governance` is gone along with its
 explanation.
+
+### V23-74 — the chain shared its table registry with the coordinator, and two hooks paid for it
+
+Every SQLModel class in the repo registers its `Table` on one process-global `MetaData` unless
+it says otherwise. The chain is not the only thing here with a `Transaction`: `coordinator-api`
+has one too, along with its own `Block` and `Receipt`. Same registry, same names, different
+columns. The two never meet in production — separate processes, separate databases — so what
+the collision broke was every attempt to test them in one interpreter, and the two workarounds
+it grew were the most destructive things in the suite.
+
+    tests/integration/conftest.py            SQLModel._sa_registry.dispose()
+                                             SQLModel.metadata.clear()
+    apps/blockchain-node/tests/conftest.py   pytest_runtest_setup -> MetaData.remove(each foreign table)
+
+Neither is a reset. A class registers its `Table` when its module *first* executes, and the
+module then stays in `sys.modules`, so re-importing re-registers nothing: a table removed that
+way is gone for the rest of the process. The first ran at **module scope**, during collection,
+before a single test in the repo had started — every suite collected afterwards inherited an
+empty registry. The second emptied it again before each of 640 blockchain tests. That is the
+whole explanation for the six coordinator-api files that failed on `no such table: users` while
+passing in isolation (V23-71b), and for why V23-72's marketplace `init_db` had to take its
+`Table` off the class rather than look the name up.
+
+**The fix is the same three lines as governance, gpu and marketplace.** `aitbc_chain/metadata.py`
+declares `chain_metadata` and `ChainBase`; the 21 table models across `base_models.py`,
+`mempool.py` and `state/gpu_resources.py` subclass it; `database.py` and `migrations/env.py`
+name that registry instead of `SQLModel.metadata`. Autogenerate has to read the same registry
+`create_all` writes to, or the next revision is one that drops every table. `database.py` now
+imports `MempoolEntry` and the three `gpu_resources` models explicitly, so `create_all` builds
+the same 21 tables regardless of import order; the deployed chain database already has all 21,
+so this changes nothing for a running node. Eighteen test files that called
+`SQLModel.metadata.create_all(engine)` unfiltered now name `chain_metadata` — which is what the
+blockchain conftest's hook existed to compensate for. **Both hooks are gone.**
+
+**Removing the clear surfaced what it had been hiding.** `apps/trading` carried a fifth instance
+of `extend_existing: True` — nine models colliding with coordinator-api's `contexts/trading`.
+That flag does not give a service its own table; it merges the second definition into whichever
+`Table` registered first, and the merge appends `Index` objects whose names are already on the
+table, so `create_all` emits `CREATE INDEX ix_trade_negotiations_match_id` twice and the second
+one fails. It had never failed because the metadata clear left only one definition standing.
+`apps/trading` gets a `trading_metadata` of its own on the same pattern, and the flag comes off.
+It comes off the chain's twenty as well: alone on its own registry, `extend_existing` can no
+longer mask a cross-service collision, only a genuine duplicate definition inside the package,
+which is a thing you want to hear about.
+
+DDL was verified byte-identical before and after in both packages, by creating the schema into a
+temporary SQLite file and diffing normalized `sqlite_master`:
+
+    aitbc_chain       21 tables   88 indexes   identical
+    trading_service    9 tables   31 indexes   identical
+
+Root 3920, blockchain-node 640, both green. **V23-71c is unblocked**: the two hooks that made
+those seven app test files unrestorable no longer exist.
