@@ -80,18 +80,13 @@ Utility scripts and helpers
 - `check-documentation-requirements.sh` - Documentation requirements checking
 - `claim-task.py` - Task claiming
 - `clean-sudoers-fix.sh` - Sudoers cleanup
-- `cleanup_fake_gpus_db.py` - Fake GPU database cleanup
 - `cleanup_fake_gpus.py` - Fake GPU cleanup
 - `complete-permission-fix.sh` - Complete permission fixes
 - `create_structured_issue.py` - Structured issue creation
-- `deploy_enhanced_genesis.py` - Enhanced genesis deployment
 - `detect-aitbc-user.sh` - AITBC user detection
 - `end_to_end_workflow.py` - End-to-end workflow
 - `final-sudoers-fix.sh` - Final sudoers fixes
-- `fix_database_persistence.py` - Database persistence fixes
-- `fix_gpu_release.py` - GPU release fixes
 - `fix-permissions.sh` - Permission fixes
-- `fix-startup-issues.sh` - Startup issue fixes
 - `fix-sudoers-syntax.sh` - Sudoers syntax fixes
 - `generate-api-keys.py` - API key generation
 - `git_helper.sh` - Git helper functions
@@ -114,7 +109,6 @@ Utility scripts and helpers
 - `sync.sh` - Synchronization
 - `update-docs.sh` - Documentation updates
 - `validate-requirements.sh` - Requirements validation
-- `verify-codebase-update.sh` - Codebase update verification
 - `verify-production-advanced.sh` - Advanced production verification
 
 ## Usage

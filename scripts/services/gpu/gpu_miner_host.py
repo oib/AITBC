@@ -22,8 +22,12 @@ MAX_RETRIES = 10
 RETRY_DELAY = 30
 INFERENCE_BACKEND = os.getenv("INFERENCE_BACKEND", "auto")  # auto, ollama, vllm
 
-# Setup logging with explicit configuration
-LOG_PATH = "/home/oib/windsurf/aitbc/logs/host_gpu_miner.log"
+# Setup logging with explicit configuration.
+# This was /home/oib/windsurf/aitbc/logs/, so the makedirs below created a two-level tree
+# under a home directory that does not exist here and the miner logged into it. $LOG_PATH is
+# what scripts/gpu/README.md and docs/deployment/debian-miner-installation.md already tell
+# operators to set; the default now matches the one they document.
+LOG_PATH = os.getenv("LOG_PATH", "/var/log/aitbc/host_gpu_miner.log")
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 
