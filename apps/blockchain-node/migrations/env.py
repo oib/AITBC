@@ -4,11 +4,11 @@ import os
 import sys
 from logging.config import fileConfig
 
-from aitbc_chain import models  # noqa: F401
+from aitbc_chain import database  # noqa: F401  -- imports every model, registering the tables
 from aitbc_chain.config import settings
+from aitbc_chain.metadata import chain_metadata
 from alembic import context
 from sqlalchemy import engine_from_config, pool
-from sqlmodel import SQLModel
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -43,8 +43,12 @@ print(f"alembic: target database -> {_db_url}", file=sys.stderr)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Use SQLModel metadata for autogeneration.
-target_metadata = SQLModel.metadata
+# This package's tables are on their own MetaData, not the global SQLModel one, because
+# apps/coordinator-api defines a Transaction, Block and Receipt of its own -- see
+# aitbc_chain/metadata.py (V23-74). Autogenerate must read the same registry create_all
+# writes, or it would compare the chain database against an empty model set and emit a
+# migration dropping every table.
+target_metadata = chain_metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

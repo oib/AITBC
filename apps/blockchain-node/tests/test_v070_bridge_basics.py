@@ -25,7 +25,9 @@ from eth_utils import keccak
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
+
+from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
 from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer
@@ -87,9 +89,9 @@ def rpc_engine():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     yield engine
-    SQLModel.metadata.drop_all(engine)
+    chain_metadata.drop_all(engine)
 
 
 @pytest.fixture

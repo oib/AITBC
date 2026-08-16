@@ -11,7 +11,10 @@ from sqlalchemy import engine_from_config, pool
 # Add src directory to sys.path for module imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from sqlmodel import SQLModel
+# Importing the models is what registers them on trading_metadata.
+from trading_service.domain import inter_chain as _inter_chain  # noqa: F401
+from trading_service.domain import trading as _trading  # noqa: F401
+from trading_service.domain.base import trading_metadata
 
 config = context.config
 
@@ -43,7 +46,12 @@ config.set_main_option("sqlalchemy.url", _sync_database_url())
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = SQLModel.metadata
+# This service's tables are on their own MetaData, not the global SQLModel one, because
+# apps/coordinator-api defines the same table names -- see trading_service/domain/base.py
+# (V23-74). Autogenerate must read the same registry the migrations build, or it would
+# compare this database against an empty model set and emit a migration dropping every
+# table.
+target_metadata = trading_metadata
 
 
 def run_migrations_offline() -> None:
