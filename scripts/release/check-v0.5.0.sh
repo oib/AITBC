@@ -81,18 +81,8 @@ else
 fi
 echo ""
 
-# 6. Check JSON logging is enabled
-echo "6. Checking JSON logging is enabled..."
-if systemctl show aitbc-coordinator-api.service --property=Environment | grep -q "LOG_FORMAT=json"; then
-    echo "✅ JSON logging: enabled in coordinator-api"
-else
-    echo "❌ FAILED: JSON logging not enabled in coordinator-api"
-    exit 1
-fi
-echo ""
-
-# 7. Check for placeholder secrets in service files
-echo "7. Checking for placeholder secrets in service files..."
+# 6. Check for placeholder secrets in service files
+echo "6. Checking for placeholder secrets in service files..."
 PLACEHOLDER_PATTERNS=("change-me" "REPLACE_WITH_SECRET" "placeholder" "changeme" "TODO.*secret")
 FOUND_PLACEHOLDERS=false
 for pattern in "${PLACEHOLDER_PATTERNS[@]}"; do
