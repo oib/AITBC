@@ -1,0 +1,33 @@
+# v0.23.19 — What this audit did not cover
+
+## What this audit did not cover
+
+Stating the gaps so the next pass does not assume they were cleared:
+
+*Closed by later passes*: the ten unread apps (V23-17, V23-18); `scripts/` (V23-22,
+V23-23); Python dependencies (V23-19..21); JavaScript/Solidity dependencies (V23-27,
+V23-28); `zk-circuits` (V23-24..26); `api-gateway` (clean, recorded above).
+
+*Partially closed*: the fabricated-progress pattern of V23-17 was searched for elsewhere —
+`git grep -B4 '"success": True'` across all app sources, cross-referenced against
+simulate/placeholder/TODO comments, returns nothing further. That is a bounded negative: a
+comment worded differently, or an endpoint with no comment at all, would not have matched.
+
+Still not covered:
+
+- **`memory`, `whisper`, `ffmpeg`, `archive`.** Small (3-6 files each), swept for stubs, not
+  read.
+- **`docs/` (1452 files).** Only where a finding led there.
+- **Behavioural correctness, beyond settlement.** The fourth pass took cross-chain
+  settlement (V23-29..31), found the calculation wrong, and it has since been fixed — along
+  with a second copy of the same error the pass did not find. The same question is unasked
+  of `aitbc/agent_economics/` (13 modules — bonds, liquidation, pricing, slashing, swaps,
+  yield venues), `aitbc/rewards/policy.py`, and the PoA/PBFT consensus rules. Given what one
+  module turned up, this is the highest-value remaining work in the audit. Ask it of units
+  first: the settlement bug was a height used as a duration, and both the producer and the
+  consumer agreed on the wrong unit.
+- **The 234 broad `except` handlers** outside the signature paths. V23-04 covers the ones
+  that hide V23-01/02/03; the rest were not triaged.
+- **The circuits themselves.** V23-24..26 concern how the keys are produced, selected and
+  copied. Whether the Circom constraints are *sound* — that a proof implies what it claims
+  about the computation — was not examined and needs someone who does this work.
