@@ -5511,3 +5511,131 @@ Which surfaced an inconsistency worth recording: `GET /v1/marketplace/offers/{id
 that does not exist returns **200 with a null body**, while its sibling
 `GET /v1/marketplace/offers/{id}/history` returns 404 for the same missing offer. The route
 returns `get_offer`'s `None` straight through. Asserted as it behaves, filed as its own finding.
+
+### V23-71 tranche 3 — the 103 deleted root tests, and why `tests/` was never collected
+
+The cleanup commits removed 103 files under `tests/`. Ten had already come back; of the
+remaining 93, **90 are restored and three stay deleted**. Of the 90, **45 sit in directories
+`testpaths` already names, and all 45 pass unchanged — 722 tests.** That is the whole story for
+half the tranche: they were deleted as "skipped, errored, and failed" and they are none of
+those.
+
+The other 45 are the interesting half, because none of them were ever going to run wherever
+they were put.
+
+**`tests/` root is not in `testpaths`.** The list names subdirectories — `tests/unit`,
+`tests/integration`, and so on — so the 58 pytest modules sitting at `tests/` itself matched
+nothing. Neither did seven whole directories: `tests/agent`, `tests/api`,
+`tests/contract_tests`, `tests/cross_phase`, `tests/training`, `tests/production` and
+`tests/verification`. About 1,500 tests, none of which had run once.
+
+**And `testpaths` could not simply be given `tests`, because collecting that directory hung.**
+Not failed — hung, with no error and no output, forever. `tests/load_test.py` is a Locust
+scenario whose name matches pytest's default `*_test.py`, so collection imports it, and
+importing a Locust file pulls in gevent's monkey patching mid-collection; the process wedges on
+`greenlet is being finalized`. Every subdirectory collected fine on its own, which is what made
+it look like nothing was wrong. `tests/load/` already carried a `conftest.py` doing
+`collect_ignore_glob = ["*.py"]` for exactly this reason, for the three scenarios in there. The
+fourth, at the root, had no such cover. One `collect_ignore` later, `tests/` collects: 310
+files, 4,795 tests, no errors.
+
+`testpaths` gains `"tests"`. The individually-named entries stay — pytest deduplicates
+overlapping paths, so they collect nothing extra, and each one records the finding that put it
+there. Naming the directory rather than its contents is the point: a suite added later is
+collected the day it lands.
+
+**What 1,500 tests that never ran had turned into.** Four files were asserting things that had
+stopped being true, and one of them mattered:
+
+* `test_middleware_validation.py` tested a `max_response_size` constructor argument and a
+  request cap read off the `Content-Length` header. v0.22's CORE-13 had deleted both ten days
+  earlier and replaced them with a read of the actual body stream — *because* a chunked request
+  or a spoofed `Content-Length` walked straight through the header check. The file was pinning
+  the bypass rather than the guard. Rewritten against the middleware that exists, including the
+  case that motivated the change: a `Content-Length: 10` on a 4KB body is refused.
+* `test_validation_utils.py` called `validate_address("")` and expected a raise. That function
+  was split into a non-raising `validate_address` and a raising `validate_address_strict`, and
+  EIP-55 checksums are now enforced, so its "valid address" literal — mixed case, wrong
+  checksum — was being asserted True of something the validator rejects. Corrected to the
+  checksummed form of the same address, with the strict variant tested for the raising cases.
+* `test_aitbc_logging.py` asserted that `setup_logger(structured=True)` produces a
+  `StructuredFormatter`. It does not, and neither does `configure_logging(structured=True)`:
+  both install `JournalFormatter` on the console unconditionally, and `structured` — along with
+  `setup_logger`'s `format_string` — is read by nothing. Asserted as it behaves, with the dead
+  parameter recorded as its own finding.
+* `test_middleware.py` asserted that the performance and request-ID middlewares log at `info`.
+  The levels were since split so the routine case is `debug` and only slow or failing requests
+  reach `warning`, which is deliberate and is why the journal is readable.
+
+**Three files stay deleted, and that one was a correct deletion.**
+`tests/test_coordinator_api.py`, `test_coordinator_api_extended.py` and
+`test_coordinator_api_v1.py` hold 135 tests, of which 121 assert some form of
+`status_code in (...)`:
+
+    94  status_code in (200, 404, 500)
+     7  status_code in (200, 403, 404, 500)
+     6  status_code in (200, 401, 403, 404, 500)
+     …
+     1  status_code in (400, 404, 422, 500)
+
+A test that accepts 200 and 404 and 500 from the same call passes whether the endpoint works,
+does not exist, or crashes. They also now fail — the routes answer 401 since auth was
+hardened — and the only available repair is to widen the tuples further. coordinator-api has a
+real suite of its own at `apps/coordinator-api/tests`, collected since V23-69. These add
+nothing to it.
+
+**The `tests/verification` gate named three modules and seven needed gating.** That directory's
+`conftest.py` skips production-probing scripts unless `AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`,
+because several of its files are not tests: they read the live mainnet head from
+`https://hub.aitbc.bubuit.net/rpc` and POST newly constructed blocks back to it, and one of
+them creates jobs, polls as a miner, submits results and triggers a refund against the live
+coordinator. A passing run means that happened. The gate listed `test_block_import`,
+`test_block_import_complete` and `test_cross_node_blockchain`. It missed `test_minimal`,
+`test_simple_import`, `test_tx_import` — each POSTing to `/importBlock` — and
+`test_payment_integration`. A hand-maintained list of which files touch production will be
+wrong again the next time one is added, so the gate now reads the file instead: any module
+whose source names a deployment host is skipped, matched against source text rather than by
+importing, so nothing in a gated module executes. Deliberately blunt, and blunt in the safe
+direction.
+
+One file in that directory is not Python at all: `verify_gpu_deployment.sh`, an operator
+script that ssh's to the container and reports on the two GPU units. Restoring it tripped
+V23-23's convert-on-touch rule, so it gains `set -euo pipefail` — and the two
+`systemctl status` calls gain `|| true`, because that command exits non-zero for a stopped
+unit and a stopped unit is the most useful thing the script can report. Without the guard,
+`set -e` would abort before the port and registration checks, leaving a diagnostic that only
+completes when there is nothing to diagnose.
+
+**Three things the new tests caught immediately**, all of them ours, and all in code no suite
+had been able to exercise:
+
+* Three test harnesses — `tests/fixtures/multi_chain.py`, `tests/harness/multi_node.py`,
+  `tests/harness/settlement_chaos.py` — build chain databases with
+  `SQLModel.metadata.create_all`. V23-74 moved the chain models to `chain_metadata`, so that
+  call had started creating nothing and every use failed with `no such table: account`. Nothing
+  had said so, because the file that exercises them, `tests/test_multi_chain_fixtures.py`, is
+  one of the 58 at `tests/` root. Fixed in V23-74.
+* V23-73's own guard crashed. It walks `gc.get_objects()` for engines bound to deployed
+  databases, and that walk sees unfinished objects: an `AsyncEngine` with no `sync_engine` yet
+  raises from `.url` rather than answering. With ~1,500 more tests in the run, one was in that
+  state at teardown, and the session exited 1 with zero failures reported and a pluggy
+  traceback where the summary should be. An engine that cannot say where it points cannot be
+  checked, so it is skipped. Fixed in V23-73.
+* **The V23-73 defect itself, recurring in a restored file.** With the tranche collected, 58
+  tests failed across four `apps/trading` files — all with
+  `The asyncio extension requires an async driver to be used. The loaded 'pysqlite' is not
+  async.` Not one of the four fails on its own. `tests/integration/test_coordinator_api.py` has
+  three fixtures that did `os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"` inside a
+  `TemporaryDirectory`, and nothing undid the assignment: the variable outlived the fixture,
+  the temp file it named outlived nothing, and every suite collected afterwards inherited a
+  URL pointing at a deleted path with a sync driver spelled into it. `trading_service.storage`
+  reads `DATABASE_URL` at import to build an **async** engine, so it got pysqlite and said so
+  1,400 tests later. Now `monkeypatch.setenv`, which pytest restores at teardown, and the URL
+  names `sqlite+aiosqlite`. This is the exact shape of what V23-73 fixed in
+  `apps/governance/tests/conftest.py` — process-global `DATABASE_URL` assignment with no
+  restore — and it was invisible until enough of the suite ran in one process for a second
+  service to read the variable.
+
+Root **3,969 → 6,361**, green; blockchain-node **640**, green. `tests/production` reports its
+own skips: those suites want an agent coordinator on localhost:9001 and say so at the end of the
+run rather than passing quietly, which is what its conftest was written for.
