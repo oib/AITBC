@@ -1,4 +1,4 @@
-"""Database setup for the AITBC Trade Exchange (stdlib http.server backend).
+"""Database setup for the AITBC Trade Exchange (FastAPI backend).
 
 Monetary columns use TEXT storage (Decimal-as-string) for exact arithmetic,
 matching the Numeric(18, 8) approach in the FastAPI exchange_api.py models.
