@@ -5639,3 +5639,87 @@ had been able to exercise:
 Root **3,969 → 6,361**, green; blockchain-node **640**, green. `tests/production` reports its
 own skips: those suites want an agent coordinator on localhost:9001 and say so at the end of the
 run rather than passing quietly, which is what its conftest was written for.
+
+### V23-75 — `alembic upgrade head` built two of trading's nine tables · CONFIRMED → RESOLVED
+
+`apps/trading` manages its schema with Alembic and means it: `storage.init_db()` creates
+nothing, with a comment saying so — *"Schema management is Alembic's job. Do not call
+create_all() here. Run `alembic upgrade head` before service startup."* That is the right
+policy. It just was not true that the migrations built the schema.
+
+They built `inter_chain_trades` and `island_registry`. The seven tables in
+`domain/trading.py` — `trade_requests`, `trade_matches`, `trade_negotiations`,
+`trade_agreements`, `trade_settlements`, `trade_feedback`, `trading_analytics` — had never had
+a migration in the service's life. **A fresh deployment of this service came up with two of
+its nine tables**, and every route touching a trade would have answered `no such table`.
+
+The deployed database is not missing them, which is why nobody noticed: it holds all nine
+because something ran `create_all` against it before that comment was written. The same
+accident left four of *coordinator-api's* tables in it — `job_payments`, `payment_escrows`,
+`marketplaceoffer`, `marketplace_bid` — sitting in the trading service's file, which is the
+V23-72/73/74 shared-registry defect visible on disk. Trading imports none of them. They are
+left alone here; removing tables from a deployed database is an operator decision, and they
+are empty.
+
+Migration 002 already names columns in four of the seven missing tables. Its guard skips
+tables that do not exist, so on a fresh database it ran and migrated nothing, silently. A
+migration that quietly succeeds against a table that was never created is the shape of this
+whole finding.
+
+**Reconciling head against the models turned up three more gaps in the two tables 001 did
+build.** The fix is scoped to the invariant rather than the symptom: after 003,
+`alembic upgrade head` reproduces `trading_metadata` exactly.
+
+* **Five columns.** `inter_chain_trades` never got the v0.9.0 HTLC fields — `escrow_id`,
+  `settlement_phase`, `secret_hash`, `source_timelock`, `dest_timelock`. The models have had
+  them since v0.9.0; no migration added them. Added with server defaults matching the models'
+  Python-side defaults, so the `NOT NULL` is satisfiable on a table with rows.
+* **Twenty-seven indexes.** Twenty-one belong to the seven new tables. The other six the
+  models declare on the two old ones, and 001 never created: five on `inter_chain_trades`,
+  one on `island_registry`.
+* **Two duplicate indexes.** 001 creates `idx_inter_chain_trades_source_chain` and
+  `idx_inter_chain_trades_dest_chain`, which the models do not declare and which duplicate
+  `ix_inter_chain_trades_source_chain` and `ix_inter_chain_trades_dest_chain` column for
+  column. The deployed database has both pairs. The models are what autogenerate compares
+  against, so the duplicates are dropped rather than back-filled into the models.
+
+**And the money columns.** 002 converts the ten `Float` money columns to `Numeric(20, 8)` on
+PostgreSQL and returns early on SQLite, reasoning that the SQLite type is advisory. That is
+true of the stored value and worth stating precisely, because it is easy to read as a bug:
+SQLite gives *both* `FLOAT` and `NUMERIC` declarations REAL affinity, so
+`Decimal("12345678901.12345678")` comes back rounded either way — the conversion buys no
+precision, and 002 was not losing any by skipping it. It is not true of the schema. Alembic
+compares column types by default, so leaving them `FLOAT` means every future
+`--autogenerate` re-reports the same ten changes forever, and a real change hides in the
+noise. 003 converts whichever are still `Float`, through batch mode, which is the supported
+path on SQLite.
+
+One trap worth recording, because it silently produced a no-op that looked like success:
+`sa.Float` **subclasses** `sa.Numeric`. The obvious guard — skip the column if its reflected
+type is already `Numeric` — skips every column including the ones that need converting. The
+condition that means "not converted yet" is `isinstance(type_, sa.Float)`.
+
+**Verification.** The schema is compared object by object against `trading_metadata`, with
+server defaults normalized out — the migrations declare them and the models express them in
+Python, which 001 established and 003 follows.
+
+    fresh database          40 objects   matches the models
+    upgraded deployed copy  40 objects   matches the models
+
+Both, not just the first: the deployed database sat at revision **001** — 002 had never been
+applied to it — and it already held all nine tables, so every operation in 003 is guarded and
+the run against a *copy* of the real file was the test of those guards. `alembic upgrade head`
+→ `downgrade base` → `upgrade head` reproduces an identical schema, and `--autogenerate`
+against head now reports no changes at all.
+
+**The test stopgap is gone, and its absence is the test.** `apps/trading/tests/conftest.py`
+ran `alembic upgrade head` and then `trading_metadata.create_all` on top, because the
+migrations covered two tables — a stopgap added in V23-73 and recorded as a finding at the
+time. It now runs the migrations alone. If a model is added without a migration, the suite
+fails with `no such table` instead of papering over exactly the gap a deployment would hit.
+58 tests, green.
+
+**What this does not fix: nothing runs the migrations.** `init_db()` says to run
+`alembic upgrade head` before service startup, and no systemd unit in the repo has an
+`ExecStartPre` that does — not trading's, not any of the twenty. The deployed trading database
+is still at 001. Filed separately; it needs an operator, and it is not trading-specific.

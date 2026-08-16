@@ -20,40 +20,25 @@ os.environ.setdefault("TRADING_API_KEY", "test-trading-key")
 
 @pytest.fixture(scope="session", autouse=True)
 def _test_database():
-    """Build the schema this suite needs.
+    """Build the schema this suite needs, the way a deployment builds it.
 
-    Alembic first, because this service's ``init_db()`` deliberately creates nothing ("Schema
-    management is Alembic's job") — a database nobody has migrated has no tables at all, which
-    is why the suite had to run against the deployed file. Running the migrations here also
-    puts them under test.
+    Alembic and nothing else, because this service's ``init_db()`` deliberately creates
+    nothing ("Schema management is Alembic's job") — a database nobody has migrated has no
+    tables at all, which is why the suite used to run against the deployed file.
 
-    Then the models, because the migrations do not cover them. ``alembic upgrade head`` builds
-    ``inter_chain_trades`` and ``island_registry`` and stops; the seven tables in
-    ``domain/trading.py`` — ``trade_requests``, ``trade_matches``, ``trade_negotiations``,
-    ``trade_agreements``, ``trade_settlements``, ``trade_feedback``, ``trading_analytics`` —
-    have never had a migration. The deployed database has them because something ran
-    ``create_all`` before that comment was written, so a fresh deployment would come up with
-    two of this service's nine tables. Recorded as a finding; ``checkfirst`` leaves the two
-    Alembic already built alone.
-
-    ``trading_metadata`` holds exactly this service's tables and nothing else (V23-74), so
-    ``create_all`` over it cannot build another service's schema into this database.
+    This used to run ``trading_metadata.create_all`` afterwards as well, because
+    ``alembic upgrade head`` built two of the nine tables and stopped. Migration 003 builds
+    the other seven, so the stopgap is gone — and its absence is the test. If a model is
+    added without a migration, this suite fails on ``no such table`` rather than papering
+    over the gap, which is the failure a deployment would have hit instead.
     """
     from alembic import command
     from alembic.config import Config
-    from sqlalchemy import create_engine
-
-    from trading_service.domain.base import trading_metadata
-    from trading_service.storage import DATABASE_URL
 
     app_dir = Path(__file__).resolve().parent.parent
     config = Config(str(app_dir / "alembic.ini"))
     config.set_main_option("script_location", str(app_dir / "alembic"))
     command.upgrade(config, "head")
-
-    engine = create_engine(DATABASE_URL.replace("+aiosqlite", ""))
-    trading_metadata.create_all(engine, checkfirst=True)
-    engine.dispose()
 
 
 @pytest.fixture
