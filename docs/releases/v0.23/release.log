@@ -5462,3 +5462,52 @@ temporary SQLite file and diffing normalized `sqlite_master`:
 
 Root 3920, blockchain-node 640, both green. **V23-71c is unblocked**: the two hooks that made
 those seven app test files unrestorable no longer exist.
+
+### V23-71c — the seven files the shared registry had made unrestorable
+
+V23-71 restored what it could and stopped at seven files that failed in a full run while
+passing on their own. Six were coordinator-api files erroring on `no such table: users`, and
+the cause was not in them: `apps/blockchain-node/tests/conftest.py` and
+`tests/integration/conftest.py` were emptying SQLModel's global registry out from under every
+suite collected after them. V23-74 removed both hooks. All seven come back, **49 tests**, root
+3920 → **3969**.
+
+Six restore unchanged. The seventh, `test_cross_chain_security.py`, was deleted for a different
+reason — "missing fixtures" — and the fixture it wanted, `admin_token`, had been real: it lived
+in `apps/coordinator-api/tests/conftest.py` until v0.12.0 rewrote that file wholesale for the
+economics work and took it along. Ten security tests covering the cross-chain wallet trust
+boundary — RPC allowlisting, private-key redaction, ownership enforcement, server-side signing —
+were deleted rather than the four-line fixture put back. It is put back, next to its only
+consumer.
+
+**Two `while True` loops came out.** `test_cross_chain_security.py` and `test_routers_users.py`
+both wrapped `create_all` in a loop that caught `OperationalError`, checked the message for
+"already exists", and retried:
+
+    while True:
+        try:
+            SQLModel.metadata.create_all(engine)
+            return
+        except OperationalError as exc:
+            if "already exists" in str(exc):
+                continue
+            raise
+
+The second file's docstring blamed "models declaring the same index both via `index=True` and
+an explicit `Index(...)`". That was the wrong diagnosis of a real symptom: the duplicate
+`CREATE INDEX` came from `extend_existing` merging two services' definitions of the same table
+on the one global metadata, appending `Index` objects the table already had. With each service
+on its own registry the loop has nothing left to catch, and both are now a plain `create_all`.
+
+**Fourteen of the marketplace tests asserted `status_code in (200, 500)`**, on the reasoning
+that the database might not be available. A test that passes on an unhandled server exception
+is not testing the endpoint; it is testing that the URL routes somewhere. The database *is*
+available since V23-73 — the suite builds this service's schema into a throwaway directory —
+and all fourteen endpoints answer deterministically against an empty one. They now assert the
+status they actually return, with the response shape where there is one worth checking. Two of
+them turn out to be 404s rather than 200s.
+
+Which surfaced an inconsistency worth recording: `GET /v1/marketplace/offers/{id}` for an offer
+that does not exist returns **200 with a null body**, while its sibling
+`GET /v1/marketplace/offers/{id}/history` returns 404 for the same missing offer. The route
+returns `get_offer`'s `None` straight through. Asserted as it behaves, filed as its own finding.
