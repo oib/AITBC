@@ -372,6 +372,22 @@ filterwarnings = [
     "ignore:websockets.legacy is deprecated.*:DeprecationWarning",
 ]
 testpaths = [
+    # The whole directory, as of V23-71 tranche 3. The individually-named entries below are
+    # now redundant against this one -- pytest deduplicates overlapping testpaths, so they
+    # collect nothing extra -- but they are kept because each records why a suite had to be
+    # named, and those reasons are the findings.
+    #
+    # What naming them one at a time missed: `tests/` root holds 58 pytest modules that no
+    # entry matched, and `tests/agent`, `tests/api`, `tests/contract_tests`,
+    # `tests/cross_phase`, `tests/training`, `tests/production` and `tests/verification` are
+    # seven more directories nobody had listed. About 1,500 tests, none of which had ever
+    # run. They rotted accordingly: `test_middleware_validation.py` asserted a
+    # Content-Length check that CORE-13 replaced with a real body read ten days earlier, so
+    # the file was pinning the bypass rather than the guard.
+    #
+    # Naming the directory rather than its contents is the point -- a suite added later is
+    # collected the day it lands instead of waiting for someone to notice it never ran.
+    "tests",
     "tests/unit",
     "tests/integration",
     "tests/smoke",
