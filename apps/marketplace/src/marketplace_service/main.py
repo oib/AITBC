@@ -22,6 +22,7 @@ BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", _DEFAULT_RPC_URL)
 from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.marketplace import OfferStatus  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -31,6 +32,7 @@ from aitbc.middleware import (  # noqa: E402
 from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
 from .config import settings  # noqa: E402
+from .domain.offer_status import try_to_offer_status  # noqa: E402
 from .services.marketplace_service import MarketplaceService  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
@@ -162,6 +164,12 @@ async def get_offers(
         result = await svc.list_offers(status=status, region=region, gpu_model=gpu_model, chain_id=chain_id)
         logger.info("GET /v1/marketplace/offers returned %s offers", len(result))
         return result
+    except ValueError as e:
+        # A status filter naming a state that does not exist. It used to return 200 and an
+        # empty list, which reads as "no offers are in that state" rather than "there is no
+        # such state" -- the same answer a typo gets and a real filter gets (V23-83).
+        logger.info("Rejecting offer listing: %s", e)
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/offers: %s: %s", type(e).__name__, str(e))
         raise
@@ -222,7 +230,7 @@ async def book_offer(
         offer = await svc.get_offer(offer_id)
         if not offer:
             return JSONResponse(status_code=404, content={"error": "Offer not found"})
-        if offer.status != "available":
+        if try_to_offer_status(offer.status) is not OfferStatus.AVAILABLE:
             return JSONResponse(status_code=400, content={"error": f"Offer is not available (status={offer.status})"})
         result = await svc.book_offer(offer_id, booking_data)
         logger.info("POST /v1/marketplace/offers/%s/book completed", offer_id)
@@ -299,6 +307,12 @@ async def create_offer(
         result = await svc.create_offer(offer_data)
         logger.info("POST /v1/marketplace/offers created offer with id: %s", result.id)
         return result
+    except ValueError as e:
+        # Only reachable from the status validation the service now does: a request naming a
+        # state this service does not have. 400 rather than the 500 that splatting the body
+        # into the model produced for every other kind of bad field (V23-83).
+        logger.info("Rejecting offer creation: %s", e)
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/marketplace/offers: %s: %s", type(e).__name__, str(e))
         raise
@@ -315,11 +329,23 @@ async def get_marketplace_overview(svc: Annotated[MarketplaceService, Depends(ge
     """Get hardware+software bundle marketplace overview"""
     logger.info("GET /v1/marketplace called - marketplace overview")
     offers = await svc.list_offers()
-    active_offers = [o for o in offers if o.get("status") == "available"]
-    avg_price = 0
+    # By state, not by spelling: one of the four offers in the deployed database is stored as
+    # "open", so it was counted in `total_offers` and left out of `active_offers`, and left out
+    # of the regions and service types the overview advertises -- an offer that is available
+    # and invisible (V23-83).
+    active_offers = [o for o in offers if try_to_offer_status(str(o.get("status", ""))) is OfferStatus.AVAILABLE]
+    avg_price = Decimal("0")
     if active_offers:
-        total_price = sum(o.get("price_per_hour", 0) for o in active_offers)
-        avg_price = total_price / len(active_offers)
+        # `.get("price_per_hour", 0)` returns the default only when the key is missing, and it
+        # never is -- `list_offers` puts it in every dict. `price_per_hour` is nullable and
+        # defaults to None, so one priceless offer made this `int + None` and the whole
+        # overview answered 500. Not reachable before: `active_offers` was only ever empty in
+        # the tests, and every offer in the deployed database happens to carry a price
+        # (V23-83).
+        # Via `str` because these dicts are untyped: a price that arrived as a float would
+        # otherwise raise on `Decimal + float` rather than quietly rounding.
+        prices = [Decimal(str(o.get("price_per_hour") or 0)) for o in active_offers]
+        avg_price = sum(prices, Decimal("0")) / len(active_offers)
     return {
         "status": "operational",
         "total_offers": len(offers),
@@ -351,16 +377,40 @@ async def get_offer_history(offer_id: str, svc: Annotated[MarketplaceService, De
 
 @app.post("/v1/marketplace/offers/{offer_id}/cancel")
 async def cancel_offer(
-    offer_id: str, reason: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+    offer_id: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    # `reason: str | None` with no default is a *required* query parameter to FastAPI, and the
+    # published spec said so. Cancelling without one answered 422 -- so the 500 underneath was
+    # only reachable by a caller who happened to send `?reason=`, which is why this endpoint
+    # looked merely awkward rather than broken. The body already defaults it (V23-83).
+    reason: str | None = None,
 ) -> Any:
     """Cancel offer (migrated from Coordinator API)"""
     logger.info("POST /v1/marketplace/offers/%s/cancel called", offer_id)
     offer = await svc.get_offer(offer_id)
     if not offer:
         return JSONResponse(status_code=404, content={"error": "Offer not found"})
-    if offer.status == "cancelled":
+
+    current = try_to_offer_status(offer.status)
+    if current is OfferStatus.DELISTED:
+        # Compared by state: "closed" and "delisted" are this end state too, and an offer
+        # stored under either used to fall through to the transition and be told the
+        # transition was invalid, rather than that it was already cancelled.
         return JSONResponse(status_code=400, content={"error": "Offer already cancelled"})
-    await svc.update_offer_status(offer_id, "cancelled")
+    if current is None:
+        return JSONResponse(status_code=400, content={"error": f"Offer has an unknown status: '{offer.status}'"})
+    try:
+        await svc.update_offer_status(offer_id, "cancelled")
+    except ValueError:
+        # Reached for an offer someone holds: RESERVED can go to IN_USE, back to AVAILABLE, or
+        # EXPIRED, but not straight to DELISTED -- a provider cannot delist out from under a
+        # buyer who has reserved. 400 rather than 409 to match `book_offer` over this same
+        # resource, where 409 is reserved for optimistic-concurrency mismatches (V23-81).
+        logger.info("Refusing to cancel offer %s in status %s", offer_id, offer.status)
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Offer cannot be cancelled while it is {offer.status}"},
+        )
     cancelled_offer = {
         "offer_id": offer_id,
         "status": "cancelled",

@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.marketplace import BlockchainRPCClient, OfferFSM
+from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus
 
 from ..config import settings
 from ..domain.marketplace import Bid, MarketplaceOffer, ServiceRating, SoftwareService
+from ..domain.offer_status import spellings_of, to_offer_status
 
 logger = get_logger(__name__)
 
@@ -41,7 +42,12 @@ class MarketplaceService:
             )
             stmt = select(MarketplaceOffer)
             if status:
-                stmt = stmt.where(MarketplaceOffer.status == status)
+                # Matched by state, not by spelling. Filtering on the literal string meant
+                # `?status=available` did not return the offer stored as "open" and
+                # `?status=booked` did not return the one stored as "reserved" -- the same
+                # offer was visible or invisible depending on which word the caller happened
+                # to use, with nothing to tell them there was another (V23-83).
+                stmt = stmt.where(MarketplaceOffer.status.in_(spellings_of(to_offer_status(status))))  # type: ignore[attr-defined]
             if region:
                 stmt = stmt.where(MarketplaceOffer.region == region)
             if gpu_model:
@@ -84,6 +90,13 @@ class MarketplaceService:
         """Update offer status with FSM validation (v0.6.6).
 
         Uses OfferFSM to validate state transitions. Rejects invalid transitions.
+
+        Both status words go through `to_offer_status` rather than `OfferFSM.from_string`.
+        The strict parser only accepts the five `OfferStatus` values, and neither of the two
+        words this method is actually called with is one of them: the stored status is
+        "booked" or "open", and the requested status is "cancelled". Every call therefore
+        raised, and the only caller -- `cancel_offer` -- had no handler, so the endpoint
+        answered 500 for every offer in the database (V23-83).
         """
         try:
             stmt = select(MarketplaceOffer).where(MarketplaceOffer.id == offer_id)
@@ -93,9 +106,9 @@ class MarketplaceService:
                 raise ValueError(f"Offer not found: {offer_id}")
 
             # Validate transition via OfferFSM
-            current = OfferFSM.from_string(offer.status)
+            current = to_offer_status(offer.status)
             fsm = OfferFSM(current)
-            fsm.transition(OfferFSM.from_string(new_status))
+            fsm.transition(to_offer_status(new_status))
 
             offer.status = new_status
             await self.session.commit()
@@ -128,8 +141,16 @@ class MarketplaceService:
             if not offer:
                 logger.error("Offer not found: %s", offer_id)
                 raise ValueError(f"Offer not found: {offer_id}")
-            if offer.status != "available":
+            # By state rather than by spelling, so the offer stored as "open" is bookable --
+            # it is available, it just says so in coordinator-api's word (V23-83).
+            current = to_offer_status(offer.status)
+            if current is not OfferStatus.AVAILABLE:
                 raise ValueError(f"Offer {offer_id} is not available (status={offer.status})")
+            # Booking is the one transition this service performed without asking the FSM:
+            # it assigned "booked" directly, which is how a status the FSM cannot parse came
+            # to be in the database in the first place. Validated before the bid is created,
+            # so a rejected transition does not leave a bid behind.
+            OfferFSM(current).transition(OfferStatus.RESERVED)
 
             bid = await self._create_bid(offer_id, booking_data, offer)
             offer.status = "booked"
@@ -156,6 +177,14 @@ class MarketplaceService:
             if "wallet" in offer_data and "provider" not in offer_data:
                 offer_data["provider"] = offer_data["wallet"]
                 logger.info("Mapped wallet '%s' to provider", offer_data["wallet"])
+            # `status` is a plain string on the model and this method splats the request body
+            # straight into it, so until now a caller could create an offer in any state they
+            # could spell -- including one no part of this service understands, which then
+            # made every later transition on that offer fail. That is how the deployed
+            # database came to hold an offer whose status is "open" (V23-83). Validating here
+            # is what makes "every stored status parses" true rather than aspirational.
+            if "status" in offer_data:
+                to_offer_status(offer_data["status"])
             offer = MarketplaceOffer(**offer_data)
             self.session.add(offer)
             await self.session.commit()
