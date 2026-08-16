@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Master Test Runner for Multi-Site AITBC Testing
 
 echo "🚀 Multi-Site AITBC Test Suite Master Runner"
@@ -119,33 +120,32 @@ run_cli_tests() {
     echo "🔧 Running Comprehensive CLI Tests"
     echo "================================="
 
-    local cli_commands=(
-        "chain:list:aitbc chain list --node-endpoint http://127.0.0.1:18000"
-        "chain:list:aitbc1:aitbc chain list --node-endpoint http://127.0.0.1:18001"
-        "analytics:summary:aitbc:aitbc analytics summary --node-endpoint http://127.0.0.1:18000"
-        "analytics:summary:aitbc1:aitbc analytics summary --node-endpoint http://127.0.0.1:18001"
-        "marketplace:list:aitbc:aitbc marketplace list --marketplace-url http://127.0.0.1:18000"
-        "marketplace:list:aitbc1:aitbc marketplace list --marketplace-url http://127.0.0.1:18001"
-        "agent_comm:list:aitbc:aitbc agent_comm list --node-endpoint http://127.0.0.1:18000"
-        "agent_comm:list:aitbc1:aitbc agent_comm list --node-endpoint http://127.0.0.1:18001"
-        "deploy:overview:aitbc deploy overview --format table"
-    )
-
     local passed=0
     local total=0
 
-    for cmd_info in "${cli_commands[@]}"; do
-        IFS=':' read -r test_name command <<< "$cmd_info"
+    run_cli_test() {
+        local test_name="$1"
+        shift
         total=$((total + 1))
 
         echo "Testing: $test_name"
-        if eval "$command" &> /dev/null; then
+        if "$@" &> /dev/null; then
             echo "✅ $test_name - PASSED"
             passed=$((passed + 1))
         else
             echo "❌ $test_name - FAILED"
         fi
-    done
+    }
+
+    run_cli_test "chain:list:aitbc" aitbc chain list --node-endpoint http://127.0.0.1:18000
+    run_cli_test "chain:list:aitbc1" aitbc chain list --node-endpoint http://127.0.0.1:18001
+    run_cli_test "analytics:summary:aitbc" aitbc analytics summary --node-endpoint http://127.0.0.1:18000
+    run_cli_test "analytics:summary:aitbc1" aitbc analytics summary --node-endpoint http://127.0.0.1:18001
+    run_cli_test "marketplace:list:aitbc" aitbc marketplace list --marketplace-url http://127.0.0.1:18000
+    run_cli_test "marketplace:list:aitbc1" aitbc marketplace list --marketplace-url http://127.0.0.1:18001
+    run_cli_test "agent_comm:list:aitbc" aitbc agent_comm list --node-endpoint http://127.0.0.1:18000
+    run_cli_test "agent_comm:list:aitbc1" aitbc agent_comm list --node-endpoint http://127.0.0.1:18001
+    run_cli_test "deploy:overview:aitbc" aitbc deploy overview --format table
 
     echo ""
     echo "CLI Test Results: $passed/$total passed"

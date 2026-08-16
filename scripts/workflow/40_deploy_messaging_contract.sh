@@ -3,7 +3,7 @@
 # AITBC Messaging Contract Deployment
 # Deploy and initialize the agent messaging contract on the blockchain
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -66,6 +66,7 @@ DEPLOYMENT_TX=$(cat << EOF
     }
 }
 EOF
+)
 
 echo "Deployment transaction prepared:"
 echo "$DEPLOYMENT_TX" | jq .
@@ -148,6 +149,7 @@ CONTRACT_STATE=$(cat << EOF
     }
 }
 EOF
+)
 
 echo "Contract initialized with state:"
 echo "$CONTRACT_STATE" | jq .
@@ -211,6 +213,7 @@ WELCOME_MESSAGE=$(cat << EOF
     "message_type": "announcement"
 }
 EOF
+)
 
 echo "Creating welcome message..."
 MESSAGE_CREATED=true

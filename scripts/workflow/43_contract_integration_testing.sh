@@ -3,7 +3,7 @@
 # AITBC Contract Integration Testing Suite
 # Comprehensive testing and debugging of contract-service interactions
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -52,7 +52,7 @@ run_test() {
     echo "🧪 Testing: $test_name"
     echo "================================"
 
-    if eval "$test_command" >/dev/null 2>&1; then
+    if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
@@ -72,7 +72,7 @@ run_test_verbose() {
     echo "🧪 Testing: $test_name"
     echo "================================"
 
-    if eval "$test_command"; then
+    if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0

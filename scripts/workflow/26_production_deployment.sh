@@ -3,7 +3,7 @@
 # AITBC Production Deployment Script
 # Deploys the complete multi-node blockchain setup for production
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -239,7 +239,7 @@ for check in "${CRITICAL_CHECKS[@]}"; do
     check_command=$(echo "$check" | cut -d':' -f2-)
 
     echo "Checking: $check_name"
-    if eval "$check_command" >/dev/null 2>&1; then
+    if bash -c "$check_command" >/dev/null 2>&1; then
         echo -e "   ${GREEN}✅${NC} $check_name"
     else
         echo -e "   ${RED}❌${NC} $check_name"

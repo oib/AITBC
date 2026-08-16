@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # AITBC Complete Multi-Node Workflow Script
 # Runs the entire multi-node blockchain setup with error handling
 
@@ -96,7 +97,7 @@ echo "  Services: $(systemctl is-active aitbc-blockchain-node aitbc-blockchain-r
 echo
 echo "aitbc (Follower):"
 echo "  Height: $AITBC_HEIGHT"
-echo "  Services: $(ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc 2>/dev/null | tr "\n" " ')""
+echo "  Services: $(ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc 2>/dev/null | tr "\n" " "')"
 
 echo
 echo "Wallet Status:"

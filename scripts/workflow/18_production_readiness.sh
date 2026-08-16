@@ -32,7 +32,7 @@ check() {
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
     echo -n "   Checking $description... "
 
-    if eval "$command" | grep -q "$expected" 2>/dev/null; then
+    if bash -c "$command" | grep -q "$expected" 2>/dev/null; then
         echo "✅ PASS"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
         return 0

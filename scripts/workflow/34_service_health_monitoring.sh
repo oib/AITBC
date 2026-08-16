@@ -3,7 +3,7 @@
 # AITBC Service Health Monitoring & Alerting
 # Continuous monitoring of all blockchain services with alerting
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -75,9 +75,9 @@ check_service_health() {
 
     echo "Checking $service_name..."
 
-    if eval "$check_command" >/dev/null 2>&1; then
+    if bash -c "$check_command" >/dev/null 2>&1; then
         if [ -n "$expected_result" ]; then
-            local result=$(eval "$check_command" 2>/dev/null)
+            local result=$(bash -c "$check_command" 2>/dev/null)
             if echo "$result" | grep -q "$expected_result"; then
                 SERVICE_STATUS["$service_name"]="healthy"
                 log_monitoring "INFO" "$service_name" "Service is healthy"

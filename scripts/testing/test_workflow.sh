@@ -2,7 +2,7 @@
 # Integration test script for workflow CLI commands
 # Tests workflow run, list, status, and stop operations with coordinator-api
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -47,8 +47,8 @@ check_coordinator() {
 
 run_test() {
     local test_name="$1"
-    local test_command="$2"
-    local require_coordinator="${3:-true}"
+    local require_coordinator="$2"
+    shift 2
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
@@ -60,7 +60,7 @@ run_test() {
 
     log_info "Running: $test_name"
 
-    if eval "$test_command"; then
+    if "$@"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_info "PASSED: $test_name"
     else
@@ -86,40 +86,40 @@ log_info "Test workflow name: $TEST_WORKFLOW"
 log_info "Coordinator URL: $COORDINATOR_URL"
 
 # Test 1: List workflows
-run_test "List workflows" "aitbc workflow list" "true"
+run_test "List workflows" "true" aitbc workflow list
 
 # Test 2: Run a simple workflow
-run_test "Run workflow" "aitbc workflow run $TEST_WORKFLOW" "true"
+run_test "Run workflow" "true" aitbc workflow run "$TEST_WORKFLOW"
 
 # Test 3: Get workflow status
-run_test "Get workflow status" "aitbc workflow status $TEST_WORKFLOW" "true"
+run_test "Get workflow status" "true" aitbc workflow status "$TEST_WORKFLOW"
 
 # Test 4: Run workflow with dry-run flag
-run_test "Run workflow dry-run" "aitbc workflow run $TEST_WORKFLOW --dry-run" "false"
+run_test "Run workflow dry-run" "false" aitbc workflow run "$TEST_WORKFLOW" --dry-run
 
 # Test 5: Run workflow with async flag
-run_test "Run workflow async" "aitbc workflow run ${TEST_WORKFLOW}_async --async" "true"
+run_test "Run workflow async" "true" aitbc workflow run "${TEST_WORKFLOW}_async" --async
 
 # Test 6: Stop workflow
-run_test "Stop workflow" "aitbc workflow stop $TEST_WORKFLOW" "true"
+run_test "Stop workflow" "true" aitbc workflow stop "$TEST_WORKFLOW"
 
 # Test 7: List workflows in table format
-run_test "List workflows table format" "aitbc workflow list --format table" "true"
+run_test "List workflows table format" "true" aitbc workflow list --format table
 
 # Test 8: Get workflow status in JSON format
-run_test "Get workflow status JSON" "aitbc workflow status $TEST_WORKFLOW --format json" "true"
+run_test "Get workflow status JSON" "true" aitbc workflow status "$TEST_WORKFLOW" --format json
 
 # Test 9: Run workflow with parameters
-run_test "Run workflow with parameters" "aitbc workflow run ${TEST_WORKFLOW}_params --param gpu_count=2 --param timeout=60" "true"
+run_test "Run workflow with parameters" "true" aitbc workflow run "${TEST_WORKFLOW}_params" --param gpu_count=2 --param timeout=60
 
 # Test 10: Status of non-existent workflow (should handle gracefully)
-run_test "Status of non-existent workflow" "aitbc workflow status nonexistent_workflow_$$" "false"
+run_test "Status of non-existent workflow" "false" aitbc workflow status "nonexistent_workflow_$$"
 
 # Test 11: Stop non-existent workflow (should handle gracefully)
-run_test "Stop non-existent workflow" "aitbc workflow stop nonexistent_workflow_$$" "false"
+run_test "Stop non-existent workflow" "false" aitbc workflow stop "nonexistent_workflow_$$"
 
 # Test 12: Workflow with special characters in name
-run_test "Workflow with special characters" "aitbc workflow run test-workflow-with-dashes" "false"
+run_test "Workflow with special characters" "false" aitbc workflow run test-workflow-with-dashes
 
 # Cleanup
 cleanup
