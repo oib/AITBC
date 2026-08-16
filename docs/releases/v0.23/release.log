@@ -7170,3 +7170,158 @@ deleted files were collected. `pre-commit run --all-files` passes every hook exc
 `require-set-euo-pipefail-in-touched-scripts`, which flags 330 pre-existing untouched `.sh`
 files under `--all-files` and none of the three this change touches. The bandit pre-push gate
 from V23-85 still reports 0 HIGH and 0 MEDIUM.
+
+### V23-87 — a security fix that flipped one keyword, and the script that stopped at its first command · CONFIRMED → RESOLVED
+
+`scripts/testing/qa-cycle.py` fetches `main`, runs the two package test suites, lints, requests
+sibling reviews on open PRs and reports repository status. Every caller of its `run_cmd` passed
+a single string:
+
+```python
+rc, out, err = run_cmd("git fetch origin main")
+```
+
+and `run_cmd` ran it with `shell=False`, which makes `subprocess` treat that string as the name
+of one executable. There is no program called `git fetch origin main`, so the first command
+raised `FileNotFoundError`, the bare `except Exception` below it returned `(-2, "", str(e))`,
+`fetch_latest_main()` logged `Fetch failed` and `main()` returned. The script has never run past
+its first command — no tests, no lint, no review requests, no status.
+
+#### Where the string form came from
+
+It was not always wrong. `dcfa58039` (2026-06-06) added the script with `shell=True`, and under
+a shell a string is exactly right. `21e142b70` (2026-06-10, *"update mypy config, remove
+hardcoded credentials, improve security and logging"*) changed one line:
+
+```
+-            shell=True,
++            shell=False,
+```
+
+and nothing else. That is the correct fix for B602 and half of it: turning the shell off means
+the callers have to become argv lists in the same commit, and they did not. Four days of
+working, then sixty-seven of a script that logged one failure and exited.
+
+Nothing caught it because nothing looked. `rc=-2` from the bare `except` is indistinguishable
+from a command that ran and failed, and the only reader was the log.
+
+#### Nothing depends on the broken behaviour
+
+Checked before changing it, since a scheduled job that quietly does nothing is still a job
+someone may be reading the output of:
+
+- no unit in `/etc/systemd/system` mentions it — 26 services, 2 timers, and the only timers are
+  `aitbc-backup` and `aitbc-blockchain-sync`
+- `/var/spool/cron/crontabs/` is empty, `crontab -l` reports no crontab for root, and nothing
+  under `/etc/cron.d`, `/etc/crontab` or `/etc/cron.{daily,hourly}` names it
+- in-repo, only `docs/infrastructure/LOGS_ORGANIZATION.md` and `scripts/SCRIPTS_ORGANIZATION.md`
+  refer to it, both as inventory listings rather than callers
+
+`/var/log/aitbc/qa-cycle.log` does not exist, in a directory holding a dozen other logs. `log()`
+creates it on its first call and `main()` calls `log()` before it does anything else, so as far
+as this host is concerned the script has not been invoked at all.
+
+#### The fix
+
+Argv lists, not `shell=True`. V23-85 cleared the B602 findings and none of
+these commands needs a shell once it is a list — no pipes, no globs, no redirection, no
+variable expansion:
+
+| was | is |
+| --- | --- |
+| `"git fetch origin main"` | `["git", "fetch", "origin", "main"]` |
+| `"git checkout main"` | `["git", "checkout", "main"]` |
+| `"git reset --hard origin/main"` | `["git", "reset", "--hard", "origin/main"]` |
+| `f"python3 -m pytest ... --rootdir \"$PWD\" ..."` | a literal list, `--rootdir str(package_root)` |
+| `"flake8 packages/py/ --count ..."` | a literal list |
+
+`--rootdir "$PWD"` is the one argument that needed thought rather than splitting. It is only a
+shell that expands `$PWD`; the value it wanted is the `package_root` the loop is already
+iterating over, so it is passed directly.
+
+Three smaller changes, each because the bug could not have survived this long without them:
+
+- `run_cmd` now raises `TypeError` on a string argument. The next caller written in the old
+  style fails loudly instead of looking like a missing binary.
+- `except Exception` narrowed to `except OSError`. That clause is what disguised the failure.
+- the module-level `time.sleep(random.randint(0, 900))` moved into `main()`. At import it made
+  the module impossible to import, to test, or to run with `--help` without waiting up to
+  fifteen minutes first — which is a large part of why nobody ever ran this file by hand.
+
+#### The second bug, which only became visible once the first was fixed
+
+With `run_cmd` working, `run_tests()` reported `aitbc-sdk` failing:
+
+```
+ModuleNotFoundError: No module named 'aitbc_crypto'
+```
+
+`build_pytest_env` put only the package under test and the repo root on `PYTHONPATH`. The
+packages cross-import — `aitbc-sdk`'s `test_receipts.py` imports `aitbc_crypto`, which lives in
+a sibling's `src/` — so the first suite failed at collection. This was never a real failure of
+those packages; it was invisible for as long as pytest could not be started at all, and would
+have been the script's first output the moment it could. Every `packages/py/*/src` now goes on
+the path, `dict.fromkeys` de-duplicating while keeping first-wins order so the package under
+test still shadows any installed copy.
+
+#### Verification
+
+`main()` and `fetch_latest_main()` were **not** run: they `git checkout main` and
+`git reset --hard origin/main`, and this is a shared working tree that the deployed
+coordinator-api, blockchain-node and edge services run from directly. Everything below was
+exercised by importing the module through `importlib` with `log` monkeypatched to `print`, so
+nothing was written to `/var/log/aitbc/` either.
+
+```
+argv list      -> (0, 'fix/v23-87-qa-cycle-argv\n')
+nonzero exit   -> 128
+missing binary -> rc -2, via the OSError path
+string arg     -> TypeError: run_cmd takes an argv list, not a string: 'git fetch origin main'
+
+the original bug, reproduced:
+  string form  -> FileNotFoundError: [Errno 2] No such file or directory: 'git fetch origin main'
+  list form    -> resolves to /usr/bin/git
+```
+
+and the two functions that had never executed:
+
+```
+Running test suites...
+Testing aitbc-sdk...
+✅ aitbc-sdk tests passed.
+Testing aitbc-crypto...
+✅ aitbc-crypto tests passed.
+Running linters (flake8 if available)...
+flake8 not installed; skipping lint.
+```
+
+`run_lint()` reaching its `shutil.which` guard and reporting honestly is the correct outcome
+here; flake8 is not installed on this host and the repo lints with ruff.
+
+Root suite: 6,284 passed, 272 skipped, exit 0 — unchanged from the V23-86 baseline.
+
+`pre-commit run --all-files` fails only `require-set-euo-pipefail-in-touched-scripts`, on 329
+pre-existing untouched `.sh` files, which is what that hook does under `--all-files` by design;
+this change touches no shell script. Every other hook passes, `ruff`, `ruff-format` and
+`mypy-clean-apps` among them.
+
+The bandit gate from V23-85 still reports 0 results at `--severity-level medium` — 0 HIGH,
+0 MEDIUM, 382 LOW, exit 0. The two `# nosec` comments added here name their rules and their
+reasons (`B603` for the shell-less `subprocess.run`, `B311` for the scheduling jitter).
+
+#### Not fixed here
+
+`review_my_open_prs()` and `synthesize_status()` are unverified. They need `$GITEA_TOKEN`, and
+`review_my_open_prs()` `POST`s to `requested_reviewers` on the live repository — running it to
+see whether it works would request reviews on real open PRs. Their argument handling is not
+affected by this change: they go through `query_api`, not `run_cmd`. They should be watched on
+the first real invocation.
+
+Noticed while running the gate: bandit reads everything after the rule ID in a `# nosec` comment
+as further rule IDs, so `# nosec B104 - intentional service bind-all; …` makes it try to look up
+`intentional`, `service`, `bind-all` and the rest. It warns once per word and ignores them, which
+is harmless but adds up — 1,558 `Test in comment` warnings on a full run, enough to bury a real
+message. 152 of the repo's 185 `# nosec` lines are written this way, and the two added here
+follow the same house style rather than diverging from it in one file; moving
+the prose onto the line above and leaving a bare `# nosec BXXX` inline silences it, and that is a
+repo-wide edit rather than part of this one.
