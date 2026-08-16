@@ -14,9 +14,6 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-# Jitter: random delay up to 15 minutes (900 seconds)
-time.sleep(random.randint(0, 900))
-
 REPO_DIR = "/opt/aitbc"
 LOG_FILE = "/var/log/aitbc/qa-cycle.log"
 TOKEN_FILE = "/opt/aitbc/.gitea_token.sh"
@@ -27,11 +24,20 @@ def build_pytest_env(package_root: Path):
     package_src = str(package_root / "src")
     existing_pythonpath = env.get("PYTHONPATH", "")
 
-    pythonpath_parts = [package_src, REPO_DIR]
+    # Only the package under test and the repo root used to go on the path. The packages
+    # cross-import -- aitbc-sdk's test_receipts.py imports aitbc_crypto, which lives in a
+    # sibling's src -- so the first suite failed at collection with ModuleNotFoundError. This
+    # never showed up because run_cmd could not start pytest at all; the moment it could, it
+    # reported a failure the packages do not actually have. Put every sibling src on the path.
+    sibling_srcs = sorted(str(p) for p in (Path(REPO_DIR) / "packages" / "py").glob("*/src"))
+
+    pythonpath_parts = [package_src, *sibling_srcs, REPO_DIR]
     if existing_pythonpath:
         pythonpath_parts.append(existing_pythonpath)
 
-    env["PYTHONPATH"] = os.pathsep.join(part for part in pythonpath_parts if part)
+    # dict.fromkeys de-duplicates package_src against its own entry in sibling_srcs while
+    # keeping first-wins order, so the package under test still shadows the installed copy.
+    env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(part for part in pythonpath_parts if part))
     return env
 
 
@@ -57,11 +63,25 @@ def log(msg):
     print(msg)
 
 
-def run_cmd(cmd, cwd=REPO_DIR, timeout=300, env=None):
+def run_cmd(cmd: list[str], cwd=REPO_DIR, timeout=300, env=None):
+    """Run a command given as an argv list. Returns (returncode, stdout, stderr).
+
+    Every caller used to pass a single string -- run_cmd("git fetch origin main") -- while
+    `shell=False` makes subprocess treat a string as the name of one executable. There is no
+    program called "git fetch origin main", so the very first command raised FileNotFoundError,
+    the bare `except Exception` below turned it into rc=-2, fetch_latest_main() logged "Fetch
+    failed" and main() returned. This script had never run past its first command.
+
+    The list form is the fix and `shell=True` is not: V23-85 cleared the B602 findings, and
+    none of these commands need a shell once they are argv lists. The assertion is here so the
+    next string argument fails loudly instead of looking like a missing binary.
+    """
+    if isinstance(cmd, str):
+        raise TypeError(f"run_cmd takes an argv list, not a string: {cmd!r}")
     try:
         result = subprocess.run(
             cmd,
-            shell=False,
+            shell=False,  # nosec B603: argv list, no shell, all commands are literals below
             cwd=cwd,
             capture_output=True,
             text=True,
@@ -71,21 +91,23 @@ def run_cmd(cmd, cwd=REPO_DIR, timeout=300, env=None):
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return -1, "", "timeout"
-    except Exception as e:
+    except OSError as e:
+        # Narrowed from `except Exception`. That bare clause is what made the argv bug look
+        # like an ordinary non-zero exit for as long as it did.
         return -2, "", str(e)
 
 
 def fetch_latest_main():
     log("Fetching latest main...")
-    rc, out, err = run_cmd("git fetch origin main")
+    rc, out, err = run_cmd(["git", "fetch", "origin", "main"])
     if rc != 0:
         log(f"Fetch failed: {err}")
         return False
-    rc, out, err = run_cmd("git checkout main")
+    rc, out, err = run_cmd(["git", "checkout", "main"])
     if rc != 0:
         log(f"Checkout main failed: {err}")
         return False
-    rc, out, err = run_cmd("git reset --hard origin/main")
+    rc, out, err = run_cmd(["git", "reset", "--hard", "origin/main"])
     if rc != 0:
         log(f"Reset to origin/main failed: {err}")
         return False
@@ -104,8 +126,22 @@ def run_tests():
             continue
         log(f"Testing {pkg}...")
         env = build_pytest_env(package_root)
+        # --rootdir was written as "$PWD", which only expands under a shell. It is the
+        # package_root this loop is already iterating over, so pass it directly.
         rc, out, err = run_cmd(
-            'python3 -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short',
+            [
+                "python3",
+                "-m",
+                "pytest",
+                "-c",
+                "/dev/null",
+                "--rootdir",
+                str(package_root),
+                "--import-mode=importlib",
+                "tests/",
+                "-q",
+                "--tb=short",
+            ],
             cwd=str(package_root),
             timeout=120,
             env=env,
@@ -121,7 +157,10 @@ def run_tests():
 def run_lint():
     log("Running linters (flake8 if available)...")
     if shutil.which("flake8"):
-        rc, out, err = run_cmd("flake8 packages/py/ --count --select=E9,F63,F7,F82 --show-source --statistics", timeout=60)
+        rc, out, err = run_cmd(
+            ["flake8", "packages/py/", "--count", "--select=E9,F63,F7,F82", "--show-source", "--statistics"],
+            timeout=60,
+        )
         if rc == 0:
             log("✅ No critical lint errors.")
         else:
@@ -191,6 +230,11 @@ def synthesize_status():
 
 
 def main():
+    # Jitter, so two agents woken by the same schedule do not fetch and reset at the same
+    # instant. This used to run at import, which made the module impossible to import, to test
+    # or to inspect with --help without waiting up to 15 minutes first.
+    time.sleep(random.randint(0, 900))  # nosec B311: scheduling jitter, not a security value
+
     now = datetime.now(UTC).isoformat() + "Z"
     log(f"\n=== QA Cycle start: {now} ===")
     if not GITEA_TOKEN:
