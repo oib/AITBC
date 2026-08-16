@@ -6520,3 +6520,154 @@ Root **6,438**, exit 0.
 
 No spec content changed: `docs/api/` is byte-identical to what is already committed, which is
 the point — the guard was right, nobody was running it.
+
+---
+
+### V23-83 — two vocabularies for one column, and the endpoint that could not survive either · CONFIRMED → RESOLVED
+
+`POST /v1/marketplace/offers/{id}/cancel` answered **500 for every offer in the deployed
+database**. Not most, not the ones in an odd state — every one, by two different routes to the
+same failure.
+
+The service has a state machine, `OfferFSM`, whose vocabulary is five words: `available`,
+`reserved`, `in_use`, `delisted`, `expired`. It does not have `cancelled`. So
+`update_offer_status(offer_id, "cancelled")` called `OfferFSM.from_string("cancelled")`, which
+raised, and the endpoint had no handler for it. That is the whole first path, and it is
+unconditional: the argument is a literal at the only call site.
+
+The second path fires a step earlier. `from_string` is also applied to the **stored** status,
+and the words in the column are not the FSM's words either:
+
+```
+sqlite:///var/lib/aitbc/data/marketplace_service.db  (read-only)
+  status='available'  2 offers
+  status='open'       1 offer
+  status='reserved'   1 offer
+```
+
+`open` is not an `OfferStatus`. That offer failed on the read of its own status before
+anything about cancelling was considered. Three of four offers reached the literal; the fourth
+did not get that far.
+
+#### Why nobody had noticed
+
+The signature was `cancel_offer(offer_id: str, reason: str | None, ...)`. In FastAPI a query
+parameter typed `str | None` **with no default is required** — `= None` is what makes it
+optional — so cancelling without a reason answered 422 and never entered the body. The 500
+underneath was reachable only by a caller who happened to send `?reason=`. The endpoint looked
+awkward rather than broken, and the published spec agreed with the awkward reading:
+`"required": true` on a parameter the handler defaults two lines later.
+
+It also means the route's own first branch — `if offer.status == "cancelled"` — was
+unreachable in the strict sense. `"cancelled"` has **never been written to any row**, because
+the FSM raised before the assignment that would have written it. A guard against a state the
+code could not produce.
+
+#### The actual finding is a vocabulary split, not a missing enum member
+
+Adding `CANCELLED` to `OfferStatus` fixes the literal and nothing else. Grepping for what is
+written into `marketplaceoffer.status` turns up four words the FSM cannot parse, from four
+different places:
+
+| word | written by | means |
+|---|---|---|
+| `booked` | `MarketplaceService.book_offer`, by direct assignment | `RESERVED` |
+| `open` | callers, through `create_offer` | `AVAILABLE` |
+| `cancelled` | what `cancel_offer` asks for | `DELISTED` |
+| `closed` | coordinator-api's marketplace service | `DELISTED` |
+
+`open` is the interesting one. `create_offer` splats the request body into the model, and
+`status` is a plain `str` column, so **any word a caller could spell became a stored state** —
+after which every FSM operation on that offer failed. That is not a hypothetical; it is where
+the `open` row in the deployed database came from.
+
+`booked` is the same shape from inside: booking was the one transition this service performed
+without asking the FSM, assigning the string directly. The state machine was consulted on the
+paths that had no invalid words and skipped on the path that introduced one.
+
+#### Reconciled, not renamed
+
+`marketplace_service/domain/offer_status.py` maps every word in use onto the state it means.
+The stored words stay, for two reasons: they are what the API returns and what clients filter
+on, and **`apps/marketplace` has no Alembic directory** — there is nowhere to put a migration
+that would rename the rows already on disk. `apps/gpu` already carries a map of the same shape
+for `GPURegistry.status`; this follows it. Deliberately absent: `active` and `inactive`, which
+are `SoftwareService`'s vocabulary for a different table, however much the CLI's help text
+confuses the two.
+
+The map has one strict entry point and one forgiving one. Write paths use `to_offer_status`,
+which raises, and the raise surfaces as a 400 — an unknown status is a caller naming a state
+that does not exist, not the service failing. Read paths use `try_to_offer_status`, which
+answers `None`, so one unrecognised row drops out of a tally instead of taking the listing
+down with it.
+
+`create_offer` now validates `status` before constructing the model, which is what turns
+"every stored status parses" from an observation into an invariant.
+
+#### Three things that were wrong for the same reason
+
+Once statuses are compared by state rather than by spelling, the other comparisons on this
+column were all wrong too, and each was silent:
+
+- **`GET /offers?status=`** filtered on the literal string. `?status=available` did not return
+  the offer stored as `open`; `?status=booked` did not return the one stored as `reserved`.
+  The same offer was visible or invisible depending on which word the caller chose, with
+  nothing to indicate there was another. It now matches by state, and an unknown filter value
+  is a 400 rather than a 200 with `[]` — a typo and a real empty result had been the same
+  answer.
+- **`GET /v1/marketplace`** counted `active_offers` by the literal `available`, so the `open`
+  offer was in `total_offers`, out of `active_offers`, and out of the regions and service
+  types the overview advertises. Available and invisible.
+- **`POST /offers/{id}/book`** rejected the `open` offer as not available. It was available.
+
+Fixing the count exposed a fourth, in the line beneath it. `sum(o.get("price_per_hour", 0)
+for o in active_offers)` — the default applies only when the **key is missing**, and it never
+is; `list_offers` puts it in every dict. `price_per_hour` is nullable, so a single priceless
+offer made this `int + None` and the whole overview a 500. It had never been reachable:
+`active_offers` was empty in every test, and every offer in the deployed database happens to
+carry a price. A new test put a priceless offer in the list and it fell over immediately.
+
+#### What a cancel is now
+
+| offer state | before | now |
+|---|---|---|
+| no `?reason` | 422 | cancelled |
+| stored `available` / `open` | 500 | cancelled |
+| stored `reserved` / `booked` | 500 | **400** `Offer cannot be cancelled while it is booked` |
+| already `delisted` / `closed` / `cancelled` | 500 | **400** `Offer already cancelled` |
+| stored word nobody knows | 500 | **400** naming the word |
+
+The reserved case is the FSM's judgement, not a new rule: `RESERVED → {IN_USE, AVAILABLE,
+EXPIRED}` and not `DELISTED`, so a provider cannot delist out from under a buyer who has
+reserved. 400 rather than 409, matching V23-81's decision on `book_offer` over this same
+resource, where 409 stays reserved for optimistic-concurrency mismatches.
+
+#### Verification
+
+31 tests over the two files, 11 of them against the endpoints and 20 properties of the map
+itself. Each was falsified first: the cancellation tests against the pre-fix handler (500,
+and 422 without a reason), the legacy-status tests against literal comparison, the overview
+test against `.get("price_per_hour", 0)`, and the partition test against a word listed under
+two states. `apps/marketplace` **91**, exit 0. Root **6,469**, exit 0 — 6,438 + 31, the whole
+change accounted for.
+
+`docs/api/marketplace-openapi.json` regenerated: `?reason` drops to `"required": false`, and
+the 400s on listing and creation are now documented. The `openapi-drift` hook from V23-82 is
+what made that a step rather than an oversight — this is the first change it would have caught.
+
+#### Noticed, not fixed
+
+`?reason` was one of **10** query parameters in this file typed `X | None` with no default,
+which the published spec therefore marks required: `analytics ?period_type`, `performance
+?period`, `offer/{id}/ratings ?limit ?offset`, `ratings/unsynced ?limit`, and `transactions
+?transaction_type ?action ?status ?island_id`. Only `reason` is in scope here, because it is
+the one on the broken path. The other nine have **five existing tests asserting the 422** —
+`test_get_marketplace_analytics_missing_param`, `test_marketplace_performance_missing_param`,
+`test_get_ratings_missing_params`, `test_get_unsynced_ratings_missing_param`,
+`test_get_transactions_missing_params` — so fixing them means deciding those tests documented
+an accident rather than a contract, which is a separate call from this one. Filed.
+
+Distinct from that and also filed: `POST /v1/marketplace/dynamic-pricing` takes `offer_id`,
+`current_demand` and `current_supply` as **required query parameters on a POST**. Those are
+genuinely required rather than required by accident, so they are not part of the group above —
+the question there is why a POST carries its input in the query string.
