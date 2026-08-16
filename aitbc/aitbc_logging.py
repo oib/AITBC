@@ -1,6 +1,19 @@
 """
 AITBC Logging Module
 Centralized logging utilities for the AITBC project
+
+Output format is fixed and deliberately not configurable: the console (systemd journal)
+always gets `JournalFormatter`, and a rotating file, when one is configured, always gets
+`StructuredFormatter`. Human-readable where a human reads it, JSON where a parser does.
+
+That was decided in 1b81d840 ("switch systemd journal logging to compact human-readable
+format"), which removed the conditional that chose between them. What it did not remove was
+the way to ask for the other branch, so until V23-78 this module still offered three: a
+`structured` flag on `setup_logger` and `configure_logging`, a `format_string` on the former,
+and a `LOG_FORMAT` environment variable read by `_get_log_format`. None of the three had been
+connected to anything since 19 June 2026. `LOG_FORMAT=json` was nevertheless set in five
+systemd units and asserted by two release gates, which is the reason to delete a dead switch
+rather than leave it lying around: people go on wiring things up to it.
 """
 
 import json
@@ -98,11 +111,6 @@ def _get_log_level() -> int:
     return getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper())  # type: ignore[no-any-return]
 
 
-def _get_log_format() -> str:
-    """Get log format from environment: 'json' or 'text'"""
-    return os.getenv("LOG_FORMAT", "text").lower()
-
-
 def _get_log_file_path(service_name: str) -> Path | None:
     """Get log file path from environment."""
     log_dir = os.getenv("LOG_DIR")
@@ -121,14 +129,17 @@ def _get_log_file_path(service_name: str) -> Path | None:
 def setup_logger(
     name: str,
     level: str = "INFO",
-    format_string: str | None = None,
-    structured: bool = False,
     service_name: str | None = None,
     to_file: bool = False,
     rotation: str = "daily",
     max_files: int = 7,
 ) -> logging.Logger:
-    """Setup a logger with consistent formatting and optional file rotation"""
+    """Setup a logger with consistent formatting and optional file rotation.
+
+    Which formatter is used is not configurable, by decision: console output is always
+    `JournalFormatter` and file output is always `StructuredFormatter`. See the module
+    docstring for why this function used to take `structured` and `format_string`.
+    """
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level.upper()))
 
@@ -222,11 +233,14 @@ def configure_uvicorn_logging() -> None:
 
 def configure_logging(
     level: str = "INFO",
-    structured: bool = False,
     service_name: str | None = None,
     to_file: bool = False,
 ) -> None:
-    """Configure root logging level and format"""
+    """Configure root logging level and handlers.
+
+    Console is always `JournalFormatter`, file is always `StructuredFormatter`; see the
+    module docstring. This took a `structured` flag that has never been read.
+    """
     configure_uvicorn_logging()
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, level.upper()))

@@ -98,7 +98,6 @@ BLOCKCHAIN_NODE_PORT=8202
 
 # Logging
 LOG_LEVEL=debug
-LOG_FORMAT=json
 
 # Feature Flags
 ENABLE_EXPERIMENTAL_FEATURES=true
@@ -137,7 +136,6 @@ Example for coordinator-api:
 [Service]
 EnvironmentFile=/etc/aitbc/staging.env
 Environment=LOG_LEVEL=debug
-Environment=LOG_FORMAT=json
 ```
 
 ### 5. Start Services
