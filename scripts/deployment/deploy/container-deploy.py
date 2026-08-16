@@ -8,12 +8,19 @@ import os
 import subprocess
 
 
+# The `shell=True` calls here are marked `# nosec B602`. Every command is a literal, or a
+# literal composed with `container`, which is assigned the constant "aitbc" below and never
+# read from anywhere. A shell is needed for `cd X && source Y && pip install` and for
+# `2>/dev/null || true`. If a container name ever arrives from a flag or the environment,
+# these stop being safe and the markers have to go.
+
+
 def run_command(cmd, container=None):
     """Run command locally or in container"""
     if container:
         cmd = f"incus exec {container} -- {cmd}"
     print(f"Running: {cmd}")
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # nosec B602
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
         return False
@@ -37,7 +44,7 @@ def deploy_to_container():
 
     # Copy project to container
     print("\n📁 Copying project to container...")
-    subprocess.run(f"incus file push -r /opt/aitbc {container}/opt/", shell=True)
+    subprocess.run(f"incus file push -r /opt/aitbc {container}/opt/", shell=True)  # nosec B602
 
     # Setup Python environment in container
     print("\n🐍 Setting up Python environment...")

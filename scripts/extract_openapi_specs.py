@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -26,7 +27,10 @@ os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
 os.environ.setdefault("MARKETPLACE_DATABASE_URL", "sqlite+aiosqlite:///./test_marketplace.db")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_api.db")
 os.environ.setdefault("WALLET_BIND_PORT", "8108")
-os.environ.setdefault("WALLET_DIR", "/tmp/test_wallet")
+# A keystore directory, so not a fixed path: `/tmp/test_wallet` is guessable and shared, and
+# two people generating specs on one host would have written keys into each other's. The
+# wallet app only has to be able to construct its settings here; nothing reads this back.
+os.environ.setdefault("WALLET_DIR", tempfile.mkdtemp(prefix="aitbc-openapi-wallet-"))
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")

@@ -132,16 +132,25 @@ def run_lint():
 
 def query_api(path, method="GET", data=None):
     import urllib.error
+    import urllib.parse
     import urllib.request
 
     url = f"{API_BASE}/{path}"
+    # $GITEA_API_BASE decides this, and the header below carries the API token. urlopen
+    # honours `file:` and every other scheme it knows, so an unexpected one would either read
+    # a local path or send the token somewhere it does not belong.
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        log(f"Refusing non-HTTP API base: {API_BASE}")
+        return None
     headers = {"Authorization": f"token {GITEA_TOKEN}"}
     if data:
         headers["Content-Type"] = "application/json"
         data = json.dumps(data).encode()
     req = urllib.request.Request(url, method=method, headers=headers, data=data)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        # nosec B310: the scheme is checked against http/https above. B310 is a blacklist
+        # rule on the call itself and fires whatever guards precede it.
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             return json.load(resp)
     except Exception as e:
         log(f"API error {path}: {e}")

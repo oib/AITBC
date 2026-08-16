@@ -333,6 +333,56 @@ ignore = [
 convention = "google"
 add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 
+# The pre-commit bandit hook has passed `-c pyproject.toml` since it was added, and until
+# V23-85 there was nothing here for it to read. That was the smaller of two problems: the
+# same hook's `-x` argument was written as three list items, so bandit exited 2 on a usage
+# error before it read any configuration at all. See .pre-commit-config.yaml.
+#
+# `exclude_dirs` entries are matched as plain substrings of the path as well as globs, which
+# is why each one is written with its surrounding slashes -- a bare "build" would also drop
+# anything under a directory called "rebuild", and a bare "tests" would drop
+# `aitbc/protests.py`. The leading slash also anchors them: "/venv/" does not match
+# "myvenv/".
+[tool.bandit]
+exclude_dirs = [
+    # Not our code. Neither is tracked, but bandit walks the filesystem rather than asking
+    # git, so .gitignore does not reach it. Without these the scan reports pip's vendored
+    # copies of requests and distlib -- 11 of the 21 HIGH findings on the first run came
+    # from apps/coordinator-api/.venv, and none of them were ours to fix.
+    "/venv/",
+    "/.venv/",
+    "/node_modules/",
+    "/site-packages/",
+    "/__pycache__/",
+    "/.tox/",
+    "/.eggs/",
+    # Build output and coverage reports, regenerated rather than edited.
+    "/build/",
+    "/htmlcov/",
+    # Solidity submodules -- forge-std and openzeppelin-contracts, each of which ships a
+    # scripts/vm.py we do not run and cannot patch. `[tool.ruff]` excludes this directory for
+    # the same reason. The repository tracks no Python under contracts/ at all.
+    "/contracts/",
+    # Test code. `assert` is the point of a test, and B101 fires on every one: 3,388 of the
+    # repo's 3,837 findings were asserts in test files. They are all below the severity
+    # floor the hook runs at, so this is about scan time rather than noise, but the
+    # exclusion is also what the hook's author originally intended -- the broken `-x`
+    # argument was trying to name `tests/` and `tests/cli`.
+    "/tests/",
+    # Skeletons with placeholder bodies, already excluded from ruff and debug-statements.
+    "/cli/templates/",
+]
+# Skipped repo-wide rather than per-line, because in each case the finding is about a
+# deliberate project-wide convention and eight or thirty scattered `# nosec` comments would
+# say the same thing less visibly.
+skips = [
+    # B104, binding to 0.0.0.0. Every service here is either inside a container or behind
+    # the nginx reverse proxy, and binds the one interface it has; the address is what makes
+    # it reachable from the host at all. B104 fires on the only spelling that works, so
+    # there is nothing to change in response to it.
+    "B104",
+]
+
 [tool.pytest.ini_options]
 # "." is the repo root, so `cli.*` and `aitbc.*` resolve to the checkout under test.
 # importlib import mode does not put rootdir on sys.path the way prepend mode did, and

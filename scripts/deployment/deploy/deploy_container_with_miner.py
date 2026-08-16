@@ -5,7 +5,16 @@ Deploy AITBC services to incus container with GPU miner integration
 
 import os
 import subprocess
+import tempfile
 import time
+
+
+# Every `shell=True` below is marked `# nosec B602`. The commands are literals composed with
+# `container`, which is assigned the constant "aitbc" a few lines down and is never read from
+# the environment, a flag or a file; there is no input to inject. They need a shell because
+# they are `cd X && source Y && pip install`, `2>/dev/null || true` and backgrounded jobs --
+# shell syntax, not a program with arguments. If this script ever takes a container name from
+# the caller, these become real and the nosec markers have to come off with it.
 
 
 def run_command(cmd, container=None):
@@ -13,7 +22,7 @@ def run_command(cmd, container=None):
     if container:
         cmd = f"incus exec {container} -- {cmd}"
     print(f"Running: {cmd}")
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # nosec B602
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
         return False
@@ -30,11 +39,11 @@ def deploy_to_container():
     result = subprocess.run("incus list -c n", shell=True, capture_output=True, text=True)
     if container not in result.stdout:
         print(f"\n📦 Creating container {container}...")
-        subprocess.run(f"incus launch images:ubuntu/22.04 {container}", shell=True)
+        subprocess.run(f"incus launch images:ubuntu/22.04 {container}", shell=True)  # nosec B602
         time.sleep(10)
 
     # Ensure container is running
-    subprocess.run(f"incus start {container}", shell=True)
+    subprocess.run(f"incus start {container}", shell=True)  # nosec B602
     time.sleep(5)
 
     # Update and install packages in container
@@ -49,7 +58,7 @@ def deploy_to_container():
 
     # Copy project to container
     print("\n📁 Copying project to container...")
-    subprocess.run(f"incus file push -r /home/oib/windsurf/aitbc {container}/home/oib/", shell=True)
+    subprocess.run(f"incus file push -r /home/oib/windsurf/aitbc {container}/home/oib/", shell=True)  # nosec B602
 
     # Setup Python environment in container
     print("\n🐍 Setting up Python environment...")
@@ -111,10 +120,14 @@ echo "GPU Registry: http://10.1.223.93:8091"
 wait $COORD_PID $BLOCK_PID $EXCHANGE_PID $REGISTRY_PID $MINER_PID
 """
 
-    # Write startup script to container
-    with open("/tmp/startup.sh", "w") as f:
+    # Write startup script to container. Staged through a private directory rather than a
+    # fixed /tmp/startup.sh: the old path was guessable and world-readable, and the file is
+    # about to be pushed into the container and made executable there.
+    staging = tempfile.mkdtemp(prefix="aitbc-deploy-")
+    startup_path = os.path.join(staging, "startup.sh")
+    with open(startup_path, "w") as f:
         f.write(startup_script)
-    subprocess.run(f"incus file push /tmp/startup.sh {container}/home/oib/aitbc/", shell=True)
+    subprocess.run(f"incus file push {startup_path} {container}/home/oib/aitbc/", shell=True)  # nosec B602
     run_command("chmod +x /home/oib/aitbc/startup.sh", container)
 
     # Create systemd service
@@ -135,9 +148,12 @@ RestartSec=10
 WantedBy=multi-user.target
 """
 
-    with open("/tmp/aitbc.service", "w") as f:
+    service_path = os.path.join(staging, "aitbc.service")
+    with open(service_path, "w") as f:
         f.write(service_content)
-    subprocess.run(f"incus file push /tmp/aitbc.service {container}/tmp/", shell=True)
+    # nosec B108: this /tmp/ is the container's, one hop before the `mv` below drops the unit
+    # into /etc/systemd/system. The host-side file is the tempfile above.
+    subprocess.run(f"incus file push {service_path} {container}/tmp/", shell=True)  # nosec B602 B108
     run_command("mv /tmp/aitbc.service /etc/systemd/system/", container)
     run_command("systemctl daemon-reload", container)
     run_command("systemctl enable aitbc.service", container)

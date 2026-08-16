@@ -66,6 +66,32 @@ The AITBC platform consists of:
 - **TypeScript**: Use Prettier and ESLint
 - **Go**: Use `gofmt`
 
+### Git Hooks
+
+`pre-commit install` installs two hook types, not one. The config names both in
+`default_install_hook_types`, so the bare command is enough — it did not used to be, and the
+bandit hook went unrun for as long as that was true (V23-85).
+
+- **pre-commit** — ruff, ruff-format, mypy over the clean scope, and the repo's own checks
+  (merge markers, undocumented `type: ignore`, float money, OpenAPI drift, `set -euo pipefail`
+  in touched shell scripts).
+- **pre-push** — bandit, at `--severity-level medium`. Configured in `[tool.bandit]` in
+  `pyproject.toml`. It reports 0 today, so anything it reports is something you introduced.
+
+To run either by hand:
+
+```bash
+pre-commit run --all-files
+```
+
+```bash
+pre-commit run bandit --hook-stage pre-push --all-files
+```
+
+If bandit flags something you believe is a false positive, mark the line `# nosec BXXX` with
+the specific ID and a comment saying why — never a bare `# nosec`, and never a rule added to
+`skips` for a single site.
+
 ### Pull Request Process
 
 1. Update documentation for any changes

@@ -370,9 +370,14 @@ def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
 
         spellings = address_spellings(wallet_address)
         conn = sqlite3.connect(db_path)
+        # The f-string interpolates a run of `?` placeholders, one per spelling -- never a
+        # value. Every address still arrives through the parameter tuple below. sqlite3 has
+        # no way to bind a variable-length IN list, so building the placeholders is the
+        # supported idiom; bandit cannot tell it from string-concatenated SQL.
+        placeholders = ",".join("?" * len(spellings))
         cursor = conn.execute(
             "SELECT COUNT(*) FROM coin_requests WHERE status IN ('APPROVED') "
-            f"AND (sender = ? OR lower(wallet_address) IN ({','.join('?' * len(spellings))}))",
+            f"AND (sender = ? OR lower(wallet_address) IN ({placeholders}))",  # nosec B608
             (sender, *spellings),
         )
         count = cursor.fetchone()[0]
