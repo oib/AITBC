@@ -5951,3 +5951,195 @@ working tree from `/etc/systemd/system`, so the edits are live on disk, but remo
 no code reads cannot change a running service, and the next ordinary restart picks it up.
 
 Root **6,365**, exit 0.
+
+### V23-79 — a first install never migrated, and the check could not say so · CONFIRMED → RESOLVED
+
+Filed out of V23-75 as *"nothing runs the migrations… no systemd unit in the repo has an
+`ExecStartPre` that does"*. **The first half of that was wrong and I wrote it.**
+`update.sh` step 5 has run `alembic upgrade head` for every service with an `alembic.ini`
+since 1 July 2026, and does it carefully — per-service env file, service stopped for the
+duration, blockchain-node deliberately skipped. What is true is narrower and worse:
+
+* **`deploy.sh` never migrated at all.** `main` runs `initialize_databases` — which creates
+  Postgres databases and nothing else — then `setup_systemd_services`, then
+  `start_services`. So the *install* path brings every service up against whatever schema
+  happens to exist, which for trading, whose `init_db()` creates nothing on purpose, is
+  none. Only the *update* path migrated, and that one presupposes an installed node.
+* **The check that should have caught it cannot fail for the cases that are real.**
+
+Both are fixed here. The `ExecStartPre` the original note asked for is not, deliberately —
+see the last section.
+
+**`scripts/deployment/run-migrations.sh`** is now the single implementation, exec'd by
+`update.sh` as its step 5 and by `deploy.sh` after the units are linked and before the
+services start. That ordering is load-bearing in both directions: the script skips any
+service whose unit is absent, which is how it stays role-aware, and migrating a running
+service is the thing it stops to avoid.
+
+#### The readiness check had three defects, and they compounded
+
+`check_migrations()` in `scripts/check-production-readiness.py` discovers `apps/*/alembic.ini`
+and runs `alembic current` in each. It was not run whole against this host, on purpose — doing
+so connects to production databases with production credentials, which is exactly what a
+verification step must not do casually. The three defects below were each established
+separately, from the code and from read-only reads, and each is now pinned by a test.
+
+**A database that has never been migrated passed.** `alembic current` against a database
+with no `alembic_version` table exits 0 and writes nothing to stdout — the banner and the
+INFO lines go to stderr. That was read as `no revision applied (skipped)` and, unlike every
+other branch, left `all_ok` untouched. So the worst state a database can be in was the one
+state treated as acceptable, while being a single revision behind was a failure. Confirmed
+on a copy of the deployed gpu database:
+
+```
+$ alembic current            # scratchpad copy of /var/lib/aitbc/data/gpu_service.db
+alembic: target database -> sqlite:////…/gpu_copy.db          <- stderr
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.    <- stderr
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+exit=0, stdout 0 bytes
+```
+
+Every line an operator would read as evidence goes to stderr; the stream the check parses is
+empty, and empty is indistinguishable from "nothing to say".
+
+**blockchain-node was excluded from the check entirely.** `_has_migrations` built
+`app_dir / script_location / "versions"` from the raw ini value. blockchain-node is the only
+app that writes `script_location = %(here)s/migrations` — Alembic's own token for the ini
+file's directory — so the check looked for `apps/blockchain-node/%(here)s/migrations/versions`,
+found no directory, and dropped the app without a word in its output — seven revisions, and
+the one app where the default target is provably not the database the nodes use (V23-49),
+silently outside the check's scope.
+
+**For coordinator-api it read the wrong database.** It ran `alembic current` with no service
+environment, so each `env.py` fell back to its own default target. coordinator-api's
+`env.py` takes `DATABASE_URL or SQLITE_URL or app_settings.database.effective_url`, and with
+none of the first two set that resolves to `sqlite:////var/lib/aitbc/data/coordinator.db`
+while `/etc/aitbc/aitbc-coordinator-api.env` puts the service on Postgres. So the check
+reported confidently on a SQLite file the service does not open. This is the same bug
+`271d395f2` fixed in `update.sh` in August — the fix went to the migrator and not to the
+checker, which is how the two came to disagree about which database a service has. They now
+read the same two filenames in the same order.
+
+pool-hub escapes this one by luck rather than design: `migrations/env.py` and
+`settings.py` each hardcode the same `postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc`,
+and `/etc/aitbc/aitbc-pool-hub.env` sets no `DATABASE_URL` at all — it carries one variable,
+a shared secret. Two copies of a DSN that agree today are not a service environment, and the
+next edit to either is what turns pool-hub into the coordinator-api case.
+
+#### What the deployed databases actually look like
+
+Read-only, from the SQLite files, the pool-hub Postgres database, and each app's revision
+graph. This is the state the check was reporting no problem about:
+
+| service | deployed | head | |
+|---|---|---|---|
+| gpu | *no `alembic_version`* | `b8f3a2c91d04` | never migrated |
+| edge | *no `alembic_version`* | `e1c47b09f2a6` | never migrated |
+| pool-hub | *no `alembic_version`* | `e5d4f8a9b0c1` | never migrated |
+| trading | `001` | `003` | behind |
+| governance | `002` | `003` | behind |
+| blockchain-node | `d4e8b91c0a37` | `d4e8b91c0a37` | at head, on the file no node uses |
+| coordinator-api | **not read** | `a3e7c15b8d94` | see below |
+
+gpu and edge gained Alembic in V23-47 and have not been migrated since. pool-hub's is the
+`aitbc` Postgres database at the DSN both its `env.py` and its settings hardcode; there is no
+`alembic_version` relation in it. The blockchain-node row is the V23-49 decoy — the default
+target, `/var/lib/aitbc/data/chain.db`, is at head while the live island databases are
+elsewhere; four of its seven revisions branch and remerge, so `d4e8b91c0a37` is the single
+head only by way of the `459d59e234e4` merge.
+
+**coordinator-api's live revision is unknown and this entry does not guess at it.** Reading
+it means connecting to Postgres with the credentials in `/etc/aitbc/aitbc-coordinator-api.env`,
+which I am not permitted to do and did not attempt. What is measured is the SQLite file the
+unpatched check was reading instead — `/var/lib/aitbc/data/coordinator.db`, at
+`e9cf23ae4640` against a head of `a3e7c15b8d94`, 32 revisions in the graph. That file being
+behind says nothing about the service; it is only evidence that the check was answering
+about the wrong database. The operator has to read the real one.
+
+Five of the seven are known to need an operator and the sixth is unknown; **none of it was
+applied here**, and the commands are at the end.
+
+#### Why not `ExecStartPre`
+
+The original note asked for one and this does not add it, because on this system it is worse
+than what it replaces:
+
+* Four blockchain-node units — `node`, `p2p`, `rpc`, `sync` — run as the same user against
+  the same SQLite chain database. An `ExecStartPre` on each is four concurrent
+  `upgrade head` on one file.
+* blockchain-node's Alembic default is a database no node uses (V23-49), so the unit would
+  have to know its own island, which is exactly what `run-migrations.sh` refuses to guess.
+* These migrations go through `batch_alter_table(recreate="always")`, which drops and
+  rebuilds the table. `run-migrations.sh` stops the service first. A unit cannot do that for
+  its own siblings, and a unit that stopped the service it is starting is a cycle.
+* A failed migration in `ExecStartPre` turns one bad revision into a restart loop across
+  every service that shares the database.
+
+Migrations are a deploy step, taken with the services stopped. A test asserts no unit
+invokes `alembic`, so a later sweep does not add one by reflex.
+
+#### Incidental
+
+* `.gitignore` ignores `scripts/deployment/*` behind a six-entry allowlist, so
+  `run-migrations.sh` was untracked on creation and would have been committed by nobody.
+  Added to the allowlist rather than force-added. The rule only ever bites new files — 33 of
+  the 35 files in that directory were already tracked, and with this one that becomes 34.
+  The remaining one is `deploy_agent_dao.py`, present on disk and ignored by the same rule;
+  whether it should be tracked is somebody's decision and not this PR's. Worth knowing before
+  adding the next script there: `git status` will not tell you it was skipped.
+* `update.sh` gained `set -o pipefail`. Its only one lived in the migration subshell that
+  moved out, and this replaces it rather than losing it. Not a behaviour change: without
+  `set -e` a pipeline's status matters only where tested, and of the four tested, two are
+  `systemctl … | grep -q` where a failing `systemctl` produces no output and the `grep`
+  fails anyway, and two are `||` between commands rather than pipelines.
+* `deploy.sh` is added to `check-shell-strict-mode.py`'s `SKIP_SETTINGS` for `-u` and
+  `pipefail`, with the reason recorded there. It has `set -e`, and
+  `LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/backup_* 2>/dev/null | head -1)` fails its `ls` on a
+  host with no backups while `head` succeeds — under `pipefail` the assignment aborts the
+  script, turning "no backup found", which the next line handles, into a silent exit on the
+  rollback path. That is the V23-23 hazard arriving through the check meant to prevent it.
+* `check-production-readiness.py`'s docstring still advertised "Log format is JSON" after
+  V23-78 removed that check. Mine to fix, fixed here.
+
+#### Verification
+
+`run-migrations.sh` was exercised against a stub host — `systemctl` and `alembic` replaced
+on `PATH`, `AITBC_ROOT` pointed at a scratch tree — covering the migrate path (correct cwd,
+PYTHONPATH and env file), the blockchain-node skip with its per-island instructions, a
+failing migration (`0 ok, 1 failed`, exit 1, services restarted), and a missing venv. **No
+service was stopped, started or reloaded, and no database was written.** The survey above
+opened the deployed SQLite files through `file:…?mode=ro` URIs and pool-hub's Postgres with a
+single `SELECT`; the only database written to at any point was a scratchpad copy of
+`gpu_service.db`.
+
+The `check_migrations` tests run against a temporary apps tree and a stub `alembic` rather
+than the real one, because this check's job is to connect to production databases with
+production credentials and a test suite must not.
+
+Root **6,384**, exit 0.
+
+#### Operator — bringing the deployed databases to head
+
+None of this was applied. Migrations run best through the deploy path, which stops each
+service first:
+
+```
+sudo /opt/aitbc/scripts/deployment/run-migrations.sh
+```
+
+That covers gpu, edge, pool-hub, trading, governance and coordinator-api, each under its own
+`/etc/aitbc` env file. Three cautions:
+
+* **governance is at `002` and 003 is `003_v023_voting_ends_block`.** Do not migrate
+  `/var/lib/aitbc/data/governance_service.db` without taking a copy first and reading V23-73
+  — 002 was rewritten into raw SQL and the file is live.
+* **coordinator-api's live revision has not been read.** Before running anything, read it:
+  `alembic current` from `apps/coordinator-api` with the service env loaded, and confirm the
+  URL it prints is the Postgres one and not `/var/lib/aitbc/data/coordinator.db`. It is 32
+  revisions and the largest schema here; how far behind it is decides whether this is a
+  no-op or a maintenance window.
+* **blockchain-node is skipped by design.** It names each island for you; run those
+  explicitly, with the node stopped, and check the target path before pressing return.
+
+Afterwards, `scripts/check-production-readiness.py` answers the question — which, before
+this change, it could not.

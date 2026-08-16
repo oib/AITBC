@@ -323,6 +323,9 @@ scripts/deployment/*
 !scripts/deployment/deploy.sh
 !scripts/deployment/setup.sh
 !scripts/deployment/update.sh
+# The migration step shared by deploy.sh and update.sh. It carries no hardcoded host or IP,
+# which is what this section's blanket ignore is guarding against (V23-79).
+!scripts/deployment/run-migrations.sh
 !scripts/deployment/install-profiles.sh
 !scripts/deployment/validate-env.sh
 !scripts/deployment/create_aitbc_user.sh
