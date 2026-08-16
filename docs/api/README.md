@@ -10,6 +10,10 @@ This section provides comprehensive documentation for all AITBC platform APIs.
 
 ## OpenAPI Specifications
 
+The `*-openapi.json` files in this directory are **generated from the applications**, not
+written by hand. Regenerate them with `make openapi` and commit the result; a pre-commit hook
+fails any commit that leaves them disagreeing with the code.
+
 Each API includes an OpenAPI 3.1.0 specification that can be used with API documentation tools like:
 
 - Swagger UI

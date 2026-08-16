@@ -114,6 +114,27 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+  # docs/api/*-openapi.json is generated from the apps, and the guard that says so existed
+  # for a release before anything invoked it -- it was red on main that whole time (V23-82).
+  #
+  # `files:` is measured, not guessed: generating the specs imports 593 repo-local modules,
+  # and this pattern is the set of prefixes they live under. Scoping to `apps/*/src/` alone,
+  # the obvious choice, would have missed the 127 files in aitbc/ and packages/py/ that
+  # define the shared models the schemas are built from -- including the money fields whose
+  # Decimal conversion was one of the three drifts found. tests/unit/test_openapi_drift_guard.py
+  # re-derives that import set and fails if this pattern stops covering it.
+  #
+  # ~6s, and it fires on roughly a quarter of commits.
+  - repo: local
+    hooks:
+      - id: openapi-drift
+        name: openapi-specs-match-the-apps
+        entry: bash scripts/ci/check-openapi-drift.sh
+        language: system
+        pass_filenames: false
+        files: ^(aitbc/|packages/py/|apps/(agent-coordinator|blockchain-node|coordinator-api|marketplace|wallet)/src/|scripts/(extract_openapi_specs|openapi_error_responses)\.py)
+        stages: [pre-commit]
+
   # Security checks with Bandit (only on pre-push to save time)
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.3

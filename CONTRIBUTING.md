@@ -60,6 +60,11 @@ make test-governance
 # Docs link check (required for any docs change)
 bash scripts/validate_docs.sh
 
+# The published API specs still match the apps. A pre-commit hook runs this whenever a
+# commit touches code the specs are built from, so it is rarely needed by hand -- but
+# `docs/api/*-openapi.json` is generated, and `make openapi` is the only way to change it.
+make openapi-check
+
 # Markdown lint for touched files
 npx -y markdownlint-cli <file-or-dir>
 ```
