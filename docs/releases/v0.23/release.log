@@ -6254,3 +6254,131 @@ what makes the drift guard meaningful rather than noisy. Message order follows s
 rather than `ast.walk`'s breadth-first traversal, for the same reason.
 
 Root **6,421**, exit 0.
+
+### V23-81 — a 500, a 200 that wrote an orphan, and a zero that meant nothing · CONFIRMED → RESOLVED
+
+Filed out of V23-80's "noticed and not fixed": three marketplace routes under the same
+prefixes as V23-76's never answered 404. Probed against a throwaway database before touching
+anything, because **the filed description was wrong about one of the three**:
+
+| route, unknown id | filed as | actually was | now |
+|---|---|---|---|
+| `POST /offers/{id}/book` | 500 | 500 | **404** `{"error": "Offer not found"}` |
+| `POST /offer/{id}/rate` | 500 | **200, and it wrote a row** | **404** `{"error": "Service not found"}` |
+| `GET /offer/{id}/ratings` | 200 with zeros | 200 with zeros | **404** `{"error": "Service not found"}` |
+
+`rate` was the one worth probing for. It did not fail — it succeeded, on a service that does
+not exist, and returned the created rating. `add_service_rating` never checked, and the
+aggregate update it calls afterwards is guarded by `if service:`, so the row was written and
+no `avg_rating` anywhere was ever moved by it.
+
+That produces a read that contradicts itself. After one rating on a service id that is not
+registered, `GET /offer/{id}/ratings` answered:
+
+```json
+{"service_info": {"avg_rating": 0.0, "rating_count": 0},
+ "ratings": [{"rating": 5.0, "reviewer_id": "…", "comment": "orphan"}],
+ "count": 1}
+```
+
+`rating_count: 0` beside one rating, in the same response. And the orphan is not inert:
+`GET /ratings/unsynced` returns it, `aitbc market sync-ratings` pushes it to peers, and
+`sync_ratings_from_remote` inserts whatever arrives without checking either. A typo'd service
+id in a rating replicates across islands as a permanent row nothing will ever count.
+
+#### The fix, and where it lives
+
+Each route checks before it acts, in the shape this file already uses for the same question —
+`JSONResponse(status_code=404, content={"error": …})`, matching the eight `404` sites already
+in the file — the same eight V23-76 measured the spec against. The checks sit in the handler,
+not the service: the service layer is HTTP-agnostic and raising `HTTPException` out of it would
+tie it to FastAPI for the benefit of one caller. Its `ValueError`s stay as the backstop for
+non-HTTP callers.
+
+`ratings` needed no new lookup at all. The handler already resolved the service both ways
+round — `get_software_service`, then `get_service_by_offer_id` — and already had the `None` in
+hand. It just answered anyway, with zeros that a client cannot tell from a real service nobody
+has rated yet. "No such service" and "no ratings yet" are different answers and a caller needs
+different behaviour for each.
+
+**400, not 409, for an offer in the wrong state.** The only 409 in this service is an
+optimistic-concurrency `old_value` mismatch on a governance parameter, which is a different
+thing. `cancel_offer` answers 400 for the equivalent case over the same resource — that branch
+turns out to be unreachable, for reasons below, but it is still what the author intended this
+service's answer to be.
+
+**The race is closed, not just narrowed.** A pre-check followed by a service call leaves a
+window: another request can book the offer in between, and `svc.book_offer` raises again. So
+`book_offer` also catches `ValueError` and answers 400. Every `ValueError` reachable from that
+call is the caller's — the service's two status checks, plus `float(duration_hours)` over a
+request field — so 400 is right for all of them. That last one is a second 500 fixed in
+passing: a booking with `"duration_hours": "half a day"` used to reach the client as an
+internal error.
+
+Not `Decimal(price)`, which raises `InvalidOperation` — an `ArithmeticError`, not a
+`ValueError` — and still 500s. Deliberate: the same conversion runs a second time in the
+handler, on `amount`, *after* the bid is committed, so answering 400 there would deny a
+booking that had already happened. Making that path honest means restructuring the handler,
+which is not this change.
+
+#### `cancel_offer` is broken, and this is how that surfaced
+
+The obvious way to test "book an offer that is not available" is to cancel it first. It does
+not work. `cancel_offer` writes the status `"cancelled"`, which is not a member of
+`OfferStatus` — the FSM's removal state is `delisted` — so `OfferFSM.from_string` raises and
+**the route returns 500 for every offer that exists**. Its own 400 branch,
+`if offer.status == "cancelled"`, is dead for the same reason: no offer can ever hold that
+status. `book_offer` has the mirror problem, assigning `offer.status = "booked"` directly and
+bypassing the FSM, so any later transition on a booked offer fails one line earlier.
+
+Two status vocabularies, then, and deciding which is real is the fix. Not done here — it is
+not one of the three routes, and patching the string at one call site would only move the
+mismatch. Filed separately. The test books twice instead of cancelling, and records why.
+
+#### The CLI would have called the fix an outage
+
+`AITBCHTTPClient` calls `raise_for_status` and re-raises everything, a 4xx included, as
+`NetworkError`. Both `aitbc market rate` and `aitbc market ratings` caught that and printed
+"Marketplace service not reachable … Ensure marketplace-service is running" — which, the
+moment these routes started answering 404, would be a wrong diagnosis of a service that
+answered. Both now distinguish the two, using the `"404" in str(e)` test already established
+in `mining.py`. Before this, `ratings` on an unknown service printed "No ratings found for this
+service", which was simply the server's wrong answer passed through.
+
+The test for that went to `tests/cli/`, not to `cli/tests/` where the other CLI command tests
+live — because `cli/` has its own `pytest.ini` and is not in the root `testpaths`, so **87
+tests there are collected by no run at all**. Written in the obvious place, this test would
+have passed by hand and never once in the suite. Filed; the same family as V23-69 and V23-71.
+
+#### Documentation
+
+`docs/api/marketplace-openapi.json` is generated, so the specs were regenerated rather than
+edited: marketplace goes from 8 documented 404s to **11** and 4 400s to **5**, and the
+repository total from 119 404s to **122** across the same 700 operations. The `expected` set
+in `test_the_marketplace_offer_routes_document_their_404` moves with it — it asserts in both
+directions, so the three routes could not be added to the spec without the behaviour, or
+fixed without the spec.
+
+#### Left alone deliberately
+
+`sync_ratings_from_remote` still accepts a rating for a service it has never heard of. That is
+not the same bug: in a multi-island marketplace the service may genuinely exist on the node
+the rating came from, and rejecting it would silently drop legitimate cross-island ratings.
+The orphan-producing path was the local `rate` route, and that is the one closed.
+
+#### Verification
+
+Marketplace 30, CLI 5, OpenAPI 37, all green. The behaviour tests assert bodies and not just
+status codes — the point of V23-76 was that this service disagreed with itself about the shape
+of "not found", and a 404 in a new shape would have moved the disagreement rather than ended
+it. `test_rate_service_not_found` asserts the row is *not* written, because a 404 that still
+wrote would have fixed only the status code. `test_get_ratings_for_a_registered_service` is
+its counterpart: a real service with no ratings still answers 200 with an empty list, which is
+what the missing service used to be indistinguishable from.
+
+The three module-scoped writes clean up after themselves — this suite shares one database and
+`test_get_unsynced_ratings` asserts that list is globally empty, so a rating left behind would
+fail it depending on order. Confirmed by three runs under random ordering, not just the
+pinned one.
+
+Root **6,432**, exit 0.
