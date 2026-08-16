@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
 # Ensure blockchain-node src is on path
 _BLOCKCHAIN_SRC = os.path.join(os.path.dirname(__file__), "..", "..", "apps", "blockchain-node", "src")
@@ -164,7 +164,9 @@ class MultiNodeHarness:
             connect_args={"check_same_thread": False},
             echo=False,
         )
-        SQLModel.metadata.create_all(engine)
+        from aitbc_chain.metadata import chain_metadata
+
+        chain_metadata.create_all(engine)
 
         # Create a minimal FastAPI app for the node
         app = FastAPI(title=f"Test Node {config.node_id}")
@@ -282,7 +284,9 @@ class MultiNodeHarness:
             connect_args={"check_same_thread": False},
             echo=False,
         )
-        SQLModel.metadata.create_all(engine)
+        from aitbc_chain.metadata import chain_metadata
+
+        chain_metadata.create_all(engine)
 
         app = FastAPI(title=f"Byzantine Node {node_id}")
 
