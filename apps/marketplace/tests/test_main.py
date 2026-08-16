@@ -165,15 +165,17 @@ def test_get_plugins(client):
 
 
 def test_get_offer_by_id_not_found(client):
-    """A GET for an offer that does not exist answers 200 with a null body.
+    """A GET for an offer that does not exist answers 404, in this service's error shape.
 
-    Not 404, which is what its sibling `/offers/{id}/history` returns for the same missing
-    offer — the route returns `get_offer`'s `None` straight through. Asserted as it behaves
-    rather than as it should behave; the inconsistency is recorded as its own finding.
+    It used to answer 200 with a body of `null`, because the route returned `get_offer`'s
+    `None` straight through — so a client checking the status code was told the offer
+    existed. The body is asserted too, not just the code: the point of the fix was that this
+    route disagreed with the seven other "not found" paths in the same file, and a 404
+    carrying some other shape would only have moved the disagreement (V23-76).
     """
     response = client.get("/v1/marketplace/offers/nonexistent-offer-id")
-    assert response.status_code == 200
-    assert response.json() is None
+    assert response.status_code == 404
+    assert response.json() == {"error": "Offer not found"}
 
 
 # --- Offer history ---
