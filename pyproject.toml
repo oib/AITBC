@@ -441,6 +441,16 @@ testpaths = [
     # process-wide, which pulled gpu and trading off their own databases (V23-73). Both are
     # fixed; it collects with everything else now.
     "apps/governance/tests",
+    # The last suite in the repo that no run collected. `cli/` carried its own `pytest.ini`,
+    # which is why this directory was never added here -- it looked self-contained. It was
+    # not: that file set `testpaths = cli/tests`, resolved against rootdir `cli/`, so it
+    # pointed at `cli/cli/tests`, which does not exist. pytest warned and fell back to
+    # searching the current directory, so the 87 tests were collected by the fallback rather
+    # than by any configuration, and only when the invocation happened to start at `cli/` or
+    # `cli/tests`. From `cli/aitbc_cli` the same command collected nothing. The ini file is
+    # gone as of V23-84; every setting in it was a pytest default, a marker already declared
+    # below, or a weakening of the addopts above.
+    "cli/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

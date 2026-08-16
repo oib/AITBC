@@ -6671,3 +6671,146 @@ Distinct from that and also filed: `POST /v1/marketplace/dynamic-pricing` takes 
 `current_demand` and `current_supply` as **required query parameters on a POST**. Those are
 genuinely required rather than required by accident, so they are not part of the group above —
 the question there is why a POST carries its input in the query string.
+
+---
+
+### V23-84 — 87 tests, collected by a fallback, run by nobody · CONFIRMED → RESOLVED
+
+`cli/tests` was the last suite in the repository that no run collected. It is 87 tests over
+seven files, and the root suite went from 6,469 to **6,556** by adding one line to
+`testpaths`.
+
+The reason it had been missed through five previous rounds of exactly this — V23-69 added
+nine app suites, V23-71 a directory's worth, V23-73 governance — is that `cli/` looked
+self-contained. It had its own `pytest.ini`, so it read as a subproject that ran its own
+tests.
+
+#### The config that never worked
+
+```ini
+[pytest]
+testpaths = cli/tests
+```
+
+`testpaths` resolves against **rootdir**, and that file *is* what makes `cli/` the rootdir. So
+it pointed at `cli/cli/tests`, which does not exist. pytest says so, and then does something
+else:
+
+```
+PytestConfigWarning: No files were found in testpaths; consider removing or adjusting
+your testpaths configuration. Searching recursively from the current directory instead.
+```
+
+The 87 tests were found by that fallback. Not by the configuration — by the recovery from it.
+Which makes collection a function of where you happened to be standing:
+
+| invoked from | collected |
+|---|---|
+| `cli/` | 87 |
+| `cli/tests/` | 87 |
+| `cli/aitbc_cli/` | **0** |
+
+The documented procedure starts with `cd /opt/aitbc/cli/tests`, so it lands in a column that
+works. Nothing automated ran them at all: `make test` runs `tests/unit`, and `testpaths` never
+named this directory.
+
+#### The file is gone rather than fixed
+
+Every setting in it was one of three things:
+
+- **`python_files`, `python_classes`, `python_functions`** — pytest's own defaults, restated.
+- **`markers`** — `slow`, `integration`, `unit`, all three already declared in the root
+  `pyproject.toml`, and none of them used anywhere in `cli/tests`.
+- **`addopts = -v --tb=short`** — a *weakening*. It replaces the root addopts rather than
+  adding to them, so under this file the CLI tests ran without `--strict-markers`,
+  `--strict-config`, `--import-mode=importlib`, the 60-second timeout and the four
+  `filterwarnings` entries.
+
+That last one is the part worth stating plainly: a second configuration for one suite is a
+second set of rules under which the same test can pass. A new marker in `cli/tests` would have
+been silently ignored by `cd cli && pytest` and would fail collection in the main run.
+
+Deleting it costs nothing that anyone used. `cd cli && pytest` still collects exactly these 87
+— rootdir becomes the repository root, so the real configuration applies, and pytest skips
+`testpaths` when the invocation directory is not the rootdir, collecting from where it was
+invoked instead.
+
+#### Two assumptions about the machine, never tested
+
+33 of the 87 shell out to the CLI rather than importing it, and they did so through absolute
+paths:
+
+```python
+PROJECT_ROOT = Path("/opt/aitbc")
+CLI_BIN = Path("/usr/local/bin/aitbc")
+```
+
+`/usr/local/bin/aitbc` is a symlink to `scripts/aitbc-cli` in this tree, so the tests were
+reaching the right code — by way of a symlink that has to have been installed on the host. A
+checkout anywhere else, or one without it, fails all 33 with `FileNotFoundError` for a reason
+that has nothing to do with the CLI. Both files now derive `PROJECT_ROOT` from `__file__` and
+run `scripts/aitbc-cli` directly: same file, one fewer thing that has to be true.
+
+This matters specifically because of what is being changed here. A suite that was excluded
+could fail on someone else's machine indefinitely without anyone noticing; a suite in
+`testpaths` that fails on a fresh checkout gets pulled back out of `testpaths`, and the
+finding comes back.
+
+`test_cli_bin_exists` asserted the symlink's existence — a property of the host, in a suite
+that had never reported on it. It now checks the launcher the other tests actually invoke, and
+that it is executable.
+
+#### What the 87 are worth
+
+Not nothing, which was the open question. 39 of them drive all 14 `explorer` subcommands
+in-process through Click's `CliRunner` with the client mocked, including the `NetworkError`,
+empty-result and unexpected-exception paths. 12 more do the same for `exchange` argument
+validation and `market` registration, and 3 cover credential loading and that a file-backed
+wallet gets a real private key. The remaining 33 are shallow — mostly `--help` and exit codes —
+but they are the only tests in the repository that would catch a CLI which fails to start at
+all: a bad import in any command module is invisible to every in-process test that does not
+import that module.
+
+Two of them cannot fail. `test_network_ping_positional_node` and `test_network_ping_flag_alias`
+run the same command and assert `returncode in (0, 1, 2)`, which accepts every outcome the
+command can produce. Left as they are and documented as crash checks rather than removed —
+they do catch a segfault or a hang, and rewriting them needs a decision about whether the CLI
+should be reaching `localhost` in a unit run at all.
+
+#### The documentation described a suite that does not exist
+
+`docs/cli/testing.md` was 259 lines about `comprehensive_tests.py`, `group_tests.py`,
+`run_simple_tests.py` and `test_level1_commands.py`. **None of those four files exist.**
+Neither does the `/opt/aitbc/cli/venv/` it tells you to activate. It reported "67/67 tests
+passing (100%)" against a suite of 87, carried two mutually inconsistent dates in its own
+header and footer, and no other document linked to it.
+
+So the one instruction anybody had for running these tests named four scripts that are not
+there. Rewritten to describe the seven files that are, what each covers, the difference between
+the in-process and subprocess halves, and the three things the suite deliberately does not do.
+
+#### Three more files disagreeing with reality about pytest
+
+`docs/architecture/8_codebase-structure.md` listed a `pytest.ini` at the repository root. There
+is not one and there was not one — every pytest setting is in `pyproject.toml`, which the same
+listing names two lines above. `cli/FILE_ORGANIZATION_SUMMARY.md` listed the `cli/pytest.ini`
+this change deletes, described `cli/tests` as "6 CLI-internal smoke tests" (7 files, 87 tests,
+most of them not smoke tests), put `tests/cli` at 119 tests when it is 1,012, and listed two
+files at `cli/` — `__init__.py` and `advanced_wallet.py` — that do not exist. Corrected, and
+both now say where the pytest configuration actually lives.
+
+The `test-governance` target in the `Makefile` still explained itself as a workaround —
+"governance stays out of `testpaths` and runs here instead" — which stopped being true in
+V23-73, when the suite joined the main run. Two files in the repository stating opposite facts
+about the same setting, in a change that is about that setting. Comment corrected; the target
+itself is unchanged and still useful for running that one suite. Worth noting that `make test`
+runs `tests/unit` and nothing else, so it is not the thing that covers governance, or the CLI,
+or anything else added to `testpaths` — a bare `pytest` is.
+
+#### Verification
+
+Root **6,556**, exit 0 — 6,469 + 87, with no interference in either direction: the full run is
+green with `cli/tests` collected alongside everything else, and `cli/tests` is green under the
+root configuration it had never run under. `cli/tests/__init__.py` makes it a second top-level
+`tests` package, which `--import-mode=importlib` handles — the same reason `tests/` and
+`apps/blockchain-node/tests/` coexist. ruff and ruff-format clean.
