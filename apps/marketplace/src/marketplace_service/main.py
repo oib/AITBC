@@ -173,7 +173,15 @@ async def get_offer(offer_id: str, svc: Annotated[MarketplaceService, Depends(ge
     try:
         logger.info("GET /v1/marketplace/offers/%s called", offer_id)
         result = await svc.get_offer(offer_id)
-        logger.info("GET /v1/marketplace/offers/%s returned: %s", offer_id, result is not None)
+        if not result:
+            # `get_offer` returns None for an offer that is not there, and this route used to
+            # hand that straight back -- 200 with a body of `null`. Every other "not found" in
+            # this service is a 404 with this exact body, including the three other callers of
+            # this same method and the sibling `/offers/{id}/history` over the same resource.
+            # A client that checked the status code got told the offer existed (V23-76).
+            logger.info("GET /v1/marketplace/offers/%s: not found", offer_id)
+            return JSONResponse(status_code=404, content={"error": "Offer not found"})
+        logger.info("GET /v1/marketplace/offers/%s returned an offer", offer_id)
         return result
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/offers/%s: %s: %s", offer_id, type(e).__name__, str(e))
