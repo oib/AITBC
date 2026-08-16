@@ -2,7 +2,7 @@
 # Integration test script for simulate CLI commands
 # Tests simulation operations including blockchain, wallets, price, network, and ai-jobs
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -43,8 +43,8 @@ check_coordinator() {
 
 run_test() {
     local test_name="$1"
-    local test_command="$2"
-    local require_coordinator="${3:-true}"
+    local require_coordinator="$2"
+    shift 2
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
@@ -56,7 +56,7 @@ run_test() {
 
     log_info "Running: $test_name"
 
-    if eval "$test_command"; then
+    if "$@"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_info "PASSED: $test_name"
     else
@@ -73,52 +73,52 @@ log_info "Starting simulate CLI integration tests"
 log_info "Coordinator URL: $COORDINATOR_URL"
 
 # Test 1: Blockchain simulation
-run_test "Blockchain simulation" "aitbc simulate blockchain --blocks 10 --transactions 50" "true"
+run_test "Blockchain simulation" "true" aitbc simulate blockchain --blocks 10 --transactions 50
 
 # Test 2: Wallets simulation
-run_test "Wallets simulation" "aitbc simulate wallets --count 5 --balance 1000" "true"
+run_test "Wallets simulation" "true" aitbc simulate wallets --count 5 --balance 1000
 
 # Test 3: Price simulation
-run_test "Price simulation" "aitbc simulate price --days 30 --volatility 0.1" "true"
+run_test "Price simulation" "true" aitbc simulate price --days 30 --volatility 0.1
 
 # Test 4: Network simulation
-run_test "Network simulation" "aitbc simulate network --nodes 10 --latency 50" "true"
+run_test "Network simulation" "true" aitbc simulate network --nodes 10 --latency 50
 
 # Test 5: AI jobs simulation
-run_test "AI jobs simulation" "aitbc simulate ai-jobs --jobs 20 --duration 300" "true"
+run_test "AI jobs simulation" "true" aitbc simulate ai-jobs --jobs 20 --duration 300
 
 # Test 6: Run simulation
-run_test "Run simulation" "aitbc simulate run --type blockchain --duration 60" "true"
+run_test "Run simulation" "true" aitbc simulate run --type blockchain --duration 60
 
 # Test 7: Blockchain with custom parameters
-run_test "Blockchain with params" "aitbc simulate blockchain --blocks 100 --transactions 500 --difficulty 5" "true"
+run_test "Blockchain with params" "true" aitbc simulate blockchain --blocks 100 --transactions 500 --difficulty 5
 
 # Test 8: Wallets with distribution
-run_test "Wallets with distribution" "aitbc simulate wallets --count 10 --distribution exponential" "true"
+run_test "Wallets with distribution" "true" aitbc simulate wallets --count 10 --distribution exponential
 
 # Test 9: Price with trend
-run_test "Price with trend" "aitbc simulate price --days 90 --trend bullish --volatility 0.15" "true"
+run_test "Price with trend" "true" aitbc simulate price --days 90 --trend bullish --volatility 0.15
 
 # Test 10: Network with topology
-run_test "Network with topology" "aitbc simulate network --nodes 20 --topology mesh --latency 100" "true"
+run_test "Network with topology" "true" aitbc simulate network --nodes 20 --topology mesh --latency 100
 
 # Test 11: AI jobs with GPU
-run_test "AI jobs with GPU" "aitbc simulate ai-jobs --jobs 30 --gpu-required --duration 600" "true"
+run_test "AI jobs with GPU" "true" aitbc simulate ai-jobs --jobs 30 --gpu-required --duration 600
 
 # Test 12: Run async simulation
-run_test "Run async simulation" "aitbc simulate run --type network --async --duration 120" "true"
+run_test "Run async simulation" "true" aitbc simulate run --type network --async --duration 120
 
 # Test 13: Status of non-existent simulation (should handle gracefully)
-run_test "Status non-existent simulation" "aitbc simulate status sim_nonexistent_12345" "false"
+run_test "Status non-existent simulation" "false" aitbc simulate status sim_nonexistent_12345
 
 # Test 14: Result of non-existent simulation (should handle gracefully)
-run_test "Result non-existent simulation" "aitbc simulate result sim_nonexistent_12345" "false"
+run_test "Result non-existent simulation" "false" aitbc simulate result sim_nonexistent_12345
 
 # Test 15: Output format JSON
-run_test "Output format JSON" "aitbc simulate blockchain --blocks 5 --format json" "true"
+run_test "Output format JSON" "true" aitbc simulate blockchain --blocks 5 --format json
 
 # Test 16: Output format table
-run_test "Output format table" "aitbc simulate blockchain --blocks 5 --format table" "true"
+run_test "Output format table" "true" aitbc simulate blockchain --blocks 5 --format table
 
 # Summary
 echo ""
