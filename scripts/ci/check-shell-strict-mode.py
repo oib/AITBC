@@ -71,11 +71,23 @@ SKIP_DIRS = ("tests/orchestrator.d",)
 #     variables. It does set -e. Switching -u on unreviewed would abort a production install
 #     on the first one, and there is no way to test that here.
 #
-# Converting either is its own task, with its own testing. Until then the gap is visible
-# here rather than silently absent.
+# V23-79 adds a third on the same reasoning, with a concrete failure rather than a general
+# worry:
+#
+#   deployment/deploy.sh -- the first-install script. It does set -e, which is what makes
+#     pipefail dangerous here rather than merely untested: `rollback_deployment` runs
+#     `LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/backup_* 2>/dev/null | head -1)`, and on a host
+#     with no backups yet the `ls` fails while `head` succeeds. pipefail would propagate
+#     that, and under set -e the assignment aborts the script -- turning "no backup found",
+#     which the next line handles, into a silent exit on the rollback path. -u is the
+#     setup.sh problem again: it sources /etc/os-release and reads optional variables.
+#
+# Converting any of them is its own task, with its own testing. Until then the gap is
+# visible here rather than silently absent.
 SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
     "scripts/deployment/update.sh": ("set -e",),
     "scripts/deployment/setup.sh": ("set -u", "set -o pipefail"),
+    "scripts/deployment/deploy.sh": ("set -u", "set -o pipefail"),
 }
 
 
