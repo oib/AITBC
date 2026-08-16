@@ -57,8 +57,16 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             raise click.Abort()
 
     except NetworkError as e:
-        error(f"Marketplace service not reachable: {e}")
-        error("Ensure marketplace-service is running at http://localhost:8102")
+        # `AITBCHTTPClient` calls `raise_for_status` and wraps everything, including a 4xx,
+        # in `NetworkError` -- so without this branch a 404 would be reported as "service not
+        # reachable, check it is running", which is a wrong diagnosis of a service that
+        # answered. The route started returning 404 for an unknown service in V23-81; before
+        # that it answered 200 and wrote a rating nothing would ever read.
+        if "404" in str(e):
+            error(f"No such service: {service_id}")
+        else:
+            error(f"Marketplace service not reachable: {e}")
+            error("Ensure marketplace-service is running at http://localhost:8102")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error rating service: {e}")
@@ -91,8 +99,14 @@ def ratings(ctx, service_id: str, limit: int, offset: int):
             info("No ratings found for this service")
 
     except NetworkError as e:
-        error(f"Marketplace service not reachable: {e}")
-        error("Ensure marketplace-service is running at http://localhost:8102")
+        # Same wrapping as `rate` above. This one previously printed "No ratings found for
+        # this service" for a service that does not exist, because the route answered 200
+        # with zeros; since V23-81 it answers 404 and the two cases can be told apart.
+        if "404" in str(e):
+            error(f"No such service: {service_id}")
+        else:
+            error(f"Marketplace service not reachable: {e}")
+            error("Ensure marketplace-service is running at http://localhost:8102")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error getting ratings: {e}")
