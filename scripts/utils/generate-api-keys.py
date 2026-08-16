@@ -6,7 +6,9 @@ Generates cryptographically secure API keys for testing CLI commands
 """
 
 import json
+import os
 import secrets
+import tempfile
 from datetime import UTC, datetime, timedelta
 
 
@@ -67,9 +69,15 @@ def main():
         print(f"   Created: {key['created_at']}")
         print()
 
-    # Save to file
-    output_file = "/tmp/aitbc-api-keys.json"
-    with open(output_file, "w") as f:
+    # Save to file. The keys are masked on screen above and then written here in the clear,
+    # so where "here" is matters: this was a fixed /tmp/aitbc-api-keys.json at the process
+    # umask, which any other account on the host could read and any of them could have
+    # pre-created as a symlink. A private directory with a 0600 file inside it instead. The
+    # path is printed because it is no longer predictable.
+    output_dir = tempfile.mkdtemp(prefix="aitbc-api-keys-")
+    output_file = os.path.join(output_dir, "aitbc-api-keys.json")
+    fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(keys, f, indent=2)
 
     print(f"💾 API keys saved to: {output_file}")

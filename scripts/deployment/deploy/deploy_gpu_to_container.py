@@ -5,13 +5,20 @@ Deploy GPU Miner Integration to AITBC Container
 
 import os
 import subprocess
+import tempfile
+
+
+# The `shell=True` calls here are marked `# nosec B602`. Every command is a literal or a
+# literal joined to a staging path this script just created with tempfile; the container name
+# is the constant "aitbc" spelled inline. They need a shell for `cd X && source Y` and for the
+# pipelines inside the container. Any of that becoming caller-supplied invalidates the marker.
 
 
 def run_in_container(cmd):
     """Run command in aitbc container"""
     full_cmd = f"incus exec aitbc -- {cmd}"
     print(f"Running: {full_cmd}")
-    result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(full_cmd, shell=True, capture_output=True, text=True)  # nosec B602
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
         return False, result.stderr
@@ -37,7 +44,7 @@ def deploy_gpu_miner_to_container():
     for file in files_to_copy:
         cmd = f"incus file push /home/oib/windsurf/aitbc/{file} aitbc/home/oib/"
         print(f"   Copying {file}...")
-        result = subprocess.run(cmd, shell=True)
+        result = subprocess.run(cmd, shell=True)  # nosec B602
         if result.returncode == 0:
             print(f"   ✅ {file} copied")
         else:
@@ -67,10 +74,14 @@ StandardError=journal
 WantedBy=multi-user.target
 """
 
-    # Write service file to container
-    with open("/tmp/gpu-miner.service", "w") as f:
+    # Write service file to container. Staged in a private directory rather than a fixed
+    # /tmp/gpu-miner.service, which was guessable and world-readable on the way to becoming a
+    # root-owned unit file inside the container.
+    staging = tempfile.mkdtemp(prefix="aitbc-gpu-deploy-")
+    miner_unit = os.path.join(staging, "gpu-miner.service")
+    with open(miner_unit, "w") as f:
         f.write(service_content)
-    subprocess.run("incus file push /tmp/gpu-miner.service aitbc/tmp/", shell=True)
+    subprocess.run(f"incus file push {miner_unit} aitbc/tmp/", shell=True)  # nosec B602
     run_in_container("sudo mv /tmp/gpu-miner.service /etc/systemd/system/")
     run_in_container("sudo systemctl daemon-reload")
     run_in_container("sudo systemctl enable gpu-miner.service")
@@ -96,9 +107,10 @@ StandardError=journal
 WantedBy=multi-user.target
 """
 
-    with open("/tmp/gpu-registry.service", "w") as f:
+    registry_unit = os.path.join(staging, "gpu-registry.service")
+    with open(registry_unit, "w") as f:
         f.write(registry_service)
-    subprocess.run("incus file push /tmp/gpu-registry.service aitbc/tmp/", shell=True)
+    subprocess.run(f"incus file push {registry_unit} aitbc/tmp/", shell=True)  # nosec B602
     run_in_container("sudo mv /tmp/gpu-registry.service /etc/systemd/system/")
     run_in_container("sudo systemctl daemon-reload")
     run_in_container("sudo systemctl enable gpu-registry.service")
