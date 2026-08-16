@@ -221,6 +221,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -257,6 +272,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -579,7 +609,7 @@
           {
             "name": "reason",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -615,7 +645,7 @@
             }
           },
           "400": {
-            "description": "Offer already cancelled",
+            "description": "Offer already cancelled / Offer has an unknown status: '{offer.status}' / Offer cannot be cancelled while it is {offer.status}",
             "content": {
               "application/json": {
                 "schema": {
