@@ -331,12 +331,14 @@ def test_the_marketplace_offer_routes_document_their_404():
     documentation saying the same wrong thing about the other six.
     """
     spec = json.loads((API_DOCS / "marketplace-openapi.json").read_text())
-    # Every 404 in the service, matching the eight `404` sites in main.py one for one.
-    # Three further routes under the same prefixes -- `offers/{id}/book`, `offer/{id}/rate`,
-    # `offer/{id}/ratings` -- are absent because they genuinely never answer 404: the first
-    # two re-raise to a 500 and the third returns zeros for a service that is not there.
-    # That is the same family of inconsistency V23-76 found, and it is a behaviour question
-    # rather than a documentation one. The spec reports them as they are.
+    # Every 404 in the service, matching the `404` sites in main.py one for one.
+    #
+    # The last three were added by V23-81. This test previously recorded them as absent
+    # "because they genuinely never answer 404: the first two re-raise to a 500 and the third
+    # returns zeros for a service that is not there" -- which was true, and was the same
+    # family of inconsistency V23-76 found rather than a documentation problem. Fixing the
+    # behaviour is what moved them into this set; the spec still reports the routes as they
+    # are, and this assertion is what stops the two drifting apart again.
     expected = {
         ("get", "/v1/marketplace/offers/{offer_id}"),
         ("get", "/v1/marketplace/offers/{offer_id}/history"),
@@ -346,6 +348,9 @@ def test_the_marketplace_offer_routes_document_their_404():
         ("delete", "/v1/marketplace/offer/{plugin_id}"),
         ("get", "/v1/marketplace/offer-by-id/{offer_id}"),
         ("get", "/v1/marketplace/edge/{node_id}/health"),
+        ("post", "/v1/marketplace/offers/{offer_id}/book"),
+        ("post", "/v1/marketplace/offer/{service_id}/rate"),
+        ("get", "/v1/marketplace/offer/{service_id}/ratings"),
     }
     found = {(m.lower(), p) for p, m, op in _operations(spec) if "404" in op.get("responses", {})}
     assert not sorted(expected - found), f"still undocumented: {sorted(expected - found)}"

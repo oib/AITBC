@@ -367,6 +367,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Offer is not available (status={offer.status})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Offer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1284,6 +1314,21 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Service not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1353,6 +1398,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
