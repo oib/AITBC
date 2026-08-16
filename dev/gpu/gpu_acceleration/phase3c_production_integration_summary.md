@@ -382,7 +382,7 @@ nvidia-smi
 #### **2. Service Deployment**
 ```bash
 # Activate virtual environment
-cd /home/oib/windsurf/aitbc/gpu_acceleration
+cd dev/gpu/gpu_acceleration
 source venv/bin/activate
 
 # Start FastAPI server

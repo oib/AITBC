@@ -75,7 +75,7 @@ async def web_interface():
 tar -czf explorer_backup_20260306_162316.tar.gz explorer/
 
 # 2. Source deleted
-rm -rf /home/oib/windsurf/aitbc/apps/explorer/
+rm -rf apps/explorer/
 
 # 3. Blockchain-explorer cleaned
 # Removed frontend mounting code

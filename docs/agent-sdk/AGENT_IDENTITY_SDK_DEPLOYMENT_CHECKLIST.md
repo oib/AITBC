@@ -14,7 +14,7 @@ The Agent Identity SDK has been successfully implemented and tested. Here's your
 
 ```bash
 # Navigate to coordinator API directory
-cd /home/oib/windsurf/aitbc/apps/coordinator-api
+cd apps/coordinator-api
 
 # Create Alembic migration for new agent identity tables
 alembic revision --autogenerate -m "Add agent identity tables"
