@@ -1,6 +1,8 @@
 #!/bin/bash
 # Start GPU Miner Client
 
+set -euo pipefail
+
 echo "=== AITBC GPU Miner Client Startup ==="
 echo "Starting GPU miner client..."
 echo ""
@@ -28,5 +30,9 @@ fi
 
 echo ""
 echo "=== Starting GPU Miner ==="
-cd /home/oib/windsurf/aitbc
-exec python3 scripts/gpu/gpu_miner_host.py
+
+# This was `cd /home/oib/windsurf/aitbc && exec python3 scripts/gpu/gpu_miner_host.py`: a
+# checkout that exists on one workstation, and under it a path that exists in no checkout at
+# all -- scripts/gpu/ holds only a README. The miner lives next to this script, so run it
+# from here.
+exec python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/gpu_miner_host.py"

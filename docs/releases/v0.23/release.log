@@ -7015,3 +7015,158 @@ With `default_install_hook_types` set, that one command now installs both hook t
 safe to run over git-lfs's hook — pre-commit moves an existing hook to `pre-push.legacy` and
 runs it before its own, so `git lfs pre-push` keeps happening. Confirmed in
 `pre_commit/commands/hook_impl.py`, which calls `_run_legacy` before dispatching.
+
+### V23-86 — a workstation path that outlived the workstation, in 24 tracked scripts · CONFIRMED → RESOLVED
+
+`/home/oib/windsurf/aitbc` is a checkout on a developer's old machine. The repo is at
+`/opt/aitbc`. 24 tracked `*.py`/`*.sh` files still name that path, and every one of them either
+fails at its first command or operates on nothing.
+
+Found while clearing the bandit findings for V23-85 — two of these scripts were among the ten
+`shell=True` sites marked there. That PR left them in place deliberately: getting the hook to
+run was one job, deciding what a dead script deserves is another.
+
+#### Three of them were invisible
+
+The obvious search misses a quarter of the problem:
+
+```
+$ grep -rln "/home/oib/windsurf" --include='*.py' --include='*.sh' . | grep -v '/venv/' | wc -l
+21
+$ git grep -l "/home/oib/windsurf" -- '*.py' '*.sh' | wc -l
+24
+```
+
+`.gitignore:321` is `scripts/deployment/*`, with eight `!` exceptions below it. Everything else
+under that directory — including the tracked `deploy/` subtree — is ignored, so `ripgrep`,
+`ugrep --ignore-files` and every editor search that honours `.gitignore` skips files that are
+in version control and get edited. `git grep` reads the index and sees them. The three hidden
+ones were `deploy/deploy_container_with_miner.py`, `deploy/deploy_gpu_to_container.py` and
+`deploy/deploy-explorer.sh`.
+
+The 24th, `tests/verification/verify_windsurf_tests.py`, is not on `main` at all yet — it comes
+back with the 90 files restored in V23-71 and is sitting in the unmerged stack.
+
+#### What they point at
+
+Almost nothing they name still exists:
+
+| referenced | status |
+| --- | --- |
+| `gpu_miner_with_wait.py` | in no checkout, at no path, in no commit |
+| `genesis_enhanced_devnet.yaml` | absent |
+| `src/app/…` (coordinator-api) | package renamed to `coordinator_api` |
+| `coordinator_api.database`, `.domain.gpu_marketplace` | both removed |
+| `dev/tools/scripts/` | absent |
+| `scripts/gpu/gpu_miner_host.py` | `scripts/gpu/` holds one README |
+| `scripts/start-aitbc-full.sh` | moved to `scripts/development/` |
+| `tests/test_windsurf_integration.py` | absent |
+| `assets/` | absent |
+| `incus` | not installed on this host |
+
+So the failure is not only the path. `deploy_gpu_to_container.py` would still be broken after
+`s|/home/oib/windsurf/aitbc|/opt/aitbc|`: it pushes a file that has never existed in this
+repository, using a container runtime that is not installed, over `sudo systemctl stop
+aitbc-*` against the host it runs on.
+
+#### Deleted — 19
+
+Nothing in the repo, in `/etc/systemd/system` (28 units, 2 timers) or in any crontab refers to
+any of them.
+
+*One-shot fix-it and verify-it scripts, for a layout three renames ago*
+
+- `apps/coordinator-api/deploy_cross_chain_reputation_staging.sh` — asserts five `src/app/…`
+  files exist and exits 1 on the first
+- `scripts/utils/fix_gpu_release.py`, `scripts/utils/cleanup_fake_gpus_db.py` — `ImportError`
+  at module scope; both target modules are gone
+- `scripts/utils/fix_database_persistence.py` — rewrites `src/app/database.py`
+- `scripts/utils/deploy_enhanced_genesis.py` — loads a genesis file that is not in the repo
+- `scripts/utils/fix-startup-issues.sh` — patches `scripts/start-aitbc-full.sh`
+- `scripts/utils/verify-codebase-update.sh` — verifies the June 2026 reorganisation completed
+- `dev/testing/tests/definitive_explorer_proof.py` — greps a source file for four strings to
+  prove a 2026 explorer fix landed
+- `scripts/service-management/setup-production-assets.sh` — curls Tailwind, axios and lucide
+  into an `assets/` tree that does not exist
+- `tests/verification/verify_windsurf_tests.py` — chdirs to the workstation, then runs a test
+  file that is not in the repo, to check an IDE's test panel
+
+*Container deploys for a runtime that is not installed, pushing a file that does not exist*
+
+- `scripts/deployment/deploy/deploy_container_with_miner.py`
+- `scripts/deployment/deploy/deploy_gpu_to_container.py`
+- `dev/gpu/deploy_gpu_all_in_one.sh`, `dev/gpu/deploy_gpu_container.sh`
+- `scripts/services/gpu/deploy_gpu_all_in_one.sh`, `scripts/services/gpu/deploy_gpu_container.sh`
+- `scripts/services/gpu/start_gpu_miner.sh`
+
+*Wrappers naming two paths that do not exist*
+
+- `dev/gpu/gpu_miner_host_wrapper.sh`, `scripts/services/gpu/gpu_miner_host_wrapper.sh` — a
+  three-line `exec` of `.venv/bin/python` on `scripts/gpu/gpu_miner_host.py`
+
+#### Repaired — 5
+
+- `dev/gpu/gpu_acceleration/cuda_kernels/gpu_aware_compiler.py` — `base_dir` defaulted to the
+  workstation's `apps/zk-circuits`. Now derived from `__file__`, overridable with
+  `$AITBC_ZK_CIRCUITS_DIR`. Resolves to `/opt/aitbc/apps/zk-circuits`, which exists.
+- `scripts/services/gpu/gpu_miner_host.py` — `LOG_PATH` was under the workstation's home and
+  `os.makedirs` recreated that tree wherever the miner ran. Now `$LOG_PATH`, defaulting to
+  `/var/log/aitbc/host_gpu_miner.log` — the value `scripts/gpu/README.md` and
+  `docs/deployment/debian-miner-installation.md` already tell operators to set.
+- `dev/gpu/start_gpu_miner.sh` — `cd`'d to the workstation and exec'd a path that exists in no
+  checkout. Now execs the `gpu_miner_host.py` beside it.
+- `scripts/utils/check-documentation-requirements.sh`, `scripts/utils/validate-requirements.sh`
+  — stale `# File:` headers naming the workstation. Corrected, and both upgraded from `set -e`
+  to `set -euo pipefail` as the touched-scripts hook requires.
+
+`set -u` immediately surfaced a latent bug in the second: `$BLUE` is used once, at the incus
+networking note, and was never defined. Under plain `set -e` the note printed with an empty
+colour prefix and nobody noticed; under `set -u` the script aborted three checks from the end.
+`BLUE` is now defined with the other four colours. Both scripts produce byte-identical output
+to their pre-change baseline apart from that note, which now prints blue.
+
+#### Documentation
+
+`scripts/SCRIPTS_ORGANIZATION.md` and `tests/verification/README.md` list the deleted files;
+those seven lines are gone. Three documents contained the workstation path in commands a reader
+would paste — a `cd` in the agent-SDK deployment checklist, a `cd` in the GPU phase-3c summary,
+and an `rm -rf` in the explorer merge summary — all now repo-relative.
+
+`docs/architecture/edge_gpu_setup.md` told operators to
+`cp scripts/gpu/gpu_miner_host.py.example scripts/gpu/gpu_miner_host.py`. Neither file exists.
+The step is now the three environment variables the miner actually reads, and the other five
+references point at `scripts/services/gpu/`.
+
+#### Left alone, deliberately
+
+`scripts/deployment/deploy/deploy-explorer.sh` names the path only in a comment, describing the
+same bug being fixed here — V23-22 already repaired that script, and it is the model the
+repairs above follow. `docs/cli/testing.md` and the v0.22, v0.3.7, v0.4.2 and v0.4.25 release
+notes describe the path historically; release logs are a record, not a configuration.
+
+#### Not fixed here, worth a look
+
+- **`dev/gpu/` and `scripts/services/gpu/` are the same nine files, forked.** Both were created
+  in `dcfa58039` and have drifted in *both* directions since — `dev/gpu/gpu_miner_host.py` reads
+  its config from the environment while the `scripts/` copy has `MINER_ID = "${MINER_API_KEY}"`,
+  a shell expansion in a Python string literal that has never expanded; the `scripts/` copy has
+  tighter `except httpx.RequestException` handling the `dev/` copy lacks. They disagree on the
+  coordinator port three different ways (8000, 8001, 8203, 9080). Nothing references either
+  directory, so nothing forced a choice. Collapsing them is a maintainer decision about which
+  port and which config style is current, not a mechanical merge, and this change does not make
+  it — it repairs the path in both survivors and leaves them side by side.
+- **`docs/architecture/edge_gpu_setup.md` documents four flags that do not exist**:
+  `--test-discovery`, `--test-latency`, `--test-inference` and `--health-check`.
+  `gpu_miner_host.py` contains no `argparse` and never reads `sys.argv`.
+- **`scripts/services/gpu/miner.spec`** builds `aitbc-miner-debian`, the binary documented in
+  `scripts/gpu/README.md` and `docs/deployment/debian-miner-installation.md`, but nothing
+  invokes it — `scripts/deployment/build-release.sh` calls `pyinstaller --onefile` directly and
+  never reads the spec.
+
+#### Verification
+
+Root suite: 6,284 passed, 272 skipped, exit 0 — unchanged from the V23-85 baseline; none of the
+deleted files were collected. `pre-commit run --all-files` passes every hook except
+`require-set-euo-pipefail-in-touched-scripts`, which flags 330 pre-existing untouched `.sh`
+files under `--all-files` and none of the three this change touches. The bandit pre-push gate
+from V23-85 still reports 0 HIGH and 0 MEDIUM.

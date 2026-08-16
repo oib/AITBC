@@ -1,12 +1,16 @@
 #!/bin/bash
-# File: /home/oib/windsurf/aitbc/scripts/validate-requirements.sh
+# scripts/utils/validate-requirements.sh
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+# BLUE is used once, at the incus networking note, and was never defined. Under the plain
+# `set -e` this script used to run with, the note printed with an empty prefix and nobody
+# noticed; `set -u` turns it into an abort three checks from the end.
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Validation results

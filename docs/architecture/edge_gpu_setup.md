@@ -62,10 +62,16 @@ systemctl enable ollama
 git clone https://github.com/aitbc/aitbc.git
 cd aitbc
 
-# Configure GPU miner
-cp scripts/gpu/gpu_miner_host.py.example scripts/gpu/gpu_miner_host.py
-# Edit configuration with your miner credentials
+# Configure the GPU miner through the environment -- there is no file to copy and edit.
+export MINER_API_KEY="your-miner-api-key"
+export COORDINATOR_URL="http://your-coordinator:8203"
+export LOG_PATH="/var/log/aitbc/host_gpu_miner.log"
 ```
+
+This step used to read `cp scripts/gpu/gpu_miner_host.py.example scripts/gpu/gpu_miner_host.py`.
+Neither file exists: `scripts/gpu/` holds only a README, and the miner is at
+`scripts/services/gpu/gpu_miner_host.py`. The same variables are listed in
+[scripts/gpu/README.md](../../scripts/gpu/README.md).
 
 ## Configuration
 
@@ -99,7 +105,7 @@ ollama list
 
 ```bash
 # Run GPU discovery
-python scripts/gpu/gpu_miner_host.py --test-discovery
+python scripts/services/gpu/gpu_miner_host.py --test-discovery
 
 # Expected output:
 # Discovered GPU: RTX 3060 (Ampere)
@@ -112,7 +118,7 @@ python scripts/gpu/gpu_miner_host.py --test-discovery
 
 ```bash
 # Test geographic latency
-python scripts/gpu/gpu_miner_host.py --test-latency us-east
+python scripts/services/gpu/gpu_miner_host.py --test-latency us-east
 
 # Expected output:
 # Latency to us-east: 45ms
@@ -123,7 +129,7 @@ python scripts/gpu/gpu_miner_host.py --test-latency us-east
 
 ```bash
 # Test ML inference
-python scripts/gpu/gpu_miner_host.py --test-inference
+python scripts/services/gpu/gpu_miner_host.py --test-inference
 
 # Expected output:
 # Model: llama2:7b
@@ -229,7 +235,7 @@ nvidia-smi --query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total 
 curl http://localhost:11434/api/tags
 
 # Miner health check
-python scripts/gpu/gpu_miner_host.py --health-check
+python scripts/services/gpu/gpu_miner_host.py --health-check
 ```
 
 ## Security Considerations
