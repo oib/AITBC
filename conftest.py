@@ -74,9 +74,18 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
     for obj in gc.get_objects():
         if not isinstance(obj, Engine | AsyncEngine):
             continue
-        database = obj.url.database
+        try:
+            url = obj.url
+        except AttributeError:
+            # `gc.get_objects()` walks everything, including objects that are not finished.
+            # An `AsyncEngine` whose `__init__` raised, or that is mid-collection, has no
+            # `sync_engine` yet, and `.url` proxies to it -- so asking raises rather than
+            # answers. An engine that cannot say where it points cannot be checked, and
+            # taking down the session teardown to say so is strictly worse than skipping it.
+            continue
+        database = url.database
         if database and os.path.realpath(database).startswith(deployed):
-            found.add(str(obj.url))
+            found.add(str(url))
 
     if found:
         session.exitstatus = 1
