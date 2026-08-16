@@ -1,3 +1,16 @@
+# `pre-commit install` with no arguments installs the pre-commit hook and nothing else, so
+# for as long as bandit was the only `stages: [pre-push]` entry here, it was never wired to
+# anything: .git/hooks/pre-push in every clone belonged to git-lfs. Every document in the
+# repo that tells you how to set this up -- the developer guide, the installation guide,
+# AGENTS.md, the setup skill -- says the bare `pre-commit install`, which is why nobody
+# noticed. Naming the types here makes that command install both (V23-85).
+#
+# Installing over git-lfs's hook is safe: pre-commit moves an existing hook to
+# `pre-push.legacy` and runs it before its own, so `git lfs pre-push` keeps happening.
+# `commit-msg` is deliberately absent -- no hook below declares that stage, and installing
+# it would displace the hand-written PILOT-79 ticket-tag guard for no gain.
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -135,12 +148,31 @@ repos:
         files: ^(aitbc/|packages/py/|apps/(agent-coordinator|blockchain-node|coordinator-api|marketplace|wallet)/src/|scripts/(extract_openapi_specs|openapi_error_responses)\.py)
         stages: [pre-commit]
 
-  # Security checks with Bandit (only on pre-push to save time)
+  # Security checks with Bandit (only on pre-push to save time).
+  #
+  # The args used to read `-x, cli/templates, tests/cli, tests/`. `-x` takes one
+  # comma-separated value, so `tests/cli` and `tests/` landed after a positional that
+  # argparse had already filled with `.`, and bandit answered
+  #
+  #     bandit: error: unrecognized arguments: tests/cli tests/
+  #
+  # with exit code 2 -- before reading a file. The hook could not have passed on any input.
+  # Nobody saw it because nothing installed it (see default_install_hook_types above).
+  #
+  # The exclusions now live in [tool.bandit] in pyproject.toml, which is where `-c` has been
+  # pointing all along; there was no such section until V23-85. Keeping them there means one
+  # place to edit and `bandit -c pyproject.toml -r .` by hand agrees with the hook.
+  #
+  # `--severity-level medium` is the gate. At `all` the repo reports 3,837 findings, 3,388
+  # of them `assert` in test files and most of the rest B404 ("you imported subprocess") and
+  # B603 ("you called subprocess without a shell"), which is the safe form. A gate that
+  # reports four thousand things blocks nothing. Medium and above was 36 findings when this
+  # was turned on and is 0 now, so the next one to appear is the one that blocks the push.
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
+    rev: 1.9.4
     hooks:
       - id: bandit
-        args: [-c, pyproject.toml, -r, ., -x, cli/templates, tests/cli, tests/]
+        args: [-c, pyproject.toml, -r, ., --severity-level, medium]
         additional_dependencies: ["bandit[toml]"]
         pass_filenames: false
         stages: [pre-push]

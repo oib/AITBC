@@ -6,7 +6,9 @@ Implements GPU-aware compilation strategies and memory management for large circ
 
 import hashlib
 import json
+import os
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -16,8 +18,12 @@ class GPUAwareCompiler:
 
     def __init__(self, base_dir: str = None):
         self.base_dir = Path(base_dir or "/home/oib/windsurf/aitbc/apps/zk-circuits")
-        self.cache_dir = Path("/tmp/zk_gpu_cache")
-        self.cache_dir.mkdir(exist_ok=True)
+        # A fixed /tmp/zk_gpu_cache is shared with every other account on the host, and
+        # `mkdir(exist_ok=True)` would happily adopt a directory one of them created. The
+        # cache is keyed by circuit hash and rebuilt when absent, so a per-user directory
+        # costs one recompile.
+        self.cache_dir = Path(tempfile.gettempdir()) / f"zk_gpu_cache-{os.getuid()}"
+        self.cache_dir.mkdir(mode=0o700, exist_ok=True)
 
         # GPU memory configuration (RTX 4060 Ti: 16GB)
         self.gpu_memory_config = {
