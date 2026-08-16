@@ -6143,3 +6143,114 @@ That covers gpu, edge, pool-hub, trading, governance and coordinator-api, each u
 
 Afterwards, `scripts/check-production-readiness.py` answers the question — which, before
 this change, it could not.
+
+### V23-80 — 703 operations, no 404s, and a drift guard nobody had run · CONFIRMED → RESOLVED
+
+Filed out of V23-76, which fixed `GET /v1/marketplace/offers/{id}` answering 200-null for a
+missing offer and noted that the published spec documented `200` and `422` for all eight
+`/offers/{...}` operations — including the six that had always returned 404. Measured across
+all five published specs, it is not six operations:
+
+| | before | after |
+|---|---|---|
+| operations | 698 | 700 |
+| documenting a 404 | **0** | 119 |
+| documenting any 4xx/5xx other than 422 | **0** | 804 across 507 operations |
+
+Not one 401, 403, 404, 409 or 5xx appeared anywhere in `docs/api/`. FastAPI infers responses
+from signatures — the return annotation gives 200, a request model gives 422 — and a
+`raise HTTPException(404, …)` in a function body appears in neither. So the mechanism every
+service in this repository uses to say "not found" was, by construction, the one thing its
+contract could not express.
+
+That is why V23-76 was invisible from the documentation. The spec said all eight offer
+operations behaved identically; they did not, and the spec was wrong about six of them rather
+than right about any. A client generated from that file has no branch for a 404 at all.
+
+#### Derived, not annotated
+
+`scripts/openapi_error_responses.py` reads each handler's source and reports what it
+constructs: the status code from `HTTPException`, `JSONResponse`, `Response` and
+`PlainTextResponse`, the body shape, and the message where it is a literal.
+`extract_openapi_specs.py` applies it as a pass over the generated document.
+
+Hand-annotating `responses={...}` on 703 operations was the alternative and it is worse in
+the way that matters: it would be correct at the moment of writing and unfalsifiable
+afterwards. A derived spec is checkable — `make openapi-check` regenerates and diffs, so a
+handler and its documentation cannot drift apart silently.
+
+Three decisions inside the scan are worth stating because each one could have gone the
+plausible-but-wrong way:
+
+* **Only literals, and only from the handler's own source and its route dependencies.** A
+  status code computed at runtime, or raised inside a service method the handler calls, is
+  not documented. This makes the output a **floor** — everything documented is genuinely
+  reachable, and some reachable responses are still missing. Both directions are pinned by
+  tests, because the failure mode of the opposite choice is a spec that documents responses
+  the service never sends.
+* **The body shape comes from the call, not from a house style.** `HTTPException` produces
+  `{"detail": …}` and `JSONResponse(content={"error": …})` produces `{"error": …}`, and this
+  repository uses both — 566 of the former against 17 of the latter, the latter concentrated
+  in marketplace. Documenting all of them as `{"detail": …}` because that is FastAPI's
+  idiom would have moved V23-76's disagreement from the status code into the body. Where one
+  handler answers the same code in two shapes, the spec says `anyOf` rather than choosing.
+* **`status.HTTP_404_NOT_FOUND` counts.** 169 call sites spell the code that way rather than
+  as an int. A first version of the scan matched only `ast.Constant` and silently found none
+  of them, which would have left coordinator-api, blockchain-node and wallet almost bare
+  while looking like it worked on marketplace and agent-coordinator.
+
+An existing `responses={…}` on a route is never overwritten. A `{**base, "error": …}` body
+documents the code and no schema, because the keys that parse are a subset and a subset
+published as the body is a schema the client fails to match.
+
+Dependencies are scanned for one reason and it earns its place: the security and
+rate-limiting dependencies raise the **41 `401`s and 19 `429`s** that no handler body
+mentions and that a client is most likely to meet.
+
+#### The specs were already stale, and the guard that would have said so had not been run
+
+Regenerating with the enrichment turned *off* — the same code `main` runs — still differs
+from what is committed in three of the five specs. `make openapi-check` was red on `main`
+before this change:
+
+* **agent-coordinator** is missing `POST /api/v1/agent/coin-requests/register` and its
+  `RegisterRequest` schema; **blockchain-node** is missing `GET /rpc/transaction/{tx_hash}`.
+  Two operations that exist in the running services and not in their published contracts.
+* **coordinator-api** has no missing paths but 272 changed lines, and they are all the same
+  change: money fields that used to publish as `"type": "number"` now publish as
+  `anyOf: [number, string]` with a decimal pattern. That is the v0.23 float-to-`Decimal`
+  work arriving in the schema. Until now the published contract still told clients those
+  fields were JSON numbers — so a generated client would parse a decimal string as a float,
+  which is precisely what `no-float-money` exists to prevent, reintroduced through the
+  documentation rather than the code.
+
+The guard was added, correctly, in the release that consolidated `docs/api/` and
+`docs/openapi/`. It was never wired to anything that runs, so it only reports when someone
+thinks to ask. Making it run automatically is a separate change and not this one; what this
+entry can say is that it is green as of this commit and was not before.
+
+#### Noticed and not fixed
+
+Three marketplace routes under the same prefixes as V23-76's — `offers/{id}/book`,
+`offer/{id}/rate`, `offer/{id}/ratings` — never answer 404. The first two re-raise a missing
+offer into a 500 and the third returns `avg_rating: 0.0` for a service that does not exist,
+which is V23-76's 200-null in a different costume. The spec now reports them exactly as they
+behave. Changing how they behave is a behaviour question, and doing it inside a
+documentation change would put it where nobody would look for it. Filed separately.
+
+#### Verification
+
+37 tests. The scanner is exercised against handlers written in the test file itself, so every
+claim about what it extracts is checked against source visible beside the assertion —
+including the two negative cases that define the floor: a computed status code and one raised
+inside a called helper are both asserted **absent**. The published specs are then asserted
+directly: each of the five documents at least one 404, every response object carries the
+`description` OpenAPI requires, every `$ref` resolves, and marketplace's eight 404 operations
+match the eight `404` sites in `main.py` one for one — in both directions, so a documented
+response with no source behind it fails too.
+
+Generation is deterministic: three consecutive runs produce byte-identical files, which is
+what makes the drift guard meaningful rather than noisy. Message order follows source order
+rather than `ast.walk`'s breadth-first traversal, for the same reason.
+
+Root **6,421**, exit 0.
