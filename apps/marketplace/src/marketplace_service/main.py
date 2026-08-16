@@ -214,6 +214,16 @@ async def book_offer(
     """Book/purchase a marketplace offer"""
     try:
         logger.info("POST /v1/marketplace/offers/%s/book called with data keys: %s", offer_id, booking_data.keys())
+        # `svc.book_offer` signals both "no such offer" and "offer is not available" by
+        # raising ValueError, and this handler re-raised both into a 500 -- so booking a
+        # typo'd offer id looked like the service had fallen over (V23-81). Checked here in
+        # the shape `cancel_offer` uses over the same resource: 404 for absent, 400 for the
+        # wrong state, same body. The service keeps its ValueErrors as the backstop.
+        offer = await svc.get_offer(offer_id)
+        if not offer:
+            return JSONResponse(status_code=404, content={"error": "Offer not found"})
+        if offer.status != "available":
+            return JSONResponse(status_code=400, content={"error": f"Offer is not available (status={offer.status})"})
         result = await svc.book_offer(offer_id, booking_data)
         logger.info("POST /v1/marketplace/offers/%s/book completed", offer_id)
         buyer = booking_data.get("wallet") or booking_data.get("buyer")
@@ -224,6 +234,19 @@ async def book_offer(
             background_tasks.add_task(_create_escrow_bg, bid_id, buyer, provider, amount)
             result["escrow_contract_id"] = "(pending — created in background)"
         return result
+    except ValueError as e:
+        # The pre-check narrows the window but does not close it: another request can book
+        # the offer between the two calls, and `svc.book_offer` raises `ValueError` again.
+        # Every `ValueError` reachable from here is the caller's -- the service's two status
+        # checks, plus `float(duration_hours)` over a request field -- so 400 is right for
+        # all of them, and a race no longer reads as the service failing.
+        #
+        # Not `Decimal(price)`: that raises `InvalidOperation`, an `ArithmeticError`, and
+        # still reaches the client as a 500. Left alone because the same conversion runs
+        # again below on `amount`, after the bid has been committed, where answering 400
+        # would deny a booking that happened.
+        logger.info("Rejecting booking of offer %s: %s", offer_id, e)
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/marketplace/offers/%s/book: %s: %s", offer_id, type(e).__name__, str(e))
         raise
@@ -595,6 +618,13 @@ async def rate_service(
     """Rate a marketplace service offer"""
     try:
         logger.info("POST /v1/marketplace/offer/%s/rate called with rating=%s", service_id, rating_data.rating)
+        # `add_service_rating` never checked that the service exists, and the aggregate it
+        # then updates is guarded by `if service:` -- so rating a service that is not there
+        # answered 200 and wrote an orphan row that no aggregate would ever count (V23-81).
+        # A service id resolves either way round, the same two lookups `get_service_ratings`
+        # does below.
+        if not (await svc.get_software_service(service_id) or await svc.get_service_by_offer_id(service_id)):
+            return JSONResponse(status_code=404, content={"error": "Service not found"})
         rating = await svc.add_service_rating(
             service_id=service_id, rating=rating_data.rating, reviewer_id=rating_data.reviewer_id, comment=rating_data.comment
         )
@@ -631,14 +661,15 @@ async def get_service_ratings(
         service = await svc.get_software_service(service_id)
         if not service:
             service = await svc.get_service_by_offer_id(service_id)
-        service_info = (
-            {
-                "avg_rating": service.get("avg_rating", 0.0) if service else 0.0,
-                "rating_count": service.get("rating_count", 0) if service else 0,
-            }
-            if service
-            else {"avg_rating": 0.0, "rating_count": 0}
-        )
+        # The handler already resolved the service and already knew it was absent; it just
+        # never said so, answering 200 with a zeroed `service_info` and an empty list that a
+        # client cannot tell from a real service nobody has rated yet (V23-81).
+        if not service:
+            return JSONResponse(status_code=404, content={"error": "Service not found"})
+        service_info = {
+            "avg_rating": service.get("avg_rating", 0.0),
+            "rating_count": service.get("rating_count", 0),
+        }
         return {
             "service_id": service_id,
             "service_info": service_info,
