@@ -81,10 +81,16 @@ def test_marketplace_status(client):
 
 
 def test_get_marketplace_offers_with_params(client):
-    """Test get marketplace offers with required query params"""
+    """Test get marketplace offers with required query params
+
+    The status here used to be "active", which is not a marketplace offer status at all --
+    it belongs to `SoftwareService`, a different table reached through the singular
+    `/v1/marketplace/offer`. It returned 200 and an empty list, so the test passed and said
+    nothing. `?status=` now names a real state or is rejected (V23-83).
+    """
     response = client.get(
         "/v1/marketplace/offers",
-        params={"status": "active", "region": "us-east", "gpu_model": "A100"},
+        params={"status": "available", "region": "us-east", "gpu_model": "A100"},
     )
     assert response.status_code == 200
     assert response.json() == []
@@ -100,7 +106,7 @@ def test_get_marketplace_offers_missing_params(client):
 
 def test_get_marketplace_offers_partial_params(client):
     """Test get marketplace offers with only some params — all optional (v0.6.6)"""
-    response = client.get("/v1/marketplace/offers", params={"status": "active"})
+    response = client.get("/v1/marketplace/offers", params={"status": "available"})
     # v0.6.6: all params optional, partial params accepted
     assert response.status_code == 200
     assert isinstance(response.json(), list)
@@ -202,10 +208,9 @@ def test_book_offer_that_is_not_available(client):
     which is a different thing, and because `cancel_offer` already answers 400 for the
     equivalent "wrong state" case over the same resource (V23-81).
 
-    Booking twice is how the offer is moved out of `available` here. Cancelling it would be
-    the obvious way and does not work: `cancel_offer` writes the status `"cancelled"`, which
-    is not a member of `OfferStatus`, so the FSM rejects it and the route 500s for every
-    offer that exists — filed separately, not fixed here.
+    Booking twice is how the offer is moved out of `available` here, and it stays that way
+    now that cancelling works (V23-83): a booked offer cannot be cancelled either, so the
+    two-bookings route to this state is the only one.
     """
     created = client.post("/v1/marketplace/offers", json={"provider": "aitbc1provider", "capacity": 1})
     assert created.status_code == 200
@@ -237,6 +242,169 @@ def test_book_offer_with_an_unparseable_duration(client):
     )
     assert response.status_code == 400
     assert "error" in response.json()
+
+
+# --- Cancellation ---
+
+
+def _new_offer(client, **fields):
+    """Create an offer and return its id. Defaults to a bookable one."""
+    created = client.post("/v1/marketplace/offers", json={"provider": "aitbc1provider", "capacity": 1, **fields})
+    assert created.status_code == 200, created.text
+    return created.json()["id"]
+
+
+def test_cancel_offer_not_found(client):
+    """An offer id that is not there is 404, as it is on every other route over this resource."""
+    response = client.post("/v1/marketplace/offers/nonexistent-offer-id/cancel")
+    assert response.status_code == 404
+    assert response.json() == {"error": "Offer not found"}
+
+
+def test_cancel_offer_without_a_reason(client):
+    """`?reason=` is optional, and this is the test that says so.
+
+    `reason: str | None` with no default is a required query parameter to FastAPI — the
+    published spec carried `"required": true` — so cancelling without one was a 422 before any
+    of the cancellation logic ran. The handler has always defaulted it in the body
+    (`reason or "user_requested"`), so the requirement was an accident of the signature and
+    nothing agreed with it (V23-83).
+    """
+    response = client.post(f"/v1/marketplace/offers/{_new_offer(client)}/cancel")
+    assert response.status_code == 200
+    assert response.json()["reason"] == "user_requested"
+
+
+def test_cancel_an_available_offer(client):
+    """The finding: this answered 500 for every offer in the database.
+
+    `cancel_offer` asks for the status `"cancelled"`, `update_offer_status` parsed it with
+    `OfferFSM.from_string`, and `"cancelled"` is not one of the five `OfferStatus` members —
+    so it raised `ValueError` for every offer that existed, the route had no handler, and the
+    client got `{"error": {"type": "internal_error"}}` with a 500 (V23-83).
+    """
+    offer_id = _new_offer(client)
+
+    response = client.post(f"/v1/marketplace/offers/{offer_id}/cancel", params={"reason": "listing withdrawn"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+    assert response.json()["reason"] == "listing withdrawn"
+
+    # And it stuck: the old code raised before the assignment, so nothing was ever written.
+    assert client.get(f"/v1/marketplace/offers/{offer_id}").json()["status"] == "cancelled"
+
+
+def test_cancel_an_offer_twice(client):
+    """The second cancellation is 400, and reachable for the first time.
+
+    The route has always had this branch; it could not be reached, because `"cancelled"` was
+    never successfully written to any row.
+    """
+    offer_id = _new_offer(client)
+    assert client.post(f"/v1/marketplace/offers/{offer_id}/cancel").status_code == 200
+
+    response = client.post(f"/v1/marketplace/offers/{offer_id}/cancel")
+    assert response.status_code == 400
+    assert response.json() == {"error": "Offer already cancelled"}
+
+
+def test_cancel_an_offer_stored_under_a_legacy_status(client):
+    """An offer stored as "open" cancels, and that is the point of the alias map.
+
+    One of the four offers in the deployed database has this status — coordinator-api's word
+    for the same state. It failed a step earlier than the others: `OfferFSM.from_string` could
+    not parse the *current* status either, so the offer was frozen in place, unbookable and
+    uncancellable, with every route over it answering 500.
+    """
+    offer_id = _new_offer(client, status="open")
+
+    response = client.post(f"/v1/marketplace/offers/{offer_id}/cancel")
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+
+
+def test_cancel_a_booked_offer_is_refused(client):
+    """400 and a reason, not a 500 and not a silent delisting.
+
+    `RESERVED` transitions to `IN_USE`, back to `AVAILABLE`, or to `EXPIRED` — not to
+    `DELISTED`. A provider cannot delist an offer out from under a buyer holding it. That rule
+    is the FSM's and predates this change; what is new is that the service reaches it instead
+    of failing to parse `"booked"` on the way in.
+    """
+    offer_id = _new_offer(client)
+    assert client.post(f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "aitbc1buyer"}).status_code == 200
+
+    response = client.post(f"/v1/marketplace/offers/{offer_id}/cancel")
+    assert response.status_code == 400
+    assert response.json() == {"error": "Offer cannot be cancelled while it is booked"}
+
+
+def test_an_offer_cannot_be_created_in_a_status_the_service_does_not_have(client):
+    """`create_offer` splats the request body into the model, `status` included.
+
+    Which is how a row nothing could parse got into the deployed database. Rejecting the
+    status on the way in is what makes "every stored status parses" an invariant rather than
+    a hope — without it the alias map only covers the words this repo happens to write today.
+    """
+    created = client.post(
+        "/v1/marketplace/offers",
+        json={"provider": "aitbc1provider", "capacity": 1, "status": "mostly available"},
+    )
+    assert created.status_code == 400
+    assert "Unknown offer status" in created.json()["error"]
+
+
+def test_the_status_filter_matches_by_state_not_by_spelling(client):
+    """`?status=available` finds the offer stored as "open", and vice versa.
+
+    Two spellings of one state meant an offer was visible or invisible depending on which word
+    the caller used, with nothing to say the other existed.
+    """
+    plain = _new_offer(client, region="filter-test")
+    legacy = _new_offer(client, region="filter-test", status="open")
+
+    for spelling in ("available", "open"):
+        found = client.get("/v1/marketplace/offers", params={"status": spelling, "region": "filter-test"})
+        assert found.status_code == 200
+        assert {o["id"] for o in found.json()} == {plain, legacy}, spelling
+
+
+def test_the_status_filter_rejects_a_state_that_does_not_exist(client):
+    """400, rather than 200 and an empty list.
+
+    An empty list is the same answer a real filter with no matches gives, so a typo — or the
+    `SoftwareService` vocabulary, which is the confusion this endpoint actually attracts —
+    read as "no offers are in that state".
+    """
+    response = client.get("/v1/marketplace/offers", params={"status": "inactive"})
+    assert response.status_code == 400
+    assert "Unknown offer status" in response.json()["error"]
+
+
+def test_the_overview_counts_an_offer_stored_as_open_as_active(client):
+    """`active_offers` compared against the literal "available" and missed it.
+
+    The offer was in `total_offers` and not in `active_offers`, and its region and service type
+    were left out of the lists the overview advertises: available, and invisible.
+    """
+    before = client.get("/v1/marketplace").json()["active_offers"]
+    _new_offer(client, status="open")
+
+    assert client.get("/v1/marketplace").json()["active_offers"] == before + 1
+
+
+def test_an_offer_stored_as_open_can_be_booked(client):
+    """The same comparison, in the route that turns an offer into money.
+
+    `book_offer` checked `offer.status != "available"`, so the one offer in the deployed
+    database stored under coordinator-api's word was refused with 400 — as unavailable, while
+    being available.
+    """
+    offer_id = _new_offer(client, status="open")
+
+    response = client.post(f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "aitbc1buyer"})
+    assert response.status_code == 200
+    assert client.get(f"/v1/marketplace/offers/{offer_id}").json()["status"] == "booked"
 
 
 # --- Offer history ---
