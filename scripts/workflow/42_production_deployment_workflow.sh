@@ -3,7 +3,7 @@
 # AITBC Production Deployment Workflow
 # Optimized production deployment with all features
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -47,7 +47,7 @@ run_test() {
     echo "🚀 Deploying: $test_name"
     echo "================================"
 
-    if eval "$test_command" >/dev/null 2>&1; then
+    if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ DEPLOYED${NC}: $test_name"
         return 0
     else
@@ -65,7 +65,7 @@ run_test_verbose() {
     echo "🚀 Deploying: $test_name"
     echo "================================"
 
-    if eval "$test_command"; then
+    if bash -c "$test_command"; then
         echo -e "${GREEN}✅ DEPLOYED${NC}: $test_name"
         return 0
     else

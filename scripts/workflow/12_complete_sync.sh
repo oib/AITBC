@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # AITBC Complete Blockchain Sync Script
 # Handles complete synchronization between nodes
 
@@ -22,7 +23,7 @@ WALLET_ADDR="ait11c02342d4fec502240c20d609a8bb839ccd23838"
 # Check current heights
 echo "1. Current blockchain status:"
 AITBC1_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
 
 echo "aitbc1 height: $AITBC1_HEIGHT"
 echo "aitbc height: $AITBC_HEIGHT"

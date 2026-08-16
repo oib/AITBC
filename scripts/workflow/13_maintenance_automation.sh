@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # AITBC Maintenance Automation Script
 # Handles environment cleanup, configuration verification, and code synchronization
 
@@ -118,7 +119,7 @@ fi
 # Test that both nodes are operational
 echo "5. Cross-node functionality test..."
 AITBC1_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
-AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0")
+AITBC_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')
 
 echo "   aitbc1 height: $AITBC1_HEIGHT"
 echo "   aitbc height: $AITBC_HEIGHT"

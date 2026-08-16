@@ -3,7 +3,7 @@
 # AITBC Contract Data Analytics & Reporting
 # Comprehensive data analysis and reporting for contract operations and service metrics
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -58,7 +58,7 @@ run_test() {
     echo "📈 Testing: $test_name"
     echo "================================"
 
-    if eval "$test_command" >/dev/null 2>&1; then
+    if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
@@ -78,7 +78,7 @@ run_test_verbose() {
     echo "📈 Testing: $test_name"
     echo "================================"
 
-    if eval "$test_command"; then
+    if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
         ((TESTS_PASSED++))
         return 0
@@ -359,16 +359,16 @@ RECOMMENDATIONS
 EOF
 
 if [ -f \"$DATA_DIR/contract_aggregation.csv\" ]; then
-    echo "- 📈 Contract deployment trending: $(tail -1 \"$DATA_DIR/contract_aggregation.csv\" | cut -d',' -f2) total contracts" >> "$REPORT_FILE"
+    echo \"- 📈 Contract deployment trending: $(tail -1 \"$DATA_DIR/contract_aggregation.csv\" | cut -d',' -f2) total contracts\" >> \"$REPORT_FILE\"
 fi
 
 if [ -f \"$DATA_DIR/service_aggregation.csv\" ]; then
-    echo "- 🔌 Service utilization: $(tail -1 \"$DATA_DIR/service_aggregation.csv\" | cut -d',' -f2) average listings" >> "$REPORT_FILE"
+    echo \"- 🔌 Service utilization: $(tail -1 \"$DATA_DIR/service_aggregation.csv\" | cut -d',' -f2) average listings\" >> \"$REPORT_FILE\"
 fi
 
-echo "- 📊 Continue monitoring for trend analysis" >> "$REPORT_FILE"
-echo "- 🔍 Analyze event logs for detailed insights" >> "$REPORT_FILE"
-echo "- 📈 Track performance metrics over time" >> "$REPORT_FILE"
+echo \"- 📊 Continue monitoring for trend analysis\" >> \"$REPORT_FILE\"
+echo \"- 🔍 Analyze event logs for detailed insights\" >> \"$REPORT_FILE\"
+echo \"- 📈 Track performance metrics over time\" >> \"$REPORT_FILE\"
 
 echo \"✅ Analytics report generated: \$REPORT_FILE\"
 echo \"Report preview:\"
@@ -401,19 +401,19 @@ EOF
             gsub(/^[ \t]+|[ \t]+$/, \"\", \$3)
             gsub(/^[ \t]+|[ \t]+$/, \"\", \$4)
             printf \"    {\\\"timestamp\\\": \\\"%s\\\", \\\"contracts\\\": %s, \\\"height\\\": %s, \\\"transactions\\\": %s},\\n\", \$1, \$2, \$3, \$4
-        }' \"$DATA_DIR/contract_metrics.csv" | sed '$s/,$//' >> \"$VISUALIZATION_DIR/contract_metrics.json"
+        }' \"$DATA_DIR/contract_metrics.csv\" | sed '\$s/,$//' >> \"$VISUALIZATION_DIR/contract_metrics.json\"
 
-        echo "  ]" >> "$VISUALIZATION_DIR/contract_metrics.json"
-        echo "}" >> "$VISUALIZATION_DIR/contract_metrics.json"
+        echo \"  ]\" >> \"$VISUALIZATION_DIR/contract_metrics.json\"
+        echo \"}\" >> \"$VISUALIZATION_DIR/contract_metrics.json\"
 
-        echo "✅ Contract metrics visualization data prepared"
+        echo \"✅ Contract metrics visualization data prepared\"
     fi
 
     # Prepare service metrics for visualization
     if [ -f \"$DATA_DIR/service_metrics.csv\" ]; then
-        echo "Preparing service metrics visualization..."
+        echo \"Preparing service metrics visualization...\"
 
-        cat > "$VISUALIZATION_DIR/service_metrics.json" << EOF
+        cat > \"$VISUALIZATION_DIR/service_metrics.json\" << EOF
 {
   \"data\": [
 EOF
@@ -424,12 +424,12 @@ EOF
             gsub(/^[ \t]+|[ \t]+$/, \"\", \$3)
             gsub(/^[ \t]+|[ \t]+$/, \"\", \$4)
             printf \"    {\\\"timestamp\\\": \\\"%s\\\", \\\"listings\\\": %s, \\\"ai_jobs\\\": %s, \\\"revenue\\\": %s},\\n\", \$1, \$2, \$3, \$4
-        }' \"$DATA_DIR/service_metrics.csv" | sed '$s/,$//' >> "$VISUALIZATION_DIR/service_metrics.json"
+        }' \"$DATA_DIR/service_metrics.csv\" | sed '\$s/,$//' >> \"$VISUALIZATION_DIR/service_metrics.json\"
 
-        echo "  ]" >> "$VISUALIZATION_DIR/service_metrics.json"
-        echo "}" >> "$VISUALIZATION_DIR/service_metrics.json"
+        echo \"  ]\" >> \"$VISUALIZATION_DIR/service_metrics.json\"
+        echo \"}\" >> \"$VISUALIZATION_DIR/service_metrics.json\"
 
-        echo "✅ Service metrics visualization data prepared"
+        echo \"✅ Service metrics visualization data prepared\"
     fi
 "
 
