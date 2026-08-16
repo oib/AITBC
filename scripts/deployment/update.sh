@@ -70,7 +70,6 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
 log()     { echo -e "${BLUE}[$(date +'%H:%M:%S')]${NC} $*"; }
@@ -339,6 +338,7 @@ sync_venv() {
     # Always reinstall CLI (it's editable, but -e ensures entry points refresh)
     if [ -f "$AITBC_ROOT/cli/setup.py" ] || [ -f "$AITBC_ROOT/cli/pyproject.toml" ]; then
         log "Reinstalling AITBC CLI..."
+        # shellcheck disable=SC2015
         ( cd "$AITBC_ROOT/cli" && pip install -e . --quiet 2>/dev/null ) \
             && success "CLI reinstalled" \
             || warning "CLI reinstall failed (continuing)"
@@ -350,6 +350,7 @@ sync_venv() {
         log "Installing local packages from packages/py..."
         for pkg in "$AITBC_ROOT/packages/py"/*/; do
             [ -f "$pkg/pyproject.toml" ] || continue
+            # shellcheck disable=SC2015
             pip install -e "$pkg" --quiet 2>/dev/null \
                 && success "Installed $(basename "$pkg")" \
                 || warning "Failed to install $(basename "$pkg") (continuing)"
@@ -360,6 +361,7 @@ sync_venv() {
 fallback_pip_install() {
     log "Installing from requirements.txt..."
     if [ -f "$AITBC_ROOT/requirements.txt" ]; then
+        # shellcheck disable=SC2015
         pip install -r "$AITBC_ROOT/requirements.txt" --quiet 2>/dev/null \
             && success "Core requirements installed" \
             || warning "Failed to install some core requirements"
@@ -389,6 +391,7 @@ relink_systemd() {
     fi
 
     log "Running systemctl daemon-reload..."
+    # shellcheck disable=SC2015
     systemctl daemon-reload && success "daemon-reload complete" \
         || warning "daemon-reload failed"
 }
@@ -404,7 +407,8 @@ enable_services() {
 
     # Get list of currently-installed aitbc unit files (after relink)
     local svc
-    for svc in $(ls /etc/systemd/system/aitbc-*.service 2>/dev/null); do
+    for svc in /etc/systemd/system/aitbc-*.service; do
+        [ -f "$svc" ] || continue
         local name
         name=$(basename "$svc")
         if systemctl enable "$name" 2>/dev/null | grep -q "Created symlink\|already enabled" ; then
@@ -412,7 +416,9 @@ enable_services() {
         fi
     done
     # Enable timers too
-    for timer in $(ls /etc/systemd/system/aitbc-*.timer 2>/dev/null); do
+    local timer
+    for timer in /etc/systemd/system/aitbc-*.timer; do
+        [ -f "$timer" ] || continue
         systemctl enable "$(basename "$timer")" 2>/dev/null || true
     done
     success "Service enablement reviewed"

@@ -3,7 +3,7 @@
 # AITBC Environment Validation Script
 # Validates environment configuration before deployment
 
-set -e
+set -euo pipefail
 
 # Configuration
 REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
@@ -94,8 +94,10 @@ validate_database() {
         log "$name: PostgreSQL URL detected"
 
         # Extract host and port
-        local host=$(echo "$db_url" | sed -n 's/.*@\([^:]*\):.*/\1/p')
-        local port=$(echo "$db_url" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+        local host
+        host=$(echo "$db_url" | sed -n 's/.*@\([^:]*\):.*/\1/p')
+        local port
+        port=$(echo "$db_url" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
 
         if [[ -n "$host" ]] && [[ -n "$port" ]]; then
             log "Testing PostgreSQL connectivity to $host:$port..."
@@ -111,10 +113,12 @@ validate_database() {
         log "$name: SQLite URL detected"
 
         # Extract database path
-        local db_path=$(echo "$db_url" | sed -n 's/.*\/\/\([^?]*\).*/\1/p')
+        local db_path
+        db_path=$(echo "$db_url" | sed -n 's/.*\/\/\([^?]*\).*/\1/p')
 
         if [[ -n "$db_path" ]]; then
-            local db_dir=$(dirname "$db_path")
+            local db_dir
+            db_dir=$(dirname "$db_path")
             if [[ ! -d "$db_dir" ]]; then
                 warning "$name: Database directory $db_dir does not exist"
             else
@@ -168,6 +172,7 @@ validate_env_file() {
     log "Validating $file_name..."
 
     # Source the file to validate variables
+    # shellcheck disable=SC1090
     source "$env_file"
 
     return 0
@@ -184,27 +189,28 @@ validate_blockchain_env() {
     fi
 
     # Load environment variables
+    # shellcheck disable=SC1090
     source "$BLOCKCHAIN_ENV_FILE"
 
     ERRORS=0
 
     # Validate blockchain configuration
-    if [[ -z "$chain_id" ]] && [[ -z "$CHAIN_ID" ]]; then
+    if [[ -z "${chain_id:-}" ]] && [[ -z "${CHAIN_ID:-}" ]]; then
         error "chain_id or CHAIN_ID is not set"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -n "$rpc_bind_port" ]]; then
-        validate_port "$rpc_bind_port" "rpc_bind_port" || ERRORS=$((ERRORS + 1))
+    if [[ -n "${rpc_bind_port:-}" ]]; then
+        validate_port "${rpc_bind_port:-}" "rpc_bind_port" || ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -n "$p2p_bind_port" ]]; then
-        validate_port "$p2p_bind_port" "p2p_bind_port" || ERRORS=$((ERRORS + 1))
+    if [[ -n "${p2p_bind_port:-}" ]]; then
+        validate_port "${p2p_bind_port:-}" "p2p_bind_port" || ERRORS=$((ERRORS + 1))
     fi
 
     # Validate boolean settings
-    if [[ -n "$enable_block_production" ]]; then
-        validate_boolean "$enable_block_production" "enable_block_production" || ERRORS=$((ERRORS + 1))
+    if [[ -n "${enable_block_production:-}" ]]; then
+        validate_boolean "${enable_block_production:-}" "enable_block_production" || ERRORS=$((ERRORS + 1))
     fi
 
     if [[ $ERRORS -gt 0 ]]; then
@@ -227,6 +233,7 @@ validate_node_env() {
     fi
 
     # Load environment variables
+    # shellcheck disable=SC1090
     source "$NODE_ENV_FILE"
 
     ERRORS=0
@@ -243,22 +250,22 @@ validate_node_env() {
     fi
 
     # Validate required fields
-    if [[ -z "$NODE_ID" ]]; then
+    if [[ -z "${NODE_ID:-}" ]]; then
         error "NODE_ID is not set"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -z "$p2p_node_id" ]]; then
+    if [[ -z "${p2p_node_id:-}" ]]; then
         error "p2p_node_id is not set"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -z "$proposer_id" ]]; then
+    if [[ -z "${proposer_id:-}" ]]; then
         error "proposer_id is not set"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -z "$p2p_peers" ]]; then
+    if [[ -z "${p2p_peers:-}" ]]; then
         warning "p2p_peers is not set. This node may not connect to the network"
     fi
 
