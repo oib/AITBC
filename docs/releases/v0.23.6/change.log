@@ -1,0 +1,60 @@
+# v0.23.6 — Medium — configuration and honesty
+
+## Medium — configuration and honesty
+
+### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED → RESOLVED
+
+`apps/marketplace/src/marketplace_service/services/marketplace_service.py:269–271` writes
+`http://hub.aitbc.bubuit.net/rpc` into `endpoint`, `public_endpoint` and `health_url` on
+every offer built from blockchain data. Not from config, and `http://` rather than `https://`
+— the CLI's own help text (`cli/aitbc_cli/commands/agent.py:183`) uses `https://` for the
+same host.
+
+Clients are being handed a plaintext URL as the endpoint to use.
+
+> **Fix**: read it from config with no default, the way the rest of the service layer does.
+> If a default is wanted, `https://`. Worth grepping for the other hardcoded hosts at the
+> same time — `apps/coordinator-api/.../sdk/enterprise_client.py:52` has
+> `https://api.aitbc.dev/enterprise` as a dataclass default.
+
+**RESOLVED** in `6ce2c7405`. All three fields now read `settings.hub_rpc_url`
+(`marketplace_service.py:276–278`), whose default in `config.py:35` is
+**`https://`** — the plaintext scheme is gone along with the hardcoding. The second
+hardcoded URL noted above was left as-is: it is a client-side dataclass default over TLS,
+which is a different (and much smaller) problem than a server telling callers to use HTTP.
+
+### V23-14 — money defaults to `0` in marketplace offer construction · OBSERVED → RESOLVED
+
+Same block, line 266: `"price": offer.get("price_per_hour", 0)`. An int fallback in a price
+field, in a repo whose stated invariant is `Decimal` everywhere for money. A missing price
+becomes a free offer rather than an error.
+
+> **Fix**: no default. An offer without a price is malformed and should be dropped with a
+> warning, not published at zero.
+
+**RESOLVED** in `6ce2c7405`, exactly as recommended — `marketplace_service.py:260–263` reads
+`price_per_hour` with no default, logs `"Skipping blockchain offer %s: missing
+price_per_hour"` and continues. The surviving value is wrapped as
+`Decimal(str(price_per_hour))`, so the `Decimal`-for-money invariant holds too.
+
+(This is the finding an earlier revision of the header note wrongly called unfixed.)
+
+### V23-15 — hardware validation asserts rather than checks · OBSERVED → RESOLVED
+
+`apps/pool-hub/src/poolhub/services/validation.py:112–123`. `_get_miner_hardware_value` maps
+`"storage": 100, # Assume sufficient storage` and `"network": 1, # Assume network is
+available`. `_meets_requirement` then compares those constants against the requirement, so a
+storage or network requirement always passes.
+
+> **Fix**: return `None` for components that are not actually measured and have
+> `_meets_requirement` treat `None` as "cannot verify" — surfaced to the caller rather than
+> silently satisfied. If the intent is that these are always satisfiable, remove them from
+> the requirement vocabulary so nobody writes a requirement that is silently ignored.
+
+**RESOLVED** in `6ce2c7405`, the first of the two options. Both entries are now
+`None,  # Not measured; caller warns "cannot verify"`, and the caller checks for it before
+comparing (`validation.py:89–92`): a `None` appends `"Cannot verify {component} requirement"`
+to `result.warnings` and skips the comparison. An unmeasurable requirement no longer passes
+silently — it fails to be checked, visibly.
+
+---

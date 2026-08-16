@@ -1,0 +1,24 @@
+# v0.23.20 — Method
+
+## Method
+
+```
+git grep -nE "float\((amount|balance|price|total|fee|value|cost)" -- <money paths>
+git grep -n  "recover_public_key_from_msg_hash|_recover_hash|recover_message" -- aitbc/ apps/ cli/
+git grep -niE "placeholder|simplified|mock|fake" -- aitbc/settlement/ aitbc/compliance/ aitbc/tee/ ...
+ls -d apps/*/src ; ls apps/
+```
+
+plus a scan for async modules that mutate instance state with no lock in the file
+(V23-11/12), and direct execution for everything marked CONFIRMED.
+
+**One positive result worth recording**: the `Decimal`-for-money invariant holds. The only
+`float(...)` hit across `wallet`, `trading`, `marketplace`, `pool-hub` and `exchange` is
+`pool-hub/services/validation.py:133`, parsing a CUDA version string. That migration stuck.
+
+> ⚠️ **This positive result was overstated — see V23-33 below.** The query above finds
+> `float(` *calls*. A field **declared** `price: float` matches nothing in it, and there was
+> one: `MatchCandidate.price` in pool-hub. The invariant mostly holds; the method could not
+> have told the difference.
+
+---

@@ -1,0 +1,71 @@
+# v0.23.27 — Medium — the second CLI, and what was actually in it
+
+## Medium — the second CLI, and what was actually in it
+
+### V23-43 — `cli/utils/` deleted; one module survived the audit · CONFIRMED → RESOLVED
+
+V23-39 recorded this and declined to act: "`cli/utils/` is a stale parallel copy of
+`cli/aitbc_cli/utils/` … Three files there have no counterpart, so the tree cannot simply be
+deleted. Deciding the tree's fate is separate work." This is that work. The three files were
+checked individually rather than treated as one block, and only one of them turned out to be
+unique.
+
+| file | verdict |
+|---|---|
+| `__init__.py` | diverged copy of the live one (370 differing lines) — **deleted** |
+| `crypto_utils.py` | diverged copy (158) — **deleted** |
+| `subprocess.py` | byte-identical copy — **deleted** |
+| `wallet_daemon_client.py` | diverged copy (312) — **deleted** |
+| `security.py` | its own docstring says "backward-compatibility shim" onto `aitbc.security.encryption` — **deleted** |
+| `kyc_aml_providers.py` | superseded copy of coordinator-api's, 303 differing lines — **deleted** |
+| `secure_audit.py` | no equivalent anywhere — **moved** to `cli/aitbc_cli/utils/` |
+
+#### Why it was a hazard rather than clutter
+
+`setup.py` packages only `aitbc_cli` and every production import is `aitbc_cli.utils.*`, so
+none of this shipped. But `cli/__init__.py` made `cli` a real package and the repo root is on
+`sys.path` under pytest, so `from cli.utils.crypto_utils import sign_challenge` resolved — to
+**wallet-signing code 158 lines diverged from the copy the CLI actually runs**, next to an
+`encrypt_value` that was a different implementation from the shipped one. A single import
+written from muscle memory would have picked up the wrong signing path with nothing to
+indicate it.
+
+Its only importers were its own three test files.
+
+#### The two tests that were kept, and the one that was not
+
+- `tests/cli/test_security.py` — 238 lines exercising real key derivation, encryption and
+  password rules **through the shim**. Repointed at `aitbc.security.encryption` directly: the
+  coverage was of shared-core code all along, and only the import went through `cli.utils`.
+- `tests/cli/test_secure_audit.py` — repointed at the relocated module, `patch()` targets
+  included.
+- `tests/cli/test_kyc_aml_providers.py` — **deleted with its module.** It tests
+  `SimpleKYCProvider` and `SimpleAMLProvider`, simulation stubs that coordinator-api replaced
+  with `RealKYCProvider`/`RealAMLProvider`. The test cannot be ported because the classes it
+  names no longer exist on the surviving copy — this was a test of a superseded
+  implementation, not coverage that moved.
+
+  Worth noting separately: **coordinator-api's `kyc_aml_providers.py` has no tests at all.**
+  Deleting this file does not change that; it only stops it looking otherwise.
+
+#### `secure_audit.py`
+
+The one module with no equivalent: a hash-chained tamper-evident audit log with
+`verify_integrity`, `export_audit_report` and `get_chain_info`. `aitbc/security/audit.py` has
+`SecurityAuditor`, which is a different thing. It has no production caller either — its only
+non-test consumer was the stale `__init__.py`'s `AuditLogger` wrapper, which nothing imported
+— but unique working code with a passing suite is worth relocating rather than discarding, so
+it now lives in the tree that ships.
+
+#### What stops it returning
+
+`tests/unit/test_no_shadow_cli_package.py` asserts there is no `cli/__init__.py`, no
+`cli/utils/`, and no importable `cli.utils`. A deleted directory does not stay deleted on its
+own. Verified non-vacuous by recreating both and watching each assertion fail by name.
+
+`cli/` still resolves as a *namespace* package, because any directory on `sys.path` does; the
+test allows that and checks for a real one (`spec.loader is not None`).
+
+Test count: 2672 → 2658 — the 17 KYC cases removed, the 3 new guards added.
+
+---

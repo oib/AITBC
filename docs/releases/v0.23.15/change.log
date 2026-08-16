@@ -1,0 +1,27 @@
+# v0.23.15 — Two things that are right
+
+## Two things that are right
+
+Recorded because an audit that only lists faults gives a false picture of the codebase, and
+because both show earlier remediation propagating rather than being applied once.
+
+- **`api-gateway` authentication** (`apps/api-gateway/src/api_gateway/main.py:117-127`)
+  is correct on every axis that v0.22's APP-50 got wrong. `REQUIRE_AUTH` defaults to
+  `"true"`; a missing `API_KEY` raises 500 rather than admitting the request; and the
+  comparison is `hmac.compare_digest`, not `==`. This is the shape the exchange's
+  `_require_api_key` was fixed into, arrived at independently.
+- **`packages/` has no known vulnerabilities.** `pnpm audit` is clean, against a workspace
+  that only became installable at all in v0.22 PKG-05.
+
+---
+
+# Fourth pass — 2026-08-09
+
+The first three passes looked at structure, dependencies and honesty. This one looks at
+whether the logic is *right*, starting where the money moves: cross-chain settlement.
+
+**Fourth-pass totals**: 4 findings — all confirmed. One earlier finding qualified.
+**Three of the four (V23-29..31) are now resolved on `main`** — see the resolution notes
+below. V23-32 is open.
+
+---

@@ -1,0 +1,72 @@
+# v0.23.21 — Medium — the guard for the money invariant checked thirteen files by hand · RESOLVED
+
+## Medium — the guard for the money invariant checked thirteen files by hand · RESOLVED
+
+### V23-33 — `no_float_money.py` was narrow in both directions, and ran nowhere · CONFIRMED → RESOLVED
+
+`scripts/lint/no_float_money.py` is the enforcement behind CLAUDE.md's "`Decimal` everywhere
+in wallet/trading/marketplace/pool-hub — never `float`". Three faults, each of which alone
+would have been enough to make it ineffective:
+
+**Where it looked.** A hand-maintained `MONEY_FILES` list of thirteen paths. None of them in
+`wallet`, `marketplace` or `pool-hub` — three of the four services the rule names. Nothing
+caused the list to grow with the repo, so every money module written after it was added was
+unguarded by construction.
+
+**What it looked for.** `re.compile(r"float\(")` — the same shape as the fourth pass's
+method, and with the same blind spot. An annotation is invisible to it. The defect this
+found is exactly that shape:
+
+```python
+# apps/pool-hub/src/poolhub/app/schemas.py
+class MatchCandidate(BaseModel):
+    price: float | None = None      # <- read from Numeric(20, 8), written to Numeric(20, 8)
+```
+
+`routers/match.py` reads `Miner.base_price` (`Numeric(20, 8)`) and
+`repositories/match_repository.py` writes `MatchResult.price` (`Numeric(20, 8)`). The schema
+sat between them and put a binary floating-point round trip in the middle of a
+Decimal-to-Decimal path, losing precision at the eighth decimal for nothing. Now `Decimal`;
+`score` stays `float`, because a ranking weight is not money.
+
+**Where it ran.** Nowhere. Not in `.pre-commit-config.yaml`, not in `.gitea/workflows/`, not
+in `.github/workflows/`, not in any script. It was written, committed, and never invoked —
+the same category as V23-10a and the `zk-circuits` note at line 1662. A check nobody runs is
+indistinguishable from a check that passes.
+
+**The rewrite.** AST over every tracked `.py` file (via `git ls-files`, so
+`apps/coordinator-api/.venv/` — a gitignored vendored virtualenv — is not walked; it
+contributed 255 phantom hits before that). Two rules, both keyed on the *name* the value
+carries rather than the file it sits in, which is what lets it run repo-wide instead of on a
+curated list: a `float()` in a metrics module is fine, the same call bound to `fee_amount` is
+not. Money tokens are matched on underscore-separated components, not as substrings — an
+early draft matched `wei` inside `weight`. Names denoting quantities *derived* from money
+(`rate`, `ratio`, `percentage`, `score`, `volatility`…) are excluded: `fee_percentage` is a
+proportion, `fee_amount` is money, and without that split the guard reports 62 false
+positives and gets ignored, which is how it got into this state.
+
+The original thirteen paths are kept as `STRICT_FILES`, where *any* `float()` is a violation
+regardless of what it binds to. The name-driven rules would otherwise have permitted a
+non-money `float()` in the price oracle — a guarantee already paid for, silently dropped by a
+rewrite that only broadened.
+
+**The baseline.** Applied to the tree, it reports **210 pre-existing violations across 80
+files** — 168 in `coordinator-api`, 22 in `blockchain-node`, 10 in `cli`. Converting them is
+a migration, not a lint fix. They are recorded in `no_float_money_baseline.json`; the guard
+fails only on violations absent from it. Keys are identifier-based rather than line-based, so
+moving code does not churn the file. The baseline may shrink and must never grow —
+`--update-baseline` records a reduction, and fixing something prints a note to tighten it
+rather than turning CI red. **A baselined violation is not an accepted one. It is a debt with
+a number attached.**
+
+**Wiring.** A `no-float-money` pre-commit hook (2.2s over the whole tree) and a
+`Money must be Decimal` step in `.gitea/workflows/python-tests.yml`. Deliberately not
+`|| echo "⚠️"` like the ruff step beside it: this one fails the build. The workflow's `paths:`
+filter gained `cli/**` and `scripts/lint/**` — `cli/` holds 10 of the baselined violations
+and was triggering neither this job nor the `tests/cli` suite the job already runs.
+
+Verified non-vacuous both ways: adding `settlement_amount: float | None` to a pool-hub schema
+makes it exit 1 naming the field, and removing a baselined entry makes it print the tighten
+note while still exiting 0.
+
+---

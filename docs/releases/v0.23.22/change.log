@@ -1,0 +1,99 @@
+# v0.23.22 — High — the largest float-money backlog, and the type checker that was not checking
+
+## High — the largest float-money backlog, and the type checker that was not checking
+
+### V23-34 — coordinator-api held 168 of the 210 baselined violations · CONFIRMED → RESOLVED
+
+V23-33 recorded the backlog rather than fixing it. This clears the coordinator-api share of
+it: **210 → 48 baselined violations, and coordinator-api itself to zero.** Everything still
+baselined is in `blockchain-node` (24), `cli` (11), `packages/py` (4) and four other apps.
+
+**What the vocabulary was still missing.** Converting the 168 immediately turned up three
+false negatives in the guard, each found by a field sitting next to one it had named:
+
+- `per` was in `DERIVED_TOKENS`, which excluded **`price_per_hour`** — the most common money
+  field name in this repo, already `Numeric(20, 8)` on `marketplaceoffer`, and re-declared
+  `float` in six services' schemas. The guard could not see the one name it most needed to.
+- `target` excluded **`target_amount`**, beside a flagged `source_amount` in the same
+  `AtomicSwapOrder` row: one side of a swap guarded, the other not.
+- Names were split on `_` only, so camelCase was invisible — `averagePrice` in
+  `schemas/__init__.py` next to a flagged `price`.
+
+Both tokens are gone and identifiers are now split on case as well. That surfaced 19 further
+violations; the 12 in coordinator-api are fixed here, the 7 elsewhere are baselined.
+
+**Where the guard was wrong, and how that is recorded.** A name-driven check has false
+positives, and there is one honest place to record them — the declaration. `# not-money:
+<reason>` suppresses a line; the reason is mandatory. Six use it: one percentage named
+`price_difference`, four reinforcement-learning episode returns named `*_reward`, and two
+competitor-price averages consumed only to form a dimensionless ratio. Parking those in the
+baseline would file them as debt to repay, which is the wrong claim about them.
+
+**What the conversion found.** 197 annotations across 44 files, plus 15 same-class siblings
+converted because a class must not hold one quantity in two representations —
+`AgentWallet.balance` was named but `spending_limit` and `total_spent` were not. Beyond the
+mechanical part, three live narrowings:
+
+- `dynamic_pricing.py` wrote `price=float(price)` and `base_price=float(factors.base_price)`
+  into `PricingHistory`, whose columns are **already** `Numeric(20, 8)`. Exact values were
+  being rounded on their way into an exact column.
+- `explorer.py` built every address balance in the block explorer from
+  `float(receipt["price"])`, then formatted it `:.6f`.
+- `global_marketplace_integration.py` multiplied an offer's `base_price` by regional and
+  chain factors in float and returned those products as prices.
+
+**102 table columns** across 45 tables move `Float → Numeric(20, 8)` in
+`c7d1f4a9e230_v23_money_columns_to_numeric`, following the `_table_exists` +
+`batch_alter_table(recreate="always")` pattern of the four earlier `migrate_*_to_numeric`
+revisions. Verified by building a SQLite database from the models at the parent commit,
+upgrading, and inspecting every column: **102 of 102 NUMERIC(20,8), 0 missed.** Downgrade
+restores `FLOAT` with rows intact. Three `0.1` rewards written and read back sum to exactly
+`0.3`; the float path gives `0.30000000000000004`.
+
+Worth recording: **42 of those 102 columns belong to tables the application never creates.**
+`amm.py`, `agent_portfolio.py`, `federated_learning.py` and `gpu_models.py` are imported by
+nothing — importing `coordinator_api.main` produces 157 tables, and adding every `domain`
+module by hand produces 190. The migration's `_table_exists` guard is what makes that
+harmless. The models are still worth fixing: they are the schema of record if anything is
+ever wired up to them.
+
+Zero new mypy errors, and the 48 pre-existing coordinator-api test failures are
+byte-identical before and after (compared against a detached worktree at the parent commit).
+
+### V23-35 — the mypy pre-commit hook checked nothing, and reported success · CONFIRMED → RESOLVED
+
+Found while looking for a safety net for V23-34's Decimal conversion.
+
+`scripts/ci/mypy-precommit.sh` passed fourteen app directories to mypy, two of which —
+`apps/ffmpeg` and `apps/whisper` — contain exactly one Python file each, `main.py`, which
+`pyproject.toml` excludes via `^apps/[^/]+/main\.py$`. mypy treats a directory with no
+checkable files as a **hard error** and aborts before checking any of the other twelve:
+
+```
+$ ./venv/bin/python -m mypy --ignore-missing-imports apps/coordinator-api ... apps/zk-circuits
+There are no .py[i] files in directory 'apps/ffmpeg'
+```
+
+That message contains no `error:` substring. The hook's only test was
+`grep -E "(error:|warning:)"`, which therefore found nothing, and it printed
+
+```
+✅ MyPy: All clean apps pass
+```
+
+on every commit while checking zero files. Dropping the two directories reports **29 real
+errors in 11 files** — including four `Missing positional argument` calls to
+`PaymentService.create_payment` and `release_payment`, which are wrong-arity calls into the
+payments layer, not style.
+
+The same shape as V23-10a and V23-33: a check that passes because it never runs. What makes
+this one worse is that the grep could not distinguish "no errors" from "never executed", so
+the failure was indistinguishable from success by construction. The hook now checks mypy's
+**exit code** — anything above 1 means it did not run and is not a pass — and ratchets
+against `scripts/ci/mypy-baseline.txt` (29 entries, line numbers stripped so unrelated
+moves do not churn it).
+
+Verified non-vacuous: assigning `1.5` to a `Decimal` money field makes it exit 1 naming the
+assignment — which is precisely the defect class V23-34 removes.
+
+---

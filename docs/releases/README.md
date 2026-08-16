@@ -29,6 +29,8 @@ Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
 
+- **[v0.23.0](v0.23.0/change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
+
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
 - **[v0.10.18](v0.10.18/change.log)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) ✅ complete

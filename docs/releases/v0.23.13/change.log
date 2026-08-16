@@ -1,0 +1,254 @@
+# v0.23.13 — Critical — proving keys with no phase-2 contribution are the ones loaded · RESOLVED
+
+## Critical — proving keys with no phase-2 contribution are the ones loaded · RESOLVED
+
+### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED → RESOLVED
+
+`apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py:24-46`.
+
+```python
+"receipt_simple":            "zkey_path": .../receipt_simple_0001.zkey
+"ml_inference_verification": "zkey_path": .../ml_inference_verification_0000.zkey
+"ml_training_verification":  "zkey_path": .../ml_training_verification_0000.zkey
+"modular_ml_components":     "zkey_path": .../modular_ml_components_0001.zkey
+```
+
+In a Groth16 setup, `_0000.zkey` is the key straight out of `groth16 setup` — before any
+phase-2 contribution. `_0001` is after the first contributor has added randomness and
+(ideally) destroyed their toxic waste. Whoever holds the phase-2 secret for a given key can
+forge proofs that verify against it; the entire point of the contribution is that no single
+party retains it.
+
+Two of the four circuits load the zero-contribution key. The contributed keys exist, in the
+same directory:
+
+```
+git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits \
+  | grep '\.zkey$'
+# ml_inference_verification_0000.zkey
+# ml_inference_verification_0001.zkey    <- present, not used
+# ml_training_verification_0000.zkey
+# ml_training_verification_0001.zkey     <- present, not used
+```
+
+The other two entries in the same dict use `_0001`, so this reads as an oversight in a
+copy-pasted block rather than a decision. That it is inconsistent *within one config
+literal* is the strongest evidence it was not deliberate.
+
+> **Fix**: point both at `_0001`, and re-generate any proofs that were produced against
+> `_0000`. Then make the selection impossible to get wrong — resolve the highest-numbered
+> contribution at load time, or name the files by content hash rather than by sequence, so
+> a stale index cannot silently mean "unsecured".
+
+**RESOLVED** — the second option. `_resolve_proving_key` picks the highest-numbered
+contribution on disk, so all four circuits now load `_0001` and a new contribution is picked
+up by adding the file rather than by editing a literal. A circuit whose highest key is
+`_0000` **does not load at all**: it logs an error naming the circuit and stays out of
+`available_circuits`, rather than proving with a key that has a known forger.
+
+Writing the resolver's tests found a bug in the resolver: `glob("c_*.zkey")` is a prefix
+match, so a circuit named `c` would happily adopt `c_extra_0009.zkey`. Fixed by requiring
+the stem to equal the circuit exactly. No two shipped circuit names collide today, so this
+was latent — but adopting a neighbouring circuit's key is the same class of mistake as
+adopting a zero-contribution one, and the audit's own wording ("a stale index cannot
+silently mean unsecured") is the reason to care.
+
+#### V23-24a — the verifier accepted the verification key from the caller · NEW, CONFIRMED → RESOLVED
+
+Found while fixing the above, and larger than it.
+
+`ZKProofService.verify_proof` took a `verification_key` argument and, when given one,
+verified against it instead of any key on disk:
+
+```python
+if verification_key:
+    vkey = verification_key
+```
+
+Both routers passed one straight through from the request body.
+`POST /v1/zk/verify` had it as an optional field; **`POST /v1/ml-zk/verify/training` and
+`/verify/inference` required it** — `verification_request["verification_key"]`, a hard key
+lookup, so the caller always supplied the key their own proof was checked against.
+
+Generate a Groth16 keypair, prove any statement you like, submit the proof and your own
+verification key, and the endpoint answers `verified: true`. The routes are mounted under
+`/v1` in `main.py` with a rate limit and no authentication dependency.
+
+Which proving key sat on disk was therefore beside the point. V23-24 asked whether the
+*right* key was being used; this asks whether the disk was consulted at all, and it was not.
+A verifier that accepts the verifier's key from the party being verified is not checking
+anything.
+
+> **Fixed here.** `verify_proof(proof, public_signals, circuit_name=None)` — the key is
+> loaded server-side from the named circuit. A caller may say *which* circuit to check
+> against, never *what to check with*. `verification_key` is gone from `VerifyProofRequest`
+> rather than merely ignored, so a client still sending one gets a validation error instead
+> of silently having it dropped. An unknown circuit name is refused rather than defaulted.
+
+#### The coordinator now fails closed, like the node
+
+`COORDINATOR_ENABLE_ZK_VERIFICATION` (default **off**) gates verification, and the refusal
+is checked before circuit availability so a misconfigured deployment cannot verify by
+accident. This closes the coordinator half of V23-32: the blockchain node already answered
+*"ZK proof verification is not enabled on this node"*, while the coordinator served the same
+capability from unsecured keys.
+
+`feature_flags.json` has an `enable_zk_proof_verification` entry, and it is worth recording
+why it is not what gates this: **nothing reads that file.** `aitbc/feature_flags.py` was
+removed in v0.10.9 and no loader replaced it, which is also why the node's fail-closed path
+is a hardcoded comment mentioning the flag rather than a check of it. An env var is the
+convention actually in use (`AI_ENGINE_ALLOW_SIMULATION`, `EDGE_ALLOW_SIMULATED_SYNC`), so
+this uses one instead of pretending the JSON is live. That the file is orphaned deserves its
+own finding; V23-32's severity should be re-read in that light, since it rated flags that
+have no effect.
+
+### V23-25 — the trusted setup is undocumented · OBSERVED → RESOLVED
+
+`apps/zk-circuits/README.md` is 32 lines: status, description, node type, GPU required,
+service, source. There is no record of how the `.zkey` files were produced — no ceremony,
+no contributor list, no attestations, no reference to the powers-of-tau file used, and no
+statement about toxic-waste handling. `apps/zk-circuits/circuit_0000.zkey` is committed
+alongside `circuit_0001.zkey`, so the pre-contribution artifact is in version control too.
+
+Without that record there is no way to answer the only question that matters about a
+Groth16 deployment — *can any single party forge proofs?* — and V23-24 shows the question is
+live rather than theoretical.
+
+> **Fix**: document what was actually done, even if the honest answer is "single-contributor
+> development setup, not suitable for production". That sentence in the README is worth more
+> than the current silence, because it tells a reader what they are looking at. If these
+> circuits are meant to carry value, a real multi-party ceremony with published transcripts
+> is the prerequisite, not a follow-up.
+
+**RESOLVED** — and the honest answer turned out to be readable, not merely guessable. snarkjs
+stores phase-2 contribution names inside the `.zkey`, so the setup record could be read out
+of the artifacts:
+
+| `.zkey` | Contributor name recorded |
+|---|---|
+| `receipt_simple_0001` (build tree) | **`1st Contributor Name`** |
+| `receipt_simple_0002` (build tree) | `1st Contributor Name`, `2nd Contributor Name` |
+| `test_final_v2_0001` | `Test Contributor` |
+| `circuit_0001` | `AITBC Phase1` |
+| `receipt_simple_0001` (service tree) | none recorded |
+| `ml_inference_verification_0001`, `ml_training_verification_0001` | none recorded |
+
+Those are the literal defaults in `package.json`'s `contribute-zkey` script. Nobody edited
+the command. That is not a gap to be filled with a careful guess — it *is* the record, and it
+says the setup was run once, locally, by an unidentified party, with no transcript.
+
+`apps/zk-circuits/README.md` now carries a Trusted setup section stating exactly that, with
+the operative consequence spelled out: **assume the setup secret still exists, and that
+whoever holds it can forge proofs that verify.** The status endpoint's
+`"trusted_setup": "completed"` — a bare claim in a literal — now reads `"development-only"`.
+
+### V23-26 — two divergent copies of the circuit tree · CONFIRMED → RESOLVED
+
+- `apps/zk-circuits/` — 75 tracked files, the app that builds the circuits.
+- `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits/` — 49
+  tracked files, and the one `ZKProofService` actually reads
+  (`circuits_dir = Path(__file__).parent.parent / "zk-circuits"`).
+
+They have already diverged: `apps/zk-circuits/` carries `receipt_simple_0002.zkey`, a
+further contribution that the copy the service loads does not have. So the service is using
+an older key than the project has produced, and nothing connects the two directories.
+
+```
+git ls-files apps/zk-circuits | grep '\.zkey$'
+git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits | grep '\.zkey$'
+```
+
+> **Fix**: one source of truth. Either the service reads from `apps/zk-circuits/` via a
+> configured path, or the build publishes artifacts to a location both agree on. Copying
+> binary keys between trees by hand is how V23-24 and this finding both happened.
+
+**RESOLVED**, and the divergence is worse than a missing `receipt_simple_0002.zkey`. Reading
+the binary headers rather than the filenames:
+
+| Circuit | `.circom` / `.r1cs` / `.wasm` | `.zkey` |
+|---|---|---|
+| `receipt_simple` | **identical** in both trees | **different key material under identical filenames** |
+| `modular_ml_components` | **different circuits** — 527 wires here, 19 there | `_0001` **byte-identical** in both trees |
+
+Both rows are broken, in opposite directions.
+
+The first is two independent `groth16 setup` runs on the same constraint system. Structurally
+interchangeable, cryptographically not: a proof made with one tree's key does not verify
+against the other's verification key. Nothing in the filenames says which is which.
+
+The second is worse. `apps/zk-circuits/modular_ml_components_000*.zkey` were keys for a
+19-variable circuit sitting next to a 527-wire `.r1cs` — copied in from the service tree
+without the constraint system they belong to. **A proving key is bound to one constraint
+system**, so those keys could not prove that circuit at all. They have been deleted; that
+tree now has no `modular_ml_components` key until setup is re-run against its own `.r1cs`,
+which is the accurate state rather than a plausible-looking one.
+
+The `.gitignore` in `apps/zk-circuits/` — written to stop a repeat of the v0.22 incident
+where `*.zkey` was ignored and proving silently died — asserts that "coordinator-api's
+ZKProofService loads them from this directory". It does not; it loads from the in-package
+copy. A protective comment naming the wrong consumer is the same failure as a status
+endpoint answering from a literal: correct-looking, and not connected to what runs.
+
+**Fix applied**: `ZKProofService.__init__` takes an optional `circuits_dir` and honours
+`COORDINATOR_ZK_CIRCUITS_DIR`, defaulting to today's in-package path so deployments are
+unchanged — the hardcoded path was why nothing could be pointed at the other tree to
+compare in the first place. `apps/zk-circuits/README.md` now states which tree runs, how
+they diverged, and how to regenerate. `tests/security/test_v2326_zk_artifacts.py` reads the
+headers and fails on either class of mismatch.
+
+### V23-26a — one verification key, copied into four places, for four different circuits · CONFIRMED → RESOLVED
+
+Found while resolving V23-26, by checking key agreement instead of file presence.
+
+`verification_key.json` appeared four times in the service tree — at the root and in
+`receipt_simple_js/`, `ml_inference_verification_js/`, `ml_training_verification_js/`. **All
+four were byte-identical.** The circuits they served are not:
+
+| Circuit | Public signals in its proving key | The installed verification key |
+|---|---|---|
+| `receipt_simple` | 0 | 1 → **mismatch** |
+| `ml_inference_verification` | 1 | 1 → consistent |
+| `ml_training_verification` | 5 | 1 → **mismatch** |
+| `modular_ml_components` | 5 | 1 → **mismatch** |
+
+A verification key belongs to exactly one proving key. Three of the four circuits were wired
+to a key that cannot verify their proofs, and the wiring was invisible because every file
+existed and was named correctly. `available_circuits` checked `path.exists()` — the one
+question these files were guaranteed to pass.
+
+The failure direction is safe: proofs would fail to verify, not verify falsely. But
+"receipts are being attested" was not true, and nothing said so.
+
+**Two further defects surfaced from the same spot:**
+
+`_generate_proof`, the receipt path, read `list(self.available_circuits.values())[0]` —
+whichever circuit happened to sort first. Withholding `receipt_simple` would have silently
+repointed receipt proving at `ml_inference_verification`: a valid proof of an entirely
+different statement, returned as a receipt attestation. It now names `RECEIPT_CIRCUIT` and
+raises if it is unavailable.
+
+The `/zk/status` endpoint reported `circuit_status: {"receipt": "compiled"}` and
+`zkey_files: {...: "available"}` from hardcoded literals, and `"trusted_setup": "completed"`.
+It now reports what the service actually loaded.
+
+**Fix applied**: `_verification_key_mismatch` compares the proving key's public-signal count
+against the verification key's `nPublic` and withholds the circuit on disagreement, with the
+`snarkjs zkey export verificationkey` command in the message. The three mismatched files are
+deleted rather than left to mislead.
+
+> **Operational consequence**: the coordinator now loads **one** circuit,
+> `ml_inference_verification`. `receipt_simple`, `ml_training_verification` and
+> `modular_ml_components` are withheld pending real verification keys. Receipt proving is
+> therefore off — but it was producing proofs that could not be verified with the installed
+> key, so this discloses the state rather than causing it. One `snarkjs zkey export
+> verificationkey` per circuit restores them.
+
+> **Note on the method**: this was found by comparing artifacts to each other rather than
+> checking each existed. Every one of these files passed the existence check, which is the
+> only check anything performed. The recurring shape in this audit — a value produced wrongly
+> and a consumer that agrees for the same wrong reason — reaches its clearest form here: the
+> wrong verification key, a status endpoint hardcoded to call it available, and a
+> `.gitignore` comment protecting the wrong directory for a reason that names the wrong
+> consumer.
+
+---

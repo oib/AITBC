@@ -1,0 +1,224 @@
+# v0.23.16 — Critical — the HTLC timelock calculation cannot be correct · RESOLVED
+
+## Critical — the HTLC timelock calculation cannot be correct · RESOLVED
+
+> **Resolved in `da806630c`, merged as PR #101.** All three findings in this section are
+> fixed on `main`. The text below is the audit as written, unedited; each finding carries a
+> resolution note describing what actually changed, including one thing the audit did not
+> predict — see V23-30.
+
+An HTLC atomic swap rests on one invariant, which `aitbc/settlement/htlc.py` states in its
+own module docstring:
+
+> *"dest_timelock must expire BEFORE source_timelock. This ensures: if seller reveals
+> secret, buyer has time to claim on source."*
+
+If that ordering inverts, the swap stops being atomic: the seller can claim on the
+destination chain while the buyer's window on the source chain has already closed. The
+buyer pays and receives nothing.
+
+### V23-29 — `calculate_dest_timelock` converts a height on one chain into a height on another · CONFIRMED → RESOLVED
+
+`aitbc/settlement/htlc.py:108-146`.
+
+```python
+source_timeout_seconds = source_timelock * source_block_time
+dest_timeout_blocks     = source_timeout_seconds // dest_block_time
+result = dest_timeout_blocks - margin_blocks
+```
+
+`source_timelock` is an absolute block **height**, not a duration. Multiplying it by the
+block time yields time-since-that-chain's-genesis, and dividing by the destination's block
+time yields a height measured from the *destination's* genesis. The two chains have
+independent heights, and the function never receives `dest_current_height` — so the result
+is unrelated to when the destination chain will actually reach it.
+
+```
+./venv/bin/python -c "
+from aitbc.settlement.htlc import calculate_dest_timelock
+d = calculate_dest_timelock(1_000_720, source_block_time=5, dest_block_time=10)
+print(d)                    # 500340
+print(d - 100)              # dest at height 100  -> 500240 blocks ~ 58 days out
+print(d - 600_000)          # dest at height 600k -> -99660, already expired
+"
+```
+
+The same inputs produce a 58-day lock or an expired one depending only on a value the
+function never sees.
+
+The correct computation is in the same file. `validate_timelocks` (lines 199-213) converts
+each timelock to *remaining* blocks from that chain's current height before comparing:
+
+```python
+source_remaining_blocks = source_timelock - source_current_height
+dest_remaining_blocks   = dest_timelock   - dest_current_height
+```
+
+Run against the calculator's own output it rejects it immediately:
+
+```
+Dest timelock expires in 5002400s but must expire before source timelock (3600s)
+Margin between dest and source timelock expiry is -4998800s but must be at least 300s
+```
+
+> **Fix**: `calculate_dest_timelock` must take `source_current_height` and
+> `dest_current_height`, derive the remaining duration on the source chain, subtract the
+> safety margin **in seconds**, and convert that duration to destination blocks —
+> `dest_current_height + (remaining_seconds - margin_seconds) // dest_block_time`. The
+> existing signature cannot be made correct; it needs the two heights.
+
+**RESOLVED** — `da806630c` (PR #101). The signature is now
+`(source_timelock, source_current_height, source_block_time, dest_current_height,
+dest_block_time, margin_seconds=300)` and the body is the formula above.
+
+The signature changed rather than gaining optional arguments, deliberately: there is no
+correct value to default a chain height to, so every caller had to be revisited. The pre-fix
+call no longer type-checks —
+
+```
+./venv/bin/python -c "
+from aitbc.settlement.htlc import calculate_dest_timelock
+calculate_dest_timelock(1_000_720, source_block_time=5, dest_block_time=10)"
+# TypeError: calculate_dest_timelock() missing 2 required positional arguments:
+#   'source_current_height' and 'dest_current_height'
+```
+
+— which is the point. A silently-wrong swap is worse than a broken build.
+
+Two behavioural changes fall out, both intentional and both narrowing what the function
+accepts. A source timelock at or below the current height is refused rather than producing a
+negative window. A source window too short to hold the margin plus one destination block is
+refused rather than clamping to 1; the old clamp returned a timelock that did not honour the
+requested margin, which tells the caller it has a safety window it does not have.
+
+### V23-30 — production callers skip the validator and feed it epoch-derived heights · CONFIRMED → RESOLVED
+
+`apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:250-260`:
+
+```python
+source_current_height = int(time.time() // source_block_time)
+source_timelock = calculate_source_timelock(...)
+dest_timelock   = calculate_dest_timelock(...)
+```
+
+Two independent problems compound V23-29.
+
+First, `source_current_height` is not a block height. It is the Unix epoch divided by the
+block time — roughly 357 million for a 5-second chain, and it advances with wall-clock time
+whether or not the chain produces blocks. No chain in this system is at that height.
+
+Second, neither production caller validates. `validate_timelocks` exists, is exported from
+`aitbc.settlement`, and would reject these values — but:
+
+```
+grep -n validate_timelocks \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py \
+  apps/coordinator-api/.../cross_chain/bridge_client_adapter.py
+# no matches in either
+```
+
+The values go straight into `CrossChainEscrowRecord`. End to end:
+
+```
+source_current_height from time.time(): 357257894
+source_timelock: 357258624
+dest_timelock:   595431020
+```
+
+`dest_timelock` is **larger** than `source_timelock` — the module's stated invariant,
+inverted, in the default path.
+
+> **Fix**: three things, in order. Read the real height from each chain's RPC instead of
+> the clock. Call `validate_timelocks` before persisting the escrow and refuse to create it
+> on any error. Then fix V23-29, because the validator will otherwise reject every swap.
+> The escrow record should also store both current heights, so a dispute can be
+> reconstructed.
+
+**RESOLVED** — `da806630c` (PR #101). `CrossChainSettlementService` gained
+`_get_chain_height(chain_id)`, which reads the highest `Block` row for that chain and raises
+if the chain has produced none. Both heights now come from there, and `validate_timelocks`
+is called before the escrow is persisted, raising `ValueError` on any error.
+
+#### The audit missed half of this, and the miss is the interesting part
+
+The finding named the *producer*. There was a second site: the same
+`int(time.time() // block_time)` expression appeared twice in
+`apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py`, in the code that compares
+a swap's timelock against the current height to decide whether it has **expired**.
+
+That is why this survived to be found by reading rather than by failing. The producer and
+the checker were consistently wrong *together* — both worked in epoch-derived units, so a
+swap created at "height" 357258624 and checked against "height" 357257894 looked perfectly
+healthy. The system was internally coherent and externally meaningless.
+
+It surfaced only when the producer was fixed in isolation: two settlement tests immediately
+failed with `ValueError: Swap timelock expired`, because a real height of 10,000 sits far
+below an epoch-derived timelock. A partial fix was *louder* than the bug.
+
+Both checker sites now read the real chain head and refuse when it is unknown. The direction
+matters: treating "height unknown" as "not expired" would admit a claim after the refund
+window has opened, and the reverse would strand funds. Refusing does neither.
+
+#### Two things left unfixed, named rather than buried
+
+- `bridge_client_adapter` (coordinator-api) still uses a base height of **0**. No wallet
+  adapter reachable from there exposes a chain head. Its timelocks remain offsets from zero
+  — internally consistent, so the ordering invariant holds — but it is a placeholder. It is
+  now named `base_height` rather than `current_block_height`, commented as a known gap, and
+  validated, so that substituting a real height into one leg and not the other is caught
+  instead of silently inverting the ordering.
+- `_simulate_block` in `settlement.py` still derives a height from `time.time()` for proof
+  anchoring. It is honestly named, is not a timelock comparison, and was left alone rather
+  than widen the fix.
+
+The audit's suggestion that the escrow record store both current heights for dispute
+reconstruction was **not** implemented. It remains a good idea and is not tracked elsewhere.
+
+### V23-31 — the test asserts the same misconception · CONFIRMED → RESOLVED
+
+`apps/blockchain-node/tests/test_settlement.py:931-938`:
+
+```python
+source_tl = calculate_source_timelock(100, 3600, 5)
+dest_tl   = calculate_dest_timelock(source_tl, source_block_time=5, dest_block_time=3)
+source_seconds = source_tl * 5      # absolute height x block time
+dest_seconds   = dest_tl * 3
+assert dest_seconds < source_seconds
+```
+
+The test multiplies absolute heights by block times and compares the products — treating a
+height as a duration, exactly as the function under test does. It passes, and it establishes
+nothing: both sides of the assertion share the error. The property that matters is about
+remaining time from each chain's current height, and no test covers it.
+
+This is why V23-29 survived. The suite is green.
+
+> **Fix**: assert the real property, using both current heights — that the destination lock
+> expires at least `min_margin_seconds` before the source lock in wall-clock terms. The
+> cheapest version is to assert `validate_timelocks(...) == []` on the calculator's output,
+> which fails today and passes once V23-29 is fixed.
+
+**RESOLVED** — `da806630c` (PR #101). The single test became five, covering the real
+property, satisfaction of `validate_timelocks`, that the result tracks the destination head,
+that the realised margin is never *less* than requested (flooring into whole dest blocks can
+only move the lock earlier), and the two refusal paths.
+
+`tests/unit/test_settlement_sdk.py` turned out to hold five more of the same, and they are
+the clearest illustration of the failure mode in this document — the comments spelled the
+wrong formula out arithmetically:
+
+```python
+# 830 * 5 = 4150 seconds / 5 = 830 - 20 = 810
+```
+
+That is an absolute height multiplied by a block time and called seconds. The tests passed
+because both sides of every assertion shared the error. All five were rewritten against the
+real property.
+
+The mock sessions in `test_settlement.py` and `test_htlc_contract.py` had to learn about
+chain heights, because escrow creation and expiry checking now genuinely require a chain
+that has produced blocks. They never needed to model one before — the old code invented the
+height. That churn is the correct kind: the tests got harder to write because they got
+closer to the thing.
+
+---
