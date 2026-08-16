@@ -68,6 +68,7 @@ if [ ! -f "$DEPLOY_COMMON_PATH" ]; then
     trap 'rm -f "$DEPLOY_COMMON_TEMP"' EXIT
 fi
 
+# shellcheck disable=SC1090
 source "$DEPLOY_COMMON_PATH"
 
 HEALTH_CHECK_SCRIPT="/opt/aitbc/scripts/monitoring/health_check.sh"
@@ -570,8 +571,8 @@ setup_postgresql_databases() {
             db_password=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 2>/dev/null || echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)")
 
             # Store password in credentials directory
-            echo "$db_password" > /etc/aitbc/credentials/postgres_${db_user}_password
-            chmod 600 /etc/aitbc/credentials/postgres_${db_user}_password
+            echo "$db_password" > "/etc/aitbc/credentials/postgres_${db_user}_password"
+            chmod 600 "/etc/aitbc/credentials/postgres_${db_user}_password"
 
             # Create user if not exists with secure password
             sudo -u postgres psql -c "DO \$\$
@@ -655,7 +656,7 @@ setup_node_profiles() {
     echo "Select the blockchain mode for this node:"
     echo "  1) follower - Receives blocks from hub (default for open island)"
     echo "  2) hub     - Produces and broadcasts blocks"
-    read -p "Enter choice [1-2] (default: 1): " blockchain_choice
+    read -r -p "Enter choice [1-2] (default: 1): " blockchain_choice
     blockchain_choice=${blockchain_choice:-1}
 
     case "$blockchain_choice" in
@@ -677,7 +678,7 @@ setup_node_profiles() {
     echo "Select the market role for this node:"
     echo "  1) customer - Consumes GPU resources (default)"
     echo "  2) shop     - Provides GPU resources"
-    read -p "Enter choice [1-2] (default: 1): " market_choice
+    read -r -p "Enter choice [1-2] (default: 1): " market_choice
     market_choice=${market_choice:-1}
 
     case "$market_choice" in
@@ -702,14 +703,14 @@ setup_node_profiles() {
         echo "Select the hardware profile for this node:"
         echo "  1) nogpu - No GPU available"
         echo "  2) gpu   - GPU available for compute (detected: ${GPU_NAME:-unknown})"
-        read -p "Enter choice [1-2] (default: 2): " hardware_choice
+        read -r -p "Enter choice [1-2] (default: 2): " hardware_choice
         hardware_choice=${hardware_choice:-2}
     else
         log "No GPU detected via nvidia-smi"
         echo "Select the hardware profile for this node:"
         echo "  1) nogpu - No GPU available (default)"
         echo "  2) gpu   - GPU available for compute"
-        read -p "Enter choice [1-2] (default: 1): " hardware_choice
+        read -r -p "Enter choice [1-2] (default: 1): " hardware_choice
         hardware_choice=${hardware_choice:-1}
     fi
 
@@ -1060,6 +1061,7 @@ setup_venvs() {
         fi
 
         # Activate venv with error handling
+        # shellcheck disable=SC1091
         if ! source venv/bin/activate; then
             warning "Failed to activate virtual environment"
             warning "Virtual environment may be corrupted"
@@ -1074,6 +1076,7 @@ setup_venvs() {
         fi
     else
         log "Central virtual environment already exists, activating..."
+        # shellcheck disable=SC1091
         if ! source /opt/aitbc/venv/bin/activate; then
             warning "Failed to activate existing virtual environment"
             warning "Virtual environment may be corrupted"
@@ -1099,6 +1102,7 @@ setup_venvs() {
         #   customer-no-gpu — follower + customer, no GPU (lightweight CLI + wallet)
         #   server-no-gpu   — follower + shop, no GPU (core blockchain services)
         if [ -f "/etc/aitbc/blockchain.env" ]; then
+            # shellcheck disable=SC1091
             source /etc/aitbc/blockchain.env
             if [ "$HARDWARE_PROFILE" = "gpu" ]; then
                 PROFILE="provider-gpu"
@@ -1261,7 +1265,9 @@ setup_backup() {
     systemctl daemon-reload
 
     # Enable and start the timer
+    # shellcheck disable=SC2015
     systemctl enable aitbc-backup.timer 2>/dev/null && log "  Backup timer enabled" || warning "  Could not enable backup timer"
+    # shellcheck disable=SC2015
     systemctl start aitbc-backup.timer 2>/dev/null && log "  Backup timer started" || warning "  Could not start backup timer"
 
     success "Backup service configured (daily at 01:00, 30-day retention)"
@@ -1337,6 +1343,7 @@ setup_autostart() {
     log "Enabling ${#services[@]} services for role '$role'..."
 
     for svc in "${services[@]}"; do
+        # shellcheck disable=SC2015
         systemctl enable "$svc" 2>/dev/null && log "  Enabled: $svc" || warning "  Could not enable: $svc"
     done
 

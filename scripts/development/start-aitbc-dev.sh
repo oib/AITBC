@@ -3,7 +3,7 @@
 # AITBC Development Environment Startup Script
 # Starts incus containers and all AITBC services on localhost
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -50,10 +50,10 @@ service_exists_in_container() {
     local service="$2"
     case $container in
         "aitbc")
-            ssh aitbc-cascade "systemctl list-unit-files 2>/dev/null | grep -q '^${service}.service'" 2>/dev/null
+            ssh aitbc-cascade 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
             ;;
         "aitbc1")
-            ssh aitbc1-cascade "systemctl list-unit-files 2>/dev/null | grep -q '^${service}.service'" 2>/dev/null
+            ssh aitbc1-cascade 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
             ;;
         *)
             return 1
@@ -67,10 +67,10 @@ is_service_running_in_container() {
     local service="$2"
     case $container in
         "aitbc")
-            ssh aitbc-cascade "systemctl is-active --quiet '$service' 2>/dev/null" 2>/dev/null
+            ssh aitbc-cascade 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
             ;;
         "aitbc1")
-            ssh aitbc1-cascade "systemctl is-active --quiet '$service' 2>/dev/null" 2>/dev/null
+            ssh aitbc1-cascade 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
             ;;
         *)
             return 1
@@ -149,7 +149,7 @@ done
 print_status "Starting AITBC systemd services on localhost..."
 
 # Get all AITBC services (fixed to handle column alignment issues)
-aitbc_services=$(systemctl list-units --all | grep "aitbc-" | awk '{print $2}' | grep "\.service$" | grep -v "not-found")
+aitbc_services=$(systemctl list-units --all | grep "aitbc-" | awk '{print $2}' | grep "\.service$" | grep -v "not-found") || true
 
 # Filter out invalid service names
 filtered_services=""
@@ -167,11 +167,13 @@ if [ -z "$aitbc_services" ]; then
     print_warning "No AITBC services found on localhost"
 else
     print_status "Found AITBC services:"
-    echo "$aitbc_services" | sed 's/^/  - /'
+    for svc in $aitbc_services; do
+        echo "  - $svc"
+    done
 
     # Start each service
     for service in $aitbc_services; do
-        service_name=$(echo "$service" | sed 's/\.service$//')
+        service_name=${service%.service}
         print_status "Starting service: $service_name"
 
         if is_service_running "$service_name"; then
@@ -197,7 +199,7 @@ print_status "Checking service status with location information..."
 if [ -n "$aitbc_services" ]; then
     print_status "Local Systemd Services Status:"
     for service in $aitbc_services; do
-        service_name=$(echo "$service" | sed 's/\.service$//')
+        service_name=${service%.service}
         if is_service_running "$service_name"; then
             print_success "$service_name: RUNNING (LOCAL)"
         else
