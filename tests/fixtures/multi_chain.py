@@ -18,7 +18,7 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, create_engine
 
 # Ensure blockchain-node src is on path
 _BLOCKCHAIN_SRC = os.path.join(os.path.dirname(__file__), "..", "..", "apps", "blockchain-node", "src")
@@ -69,7 +69,8 @@ class MultiChainSetup:
 
 def _create_in_memory_engine(chain_id: str, tmp_path: str) -> Any:
     """Create an in-memory SQLite engine for a chain."""
-    # Import all models to ensure they are registered with SQLModel.metadata
+    # Import all models to ensure they are registered on the chain's metadata
+    from aitbc_chain.metadata import chain_metadata
     from aitbc_chain.models import Account, Block, Escrow, Receipt, Transaction  # noqa: F401
 
     db_path = os.path.join(tmp_path, f"{chain_id}.db")
@@ -78,7 +79,7 @@ def _create_in_memory_engine(chain_id: str, tmp_path: str) -> Any:
         connect_args={"check_same_thread": False},
         echo=False,
     )
-    SQLModel.metadata.create_all(engine)
+    chain_metadata.create_all(engine)
     return engine
 
 
