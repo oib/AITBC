@@ -3,6 +3,7 @@
 Extract OpenAPI specs from FastAPI applications and publish to docs/api/
 """
 
+import argparse
 import json
 import os
 import sys
@@ -35,12 +36,19 @@ os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 os.environ.setdefault("SECRET_KEY", "openapi-spec-extraction-placeholder-key")
 os.environ.setdefault("JWT_SECRET", "openapi-spec-extraction-placeholder-jwt")
 
+# Assigned, not `setdefault`: this one decides what gets published, so it cannot be left to
+# whatever the caller happens to have exported. coordinator-api gates 38 routes on
+# `settings.debug` -- the agent, swarm and dashboard mock endpoints, in-memory and
+# unauthenticated, whose own comments say "never enabled in production" -- and it also gates
+# `/docs` and `/redoc`. Generating with DEBUG set therefore publishes a spec advertising mock
+# endpoints as the API. `tests/integration/conftest.py` sets `DEBUG=true` for the session, so
+# this is not hypothetical: any generation from inside a test process produced the wrong spec,
+# which is how it was found (V23-82). The published spec is the production surface.
+os.environ["DEBUG"] = "false"
+
 REPO_DIR = Path(__file__).parent.parent
 DOCS_DIR = REPO_DIR / "docs"
 API_DOCS_DIR = DOCS_DIR / "api"
-
-# Create api docs directory
-API_DOCS_DIR.mkdir(exist_ok=True)
 
 # FastAPI applications to extract specs from
 APPS = [
@@ -98,14 +106,30 @@ def extract_openapi_spec(app_config: dict) -> dict | None:
 
 def main():
     """Extract OpenAPI specs from all configured applications."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=API_DOCS_DIR,
+        help=(
+            "Where to write the specs (default: docs/api). The drift check points this at a "
+            "temporary directory so that asking whether the specs are current does not "
+            "rewrite them."
+        ),
+    )
+    args = parser.parse_args()
+    out_dir: Path = args.output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     print("Extracting OpenAPI specs...")
 
+    failed = []
     for app_config in APPS:
         print(f"  Extracting {app_config['name']}...")
         spec = extract_openapi_spec(app_config)
 
         if spec:
-            output_path = API_DOCS_DIR / app_config["output"]
+            output_path = out_dir / app_config["output"]
             with open(output_path, "w") as f:
                 json.dump(spec, f, indent=2)
                 # Trailing newline: pre-commit's end-of-file-fixer adds one, so without it
@@ -115,9 +139,22 @@ def main():
             print(f"    ✓ Saved to {output_path}")
         else:
             print(f"    ✗ Failed to extract {app_config['name']}")
+            failed.append(app_config["name"])
 
-    print(f"\nOpenAPI specs saved to {API_DOCS_DIR}")
+    print(f"\nOpenAPI specs saved to {out_dir}")
+
+    # An app that will not import used to be reported on stdout and then forgotten: the
+    # script exited 0, its stale spec stayed on disk untouched, and `make openapi-check`
+    # diffed that stale file against itself and passed. The drift guard therefore reported
+    # "no drift" for a service it had not managed to look at (V23-82). Extraction failing is
+    # itself the finding -- either the app is broken or the placeholder environment above no
+    # longer satisfies it -- so it fails the run.
+    if failed:
+        print(f"Extraction failed for: {', '.join(failed)}", file=sys.stderr)
+        print("The specs for those apps are unchanged and cannot be trusted.", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

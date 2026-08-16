@@ -6382,3 +6382,141 @@ fail it depending on order. Confirmed by three runs under random ordering, not j
 pinned one.
 
 Root **6,432**, exit 0.
+
+### V23-82 — the drift guard nothing invoked, and the reason it could not have failed anyway · CONFIRMED → RESOLVED
+
+`make openapi-check` has existed since v0.22 and works. Nothing ran it. It was therefore red
+on main for most of v0.23 without anyone hearing about it — agent-coordinator missing a route,
+blockchain-node missing a route, and coordinator-api's money fields still published as
+`"type": "number"` after the Decimal work, so a client generated from the spec would have
+parsed a decimal string as a float. V23-80 fixed those three and filed this: wire the guard
+to something that runs.
+
+Three things had to change before it could be wired to anything.
+
+#### It could not fail
+
+The extractor printed `✗ Failed to extract <app>` for an app that would not import, and then
+exited **0**. The stale spec stayed on disk untouched, `git diff` compared it against itself,
+and the check reported no drift for a service it had never managed to look at. Reproduced by
+handing it a `JWT_SECRET` shorter than the apps demand:
+
+```
+✗ Failed to extract agent-coordinator
+OpenAPI specs saved to /opt/aitbc/docs/api
+EXIT CODE: 0
+```
+
+Two of the five apps failed that run and the guard was green. It now collects the failures and
+exits non-zero, because an app that will not import is itself the finding — either the app is
+broken or the placeholder environment the extractor sets no longer satisfies it, and both are
+worth stopping for.
+
+#### Asking the question rewrote the answer
+
+`openapi-check` depended on `openapi`: it regenerated **into the working tree** and asked git
+what had changed. Serviceable by hand, wrong in a hook — pre-commit stashes unstaged changes
+around a hook run, and a hook that writes files can collide with the restore. The check now
+generates into a temporary directory and compares only the generated files; `docs/api/` also
+holds hand-written markdown and two subdirectories that a recursive diff would have reported as
+differences. Which files those are is read back from what the generator produced rather than
+listed in the script — a hand-written list would be one more thing that could fall quietly out
+of step with the apps, which is the bug being fixed. A test asserts `git status -- docs/api` is
+unchanged across a run, so the check can never again be what makes the specs current.
+
+#### The stage that runs is not the one that looks like it runs
+
+The obvious home was pre-push: heavier checks belong there, and the config already ends with a
+bandit hook marked `stages: [pre-push]`. That hook has never executed. `.git/hooks/pre-push`
+in this clone belongs to **git-lfs** — `pre-commit install` was only ever run for the
+pre-commit and commit-msg types. Putting the drift guard there would have reproduced exactly
+the bug it exists to fix, in a form even harder to notice, because the config would have looked
+right. Filed separately; a test pins the drift hook to `pre-commit` and records why, so moving
+it later is a deliberate act rather than a plausible-looking edit.
+
+#### The scoping is measured, and the measurement is a test
+
+The filed description put the cost at ~40s. It is **6s**, steady state over three runs — the
+40s figure came from a cold measurement. That changes the answer: 6s on every commit against a
+7s pre-commit run is still close to a doubling, so the hook is scoped with `files:`. Over the
+last 80 commits on main the pattern fires on **21** of them.
+
+Scoping is where this could quietly go wrong, so the pattern is not a guess. Generating the
+specs imports **593** of the repo's own modules:
+
+| | files |
+|---|---|
+| `apps/{coordinator-api,blockchain-node,agent-coordinator,wallet,marketplace}/src/` | 464 |
+| `aitbc/` | 109 |
+| `packages/py/` | 18 |
+| `scripts/` (the extractor and the enricher) | 2 |
+
+`apps/*/src/` — the obvious pattern, and the one the filed description suggested — misses
+**127** of those. `aitbc/models/` is in the miss: the shared models, where the money fields
+live whose float-vs-Decimal publication was one of the three drifts this guard failed to
+report. A hook scoped that way would have slept through the commit that caused the problem it
+is being wired up to catch.
+
+`test_the_files_pattern_covers_everything_the_specs_are_built_from` re-derives the import set
+and fails if the pattern stops covering it, so the scoping cannot rot as the apps grow.
+Confirmed by narrowing the pattern to `apps/*/src/` on purpose and watching it fail, naming
+`aitbc/models/coin_request.py` among others.
+
+#### What the spec said depended on who generated it
+
+Wiring the check to a hook is what found this. The end-to-end test passed on its own and
+**failed inside the full suite**, reporting 2,032 lines of drift in
+`coordinator-api-openapi.json` — a check that disagrees with itself depending on the process
+it runs in is not a check. The variable is `DEBUG`, which `tests/integration/conftest.py` sets
+for the session and which the extractor inherited.
+
+coordinator-api gates **38 routes** on `settings.debug`:
+
+| | |
+|---|---|
+| `/v1/agent/*` — register, heartbeat, status, messages | `agent_messaging.py`: in production the module exports an empty router |
+| `/v1/swarm/*` — clusters, join, coordinate, dashboard | `swarm.py`: "Mock routes are gated behind `settings.debug` — never enabled in production" |
+| `/v1/dashboard`, `/v1/dashboard/history`, `/v1/miners` | `monitor.py`: the entire router body sits under the gate |
+
+They are in-memory, unauthenticated, and say so about themselves. `settings.debug` also decides
+whether `/docs` and `/redoc` exist.
+
+So `make openapi` produced one of two different specs depending on the caller's shell. The
+committed one happens to be right, because whoever last ran it did not have `DEBUG` set — but
+a developer who does, and it is an ordinary thing to export, would have regenerated a
+published contract advertising 38 mock endpoints as the API. Wiring the guard up without
+fixing this would have made that developer's every commit fail, or worse, be fixed by
+committing that spec.
+
+The extractor now **assigns** `DEBUG=false` rather than inheriting it — `os.environ[...]`, not
+`setdefault`, because this one decides what gets published and cannot be left to the caller.
+Verified invariant under `DEBUG=true`, `DEBUG=1`, `TEST_MODE=true` and
+`AITBC_SKIP_ENV_FILES=1`. Two tests hold it: one generates under a hostile environment and
+compares byte for byte, the other asserts the 38 routes are absent from the committed spec.
+The second is not redundant — if someone deletes an `if settings.debug:` gate, generation is
+still environment-invariant and only the second test objects.
+
+#### The test that could not fail either
+
+That narrowing is also how the test's first draft was caught. It ran the extractor in-process
+and diffed `sys.modules` before and after — so once anything else in the session had imported
+the apps, the difference was empty and the assertion ran over nothing. Deliberately breaking
+the pattern produced `.R...`: a rerun, then a pass. It now generates in a subprocess, where
+there are no ambient imports to hide behind, and asserts the collected set is non-trivial
+before asserting anything about its contents. Two guards of the same shape in one change,
+both of which reported success without having looked.
+
+#### Verification
+
+6 new tests, and each was falsified before being kept: the pattern test against a narrowed
+pattern, the extractor test against the pre-fix exit code, the end-to-end test against a
+doctored `wallet-openapi.json`, the environment test against `setdefault` in place of the
+assignment, and the debug-route test against a spec generated with `DEBUG=true` — which it
+catches 38 of 38 with no false positives on the committed spec.
+`pre-commit run openapi-drift --files aitbc/models/__init__.py` passes; the same against
+`docs/api/README.md` is skipped, which is the scoping working. `make openapi-check` leaves
+`git status -- docs/api` unchanged. ruff, ruff-format, mypy and the docs link check clean.
+Root **6,438**, exit 0.
+
+No spec content changed: `docs/api/` is byte-identical to what is already committed, which is
+the point — the guard was right, nobody was running it.

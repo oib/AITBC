@@ -43,9 +43,9 @@ openapi:
 # services with nothing saying which was current -- the coordinator ones had diverged to
 # the point of sharing a single path out of 354. Regenerating and diffing means a spec
 # cannot silently fall behind the app again.
-openapi-check: openapi
-	@git diff --exit-code --stat -- docs/api/ \
-		|| (echo ""; \
-		    echo "docs/api/ is out of date with the applications."; \
-		    echo "Run 'make openapi' and commit the result."; \
-		    exit 1)
+#
+# The check lives in a script rather than here because a pre-commit hook now runs it too
+# (V23-82), and because it no longer works by regenerating in place and asking git what
+# changed -- that made asking the question rewrite the answer.
+openapi-check:
+	@PYTHON="$(PYTHON)" bash scripts/ci/check-openapi-drift.sh
