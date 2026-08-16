@@ -5869,3 +5869,85 @@ quoting, so a future `order` or `group` column is named by a test rather than by
 not start.
 
 Blockchain-node **645** collected (640 + 5), 12 skipped; root **6,366**, exit 0.
+
+### V23-78 — a log format switch that has not been read since June · CONFIRMED → RESOLVED
+
+`setup_logger` and `configure_logging` both took a `structured: bool` they never read;
+`setup_logger` also took a `format_string` it never read. That is the reported finding, and it
+is only the near end of it. The same switch had a third face — a `LOG_FORMAT` environment
+variable, read by `_get_log_format()`, which had no callers — and *that* one was wired into
+production: `LOG_FORMAT=json` was set in **five systemd units** and asserted by **two release
+gates**, one of which fails the release if it is missing.
+
+**It was disconnected on purpose, and the cleanup was never done.** `1b81d840` (19 Jun 2026,
+"switch systemd journal logging to compact human-readable format") replaced the conditional
+that chose between formatters:
+
+```python
+-        if structured or _get_log_format() == "json":
+-            include_timestamp = to_file
+-            formatter: logging.Formatter = StructuredFormatter(include_timestamp=include_timestamp)
+-        else:
+-            if format_string is None:
+-                format_string = "[%(levelname)s] %(message)s"
+-            formatter = logging.Formatter(format_string)
+-        console_handler.setFormatter(formatter)
++        console_handler.setFormatter(JournalFormatter())
+```
+
+Its reasoning was sound and is not disturbed here: JSON in the systemd journal is unreadable,
+journald keeps its own structure, and file output — which is what aggregators consume — was
+already `StructuredFormatter` unconditionally. Console text, file JSON. The defect is that the
+commit removed the conditional and left every way of asking for the branch it deleted.
+
+So this finishes that commit rather than reversing it. Restoring the switch would have been the
+other option and is the wrong one twice over: it would revert a deliberate decision, and it
+would do so by flipping five deployed services to JSON journal output at their next restart.
+
+Removed: `structured` and `format_string` from `setup_logger`, `structured` from
+`configure_logging`, `_get_log_format()`, and its re-export from `aitbc/log_utils/logging.py`.
+
+Removed with them, because leaving them would leave the tree asserting something false:
+
+* `Environment=LOG_FORMAT=json` from `aitbc-blockchain-node.service`,
+  `aitbc-blockchain-p2p.service`, `aitbc-coordinator-api.service`, `aitbc-marketplace.service`
+  and `aitbc-pool-hub.service` — along with the comment above four of them explaining that it
+  is placed after `EnvironmentFile=` so secrets cannot clobber it. Someone debugged that
+  ordering problem for a setting that does nothing.
+* `check_json_logging()` from `scripts/check-production-readiness.py`, and step 6 of
+  `scripts/release/check-v0.5.0.sh`, which exits 1 when coordinator-api lacks the variable.
+  Both would have started failing the moment the units were cleaned, which is a fair summary
+  of what they were worth: they verified that an operator had set a variable, never that any
+  logging happened.
+* The two `LOG_FORMAT` lines in `docs/deployment/STAGING.md`.
+
+**No caller passed either parameter.** `setup_logger` has no production callers at all — every
+call in the tree is in tests — and all 40-odd `configure_logging` sites pass keywords only, so
+removing a parameter from the middle of the signature shifts nothing. That is worth stating
+explicitly: `structured` sat between `level` and `service_name`, and a single positional caller
+would have made this a silent behaviour change instead of a deletion.
+
+Left alone deliberately: `docs/releases/v0.4.25/logging-patterns.md`, `v0.5.0/change.log` and
+`v0.5.1/change.log` all describe `LOG_FORMAT` as live. They are versioned records of releases
+that shipped before it was disconnected, and they were accurate when written. Rewriting them
+would be rewriting history — but note that `logging-patterns.md` reads as guidance rather than
+as a change record, so anyone who finds it will be misinformed. There is no unversioned logging
+doc for it to be corrected into; that is its own gap.
+
+The tests are the other half. Seven call sites passed one of the dead parameters, and four of
+them then attached a handler of their own — three carrying a `StructuredFormatter`, one a plain
+`logging.Formatter` — so every assertion in those four ran through a formatter the test itself
+installed. They would have passed identically with the argument deleted, which is exactly what
+has now happened to them. The fourth, `test_traditional_format_string`, differed from the test
+directly above it by nothing but the dead kwarg, and is deleted rather than kept.
+
+Replacing the three that asserted against the parameters are two that state the contract the
+refactor actually chose: console is always `JournalFormatter`, and a file handler, when one is
+configured, is always `StructuredFormatter`. Both assert the full handler list rather than
+`handlers[0]`, so a second handler appearing is a failure rather than something skipped over.
+
+Nothing was restarted and no unit was reloaded. The five unit files are symlinked into this
+working tree from `/etc/systemd/system`, so the edits are live on disk, but removing a variable
+no code reads cannot change a running service, and the next ordinary restart picks it up.
+
+Root **6,365**, exit 0.
