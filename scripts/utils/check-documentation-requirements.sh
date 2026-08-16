@@ -1,7 +1,7 @@
 #!/bin/bash
-# File: /home/oib/windsurf/aitbc/scripts/check-documentation-requirements.sh
+# scripts/utils/check-documentation-requirements.sh
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'

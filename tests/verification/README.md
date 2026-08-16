@@ -20,7 +20,6 @@ This directory contains various test scripts and utilities for testing the AITBC
 ### Test Runners
 - **run_test_suite.py** - Main test suite runner
 - **run_tests.py** - Simple test runner
-- **verify_windsurf_tests.py** - Verify Windsurf test configuration
 - **register_test_clients.py** - Register test clients for testing
 
 ## Usage

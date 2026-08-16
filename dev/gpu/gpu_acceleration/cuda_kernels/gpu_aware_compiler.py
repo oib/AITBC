@@ -16,8 +16,15 @@ from pathlib import Path
 class GPUAwareCompiler:
     """GPU-aware ZK circuit compiler with memory optimization"""
 
+    # This used to default to /home/oib/windsurf/aitbc/apps/zk-circuits, a checkout that
+    # exists on one workstation. Everywhere else the compiler pointed at nothing and every
+    # circuit path resolved under a directory that was not there. The default is now derived
+    # from this file's own location -- five parents up from cuda_kernels/ is the repo root --
+    # so it follows the checkout. $AITBC_ZK_CIRCUITS_DIR overrides it for a tree elsewhere.
+    _REPO_ROOT = Path(__file__).resolve().parents[4]
+
     def __init__(self, base_dir: str = None):
-        self.base_dir = Path(base_dir or "/home/oib/windsurf/aitbc/apps/zk-circuits")
+        self.base_dir = Path(base_dir or os.environ.get("AITBC_ZK_CIRCUITS_DIR") or self._REPO_ROOT / "apps/zk-circuits")
         # A fixed /tmp/zk_gpu_cache is shared with every other account on the host, and
         # `mkdir(exist_ok=True)` would happily adopt a directory one of them created. The
         # cache is keyed by circuit hash and rebuilt when absent, so a per-user directory
