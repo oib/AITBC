@@ -221,6 +221,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -276,6 +286,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "425": {
+            "description": "job not ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -337,6 +367,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "job not cancelable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -394,6 +444,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found / receipt not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -770,6 +830,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Failed to create test miner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -813,6 +883,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "invalid api key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1109,6 +1189,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "invalid status filter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1189,6 +1279,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Failed to list plugins",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1239,6 +1339,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1523,6 +1633,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "GPU {gpu_id} is currently booked. Use force=true to delete anyway.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1582,6 +1702,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment failed: {payment_status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GPU {request.gpu_id} is not available for purchase",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1718,6 +1858,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Booking duration must be greater than 0 hours / Booking duration cannot exceed 8760 hours (1 year) / Booking end time must be in the future",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GPU {gpu_id} is not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1850,6 +2010,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Active booking for {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GPU {gpu_id} is not booked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1912,6 +2092,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Ollama task dispatch is not implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1971,6 +2161,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Amount must be greater than zero / task_id or booking_id is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment failed: {e} / Payment failed with status {payment.status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2084,6 +2294,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Rating must be between 1 and 5",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to add review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2193,6 +2423,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No GPUs found for model {model}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2347,6 +2587,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2432,6 +2682,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "miner not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2530,6 +2790,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2583,6 +2853,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2652,6 +2932,10 @@
               "anyOf": [
                 {
                   "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
                 },
                 {
                   "type": "null"
@@ -2831,6 +3115,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "miner not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2875,6 +3179,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "miner not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2944,6 +3268,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3008,6 +3352,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3029,6 +3403,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response List Islands V1 Islands  Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Edge API unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3077,6 +3461,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Island {island_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Edge API unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3098,6 +3502,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Join Island V1 Islands Join Post"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Edge API unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3125,6 +3539,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Edge API unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3146,6 +3570,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Request Bridge V1 Islands Bridge Post"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Edge API unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3240,6 +3674,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Wallet encryption password is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3330,6 +3774,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "chain_id parameter is required / Invalid wallet address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3502,6 +3966,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "chain_id parameter is required / Private key must not be supplied in transaction data / Wallet encryption password is not configured / Invalid addresses provided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Wallet has no ID / Error executing transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -3632,6 +4116,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "chain_id parameter is required / Invalid wallet address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting transaction history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3718,6 +4222,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "chain_id parameter is required / Wallet encryption password is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Wallet has no ID / Error signing message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3797,6 +4321,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "chain_id parameter is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error verifying signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3859,6 +4403,10 @@
               "anyOf": [
                 {
                   "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
                 },
                 {
                   "type": "null"
@@ -3973,6 +4521,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "source_chain_id and target_chain_id are required / amount is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error creating bridge request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4015,6 +4583,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting bridge request status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4088,6 +4666,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error cancelling bridge request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4134,6 +4722,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting bridge statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4158,6 +4756,16 @@
                   },
                   "type": "array",
                   "title": "Response Get Liquidity Pools V1 Cross Chain Bridge Liquidity Pools Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting liquidity pools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4223,7 +4831,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount"
             }
           },
@@ -4371,6 +4987,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error submitting transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4609,6 +5235,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting transaction statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4635,7 +5271,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount"
             }
           },
@@ -4712,6 +5356,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error optimizing routing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4736,6 +5390,16 @@
                   },
                   "type": "array",
                   "title": "Response Get Supported Chains V1 Cross Chain Chains Supported Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting supported chains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4784,6 +5448,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting chain info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4805,6 +5479,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Cross Chain Health V1 Cross Chain Health Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4832,6 +5516,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4853,6 +5547,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Bridge Whitelist V1 Cross Chain Bridge Whitelist Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting bridge whitelist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4926,6 +5630,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error adding whitelist entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4965,6 +5679,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Proof generation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5010,6 +5744,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5031,6 +5775,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Circuit Info V1 Zk Info Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5586,6 +6340,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Price not available for {pair}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5607,6 +6381,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get All Prices V1 Oracle Prices Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5669,6 +6453,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5764,6 +6558,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dispute service not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5808,6 +6632,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dispute service not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5849,6 +6703,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a registered arbitrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dispute service not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5921,6 +6815,36 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Dispute {dispute_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dispute service not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5989,6 +6913,26 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dispute service not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6031,6 +6975,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dispute service not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6083,6 +7047,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6159,6 +7133,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6316,6 +7300,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bounty not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6543,6 +7537,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6584,6 +7588,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6631,6 +7655,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6672,6 +7706,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create Filecoin deal / Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6732,6 +7776,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6776,6 +7830,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Failed to delete CID {request.cid}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6797,6 +7871,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Storage Stats V1 Ipfs Stats Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6943,6 +8027,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6999,6 +8093,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found for this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7073,6 +8177,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Failed to release payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7144,6 +8268,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Failed to refund payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7203,6 +8347,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7244,6 +8398,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ollama service not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7331,6 +8515,26 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ollama service not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7352,6 +8556,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response List Models V1 Inference Models Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ollama service not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -7397,6 +8611,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ollama service not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8347,6 +9591,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid wallet address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8386,6 +9640,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid wallet address / Email already registered / Wallet already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired nonce / Invalid wallet signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8431,6 +9705,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid wallet address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired nonce / Invalid wallet signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found for wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8450,6 +9754,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8493,6 +9817,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Wallet not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8588,6 +9922,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8627,6 +9971,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid amount / Amount mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8670,6 +10024,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8724,6 +10088,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Payment confirmation is disabled until on-chain transaction verification is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8835,6 +10209,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to process metric",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9012,6 +10396,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -9133,6 +10527,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9205,6 +10609,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9291,6 +10725,36 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -9365,6 +10829,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9453,6 +10947,46 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Orchestration simulation is disabled; workflow execution is not production-ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9525,6 +11059,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9662,6 +11216,26 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9745,6 +11319,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9859,6 +11463,36 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9905,6 +11539,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9947,6 +11591,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10002,6 +11666,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10062,6 +11746,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Deactivation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10119,6 +11823,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10163,6 +11877,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10232,6 +11956,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "new_address is required / Update failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10298,6 +12042,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Agent identity not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10352,6 +12116,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10412,6 +12186,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -10452,6 +12236,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10506,6 +12300,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10572,6 +12376,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10662,6 +12476,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10716,6 +12540,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Wallet not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10767,6 +12611,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Wallet not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10833,6 +12697,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Agent wallet signing is disabled until secure key custody is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10989,6 +12863,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11034,6 +12918,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11055,6 +12949,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Registry Health V1 Agent Identity Registry Health Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11082,6 +12986,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11106,6 +13020,16 @@
                   },
                   "type": "array",
                   "title": "Response Get Supported Chains V1 Agent Identity Chains Supported Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11173,6 +13097,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11219,6 +13153,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Failed to create agent identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11240,6 +13184,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Cleanup Expired Verifications V1 Agent Identity Registry Cleanup Expired Post"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11292,6 +13246,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11349,6 +13313,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Identity mapping not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11403,6 +13387,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Address mapping not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11445,6 +13449,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error registering developer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11491,6 +13505,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Developer profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting developer profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11547,6 +13581,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error updating developer profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11622,6 +13666,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting leaderboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11668,6 +13722,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting developer stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11710,6 +13774,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error creating bounty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11799,6 +13873,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error listing bounties",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11880,6 +13964,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting submissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -11902,6 +13996,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Bounty Statistics V1 Developer Platform Bounties Stats Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting bounty statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11948,6 +14052,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting bounty details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12004,6 +14118,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error submitting bounty solution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12096,6 +14220,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error reviewing submission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12141,6 +14275,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error granting certification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12166,6 +14310,16 @@
                   },
                   "type": "array",
                   "title": "Response Get Certification Types V1 Developer Platform Certifications Types Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting certification types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12218,6 +14372,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Developer profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting certifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12261,6 +14435,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Certification not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error verifying certification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12337,6 +14531,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error creating regional hub",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -12360,6 +14564,16 @@
                     "additionalProperties": true
                   },
                   "title": "Response Get Regional Hubs V1 Developer Platform Hubs Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error getting regional hubs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12428,6 +14642,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting hub developers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12465,7 +14689,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount"
             }
           }
@@ -12489,6 +14721,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Developer staking is disabled until on-chain staking is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12538,6 +14780,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Staking information is disabled until on-chain staking is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12566,7 +14818,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount"
             }
           }
@@ -12590,6 +14850,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Developer unstaking is disabled until on-chain staking is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12639,6 +14909,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Reward information is disabled until on-chain reward distribution is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12685,6 +14965,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Reward claiming is disabled until on-chain reward distribution is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12707,6 +14997,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Staking Statistics V1 Developer Platform Staking Stats Get"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Staking statistics are disabled until on-chain staking is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12760,6 +15060,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Error getting platform health",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12799,6 +15109,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12871,6 +15201,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -12911,6 +15251,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Developer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12965,6 +15325,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13010,7 +15390,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Budget Allocation"
             }
           }
@@ -13048,6 +15436,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13101,6 +15499,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13158,7 +15566,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount Requested"
             }
           },
@@ -13191,6 +15607,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13265,6 +15691,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13317,6 +15753,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13344,7 +15790,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount"
             }
           },
@@ -13395,6 +15849,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Treasury allocation is disabled until on-chain treasury operations are implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13485,6 +15949,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13557,6 +16031,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Staking pool creation is disabled until on-chain staking is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -13610,6 +16094,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13646,7 +16140,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Amount"
             }
           },
@@ -13679,6 +16181,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13724,6 +16236,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Staking reward distribution is disabled until on-chain reward distribution is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13779,6 +16301,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13821,6 +16353,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13885,6 +16427,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13939,6 +16491,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13984,6 +16546,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14008,6 +16580,16 @@
                   },
                   "type": "array",
                   "title": "Response Get Supported Jurisdictions V1 Governance Enhanced Jurisdictions Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14065,6 +16647,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14089,6 +16681,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14110,6 +16712,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Governance Platform Status V1 Governance Enhanced Status Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14152,6 +16764,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14246,6 +16878,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14286,6 +16928,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Grant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14342,6 +17004,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -14387,6 +17069,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14427,6 +17119,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14483,6 +17195,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14533,6 +17265,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14594,6 +17346,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create proposal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14721,6 +17483,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Failed to list proposals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14778,6 +17550,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Proposal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to fetch proposal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14851,6 +17643,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to record vote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -14908,6 +17720,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to execute proposal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15030,6 +17862,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Attestation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15090,6 +17932,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid status: {payload.status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15146,6 +17998,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Enclave not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15270,6 +18132,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15354,6 +18226,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15473,6 +18355,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15526,6 +18418,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15576,6 +18488,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15641,6 +18573,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15681,6 +18633,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15736,6 +18708,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15778,6 +18770,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15827,6 +18829,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15870,6 +18882,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15919,6 +18941,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -15962,6 +18994,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16046,6 +19088,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not supported for staking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16099,6 +19171,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to view this stake",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stake not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16282,6 +19394,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16348,6 +19480,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Stake is not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to modify this stake",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stake not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16405,6 +19577,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Stake is not active / Lock period has not ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to unbond this stake",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stake not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16466,6 +19678,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Stake is not unbonding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to complete this stake",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stake not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16524,6 +19776,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to view this stake",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stake not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16564,6 +19856,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16601,6 +19913,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Staking pool not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16659,6 +19991,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16732,6 +20074,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to update performance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16797,6 +20169,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to distribute earnings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16881,6 +20283,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16925,6 +20337,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -17124,6 +20546,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -17186,6 +20628,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -17252,6 +20714,46 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "No rewards to claim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No wallet linked to user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to claim rewards for stake {stake_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stake {stake_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -17291,6 +20793,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -17398,6 +20910,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -17419,6 +20941,16 @@
                     "$ref": "#/components/schemas/AgentSecurityPolicy"
                   },
                   "title": "Response List Security Policies V1 Agents Security Policies Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -17478,6 +21010,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -17553,6 +21095,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Policy not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -17641,6 +21203,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Policy not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -17718,6 +21300,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Policy not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -17792,6 +21394,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -18025,6 +21657,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -18097,6 +21739,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Audit log not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -18266,6 +21928,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -18347,6 +22019,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trust score not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -18491,6 +22183,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -18603,6 +22305,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -18680,6 +22392,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -18754,6 +22476,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -18843,6 +22575,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -18908,6 +22650,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -18979,6 +22731,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19018,6 +22780,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19121,6 +22893,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19161,6 +22943,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trade request not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19211,6 +23013,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -19256,6 +23078,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19295,6 +23127,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19398,6 +23250,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19438,6 +23300,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Negotiation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19484,6 +23366,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Trade match not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19524,6 +23426,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19629,6 +23541,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19713,6 +23635,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -19754,6 +23686,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19800,6 +23742,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -19840,6 +23802,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19893,6 +23865,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19957,6 +23939,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20001,6 +23993,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20041,6 +24043,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20130,6 +24142,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20149,6 +24171,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReputationMetricsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20216,6 +24248,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20275,6 +24317,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Reputation profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20329,6 +24391,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Reputation profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20371,6 +24453,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reputation profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20424,6 +24526,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reputation profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20495,6 +24617,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20551,6 +24683,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Missing required field: {field}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reputation profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20603,6 +24765,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20622,6 +24794,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RewardProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "agent_id parameter required. Use /profile/{agent_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20668,6 +24850,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -20708,6 +24910,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20753,6 +24965,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Reward distribution is disabled until on-chain reward distribution is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -20793,6 +25015,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reward profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20843,6 +25085,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Batch reward processing is disabled until on-chain reward distribution is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -20925,6 +25177,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21015,6 +25277,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -21039,6 +25311,16 @@
                   },
                   "type": "array",
                   "title": "Response Get Reward Tiers V1 Rewards Tiers Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21102,6 +25384,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21185,6 +25477,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -21229,6 +25531,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Reward simulation is disabled until on-chain reward distribution is implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -21252,6 +25564,16 @@
                   },
                   "type": "array",
                   "title": "Response List Knowledge Graphs V1 Knowledge Graphs Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21295,6 +25617,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -21335,6 +25667,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21388,6 +25730,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21470,6 +25822,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -21514,6 +25876,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22420,6 +26792,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -22462,6 +26844,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22520,6 +26922,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -22559,6 +26971,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22631,6 +27053,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -22670,6 +27112,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22715,6 +27167,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -22754,6 +27216,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22801,6 +27273,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22856,6 +27338,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22968,6 +27460,24 @@
                 "schema": {}
               }
             }
+          },
+          "503": {
+            "description": "Service not ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    },
+                    "status": {
+                      "title": "Status"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -23016,9 +27526,10 @@
             "default": 3600
           },
           "max_cost_budget": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,21}0*$)\\d{0,12}\\.\\d{0,8}0*$)",
             "title": "Max Cost Budget",
-            "default": 0.0
+            "default": "0.0"
           },
           "requires_verification": {
             "type": "boolean",
@@ -23348,6 +27859,10 @@
                 "type": "number"
               },
               {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -23408,13 +27923,15 @@
             "title": "Estimated Completion"
           },
           "current_cost": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Current Cost"
           },
           "estimated_total_cost": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               },
               {
                 "type": "null"
@@ -23523,7 +28040,8 @@
             "title": "Total Execution Time"
           },
           "total_cost": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Cost"
           },
           "verification_proof": {
@@ -24074,9 +28592,17 @@
             "default": 3600
           },
           "max_cost_budget": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Max Cost Budget",
-            "default": 0.0
+            "default": "0.0"
           },
           "requires_verification": {
             "type": "boolean",
@@ -24177,6 +28703,10 @@
             "anyOf": [
               {
                 "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               },
               {
                 "type": "null"
@@ -24638,7 +29168,15 @@
             "default": "intermediate"
           },
           "reward_amount": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Reward Amount"
           },
           "creator_address": {
@@ -25931,16 +30469,32 @@
             "description": "User identifier"
           },
           "aitbc_amount": {
-            "type": "number",
-            "maximum": 1000000.0,
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Aitbc Amount",
             "description": "AITBC amount to exchange"
           },
           "eth_amount": {
-            "type": "number",
-            "maximum": 10000.0,
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Eth Amount",
             "description": "ETH amount to receive"
           }
@@ -25965,11 +30519,13 @@
             "title": "User Id"
           },
           "aitbc_amount": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Aitbc Amount"
           },
           "eth_amount": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Eth Amount"
           },
           "payment_address": {
@@ -27215,8 +31771,16 @@
             "description": "Response time in milliseconds"
           },
           "earnings": {
-            "type": "number",
-            "minimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Earnings",
             "description": "Earnings in AITBC"
           }
@@ -27871,7 +32435,8 @@
             "title": "Community Rating"
           },
           "total_earnings": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Earnings"
           },
           "transaction_count": {
@@ -27977,7 +32542,8 @@
             "title": "Capacity"
           },
           "price": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Price"
           },
           "sla": {
@@ -28041,7 +32607,8 @@
           "price_per_hour": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               },
               {
                 "type": "null"
@@ -28096,7 +32663,8 @@
             "title": "Opencapacity"
           },
           "averagePrice": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Averageprice"
           },
           "activeBids": {
@@ -28252,7 +32820,8 @@
             "title": "Progress Percentage"
           },
           "reward_amount": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Reward Amount"
           },
           "is_completed": {
@@ -29005,7 +33574,8 @@
             "title": "Resource Efficiency"
           },
           "cost_per_task": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Cost Per Task"
           },
           "throughput": {
@@ -29175,7 +33745,8 @@
             "title": "Pair"
           },
           "price": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Price"
           },
           "source": {
@@ -29626,7 +34197,8 @@
             "title": "Community Rating"
           },
           "total_earnings": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Earnings"
           },
           "transaction_count": {
@@ -29825,7 +34397,8 @@
             "title": "End Date"
           },
           "total_rewards_distributed": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Rewards Distributed"
           },
           "total_agents_rewarded": {
@@ -29833,7 +34406,8 @@
             "title": "Total Agents Rewarded"
           },
           "average_reward_per_agent": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Average Reward Per Agent"
           },
           "tier_distribution": {
@@ -29877,19 +34451,23 @@
             "title": "Tier Progress"
           },
           "base_earnings": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Base Earnings"
           },
           "bonus_earnings": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Bonus Earnings"
           },
           "total_earnings": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Earnings"
           },
           "lifetime_earnings": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Lifetime Earnings"
           },
           "rewards_distributed": {
@@ -29981,8 +34559,16 @@
             "$ref": "#/components/schemas/RewardType"
           },
           "base_amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Base Amount",
             "description": "Base reward amount in AITBC"
           },
@@ -30026,7 +34612,8 @@
             "title": "Distribution Id"
           },
           "reward_amount": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Reward Amount"
           },
           "reward_type": {
@@ -30038,7 +34625,8 @@
             "title": "Tier Multiplier"
           },
           "total_bonus": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Total Bonus"
           },
           "status": {
@@ -30194,7 +34782,15 @@
             "title": "Pair"
           },
           "price": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Price"
           },
           "confidence": {
@@ -31474,7 +36070,8 @@
             "title": "Address"
           },
           "balance": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Balance"
           },
           "updated_at": {
@@ -31748,17 +36345,16 @@
             "type": "array",
             "title": "Public Signals"
           },
-          "verification_key": {
+          "circuit_name": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Verification Key"
+            "title": "Circuit Name"
           }
         },
         "type": "object",
@@ -31767,7 +36363,7 @@
           "public_signals"
         ],
         "title": "VerifyProofRequest",
-        "description": "Request to verify a ZK proof"
+        "description": "Request to verify a ZK proof.\n\n``verification_key`` used to be a field here, passed straight to the verifier. A caller\ncould generate their own Groth16 keypair, prove any statement, and submit proof and key\ntogether to be told ``verified: true``. The key is now chosen server-side from\n``circuit_name``; a caller may say *which* circuit to check against, never *what to\ncheck with*."
       },
       "VerifySolutionRequest": {
         "properties": {
@@ -32370,9 +36966,17 @@
             "default": {}
           },
           "payment_amount": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
             "title": "Payment Amount",
-            "default": 0.0
+            "default": "0.0"
           },
           "payment_currency": {
             "type": "string",
@@ -32459,6 +37063,20 @@
           "payload"
         ],
         "title": "JobCreate"
+      },
+      "ErrorResponse": {
+        "title": "ErrorResponse",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "description": "Raised as `HTTPException`; FastAPI serialises it under `detail`."
       }
     }
   },

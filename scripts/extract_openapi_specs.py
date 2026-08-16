@@ -8,6 +8,10 @@ import os
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+
+from openapi_error_responses import enrich  # noqa: E402  (after the sys.path setup above)
+
 # Add AITBC to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "coordinator-api" / "src"))
@@ -82,7 +86,11 @@ def extract_openapi_spec(app_config: dict) -> dict | None:
 
         # Get OpenAPI spec
         spec = app.openapi()
-        return spec
+        # FastAPI infers responses from signatures, so it documents 2xx and 422 and nothing
+        # else -- 703 operations across these five apps and not one 404, though 89 routes
+        # return one. `enrich` reads the handlers and adds what they actually answer with
+        # (V23-80).
+        return enrich(spec, app)
     except Exception as e:
         print(f"Error extracting spec from {app_config['name']}: {e}")
         return None
