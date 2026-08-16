@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 from decimal import Decimal
 from pathlib import Path
@@ -66,12 +67,19 @@ def _fetch_live_balance(
     """Fetch a live balance from a wallet daemon RPC."""
     path = endpoint_template.format(budget_id=budget_id)
     url = f"{rpc_url.rstrip('/')}{path}"
+    # `rpc_url` arrives from --wallet-rpc-url or $WALLET_RPC_URL, and urlopen honours every
+    # scheme it knows, `file:` among them. A typo or a stale environment would otherwise read
+    # a local path and, worse, hand it the bearer token below.
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        raise ValueError(f"wallet RPC URL must be http or https, got: {url!r}")
     headers = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(url, headers=headers)  # type: ignore[arg-type]
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        # nosec B310: the scheme is checked against http/https above. B310 is a blacklist
+        # rule on the call itself and fires whatever guards precede it.
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             payload = json.loads(resp.read().decode())
     except (URLError, json.JSONDecodeError, TimeoutError):
         return None

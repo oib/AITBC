@@ -10,6 +10,11 @@ import time
 import requests
 
 
+# requests waits forever by default, so a coordinator that accepts the connection and then
+# stops talking hangs this script rather than failing it.
+REQUEST_TIMEOUT = 30
+
+
 class MarketplaceWorkflow:
     def __init__(self, coordinator_url: str = "http://localhost:8203"):
         self.coordinator_url = coordinator_url
@@ -28,7 +33,7 @@ class MarketplaceWorkflow:
         """Get list of available GPUs"""
         try:
             print(f"🔍 DEBUG: Requesting GPU list from {self.coordinator_url}/v1/marketplace/gpu/list")
-            response = requests.get(f"{self.coordinator_url}/v1/marketplace/gpu/list")
+            response = requests.get(f"{self.coordinator_url}/v1/marketplace/gpu/list", timeout=REQUEST_TIMEOUT)
             print(f"🔍 DEBUG: Response status: {response.status_code}")
             response.raise_for_status()
             gpus = response.json()
@@ -47,7 +52,9 @@ class MarketplaceWorkflow:
             print(f"🔍 DEBUG: Attempting to book GPU {gpu_id} for {duration_hours} hours")
             booking_data = {"duration_hours": duration_hours}
             print(f"🔍 DEBUG: Booking data: {booking_data}")
-            response = requests.post(f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/book", json=booking_data)
+            response = requests.post(
+                f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/book", json=booking_data, timeout=REQUEST_TIMEOUT
+            )
             print(f"🔍 DEBUG: Booking response status: {response.status_code}")
             print(f"🔍 DEBUG: Booking response: {response.text}")
             response.raise_for_status()
@@ -133,7 +140,7 @@ class MarketplaceWorkflow:
         """Release the GPU after task completion"""
         try:
             print(f"🔍 DEBUG: Releasing GPU {gpu_id}")
-            response = requests.post(f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/release")
+            response = requests.post(f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/release", timeout=REQUEST_TIMEOUT)
             print(f"🔍 DEBUG: Release response status: {response.status_code}")
             print(f"🔍 DEBUG: Release response: {response.text}")
             response.raise_for_status()
