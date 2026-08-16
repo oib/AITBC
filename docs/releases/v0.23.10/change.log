@@ -1,0 +1,378 @@
+# v0.23.10 — High — supply chain
+
+## High — supply chain
+
+### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED → RESOLVED
+
+```
+./venv/bin/python -m pip_audit --progress-spinner off
+```
+
+`Found 68 known vulnerabilities in 12 packages`. The ones that matter most for this
+codebase:
+
+| Package | Installed | Note |
+|---|---|---|
+| `cryptography` | 48.0.1 | 3 advisories; this is the library behind all wallet/keystore crypto. Fixes in 49.0.0 / 50.0.0 |
+| `ecdsa` | 0.19.2 | PYSEC-2026-1325, **no fix version published** |
+| `gitpython` | 3.0.6 | 11 advisories — see V23-21 |
+| `aiohttp` | 3.14.1 | 3 advisories, fixed in 3.14.2 / 3.14.3 |
+| `torch`, `pillow`, `setuptools`, `pyasn1` | — | further advisories with fixes available |
+
+`ecdsa` having no upstream fix is the one that needs a decision rather than a bump: either
+accept it with a written rationale about which code paths reach it, or migrate those paths
+to `cryptography` / `eth_keys`.
+
+> **Fix**: bump what has fixes, in one PR, and run the suites. For `ecdsa`, establish what
+> still uses it — this repo has both `ecdsa` and `eth_keys` in play — and prefer removing
+> the dependency to carrying an unfixable advisory.
+
+**RESOLVED.** The headline number was not a property of this repository. Taking each of the
+68 to its source:
+
+| Origin | Vulns | Packages |
+|---|---|---|
+| **Not in `poetry.lock` at all** | **31** | `gitpython` 24 (via `truffleHog`), `pyasn1` 4 (via `python-jose`/`rsa`), `mcp` 3 (orphaned) |
+| **Declared correctly, installed stale** | **5** | `starlette` 3, `pydantic-settings` 1, `msgpack` 1 — the pinned version already carried every fix |
+| Genuinely the project's, fixed here | 27 | `pillow` 20, `aiohttp` 3, `cryptography` 3, `torch` 1 |
+| Transitive, resolved upward by re-locking | 4 | `setuptools` 75.8.0 → 81.0.0 |
+| Unfixable upstream | 1 | `ecdsa` — see below |
+
+**36 of 68 were properties of one machine.** `python-jose`, `rsa`, `truffleHog`, `semgrep`
+and `mcp` appear nowhere in the lock; they were `pip install`ed into the Poetry venv. V23-20
+said "two of the 68 findings are already fixed by the declarations". The true figure is
+eighteen times that.
+
+**Bumped** in `pyproject.toml`, lock regenerated: `cryptography` 48.0.1 → 50.0.0, `aiohttp`
+3.14.1 → 3.14.3, `pillow` 12.2.0 → 12.3.0, `torch` 2.12.0 → 2.13.0. The torch bump forced
+`torchvision` 0.27.0 → 0.28.0, which pins `torch` exactly — worth noting because it is the
+kind of coupling that turns a one-line security bump into a resolution failure.
+
+**`ecdsa` stays**, with the rationale the finding asked for, written where the dependency
+lives (`aitbc/wallet/confidential.py`) rather than here where nobody editing that file will
+see it. In short: it is the sole consumer, only curve arithmetic is used, and
+`cryptography` deliberately exposes no raw point arithmetic so there is no drop-in
+replacement.
+
+> **Correction, made when V23-19a was fixed.** This rationale originally carried a second
+> argument: that the timing side channel had nothing to recover, because the blinding factor
+> was already in the envelope in the clear. That was true of the broken construction and is
+> **false now** — the blinding is a real secret held by the wallet, so PYSEC-2026-1325
+> describes a live exposure rather than a theoretical one. The conclusion is unchanged (the
+> dependency is still not removable) but it now rests on the first argument alone, and the
+> risk is higher than this entry originally claimed. A rationale that depended on the system
+> being broken stopped being valid when it was fixed. See V23-19a.
+
+### V23-19a — "confidential" transactions carry the amount and the blinding factor in the clear · CONFIRMED → RESOLVED
+
+Found while establishing which code paths reach `ecdsa` (V23-19). Not fixed here — fixing it
+means implementing real commitments.
+
+`ConfidentialTransaction` (`aitbc/wallet/confidential.py`) stores `amount_commitment`
+**and** `amount_label` (the amount) **and** `blinding` (the secret that hides it) in the same
+envelope. `verify_commitment()` recomputes the commitment from the amount and blinding
+sitting next to it and compares.
+
+So the check establishes that a sender's three fields are mutually consistent. It proves
+nothing to a verifier, because anyone constructing the envelope controls all three — and
+there is no confidentiality, because the amount is right there.
+
+The module docstring is honest that the commitments are "a pedagogical stand-in for
+production range proofs / Bulletproofs". What is not disclosed is where it is wired:
+
+```
+cli/aitbc_cli/commands/confidential.py  →  validate_payment()
+    aitbc/agent_economics/confidential_payments.py:29
+    "Validate a confidential payment inside the TEE trust boundary"
+        →  ConfidentialTransaction.verify_commitment()
+```
+
+`validate_payment` raises `TEEError("confidential transaction commitment is invalid")` on
+failure, which reads as a cryptographic validation inside a trust boundary. The CLI's offline
+branch labels its output `"status": "simulated"`; the branch that POSTs to
+`/v1/confidential/payments` does not.
+
+This is the audit's recurring shape at its purest: **a check that agrees for a reason
+unconnected to what it is supposed to establish.** It is the same defect as the shared
+verification key (V23-26a) and the hardcoded `"trusted_setup": "completed"` — the difference
+is that here the mechanism is sound and the *inputs* make it vacuous.
+
+> **Fix**: real Pedersen commitments — the blinding factor must not travel with the
+> commitment, and `amount_label` must not exist in the envelope at all. Until then, every
+> path that presents this as confidential should say "simulated", including the coordinator
+> POST, and `validate_payment` should not raise `TEEError` in language that implies it
+> verified something.
+
+**RESOLVED** — and the finding as filed was the mildest of four defects in the same file.
+Going in to remove `amount_label` meant reading the commitment construction, which did not
+survive the reading. Each was demonstrated by running it, not by inspection; the
+demonstrations are now `tests/security/test_v2319a_pedersen.py` (24 tests).
+
+**1. The commitments were not binding.** `_H` was built as
+
+```python
+_H = SigningKey.from_string(hashlib.sha256(b"aitbc-pedersen-h").digest(),
+                            curve=NIST256p).get_verifying_key().pubkey.point
+```
+
+which is `h*G` for `h = int(sha256(b"aitbc-pedersen-h"))` — a number anybody can compute in
+one line. A Pedersen commitment is binding *only* while nobody knows `log_G(H)`. Knowing `h`
+collapses `C = v*G + r*H` to `(v + r*h)*G`, so for any target `v'` the blinding
+`r' = (v + r*h - v')·h⁻¹` opens the same commitment to `v'`. Executed against the shipped
+code:
+
+```
+commit('100')     = 02ba08d765f0f7a7496fb9619d5dac1c...
+  opens to '100'? True
+  opens to '1'?   True      # same commitment, forged blinding
+```
+
+**A commitment that opens to every amount commits to none.** The construction's whole
+security property was absent, and the "pedagogical stand-in" disclaimer in the docstring
+covers the *range proof*, not this.
+
+**2. The commitments were not additively homomorphic**, which is the other half of what
+Pedersen is for. `v` was `sha256(amount) mod n`, and `sha256("2") + sha256("3")` is not
+`sha256("5")`. So `add_commitments` and `subtract_commitments` returned points that opened to
+nothing at all — and `ConfidentialWallet.balance_commitment` is built entirely from them.
+
+**3. Nothing retained the blinding factors.** `deposit` and `send` generated `os.urandom(32)`,
+committed with it, and dropped it. `balance_commitment` could therefore never be opened by
+anyone, including its owner. `balance_proof()` returned it under that name.
+
+**4. Amounts were never numbers.** Because the amount was hashed, any string was a valid
+amount. The unit tests passed `"commitment-100"`; the CLI took an argument it called
+`amount-commitment` and passed it straight through as the amount. `"1"`, `"1.0"` and `"01"`
+committed to three different values.
+
+Fixed: `_H` now comes from try-and-increment hash-to-curve on a domain-separated seed, so no
+discrete log relative to `G` is known to anyone; `v` is the amount in fixed-point minor units,
+so the homomorphism holds and `Commit(a) + Commit(b)` opens to `a + b` under the summed
+blinding; the wallet retains openings, so `balance_commitment` opens to `open_balance()`;
+amounts are parsed as `Decimal` and rejected — not rounded — beyond 8 places, negative, or
+past a `2**64` unit bound.
+
+The finding's own request is also done: `ConfidentialTransaction` no longer has
+`amount_label` or `blinding` fields, the zero-argument `verify_commitment()` is gone in favour
+of `opens_to(amount, blinding)` requiring the secret from the caller, and `validate_payment`
+no longer raises `TEEError("...commitment is invalid")`. That check was not replaced with
+something that resembles it — it was **removed**, and the docstring now states plainly that
+validation establishes the parties and the signature and nothing about the amount. An
+`opening` parameter is available for callers that hold the secret out of band.
+
+> **Still missing, and stated in the module rather than hidden.** There is no range proof, so
+> a verifier cannot conclude a transfer created no value — the `2**64` bound constrains an
+> honest sender and proves nothing about a hostile one, who constructs the point directly.
+> And there is no opening transport: the recipient needs `(amount, blinding)` to open what it
+> was sent, and putting that in the envelope is the defect this finding is about. Closing
+> both is Bulletproofs plus an encrypted channel. **The commitments are now real; the system
+> built on them is still incomplete, and must not be presented as production
+> confidentiality.**
+
+Two things found alongside:
+
+* **`/v1/confidential/payments` does not exist.** The CLI's non-simulated branch POSTs there;
+  `git grep` finds the string in exactly one place in the repository, the CLI itself. The
+  audit noted that this branch does not label its output "simulated" — the sharper problem is
+  that it cannot succeed against any service in this tree. Both branches now say "simulated",
+  and the branch is retained for out-of-tree coordinators with a note saying so.
+* **`tests/security/test_confidential_transactions.py` is skipped in its entirety.** It
+  imports `ViewingKey` from `coordinator_api.models.confidential`, which has no such name,
+  and `coordinator_api.services.confidential_service`, which does not exist; the `ImportError`
+  sets `CONFIDENTIAL_AVAILABLE = False` and every class is `skipif`-ed. 700 lines of security
+  tests that have never run. The two unit tests named for the confidential CLI commands fail
+  too, at `from aitbc_cli.utils.wallet import decode_private_key` — an unrelated pre-existing
+  break in `commands/operations.py`, and one of the baseline 18. So **no test anywhere
+  exercised this code path**, which is the answer to why four defects of this size sat in it.
+  The new file is the first coverage it has had; repairing the skipped suite is separate work.
+  **Done — see V23-19b.**
+
+### V23-19b — the confidential security suite had never executed, and three defects were sitting under it · CONFIRMED → RESOLVED
+
+`tests/security/test_confidential_transactions.py`: 21 test functions, ~700 lines, **zero of
+them ever run**. The module-level `ImportError` set `CONFIDENTIAL_AVAILABLE = False` and every
+one of its three classes was `skipif`-ed away.
+
+**The imports could not be repaired, because the file tested a system that was never built.**
+Of the ten methods it called on `ConfidentialTransactionService`, **nine do not exist anywhere
+in the repository** — and neither does the service. It also patched
+`apps.coordinator_api.src.app.services.{hsm,mpc,pqc,aml,deniable,retention}_service`, a
+package path this repository has never had. HSM integration, multi-party computation, deniable
+encryption, post-quantum signatures, viewing keys, regulatory reporting, retention policies:
+designed, tested against, not implemented.
+
+So the file was replaced rather than fixed, with **32 tests against what does exist** — the
+X25519 + AES-256-GCM envelope encryption in `coordinator_api.contexts.security.services`,
+driven against real keys on a real temporary keystore rather than mocks.
+
+Writing them found three defects, each of which the old suite existed to catch:
+
+**1. `EncryptionService.encrypt` silently dropped participants it could not encrypt for.** The
+per-participant `except` logged and `continue`d, so naming an unregistered participant
+returned a payload whose only usable key was the audit escrow's — **reported as success, and
+unreadable by the person it was addressed to.** Measured before the fix:
+`encrypt(data, participants=["nobody"])` returned `encrypted_keys: ['audit']`. It now raises.
+
+**2. A *failed* key rotation destroyed the key anyway.** This is the serious one. The rollback
+read:
+
+```python
+except Exception:
+    new_key_pair.version = current_key.version   # restores the version number
+    await self.storage.store_key_pair(new_key_pair)   # ...stores the NEW key material
+```
+
+The version number went back; the key did not. Since `_reencrypt_transactions` raises
+`NotImplementedError`, **this was the only path rotation ever took** — so every call to
+`rotate_keys` reported `KeyManagementError` to its caller while having already replaced the
+participant's key and permanently orphaned everything encrypted under the old one. Verified by
+running it: after a "failed" rotation the stored private key had changed and previously
+readable ciphertext raised `DecryptionError`. The rollback now restores `current_key`.
+
+**An operation that says "failed" must not have consumed anything**, and in a confidential
+system the thing consumed was the only means of reading the data.
+
+**3. The retention check could not fail.** `_check_retention_period` read
+`transaction["timestamp"]`, a key `_get_transaction` never sets — it supplies `created_at`. The
+`datetime.now(UTC)` default therefore fired on every call, making the expiry always
+`now + retention`, so **every role passed for every transaction regardless of age**. Had the
+key been present it would have been an ISO string, and `str + timedelta` raises, so the
+default was also the only path that worked at all. Now reads `created_at` and parses it; the
+1825/2555/3650/365-day windows per role are actually applied.
+
+Same shape as V23-26a and V23-32: a check that exists, passes, and cannot fail.
+
+Also fixed while here: `rotate_keys` wrapped `NotImplementedError` as `KeyManagementError`, so
+the router's `except NotImplementedError -> 501` arm could never fire. The endpoint answered
+**400**, with `detail=str(e)` putting the internal message in the response body where every
+sibling handler returns `"Internal server error"`. `_reencrypt_transactions`'s own docstring
+says "the route returns 501". It does now.
+
+**Each of the three regression tests was confirmed to fail when its defect is reintroduced**,
+by reverting the fix in place and re-running — not by assuming a test that passes would have
+caught anything.
+
+Two things the replacement deliberately does *not* assert, because they are not true and
+pretending otherwise is how the original file came to exist. **There is no forward secrecy** —
+participant keys are long-lived X25519 keys in the keystore, so a compromised private key
+reads every past payload addressed to it; the old `test_forward_secrecy` generated its own
+ephemeral keys inline and asserted they round-tripped, which tests `cryptography`, not this
+service. And **timing side channels are not covered** — the old file had three tests
+asserting wall-clock correlations below a threshold, which under load measure the CI runner.
+
+Verified: 32 tests pass; root suite 1772 tests at the **same 18 baseline failures**, with
+skips falling **34 → 13** — the 21 that used to skip now run. `coordinator-api`'s own suite is
+unchanged at 32 failed / 271 passed / 16 errors, confirmed by running it with and without
+these changes. `ruff`, `mypy aitbc/` and the clean-apps mypy gate all pass.
+
+**The V23-19 rationale for keeping `ecdsa` no longer holds as written.** Its second bullet
+argued the PYSEC-2026-1325 timing side channel was tolerable because "the side channel needs
+a secret to leak" and the blinding factor travelled in the envelope anyway. That was true of
+the broken construction and is false now — the blinding is a real secret held by the wallet.
+The advisory now describes a live exposure rather than a theoretical one. The dependency is
+still not removable (only curve arithmetic is used, and `cryptography` exposes none), so the
+conclusion stands, but the reasoning has been corrected in place in both the module docstring
+and V23-19's entry. **A rationale that depended on the system being broken stops being valid
+when you fix it.**
+
+Verified: `ruff` clean, `mypy aitbc/` clean (205 files), `tests/unit + tests/security +
+tests/core` 1761 tests with the same 18 baseline failures, and both CLI commands exercised
+directly — `send` returns a commitment and `status: simulated`, `commitment-100` is now
+rejected with `amount is not a decimal number`.
+
+### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED → RESOLVED
+
+| Package | Pinned | Installed |
+|---|---|---|
+| `starlette` | 1.3.1 | **1.2.1** |
+| `pydantic-settings` | 2.14.2 | **2.14.1** |
+
+Both gaps are security-relevant, and in an instructive direction: `starlette` 1.2.1 carries
+PYSEC-2026-248/249, fixed in 1.3.0/1.3.1 — exactly the pinned version. `pydantic-settings`
+2.14.1 carries GHSA-4xgf-cpjx-pc3j, fixed in 2.14.2 — again the pin.
+
+**Two of the 68 findings above are already fixed by the declarations and appear only
+because the environment is stale.** Which means the audit result is not a property of the
+repository, it is a property of one machine — and every test run, every CI gate and every
+local reproduction is happening against different versions than the ones declared.
+
+```
+grep -E "^(starlette|pydantic-settings) = " pyproject.toml
+./venv/bin/python -m pip list | grep -iE "^(starlette|pydantic-settings) "
+```
+
+> **Fix**: `poetry install --sync` (or recreate the venv), then add a CI step that fails
+> when the resolved environment drifts from the lock. Without that check, "the tests pass"
+> means less than it appears to.
+
+**RESOLVED** — the check exists, and running it showed the drift is an order of magnitude
+larger than the two packages the finding names. `scripts/ci/check-env-matches-lock.py`
+reports **39 packages at a different version than the lock** and **83 installed that the
+lock does not contain at all**, on the machine this audit was run on.
+
+Wired into CI twice, deliberately: in `quality-gates`, so every PR establishes that the
+declared dependency set is what was tested; and in `security` immediately after the scanner
+install, which is where V23-21's contamination happens.
+
+`--strict` is opt-in. Without it the script reports and exits 0, because a developer who has
+deliberately installed a tool should not be blocked by a local check — the enforcement point
+is CI, where the environment is built from the lock and nothing else.
+
+> **Not done here**: syncing this machine's venv. `poetry install --sync` would remove the
+> 83 undeclared packages, and this venv is shared with the main checkout and other concurrent
+> sessions — pulling packages out from under a running process is not a change to make
+> unannounced. The command is `poetry install --sync`, and the check will confirm it worked.
+
+### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED → RESOLVED
+
+`gitpython` 3.0.6 is installed with 11 advisories against it. It is not in
+`pyproject.toml`. It is pulled in by `truffleHog`, which is also not in `pyproject.toml`:
+
+```
+./venv/bin/python -m pip show gitpython | grep Required-by     # truffleHog
+grep -in gitpython pyproject.toml                              # no match
+```
+
+Meanwhile `poetry.lock:584` records that `detect-secrets` — which *is* a declared dev
+dependency — wants `GitPython (>=3.1.30)`. The installed 3.0.6 is below that floor and
+roughly fifty patch releases behind current.
+
+Someone `pip install`ed a scanner into the Poetry-managed venv. The result is a security
+tool whose own dependency is the most-vulnerable package in the environment, and a declared
+tool silently running against a version it does not support.
+
+> **Fix**: decide whether `truffleHog` is wanted. If yes, declare it in the dev group and
+> let the resolver reconcile it with `detect-secrets`. If no, remove it. Either way, the
+> venv should not contain packages that no manifest mentions — which is the same check
+> V23-20 asks for.
+
+**RESOLVED**, and the finding understates it: this is not one developer's mistake, **CI
+reproduces it on every run.** `.github/workflows/ci.yml` had
+
+```yaml
+- run: poetry install --no-interaction --locked
+- run: pip install "semgrep==1.170.0" "trufflehog==2.2.1"
+```
+
+back to back in the same job. The second line installs into the environment the first line
+just built from the lock, so every `poetry run` step *after* it — `bandit`, and the audit
+itself — executed against a mutated environment. The security job was downgrading a security
+tool's dependency as a matter of routine.
+
+Answering the finding's question: **truffleHog is wanted** — it is a CI scanner, and the
+third option it did not list is the right one. Declaring it in the dev group would force the
+resolver to reconcile `truffleHog`'s `GitPython` against `detect-secrets`' `>=3.1.30`, which
+either fails or drags the whole project's lock toward a decade-old scanner's constraints.
+These are CLIs; nothing in this repo imports them. They belong in their own environments.
+
+`pipx install` per tool, followed immediately by
+`check-env-matches-lock.py --strict` so the isolation is asserted rather than assumed. That
+step is the one that fails if someone reintroduces a bare `pip install` here.
+
+> Two inconsistencies noticed and left alone, since neither is this finding: the CI
+> invocation uses truffleHog v2 syntax (`--regex --entropy False`) while
+> `docs/security/1_security-cleanup-guide.md:176` documents v3 syntax
+> (`trufflehog filesystem --directory`), and v2.2.1 is a 2019 release of a tool whose
+> maintained successor is a different program in a different language.
+
+---

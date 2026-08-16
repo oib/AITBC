@@ -1,0 +1,157 @@
+# v0.23.1 — How to read this
+
+## How to read this
+
+Every finding below carries a **repro** you can paste. The v0.22 audit went wrong in both
+directions — real findings dismissed after reading already-fixed code, and unfixed findings
+recorded as closed without running anything — so nothing here is asserted from reading
+alone. Findings are marked:
+
+- **CONFIRMED** — reproduced by executing the code. The repro is the exact command run.
+- **OBSERVED** — established by inspection of the current tree (file counts, structure,
+  call graphs). Mechanically checkable, not executed.
+- **RESOLVED** — fixed and merged. Carries the commit and PR that did it, so the claim can
+  be checked rather than taken on trust. The original CONFIRMED text is left intact above
+  each resolution note: what the defect was is as much a part of the record as that it went
+  away.
+
+A finding is marked RESOLVED only after the fix is on `main`, never when a fix is merely
+written or in review. Everything else here is open. Re-verify before starting: this tree
+changes under multiple agents.
+
+**That last sentence is not boilerplate.** `6ce2c7405` closed V23-06 … V23-09, V23-11 …
+V23-15 on `main` without marking any of them here, and a fix for V23-01..05 was written
+against a tree where they still read as open — duplicating work that had already landed.
+Every finding below is marked resolved only after checking the current tree.
+
+That cuts both ways, and it caught me out once. An earlier revision of this paragraph said
+that commit had overclaimed "missing price handling" because "V23-14's `or 0` defaults are
+still there". **That was wrong.** V23-14 is fixed exactly as recommended — a missing
+`price_per_hour` now logs and skips the offer. The `or 0.0` I had grepped is
+`marketplace_service.py:178`, an average over a possibly-empty result set, which is a
+different construct in a different function. Checking a finding means reading the code the
+finding names, not a grep that resembles it.
+
+**Verify before starting, and mark what you fix.**
+
+**Totals**: 69 findings — 54 confirmed defects, 15 observed design gaps. **68 resolved in the
+repo** (V23-01..60, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b,
+V23-27c, V23-32a — sixty-nine entries, sixty numbered findings); **2 need an operator** —
+V23-57's missing treasury key on the hub, which no code change can substitute for, and
+V23-58's **credential rotation**, which is urgent: the repo fix stops the leak continuing but
+cannot un-publish what was already served.
+
+V23-56's duplicate `proposer_id`/`PROPOSER_ID` is now corrected in this follower's
+`/etc/aitbc/blockchain.env` (collapsed to a single empty `PROPOSER_ID`, backup alongside) and
+needs only a service restart to take effect.
+
+**The treasury key is not a repo problem and may not be recoverable.** The hub holds no key
+for `ait1db5247d0…`; `GENESIS_PRIVATE_KEY` and `wallets/genesis.json` both derive to the
+block-signing address. Transaction signing has been enforced only since 2026-07-14
+(`80268e892`), and genesis was 2026-05-30 — so for seven weeks the endpoint accepted unsigned
+transactions, which is how that account reached nonce 37 with no key behind it. Until the key
+is found, its 3,599,933,198,340 balance cannot be spent, and no config edit changes that:
+relabelling a key you *do* hold is what produced this entire release's worth of findings.
+
+V23-56's hub-side `GENESIS_WALLET_ADDRESS` was **reported restored** to
+`ait1db5247d03ca2e40f3995a583b2c097ab703efd4d` on 2026-08-12, with `PROPOSER_ID` left at
+`ait1fe2d63fe…`. That split is the correct one. It is recorded as reported rather than
+verified: the file is on the hub, and nothing reachable from a follower exposes it.
+
+Follower sync works end to end as of 2026-08-12: V23-51 put the signature on the wire and in
+the database, V23-52 named the wrong signing key (fixed hub-side), V23-54 made the legacy
+`ait1` spelling comparable, and V23-55 backfilled the range that predates all three and can
+never verify. Follower head equals hub head. The coordinator-api/governance Alembic state that
+forced the 2026-08-12 deploy to run `--no-migrate` is resolved in `6a2413138` and V23-53.
+
+V23-50's `/var/lib/aitbc` repermission **was applied** on 2026-08-12 at 08:46. All five
+looping services recovered within five seconds and their restart counters stopped
+(coordinator-api had reached 21,017). `aitbc-wallet` was a sixth casualty that did not
+self-recover: its `StartLimitBurst=3`/1min is a real circuit breaker, unlike the other five
+whose `5`/10s can never trip at `RestartSec=5s`, so systemd had abandoned it on 2026-08-10
+and the permission fix alone left it down. It needed `systemctl reset-failed`. The storm cost
+~102,800 restarts and left the journal at 2.7 GB with no `SystemMaxUse` configured.
+
+(The enumeration in that parenthetical had gone stale: it still read "V23-01..40 — forty-nine
+entries, forty numbered findings" long after V23-41 onward had landed. The count was being
+bumped on every entry and the list under it was not, which is how a ledger stops being one.)
+
+Two things V23-36 and V23-37 surfaced are recorded rather than fixed, because both are
+decisions someone else has to make: money is `float` inside signed transaction payloads
+(changing it is a hard fork), and the deployed chain database has no `alembic_version` table,
+so the four revisions under `apps/blockchain-node/migrations/versions/` have never been
+applied to it. Neither is a defect this audit can close on its own.
+
+Nothing open.
+
+V23-33 … V23-35 were added after the four passes closed, by a later audit of the *last five
+releases* (v0.21.0 → v0.23.0) rather than of the tree. V23-33 belongs here because what it
+found is a correction to this log's own Method section, not a new area: the `float(` grep
+that produced this audit's "one positive result worth recording" cannot see a `float`
+annotation, and there was one. V23-34 clears the backlog V23-33 only measured. V23-35 turned
+up while looking for a type-checking safety net for that work, and is the third instance in
+this log of a check that reports success because it never runs — after V23-10a's dark app
+suites and V23-33's uninvoked guard.
+
+V23-16 was the last to close, and it closed differently from the other forty: it asked for a
+release tag, not a code change, so the decision — which tag to move, and which remote to push
+it to — was the repo owner's to make, and was made explicitly before anything was run. That
+is why this log carried it as the one finding an agent should not close on its own. See its
+entry below for what was decided.
+
+(An earlier revision of this line said "thirty numbered findings" for the thirty-nine
+resolved entries. The count was off by one either way: V23-01 … V23-32 with no gaps is
+thirty-two numbered findings, and the nine suffixed entries bring the total to forty-one.)
+
+`contracts/` went from **38 advisories with 19 high to 11 with none above `low`**, and from
+~880 installed packages to 266, via the Hardhat 2 → 3 migration in V23-27b. The eleven that
+remain are the `@ethersproject/*` v5 family and `elliptic`, reached through `hardhat-verify`,
+none with a published fix.
+
+V23-27 was **partly resolved** for a stretch: the non-breaking half landed first (38
+advisories → 32), leaving a single Hardhat 2 → 3 migration, two of whose dependencies have no
+fix at any version. That migration landed as V23-27b (`7d0be4e57`), so V23-27 is closed and
+the paragraph above is where the counts ended up. This sentence used to read "it is counted
+among the 2 open" — stale from the moment V23-27b merged, and left standing long enough to
+contradict the totals four lines up.
+
+V23-24a, V23-32a, V23-26a, V23-27a and V23-19b were all added while fixing the finding they
+hang off, not during a pass. Fixing a finding keeps turning up a larger one next to it: see
+also the V23-30 note and V23-19a, where the finding as filed was the mildest of four defects
+in the same file. Several are sharper than their parents — V23-27a is the clearest case,
+because it means V23-27's advisory counts were measuring a lockfile CI never installed from;
+V23-19b is the costliest, because a security suite that had never executed is what let four
+cryptographic defects and three more in the service beneath it accumulate unnoticed.
+
+**The recurring shape, stated once.** Fourteen of these findings are the same defect wearing
+different clothes: *something that agrees for a reason unconnected to what it was supposed to
+establish.* A commitment that opens to any amount (V23-19a). A verification key shared by four
+circuits (V23-26a). A status endpoint answering from a literal (V23-26a). A flag manifest
+nothing read (V23-32). A `pipefail` check that matched almost nothing (V23-23). A merge-marker
+hook that only looks mid-merge (V23-23). A retention window whose clock always read *now*
+(V23-19b). A test suite skipped in its entirety (V23-19b). Thirteen scripts whose contract
+calls had drifted out of correspondence with the contracts, behind a `ReferenceError` that
+fired first (V23-27c). None of these fail. That is the problem: **a check that cannot fail is
+indistinguishable from a check that passes**, and the only way to tell them apart is to make
+them fail on purpose. Every fix above that added a guard was confirmed by breaking the thing
+it guards and watching it go red.
+
+I committed the same error twice and both are corrected in place: a merged claim that V23-14's
+`or 0` defaults survived, from a grep that resembled the finding rather than the code it named;
+and "migrated 7" in V23-27b, where only two of the seven were run and one of the other five had
+been broken by the migration itself. **Converting without running, and grepping without
+reading, are the same mistake as shipping a check that cannot fail.** V23-32's fix was to delete a manifest that
+gated nothing, which surfaced two security controls it had reported as enabled at 100%
+rollout that were never implemented. V23-26 was filed as "two divergent copies of a
+directory"; checking how they diverged surfaced one verification key installed for four
+different circuits.
+Severity is about blast radius, not effort.
+
+Written in three passes, each starting from what the previous listed as uncovered.
+First (V23-01..16): core library, blockchain node, marketplace, pool-hub,
+coordinator-api. Second (V23-17..23): the ten unread apps, `scripts/`, Python
+dependencies. Third (V23-24..28): JavaScript/Solidity dependencies, `zk-circuits`,
+`api-gateway`. Fourth (V23-29..32): whether the logic is correct, starting with
+cross-chain settlement.
+
+---

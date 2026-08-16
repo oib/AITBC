@@ -1,0 +1,101 @@
+# v0.23.23 — High — money in consensus code, and the line where Decimal must stop
+
+## High — money in consensus code, and the line where Decimal must stop
+
+### V23-36 — blockchain-node's 24 violations, and the two that must not be fixed · CONFIRMED → RESOLVED
+
+The remaining large share of the V23-33 backlog. **24 → 0 in blockchain-node; the repo
+baseline is now 24, none of it in an app that settles money on chain.**
+
+This app answers the question differently from coordinator-api, and the difference is the
+finding. Four of the 24 sit on a **signature and hash boundary**:
+
+```python
+# rpc/ai_services.py -- AIJobRequest.payment, AIJobResponse.payment
+# rpc/marketplace.py -- MarketplaceListing.price, MarketplaceCreateRequest.price
+tx_data["payload"]["payment"] = request.payment
+verify_transaction_signature(tx_data, request.signature, request.wallet_address)
+tx_hash = mempool.add(tx_data, chain_id=chain_id)
+```
+
+`verify_transaction_signature` builds the signed message as
+`json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":"))`, keccak-hashes it, and
+recovers the signer. So the wire type of `payment` is fixed by every signature already
+issued. Converting it would fail twice over, and both were checked rather than assumed:
+
+```
+float payload  : ...,"payment":0.5,"prompt":"hi"},"to":"ai_service","type":"AI_JOB"}
+Decimal payload: TypeError - Object of type Decimal is not JSON serializable
+```
+
+`Decimal` is not JSON-serializable at all, and even with an encoder `"0.5" != 0.5` changes
+the hash — every existing client signature would be rejected and transaction hashes would
+diverge. **That is a hard fork, not a lint fix.** All four keep `float` and carry a
+`# not-money:` marker saying so at the declaration. Recorded here because *"money is
+`float` inside a signed transaction payload"* is a genuine design defect worth its own
+decision — it means signature validity depends on float→str round-tripping — but it is a
+protocol change, and this log is not where protocol changes get made.
+
+**The reverse mistake was also present.** `SlashingEvent.slash_amount` is not an amount: it
+holds `0.05`–`0.5` from `slash_rates`, and `apply_slashing` multiplies it by
+`validator.stake` to get the amount. Converting it would have been wrong. It keeps `float`
+with a marker, and the name is kept because it is a persisted key in
+`ConsensusState.slashing_events`. **`calculate_total_slashed` is wrong regardless**: it sums
+those fractions and returns them as "total amount slashed". It cannot be fixed without
+recording the stake at each event, which `SlashingEvent` does not carry — so it is recorded
+here, not patched. It has no callers.
+
+**What was genuinely broken.** `economics/staking.py` computed epoch rewards entirely in
+float and then wrapped the result:
+
+```python
+position.rewards += Decimal(str(reward_amount * share))   # before
+```
+
+`Decimal(str(x))` preserves a float's binary error exactly rather than removing it, so
+`rewards` was a `Decimal` field holding float-derived values — the appearance of exactness
+without any of it. The calculation itself is now `Decimal` end to end, and `withdraw()`
+returns `Decimal` instead of narrowing `position.amount + position.rewards` on the way out.
+
+**Where money leaves the node, the fix is `str`, not `Decimal`.** `escrow_routes.py` already
+established this: money in RPC responses is serialised with `str(value)`. Statistics dicts
+across `escrow.py`, `gas.py`, `rewards.py`, `staking.py` and `attacks.py` were rendering
+exact sums with `float(...)`, which discards the exactness the `Decimal` was for; and
+returning a bare `Decimal` does not help, because FastAPI's `jsonable_encoder` turns it
+straight back into a float. Dimensionless neighbours — `price_volatility`, `spike_ratio` —
+stay `float`.
+
+Two persisted columns move `Float → Numeric(20, 8)` in `d4e8b91c0a37`:
+`gpu_registration.price_per_hour` and `gpu_allocation.total_cost`. Neither passes through
+the mempool. Verified against a temp database: both `NUMERIC(20, 8)` after upgrade, seeded
+row intact, `0.12345678` read back as an exactly equal `Decimal`. `persistent_spending_tracker`
+(six `Column(Float)` money columns behind the agent spending limits) is converted too; it has
+its own `create_all` database, no callers and no file on disk.
+
+### V23-37 — the migration runner could only be pointed at the real chain database · CONFIRMED → RESOLVED
+
+Found by running into it. `apps/blockchain-node/migrations/env.py` hardcoded
+
+```python
+config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.db_path}")
+```
+
+with no environment override, unlike `apps/coordinator-api/alembic/env.py`, which has
+honoured `DATABASE_URL` / `SQLITE_URL` since it was written, with the comment *"so CI and
+local tests can target a temp DB"*.
+
+The consequence is worse than inconvenience: the obvious way to test a migration — export
+`DATABASE_URL`, run `alembic upgrade` — **silently ignores the variable** and writes to
+`settings.db_path` instead. There is no error and no warning; the run reports success
+against a database the caller did not name. `env.py` now takes the same override.
+
+The deployed node was never at risk: it runs against a per-island path
+(`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`, 93,275 blocks) which has **no
+`alembic_version` table** — its schema comes from `SQLModel.metadata.create_all` plus the
+column-adder in `database.py`, not from alembic at all. The default `settings.db_path`
+(`/var/lib/aitbc/data/chain.db`) is a separate, empty, unused file: 0 blocks, 0
+transactions, 0 accounts. That is a second thing worth knowing — **the chain's real database
+is not under migration control**, so the four revisions in `migrations/versions/` describe a
+schema no deployed node has ever applied them to.
+
+---

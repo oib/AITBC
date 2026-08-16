@@ -1,0 +1,59 @@
+# v0.23.5 — Medium — concurrency
+
+## Medium — concurrency
+
+### V23-11 — `OfferSubscriptionClient` mutates shared state from concurrent tasks · OBSERVED → RESOLVED
+
+`aitbc/trading/subscription_client.py`. Seven `async def`s, fourteen mutations of
+`self._lease_expiry`, `self._subscriptions` and `self._status`, all keyed by `chain_id`, and
+no lock anywhere in the file. `subscribe`, `_heartbeat_loop` (one per chain) and `_ws_stream`
+run concurrently and touch the same dicts — see lines 151, 174, 212–213, 224, 229, 242.
+
+> **Fix**: the pattern already used in `apps/agent-coordinator/.../load_balancer.py` and, since
+> v0.22 APP-35, in `agent_discovery.py` — an `asyncio.Lock` on the instance, taken around
+> mutation and around any read-modify-write. The lease renewal at 151/174 is the one that
+> matters: a renew interleaving with a status transition can leave a subscription marked
+> `SUBSCRIBED` with an expired lease.
+
+### V23-12 — seven more async modules with the same shape · OBSERVED → RESOLVED
+
+`aitbc/alerting.py`, `aitbc/network/client.py`, `aitbc/network/subscription_manager.py`,
+`aitbc/agent_bridge/src/integration_layer.py`, `aitbc/bridge/oracle.py`,
+`aitbc/auth/middleware.py`, `aitbc/async_tasks.py` — each has three or more `async def`s,
+mutates instance dicts or lists, and contains no lock.
+
+Lower confidence than V23-11: a module can be safe if only one task ever touches the state.
+That is worth establishing per module rather than assuming in either direction.
+`aitbc/auth/middleware.py` is the one to look at first, being on every request.
+
+> **Fix**: audit each for whether concurrent entry is actually possible. Where it is, add the
+> lock; where it is not, say so in a comment, because the next reader will ask the same
+> question.
+
+**RESOLVED (V23-11, V23-12)** — six of the seven modules gained a lock in `6ce2c7405`:
+
+| Module | Lock |
+|---|---|
+| `aitbc/alerting.py` | `asyncio.Lock` |
+| `aitbc/auth/middleware.py` | `asyncio.Lock` |
+| `aitbc/network/subscription_manager.py` | `asyncio.Lock` |
+| `aitbc/agent_bridge/src/integration_layer.py` | `asyncio.Lock` ×2 |
+| `aitbc/bridge/oracle.py` | `threading.Lock` |
+| `aitbc/async_tasks.py` | `threading.Lock` |
+
+V23-11's `OfferSubscriptionClient` is locked too (`subscription_client.py:89`, held at three
+call sites).
+
+**The seventh, `aitbc/network/client.py`, has no lock and should not have one** — which is
+the half of the recommended fix that was still missing, since "no lock needed" is only useful
+if it is written down. Both client classes there hold no mutable state of their own:
+everything set in `__init__` is read-only afterwards, and the state that changes across
+requests lives in `CircuitBreaker`, `RateLimiter` and `CacheLayer`, each of which locks it
+(`RetryPolicy` is stateless). A comment in `AsyncAITBCHTTPClient.__init__` now records that,
+including the condition under which it stops being true: state added to the class itself
+would need its own lock, because the collaborators' locks do not extend to it.
+
+Adding a lock here would have been the worse outcome — it would serialise unrelated requests
+through a client that is already safe to share.
+
+---
