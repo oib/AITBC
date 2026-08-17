@@ -20,6 +20,7 @@ from .logger import get_logger
 from .state.merkle_patricia_trie import StateManager
 from .sync_block_import import BlockImportMixin
 from .sync_bulk import BulkSyncMixin
+from .sync_divergence import DivergenceMixin
 from .sync_state import StateSyncMixin
 from .sync_validator import ImportResult, ProposerSignatureValidator
 
@@ -33,7 +34,7 @@ __all__ = [
 logger = get_logger(__name__)
 
 
-class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin):
+class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin):
     """Handles block import with conflict resolution for divergent chains."""
 
     def __init__(
