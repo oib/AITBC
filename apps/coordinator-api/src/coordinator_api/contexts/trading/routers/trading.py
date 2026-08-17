@@ -444,11 +444,11 @@ async def get_trading_summary(
 @rate_limit(rate=200, per=60)
 async def list_trade_requests(
     request: Request,
-    agent_id: str | None,
-    trade_type: str | None,
-    status: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    agent_id: str | None = None,
+    trade_type: str | None = None,
+    status: str | None = None,
+    limit: int | None = None,
 ) -> list[TradeRequestResponse]:
     """List trade requests with filters"""
     try:
@@ -488,11 +488,11 @@ async def list_trade_requests(
 @rate_limit(rate=200, per=60)
 async def list_trade_matches(
     request: Request,
-    agent_id: str | None,
-    min_score: float | None,
-    status: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    agent_id: str | None = None,
+    min_score: float | None = None,
+    status: str | None = None,
+    limit: int | None = None,
 ) -> list[TradeMatchResponse]:
     """List trade matches with filters"""
     try:
@@ -535,11 +535,11 @@ async def list_trade_matches(
 @rate_limit(rate=200, per=60)
 async def list_negotiations(
     request: Request,
-    agent_id: str | None,
-    status: str | None,
-    strategy: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    agent_id: str | None = None,
+    status: str | None = None,
+    strategy: str | None = None,
+    limit: int | None = None,
 ) -> list[NegotiationResponse]:
     """List negotiations with filters"""
     try:
@@ -578,10 +578,10 @@ async def list_negotiations(
 @rate_limit(rate=200, per=60)
 async def get_trading_analytics(
     request: Request,
-    period_type: str | None,
-    start_date: str | None,
-    end_date: str | None,
     session: Annotated[Session, Depends(get_session)],
+    period_type: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict[str, Any]:
     """Get P2P trading analytics"""
     try:

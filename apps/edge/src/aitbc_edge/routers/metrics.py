@@ -33,8 +33,8 @@ async def record_metrics(
 
 @router.get("/")
 async def list_metrics(
-    gpu_id: str | None,
     svc: Annotated[MetricsService, Depends(get_metrics_service)],
+    gpu_id: str | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
     """List metrics, optionally filtered by gpu_id"""

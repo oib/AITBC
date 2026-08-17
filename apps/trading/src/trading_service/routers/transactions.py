@@ -49,11 +49,11 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
 
 @router.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None,
-    action: str | None,
-    status: str | None,
-    island_id: str | None,
     session: Annotated[AsyncSession, Depends(get_session_dep)],
+    transaction_type: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
 ):
     """Query trading transactions."""
     from sqlalchemy import select
@@ -197,13 +197,20 @@ async def get_block(block_id: str, session: Annotated[AsyncSession, Depends(get_
 
 
 @router.get("/v1/receipts")
-async def get_receipts(limit: int | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def get_receipts(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    limit: int | None = None,
+):
     """List job receipts."""
     return {"receipts": [], "limit": limit, "total": 0}
 
 
 @router.get("/v1/explorer/receipts")
-async def get_receipts_v1(limit: int | None, job_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def get_receipts_v1(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    limit: int | None = None,
+    job_id: str | None = None,
+):
     """List job receipts (v1/explorer path for CLI compatibility)."""
     return {"receipts": [], "limit": limit, "job_id": job_id, "total": 0}
 
@@ -216,7 +223,9 @@ async def get_transaction(tx_hash: str, session: Annotated[AsyncSession, Depends
 
 @router.get("/v1/explorer/transactions/{tx_hash}")
 async def get_transaction_explorer(
-    tx_hash: str, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]
+    tx_hash: str,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    chain_id: str | None = None,
 ):
     """Get transaction details by hash (explorer path for CLI compatibility)."""
     return {"tx_hash": tx_hash, "chain_id": chain_id or os.getenv("CHAIN_ID", ""), "error": "Transaction not found"}

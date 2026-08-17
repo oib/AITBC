@@ -217,8 +217,8 @@ async def renew_certification(
 async def get_agent_certifications(
     request: Request,
     agent_id: str,
-    status: str | None,
     session: Annotated[Session, Depends(get_session)],
+    status: str | None = None,
 ) -> list[CertificationResponse]:
     """Get certifications for an agent"""
     try:
@@ -369,10 +369,10 @@ async def get_agent_partnerships(
 @rate_limit(rate=200, per=60)
 async def list_partnership_programs(
     request: Request,
-    partnership_type: str | None,
-    status: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    partnership_type: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
 ) -> list[dict[str, Any]]:
     """List available partnership programs"""
     try:
@@ -491,11 +491,11 @@ async def award_badge(
 async def get_agent_badges(
     request: Request,
     agent_id: str,
-    badge_type: str | None,
-    category: str | None,
-    featured_only: bool | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    badge_type: str | None = None,
+    category: str | None = None,
+    featured_only: bool | None = None,
+    limit: int | None = None,
 ) -> list[BadgeResponse]:
     """Get badges for an agent"""
     try:
@@ -536,12 +536,12 @@ async def get_agent_badges(
 @rate_limit(rate=500, per=60)
 async def list_available_badges(
     request: Request,
-    badge_type: str | None,
-    category: str | None,
-    rarity: str | None,
-    active_only: bool | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    badge_type: str | None = None,
+    category: str | None = None,
+    rarity: str | None = None,
+    active_only: bool | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """List available badges"""
     try:
@@ -622,10 +622,10 @@ async def get_agent_summary(
 async def get_verification_records(
     request: Request,
     agent_id: str,
-    verification_type: str | None,
-    status: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    verification_type: str | None = None,
+    status: str | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get verification records for an agent"""
     try:
@@ -687,9 +687,9 @@ async def get_certification_levels(
 @rate_limit(rate=500, per=60)
 async def get_certification_requirements(
     request: Request,
-    level: str | None,
-    verification_type: str | None,
     session: Annotated[Session, Depends(get_session)],
+    level: str | None = None,
+    verification_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get certification requirements"""
     try:
@@ -733,9 +733,9 @@ async def get_certification_requirements(
 @rate_limit(rate=200, per=60)
 async def get_certification_leaderboard(
     request: Request,
-    category: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    category: str | None = None,
+    limit: int = 100,
 ) -> list[dict[str, Any]]:
     """Get certification leaderboard"""
     try:
