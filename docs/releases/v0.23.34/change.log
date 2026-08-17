@@ -4841,12 +4841,26 @@ tracks miners, not pools; its SLA surface is `/v1/sla/metrics/{miner_id}` and th
 route that filters by a pool. Accepting the flag and returning unfiltered data as though it
 had applied is the same defect as everything above in miniature.
 
+Pool Hub is also added to the monitoring it was absent from. `health_check.sh` gains
+`["aitbc-pool-hub"]="http://localhost:8210/health"`; that one map drives the systemd-status,
+resource-usage and endpoint checks, so a single entry covers all three. `prometheus.yml`
+gains a scrape job on 8210, which is what puts `poolhub_miners_online` into a time series.
+The endpoint check is `curl -sf`, which fails on the 503 a degraded Pool Hub now returns —
+so the status-code fix above is what makes the monitor able to tell healthy from degraded
+rather than just up from down.
+
+Four guards hold that together: the monitored URL is the one in the map, its port is the
+port `aitbc-pool-hub.service` passes to uvicorn, its **path is a route the real app serves**,
+and Prometheus has the job. The third is the check that was missing everywhere in this
+release — a 404 on `/health` survived precisely because nothing compared a probe's path
+against the route table of the service it names.
+
 #### Verification
 
-- Every guard was run against the pre-change code: **14 of 16 fail**, each on the defect it
-  names — `/health` 404s, the router's prefix, both real-app route assertions, all three
-  outage cases raising instead of reporting, the null-vs-zero count, the three 503 cases,
-  the healthy-200 case, and the port default.
+- Every endpoint guard was run against the pre-change code: **14 of those 16 fail**, each on
+  the defect it names — `/health` 404s, the router's prefix, both real-app route assertions,
+  all three outage cases raising instead of reporting, the null-vs-zero count, the three 503
+  cases, the healthy-200 case, and the port default.
 - Two are silent by design and stated as such: `test_the_previously_live_v1_path_still_answers`
   passes before and after, which is the point — it guards the compatibility path, not the
   fix. `test_the_gauge_is_not_zeroed_when_the_count_is_unknown` also passes on the old code,
@@ -4859,12 +4873,18 @@ had applied is the same defect as everything above in miniature.
 - Nothing outside `apps/pool-hub` reads `miners_online`, so widening it to nullable breaks
   no consumer in the repo. It can only be null in the case that used to be a 500, so no
   working path regresses.
-- Scoped suites — `apps/pool-hub/tests`, `tests/cli`, and the new file: 1,066 passed,
+- The four monitoring guards were run against the unmodified `health_check.sh` and
+  `prometheus.yml`: **all four fail**. Pool Hub is absent from `SERVICE_ENDPOINTS`, so the
+  URL, port and route-table assertions have nothing to read, and there is no `pool-hub`
+  scrape job. They pass with the two config changes, which is the only thing separating
+  "monitored" from "not monitored" here — neither file has any other guard.
+- Scoped suites — `apps/pool-hub/tests`, `tests/cli`, and the new file: 1,070 passed,
   0 failures.
-- Full root suite: 6,668 tests, 0 failures, 0 errors, 131 skipped, exit 0 — up 17 from the
-  6,651 on the `main` this branch is cut from: 16 new health tests plus one net new CLI test
-  (9 → 10). V23-95's 21 are on a branch that has not merged yet and are not in this count.
-- `pre-commit run --files`: clean over all 6 changed paths.
+- Full root suite: 6,672 tests, 0 failures, 0 errors, 131 skipped, exit 0 — up 21 from the
+  6,651 on the `main` this branch is cut from: 20 new health and monitoring tests plus one
+  net new CLI test (9 → 10). V23-95's 21 and V23-97's 8 are on branches that have not merged
+  yet and are not in this count.
+- `pre-commit run --files`: clean over all 10 changed paths.
 
 #### Not fixed here
 
@@ -4875,9 +4895,18 @@ had applied is the same defect as everything above in miniature.
   This is the third finding in this release with the same shape (V23-89's five 422 tests,
   V23-92's agent URL), and there is still nothing that checks a CLI command's path against
   the route table of the service it names.
-- **Nothing monitors Pool Hub at all.** `scripts/monitoring/health_check.sh` covers the
-  blockchain RPC and others; Pool Hub is absent from it, which is why a 404 on `/health`
-  survived. Adding it is a deployment change and is left to the operator.
+- **Nothing runs the health check on a schedule.** Pool Hub is now in the service map and
+  the scrape config, so a deploy, an `update.sh` run, or a manual invocation covers it —
+  but no timer or cron entry calls `health_check.sh` on this host, and the two monitoring
+  timers that do exist (`aitbc-cache-monitor`, `aitbc-memory-monitor`) are inactive.
+  Coverage that only runs when someone asks is not alerting. Scheduling it, and pointing
+  Prometheus at a live target list rather than the `aitbc-test` config in the repo, are
+  operator decisions.
+- **`scripts/monitoring/health-check.sh` — the hyphenated sibling — is still stale.** It
+  probes Coordinator API on 8000, "Learning Service" on 8203 (which is Coordinator API),
+  and Blockchain RPC on 8006, none of which match the deployed port table. Two health-check
+  scripts disagreeing about every port is its own finding; only the underscored one, the
+  one the deployment scripts actually call, is corrected here.
 - **`pool-hub status` now returns the health body**, which answers "is it up" but not "what
   pools exist" — the question the command's name implies. Pool Hub has no pool resource;
   the CLI group is modelled on a concept the service does not have. Reconciling the two is
