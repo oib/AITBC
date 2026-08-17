@@ -17,20 +17,33 @@ matter, because the disk was not consulted.
 
 from __future__ import annotations
 
+from pathlib import Path
 
 from coordinator_api.contexts.zk_applications.services import zk_proofs as zk_module
 from coordinator_api.contexts.zk_applications.services.zk_proofs import (
     ZKProofService,
     _resolve_proving_key,
 )
+from coordinator_api.contexts.zk_applications.services.zkey_header import read_zkey_contribution_count
+
+_SERVICE_ZKEYS = Path(__file__).resolve().parents[1] / "src/coordinator_api/contexts/zk_applications/zk-circuits"
+_ZERO_CONTRIB = _SERVICE_ZKEYS / "ml_inference_verification_0000.zkey"
+_ONE_CONTRIB = _SERVICE_ZKEYS / "ml_inference_verification_0001.zkey"
+
+
+def _install(tmp_path: Path, name: str, src: Path) -> Path:
+    dest = tmp_path / name
+    dest.write_bytes(src.read_bytes())
+    return dest
 
 
 class TestProvingKeySelection:
     """V23-24 proper: a zero-contribution key is one with a known forger."""
 
     def test_highest_contribution_wins(self, tmp_path):
-        for name in ("c_0000.zkey", "c_0001.zkey", "c_0002.zkey"):
-            (tmp_path / name).touch()
+        _install(tmp_path, "c_0000.zkey", _ZERO_CONTRIB)
+        _install(tmp_path, "c_0001.zkey", _ONE_CONTRIB)
+        _install(tmp_path, "c_0002.zkey", _ONE_CONTRIB)
 
         assert _resolve_proving_key(tmp_path, "c").name == "c_0002.zkey"
 
@@ -43,19 +56,29 @@ class TestProvingKeySelection:
 
         assert "no phase-2 contribution" in caplog.text
 
+    def test_renamed_zero_contribution_is_refused(self, tmp_path, caplog):
+        """The suffix is a claim. V23-91: modular_ml_components_0001.zkey had zero contributions."""
+        _install(tmp_path, "c_0001.zkey", _ZERO_CONTRIB)
+        assert read_zkey_contribution_count(tmp_path / "c_0001.zkey") == 0
+
+        with caplog.at_level("ERROR"):
+            assert _resolve_proving_key(tmp_path, "c") is None
+
+        assert "named as contribution" in caplog.text
+
     def test_missing_key_is_refused(self, tmp_path):
         assert _resolve_proving_key(tmp_path, "c") is None
 
     def test_other_circuits_do_not_leak_in(self, tmp_path):
         """A prefix match must not pick up a different circuit's key."""
-        (tmp_path / "c_0001.zkey").touch()
-        (tmp_path / "c_extra_0009.zkey").touch()
+        _install(tmp_path, "c_0001.zkey", _ONE_CONTRIB)
+        _install(tmp_path, "c_extra_0009.zkey", _ONE_CONTRIB)
 
         assert _resolve_proving_key(tmp_path, "c").name == "c_0001.zkey"
 
     def test_non_numeric_suffixes_are_ignored(self, tmp_path):
-        (tmp_path / "c_final.zkey").touch()
-        (tmp_path / "c_0001.zkey").touch()
+        _install(tmp_path, "c_final.zkey", _ONE_CONTRIB)
+        _install(tmp_path, "c_0001.zkey", _ONE_CONTRIB)
 
         assert _resolve_proving_key(tmp_path, "c").name == "c_0001.zkey"
 
