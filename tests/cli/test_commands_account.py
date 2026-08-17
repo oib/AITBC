@@ -96,8 +96,8 @@ class TestAccountCommands:
         assert "/rpc/accounts" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.account.AITBCHTTPClient")
-    def test_account_list_falls_back_on_network_error(self, mock_http_class, runner):
-        """``account list`` falls back to simulated data on NetworkError."""
+    def test_account_list_aborts_on_network_error(self, mock_http_class, runner):
+        """``account list`` no longer fabricates simulated data on NetworkError."""
         from aitbc_cli.commands.account import account
         from aitbc_cli.utils.http_client import NetworkError
 
@@ -106,9 +106,9 @@ class TestAccountCommands:
 
         result = runner.invoke(account, ["list"])
 
-        # NetworkError is caught and a simulated payload is emitted (exit 0).
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        # The command now aborts so the user is not misled by fake data.
+        assert result.exit_code != 0, result.output
+        assert "simulated" not in result.output
 
     @patch("aitbc_cli.commands.account.AITBCHTTPClient")
     def test_account_get_command_network_error_aborts(self, mock_http_class, runner):
