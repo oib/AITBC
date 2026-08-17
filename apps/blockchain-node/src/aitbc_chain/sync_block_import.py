@@ -423,11 +423,21 @@ class BlockImportMixin(SyncBase):
                 reason=f"Incompatible chain: block from chain '{fork_chain_id}' does not match our chain '{self._chain_id}' (heights: {fork_height} vs {our_height})",
             )
         if fork_height <= our_height:
+            # This is the only path out of _resolve_fork that production reaches: import_block
+            # calls it solely when `height <= our_height`, so the reorg code below is unreachable
+            # (V23-90). The rejection is permanent until an operator resolves it, which is what
+            # `diverged` tells the caller — the old reason said "our chain is longer", which reads
+            # like a healthy outcome and hid a 46-hour outage.
+            metrics_registry.increment("sync_divergence_rejected_total")
             return ImportResult(
                 accepted=False,
                 height=fork_height,
                 block_hash=block_data.get("hash", ""),
-                reason=f"Fork rejected: our chain is longer or equal ({our_height} >= {fork_height})",
+                reason=(
+                    f"Divergent chain: we hold a different block at height {fork_height} "
+                    f"(ours {our_hash[:16]}..., peer {fork_hash[:16]}...); our head is {our_height}"
+                ),
+                diverged=True,
             )
         reorg_depth = our_height - fork_height + 1
         if reorg_depth > self._max_reorg_depth:
