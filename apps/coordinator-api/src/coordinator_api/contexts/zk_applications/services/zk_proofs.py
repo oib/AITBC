@@ -7,13 +7,14 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
 from ....schemas import JobResult, Receipt
-from .zkey_header import ZKeyFormatError, read_zkey_header
+from .zkey_header import ZKeyFormatError, read_zkey_contribution_count, read_zkey_header
 
 logger = get_logger(__name__)
 
@@ -33,6 +34,30 @@ ENABLE_ZK_VERIFICATION = os.getenv("COORDINATOR_ENABLE_ZK_VERIFICATION", "false"
 # The circuit that proves receipts. Named, because _generate_proof used to take whichever
 # circuit sorted first in available_circuits (V23-26a).
 RECEIPT_CIRCUIT = "receipt_simple"
+
+# Node resolves `require()` against the directory of the script being executed, not against
+# the process cwd. Every snarkjs call below writes its script to a tempfile under /tmp, so
+# `require('snarkjs')` searched /tmp/node_modules and /node_modules and found nothing --
+# `cwd=self.circuits_dir`, which two of the three call sites passed, has no bearing on module
+# resolution. Proving and verification could not work regardless of which circuits loaded or
+# where snarkjs was installed, including a global `npm install -g` (global roots are not on
+# the default require path either). NODE_PATH is what moves the search path (V23-91).
+_DEFAULT_SNARKJS_NODE_PATH = Path(__file__).parents[6] / "zk-circuits" / "node_modules"
+SNARKJS_NODE_PATH = Path(os.getenv("COORDINATOR_SNARKJS_NODE_PATH") or _DEFAULT_SNARKJS_NODE_PATH)
+
+
+def _node_env() -> dict[str, str]:
+    """Environment for a ``node`` subprocess that has to ``require('snarkjs')``."""
+    env = dict(os.environ)
+    inherited = env.get("NODE_PATH", "")
+    env["NODE_PATH"] = f"{SNARKJS_NODE_PATH}{os.pathsep}{inherited}" if inherited else str(SNARKJS_NODE_PATH)
+    return env
+
+
+def snarkjs_available() -> bool:
+    """Whether ``NODE_PATH`` will resolve snarkjs for the subprocesses below."""
+    return (SNARKJS_NODE_PATH / "snarkjs" / "package.json").is_file()
+
 
 VERIFICATION_DISABLED = (
     "ZK proof verification is not enabled on this coordinator. Set "
@@ -80,7 +105,45 @@ def _resolve_proving_key(circuits_dir: Path, circuit: str) -> Path | None:
             path.name,
         )
         return None
+
+    # The check above reads the filename, and a filename is a claim rather than a fact.
+    # `modular_ml_components_0001.zkey` was a key straight out of `groth16 setup` with zero
+    # contributions, and the `_0001` in its name was enough to satisfy the guard for three
+    # releases (V23-91). The zkey states its own contribution count, so ask the file.
+    try:
+        contributions = read_zkey_contribution_count(path)
+    except (ZKeyFormatError, OSError) as e:
+        logger.error("Circuit '%s' proving key %s could not be read for contributions: %s", circuit, path.name, e)
+        return None
+
+    if contributions == 0:
+        logger.error(
+            "Circuit '%s' is not being loaded: %s is named as contribution %d but carries "
+            "none — it is the output of `groth16 setup`, so whoever ran the setup can forge "
+            "proofs that verify against it. Contribute with `snarkjs zkey contribute` and "
+            "ship the result under the next index.",
+            circuit,
+            path.name,
+            contribution,
+        )
+        return None
     return path
+
+
+# Coordinates in a bn128 verification key are decimal strings of elements of Fq.
+_BN128_FQ = 21888242871839275222246405745257275088696311157297823662689037894645226208583
+
+# The group elements every Groth16 verification key must carry, besides IC.
+_VKEY_POINTS = ("vk_alpha_1", "vk_beta_2", "vk_gamma_2", "vk_delta_2")
+
+
+def _coordinates(value: Any) -> Iterator[Any]:
+    """Yield the leaves of a nested coordinate list (G1 is flat, G2 and GT are nested)."""
+    if isinstance(value, list):
+        for item in value:
+            yield from _coordinates(item)
+    else:
+        yield value
 
 
 def _verification_key_mismatch(zkey_path: Path, vkey_path: Path) -> str | None:
@@ -91,9 +154,16 @@ def _verification_key_mismatch(zkey_path: Path, vkey_path: Path) -> str | None:
     catches that: a verification key for a different circuit cannot verify this one's
     proofs, so the circuit must not be offered.
 
-    This is necessary, not sufficient — two circuits can agree on the count and still be
-    different circuits. Matching counts mean "not obviously wrong", and that is all this
-    claims.
+    The count alone was not enough. ``ml_inference_verification`` shipped a key whose every
+    group element was the literal placeholder ``["0x1234", "0x5678", "0x0"]`` and whose ``IC``
+    held one point where a 1-signal circuit needs two. It declared ``nPublic: 1``, matched its
+    proving key on that one number, and was the only circuit this service offered for three
+    releases (V23-91). So the shape is checked too: ``IC`` must have one point per public
+    signal plus one, and every coordinate must be a decimal element of Fq.
+
+    Still necessary rather than sufficient — two circuits can agree on all of this and be
+    different circuits. Nothing here checks curve membership or that the key was exported
+    from *this* proving key; it rejects the keys that demonstrably cannot verify anything.
     """
     try:
         header = read_zkey_header(zkey_path)
@@ -119,6 +189,28 @@ def _verification_key_mismatch(zkey_path: Path, vkey_path: Path) -> str | None:
             f"Export the verification key from that proving key "
             f"(snarkjs zkey export verificationkey {zkey_path.name} {vkey_path.name})."
         )
+
+    export_it = f"Export it with: snarkjs zkey export verificationkey {zkey_path.name} {vkey_path.name}"
+
+    absent = [name for name in _VKEY_POINTS if name not in vkey]
+    if absent:
+        return f"verification key {vkey_path.name} is missing {', '.join(absent)}. {export_it}"
+
+    ic = vkey.get("IC")
+    if not isinstance(ic, list) or len(ic) != declared + 1:
+        found = len(ic) if isinstance(ic, list) else "no list"
+        return (
+            f"verification key {vkey_path.name} has an IC of {found} where a circuit with "
+            f"{declared} public signal(s) needs {declared + 1}. {export_it}"
+        )
+
+    for name in (*_VKEY_POINTS, "IC"):
+        for coordinate in _coordinates(vkey[name]):
+            if not isinstance(coordinate, str) or not coordinate.isdigit() or int(coordinate) >= _BN128_FQ:
+                return (
+                    f"verification key {vkey_path.name} is not real key material: {name} contains "
+                    f"{coordinate!r}, which is not a decimal bn128 field element. {export_it}"
+                )
 
     return None
 
@@ -152,7 +244,11 @@ class ZKProofService:
             "modular_ml_components": {
                 "zkey_path": _resolve_proving_key(self.circuits_dir, "modular_ml_components"),
                 "wasm_path": self.circuits_dir / "modular_ml_components_js" / "modular_ml_components.wasm",
-                "vkey_path": self.circuits_dir / "verification_key.json",
+                # The other three read their key from `<circuit>_js/`, which is where snarkjs
+                # writes and where the .wasm already lives. This one pointed at the root of
+                # circuits_dir, a path no circuit's key occupies, so the circuit was withheld
+                # for a missing file that was never going to be there (V23-91).
+                "vkey_path": self.circuits_dir / "modular_ml_components_js" / "verification_key.json",
             },
         }
         # V23-46: `available_circuits` holds only circuits that passed every check, so its
@@ -185,6 +281,19 @@ class ZKProofService:
                 # anyone noticing proving had been disabled.
                 logger.warning("❌ Circuit '%s' unavailable, missing: %s", circuit_name, ", ".join(missing))
         logger.info("Available circuits: %s", list(self.available_circuits.keys()))
+        if self.available_circuits and not snarkjs_available():
+            # Loading a circuit says the artifacts are consistent; it says nothing about
+            # whether the prover can run. Without this the first symptom is a
+            # MODULE_NOT_FOUND stack trace inside a caught exception, and generate_*_proof
+            # returning None as though the receipt simply had no proof (V23-91).
+            logger.error(
+                "snarkjs is not installed under %s, so every proof and verification "
+                "subprocess will fail with MODULE_NOT_FOUND even though %d circuit(s) loaded. "
+                "Run `npm install` in apps/zk-circuits, or set COORDINATOR_SNARKJS_NODE_PATH "
+                "to a node_modules directory that contains snarkjs.",
+                SNARKJS_NODE_PATH,
+                len(self.available_circuits),
+            )
         self.enabled = len(self.available_circuits) > 0
         if not self.enabled:
             # Losing every circuit is a deployment fault, not a normal degraded mode:
@@ -292,14 +401,19 @@ class ZKProofService:
                     vkey = json.load(f)
             except FileNotFoundError:
                 return {"verified": False, "error": f"Verification key not found at {vkey_path}"}
-            script = f"\nconst snarkjs = require('snarkjs');\n\nasync function main() {{\n    try {{\n        const vKey = {json.dumps(vkey)};\n        const proof = {json.dumps(proof)};\n        const publicSignals = {json.dumps(public_signals)};\n\n        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);\n        console.log(verified);\n    }} catch (error) {{\n        console.error('Error:', error.message);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
+            # process.exit(0) is required: snarkjs keeps worker threads alive after
+            # groth16.verify, so Node never leaves the event loop and communicate() hangs
+            # (V23-91).
+            script = f"\nconst snarkjs = require('snarkjs');\n\nasync function main() {{\n    try {{\n        const vKey = {json.dumps(vkey)};\n        const proof = {json.dumps(proof)};\n        const publicSignals = {json.dumps(public_signals)};\n\n        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);\n        console.log(verified);\n        process.exit(0);\n    }} catch (error) {{\n        console.error('Error:', error.message);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
             with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
             try:
                 # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
                 # This is acceptable for ZK proof verification (CPU-intensive, not a hot path), but could be improved
-                result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
+                result = subprocess.run(
+                    ["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir), env=_node_env()
+                )
                 if result.returncode != 0:
                     logger.error("Proof verification failed: %s", result.stderr)
                     return {
@@ -391,16 +505,23 @@ class ZKProofService:
             json.dump(inputs, f)
             inputs_file = f.name
         try:
-            script = f"\nconst snarkjs = require('snarkjs');\nconst fs = require('fs');\n\nasync function main() {{\n    try {{\n        // Load inputs\n        const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));\n\n        // Load circuit\n        const wasm = fs.readFileSync('{circuit['wasm_path']}');\n        const zkey = fs.readFileSync('{circuit['zkey_path']}');\n\n        // Calculate witness\n        const {{ witness }} = await snarkjs.wtns.calculate(inputs, wasm, wasm);\n\n        // Generate proof\n        const {{ proof, publicSignals }} = await snarkjs.groth16.prove(zkey, witness);\n\n        // Output result\n        console.log(JSON.stringify({{ proof, publicSignals }}));\n    }} catch (error) {{\n        console.error('Error:', error);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
+            # groth16.fullProve, given paths, rather than wtns.calculate followed by
+            # groth16.prove. That pairing could not have worked: wtns.calculate takes a path
+            # or a {type: "mem"} object and was handed a Buffer, and it writes the witness to
+            # its third argument instead of returning one, so `witness` was undefined before
+            # the Buffer ever reached snarkjs (V23-91).
+            script = f"\nconst snarkjs = require('snarkjs');\nconst fs = require('fs');\n\nasync function main() {{\n    try {{\n        // Load inputs\n        const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));\n\n        // Generate proof\n        const {{ proof, publicSignals }} = await snarkjs.groth16.fullProve(inputs, '{circuit['wasm_path']}', '{circuit['zkey_path']}');\n\n        // Output result\n        console.log(JSON.stringify({{ proof, publicSignals }}));\n        process.exit(0);\n    }} catch (error) {{\n        console.error('Error:', error);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
             with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
             try:
                 # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
                 # This is acceptable for ZK proof verification (CPU-intensive, not a hot path), but could be improved
-                result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
+                result = subprocess.run(
+                    ["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir), env=_node_env()
+                )
                 if result.returncode != 0:
-                    raise Exception(f"Proof generation failed: {result.stderr}")
+                    raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {result.stderr}")
                 return dict(json.loads(result.stdout))
             finally:
                 os.unlink(script_file)
@@ -423,13 +544,31 @@ class ZKProofService:
             json.dump(inputs, f)
             inputs_file = f.name
         try:
-            script = f"\nconst snarkjs = require('snarkjs');\nconst fs = require('fs');\n\nasync function main() {{\n    try {{\n        // Load inputs\n        const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));\n\n        // Load circuit files\n        const wasm = fs.readFileSync('{wasm_path}');\n        const zkey = fs.readFileSync('{zkey_path}');\n\n        // Calculate witness\n        const {{ witness }} = await snarkjs.wtns.calculate(inputs, wasm);\n\n        // Generate proof\n        const {{ proof, publicSignals }} = await snarkjs.groth16.prove(zkey, witness);\n\n        // Load verification key\n        const vKey = JSON.parse(fs.readFileSync('{vkey_path}', 'utf8'));\n\n        // Output result\n        console.log(JSON.stringify({{ proof, publicSignals, verificationKey: vKey }}));\n    }} catch (error) {{\n        console.error('Error:', error.message);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
+            # Same fullProve-with-paths pairing as _generate_proof. This path is what
+            # /zk/generate and the ML prove endpoints actually call (V23-91).
+            script = (
+                "\nconst snarkjs = require('snarkjs');\nconst fs = require('fs');\n\n"
+                "async function main() {\n    try {\n"
+                f"        const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));\n"
+                f"        const {{ proof, publicSignals }} = await snarkjs.groth16.fullProve("
+                f"inputs, '{wasm_path}', '{zkey_path}');\n"
+                f"        const vKey = JSON.parse(fs.readFileSync('{vkey_path}', 'utf8'));\n"
+                "        console.log(JSON.stringify({ proof, publicSignals, verificationKey: vKey }));\n"
+                "        process.exit(0);\n"
+                "    } catch (error) {\n"
+                "        console.error('Error:', error.message);\n        process.exit(1);\n"
+                "    }\n}\n\nmain();\n"
+            )
             with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
             try:
                 result = await asyncio.create_subprocess_exec(
-                    "node", script_file, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                    "node",
+                    script_file,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=_node_env(),
                 )
                 stdout, stderr = await result.communicate()
                 if result.returncode == 0:
@@ -437,7 +576,7 @@ class ZKProofService:
                     return proof_data
                 else:
                     error_msg = stderr.decode() or stdout.decode()
-                    raise Exception(f"Proof generation failed: {error_msg}")
+                    raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {error_msg}")
             finally:
                 os.unlink(script_file)
         finally:
@@ -446,15 +585,16 @@ class ZKProofService:
     async def _get_circuit_hash(self) -> str:
         """Get hash of current circuit for verification.
 
-        Hashes the zkey (proving key) of the first available circuit — the same
-        circuit _generate_proof uses — so the proof's circuit_hash identifies the
-        exact circuit version, not a placeholder.
+        Hashes the proving key of RECEIPT_CIRCUIT — the same circuit _generate_proof
+        uses — so the proof's circuit_hash identifies that circuit, not whichever
+        one happened to sort first.
         """
         import hashlib
 
-        if not self.available_circuits:
+        circuit = self.available_circuits.get(RECEIPT_CIRCUIT)
+        if circuit is None:
             return ""
-        zkey_path = list(self.available_circuits.values())[0]["zkey_path"]
+        zkey_path = circuit["zkey_path"]
         h = hashlib.sha256()
         with open(zkey_path, "rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):
