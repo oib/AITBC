@@ -28,7 +28,7 @@ The name suggests a coordinator credential. It is broader:
 | --- | --- |
 | `/coin-requests/register`, `/coin-requests/execute` | Same as the follower key. |
 | `WS /api/v1/agent/messages/stream` | `agent_id` is a query parameter and the key is the only check, so the holder connects **as any agent**. That path reaches `request_coins_handler`, which signs and submits a treasury transfer on the spot rather than writing a row for review. |
-| coordinator-api miner, settlement and marketplace routers | `require_miner_api_key` falls back to `COORDINATOR_API_KEY` when `miner_api_keys` is empty — the default. |
+| coordinator-api miner, settlement and marketplace routers | `require_miner_api_key` only accepts keys listed in `MINER_API_KEYS`. When that list is empty, the dependency fails closed. |
 
 `_require_api_key` accepts `COORDINATOR_API_KEY` **or** `SECRET_KEY`, so withholding one while
 publishing the other gains nothing. Check they are not the same value:
@@ -53,8 +53,8 @@ Two identical hashes mean publishing either one published both.
    from that file.
 4. Rotate `COORDINATOR_API_KEY` and `SECRET_KEY`, since both have been published. Distribute
    the new values out of band to hub operators only.
-5. Set `MINER_API_KEYS` explicitly so miner access stops depending on the coordinator key.
-   Until you do, the coordinator logs a warning once at process startup about the fallback.
+5. Set `MINER_API_KEYS` explicitly. `require_miner_api_key` fails closed when the list
+   is empty, so miner endpoints will return 401 until a miner key is configured.
 
 ## For island operators
 
