@@ -82,3 +82,25 @@ async def test_a_real_proof_verifies_against_the_exported_key(monkeypatch):
         circuit_name="ml_inference_verification",
     )
     assert result["verified"] is True
+
+
+@pytest.mark.skipif(not snarkjs_available(), reason="snarkjs is not installed under apps/zk-circuits")
+async def test_modular_ml_components_round_trips_after_re_contribution(monkeypatch):
+    """The _0001 key that was a renamed _0000 has been re-generated and now proves (V23-91)."""
+    monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", True)
+    service = ZKProofService()
+    assert "modular_ml_components" in service.available_circuits
+
+    proof = await service.generate_proof(
+        "modular_ml_components",
+        {"initial_parameters": ["1", "0", "-1", "-2"], "learning_rate": "0"},
+    )
+    assert proof is not None
+    assert proof["public_signals"][4] == "1"  # training_complete
+
+    result = await service.verify_proof(
+        proof["proof"],
+        proof["public_signals"],
+        circuit_name="modular_ml_components",
+    )
+    assert result["verified"] is True
