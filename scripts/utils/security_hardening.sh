@@ -51,6 +51,7 @@ generate_api_keys() {
     CLIENT_KEY=$(openssl rand -hex 16)
     MINER_KEY=$(openssl rand -hex 16)
     ADMIN_KEY=$(openssl rand -hex 16)
+    WALLET_PASSWORD=$(openssl rand -hex 32)
 
     log "Generated secure API keys"
     success "API keys generated successfully"
@@ -62,6 +63,7 @@ generate_api_keys() {
 CLIENT_API_KEYS=["$CLIENT_KEY"]
 MINER_API_KEYS=["$MINER_KEY"]
 ADMIN_API_KEYS=["$ADMIN_KEY"]
+WALLET_IMPORT_PASSWORD="$WALLET_PASSWORD"
 EOF
 
     chmod 600 /opt/aitbc/secure/api_keys.txt
@@ -86,6 +88,22 @@ update_production_env() {
         sed -i "s/ADMIN_API_KEYS=.*/ADMIN_API_KEYS=$ADMIN_API_KEYS/" "$PRODUCTION_ENV"
 
         success "Production environment updated with secure API keys"
+    fi
+
+    # Wallet import password belongs in the shared secrets env, not the coordinator file
+    BLOCKCHAIN_SECRETS_ENV="/etc/aitbc/blockchain-secrets.env"
+    if [[ -n "${WALLET_IMPORT_PASSWORD:-}" ]]; then
+        if [[ ! -f "$BLOCKCHAIN_SECRETS_ENV" ]]; then
+            mkdir -p /etc/aitbc
+            touch "$BLOCKCHAIN_SECRETS_ENV"
+        fi
+        if grep -q "^WALLET_IMPORT_PASSWORD=" "$BLOCKCHAIN_SECRETS_ENV"; then
+            sed -i "s/^WALLET_IMPORT_PASSWORD=.*/WALLET_IMPORT_PASSWORD=$WALLET_IMPORT_PASSWORD/" "$BLOCKCHAIN_SECRETS_ENV"
+        else
+            echo "WALLET_IMPORT_PASSWORD=$WALLET_IMPORT_PASSWORD" >> "$BLOCKCHAIN_SECRETS_ENV"
+        fi
+        chmod 600 "$BLOCKCHAIN_SECRETS_ENV"
+        success "Wallet import password configured in $BLOCKCHAIN_SECRETS_ENV"
     fi
 
     # Set production-specific settings
