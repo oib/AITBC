@@ -5,12 +5,6 @@ async function generateProof() {
     console.log("Generating ZK proof for receipt attestation...");
 
     try {
-        // Load the WASM circuit
-        const wasmBuffer = fs.readFileSync("receipt.wasm");
-
-        // Load the zKey (proving key)
-        const zKeyBuffer = fs.readFileSync("receipt_0001.zkey");
-
         // Prepare inputs
         // In a real implementation, these would come from actual receipt data
         const input = {
@@ -28,13 +22,13 @@ async function generateProof() {
 
         console.log("Input:", input);
 
-        // Calculate witness
-        console.log("Calculating witness...");
-        const { witness, wasm } = await snarkjs.wtns.calculate(input, wasmBuffer, wasmBuffer);
-
         // Generate proof
         console.log("Generating proof...");
-        const { proof, publicSignals } = await snarkjs.groth16.prove(zKeyBuffer, witness);
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+            input,
+            "receipt.wasm",
+            "receipt_0001.zkey"
+        );
 
         // Save proof and public signals
         fs.writeFileSync("proof.json", JSON.stringify(proof, null, 2));
