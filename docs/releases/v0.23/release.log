@@ -8386,3 +8386,226 @@ throughout.
   nothing on any machine anyone runs the suite on.
 - Nothing fails a run when the skip count rises. A baseline assertion on skips would have
   caught this the day it landed, and would have caught V23-71's deleted tests too.
+
+### V23-94 — the ML circuits' learning-rate checks did the opposite of what their comments said · CONFIRMED → RESOLVED
+
+Two circuits back `POST /v1/ml-zk/prove/training` and `POST /v1/ml-zk/prove/modular`. Both
+claimed to constrain the learning rate to `0 < lr < 1`. Neither did, in three different ways,
+and every one of them was invisible because nothing in the repository could compile a circuit.
+
+**1. `ml_training_verification.circom` was satisfiable only at the value its comment excludes.**
+
+```circom
+learning_rate * (1 - learning_rate) === learning_rate;  // Ensures 0 < lr < 1
+```
+
+Expand it: `lr - lr² === lr`, so `lr² === 0`. A prime field has no nilpotents, so the only
+satisfying value is `lr = 0`. Every epoch then reduces to
+
+```circom
+current_parameters[e + 1][i] <== current_parameters[e][i] - learning_rate * 1;
+```
+
+which is `param - 0` — a no-op. The circuit could prove exactly one thing: that training ran
+and changed nothing. It asserted `training_complete <== 1` anyway. Confirmed against both the
+committed witness generator and a fresh build: `lr = 0` produced a witness, `lr = 1` and
+`lr = 2` were rejected.
+
+**2. `modular_ml_components.circom` had the check deleted, and said so.**
+
+```circom
+template LearningRateValidation() {
+    signal input learning_rate;
+
+    // Removed constraint for optimization - learning rate validation handled externally
+    // This reduces non-linear constraints from 1 to 0 for better proving performance
+}
+```
+
+An empty template. Nothing validated it externally: `prove_modular_ml` passes
+`proof_request["inputs"]` to the witness generator unchanged. Any learning rate proved —
+negative, zero, a thousand, a field element one below the modulus.
+
+`GET /v1/ml-zk/circuits` then advertised the consequence as a feature:
+`"Optimized modular ML circuits with 0 non-linear constraints for maximum performance"`, with
+`"zero_non_linear_constraints"` in its `features` list. The constraint removed to reach zero
+was the circuit's only check on its only scalar input.
+
+**3. Its gradients were a circuit constant.**
+
+```circom
+// Use constant gradients for simplicity (would be computed in real implementation)
+epochs[e].epoch_gradients[i] <== 1;  // Constant gradient
+```
+
+`TrainingEpoch` already took gradients as a signal; the main template hardcoded them. A proof
+of gradient descent whose gradients are baked into the constraint system says nothing about
+anyone's training run.
+
+**4. `LossConstraint` could not compile, and nobody found out.**
+
+```circom
+diff_squared * (1 - diff_squared / tolerance_squared) === 0;
+```
+
+Dividing by a signal is not a quadratic constraint; circom rejects it outright. Verified by
+instantiating the template as `component main` — it errors on that line. The file compiled
+anyway, because **circom compiles nothing a `main` does not reach** and nothing instantiated
+this template. Read as arithmetic it is also wrong: it permits a loss of exactly 0 or exactly
+`tolerance`, two discrete points, where the comment claims `|predicted - actual| <= tolerance`.
+
+**5. The "correct" copies in `apps/zk-circuits/` are unsatisfiable for every input.**
+
+That tree holds the same two circuits with real comparators, which is what the version above
+was "optimized" from:
+
+```circom
+component lt1 = LessThan(252);    lt1.in[0] <== learning_rate; lt1.in[1] <== 1; lt1.out === 1;
+component gt0 = GreaterThan(252); gt0.in[0] <== learning_rate; gt0.in[1] <== 0; gt0.out === 1;
+```
+
+`lr < 1` and `lr > 0` over integers have no solution between them. Both files were compiled and
+driven at `lr` = 0, 1, 2, 10000 and 1000000 — every combination rejected, ten for ten. So the
+pre-"optimization" circuit proved
+nothing at all, and the post-"optimization" one proved a no-op. Both compare against the
+literal `1`, which is the actual bug: in a prime field the bound has to be a scale factor.
+
+**6. Every refusal reached the caller as `500 Internal server error`.** Both prove routers
+subscript `generate_proof`'s result, which is declared `dict[str, Any] | None`:
+
+```python
+proof_result = await zk_service.generate_proof(...)
+return {"proof_id": proof_result["proof_id"],  # type: ignore[index]
+```
+
+That is a `TypeError` on a `None` subscript, caught by a bare `except Exception` and answered
+500. While the circuits accepted the wrong things it was nearly unreachable — which is why it
+survived. Correcting them makes it the normal answer for bad input, so fixing the constraints
+without fixing this would have reported every out-of-range learning rate as a server fault. mypy
+named all eight subscripts; each was silenced with a `type: ignore[index]` rather than handled.
+The request bodies were `dict[str, Any]` read with bare subscripts too, so a missing field was
+also a 500 — including `private_inputs`, which `generate_proof` defaults to `None` and ignores.
+
+**7. Nothing in the repository could compile any of this.** No build script, no Makefile
+target, no documented command. `apps/zk-circuits/node_modules/.bin/circom` — the only circom in
+the tree — is **0.5.46**, which predates `pragma circom 2.0.0` and cannot compile a single
+circuit in either directory. The `.r1cs`, `.wasm`, `.zkey` and `verification_key.json` files
+were committed binaries with no route from source to artifact. That is why four defects in the
+two circuits the service loads survived, and a fifth in the tree they were copied from: a
+`.circom` edit was unfalsifiable, so a `.circom` comment was the only description of what a
+circuit did, and none of the four comments was accurate.
+
+#### What changed
+
+Both circuits now use fixed point at `LR_SCALE = 1e6`, so the learning rate and the parameters
+carry the same scale and `param_next = param - learning_rate * gradient` is the exact update
+with no division and no rounding. Gradients stay unscaled, so the product lands back at 1e6.
+
+| | Before | After |
+| --- | --- | --- |
+| `ml_training_verification` learning rate | `lr * (1 - lr) === lr`, i.e. `lr = 0` only | `Num2Bits(20)`, then `LessThan(20)` against `LR_SCALE`, then `IsZero() === 0` |
+| `modular_ml_components` learning rate | no constraint | the same three, in `LearningRateValidation(LR_SCALE, LR_BITS)` |
+| Gradients | `<== 1` inside the circuit | `signal input gradients[EPOCHS][PARAM_COUNT]`, bounded to `2^20` |
+| Parameter outputs | unchecked; subtraction wraps | `Num2Bits(40)` per parameter per epoch |
+| `LossConstraint` | division by a signal; would not compile | two-sided range check on `predicted - actual + tolerance`, and it compiles |
+| Published description | "0 non-linear constraints for maximum performance" | the fixed-point scale and the enforced ranges, which a caller needs to submit anything provable |
+| A refused witness | `500 Internal server error` | `400` naming the scale and pointing at `GET /v1/ml-zk/circuits` |
+| A circuit with no proving key | `500` | `503`, which is a different condition from bad inputs |
+| A missing body field | `500` | `422`, from a Pydantic model instead of a bare subscript |
+| `private_inputs` | mandatory; omitting it was a 500 | optional, matching the service that defaults it to `None` |
+
+`Num2Bits` before `LessThan` is not decoration. `LessThan(n)` is only sound for inputs below
+`2^n`, so without the bound a caller supplying a larger field element controls the comparison
+instead of being constrained by it. The per-epoch `Num2Bits(40)` is the same argument for
+subtraction: `5000 - 10000` in a prime field is an element near the modulus, which would
+otherwise read back as an enormous positive parameter.
+
+`scripts/zk/build-circuits.sh` is new and is the reason any of the above can be checked. It
+refuses circom 0.5.46 **by version** rather than failing obscurely, compiles against
+`pot12_final.ptau`'s 4096-constraint budget and fails if a circuit outgrows it, and compiles
+every library template that no `main` reaches inside a generated harness — which is the specific
+gap that hid `LossConstraint`. `--ceremony` is a separate flag because it replaces key material.
+
+Two `pre-commit` hooks are now excluded from the generated `*_cpp/` and `*_js/` directories.
+`trailing-whitespace` and `end-of-file-fixer` were rewriting circom's C++ emit and snarkjs's
+exported verification keys, so the committed artifacts could never match a rebuild: every
+`--install` re-dirtied them, and reproducibility was unmeasurable by construction.
+
+#### Verification
+
+- 15 new tests in `apps/coordinator-api/tests/test_v2394_zk_circuit_constraints.py` drive
+  `ZKProofService` — the same path the API uses — so a regression in the circuit, the artifacts
+  or the ceremony surfaces identically. For each circuit: a real learning rate (0.01) proves and
+  verifies; `0`, exactly `1.0`, `5.0` and `-1` expressed as a field element are all refused;
+  `LR_SCALE - 1` is accepted, so the bound is the scale rather than an arbitrary small number.
+  Two tests assert the arithmetic rather than `training_complete`: three epochs at 0.01 take
+  10.0 to 9.97, and doubling the gradients doubles the movement. `training_complete <== 1` held
+  for the no-op proof too, so it is not evidence of anything on its own.
+- The inverse of the old behaviour, on the same inputs:
+
+  | Input | Old circuit | New circuit |
+  | --- | --- | --- |
+  | `lr = 0` | witness OK | rejected |
+  | `lr = 0.01` | rejected | witness OK |
+  | `lr = 0.999999` | rejected | witness OK |
+  | `lr = 1.0` | rejected | rejected |
+  | `lr = 2^20` (over `Num2Bits`) | — | rejected |
+  | parameters driven below zero | accepted, wrapped | rejected |
+
+- `LossConstraint(32)` now compiles at 163 constraints and behaves as a range: `diff = +3` with
+  `tolerance = 5` is accepted where the old algebra rejected it, `±5` is accepted at the
+  boundary, `±6` is rejected, and `predicted = 2^32` is rejected as out of domain.
+- Artifacts rebuilt with circom 2.1.9 and installed: `ml_training_verification` at 521
+  non-linear + 1 linear constraints (514 wires), `modular_ml_components` at 773 + 1 (766 wires).
+  Both inside `pot12_final.ptau`'s 4096.
+- Fresh phase 2 for both: `groth16 setup` → `zkey contribute` → `zkey export verificationkey`.
+  `snarkjs zkey verify <circuit>.r1cs pot12_final.ptau <circuit>_0001.zkey` answers **ZKey Ok!**
+  for both, and the repository's own `read_zkey_contribution_count` reads 1 contribution from
+  each `_0001` and 0 from each `_0000` — which is what `_resolve_proving_key` checks.
+- `scripts/zk/build-circuits.sh --install` is reproducible. Run against a copy of the circuits
+  directory, `diff -rq` against the committed one reports no differences at all: every `.r1cs`,
+  `.sym`, `.wasm` and generated C++ file byte for byte. That only holds with the whitespace
+  hooks excluded from the generated directories, which is what makes the claim checkable rather
+  than a thing one asserts.
+- The committed `witness_calculator.js` carries a local patch (`qualify_input`, which flattens
+  nested inputs) that a fresh circom emit would drop. It was tested against both new `.wasm`
+  files, including the nested `gradients[3][4]` input, and left untouched; the build script says
+  why it does not overwrite it.
+- 8 more tests in `apps/coordinator-api/tests/test_v2394_ml_zk_error_codes.py` drive the HTTP
+  endpoints rather than the service, because the service was never where this failed. All six
+  status codes above were confirmed wrong first: every one answered 500 before the fix. One test
+  reads `/openapi.json` and asserts the body schema names its fields, since the published spec
+  documented no request fields at all for four endpoints while the bodies were `dict[str, Any]`.
+- `MLProofRequest` and `MLVerifyRequest` now appear in `docs/api/coordinator-api-openapi.json`,
+  regenerated with `make openapi`: 55 insertions where four request bodies had been empty.
+- 53 ZK tests across `apps/coordinator-api/tests/` and `tests/security/`: 0 failures, 0 skipped.
+  `tests/security/test_v2326_zk_artifacts.py`, which compares the two trees' binaries, still
+  passes.
+- Full root suite: 6,651 tests, 0 failures, 0 errors, 131 skipped, exit 0 (up 23 from V23-93).
+- `tests/security/test_http_exception_hardening.py` rejected the first version of the 503:
+  its detail was an f-string, and the rule refuses any interpolated detail on a 5xx because it
+  cannot tell a circuit name from an exception message. The name went to the log instead.
+- `pre-commit run --files`: clean.
+
+#### Not fixed here
+
+- **The trusted setup is still development-only.** These are single-contributor local ceremonies
+  with unpublished entropy, exactly like the keys they replace. Whoever ran the setup can forge
+  proofs that verify. Nothing here improves that, and the build script says so on every run.
+- The five ML circuit sources in `apps/zk-circuits/` — the base file plus `_clean`, `_simple`,
+  `_v2` and `_working` — were not audited or rebuilt. The two that share a name with a service
+  circuit are documented as unsatisfiable in that tree's README, with a pointer to the corrected
+  sources, but they are still the files someone editing "the circuits" would find first. That
+  tree also holds `test.circom`, `test2.circom`, `output.wtns` and `wtns.wtns`: it is a
+  committed scratchpad and wants triage of its own.
+- The unit gradient in `ml_training_verification` is still a placeholder. Unlike the modular
+  circuit it takes no gradient input, so what it proves is a fixed schedule at a chosen learning
+  rate, not a training run. Giving it real gradients means changing its input contract, which is
+  the modular circuit's job.
+- `_prepare_inputs` still feeds UUIDs and hex digests to the receipt circuit as if they were
+  field elements. Untouched here — different circuit, different failure.
+- circom is still not obtainable from within the repository. The build script requires a 2.x
+  binary the tree cannot supply, so it cannot run in CI as things stand. Pinning a circom
+  release — a vendored binary, a container, or a documented `cargo install` — is the step that
+  would let the constraint counts and the harness compile be checked on every change rather
+  than by hand.

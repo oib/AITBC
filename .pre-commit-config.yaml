@@ -15,10 +15,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # The zk-circuits `*_cpp/` and `*_js/` directories are circom and snarkjs output, byte
+      # for byte. Normalising their whitespace makes the committed artifacts differ from what
+      # `scripts/zk/build-circuits.sh --install` emits, so every rebuild would re-dirty them
+      # and no rebuild could ever be checked for reproducibility (V23-94).
       - id: trailing-whitespace
-        exclude: \.(svg|png|jpg|ico|woff|woff2|ttf|eot)$
+        exclude: \.(svg|png|jpg|ico|woff|woff2|ttf|eot)$|zk-circuits/\w+_(cpp|js)/
       - id: end-of-file-fixer
-        exclude: \.(svg|png|jpg|ico|woff|woff2|ttf|eot)$
+        exclude: \.(svg|png|jpg|ico|woff|woff2|ttf|eot)$|zk-circuits/\w+_(cpp|js)/
       - id: check-yaml
         exclude: apps/blockchain-node/observability/
       - id: check-added-large-files
