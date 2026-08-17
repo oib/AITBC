@@ -15,6 +15,7 @@ from .config import settings
 from .logger import get_logger
 from .state import state_root_utils
 from .sync_base import SyncBase
+from .sync_divergence import report_divergence
 
 logger = get_logger(__name__)
 
@@ -32,6 +33,21 @@ class StateSyncMixin(SyncBase):
         but not on the peer (those may be from local transactions).
         """
         self._logger.info("Starting state sync from %s", source_url)
+        # Balances describe a chain. Copying them from a peer whose blocks we are rejecting leaves
+        # the account table agreeing with the peer while the block history does not, so the head
+        # block's state_root no longer describes the accounts underneath it — which is what this
+        # function did 414 times during the V23-90 outage, healing the symptom it should report.
+        divergence = await self.peer_head_divergence(source_url)
+        if divergence is not None:
+            report_divergence(self._chain_id, divergence)
+            self._logger.error(
+                "State sync skipped: our block history disagrees with %s at height %s, so its balances do not "
+                "describe our chain",
+                source_url,
+                divergence.height,
+                extra={"chain_id": self._chain_id, "divergence_height": divergence.height},
+            )
+            return {"synced": 0, "diverged": True, "divergence_height": divergence.height}
         try:
             resp = await self._client.get(
                 f"{source_url}/rpc/state/snapshot",
@@ -86,7 +102,11 @@ class StateSyncMixin(SyncBase):
                 computed_hex = "0x" + "\x00" * 32
 
         match = computed_hex == remote_root
-        self._logger.info(
+        # A mismatch that survives a full account sync is not information: either the peer's root
+        # covers a different account set than ours, or the roots are computed differently. Either
+        # way it needs looking at, so it is a warning rather than the INFO it was for 414 cycles.
+        log = self._logger.info if match else self._logger.warning
+        log(
             "State sync complete: created=%s, updated=%s, local_root=%s, remote_root=%s, match=%s",
             created,
             updated,
