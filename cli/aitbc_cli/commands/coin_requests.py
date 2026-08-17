@@ -41,14 +41,43 @@ from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc.utils import format_ait  # noqa: E402
 
 
+def _agent_api_base() -> str:
+    """Where the agent API lives, seen from this node (V23-92).
+
+    `aitbc-agent-coordinator` is a hub-only service — it is not installed on a follower or
+    shop node, which reaches the hub's instance instead. So `http://localhost:8107` is the
+    wrong default off the hub: nothing listens there, and every notification failed with a
+    connection error naming a port the node is correct not to be running.
+
+    The two variable families mean different things, and both are already in use:
+
+    - `AGENT_COORDINATOR_URL` / `HERMES_COORDINATOR_URL` are an *origin*, so the router
+      prefix is appended. A hub sets these to its own localhost.
+    - `HUB_AGENT_URL` / `HUB_HERMES_URL` are the hub's *mounted base*, prefix included —
+      the same precedence and default `execute` uses when it forwards to the hub.
+    """
+    local = os.getenv("AGENT_COORDINATOR_URL") or os.getenv("HERMES_COORDINATOR_URL")
+    if local:
+        return f"{local.rstrip('/')}/api/v1/agent"
+
+    hub = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
+    return hub.rstrip("/")
+
+
 def send_agent_notification(recipient: str, content: str):
     """Send an agent message notification via Agent Coordinator."""
-    coordinator_url = os.getenv("AGENT_COORDINATOR_URL", os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107"))
+    url = f"{_agent_api_base()}/messages/send"
     agent_id = os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "cli-admin"))
+
+    # This call sent no credential at all, so it answered 401 anywhere the coordinator was
+    # not an unauthenticated localhost (V23-92). FOLLOWER_API_KEY is deliberately not offered
+    # here: it is published, and it reaches /register and /execute only (V23-68). Agent
+    # messaging is a hub-operator action, so it takes a hub credential or none.
+    api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
 
     try:
         response = requests.post(
-            f"{coordinator_url}/api/v1/agent/messages/send",
+            url,
             json={
                 "sender": agent_id,
                 "recipient": recipient,
@@ -56,14 +85,20 @@ def send_agent_notification(recipient: str, content: str):
                 "message_type": "direct",
                 "encrypt": False,
             },
+            headers={"x-api-key": api_key} if api_key else {},
             timeout=10,
         )
         if response.status_code == 200:
             click.echo(f"Notification sent to {recipient}")
+        elif response.status_code in (401, 403):
+            click.echo(f"Notification refused ({response.status_code}) by {url}")
+            click.echo("  Agent messaging needs a hub credential; FOLLOWER_API_KEY does not open this route.")
         else:
-            click.echo(f"Failed to send notification: {response.text}")
+            click.echo(f"Failed to send notification: {response.status_code} {response.text}")
     except Exception as e:
-        click.echo(f"Error sending notification: {e}")
+        # Naming the URL is the point: the failure used to blame a local port on nodes that
+        # have no local agent-coordinator, which read as a broken service rather than config.
+        click.echo(f"Error sending notification to {url}: {e}")
 
 
 @click.group()
