@@ -29,7 +29,10 @@ class Settings(ServiceSettings):
 
     app_name: str = "AITBC Pool Hub"
     bind_host: str = Field(default="127.0.0.1")
-    bind_port: int = Field(default=8203)
+    # 8210 is the port aitbc-pool-hub.service binds and the one the port table in
+    # docs/getting-started/setup-service-selection.md publishes.  This defaulted to
+    # 8203, which is coordinator-api's port (V23-96).
+    bind_port: int = Field(default=8210)
 
     coordinator_shared_secret: str = Field(
         default="",
