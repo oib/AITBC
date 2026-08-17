@@ -14,6 +14,7 @@ from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
 from .sync_base import SyncBase
+from .sync_divergence import clear_divergence, report_divergence
 
 logger = get_logger(__name__)
 
@@ -159,6 +160,14 @@ class BulkSyncMixin(SyncBase):
         peer_id = source_url  # In v0.6.2, peer_id IS the URL
         self.register_sync_peer(peer_id, source_url, (0, remote_height), has_state=True)
         if remote_height <= local_height:
+            # Not necessarily up to date: a follower whose peer was reset to genesis is *ahead* of
+            # that peer on a chain the peer no longer has. Heights alone cannot tell the two apart,
+            # so compare the hash we hold at the peer's head height (V23-90).
+            divergence = self.detect_divergence(source_url, remote_height, remote_head.get("hash", ""))
+            if divergence is not None:
+                report_divergence(self._chain_id, divergence)
+                return 0
+            clear_divergence(self._chain_id)
             logger.info("Already up to date", extra={"local_height": local_height, "remote_height": remote_height})
             return 0
         gap_size = remote_height - local_height

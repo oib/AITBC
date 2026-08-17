@@ -59,6 +59,11 @@ class ChainSettings(BaseSettings):
     auto_resync_after_rejections: int = 3  # Trigger re-sync after N consecutive rejections
     auto_resync_source_url: str | None = None  # Trusted peer URL for auto re-sync (fallback to default_peer_rpc_url)
 
+    # Divergence reporting (V23-90). Divergence is not auto-resolved: pulling cannot fix it, since
+    # the peer is behind us, and discarding accepted local history is an operator's decision.
+    divergence_after_rejections: int = 3  # Report after N consecutive divergent pushed blocks
+    divergence_report_interval: int = 300  # Seconds between repeated reports for the same chain
+
     def get_db_path(self, chain_id: str = "") -> Path:
         """Get database path for a specific chain.
 
