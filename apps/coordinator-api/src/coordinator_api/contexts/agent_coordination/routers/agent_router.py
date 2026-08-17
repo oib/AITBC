@@ -54,11 +54,11 @@ async def create_workflow(
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
 async def list_workflows(
-    owner_id: str | None,
-    is_public: bool | None,
     tags: list[str] | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    owner_id: str | None = None,
+    is_public: bool | None = None,
 ) -> list[AIAgentWorkflow]:
     """List agent workflows with filtering"""
     try:
@@ -236,12 +236,12 @@ async def get_execution_status(
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
 async def list_executions(
-    workflow_id: str | None,
-    status: AgentStatus | None,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    workflow_id: str | None = None,
+    status: AgentStatus | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> list[AgentExecutionStatus]:
     """List agent executions with filtering"""
     try:
@@ -303,10 +303,10 @@ async def cancel_workflow(
 @router.get("/workflows/{workflow_id}/executions", response_model=list[AgentExecutionStatus])
 async def list_workflow_executions(
     workflow_id: str,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> list[AgentExecutionStatus]:
     """List executions for a specific workflow"""
     try:

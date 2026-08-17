@@ -23,10 +23,10 @@ def get_gpu_service() -> GPUService:
 
 @router.get("/")
 async def list_gpus(
-    architecture: str | None,
-    edge_optimized: bool | None,
-    min_memory_gb: int | None,
     svc: Annotated[GPUService, Depends(get_gpu_service)],
+    architecture: str | None = None,
+    edge_optimized: bool | None = None,
+    min_memory_gb: int | None = None,
 ) -> dict[str, Any]:
     """List all GPUs"""
     gpus = await svc.list_gpus(architecture=architecture, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
