@@ -94,6 +94,27 @@ To point the service at this tree instead of its in-package copy, set
 `COORDINATOR_ZK_CIRCUITS_DIR`. Note that it will find no usable `modular_ml_components` key
 here until one is generated.
 
+## Installing snarkjs
+
+`ZKProofService` proves and verifies by shelling out to `node`, and node resolves
+`require()` from the directory of the script it is running — which for every one of those
+call sites is a tempfile under `/tmp`. So the coordinator sets `NODE_PATH` to
+**`apps/zk-circuits/node_modules`**, this directory's install, and nothing else on the box
+will do: a global `npm install -g snarkjs` is not on the default require path either
+(V23-91).
+
+```bash
+npm install
+```
+
+`node_modules/` is gitignored, so a deployment that has never run this proves nothing —
+the service logs an error at startup saying so. `COORDINATOR_SNARKJS_NODE_PATH` overrides
+the location if snarkjs lives elsewhere.
+
+`npm install` used to fail here regardless: a script named `prepare` is an npm lifecycle
+hook, so every install ran `powersoftau prepare` against a gitignored `.ptau` that is not
+in the tree. The ceremony step is now `prepare-phase2`.
+
 ## Regenerating a verification key
 
 Three of the four service-tree keys were missing or placeholders (V23-26a / V23-91). They
@@ -104,12 +125,21 @@ coordinator-api tree — and live next to that circuit's `.wasm`:
 snarkjs zkey export verificationkey <circuit>_0001.zkey <circuit>_js/verification_key.json
 ```
 
-`modular_ml_components_0001.zkey` is a zero-contribution (and cryptographically broken)
-key under a contributed name, so it is withheld rather than given a verification key.
+All four service-tree circuits now carry one. `modular_ml_components_0001.zkey` was a
+`groth16 setup` output under a `_0001` name — zero phase-2 contributions, and
+`snarkjs zkey verify` rejected it with `Invalid alpha1` — so the circuit was withheld
+rather than given a key exported from broken material. It has since been regenerated from
+the `.r1cs` and `pot12_final.ptau` in the service tree, with a real `zkey contribute`.
 
-`npm install` in this directory used to fail because a script named `prepare` is an npm
-lifecycle hook: it ran `powersoftau prepare` against a gitignored `.ptau` on every
-install. The ceremony step is now `prepare-phase2`.
+Before trusting any regenerated key, ask snarkjs rather than the filename:
+
+```bash
+snarkjs zkey verify <circuit>.r1cs pot12_final.ptau <circuit>_0001.zkey   # -> "ZKey Ok!"
+```
+
+That checks the key against its constraint system *and* its ceremony, which is what the
+`_0001` suffix only claims. The coordinator makes the same distinction at load time by
+reading the contribution count out of the zkey's own MPC section.
 
 ---
-*Last updated: 2026-08-10*
+*Last updated: 2026-08-17*
