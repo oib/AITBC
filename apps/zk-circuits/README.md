@@ -94,6 +94,51 @@ To point the service at this tree instead of its in-package copy, set
 `COORDINATOR_ZK_CIRCUITS_DIR`. Note that it will find no usable `modular_ml_components` key
 here until one is generated.
 
+### This tree's two ML circuits are unsatisfiable (V23-94)
+
+`ml_training_verification.circom` and `modular_ml_components.circom` **here** cannot produce a
+proof for any input at all. Both validate the learning rate as
+
+```circom
+component lt1 = LessThan(252);   lt1.in[0] <== learning_rate;  lt1.in[1] <== 1;  lt1.out === 1;
+component gt0 = GreaterThan(252); gt0.in[0] <== learning_rate; gt0.in[1] <== 0;  gt0.out === 1;
+```
+
+which asks for an integer strictly between 0 and 1. Both files were compiled with circom 2.1.9
+and driven at `learning_rate` = 0, 1, 2, 10000 and 1000000; every combination is rejected, ten
+for ten. The comparison has to be against a fixed-point scale, not against the literal `1`.
+
+The service tree's copies had the same bug in two other forms — one provable only at
+`learning_rate = 0`, one with the check deleted outright — and have been fixed. **Take the
+corrected sources from the coordinator-api tree**, not from here. The five `modular_*` variants
+in this directory (`_clean`, `_simple`, `_v2`, `_working`, and the base file) were not audited.
+
+## Rebuilding the circuits
+
+There was no way to do this until V23-94: the `.r1cs`, `.wasm`, `.zkey` and
+`verification_key.json` files were committed with no script, no Makefile target and no
+documented command, so editing a `.circom` had no route into what the service loads.
+
+```bash
+CIRCOM=/path/to/circom bash scripts/zk/build-circuits.sh                   # compile + report
+CIRCOM=/path/to/circom bash scripts/zk/build-circuits.sh --install         # + .r1cs/.sym/.wasm
+CIRCOM=/path/to/circom bash scripts/zk/build-circuits.sh --install --ceremony  # + new keys
+```
+
+**circom 2.x is required and is not in this repository.** `node_modules/.bin/circom` is
+0.5.46, which predates `pragma circom 2.0.0` and cannot compile a single circuit in either
+tree; the script refuses it by version rather than failing obscurely. snarkjs comes from this
+directory's `node_modules`, the same install `NODE_PATH` points at.
+
+`--ceremony` replaces key material, so every proof made with the old proving key stops
+verifying. It belongs with a circuit change and nowhere else. Without it the script installs
+the constraint system and says plainly that the existing key is now for a different one.
+
+The script also compiles the templates no `main` reaches, in a generated harness. circom only
+compiles what is reachable from `main`, which is how `LossConstraint` sat in the tree containing
+`diff_squared * (1 - diff_squared / tolerance_squared) === 0` — a division by a signal, which
+circom refuses to compile. Nobody found out because nothing instantiated it.
+
 ## Installing snarkjs
 
 `ZKProofService` proves and verifies by shelling out to `node`, and node resolves
@@ -140,6 +185,27 @@ snarkjs zkey verify <circuit>.r1cs pot12_final.ptau <circuit>_0001.zkey   # -> "
 That checks the key against its constraint system *and* its ceremony, which is what the
 `_0001` suffix only claims. The coordinator makes the same distinction at load time by
 reading the contribution count out of the zkey's own MPC section.
+
+`scripts/zk/build-circuits.sh --ceremony` runs that command itself after every contribution,
+for the same reason.
+
+## Fixed-point inputs
+
+The two ML training circuits take integers scaled by 10^6 (V23-94). A prime field has no
+fractions, and the learning rate and the parameters have to carry the *same* scale for
+`param_next = param - learning_rate * gradient` to be the exact update with no division:
+
+| Input | Meaning | Range |
+|---|---|---|
+| `learning_rate` | millionths — `10000` is 0.01 | `0 < lr < 1000000`, enforced |
+| `initial_parameters` | millionths — `10000000` is 10.0 | `0 <= v < 2^40`, enforced per epoch |
+| `gradients` (modular only) | plain integers, one row per epoch | `0 <= v < 2^20`, enforced |
+
+Gradients are deliberately unscaled: `learning_rate * gradient` then lands at 10^6 and matches
+the parameters. Scaling them too would put the product at 10^12.
+
+`GET /v1/ml-zk/circuits` publishes the scale and these ranges, because a caller cannot submit
+anything provable without them.
 
 ---
 *Last updated: 2026-08-17*

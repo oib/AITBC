@@ -91,9 +91,17 @@ async def test_modular_ml_components_round_trips_after_re_contribution(monkeypat
     service = ZKProofService()
     assert "modular_ml_components" in service.available_circuits
 
+    # These inputs used to be `{"initial_parameters": ["1", "0", "-1", "-2"], "learning_rate": "0"}`.
+    # Every one of those values is now refused, and rightly: a zero learning rate was the only
+    # value the old circuit accepted, and negative parameters were field elements near the
+    # modulus (V23-94). Values are scaled by 1e6, so 10000 is a learning rate of 0.01.
     proof = await service.generate_proof(
         "modular_ml_components",
-        {"initial_parameters": ["1", "0", "-1", "-2"], "learning_rate": "0"},
+        {
+            "initial_parameters": ["10000000", "20000000", "30000000", "40000000"],
+            "learning_rate": "10000",
+            "gradients": [["1", "1", "1", "1"], ["1", "1", "1", "1"], ["1", "1", "1", "1"]],
+        },
     )
     assert proof is not None
     assert proof["public_signals"][4] == "1"  # training_complete
