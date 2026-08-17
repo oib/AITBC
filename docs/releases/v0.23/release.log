@@ -8180,9 +8180,20 @@ validator that raises on the live config would have prevented the service from s
 
 #### Not fixed here
 
-- **`COORDINATOR_API_KEY` and `SECRET_KEY` are still unrotated**, and both are published.
-  Step 4 of `docs/ops/follower-api-key.md` has said so since V23-68; the guard added here only
-  stops them being reused as service credentials, it does not make them secret again.
+- **The publication has stopped; the rotation has not.** `/agent/blockchain.env` now serves
+  `FOLLOWER_API_KEY` and no hub credential (fetched 2026-08-17, HTTP 200, 1212 bytes), and
+  `/etc/aitbc/blockchain.env` on this host carries neither key — steps 2 and 3 of
+  `docs/ops/follower-api-key.md` are done. Step 4 is not: `COORDINATOR_API_KEY` and `SECRET_KEY`
+  in `/etc/aitbc/aitbc-coordinator-api.env` are byte-identical to the 2026-06-19 backup, so
+  whoever read the file while it was served still holds what it granted. Whether the hub rotated
+  its own copies cannot be determined from here — it is a different machine. The guard added
+  above only stops those values being reused as service credentials; it does not make them
+  secret again.
+- **`/etc/aitbc/blockchain-secrets.env` sets `COORDINATOR_API_KEY` and `SECRET_KEY` to the same
+  value** — the exact condition the ops doc tells operators to check for, since `_require_api_key`
+  accepts either — and to a *different* value from the one in `aitbc-coordinator-api.env`. Only
+  `aitbc-wallet.service` loads it, so this host has two live `COORDINATOR_API_KEY` values
+  depending on which unit is asked. Untouched here: which one is intended is an operator call.
 - **The deployed coordinator-api runs `ENVIRONMENT=development`** while serving real traffic.
   That disables the empty-key-list rejection, the DEBUG check and the production assertions in
   `create_app()`. Left alone because flipping it may change behaviour well beyond auth, but it
