@@ -153,12 +153,13 @@ def test_shipped_contributed_keys_report_their_count() -> None:
     assert by_name["receipt_simple_0001.zkey"] == 1
     assert by_name["ml_inference_verification_0001.zkey"] == 1
     assert by_name["ml_training_verification_0001.zkey"] == 1
-    # The regression: a zero-contribution key sitting under a `_0001` name.
-    assert by_name["modular_ml_components_0001.zkey"] == 0
+    # modular_ml_components_0001.zkey was the regression (zero contributions under a _0001
+    # name). It has since been re-generated with a real phase-2 contribution (V23-91).
+    assert by_name["modular_ml_components_0001.zkey"] == 1
 
 
-def test_modular_ml_is_withheld_because_its_key_has_no_contribution() -> None:
+def test_modular_ml_is_available_with_a_contributed_key() -> None:
     from coordinator_api.contexts.zk_applications.services.zk_proofs import ZKProofService
 
     service = ZKProofService()
-    assert "modular_ml_components" not in service.available_circuits
+    assert "modular_ml_components" in service.available_circuits
