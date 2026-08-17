@@ -20,6 +20,15 @@ Matching on source text is deliberately blunt. It over-matches -- a module that 
 mentions the host in a comment is skipped too -- and that is the right direction to err.
 It also reads the file rather than importing it, so nothing in a gated module executes.
 
+**The gate has to be confined to this directory** (V23-93). `pytest_collection_modifyitems`
+is handed the whole session's item list no matter which `conftest.py` defines it, so for one
+release the blunt text match ran against every file in the repository: 159 ordinary unit
+tests were skipped for naming the host in a URL constant or a docstring, among them the
+`/coin-requests/execute` authorization tests and the invocation-safety tests for the 3600x
+balance migration. Over-matching is the right direction to err *here*, where every module
+really does write to production; applied repo-wide it silently turned off the tests that
+verify the protections. Hence `_is_in_this_directory`.
+
 Set ``AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`` to run them, which makes running them a
 deliberate act. The rest of this directory -- the import-surface checks, the model
 validation, the localhost payment flow -- is ordinary and runs normally.
@@ -32,6 +41,7 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 
 import pytest
 
@@ -39,6 +49,19 @@ import pytest
 PRODUCTION_HOST_RE = re.compile(r"\bbubuit\.net\b")
 
 ALLOW_ENV = "AITBC_ALLOW_PRODUCTION_WRITE_TESTS"
+
+#: The only directory this gate speaks for. See the module docstring: the hook itself is
+#: repo-wide, so the boundary has to be enforced here rather than assumed from placement.
+GATED_DIR = Path(__file__).resolve().parent
+
+
+def _is_in_this_directory(path) -> bool:  # noqa: ANN001 - pytest hands us its own path type
+    """Whether the item lives under `tests/verification/`."""
+    try:
+        resolved = Path(str(path)).resolve()
+    except OSError:
+        return False
+    return resolved == GATED_DIR or GATED_DIR in resolved.parents
 
 
 def _names_production_host(path) -> bool:  # noqa: ANN001 - pytest hands us its own path type
@@ -68,6 +91,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             continue
         key = str(path)
         if key not in gated:
-            gated[key] = _names_production_host(path)
+            gated[key] = _is_in_this_directory(path) and _names_production_host(path)
         if gated[key]:
             item.add_marker(skip)
