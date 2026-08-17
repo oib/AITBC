@@ -17,11 +17,6 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
-# Emit the miner-api-key fallback warning once per process. With `miner_api_keys` unset,
-# the default uses COORDINATOR_API_KEY as a miner credential; the warning used to repeat
-# on every request and filled the logs (V23-68).
-_miner_fallback_warning_emitted: set[str] = set()
-
 
 class APIKeyAuthenticator:
     """Shared service API-key dependency.
@@ -163,30 +158,24 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
     api_key = request.headers.get("X-Api-Key")
     miner_id = request.headers.get("X-Miner-ID")
 
-    allowed_keys: list[str] = []
     # Try to load from config settings (coordinator-api specific)
     try:
         from coordinator_api.config import settings as config_settings
 
         allowed_keys = config_settings.miner_api_keys
     except (ImportError, AttributeError):
-        pass
+        # outside coordinator-api, fall back to the raw env string for tests
+        raw = os.getenv("MINER_API_KEYS", "")
+        allowed_keys = [k.strip() for k in raw.split(",") if k.strip()]
 
     if not allowed_keys:
-        coord_key = os.getenv("COORDINATOR_API_KEY", "")
-        if coord_key:
-            # This is why COORDINATOR_API_KEY must never be published (V23-68): with
-            # `miner_api_keys` unset — the default — it silently becomes a miner credential
-            # for every endpoint behind this dependency. Set MINER_API_KEYS to stop the
-            # fallback. Warned once per process rather than removed because deployed miners
-            # may rely on it; a silent promotion is the part worth ending.
-            if "warned" not in _miner_fallback_warning_emitted:
-                _miner_fallback_warning_emitted.add("warned")
-                logger.warning(
-                    "miner_api_keys is empty; accepting COORDINATOR_API_KEY as a miner credential. "
-                    "Set MINER_API_KEYS to scope miner access properly."
-                )
-            allowed_keys = [coord_key]
+        # COORDINATOR_API_KEY used to be accepted as a miner credential when
+        # `miner_api_keys` was empty (V23-68). The fallback is removed now that the
+        # config path exists; a missing list is a deployment issue, not a promotion.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No miner API keys configured",
+        )
 
     if not api_key:
         raise HTTPException(
