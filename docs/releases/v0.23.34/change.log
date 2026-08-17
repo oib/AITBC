@@ -3472,3 +3472,191 @@ message. 152 of the repo's 185 `# nosec` lines are written this way, and the two
 follow the same house style rather than diverging from it in one file; moving
 the prose onto the line above and leaving a bare `# nosec BXXX` inline silences it, and that is a
 repo-wide edit rather than part of this one.
+
+### V23-88 — a lint fix that deleted nine defaults, and the five tests that recorded the result · CONFIRMED → RESOLVED
+
+Nine query parameters across five marketplace endpoints were required. Asking for analytics
+without saying which period, or listing transactions without a filter, answered `422` — and the
+published spec agreed, because FastAPI had been told they were mandatory:
+
+| endpoint | parameters |
+| --- | --- |
+| `GET /v1/marketplace/analytics` | `period_type` |
+| `GET /v1/marketplace/performance` | `period` |
+| `GET /v1/marketplace/offer/{service_id}/ratings` | `limit`, `offset` |
+| `GET /v1/marketplace/ratings/unsynced` | `limit` |
+| `GET /v1/transactions` | `action`, `status`, `island_id`, `transaction_type` |
+
+A parameter annotated `X | None` with no default is *required* to FastAPI. `| None` says what
+values are allowed, not whether the caller must supply one; only a default does that. This is
+the third time it has been found here — V23-83 on `cancel_offer`, v0.6.6 on `/offers` — which is
+why the annotation deserves the suspicion it now gets.
+
+#### The defaults were there, and a lint fix removed them
+
+`get_transactions` was written correctly in `dcfa58039` (2026-06-06):
+
+```python
+async def get_transactions(
+    transaction_type: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
+    session: AsyncSession = Depends(get_session_dep),
+):
+```
+
+`9cdccde02` (2026-06-16, *"Fix B008 violations: add Annotated to function parameters with
+Depends"*) made it:
+
+```python
+async def get_transactions(
+    transaction_type: str | None,
+    action: str | None,
+    status: str | None,
+    island_id: str | None,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+) -> Any:
+```
+
+Four `= None` deleted from parameters that already had them. The B008 fix itself is correct and
+worth having — `Depends(...)` evaluated in a default argument is the thing B008 exists to catch.
+But `session: Annotated[AsyncSession, Depends(get_session_dep)]` has no default where
+`session: AsyncSession = Depends(...)` did, and Python will not accept a parameter without a
+default after parameters with one:
+
+```
+SyntaxError: parameter without a default follows parameter with a default
+```
+
+So the commit had a choice: move the dependency ahead of the query parameters, or strip the
+defaults off the query parameters. It stripped the defaults. That keeps the signature legal and
+`| None` still *reads* as "optional", which is presumably why it looked finished. The four other
+endpoints were hit the same way in the same commit:
+
+| before `9cdccde02` | after | now |
+| --- | --- | --- |
+| `period_type: str = "daily"` | `period_type: str \| None` | `period_type: str = "daily"` |
+| `period: str = "daily"` | `period: str \| None` | `period: str = "daily"` |
+| `limit: int = 50, offset: int = 0` | `limit: int \| None, offset: int \| None` | `limit: int = 50, offset: int = 0` |
+| `limit: int = 100` | `limit: int \| None` | `limit: int = 100` |
+
+The fix is the branch that commit did not take: the dependency goes first, and the defaults come
+back to the values it deleted them from.
+
+#### The code underneath never agreed
+
+Nothing below these signatures was rewritten to match, so the whole file still assumed the
+parameters were optional:
+
+- `MarketplaceService.get_analytics` declares `period_type: str = "daily"` (`marketplace_service.py:198`),
+  `get_service_ratings` declares `limit: int = 50, offset: int = 0` (`:644`), and
+  `get_unsynced_ratings` declares `limit: int = 100` (`:670`). Those defaults were unreachable:
+  a caller who omitted the parameter never got that far, and one who supplied it overrode it.
+- `get_transactions` branches on `not action` and guards `if status:` and `if island_id:` — it is
+  written to handle absent filters, for callers who could not send absent filters.
+- Four `# type: ignore[arg-type]` comments sat on these call sites, silencing mypy's correct
+  observation that a `str | None` was being passed to a `str` parameter. They are removed; the
+  types now line up on their own. The four `# type: ignore` remaining in the file are unrelated
+  SQLAlchemy ones.
+
+#### The five tests
+
+Each of the affected endpoints had a test, and each asserted the 422:
+
+```python
+def test_get_marketplace_analytics_missing_param(client):
+    """Test get marketplace analytics without required param returns 422"""
+```
+
+The behaviour was covered, pinned, and named as intended — four of the five paired tests even
+pass the parameters explicitly under names like `test_get_marketplace_analytics_with_param`,
+so the required form was the one being demonstrated. This is the same shape as the v0.6.6 fix
+to `/offers`, whose test still carries the docstring *"Test get marketplace offers without
+params — all params optional (v0.6.6)"* from when it was flipped the other way. Written after
+the fact, a test records what the code does; it cannot distinguish that from what the code
+should do. All five are renamed and now assert the behaviour the endpoints were built for:
+
+| was | is | now asserts |
+| --- | --- | --- |
+| `test_get_marketplace_analytics_missing_param` | `..._default_period` | `200`, `period_type == "daily"` |
+| `test_marketplace_performance_missing_param` | `..._default_period` | `200`, `period == "daily"` |
+| `test_get_ratings_missing_params` | `test_get_ratings_default_paging` | `404 {"error": "Service not found"}` — V23-81's 404, now reachable |
+| `test_get_unsynced_ratings_missing_param` | `..._default_limit` | `200 {"ratings": [], "count": 0}` |
+| `test_get_transactions_missing_params` | `test_get_transactions_no_filters` | `200`, a list |
+
+#### `transaction_type` is accepted and never read
+
+It has been declared on `get_transactions` since the endpoint was written and nothing in the
+handler reads it. The rows it returns are built from `MarketplaceOffer` and are all
+`"action": "offer"`, so there is no field for it to select on either. It is kept as an optional
+parameter rather than deleted: a caller already sending it should not meet a changed contract as
+a side effect of this fix, and removing a published parameter is a decision on its own. Wiring
+it up or dropping it is left open deliberately.
+
+#### The contract change
+
+Nine parameters go from `"required": true` to `"required": false` in
+`docs/api/marketplace-openapi.json`, and five gain a published `"default"` — `"daily"`,
+`"daily"`, `50`, `0`, `100` — which were previously invisible to anyone reading the spec. This
+is a relaxation in one direction only: every request that worked before still works and returns
+the same answer, and requests that returned `422` now return data. The spec was regenerated with
+`make openapi`; `make openapi-check` failed before it (`27 lines to add, 57 to remove`) and
+passes after, which is V23-82's drift guard doing the job it was wired up for.
+
+#### Verification
+
+```
+apps/marketplace/tests/test_main.py: 41 passed
+make openapi-check: ✅ OpenAPI: docs/api/ matches the applications (5 specs)
+```
+
+Root suite: 6,288 passed, 271 skipped, exit 0 — unchanged from the V23-87 baseline.
+
+`pre-commit run --all-files` fails only `require-set-euo-pipefail-in-touched-scripts`, on 297
+pre-existing untouched `.sh` files -- down from 329 at V23-87, the difference being the
+strict-mode pass in `b64b308c8`/`d60f9bb83` -- which is what that hook does under `--all-files` by design;
+this change touches no shell script. Every other hook passes, `ruff`, `ruff-format` and
+`mypy-clean-apps` among them.
+
+Nothing else depended on the old behaviour: no other test asserts a `422` on these routes, and
+no document describes these parameters as required.
+
+#### Not fixed here
+
+`9cdccde02` touched far more than this file, but it is not the whole cause. An AST scan of every
+route handler in the repository — a parameter whose annotation includes `None`, is not
+`Annotated`, and has no default — finds 300 of them. Seventeen are annotated `dict`, `list` or `Any`, which FastAPI
+reads as a request body rather than a query parameter, and a required body is ordinary; eleven
+of those sit on `POST` handlers. Excluding them leaves **283 required-by-accident query
+parameters across 121 handlers in 30 files**, with `apps/marketplace` now at zero:
+
+```
+250  apps/coordinator-api
+  8  apps/gpu
+  8  apps/pool-hub
+  8  apps/trading
+  7  apps/edge
+  2  apps/agent-coordinator
+```
+
+252 of the 283 are on `GET` handlers. Eighteen are annotated with an enum — `AnalyticsPeriod`,
+`DeploymentStatus`, `StakeStatus` and eleven others — and those count: FastAPI reads a
+`StrEnum` as a scalar query parameter, not as a model. They concentrate in a few routers:
+`global_marketplace_integration.py` (32), `analytics.py` (27), `ecosystem_dashboard.py` (25),
+`certification.py` (20), `security_router.py` (20).
+
+They read the same way this file did; `agent_app/routers/alerts.py:20` is
+`async def get_alerts(request: Request, status: str | None, ...)` under the docstring *"Get
+alerts with optional status filter"*, over a body that branches `if status == "active"`.
+
+Walking each of those 30 files' history says the edit above is not what put most of them there:
+23 of the 283 had a default that a later commit deleted — 16 of them by `9cdccde02` — and **260
+were born without one**, most of them in files that did not exist when `9cdccde02` ran. So that
+commit is where the shape was introduced here, not where they all came from; it became the house
+style. They are wrong either way, since a required query parameter can never be `None` and the
+`| None` describes a value the handler cannot be given.
+
+Each still needs the same question this change answered five times — what did the code
+underneath expect when the parameter was absent — and each app's published spec changes with it.
+V23-89 takes all 283.

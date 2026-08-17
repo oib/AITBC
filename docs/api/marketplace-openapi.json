@@ -479,16 +479,10 @@
           {
             "name": "period_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "daily",
               "title": "Period Type"
             }
           }
@@ -686,16 +680,10 @@
           {
             "name": "period",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "daily",
               "title": "Period"
             }
           }
@@ -1381,32 +1369,20 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 50,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           }
@@ -1514,16 +1490,10 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           }
@@ -1715,25 +1685,9 @@
         "operationId": "get_transactions_v1_transactions_get",
         "parameters": [
           {
-            "name": "transaction_type",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Transaction Type"
-            }
-          },
-          {
             "name": "action",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -1749,7 +1703,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -1765,7 +1719,7 @@
           {
             "name": "island_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -1776,6 +1730,22 @@
                 }
               ],
               "title": "Island Id"
+            }
+          },
+          {
+            "name": "transaction_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Transaction Type"
             }
           }
         ],
