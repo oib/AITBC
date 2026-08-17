@@ -16,30 +16,27 @@ typedef uint8_t u8;
 //only for the main inputs
 struct __attribute__((__packed__)) HashSignalInfo {
     u64 hash;
-    u64 signalid;
-    u64 signalsize;
+    u64 signalid; 
+    u64 signalsize; 
 };
 
-struct IOFieldDef {
+struct IODef { 
     u32 offset;
     u32 len;
     u32 *lengths;
-    u32 size;
-    u32 busId;
 };
 
-struct IOFieldDefPair {
+struct IODefPair { 
     u32 len;
-    IOFieldDef* defs;
+    IODef* defs;
 };
 
 struct Circom_Circuit {
   //  const char *P;
   HashSignalInfo* InputHashMap;
   u64* witness2SignalList;
-  FrElement* circuitConstants;
-  std::map<u32,IOFieldDefPair> templateInsId2IOSignalInfo;
-  IOFieldDefPair* busInsId2FieldInfo;
+  FrElement* circuitConstants;  
+  std::map<u32,IODefPair> templateInsId2IOSignalInfo;
 };
 
 
@@ -49,7 +46,7 @@ struct Circom_Component {
   u32 inputCounter;
   std::string templateName;
   std::string componentName;
-  u64 idFather;
+  u64 idFather; 
   u32* subcomponents = NULL;
   bool* subcomponentsParallel = NULL;
   bool *outputIsSet = NULL;  //one for each output
@@ -84,6 +81,5 @@ uint get_size_of_input_hashmap();
 uint get_size_of_witness();
 uint get_size_of_constants();
 uint get_size_of_io_map();
-uint get_size_of_bus_field_map();
 
 #endif  // __CIRCOM_H
