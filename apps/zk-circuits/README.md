@@ -57,7 +57,8 @@ that **the setup secret still exists and any party who has it can forge proofs t
 
 That is why:
 
-- `*_0000.zkey` (zero contributions) is never loaded — `_resolve_proving_key` refuses it (V23-24).
+- A proving key whose own MPC section reports zero contributions is never loaded,
+  including a `*_0000.zkey` and a file merely *named* `_0001` (V23-24, V23-91).
 - Verification is off unless `COORDINATOR_ENABLE_ZK_VERIFICATION=true` (V23-24/V23-32).
 - The status endpoint reports `"trusted_setup": "development-only"`, not `"completed"`.
 
@@ -95,16 +96,20 @@ here until one is generated.
 
 ## Regenerating a verification key
 
-Three verification keys were removed because they were copies of one file serving circuits
-with 0, 1, 5 and 5 public signals (V23-26a). The circuits they belonged to are withheld by
-`ZKProofService` until real ones are exported:
+Three of the four service-tree keys were missing or placeholders (V23-26a / V23-91). They
+are exported from the proving key the service actually loads — the `_0001` in the
+coordinator-api tree — and live next to that circuit's `.wasm`:
 
 ```bash
-snarkjs zkey export verificationkey <circuit>_0001.zkey verification_key.json
+snarkjs zkey export verificationkey <circuit>_0001.zkey <circuit>_js/verification_key.json
 ```
 
-Run it against the proving key the service actually loads — the one in the coordinator-api
-tree — and place the output beside that circuit's `.wasm`.
+`modular_ml_components_0001.zkey` is a zero-contribution (and cryptographically broken)
+key under a contributed name, so it is withheld rather than given a verification key.
+
+`npm install` in this directory used to fail because a script named `prepare` is an npm
+lifecycle hook: it ran `powersoftau prepare` against a gitignored `.ptau` on every
+install. The ceremony step is now `prepare-phase2`.
 
 ---
 *Last updated: 2026-08-10*

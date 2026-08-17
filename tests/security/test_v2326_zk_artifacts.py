@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPO_ROOT / "apps/coordinator-api/src"))
 
 from coordinator_api.contexts.zk_applications.services.zkey_header import (  # noqa: E402
     read_r1cs_header,
+    read_zkey_contribution_count,
     read_zkey_header,
 )
 
@@ -86,7 +87,6 @@ def test_the_service_offers_no_circuit_whose_keys_disagree() -> None:
     Verification being disabled by default (V23-24) is not what protects this — proving
     reads the verification key too.
     """
-    pass
     from coordinator_api.contexts.zk_applications.services.zk_proofs import (  # type: ignore[import-not-found]
         _verification_key_mismatch,
         ZKProofService,
@@ -105,15 +105,60 @@ def test_a_mismatched_pair_is_actually_detected(tmp_path: Path) -> None:
         _verification_key_mismatch,
     )
 
-    zkey = next(SERVICE_TREE.glob("receipt_simple_0*.zkey"))
-    real_public = read_zkey_header(zkey).n_public
+    zkey = SERVICE_TREE / "receipt_simple_0001.zkey"
+    real = json.loads((SERVICE_TREE / "receipt_simple_js" / "verification_key.json").read_text())
 
     wrong = tmp_path / "verification_key.json"
-    wrong.write_text(json.dumps({"protocol": "groth16", "curve": "bn128", "nPublic": real_public + 1}))
+    wrong.write_text(json.dumps({**real, "nPublic": real["nPublic"] + 1}))
 
     assert _verification_key_mismatch(zkey, wrong) is not None
 
     right = tmp_path / "matching.json"
-    right.write_text(json.dumps({"protocol": "groth16", "curve": "bn128", "nPublic": real_public}))
+    right.write_text(json.dumps(real))
 
     assert _verification_key_mismatch(zkey, right) is None
+
+
+def test_a_placeholder_verification_key_is_rejected(tmp_path: Path) -> None:
+    """The ml_inference key that shipped for three releases: nPublic matches, points are fake."""
+    from coordinator_api.contexts.zk_applications.services.zk_proofs import (  # type: ignore[import-not-found]
+        _verification_key_mismatch,
+    )
+
+    zkey = SERVICE_TREE / "ml_inference_verification_0001.zkey"
+    header = read_zkey_header(zkey)
+    fake = {
+        "protocol": "groth16",
+        "curve": "bn128",
+        "nPublic": header.n_public,
+        "vk_alpha_1": ["0x1234", "0x5678", "0x0"],
+        "vk_beta_2": [["0x1234", "0x5678"], ["0x1234", "0x5678"], ["0x0", "0x0"]],
+        "vk_gamma_2": [["0x1234", "0x5678"], ["0x1234", "0x5678"], ["0x0", "0x0"]],
+        "vk_delta_2": [["0x1234", "0x5678"], ["0x1234", "0x5678"], ["0x0", "0x0"]],
+        "IC": [["0x1234", "0x5678", "0x0"]] * (header.n_public + 1),
+    }
+    path = tmp_path / "verification_key.json"
+    path.write_text(json.dumps(fake))
+
+    mismatch = _verification_key_mismatch(zkey, path)
+    assert mismatch is not None
+    assert "not a decimal bn128 field element" in mismatch
+
+
+def test_shipped_contributed_keys_report_their_count() -> None:
+    """Filename `_0001` is not evidence of a contribution (V23-91)."""
+    by_name = {zkey.name: read_zkey_contribution_count(zkey) for zkey in _zkeys(SERVICE_TREE)}
+
+    assert by_name["receipt_simple_0000.zkey"] == 0
+    assert by_name["receipt_simple_0001.zkey"] == 1
+    assert by_name["ml_inference_verification_0001.zkey"] == 1
+    assert by_name["ml_training_verification_0001.zkey"] == 1
+    # The regression: a zero-contribution key sitting under a `_0001` name.
+    assert by_name["modular_ml_components_0001.zkey"] == 0
+
+
+def test_modular_ml_is_withheld_because_its_key_has_no_contribution() -> None:
+    from coordinator_api.contexts.zk_applications.services.zk_proofs import ZKProofService
+
+    service = ZKProofService()
+    assert "modular_ml_components" not in service.available_circuits

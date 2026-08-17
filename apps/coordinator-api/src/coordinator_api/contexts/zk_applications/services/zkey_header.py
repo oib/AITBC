@@ -93,6 +93,33 @@ def read_zkey_header(path: Path) -> ZKeyHeader:
     return ZKeyHeader(protocol=protocol, n_vars=n_vars, n_public=n_public, domain_size=domain_size)
 
 
+def read_zkey_contribution_count(path: Path) -> int:
+    """Return how many phase-2 contributions a ``.zkey`` actually carries.
+
+    The ``_0000``/``_0001`` suffix is a filename convention, and V23-24's refusal to load a
+    zero-contribution key was written against that convention. Renaming the file walks past
+    it: ``modular_ml_components_0001.zkey`` was a key straight out of ``groth16 setup``,
+    carrying no contribution at all, and it was accepted for three releases because its name
+    ended in ``_0001`` (V23-91).
+
+    Section 10 is snarkjs's MPC parameters: a 64-byte constraint-system hash followed by a
+    ``uint32`` count and then one record per contribution. The count is the artifact's own
+    statement about itself, so it is what the guard should read.
+    """
+    with path.open("rb") as fh:
+        sections = _read_sections(fh, b"zkey", {10})
+
+    if 10 not in sections:
+        raise ZKeyFormatError(f"{path.name}: no MPC parameters section, so contributions cannot be counted")
+
+    body = sections[10]
+    if len(body) < 68:
+        raise ZKeyFormatError(f"{path.name}: MPC parameters section is {len(body)} bytes, too short to hold a count")
+
+    (count,) = struct.unpack("<I", body[64:68])
+    return int(count)
+
+
 def read_r1cs_header(path: Path) -> R1CSHeader:
     """Read circuit shape from a compiled ``.r1cs``."""
     with path.open("rb") as fh:
