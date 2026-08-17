@@ -4143,3 +4143,91 @@ inputs must be field elements.
 
 **The build tree still has no proving key for its own `modular_ml_components`.** That circuit is
 527 wires here and 19 in the service tree (V23-26); only the service tree's was regenerated.
+
+### V23-68b — the fix for a published credential, and the two ways it could not have worked · CONFIRMED → RESOLVED
+
+V23-68 removed the promotion that made `COORDINATOR_API_KEY` — a key published in a
+world-readable bootstrap file — a miner credential whenever no miner keys were configured, and
+told operators to set `MINER_API_KEYS` instead. Both halves of that were unreachable, and main
+was left red.
+
+#### 1. `MINER_API_KEYS` could not be read where coordinator-api is importable
+
+```python
+try:
+    from coordinator_api.config import settings as config_settings
+
+    allowed_keys = config_settings.miner_api_keys
+except (ImportError, AttributeError):
+    # outside coordinator-api, fall back to the raw env string for tests
+    raw = os.getenv("MINER_API_KEYS", "")
+```
+
+A failed *import* was treated as the only reason to consult the environment. But `settings` is
+constructed once, at import, so it holds whatever the environment said at that moment and nothing
+that arrives afterwards — and wherever coordinator-api is importable, which is every service that
+installs it and the whole root test suite, the environment branch is dead code. A correctly
+configured miner got `401: No miner API keys configured`.
+
+`_configured_miner_keys()` reads both sources at the moment they are needed and merges them, so
+where the value came from stops mattering. An empty result still refuses everyone; that part is
+the point of V23-68.
+
+#### 2. The value the documentation asks for stopped the service from starting
+
+```
+MINER_API_KEYS=miner-one-key-value,miner-two-key-value
+```
+
+```
+SettingsError: error parsing value for field "miner_api_keys" from source "EnvSettingsSource"
+```
+
+pydantic-settings JSON-decodes any complex-typed variable inside `EnvSettingsSource`, *before*
+field validators run, and raises on failure. `Settings.parse_api_keys` has a comma-separated
+branch, and it had never been reachable from the environment — only from code passing a string
+directly. So an operator following step 5 of `docs/ops/follower-api-key.md` would not have seen
+401s: they would have had a coordinator-api that does not start, because that is where its
+settings are read.
+
+`client_api_keys`, `miner_api_keys` and `admin_api_keys` are now `Annotated[list[str], NoDecode]`,
+which is what hands the raw string to the validator that was written for it. Comma-separated and
+JSON-array forms both load; unset stays empty.
+
+#### The two tests that were pinning the removed fallback
+
+Of the three failures on main, one was fault 1 above. The other two —
+`tests/security/test_auth_middleware.py::test_auth_middleware_accepts_miner_api_key` and
+`::test_auth_middleware_blocks_miner_key_on_admin_route` — configured the miner credential as
+`COORDINATOR_API_KEY`, which is exactly what V23-68 removed. They were recording the old
+behaviour and were not updated when it changed, so they failed for the correct reason. They now
+configure `MINER_API_KEYS`, and a new test asserts the coordinator key is refused on
+`/v1/miners/*`, so the removal is pinned rather than merely un-pinned.
+`test_auth_middleware_rejects_invalid_api_key` had also been passing for the wrong reason — no
+keys were configured at all, so it never reached a comparison.
+
+#### What operators have to do
+
+`/etc/aitbc/aitbc-coordinator-api.env` on this host sets `COORDINATOR_API_KEY` and no
+`MINER_API_KEYS`. The deployed coordinator-api runs from this working tree, so **at its next
+restart every `X-Api-Key` request to the miner, settlement and marketplace routers answers 401**
+until a miner key is configured. That is V23-68 working as intended, not a regression introduced
+here, and it is the reason step 5 of the ops doc now says "before the next restart" and gives the
+format.
+
+#### Verification
+
+Root suite: **6,593 tests, 0 failures, 0 errors, 271 skipped, exit 0** — green again, from 3
+failures on `dd250092e`. The five added tests are the three `Settings` parsing forms, the
+coordinator-key refusal on `/v1/miners/*`, and `_configured_miner_keys()` reading the environment
+while coordinator-api is importable, which is the condition under which it could not.
+
+`ruff`, `ruff format` and `mypy` clean over `aitbc/auth/dependencies.py` and
+`apps/coordinator-api/src/coordinator_api/config.py`.
+
+#### Not fixed here
+
+`AuthMiddleware` catches any `HTTPException` from the dependency and rewrites it to
+`{"detail": "Invalid API key"}`, so `No miner API keys configured` never reaches the client. An
+operator debugging a 401 after a restart sees a message about the key they sent rather than the
+list that is missing.
