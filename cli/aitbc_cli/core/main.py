@@ -68,6 +68,7 @@ from aitbc_cli.commands.tee import tee
 
 # Import new modular commands
 from aitbc_cli.commands.transactions import transactions
+from aitbc_cli.commands.update import update
 from aitbc_cli.commands.wallet import wallet
 from aitbc_cli.commands.workflow import workflow
 
@@ -176,6 +177,7 @@ cli.add_command(genesis)
 
 # Add new modular commands
 cli.add_command(transactions)
+cli.add_command(update)
 cli.add_command(mining)
 cli.add_command(agent_msg, name="agent-msg")
 cli.add_command(workflow)
