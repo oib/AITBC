@@ -135,10 +135,16 @@ def test_get_marketplace_analytics_with_param(client):
     assert response.json()["period_type"] == "daily"
 
 
-def test_get_marketplace_analytics_missing_param(client):
-    """Test get marketplace analytics without required param returns 422"""
+def test_get_marketplace_analytics_default_period(client):
+    """Omitting period_type applies the service's "daily" default rather than answering 422.
+
+    This asserted the 422 until V23-88. The parameter was typed `str | None` with no default,
+    which FastAPI reads as required, so the `period_type: str = "daily"` the service has always
+    declared could never be reached.
+    """
     response = client.get("/v1/marketplace/analytics")
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json()["period_type"] == "daily"
 
 
 # --- Performance ---
@@ -151,10 +157,11 @@ def test_marketplace_performance(client):
     assert response.json()["period"] == "daily"
 
 
-def test_marketplace_performance_missing_param(client):
-    """Test marketplace performance without required period param returns 422"""
+def test_marketplace_performance_default_period(client):
+    """Omitting period falls back to "daily" instead of answering 422 (V23-88)."""
     response = client.get("/v1/marketplace/performance")
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json()["period"] == "daily"
 
 
 # --- Plugins ---
@@ -528,10 +535,16 @@ def test_rate_a_registered_service(client, registered_service):
     assert ratings["service_info"] == {"avg_rating": 4.0, "rating_count": 1}
 
 
-def test_get_ratings_missing_params(client):
-    """Test get ratings without required params returns 422"""
+def test_get_ratings_default_paging(client):
+    """Omitting limit/offset asks for the first page rather than answering 422 (V23-88).
+
+    The service is absent here, so this reaches the 404 V23-81 added -- which is the point: the
+    request is now well-formed enough to be answered on its merits instead of rejected for
+    leaving off paging the handler already had defaults for.
+    """
     response = client.get("/v1/marketplace/offer/test-service-id/ratings")
-    assert response.status_code == 422
+    assert response.status_code == 404
+    assert response.json() == {"error": "Service not found"}
 
 
 def test_get_unsynced_ratings(client):
@@ -541,10 +554,11 @@ def test_get_unsynced_ratings(client):
     assert response.json() == {"ratings": [], "count": 0}
 
 
-def test_get_unsynced_ratings_missing_param(client):
-    """Test get unsynced ratings without required limit param returns 422"""
+def test_get_unsynced_ratings_default_limit(client):
+    """Omitting limit applies the service's default of 100 instead of answering 422 (V23-88)."""
     response = client.get("/v1/marketplace/ratings/unsynced")
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json() == {"ratings": [], "count": 0}
 
 
 # --- Offer query (plugin marketplace) ---
@@ -582,7 +596,12 @@ def test_get_transactions(client):
     assert isinstance(response.json(), list)
 
 
-def test_get_transactions_missing_params(client):
-    """Test get transactions without required params returns 422"""
+def test_get_transactions_no_filters(client):
+    """No filters lists everything rather than answering 422 (V23-88).
+
+    The handler always branched on `not action` and guarded `if status:` / `if island_id:`, so
+    it was written for absent filters throughout; only the signature disagreed.
+    """
     response = client.get("/v1/transactions")
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
