@@ -56,15 +56,37 @@ Two identical hashes mean publishing either one published both.
 5. Set `MINER_API_KEYS` explicitly, **before** the next coordinator-api restart.
    `require_miner_api_key` fails closed when the list is empty, so every `X-Api-Key` request
    to the miner, settlement and marketplace routers answers
-   `401: No miner API keys configured` until a miner key is configured. Comma-separated or a
-   JSON array, each key at least 16 characters:
+   `401: No miner API keys configured` until a miner key is configured. **Use the JSON array
+   form**, single-quoted, each key at least 16 characters:
 
    ```
-   MINER_API_KEYS=miner-one-key-value,miner-two-key-value
+   MINER_API_KEYS='["miner-one-key-value","miner-two-key-value"]'
    ```
+
+   The comma-separated form works only from the V23-68b fix onward. Before it, pydantic-settings
+   JSON-decodes the variable before any validator runs, so *any* non-JSON value — a comma-separated
+   list or even one bare key — raises `SettingsError` and coordinator-api does not start at all.
+   JSON is correct on both, which is why it is the form given here. The single quotes are for
+   systemd's `EnvironmentFile` parser, which strips inner quotes if anything ever `source`s the
+   file in a shell.
 
    Keys shorter than 16 characters, or left at a `$placeholder`, make `Settings` refuse to
    construct — which coordinator-api reads at import, so the service will not start.
+
+6. Give the miner its **own** key — not `COORDINATOR_API_KEY`. Whatever goes in `MINER_API_KEYS`
+   also goes in `MINER_API_KEY` in the miner's environment (`/etc/aitbc/aitbc-miner.env`), since
+   `production_miner.py` sends that value as `X-Api-Key`. Setting only one side 401s the miner.
+
+   The two were the same value on the deployed host, which made the published key a working
+   miner credential (V23-68c). `Settings` now refuses to construct if any key list contains
+   `COORDINATOR_API_KEY` or `SECRET_KEY`, so the reuse fails loudly instead of silently. Confirm
+   they differ without printing them:
+
+   ```bash
+   for f in aitbc-coordinator-api.env:COORDINATOR_API_KEY aitbc-miner.env:MINER_API_KEY; do sudo grep -m1 "^${f#*:}=" "/etc/aitbc/${f%%:*}" | cut -d= -f2- | sha256sum | cut -c1-12; done
+   ```
+
+   Two identical hashes mean the miner is authenticating with a published credential.
 
 ## For island operators
 
