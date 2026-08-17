@@ -19,9 +19,13 @@ session/Redis objects, so no database is required.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.sql.elements import TextClause
@@ -235,3 +239,55 @@ def test_the_settings_default_port_is_the_one_the_unit_binds() -> None:
     from poolhub.settings import Settings
 
     assert Settings().bind_port == 8210
+
+
+# --- whether anything is watching at all -----------------------------------------------
+#
+# A 404 on /health survived because no monitor ever asked for it.  These four tie the
+# monitor to the unit file and to the app's own route table, so the next wrong port or
+# wrong path fails here instead of going quiet in production.
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+HEALTH_CHECK_SH = REPO_ROOT / "scripts" / "monitoring" / "health_check.sh"
+POOL_HUB_UNIT = REPO_ROOT / "apps" / "pool-hub" / "aitbc-pool-hub.service"
+PROMETHEUS_YML = REPO_ROOT / "scripts" / "monitoring" / "prometheus.yml"
+
+
+def _monitored_url() -> str:
+    """The URL health_check.sh probes for pool-hub, from its SERVICE_ENDPOINTS map."""
+    match = re.search(r'\["aitbc-pool-hub"\]="([^"]+)"', HEALTH_CHECK_SH.read_text(encoding="utf-8"))
+    assert match, "aitbc-pool-hub is absent from SERVICE_ENDPOINTS in health_check.sh"
+    return match.group(1)
+
+
+def test_the_health_monitor_watches_pool_hub() -> None:
+    """The map drives the systemd, resource and endpoint checks; pool-hub was in none."""
+    assert _monitored_url() == "http://localhost:8210/health"
+
+
+def test_the_monitored_port_is_the_port_the_unit_binds() -> None:
+    """8203 in the settings was the same class of mistake; pin the monitor to the unit."""
+    bound = re.search(r"--port\s+(\d+)", POOL_HUB_UNIT.read_text(encoding="utf-8"))
+    assert bound, "aitbc-pool-hub.service does not pass an explicit --port"
+
+    assert urlparse(_monitored_url()).port == int(bound.group(1))
+
+
+def test_the_monitored_path_is_a_route_the_app_serves() -> None:
+    """The check that was missing everywhere: is this path in the service's route table?"""
+    from poolhub.app.main import app
+
+    paths = {route.path for route in app.routes if hasattr(route, "path")}
+
+    assert urlparse(_monitored_url()).path in paths
+
+
+def test_prometheus_scrapes_pool_hub() -> None:
+    """poolhub_miners_online is exported and was scraped by nothing."""
+    config = yaml.safe_load(PROMETHEUS_YML.read_text(encoding="utf-8"))
+    jobs = {job["job_name"]: job for job in config["scrape_configs"]}
+
+    assert "pool-hub" in jobs, "no scrape job for pool-hub"
+    assert jobs["pool-hub"]["static_configs"][0]["targets"] == ["localhost:8210"]
+    assert jobs["pool-hub"]["metrics_path"] == "/metrics"
