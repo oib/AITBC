@@ -143,11 +143,41 @@ def require_miner_jwt(token: str = Depends(get_token)) -> dict[str, Any]:
     return verify_access_token(token, required_role="miner")
 
 
+def _configured_miner_keys() -> list[str]:
+    """The miner API keys, read at the moment they are needed.
+
+    ``coordinator_api.config.settings`` and ``MINER_API_KEYS`` are the same variable read at
+    two different moments: the settings object is constructed once at import. Reading only
+    the settings therefore misses any value that arrives afterwards, and treating a failed
+    *import* as the only reason to consult the environment made the environment unreachable
+    wherever coordinator-api happens to be importable — which is every service that installs
+    it, and the whole root test suite (V23-68b).
+
+    Both sources are consulted and merged, so where the value comes from stops mattering.
+    An empty result still means no miner may authenticate; that part is deliberate.
+    """
+    keys: list[str] = []
+
+    try:
+        from coordinator_api.config import settings as config_settings
+
+        keys.extend(config_settings.miner_api_keys)
+    except (ImportError, AttributeError):
+        pass
+
+    keys.extend(k.strip() for k in os.getenv("MINER_API_KEYS", "").split(",") if k.strip())
+
+    # Order is preserved so the constant-time comparison below walks a stable list.
+    return list(dict.fromkeys(keys))
+
+
 def require_miner_api_key(request: Request) -> dict[str, Any]:
     """Authenticate miner via X-Api-Key header (legacy/internal service auth).
 
-    Validates the API key against the ``miner_api_keys`` config setting.
-    Falls back to ``COORDINATOR_API_KEY`` env var if miner_api_keys is empty.
+    Validates the API key against ``miner_api_keys`` / ``MINER_API_KEYS``. There is no
+    fallback to ``COORDINATOR_API_KEY``: that key authenticates the agent WebSocket, where
+    it reaches a handler that signs and submits on the spot, and it is published in a
+    world-readable bootstrap file (V23-68).
 
     Returns:
         Dict with "sub" (miner_id) and "role" ("miner").
@@ -158,15 +188,7 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
     api_key = request.headers.get("X-Api-Key")
     miner_id = request.headers.get("X-Miner-ID")
 
-    # Try to load from config settings (coordinator-api specific)
-    try:
-        from coordinator_api.config import settings as config_settings
-
-        allowed_keys = config_settings.miner_api_keys
-    except (ImportError, AttributeError):
-        # outside coordinator-api, fall back to the raw env string for tests
-        raw = os.getenv("MINER_API_KEYS", "")
-        allowed_keys = [k.strip() for k in raw.split(",") if k.strip()]
+    allowed_keys = _configured_miner_keys()
 
     if not allowed_keys:
         # COORDINATOR_API_KEY used to be accepted as a miner credential when

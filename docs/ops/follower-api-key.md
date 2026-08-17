@@ -53,8 +53,18 @@ Two identical hashes mean publishing either one published both.
    from that file.
 4. Rotate `COORDINATOR_API_KEY` and `SECRET_KEY`, since both have been published. Distribute
    the new values out of band to hub operators only.
-5. Set `MINER_API_KEYS` explicitly. `require_miner_api_key` fails closed when the list
-   is empty, so miner endpoints will return 401 until a miner key is configured.
+5. Set `MINER_API_KEYS` explicitly, **before** the next coordinator-api restart.
+   `require_miner_api_key` fails closed when the list is empty, so every `X-Api-Key` request
+   to the miner, settlement and marketplace routers answers
+   `401: No miner API keys configured` until a miner key is configured. Comma-separated or a
+   JSON array, each key at least 16 characters:
+
+   ```
+   MINER_API_KEYS=miner-one-key-value,miner-two-key-value
+   ```
+
+   Keys shorter than 16 characters, or left at a `$placeholder`, make `Settings` refuse to
+   construct — which coordinator-api reads at import, so the service will not start.
 
 ## For island operators
 
