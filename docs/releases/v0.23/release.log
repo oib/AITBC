@@ -7801,3 +7801,198 @@ detection for next time.
 this follower-only host. It is harmless today only because the keystore has no proposer key, so
 `Block production disabled on this node` fires at startup. If a key ever appears there, this node
 starts proposing blocks on the hub's chain, which is how two-sided divergence begins.
+
+### V23-91 — a ZK subsystem that reported four circuits and could not produce one proof · CONFIRMED → RESOLVED
+
+`ZKProofService` loaded, logged `Available circuits: [...]`, and answered `enabled: true`. Every
+proof it was asked for failed, and every failure was reported as a proof failure rather than as a
+missing dependency. Five faults stacked here, each sufficient on its own to make proving
+impossible. V23-24 and V23-26a had both audited this file; neither had run it.
+
+#### 1. snarkjs was not installed, and `npm install` could not install it
+
+```json
+"prepare": "snarkjs powersoftau prepare phase2 pot12_0001.ptau pot12_final.ptau -v",
+```
+
+`prepare` is an npm lifecycle hook — npm runs it automatically after every `npm install`. That
+line therefore ran a ceremony step against `pot12_0001.ptau`, which is gitignored
+(`apps/zk-circuits/.gitignore:22`) and not in the tree, so the hook died on `ENOENT` and handed
+its exit code to the install. The dependencies had in fact been placed by then; the install
+reported failure anyway, and `node_modules/` was never left behind by anyone who tried.
+
+Renamed to `prepare-phase2`, which is what the other ceremony scripts already look like
+(`generate-zkey`, `contribute-zkey`). `npm install` now completes and produces snarkjs 0.7.6;
+`package-lock.json` is committed with it.
+
+#### 2. `require('snarkjs')` could not have resolved even from a correct install
+
+Node resolves `require()` against the directory of the **script being executed**, not the process
+cwd. All three snarkjs call sites — `verify_proof`, `_generate_proof`, `_generate_proof_generic` —
+write their JavaScript to a `NamedTemporaryFile` under `/tmp`, so the search path was
+`/tmp/node_modules`, then `/node_modules`. Two of the three passed `cwd=self.circuits_dir`, which
+has no bearing on module resolution at all. `npm install -g` would not have fixed it either:
+global roots are not on the default require path.
+
+`NODE_PATH` is the only lever, so that is what the service sets:
+
+```python
+_DEFAULT_SNARKJS_NODE_PATH = Path(__file__).parents[6] / "zk-circuits" / "node_modules"
+SNARKJS_NODE_PATH = Path(os.getenv("COORDINATOR_SNARKJS_NODE_PATH") or _DEFAULT_SNARKJS_NODE_PATH)
+```
+
+All three subprocesses now run with `env=_node_env()`, and the two error paths that report a
+failed subprocess include the `NODE_PATH` they used. Because the old failure mode was "four
+circuits available, every proof fails with MODULE_NOT_FOUND", startup now says so directly:
+loading circuits while `snarkjs_available()` is false logs an error naming the directory it
+looked in.
+
+#### 3. The generated JavaScript could not have produced a witness
+
+```javascript
+const { witness } = await snarkjs.wtns.calculate(inputs, wasm, wasm);
+const { proof, publicSignals } = await snarkjs.groth16.prove(zkey, witness);
+```
+
+`wtns.calculate` takes a *path* or a `{type: "mem", data}` object, and it writes the witness to
+its third argument rather than returning one. Both `wasm` and `zkey` here were `Buffer`s from
+`fs.readFileSync`. So the call raised `Cannot read properties of undefined (reading 'type')`
+before the Buffer was ever parsed, and `witness` was `undefined` in the line that followed —
+which would not have mattered, because nothing was going to reach `groth16.prove`.
+
+`_generate_proof`, `_generate_proof_generic` and `apps/zk-circuits/generate_proof.js` now call
+`groth16.fullProve(inputs, wasmPath, zkeyPath)`, which is the one-shot form and takes paths.
+Each script also ends in `process.exit(0)`: snarkjs leaves ffjavascript worker threads running,
+so a script that merely finishes never exits and the subprocess hangs to its timeout.
+
+#### 4. Three verification keys were missing and the fourth was a placeholder
+
+```json
+"vk_alpha_1": ["0x1234", "0x5678", "0x0"],
+"vk_beta_2": [["0x1234","0x5678","0x0"],["0x1234","0x5678","0x0"]],
+...
+"IC": [["0x1234","0x5678","0x0"]]
+```
+
+That is the whole of `ml_inference_verification_js/verification_key.json` as committed — every
+group element the same literal placeholder, and an `IC` of one point where a circuit with one
+public signal needs two. `receipt_simple` and `ml_training_verification` had no
+`verification_key.json` at all.
+
+V23-26a's `_verification_key_mismatch` compared `nPublic` and nothing else, and the stub declared
+`nPublic: 1`, which is what its proving key says. It passed. And `ml_inference_verification` was
+the **only** circuit this service offered for three releases (`3fc1333fe`, `7dddb66c1`,
+`dcfa58039`), so the one circuit on offer was the one whose key was fake.
+
+The check now also requires that the four group elements are present, that `IC` holds
+`nPublic + 1` points, and that every coordinate is a decimal element of the bn128 base field.
+`"0x1234"` fails on the last of those before any of the arithmetic is reached. Real keys are
+exported for all four circuits with
+`snarkjs zkey export verificationkey <circuit>_0001.zkey <circuit>_js/verification_key.json`.
+
+#### 5. `modular_ml_components` was withheld for the wrong reason, and the right one was worse
+
+Its config entry pointed at a verification key in the root of `circuits_dir`:
+
+```python
+"vkey_path": self.circuits_dir / "verification_key.json",
+```
+
+The other three read `<circuit>_js/verification_key.json`, which is where snarkjs writes and
+where the `.wasm` already lives. No circuit's key has ever been at the path this one named, so
+the circuit was withheld for a missing file that was never going to be there.
+
+The key behind that path is the more serious finding. `modular_ml_components_0001.zkey` was a
+`groth16 setup` output — **zero phase-2 contributions** — and V23-24's refusal to load a
+zero-contribution key reads the *filename*. The `_0001` was enough. Two independent fingerprints
+in the binary say what the name does not:
+
+| | `groth16 setup` output | after `zkey contribute` |
+|---|---|---|
+| section order | `[1, 2, 4, 3, 9, 8, 5, 6, 7, 10]` | `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]` |
+| section 10 | 68 bytes — csHash and a zero count | one record appended per contribution |
+
+So the guard now asks the file instead of the name. `read_zkey_contribution_count` reads the
+`uint32` at offset 64 of section 10 — snarkjs's MPC parameters, the artifact's own statement about
+itself — and `_resolve_proving_key` refuses on that count, keeping the filename check as well
+because a `_0000` should be rejected by name too. This is the same correction the node's keystore
+loader already got: a label is a claim, and the artifact is the fact.
+
+That key was also cryptographically broken, independently of its contribution count:
+`snarkjs zkey verify` rejected it with `Invalid alpha1`, and a proof generated with it verified
+`false` against its own exported verification key. Zero contributions is not what caused that — a
+control experiment on `ml_inference_verification_0000.zkey`, also a zero-contribution setup
+output, round-tripped to `true`. Whatever produced the modular key produced garbage, which is why
+no verification key was exported from it.
+
+It has since been regenerated: `groth16 setup` against the service tree's own
+`modular_ml_components.r1cs` and the `pot12_final.ptau` already sitting in that directory, then a
+real `zkey contribute`, then a verification-key export. The circuit is offered again.
+
+#### What the service does now
+
+All four circuits load, and each one's proof verifies against the key the service itself loaded:
+
+| circuit | contributions | `snarkjs zkey verify` | round-trip inputs | verified |
+|---|---|---|---|---|
+| `receipt_simple` | 1 | ZKey Ok! | `receiptHash = Poseidon(receipt)`, 4-element `receipt` | true |
+| `ml_inference_verification` | 1 | ZKey Ok! | `x=3, w=4, b=5, expected=17` | true |
+| `ml_training_verification` | 1 | ZKey Ok! | `initial_parameters=[1,2,3,4], learning_rate=0` | true |
+| `modular_ml_components` | 1 | ZKey Ok! | `initial_parameters=[1,2,3,4], learning_rate=1` | true |
+
+`snarkjs zkey verify` is the check that matters for a regenerated key: it validates the key
+against its constraint system *and* the ceremony transcript it claims to descend from, which is
+everything the `_0001` suffix only asserts.
+
+#### Tests
+
+`apps/coordinator-api/tests/test_v2391_zk_proving.py` is new: `_node_env()` puts snarkjs on
+`NODE_PATH`; the generic script contains `fullProve` and no `wtns.calculate` and ends in
+`process.exit(0)`; and — skipped unless snarkjs is actually installed — a real proof through
+`generate_proof` verifies through `verify_proof`, which is the assertion none of the earlier
+tests made.
+
+`test_v023_zk_verification_trust.py` had built its fixtures with `Path.touch()`, so every
+`_resolve_proving_key` test ran against empty files and could not have noticed a contribution
+count. Those now copy real zkeys, and a new case renames a zero-contribution key to `_0001` and
+asserts it is still refused. `tests/security/test_v2326_zk_artifacts.py` gains the placeholder-key
+case and pins each shipped key's contribution count.
+
+The three ZK files together: **22 tests, 0 failures, 0 skips** — the snarkjs-gated round-trip runs
+rather than skipping, which is the point of installing it.
+
+Root suite: **6,588 tests, 3 failures, 0 errors, 271 skipped** — the 6,579 baseline plus nine new
+tests. The three failures are not from this work and are not ZK: `require_miner_api_key` reads
+`coordinator_api.config.settings.miner_api_keys`, a singleton built at import, and falls back to
+the `MINER_API_KEYS` environment variable only when that import fails. In the root suite the
+import succeeds, so the fallback is unreachable and three tests that configure miner keys through
+the environment get `401: No miner API keys configured`. Tracked under V23-68, where the same
+mechanism has a deployment consequence.
+
+#### Not fixed here
+
+**The trusted setup is still development-only.** The regenerated modular contribution is named
+`"1st Contributor Name"` — the same placeholder as the rest — with no transcript and no recorded
+toxic-waste handling. Regenerating a key is not a ceremony, and
+`COORDINATOR_ENABLE_ZK_VERIFICATION` remains false by default (V23-24/V23-32) for exactly that
+reason.
+
+**`node_modules/` is gitignored**, so this works on hosts where `npm install` has been run in
+`apps/zk-circuits` and nowhere else. The startup error names the directory it searched, and
+`COORDINATOR_SNARKJS_NODE_PATH` overrides it. The deployed coordinator-api runs from this working
+tree, so none of this takes effect until the service restarts.
+
+**`ml_training_verification`'s learning-rate constraint is not what its comment says.**
+`learning_rate * (1 - learning_rate) === learning_rate` reduces to `learning_rate² = 0`, so zero
+is the only satisfying value, while the source above it claims to ensure `0 < lr < 1`. The
+round-trip in the table above passes with `learning_rate=0` and fails with anything else.
+
+**`modular_ml_components` returns negative parameter updates.** Its first two public signals come
+out as `r - 2` and `r - 1` for the inputs above. The circuit proves *something* about the values
+it was given; whether that something is training is unreviewed.
+
+**`_prepare_inputs` still feeds non-numeric strings** — job UUIDs, hex digests — to circuits whose
+inputs must be field elements.
+
+**The build tree still has no proving key for its own `modular_ml_components`.** That circuit is
+527 wires here and 19 in the service tree (V23-26); only the service tree's was regenerated.
