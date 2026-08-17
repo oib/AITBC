@@ -17,6 +17,11 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Emit the miner-api-key fallback warning once per process. With `miner_api_keys` unset,
+# the default uses COORDINATOR_API_KEY as a miner credential; the warning used to repeat
+# on every request and filled the logs (V23-68).
+_miner_fallback_warning_emitted: set[str] = set()
+
 
 class APIKeyAuthenticator:
     """Shared service API-key dependency.
@@ -173,12 +178,14 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
             # This is why COORDINATOR_API_KEY must never be published (V23-68): with
             # `miner_api_keys` unset — the default — it silently becomes a miner credential
             # for every endpoint behind this dependency. Set MINER_API_KEYS to stop the
-            # fallback. Warned rather than removed because deployed miners may rely on it;
-            # a silent promotion is the part worth ending.
-            logger.warning(
-                "miner_api_keys is empty; accepting COORDINATOR_API_KEY as a miner credential. "
-                "Set MINER_API_KEYS to scope miner access properly."
-            )
+            # fallback. Warned once per process rather than removed because deployed miners
+            # may rely on it; a silent promotion is the part worth ending.
+            if "warned" not in _miner_fallback_warning_emitted:
+                _miner_fallback_warning_emitted.add("warned")
+                logger.warning(
+                    "miner_api_keys is empty; accepting COORDINATOR_API_KEY as a miner credential. "
+                    "Set MINER_API_KEYS to scope miner access properly."
+                )
             allowed_keys = [coord_key]
 
     if not api_key:

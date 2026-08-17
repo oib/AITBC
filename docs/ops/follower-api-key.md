@@ -54,8 +54,7 @@ Two identical hashes mean publishing either one published both.
 4. Rotate `COORDINATOR_API_KEY` and `SECRET_KEY`, since both have been published. Distribute
    the new values out of band to hub operators only.
 5. Set `MINER_API_KEYS` explicitly so miner access stops depending on the coordinator key.
-   Until you do, the coordinator logs a warning on every miner request that relies on the
-   fallback.
+   Until you do, the coordinator logs a warning once at process startup about the fallback.
 
 ## For island operators
 
