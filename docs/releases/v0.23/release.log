@@ -8609,3 +8609,102 @@ exported verification keys, so the committed artifacts could never match a rebui
   release — a vendored binary, a container, or a documented `cargo install` — is the step that
   would let the constraint counts and the harness compile be checked on every change rather
   than by hand.
+
+### V23-97 — Pool Hub's billing sync and resolved-violation query never built a statement · CONFIRMED → RESOLVED
+
+Three query filters in Pool Hub spelled the SQLAlchemy operator `isnot_`. There is no such
+operator. A column offers `is_`, `is_not`, and the legacy alias `isnot`; the trailing
+underscore matches nothing, so `InstrumentedAttribute.__getattr__` raised `AttributeError`
+while the statement was still being *constructed* — before any database was touched. No
+query ran, no connection was opened, and nothing in the logs mentioned SQL.
+
+```python
+stmt = stmt.where(SLAViolation.resolved_at.isnot_(None))   # sla_collector.py:291
+    .where(MatchResult.eta_ms.isnot_(None))                # billing_integration.py:151, :226
+```
+
+What that reached:
+
+- **`GET /v1/sla/violations?resolved=true` — 500, every time.** The `resolved=False` branch
+  uses `is_(None)` and worked, which is why the endpoint looked healthy: the default answer
+  was correct and only the explicit `resolved=true` query failed.
+- **`POST /v1/sla/billing/sync` — 500 on both paths.** With a `miner_id` it runs
+  `sync_miner_usage` → `_collect_miner_usage` (line 226); without one it runs
+  `sync_all_miners_usage`, whose copy of the same filter (line 151) sits inside
+  `async with self.db.begin()`. Either way the `AttributeError` propagated to the router's
+  `except Exception` and became `{"detail": "Internal server error"}`. Pool Hub's entire
+  usage export to coordinator-api has never completed a single run.
+
+The compute-time filter is what the sync is *for*: `MatchResult.eta_ms` is the per-match
+compute time that becomes `compute_hours` and, at 1.5×, `gpu_hours`. Excluding rows where
+it is NULL is the first thing either method does with match data, so there is no partial
+success — the failure is total and silent.
+
+`BillingIntegrationScheduler._sync_loop` calls `sync_all_miners_usage` every hour and
+swallows the exception into `logger.error` before sleeping 300s. Nothing in `poolhub`
+constructs that scheduler, so the loop is dormant rather than failing hourly; it is one
+`Scheduler(...)` call away from being a log full of `AttributeError` and no billing data.
+
+**Why it survived.** `apps/pool-hub/tests/test_billing_integration.py`,
+`test_sla_collector.py`, `test_sla_endpoints.py` and `test_integration_coordinator.py` —
+775 lines covering exactly these two services — were deleted in `ea97ba9aa`
+("test(apps): delete skipped integration tests in pool-hub and coordinator-api", 2026-08-13),
+along with the `conftest.py` that gave them a session. Their compiled bytecode is still
+sitting in `apps/pool-hub/tests/__pycache__/`, which is the only trace left that this code
+was ever covered.
+
+`mypy` cannot cover for them. The hook at `scripts/ci/mypy-precommit.sh` does check
+`apps/pool-hub` on every commit against an empty baseline, and a file containing nothing but
+`select(SLAViolation).where(SLAViolation.resolved_at.isnot_(None))` type-checks clean —
+SQLAlchemy resolves comparator methods on an instrumented attribute dynamically, so an
+unknown method name on a `Mapped[...]` column is not a type error. A misspelled operator is
+only ever caught by running the query.
+
+#### What changed
+
+`isnot_` → `is_not` at all three call sites, each with a comment naming the operator so the
+next reader does not re-derive it. Nothing else about the queries changed: the resolved
+branch still filters `resolved_at IS NOT NULL`, the unresolved branch still filters
+`IS NULL`, and both usage queries still exclude rows with no recorded compute time.
+
+#### Verification
+
+- Eight tests in `tests/unit/test_v2397_poolhub_sla_billing_queries.py` drive the real
+  `SLACollector` and `BillingIntegration` methods against a recording session stub, so they
+  fail where production failed — at statement construction, not at a database call.
+- Run against the pre-change code, **5 of 8 fail**: the repo-wide sweep, both resolved-violation
+  cases, and both billing-usage cases.
+- The other three pass before and after by design, and are stated as such rather than counted:
+  the root-cause assertion is about SQLAlchemy's own API (`is_not` exists, `isnot_` does not),
+  `test_unresolved_violations_still_filter_on_null` guards the branch that already worked, and
+  `test_a_sync_with_no_miners_never_reaches_the_usage_query` pins the early return so the other
+  sync assertion is known to be about real work.
+- The tests assert rendered SQL, not just the absence of an exception: `resolved_at IS NOT NULL`
+  on the resolved path, `resolved_at IS NULL` with no `IS NOT NULL` on the unresolved one, and
+  `eta_ms IS NOT NULL` in both usage queries. A fix that silenced the error by dropping the
+  filter would fail them.
+- `test_no_call_site_still_uses_the_nonexistent_operator` sweeps every `.py` under `apps/`,
+  `aitbc/` and `cli/` for `.isnot_(`. It found exactly these three and now finds none.
+- Scoped suite — `apps/pool-hub/tests` plus the new file: 45 passed, 0 failures.
+- Full root suite: 6,663 tests, 0 failures, 0 errors, 131 skipped, exit 0 — the eight new
+  tests are this branch's only additions, so the `main` it is cut from stands at 6,655.
+  V23-95's and V23-96's tests are on branches that have not merged and are not in this count.
+- `pre-commit run --files`: clean over all four changed paths.
+
+#### Not fixed here
+
+- **The 775 lines of deleted pool-hub tests are still deleted.** Eight new tests cover the
+  three filters; they do not cover `record_usage`, `_send_billing_event`, the SLA threshold
+  logic, or the collector's metric recording, all of which those files exercised. The stale
+  `__pycache__` entries are the standing evidence — a directory whose bytecode names tests
+  that no longer exist is worth a sweep of its own across every app.
+- **Nothing exercises Pool Hub's billing surface end to end.** These tests prove the queries
+  build and filter correctly; they do not prove a sync reaches coordinator-api, because
+  `_send_billing_event` posts to `coordinator_billing_url` and there is no fixture for that.
+  The first real proof that billing works will still come from a live run.
+- **The router's `except Exception` → 500 is what hid the shape of this.** An `AttributeError`
+  in query construction is a bug in Pool Hub, not a failure of the request, and reporting it
+  as "Internal server error" with the detail only in the log is why it read as a transient
+  outage. That handler shape repeats across `routers/sla.py`; narrowing it is a separate change.
+- `BillingIntegrationScheduler` is defined and never constructed. Dead as written, and the
+  reason this defect was reachable only by explicit request rather than hourly.
