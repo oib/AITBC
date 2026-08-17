@@ -4453,3 +4453,83 @@ listened on 8103 here since the conversion.
   alone rather than changed blind.
 - `HERMES_AGENT_ID=my-agent` and `AITBC_DEFAULT_WALLET=my-agent-wallet` in `node.env` are still
   the example values from `examples/node.env.open-island`.
+
+### V23-93 — a gate on seven production-writing scripts was skipping 159 unit tests · CONFIRMED → RESOLVED
+
+`tests/verification/` holds seven modules that are not unit tests: they read the live hub's
+head and then POST newly built blocks to `/rpc/importBlock`, jobs to `/v1/jobs` and miner
+results to `/v1/miners/{id}/result`. A passing run means blocks were accepted into production.
+They are named `test_*.py`, so `pytest tests/` runs them. `tests/verification/conftest.py`
+gates them, and the gate is deliberately blunt: rather than a hand-maintained list that had
+already gone stale, it reads each module's source and skips any that names a deployment host.
+
+That reasoning is right for that directory. The mistake is that the hook is not scoped to it.
+`pytest_collection_modifyitems` is handed **the whole session's item list** regardless of which
+`conftest.py` defines it. So the text match ran against every collected file in the repository,
+and any test file mentioning `bubuit.net` — in a URL constant, a default, a docstring — was
+skipped.
+
+168 tests were being gated in a full run. Nine of them were in `tests/verification/`.
+
+| Gated file | Tests | What stopped being checked |
+| --- | --- | --- |
+| `apps/agent-coordinator/tests/test_coin_request_execute_auth.py` | 12 | That `/coin-requests/execute` refuses a missing or wrong key, and takes the amount and destination from the stored row rather than the request body — the V23-62 fix that makes `FOLLOWER_API_KEY` safe to publish |
+| `tests/unit/test_balance_migration_3600x.py` | 11 | The invocation-safety and state-root tests for the 3600x balance migration |
+| `tests/cli/test_coin_requests_reconcile.py` | 13 | Reconciling requests against the chain, including that `reopen` refuses a request the chain still has |
+| `tests/cli/test_chain_id.py`, `test_utils_chain_id.py` | 29 | Chain-id resolution and validation |
+| `tests/cli/test_blockchain_utils*.py`, `test_utils_blockchain.py` | 33 | Chain info, network status, analytics |
+| `tests/cli/test_config_data_chains.py` | 15 | The chain registry |
+| `tests/cli/test_governance.py` | 7 | Governance CLI commands |
+| `apps/blockchain-explorer/tests/test_api_endpoints.py` | 8 | Explorer endpoints |
+| `apps/blockchain-node/tests/test_follower_genesis_bootstrap.py` | 7 | Follower genesis bootstrap and peer URL schemes |
+| `tests/cli/test_exchange_signs_transactions.py` | 4 | That the exchange path signs |
+| `tests/integration/test_blockchain_nodes.py` | 5 | Node integration |
+| `cli/tests/test_coin_request_notifications.py` | 15 | V23-92's own tests, above — which is how this was found |
+
+The two entries worth dwelling on are the first two. A gate written to stop tests writing to
+production had turned off the tests that verify the authorization on the endpoint the published
+key reaches, and the safety checks on a migration that rewrites balances. The skip reason it
+printed — "Names a live deployment host and this directory's modules write to it" — was
+inaccurate for all 159: they are in other directories and they write to nothing.
+
+Nothing had to go wrong for this to hide a regression. `271 skipped` in a green summary is not
+something anyone reads line by line, and the count had been carried forward as the baseline in
+this log for several entries.
+
+#### What changed
+
+`GATED_DIR` and `_is_in_this_directory()` confine the gate to `tests/verification/`; the source
+match now runs only for items under that path. The blunt over-matching is kept, because inside
+that directory erring towards a skip is correct. The docstring records why the boundary has to
+be enforced in the hook rather than assumed from where the file sits.
+
+#### Verification
+
+- Full root suite before: 6,617 tests, 0 failures, **286 skipped**.
+- Full root suite after: 6,628 tests, 0 failures, 0 errors, **131 skipped**, exit 0.
+- Compared test-by-test from the two JUnit reports: exactly **159 tests moved from skipped to
+  run — 155 pass, 4 are pre-existing `xfail`s in the explorer suite — and nothing regressed**
+  (0 new failures, 0 errors). The nine tests in `tests/verification/` are still skipped, with
+  the same reason and the same `AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1` opt-in.
+- 11 new tests in `tests/test_production_host_gate.py` drive the hook with fake items: a module
+  in the gated directory that names the host is skipped, a module elsewhere that names the host
+  is not, the opt-in env var disarms it, and the repo-wide reach is measured rather than
+  assumed. The file names the hub hostname itself, on purpose — before the fix that alone was
+  enough to skip it.
+- `pre-commit run --files`: clean.
+
+No production endpoint was contacted while verifying this. `AITBC_ALLOW_PRODUCTION_WRITE_TESTS`
+was confirmed unset before each run and was never set; the seven writing modules stayed skipped
+throughout.
+
+#### Not fixed here
+
+- The seven modules still want rewriting against a local node fixture instead of a hostname in
+  a constant. That is the real fix and it is larger than the gate.
+- `tests/production/` skips 62 tests because `localhost:9001` is not reachable, and
+  `tests/production/test_error_handling.py` skips 10 more for launcher and CLI paths that do
+  not exist in this tree (`/opt/aitbc/services/*.py`, `/opt/aitbc/aitbc-cli`). Those skips are
+  honest about their reason, but together they are 72 of the 131 remaining skips and they cover
+  nothing on any machine anyone runs the suite on.
+- Nothing fails a run when the skip count rises. A baseline assertion on skips would have
+  caught this the day it landed, and would have caught V23-71's deleted tests too.
