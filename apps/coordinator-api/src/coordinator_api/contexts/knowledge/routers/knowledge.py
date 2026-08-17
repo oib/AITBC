@@ -146,9 +146,9 @@ async def contribute_knowledge(
 async def query_knowledge_graph(
     request: Request,
     graph_id: str,
-    node_type: str | None,
-    filters: str | None,
     session: Annotated[Session, Depends(get_session)],
+    node_type: str | None = None,
+    filters: str | None = None,
 ) -> list[KnowledgeNodeResponse]:
     """Query knowledge from a graph"""
     try:

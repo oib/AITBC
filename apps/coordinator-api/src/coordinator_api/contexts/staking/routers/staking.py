@@ -445,13 +445,13 @@ async def get_staking_pool(
 async def get_agent_apy(
     request: Request,
     agent_wallet: str,
-    lock_period: int | None,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    lock_period: int = 30,
 ) -> dict[str, Any]:
     """Get current APY for staking on an agent"""
     try:
-        effective_lock_period = lock_period if lock_period is not None else 30
+        effective_lock_period = lock_period
         apy = await staking_service.calculate_apy(agent_wallet, effective_lock_period)
         return {
             "agent_wallet": agent_wallet,
@@ -535,16 +535,16 @@ async def distribute_agent_earnings(
 @rate_limit(rate=200, per=60)
 async def get_supported_agents(
     request: Request,
-    page: int | None,
-    limit: int | None,
-    tier: PerformanceTier | None,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    page: int = 1,
+    limit: int = 50,
+    tier: PerformanceTier | None = None,
 ) -> dict[str, Any]:
     """Get list of supported agents for staking"""
     try:
-        effective_page = page if page is not None else 1
-        effective_limit = limit if limit is not None else 50
+        effective_page = page
+        effective_limit = limit
         agents = await staking_service.get_supported_agents(page=effective_page, limit=effective_limit, tier=tier)
         return {"agents": agents, "total_count": len(agents), "page": effective_page, "limit": effective_limit}
     except Exception as e:
@@ -556,9 +556,9 @@ async def get_supported_agents(
 @rate_limit(rate=200, per=60)
 async def get_staking_stats(
     request: Request,
-    period: str | None,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    period: str | None = None,
 ) -> StakingStatsResponse:
     """Get staking system statistics"""
     try:
@@ -573,17 +573,17 @@ async def get_staking_stats(
 @rate_limit(rate=200, per=60)
 async def get_staking_leaderboard(
     request: Request,
-    period: str | None,
-    metric: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
+    period: str = "weekly",
+    metric: str = "total_staked",
+    limit: int = 50,
 ) -> dict[str, Any]:
     """Get staking leaderboard"""
     try:
-        effective_period = period if period is not None else "weekly"
-        effective_metric = metric if metric is not None else "total_staked"
-        effective_limit = limit if limit is not None else 50
+        effective_period = period
+        effective_metric = metric
+        effective_limit = limit
         leaderboard = await staking_service.get_leaderboard(
             period=effective_period, metric=effective_metric, limit=effective_limit
         )
@@ -637,18 +637,18 @@ async def get_staking_leaderboard(
 @rate_limit(rate=200, per=60)
 async def get_my_staking_positions(
     request: Request,
-    status: StakeStatus | None,
-    agent_wallet: str | None,
-    page: int | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
     current_user: Annotated[dict, Depends(get_current_user_required)],
+    status: StakeStatus | None = None,
+    agent_wallet: str | None = None,
+    page: int = 1,
+    limit: int = 20,
 ) -> list[StakeResponse]:
     """Get current user's staking positions"""
     try:
-        effective_page = page if page is not None else 1
-        effective_limit = limit if limit is not None else 20
+        effective_page = page
+        effective_limit = limit
         stakes = await staking_service.get_user_stakes(
             user_address=current_user["address"],
             status=status,
@@ -666,10 +666,10 @@ async def get_my_staking_positions(
 @rate_limit(rate=200, per=60)
 async def get_my_staking_rewards(
     request: Request,
-    period: str | None,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
     current_user: Annotated[dict, Depends(get_current_user_required)],
+    period: str | None = None,
 ) -> dict[str, Any]:
     """Get current user's staking rewards"""
     try:

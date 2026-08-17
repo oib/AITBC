@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -94,11 +94,13 @@ def get_billing_integration(db: Annotated[AsyncSession, Depends(get_db)]) -> Bil
 
 @router.get("/metrics/{miner_id}", response_model=list[SLAMetricResponse])
 async def get_miner_sla_metrics(
-    miner_id: str, hours: int | None, sla_collector: Annotated[SLACollector, Depends(get_sla_collector)]
+    miner_id: str,
+    sla_collector: Annotated[SLACollector, Depends(get_sla_collector)],
+    hours: Annotated[int, Query(ge=1, le=168)] = 24,
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics for a specific miner"""
     try:
-        metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours if hours is not None else 24)
+        metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours)
         return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics for miner %s: %s", miner_id, e)
@@ -109,11 +111,12 @@ async def get_miner_sla_metrics(
 
 @router.get("/metrics", response_model=list[SLAMetricResponse])
 async def get_all_sla_metrics(
-    hours: int | None, sla_collector: Annotated[SLACollector, Depends(get_sla_collector)]
+    sla_collector: Annotated[SLACollector, Depends(get_sla_collector)],
+    hours: Annotated[int, Query(ge=1, le=168)] = 24,
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics across all miners"""
     try:
-        metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours if hours is not None else 24)
+        metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours)
         return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics: %s", e)
@@ -124,14 +127,14 @@ async def get_all_sla_metrics(
 
 @router.get("/violations", response_model=list[SLAViolationResponse])
 async def get_sla_violations(
-    miner_id: str | None, resolved: bool | None, db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
+    miner_id: str | None = None,
+    resolved: bool = False,
 ) -> list[SLAViolationResponse]:
     """Get SLA violations"""
     try:
         sla_collector = SLACollector(db)
-        violations = await sla_collector.get_sla_violations(
-            miner_id=miner_id, resolved=resolved if resolved is not None else False
-        )
+        violations = await sla_collector.get_sla_violations(miner_id=miner_id, resolved=resolved)
         return violations  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA violations: %s", e)
@@ -155,11 +158,12 @@ async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get
 
 @router.get("/capacity/snapshots", response_model=list[CapacitySnapshotResponse])
 async def get_capacity_snapshots(
-    hours: int | None, db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
+    hours: Annotated[int, Query(ge=1, le=168)] = 24,
 ) -> list[CapacitySnapshotResponse]:
     """Get capacity planning snapshots"""
     try:
-        hours_value = hours if hours is not None else 24
+        hours_value = hours
         cutoff = datetime.now(UTC) - timedelta(hours=hours_value)
         stmt = select(CapacitySnapshot).where(CapacitySnapshot.timestamp >= cutoff).order_by(desc(CapacitySnapshot.timestamp))
         result = await db.execute(stmt)
@@ -174,8 +178,8 @@ async def get_capacity_snapshots(
 
 @router.get("/capacity/forecast")
 async def get_capacity_forecast(
-    hours_ahead: int | None,
     billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
+    hours_ahead: Annotated[int, Query(ge=1, le=8760)] = 168,
 ) -> dict[str, Any]:
     """Get capacity forecast from coordinator-api"""
     try:
@@ -235,13 +239,13 @@ async def configure_capacity_alerts(
 
 @router.get("/billing/usage")
 async def get_billing_usage(
-    tenant_id: str | None,
-    hours: int | None,
     billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
+    tenant_id: str | None = None,
+    hours: Annotated[int, Query(ge=1, le=168)] = 24,
 ) -> dict[str, Any]:
     """Get billing usage data from coordinator-api"""
     try:
-        metrics = await billing_integration.get_billing_metrics(tenant_id=tenant_id, hours=hours)  # type: ignore[arg-type]
+        metrics = await billing_integration.get_billing_metrics(tenant_id=tenant_id, hours=hours)
         return metrics
     except Exception as e:
         logger.error("Error getting billing usage: %s", e)

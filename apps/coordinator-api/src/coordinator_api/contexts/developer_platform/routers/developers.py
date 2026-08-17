@@ -108,10 +108,10 @@ async def update_developer_profile(
 @rate_limit(rate=200, per=60)
 async def get_leaderboard(
     request: Request,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Get developer leaderboard sorted by reputation score."""
 

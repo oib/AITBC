@@ -306,9 +306,9 @@ async def execute_wallet_transaction(
 async def get_wallet_transaction_history(
     agent_id: str,
     chain_id: int,
-    limit: int | None,
-    offset: int | None,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Get transaction history for agent wallet"""
     try:
@@ -453,14 +453,14 @@ async def sign_message(
 
 @router.get("/identities/search", response_model=dict[str, Any])
 async def search_agent_identities(
-    query: str | None,
     chains: list[int] | None,
-    status: IdentityStatus | None,
-    verification_level: VerificationType | None,
-    min_reputation: float | None,
-    limit: int | None,
-    offset: int | None,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    query: str = "",
+    status: IdentityStatus | None = None,
+    verification_level: VerificationType | None = None,
+    min_reputation: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """Search agent identities with advanced filters"""
     try:

@@ -555,8 +555,8 @@ async def get_transaction_history(
 @rate_limit(rate=200, per=60)
 async def get_transaction_statistics(
     request: Request,
-    chain_id: int | None,
     session: Annotated[Session, Depends(get_session)],
+    chain_id: int | None = None,
     time_period_hours: int = 24,
 ) -> dict[str, Any]:
     """Get transaction statistics"""
