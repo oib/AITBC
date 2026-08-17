@@ -5,10 +5,10 @@ Provides environment-based adapter selection and consolidated settings.
 """
 
 import os
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
 from aitbc.constants import LOG_DIR, REPO_DIR
@@ -69,10 +69,18 @@ class Settings(BaseAITBCConfig):
     db_max_overflow: int = Field(default=20, description="Database connection pool max overflow")
     db_pool_recycle: int = Field(default=3600, description="Database connection pool recycle time in seconds")
 
-    # API Keys
-    client_api_keys: list[str] = []
-    miner_api_keys: list[str] = []
-    admin_api_keys: list[str] = []
+    # API Keys.
+    #
+    # NoDecode is what lets `parse_api_keys` below see the raw environment string.
+    # pydantic-settings JSON-decodes any complex-typed variable inside EnvSettingsSource,
+    # *before* validators run, and raises SettingsError when that fails — so
+    # `MINER_API_KEYS=key-one,key-two`, the form docs/ops/follower-api-key.md tells operators
+    # to use, stopped the whole Settings object from constructing and took coordinator-api's
+    # startup with it. The comma-separated branch in the validator had never been reachable
+    # from the environment, only from code passing a string directly (V23-68b).
+    client_api_keys: Annotated[list[str], NoDecode] = []
+    miner_api_keys: Annotated[list[str], NoDecode] = []
+    admin_api_keys: Annotated[list[str], NoDecode] = []
 
     @field_validator("client_api_keys", "miner_api_keys", "admin_api_keys", mode="before")
     @classmethod
