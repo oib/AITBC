@@ -281,10 +281,10 @@ async def update_gpu(
 
 @app.get("/v1/marketplace/edge-gpu/profiles")
 async def get_consumer_gpu_profiles(
-    architecture: str | None,
-    edge_optimized: bool | None,
-    min_memory_gb: int | None,
     svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    architecture: str | None = None,
+    edge_optimized: bool | None = None,
+    min_memory_gb: int | None = None,
 ):
     """Get consumer GPU profiles"""
     from .domain.gpu_marketplace import GPUArchitecture
@@ -294,9 +294,13 @@ async def get_consumer_gpu_profiles(
 
 
 @app.get("/v1/marketplace/edge-gpu/metrics/{gpu_id}")
-async def get_edge_gpu_metrics(gpu_id: str, limit: int | None, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]):
+async def get_edge_gpu_metrics(
+    gpu_id: str,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    limit: int = 100,
+):
     """Get edge GPU metrics"""
-    return await svc.list_metrics(gpu_id=gpu_id, limit=limit if limit is not None else 100)
+    return await svc.list_metrics(gpu_id=gpu_id, limit=limit)
 
 
 @app.post("/v1/marketplace/edge-gpu/scan/{miner_id}")
@@ -512,11 +516,11 @@ async def submit_transaction(
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None,
-    action: str | None,
-    status: str | None,
-    island_id: str | None,
     session: Annotated[AsyncSession, Depends(get_session_dep)],
+    transaction_type: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
 ):
     """Query GPU marketplace transactions"""
     from sqlalchemy import select
