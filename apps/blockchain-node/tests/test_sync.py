@@ -282,7 +282,9 @@ class TestChainSyncAppend:
         assert result.accepted is False
         assert "already exists" in result.reason
 
-    def test_stale_block_rejected(self, session_factory):
+    def test_lower_height_block_with_different_hash_rejected(self, session_factory):
+        """Renamed from test_stale_block_rejected: a different hash at a height we already hold is
+        divergence, not staleness, and import_block routes it to _resolve_fork (V23-90)."""
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
         _seed_chain(session_factory, count=5, chain_id="test")
         ts = datetime(2026, 6, 1)
@@ -297,7 +299,8 @@ class TestChainSyncAppend:
             }
         )
         assert result.accepted is False
-        assert "Stale" in result.reason or "Fork" in result.reason or "longer" in result.reason
+        assert result.diverged is True
+        assert "different block at height 2" in result.reason
 
     def test_gap_detected(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
@@ -426,7 +429,7 @@ class TestChainSyncSignatureValidation:
 
 class TestChainSyncConflictResolution:
     def test_fork_at_same_height_rejected(self, session_factory):
-        """Fork at same height as our chain — our chain wins (equal length)."""
+        """Fork below our head — our chain stands, and the result says why (V23-90)."""
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
         _seed_chain(session_factory, count=5, chain_id="test")
 
@@ -443,7 +446,8 @@ class TestChainSyncConflictResolution:
             }
         )
         assert result.accepted is False
-        assert "longer" in result.reason or "Fork" in result.reason
+        assert result.diverged is True
+        assert "different block at height 3" in result.reason
 
     def test_sync_status(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test-chain", validate_signatures=False)

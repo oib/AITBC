@@ -13,6 +13,7 @@ from .gossip import gossip_broker
 from .logger import get_logger
 from .metrics import metrics_registry
 from .sync import ChainSync
+from .sync_divergence import clear_divergence, report_divergence
 
 from aitbc.async_tasks import create_task_with_logging
 
@@ -31,6 +32,9 @@ class SubscriptionClient:
         self._running = False
         self._client = httpx.AsyncClient(timeout=30.0)
         self._sync_mode = "pull"
+        # Consecutive divergent rejections. The counter has to live here: ChainSync is rebuilt for
+        # every pushed block, so its own _rejection_counts can never reach a threshold (V23-90).
+        self._consecutive_divergence = 0
 
     async def start(self) -> None:
         """Start the subscription client."""
@@ -349,17 +353,35 @@ class SubscriptionClient:
                     },
                 )
                 metrics_registry.increment("subscription_blocks_received_total")
+                if self._consecutive_divergence:
+                    self._consecutive_divergence = 0
+                    clear_divergence(self._chain_id)
             else:
+                # The reason belongs in the message, not only in `extra`: the deployed formatter
+                # drops `extra`, which is how 2,787 rejections over two days read as one
+                # indistinguishable line whatever their cause (V23-90).
                 logger.warning(
-                    "Block import failed",
+                    "Block import rejected at height %s: %s",
+                    block_height,
+                    result.reason,
                     extra={
                         "height": block_height,
                         "hash": block_hash,
                         "reason": result.reason,
+                        "diverged": result.diverged,
                         "proposer": block_data.get("proposer", "unknown"),
                         "node_id": self._node_id,
                     },
                 )
+                if result.diverged:
+                    self._consecutive_divergence += 1
+                    threshold = getattr(settings, "divergence_after_rejections", 3)
+                    if self._consecutive_divergence >= threshold:
+                        div = sync.detect_divergence(self._hub_url, block_height or -1, block_hash or "")
+                        if div is not None:
+                            report_divergence(self._chain_id, div)
+                else:
+                    self._consecutive_divergence = 0
         except Exception as e:
             logger.error(
                 "Failed to import block %s: %s",

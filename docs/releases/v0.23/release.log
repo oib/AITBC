@@ -7626,3 +7626,178 @@ Seventeen more parameters match the same annotation pattern but are typed `dict`
 `Any`, which FastAPI reads as a request body rather than a query parameter. A required body is
 ordinary, and eleven of them are on `POST` handlers, so they are left alone. Six, however, are
 on `GET` handlers — a `GET` that declares a request body — which is worth a look on its own.
+
+### V23-90 — a diverged follower reported health four different ways for 46 hours · CONFIRMED → RESOLVED
+
+The hub's chain database was reset to genesis on 2026-08-15 at 11:12 local. The follower on
+`aitbc3` was at height 4,211 of the chain the hub had just discarded — its last import was block
+4,211 at 11:12:01, and the hub's replacement block 1 is stamped 11:12:19. It stayed at 4,211
+until an operator reset it by hand 46 hours later. The journal for that window holds 2,753
+`Fork detected`, 2,787 `Block import failed`, and **zero** imported blocks.
+
+Four independent mechanisms could have caught it. Each one ran. Each one reported that nothing
+was wrong.
+
+#### 1. Bulk sync compared heights and never hashes
+
+This is the multi-block path — `/rpc/blocks-range` in adaptive batches, the thing that imported
+2,758 blocks in three seconds once the node was reset. It ran nine times during the outage. Six
+of those ended here:
+
+```python
+if remote_height <= local_height:
+    logger.info("Already up to date", extra={"local_height": local_height, "remote_height": remote_height})
+    return 0
+```
+
+2753 ≤ 4211, so the node told itself it was up to date — while refusing 2,787 blocks pushed by
+the peer it had just asked. The other three attempts died on `Failed to fetch remote head`
+during a network blip on 08-16.
+
+Height is not identity. `bulk_import_from` now compares the hash it holds at the peer's head
+height before believing that answer, which is the one question that separates "in sync" from "on
+a different chain". It costs no extra request: the hash is already in the `/rpc/head` response
+the function fetches to learn the height.
+
+#### 2. The force-pull gap check could not represent being ahead
+
+Nine pull attempts in 46 hours is the second fault. `periodic_sync_interval` is 30 seconds, so
+roughly 5,500 cycles ran; the pull was skipped in all but nine, because push mode was nominally
+healthy and the escape hatch read
+
+```python
+gap = remote_height - local_height
+if gap >= 3:  # Force pull if gap is 3 or more blocks
+```
+
+The gap was **−1458**. Eight `Block gap too large` warnings in the two hours before the
+divergence, zero in the 46 hours after it. The nine cycles that did pull were three service
+restarts and the HTTP failures falling into the `except` branch — accidents, not policy.
+
+The comparison is now a named function, `_pull_trigger`, that classifies the gap as `"behind"`,
+`"ahead"` or nothing, and `"ahead"` forces a pull so the hash comparison above actually happens.
+Being ahead of the peer you follow is not a healthy state: it is either divergence or a peer that
+lost its history, and both need looking at.
+
+#### 3. Fork rejections were never counted toward anything
+
+`auto_resync_enabled` is `True` and `auto_resync_after_rejections` is 3, so on paper three
+rejections trigger recovery. Neither rejection path in `_resolve_fork` called `_track_rejection`;
+only state-root rejections did. 2,753 rejections, counter never incremented.
+
+Wiring the existing counter up would not have helped, for two reasons that are worth recording:
+
+- `subscription_client._import_block` constructs a **new `ChainSync` for every pushed block**, so
+  the instance-level `_rejection_counts` is discarded before the next block arrives and can never
+  reach a threshold.
+- `_check_and_trigger_resync` recovers by calling `loop.run_until_complete(...)`, which raises
+  inside the already-running event loop that the push path lives in.
+
+And auto-resync could not have fixed this anyway: recovery means `bulk_import_from`, and the peer
+was 1,458 blocks *behind* us. So the counter that matters is a count of consecutive **divergent**
+rejections, it lives on the long-lived `SubscriptionClient` rather than on the per-block
+`ChainSync`, and crossing the threshold reports rather than acts.
+
+`ImportResult` gained a `diverged` flag for that, set on the one `_resolve_fork` path production
+reaches. It is a flag and not a string match because the caller needs to tell a permanent
+condition from a transient one, and reason text is not an interface.
+
+#### 4. The state root comparison was INFO, and it healed the wrong half
+
+`sync_state_from` compares its computed root against the peer's after reconciling accounts. It
+logged
+
+```
+State sync complete: created=0, updated=0, local_root=0x176df54d…, remote_root=0x3bdb6a31…, match=False
+```
+
+**414 times** during the outage, at INFO, and `_periodic_sync_task` only logged the result at all
+when `synced > 0` — so a node that knew its state disagreed with its peer for 35 hours said
+nothing about it either way.
+
+Worse than silence: it kept writing the hub's balances into the local account table. By the
+08-16 22:04 restart `local_root` had become the hub's root while the block history was still
+1,458 blocks of the chain we were rejecting — the head block's `state_root` no longer described
+the accounts underneath it. The state sync was healing the symptom that would have identified the
+disease.
+
+So `sync_state_from` now checks chain agreement before it writes anything and refuses a peer whose
+blocks we are rejecting: balances describe a chain, and copying them across a fork produces a
+database that is internally inconsistent in a way neither side can detect. A mismatch that
+survives a full account sync is a warning rather than an INFO, and `_periodic_sync_task` reports
+it whether or not anything was synced.
+
+#### 5. Every rejection printed the same reasonless line
+
+```python
+logger.warning("Block import failed", extra={... "reason": result.reason ...})
+```
+
+The deployed formatter drops `extra` — the same root cause as V23-78's structured-logging switch
+— so 2,787 rejections over two days were one indistinguishable line, and a missing parent that
+heals in 60 seconds looked exactly like a divergence that never heals. The reason is now in the
+message: `Block import rejected at height 2748: Divergent chain: we hold a different block …`.
+
+The old reason text made that worse. `Fork rejected: our chain is longer or equal (4211 >= 2748)`
+reads like a healthy outcome — the longest-chain rule doing its job — when what it means is that
+this node will never accept another block from its hub without operator action. It now names the
+condition and carries both hashes.
+
+#### What it deliberately does not do
+
+It does not truncate local history. Discarding 1,458 accepted blocks is a consensus decision, and
+the peer is not always the side that is right — in this incident it happened to be, but a
+follower cannot know that. So the escalation is one throttled `ERROR`
+(`divergence_report_interval`, 300s) naming the fork height, both hashes, the peer, and the
+recovery command an operator can run, plus a `sync_diverged` gauge and a
+`sync_divergence_detected_total` counter for alerting. The message says explicitly that if this
+node is the authoritative one, the peer needs the resync instead.
+
+Detection is now in one module, `sync_divergence.py`, because the throttle has to be module-level
+state: nothing that detects divergence lives long enough to hold it. `ChainSync` is rebuilt per
+pushed block and per sync cycle.
+
+#### Dead code this uncovered, left alone
+
+`import_block` calls `_resolve_fork` only from inside `if height <= our_height`, so the
+`fork_height <= our_height` rejection is the only branch reachable. Everything after it — the
+`max_reorg_depth` guard, the block deletion, the re-append, `sync_reorgs_total`,
+`sync_reorg_depth` — cannot execute. This node cannot reorg at all, which is why divergence is
+terminal for it rather than merely slow. Implementing reorg is a consensus feature and not a bug
+fix; it is out of scope here and flagged separately.
+
+`TestBug2ChainIdInSyncRPC` in `test_v0516_regression.py` is a class with a docstring and no
+tests, which is why nothing outside the new file exercised `bulk_import_from`.
+
+#### Verification
+
+Root suite: **6,579 tests, 0 failures, 0 errors, 271 skipped, exit 0** (counts from JUnit XML) —
+the baseline 6,559 plus the 20 new tests, with the skip count unchanged.
+
+`apps/blockchain-node/tests/test_sync_divergence.py` covers each fault against the shape of the
+production data: a peer behind us with a different hash reports divergence instead of "up to
+date"; the same peer with a matching hash still reports up to date; an empty node reading a
+peer's genesis is not divergence; a peer ahead of us is a gap, not divergence; a duplicate is
+not; `_pull_trigger(-1458)` is `"ahead"`; the throttle suppresses the second report and counts it
+anyway; the push counter crosses its threshold on the third divergent block and resets when one
+is accepted; and state sync refuses a diverged peer without touching a balance.
+
+Two existing assertions in `test_sync.py` pinned the old reason string
+(`"longer" in result.reason`) and now assert `diverged is True` and the new text.
+`test_stale_block_rejected` is renamed `test_lower_height_block_with_different_hash_rejected`,
+because its input is a different hash at a height we already hold, which is divergence and not
+staleness — the name had been describing a branch it never reached.
+
+`ruff`, `ruff format` and `mypy` clean over `apps/blockchain-node`.
+
+#### Not fixed here
+
+The deployed `aitbc-blockchain-node` runs from this working tree, so none of this takes effect
+until the service is restarted — an operator decision, not made here. The follower is currently
+healthy and tracking the hub, so there is no urgency, and the first restart is what arms the
+detection for next time.
+
+`BLOCK_PRODUCTION_CHAINS=ait-hub.aitbc.bubuit.net` is still set in `/etc/aitbc/blockchain.env` on
+this follower-only host. It is harmless today only because the keystore has no proposer key, so
+`Block production disabled on this node` fires at startup. If a key ever appears there, this node
+starts proposing blocks on the hub's chain, which is how two-sided divergence begins.
