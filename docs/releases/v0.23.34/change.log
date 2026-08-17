@@ -4231,3 +4231,108 @@ while coordinator-api is importable, which is the condition under which it could
 `{"detail": "Invalid API key"}`, so `No miner API keys configured` never reaches the client. An
 operator debugging a 401 after a restart sees a message about the key they sent rather than the
 list that is missing.
+
+### V23-68c — the published key was the miner's key, and the system said "invalid" instead · CONFIRMED → RESOLVED
+
+V23-68 removed the code path that promoted `COORDINATOR_API_KEY` to a miner credential when
+`miner_api_keys` was empty. V23-68b made the replacement setting readable. This entry is what
+setting it on the deployed host actually found, which is worse than either.
+
+**1. The removed promotion had already happened by configuration.** `MINER_API_KEY` in
+`/etc/aitbc/aitbc-miner.env` and `COORDINATOR_API_KEY` in
+`/etc/aitbc/aitbc-coordinator-api.env` held the *same value* — identical SHA-256, 32 characters
+each. `COORDINATOR_API_KEY` is the key published in the world-readable bootstrap file at
+`/agent/blockchain.env` (V23-68). So on the running deployment the published key was a working
+miner credential on the miner, settlement and marketplace routers, reached by the deployed
+miner itself, and had been since the two files were written during the v0.5.1 secret migration.
+
+Removing the fallback in code did not remove this. The fallback and the configuration were two
+independent routes to the same state, and only one of them was being discussed. Nothing in the
+codebase compared the two values, so nothing could have said so.
+
+Found by fingerprint comparison while setting `MINER_API_KEYS` — not by any check, which is the
+point. `Settings` now refuses to construct when any of `client_api_keys`, `miner_api_keys` or
+`admin_api_keys` contains `COORDINATOR_API_KEY` or `SECRET_KEY`, in every environment rather
+than only in production.
+
+**2. The documented form was not merely unparsed — no non-JSON form parses at all.** V23-68b
+recorded that `MINER_API_KEYS=key-one,key-two` raises `SettingsError`. Testing the single-key
+case on `main` before writing to a live env file showed the same failure: `EnvSettingsSource`
+JSON-decodes a complex-typed variable before any validator runs, so one bare key fails exactly
+as a comma-separated list does.
+
+```
+bare single key -> SettingsError: error parsing value for field "miner_api_keys"
+comma separated -> SettingsError: error parsing value for field "miner_api_keys"
+JSON array      -> OK ['miner-key-1234567890abc']
+```
+
+An operator following `docs/ops/follower-api-key.md` step 5 would therefore have produced a
+coordinator-api that does not start, in the one form the document gave them. The document now
+gives the JSON array form, which is correct both before and after the V23-68b fix, and says why.
+
+Also verified rather than assumed: systemd's `EnvironmentFile` parser passes `["k"]` through
+intact, but shell `source` of the same line yields `[k1]`. The documented value is single-quoted,
+which survives both.
+
+**3. The 401 named the wrong cause.** `AuthMiddleware` caught every `HTTPException` from
+`require_miner_api_key` and answered `{"detail": "Invalid API key"}`, discarding `exc.detail`.
+`No miner API keys configured` — a deployment fault needing an env-file edit — was indistinguishable
+from a wrong credential needing a new key. The reason is now logged with the request path;
+the response body stays generic, so an unauthenticated caller still learns nothing about the
+server's configuration.
+
+**4. The guard that would have caught the empty list is production-only.** `validate_api_keys`
+rejects an empty key list only when `_is_production()`, and the deployed coordinator-api logs
+`env=development`. So the empty `miner_api_keys` that V23-68 made fatal at request time was
+accepted at startup without comment. Startup now warns, naming the variable, the affected
+routers and the file to edit.
+
+#### What changed
+
+| File | Change |
+|---|---|
+| `aitbc/auth/middleware.py` | log `exc.detail` and the path on an X-Api-Key rejection; response unchanged |
+| `apps/coordinator-api/src/coordinator_api/config.py` | `validate_service_keys_are_not_hub_credentials`; empty-list warning in `validate_critical_environment_variables` |
+| `docs/ops/follower-api-key.md` | JSON array form with the reason; new step 6 on giving the miner its own key |
+| `apps/coordinator-api/tests/test_config.py` | `TestKeysAreNotHubCredentials`, 7 tests |
+| `tests/security/test_auth_middleware.py` | the two 401s are distinguishable in the log |
+
+#### Verified state of the deployment
+
+Set on the host, then confirmed against the running services after the operator restarted both:
+
+| | |
+|---|---|
+| `MINER_API_KEYS` | one key, 54 chars, JSON array form; parses inside a real `systemd-run` unit loading all three of the unit's `EnvironmentFile`s |
+| `MINER_API_KEY` (miner) | same value, so the miner authenticates; no longer equal to `COORDINATOR_API_KEY` |
+| coordinator-api | started clean 13:27:57; `Settings()` constructed |
+| miner | `Successfully registered miner: {'status': 'ok', ...}` at 13:28:00, heartbeats every 15s |
+| published `COORDINATOR_API_KEY` on `POST /v1/miners/heartbeat` | **HTTP 401** — refused |
+| new miner key on the same route | HTTP 404 (auth passed, miner `probe` not registered) |
+| 401/403 in either journal since restart | none |
+
+Backups of both env files at `*.bak-20260817-132453`, root 600.
+
+#### Verification
+
+6,602 tests, 0 failures, 0 errors, 271 skipped, exit 0 — the V23-68b baseline of 6,593 plus the
+9 tests added here. `ruff check`, `ruff format --check`, `mypy` and `pre-commit run` clean on
+every touched file.
+
+The new guard was also run against the deployed environment before it could reach a restart:
+`Settings()` constructs and `validate_critical_environment_variables()` passes inside a
+`systemd-run` unit loading the three `EnvironmentFile`s of `aitbc-coordinator-api.service`. A
+validator that raises on the live config would have prevented the service from starting.
+
+#### Not fixed here
+
+- **`COORDINATOR_API_KEY` and `SECRET_KEY` are still unrotated**, and both are published.
+  Step 4 of `docs/ops/follower-api-key.md` has said so since V23-68; the guard added here only
+  stops them being reused as service credentials, it does not make them secret again.
+- **The deployed coordinator-api runs `ENVIRONMENT=development`** while serving real traffic.
+  That disables the empty-key-list rejection, the DEBUG check and the production assertions in
+  `create_app()`. Left alone because flipping it may change behaviour well beyond auth, but it
+  means the production guards in this file are not running anywhere.
+- Nothing checks that the *other* services' key lists are disjoint from each other; the guard
+  added here compares them only against the two hub credentials.
