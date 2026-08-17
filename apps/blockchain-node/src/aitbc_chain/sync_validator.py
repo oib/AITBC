@@ -16,6 +16,10 @@ class ImportResult:
     reason: str
     reorged: bool = False
     reorg_depth: int = 0
+    # Set when the block was refused because we hold a *different* block at its height, as
+    # opposed to a transient gap or a stale duplicate. Callers need the distinction: divergence
+    # is permanent without operator action, while a gap heals on the next block (V23-90).
+    diverged: bool = False
 
 
 class ProposerSignatureValidator:
