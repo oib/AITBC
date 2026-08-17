@@ -288,7 +288,10 @@ class SLACollector:
         if miner_id:
             stmt = stmt.where(SLAViolation.miner_id == miner_id)
         if resolved:
-            stmt = stmt.where(SLAViolation.resolved_at.isnot_(None))
+            # is_not, not isnot_ (V23-97).  SQLAlchemy spells this `is_not` (with the
+            # legacy alias `isnot`); `isnot_` is not an operator on any column, so this
+            # line raised AttributeError before it could build a statement.
+            stmt = stmt.where(SLAViolation.resolved_at.is_not(None))
         else:
             stmt = stmt.where(SLAViolation.resolved_at.is_(None))
         stmt = stmt.order_by(desc(SLAViolation.created_at))
