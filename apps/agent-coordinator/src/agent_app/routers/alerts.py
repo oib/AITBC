@@ -18,7 +18,9 @@ router = APIRouter()
 @router.get("/alerts")
 @rate_limit(rate=200, per=60)
 async def get_alerts(
-    request: Request, status: str | None, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+    request: Request,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+    status: str | None = None,
 ) -> dict[str, Any]:
     """Get alerts with optional status filter"""
     try:
@@ -101,7 +103,9 @@ async def get_alert_rules(
 @router.get("/sla")
 @rate_limit(rate=200, per=60)
 async def get_sla_status(
-    request: Request, sla_id: str | None, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+    request: Request,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+    sla_id: str | None = None,
 ) -> dict[str, Any]:
     """Get SLA status"""
     try:
