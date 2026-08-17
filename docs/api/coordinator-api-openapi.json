@@ -5189,7 +5189,7 @@
           {
             "name": "chain_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -10420,7 +10420,7 @@
           {
             "name": "owner_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -10436,7 +10436,7 @@
           {
             "name": "is_public",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -11098,7 +11098,7 @@
           {
             "name": "workflow_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -11114,7 +11114,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -11130,7 +11130,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -11146,7 +11146,7 @@
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -11377,7 +11377,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -11393,7 +11393,7 @@
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -12421,32 +12421,20 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 50,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           }
@@ -12726,23 +12714,17 @@
           {
             "name": "query",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "",
               "title": "Query"
             }
           },
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -12758,7 +12740,7 @@
           {
             "name": "verification_level",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -12774,7 +12756,7 @@
           {
             "name": "min_reputation",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -12790,32 +12772,20 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 50,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           }
@@ -13611,32 +13581,20 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           }
@@ -13802,7 +13760,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -13818,32 +13776,20 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           }
@@ -13909,32 +13855,20 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           }
@@ -14184,7 +14118,7 @@
           {
             "name": "approved",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -14603,7 +14537,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -15463,7 +15397,7 @@
           {
             "name": "region",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -15717,7 +15651,7 @@
           {
             "name": "region",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -15878,39 +15812,27 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 0,
               "title": "Offset"
             }
           },
           {
             "name": "region",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -16055,7 +15977,7 @@
           {
             "name": "developer_address",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -16265,16 +16187,10 @@
           {
             "name": "time_period_days",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 30,
               "title": "Time Period Days"
             }
           }
@@ -16391,16 +16307,10 @@
           {
             "name": "initial_voting_power",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "number",
+              "default": 0.0,
               "title": "Initial Voting Power"
             }
           }
@@ -19958,16 +19868,10 @@
           {
             "name": "lock_period",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 30,
               "title": "Lock Period"
             }
           }
@@ -20215,39 +20119,27 @@
           {
             "name": "page",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 1,
               "title": "Page"
             }
           },
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 50,
               "title": "Limit"
             }
           },
           {
             "name": "tier",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -20306,7 +20198,7 @@
           {
             "name": "period",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -20363,48 +20255,30 @@
           {
             "name": "period",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "weekly",
               "title": "Period"
             }
           },
           {
             "name": "metric",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "total_staked",
               "title": "Metric"
             }
           },
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 50,
               "title": "Limit"
             }
           }
@@ -20444,7 +20318,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -20460,7 +20334,7 @@
           {
             "name": "agent_wallet",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -20476,32 +20350,20 @@
           {
             "name": "page",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 1,
               "title": "Page"
             }
           },
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 20,
               "title": "Limit"
             }
           },
@@ -20579,7 +20441,7 @@
           {
             "name": "period",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21443,7 +21305,7 @@
           {
             "name": "event_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21459,7 +21321,7 @@
           {
             "name": "workflow_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21475,7 +21337,7 @@
           {
             "name": "execution_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21491,7 +21353,7 @@
           {
             "name": "user_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21507,7 +21369,7 @@
           {
             "name": "security_level",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21523,7 +21385,7 @@
           {
             "name": "requires_investigation",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21539,7 +21401,7 @@
           {
             "name": "risk_score_min",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21555,7 +21417,7 @@
           {
             "name": "risk_score_max",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21571,7 +21433,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21587,7 +21449,7 @@
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21778,7 +21640,7 @@
           {
             "name": "entity_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21794,7 +21656,7 @@
           {
             "name": "entity_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21810,7 +21672,7 @@
           {
             "name": "min_score",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21826,7 +21688,7 @@
           {
             "name": "max_score",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21842,7 +21704,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -21858,7 +21720,7 @@
           {
             "name": "offset",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -22085,7 +21947,7 @@
           {
             "name": "execution_time",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -22101,32 +21963,20 @@
           {
             "name": "security_violation",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "boolean",
+              "default": false,
               "title": "Security Violation"
             }
           },
           {
             "name": "policy_violation",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "boolean",
+              "default": false,
               "title": "Policy Violation"
             }
           },
@@ -22218,7 +22068,7 @@
           {
             "name": "security_level",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -22807,7 +22657,7 @@
           {
             "name": "agent_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -22823,7 +22673,7 @@
           {
             "name": "trade_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -22839,7 +22689,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -22855,7 +22705,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23164,7 +23014,7 @@
           {
             "name": "agent_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23180,7 +23030,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23196,7 +23046,7 @@
           {
             "name": "strategy",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23212,7 +23062,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23455,7 +23305,7 @@
           {
             "name": "agent_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23471,7 +23321,7 @@
           {
             "name": "min_score",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23487,7 +23337,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23503,7 +23353,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23567,7 +23417,7 @@
           {
             "name": "period_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23583,7 +23433,7 @@
           {
             "name": "start_date",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23599,7 +23449,7 @@
           {
             "name": "end_date",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -23901,7 +23751,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -24072,48 +23922,30 @@
           {
             "name": "category",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "overall",
               "title": "Category"
             }
           },
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           },
           {
             "name": "region",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "global",
               "title": "Region"
             }
           }
@@ -24209,7 +24041,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -24565,7 +24397,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -24581,16 +24413,10 @@
           {
             "name": "min_score",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "number",
+              "default": 0.0,
               "title": "Min Score"
             }
           }
@@ -24729,16 +24555,10 @@
           {
             "name": "chain_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 1,
               "title": "Chain Id"
             }
           }
@@ -25054,7 +24874,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25114,23 +24934,17 @@
           {
             "name": "period_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "string",
+              "default": "monthly",
               "title": "Period Type"
             }
           },
           {
             "name": "start_date",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25146,7 +24960,7 @@
           {
             "name": "end_date",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25206,7 +25020,7 @@
           {
             "name": "tier",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25222,7 +25036,7 @@
           {
             "name": "period",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25238,7 +25052,7 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25349,7 +25163,7 @@
           {
             "name": "include_completed",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25422,23 +25236,17 @@
           {
             "name": "limit",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "default": 100,
               "title": "Limit"
             }
           },
           {
             "name": "status",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25768,7 +25576,7 @@
           {
             "name": "node_type",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
@@ -25784,7 +25592,7 @@
           {
             "name": "filters",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "anyOf": [
                 {
