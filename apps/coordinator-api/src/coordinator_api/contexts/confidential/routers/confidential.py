@@ -212,8 +212,8 @@ async def audit_access_confidential_data(
     request: Request,
     transaction_id: str,
     authorization: str,
-    purpose: str | None,
     api_key: Annotated[str, Depends(get_api_key)],
+    purpose: str = "audit",
 ) -> ConfidentialAccessResponse:
     """Audit access to confidential transaction data"""
     try:

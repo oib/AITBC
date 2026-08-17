@@ -34,7 +34,8 @@ async def init_database(
 
 @router.get("/")
 async def list_databases(
-    island_id: str | None, svc: Annotated[DatabaseService, Depends(get_database_service)]
+    svc: Annotated[DatabaseService, Depends(get_database_service)],
+    island_id: str | None = None,
 ) -> dict[str, Any]:
     """List databases, optionally filtered by island_id"""
     databases = await svc.list_databases(island_id)

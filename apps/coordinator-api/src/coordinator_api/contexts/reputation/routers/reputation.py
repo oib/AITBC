@@ -276,10 +276,10 @@ async def get_trust_score_breakdown(
 @rate_limit(rate=200, per=60)
 async def get_reputation_leaderboard(
     request: Request,
-    category: str | None,
-    limit: int | None,
-    region: str | None,
     session: Annotated[Session, Depends(get_session)],
+    category: str = "overall",
+    limit: int = 100,
+    region: str = "global",
 ) -> list[LeaderboardEntry]:
     """Get reputation leaderboard"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
@@ -356,7 +356,10 @@ async def get_reputation_metrics(
 @router.get("/feedback/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def get_agent_feedback(
-    request: Request, agent_id: str, limit: int | None, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    limit: int | None = None,
 ) -> list[FeedbackResponse]:
     """Get community feedback for an agent"""
     try:
@@ -396,7 +399,10 @@ async def get_agent_feedback(
 @router.get("/events/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def get_reputation_events(
-    request: Request, agent_id: str, limit: int | None, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get reputation change events for an agent"""
     try:
@@ -562,10 +568,10 @@ async def sync_cross_chain_reputation(
 @rate_limit(rate=200, per=60)
 async def get_cross_chain_leaderboard(
     request: Request,
-    limit: int | None,
-    min_score: float | None,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
+    limit: int | None = None,
+    min_score: float = 0.0,
 ) -> dict[str, Any]:
     """Get cross-chain reputation leaderboard"""
     try:
@@ -666,9 +672,9 @@ async def submit_cross_chain_event(
 @rate_limit(rate=200, per=60)
 async def get_cross_chain_analytics(
     request: Request,
-    chain_id: int | None,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
+    chain_id: int = 1,
 ) -> dict[str, Any]:
     """Get cross-chain reputation analytics"""
     try:
