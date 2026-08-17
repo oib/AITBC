@@ -4347,3 +4347,109 @@ validator that raises on the live config would have prevented the service from s
   means the production guards in this file are not running anywhere.
 - Nothing checks that the *other* services' key lists are disjoint from each other; the guard
   added here compares them only against the two hub credentials.
+
+### V23-92 — a shop node notifying a service it is correct not to run · CONFIRMED → RESOLVED
+
+`aitbc coin-requests approve` and `reject` finish by calling `send_agent_notification()` to tell
+the requesting agent what happened. On this host — a follower/shop node — that call could not
+succeed, for two independent reasons, and both were invisible because the function catches
+everything and prints.
+
+**1. The default pointed at a service that is hub-only by design.**
+
+`cli/aitbc_cli/commands/coin_requests.py:46` read:
+
+```python
+coordinator_url = os.getenv("AGENT_COORDINATOR_URL", os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107"))
+```
+
+`aitbc-agent-coordinator` is not part of an island's unit set. It was deliberately dropped in
+v0.5.4, whose final-state table lists twelve units for an island and does not include it; there
+is no unit file for it on this machine, and islands reach the hub's instance outbound instead
+(`HUB_AGENT_URL` / `HUB_HERMES_URL` with `FOLLOWER_API_KEY`). So `localhost:8107` is not a
+misconfiguration to repair on a follower — it is a service the node is right not to run.
+
+The same file already knew this. Forty lines further down, `execute` resolves the hub properly:
+
+```python
+hub_url = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
+```
+
+Two functions in one file, one reaching the hub and one reaching a dead local port.
+
+**2. The request carried no credential.**
+
+`send_agent_notification()` sent no `x-api-key` header, while the request/approve/execute calls
+in the same file (lines 230, 251) all do. So even pointed at a URL that exists, it gets 401:
+`POST https://hub.aitbc.bubuit.net/api/v1/hermes/messages/send` and its `/api/v1/agent/*` twin
+both answer 401 to an unauthenticated POST. The URL fix alone would have moved the failure from
+"connection refused" to "Unauthorized" and no further.
+
+**3. The failure blamed the wrong thing.** `except Exception as e: click.echo(f"Error sending
+notification: {e}")` produced `Error sending notification: HTTPConnectionPool(host='localhost',
+port=8107)...`, which reads as a broken local service. An operator following that reads it as a
+crashed agent-coordinator and goes looking for a unit that was never supposed to be there.
+
+**4. The host carried the stale value that made it worse.** `/etc/aitbc/node.env:22` set
+`HERMES_COORDINATOR_URL=http://localhost:8107`, left over from before the June shop-node
+conversion. Because that variable is read at all, it *beat* the hub fallback: without the line
+the CLI would have gone to the hub and got a clean 401. The stale config was actively worse than
+no config.
+
+#### What changed
+
+| | Before | After |
+| --- | --- | --- |
+| URL resolution | `AGENT_COORDINATOR_URL` → `HERMES_COORDINATOR_URL` → `http://localhost:8107` | New `_agent_api_base()`: local origin if set (`+ /api/v1/agent`), else the hub base `HUB_AGENT_URL` → `HUB_HERMES_URL` → `https://hub.aitbc.bubuit.net/api/v1/agent` |
+| Credential | none sent | `x-api-key` from `COORDINATOR_API_KEY` or `SECRET_KEY`; header omitted when neither is set |
+| `FOLLOWER_API_KEY` | n/a | deliberately **not** accepted here — it is published, and V23-68 confines it to `/register` and `/execute` |
+| 401/403 | `Failed to send notification: <body>` | names the status and says agent messaging needs a hub credential |
+| Other non-200 | body only | status code and body |
+| Exception | `Error sending notification: <e>` | `Error sending notification to <url>: <e>` |
+| `/etc/aitbc/node.env` | `HERMES_COORDINATOR_URL=http://localhost:8107`, `HERMES_SERVICE_URL=http://localhost:8103` | both commented out, with the reason and the hub fallback written next to them |
+
+The two variable families are kept distinct rather than merged, because they are not the same
+shape and both are in use: `AGENT_COORDINATOR_URL`/`HERMES_COORDINATOR_URL` are an *origin* (the
+router prefix is appended — this is the form `apps/agent-coordinator` and `apps/api-gateway`
+read), and `HUB_AGENT_URL`/`HUB_HERMES_URL` are the hub's *mounted base*, prefix included. A hub
+sets the first pair to its own localhost and behaves exactly as before.
+
+`HERMES_SERVICE_URL` went with it: nothing in the tree reads that name at all, and nothing has
+listened on 8103 here since the conversion.
+
+#### Verification
+
+- 15 new tests in `cli/tests/test_coin_request_notifications.py` cover the precedence (local
+  beats hub, `AGENT_` beats `HERMES_`, trailing slashes, the default is never a local port), the
+  credential (`COORDINATOR_API_KEY`, then `SECRET_KEY`, and that `FOLLOWER_API_KEY` alone sends
+  no header), the 401 message, and that a notification failure still cannot raise — `approve`
+  calls it after the commit, so an exception here would report failure on a request that was in
+  fact approved.
+- Root suite: 6,617 tests, 0 failures, 0 errors, exit 0 (up 15 from V23-68c).
+- The 15 new tests pass when the file is run on its own, and were **skipped in the full run**,
+  which is how V23-93 below was found: the production-write gate in
+  `tests/verification/conftest.py` matched this file's source for the hub hostname. With that
+  gate confined to its own directory the suite is 6,628 tests, 0 failures, 0 errors, and these
+  15 run. Counting them as verification before V23-93 would have been counting a skip.
+- `pre-commit run --files` on the three changed files: clean.
+- Live host, after the edit: `_agent_api_base()` under the deployed environment resolves to
+  `https://hub.aitbc.bubuit.net/api/v1/hermes` (from `HUB_HERMES_URL` in `blockchain.env`) with
+  a credential present, and `HERMES_COORDINATOR_URL` no longer reaches the process.
+- `systemd-run -p EnvironmentFile=/etc/aitbc/node.env /usr/bin/env` still parses the file and
+  emits no `HERMES_COORDINATOR_URL`. The eight units that load `node.env` are
+  blockchain-explorer, blockchain-node, blockchain-rpc, blockchain-sync, coordinator-api,
+  load-secrets, monitoring and wallet; none of them reads either removed variable, so **no
+  service was restarted** for this change. Backup at `/etc/aitbc/node.env.bak-20260817-135500`.
+- Route existence was checked with unauthenticated POSTs carrying `{}`, which are refused by the
+  dependency before any handler runs. No agent message was sent to the live hub.
+
+#### Not fixed here
+
+- The notification is still fire-and-forget: `approve` reports success to the operator whether
+  or not the requesting agent was ever told. Making the two consistent means deciding whether a
+  failed notification should block the approval, which is a policy call.
+- `apps/api-gateway/src/api_gateway/main.py:84` still defaults its agent-coordinator base to
+  `http://localhost:8107` with no hub fallback. It is not installed on this host, so it was left
+  alone rather than changed blind.
+- `HERMES_AGENT_ID=my-agent` and `AITBC_DEFAULT_WALLET=my-agent-wallet` in `node.env` are still
+  the example values from `examples/node.env.open-island`.
