@@ -80,9 +80,9 @@ async def get_regional_hubs(
 async def get_hub_developers(
     request: Request,
     hub_id: str,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get developers in a regional hub."""
 

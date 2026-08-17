@@ -219,18 +219,18 @@ async def validate_workflow_security(
 @rate_limit(rate=200, per=60)
 async def list_audit_logs(
     request: Request,
-    event_type: AuditEventType | None,
-    workflow_id: str | None,
-    execution_id: str | None,
-    user_id: str | None,
-    security_level: SecurityLevel | None,
-    requires_investigation: bool | None,
-    risk_score_min: int | None,
-    risk_score_max: int | None,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    event_type: AuditEventType | None = None,
+    workflow_id: str | None = None,
+    execution_id: str | None = None,
+    user_id: str | None = None,
+    security_level: SecurityLevel | None = None,
+    requires_investigation: bool | None = None,
+    risk_score_min: int | None = None,
+    risk_score_max: int | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> list[AgentAuditLog]:
     """List audit logs with filtering"""
     try:
@@ -291,14 +291,14 @@ async def get_audit_log(
 @rate_limit(rate=200, per=60)
 async def list_trust_scores(
     request: Request,
-    entity_type: str | None,
-    entity_id: str | None,
-    min_score: float | None,
-    max_score: float | None,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    min_score: float | None = None,
+    max_score: float | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> list[AgentTrustScore]:
     """List trust scores with filtering"""
     try:
@@ -365,11 +365,11 @@ async def update_trust_score(
     entity_type: str,
     entity_id: str,
     execution_success: bool,
-    execution_time: float | None,
-    security_violation: bool | None,
-    policy_violation: bool | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    execution_time: float | None = None,
+    security_violation: bool = False,
+    policy_violation: bool = False,
 ) -> AgentTrustScore:
     """Update trust score based on execution results"""
     try:
@@ -411,10 +411,10 @@ async def update_trust_score(
 async def create_sandbox(
     request: Request,
     execution_id: str,
-    security_level: SecurityLevel | None,
     workflow_requirements: dict | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    security_level: SecurityLevel | None = None,
 ) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
     try:

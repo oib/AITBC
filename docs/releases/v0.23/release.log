@@ -7513,3 +7513,116 @@ style. They are wrong either way, since a required query parameter can never be 
 Each still needs the same question this change answered five times — what did the code
 underneath expect when the parameter was absent — and each app's published spec changes with it.
 V23-89 takes all 283.
+
+### V23-89 — 283 query parameters that could never be what their type said they were · CONFIRMED → RESOLVED
+
+V23-88 fixed nine query parameters in `apps/marketplace` that FastAPI treated as required
+because they were annotated `X | None` with no default. This is the same fault everywhere else:
+**283 parameters, across 121 handlers in 30 files, in six applications.**
+
+```
+250  apps/coordinator-api        8  apps/pool-hub        7  apps/edge
+  8  apps/gpu                    8  apps/trading         2  apps/agent-coordinator
+```
+
+#### The correction to V23-88's account
+
+V23-88's *Not fixed here* said the same B008 edit had been applied repo-wide. That is wrong, and
+walking each file's history says so: of the 283, **23** had a default that a later commit
+deleted — 16 of them by `9cdccde02`, the B008 commit — and **260 were born without one**. The
+files holding most of them did not exist when `9cdccde02` ran.
+
+So this is not one bad commit. `9cdccde02` is where the shape was introduced, and it became the
+house style: a parameter that may be absent gets written `X | None`, the annotation is read as
+saying "optional", and nobody checks what FastAPI does with it.
+
+#### Why all 283 are wrong regardless of origin
+
+A required query parameter cannot be `None`. There is no way to send it — a client either
+supplies a value or omits the parameter and receives `422`. So in every one of these 283
+signatures the `| None` describes a value the handler can never be given, and every `if not x`
+below it is unreachable. The code and its types disagree, whether the default was deleted or
+never written.
+
+That disagreement is not theoretical. 160 of the 283 sit above a body that branches on their
+absence; 117 are forwarded to a service call and never inspected; 6 are never read at all.
+
+#### What the default should be, according to the code
+
+Not a judgement call in most cases. **79 handlers apply a default in the body** — the same
+workaround V23-88 found, at scale:
+
+```python
+limit or 100          period or 'weekly'        format or 'json'
+page or 1             time_range or '1h'        target_environment or 'production'
+lock_period if lock_period is not None else 30
+```
+
+and git records a deleted default for 23 more. Where both exist they agree on the value, in all
+five cases where they overlap. So:
+
+| | |
+| --- | --- |
+| given the value the code already applies | 81 |
+| given `None`, which is what the annotation already said | 202 |
+
+The point of moving them into the signature is that a default in the body is invisible: it does
+not reach the OpenAPI document, so no client can see that `limit` means 100 unless they read
+the source.
+
+`x if x is not None else V` is dead once `x` defaults to `V`, and 17 of those are removed.
+`x or V` is **kept** — it still catches an explicitly supplied `0` or empty string, which is a
+different case from omission — so no falsy value changes meaning.
+
+#### The ordering rule that caused it
+
+Python requires parameters without defaults to precede those with them, and
+`Annotated[T, Depends(...)]` has no default where `T = Depends(...)` did. That is the
+constraint `9cdccde02` resolved by deleting defaults. Here the dependencies move to the front
+of the signature instead. FastAPI resolves parameters by name and annotation, so the order
+carries no meaning for callers.
+
+The five pool-hub parameters whose deleted default was `Query(default=24, ge=1, le=168)` cannot
+have it back verbatim — B008 is selected in `pyproject.toml` and forbids a call in a default —
+so the bounds move into the annotation, `Annotated[int, Query(ge=1, le=168)] = 24`, which keeps
+the validation the endpoint had before `9cdccde02` removed it. One
+`# type: ignore[arg-type]` in `sla.py` became unnecessary once `hours` stopped being optional
+and is removed, as four were in V23-88.
+
+#### Nothing had to be changed to accommodate it
+
+No parameter is dereferenced by its handler — every one of the 117 unguarded ones is passed
+onward, never `.attribute`-ed, indexed or iterated — so no request that used to answer `422`
+can now raise inside the handler instead. Checked before the change, since turning a `422` into
+a `500` would have been a worse outcome than the bug.
+
+**No test needed changing.** Where V23-88 found five tests pinning marketplace's `422`s, not one
+of these 283 parameters has a test asserting the old behaviour. That is not reassurance: it
+means these endpoints are largely untested. `/staking/leaderboard`, `/bounties` and
+`/sla/violations` are matched by no test file at all.
+
+#### Verification
+
+Root suite: **6,559 tests, 0 failures, 0 errors, 271 skipped, exit 0** (counts from JUnit XML) —
+identical to the baseline before the change.
+
+`ruff` and `ruff format` clean over all 30 files. `mypy-clean-apps` passes.
+`pre-commit run --all-files` fails only `require-set-euo-pipefail-in-touched-scripts`, on
+pre-existing untouched `.sh` files, which is what that hook does under `--all-files` by design;
+this change touches no shell script.
+
+The specs were regenerated with `make openapi`: 104 parameters go from `"required": true` to
+`false` and 32 defaults become visible to clients for the first time.
+
+#### Not fixed here
+
+Only `agent-coordinator` and `coordinator-api` of the six applications touched here publish an
+OpenAPI document, so for `edge`, `gpu`, `pool-hub` and `trading` this contract change is not
+visible in `docs/api/` at all — there is nothing there to regenerate. Five specs are published;
+those four are not among them. Whether they should be is a decision for whoever owns the drift
+guard V23-82 wired up.
+
+Seventeen more parameters match the same annotation pattern but are typed `dict`, `list` or
+`Any`, which FastAPI reads as a request body rather than a query parameter. A required body is
+ordinary, and eleven of them are on `POST` handlers, so they are left alone. Six, however, are
+on `GET` handlers — a `GET` that declares a request body — which is worth a look on its own.

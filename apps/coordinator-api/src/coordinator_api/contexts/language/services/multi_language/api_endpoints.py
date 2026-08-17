@@ -368,9 +368,9 @@ async def get_cache_stats(cache: Annotated[TranslationCache | None, Depends(get_
 
 @router.post("/cache/clear")
 async def clear_cache(
-    source_language: str | None,
-    target_language: str | None,
     cache: Annotated[TranslationCache | None, Depends(get_translation_cache)],
+    source_language: str | None = None,
+    target_language: str | None = None,
 ) -> dict[str, Any]:
     """
     Clear translation cache (optionally by language pair)
@@ -426,7 +426,8 @@ async def health_check(
 
 @router.get("/cache/top-translations")
 async def get_top_translations(
-    limit: int | None, cache: Annotated[TranslationCache | None, Depends(get_translation_cache)]
+    cache: Annotated[TranslationCache | None, Depends(get_translation_cache)],
+    limit: int = 100,
 ) -> None:
     """
     Get most accessed translations from cache

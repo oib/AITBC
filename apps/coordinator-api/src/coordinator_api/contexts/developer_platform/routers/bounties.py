@@ -48,11 +48,11 @@ async def create_bounty(
 @rate_limit(rate=200, per=60)
 async def list_bounties(
     request: Request,
-    status: BountyStatus | None,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    status: BountyStatus | None = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """List bounty tasks with optional status filter."""
 
@@ -84,10 +84,10 @@ async def list_bounties(
 async def get_my_submissions(
     developer_id: str,
     request: Request,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Get all submissions by a developer."""
 
@@ -193,9 +193,9 @@ async def review_bounty_submission(
     reviewer_address: str,
     review_notes: str,
     request: Request,
-    approved: bool | None,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    approved: bool | None = None,
 ) -> dict[str, Any]:
     """Review and approve/reject a bounty submission."""
 
