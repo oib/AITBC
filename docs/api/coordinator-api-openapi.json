@@ -18709,9 +18709,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Proof Request"
+                "$ref": "#/components/schemas/MLProofRequest"
               }
             }
           },
@@ -18739,16 +18737,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -18765,9 +18753,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Verification Request"
+                "$ref": "#/components/schemas/MLVerifyRequest"
               }
             }
           },
@@ -18815,15 +18801,13 @@
           "ml-zk"
         ],
         "summary": "Prove Modular Ml",
-        "description": "Generate ZK proof using optimized modular circuits",
+        "description": "Generate ZK proof using the modular ML circuit",
         "operationId": "prove_modular_ml_v1_ml_zk_prove_modular_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Proof Request"
+                "$ref": "#/components/schemas/MLProofRequest"
               }
             }
           },
@@ -18851,16 +18835,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -18877,9 +18851,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Verification Request"
+                "$ref": "#/components/schemas/MLVerifyRequest"
               }
             }
           },
@@ -32292,6 +32264,56 @@
         ],
         "title": "LearningStrategy",
         "description": "Learning strategy enumeration"
+      },
+      "MLProofRequest": {
+        "properties": {
+          "inputs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Inputs"
+          },
+          "private_inputs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Private Inputs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inputs"
+        ],
+        "title": "MLProofRequest",
+        "description": "Body for both ML prove endpoints.\n\nThis was ``dict[str, Any]``, read with ``proof_request[\"inputs\"]`` and\n``proof_request[\"private_inputs\"]``, so a caller who omitted either got a ``KeyError``\nreported as ``500 Internal server error``. ``private_inputs`` was mandatory here even\nthough ``generate_proof`` defaults it to ``None`` and does nothing with a falsy value\n(V23-94)."
+      },
+      "MLVerifyRequest": {
+        "properties": {
+          "proof": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Proof"
+          },
+          "public_signals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Public Signals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proof",
+          "public_signals"
+        ],
+        "title": "MLVerifyRequest",
+        "description": "Body for both ML verify endpoints.\n\n``verification_key`` is absent by design: the key is chosen server-side from the circuit,\nbecause a verifier that accepts the key from the party being verified checks nothing."
       },
       "MarketStatsResponse": {
         "properties": {
