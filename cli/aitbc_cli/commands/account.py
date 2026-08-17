@@ -2,6 +2,8 @@
 
 import click
 
+from aitbc.utils import format_ait
+
 from ..utils import output
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
@@ -28,6 +30,10 @@ def get(ctx, address, rpc_url, chain_id):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         account_data = http_client.get(f"/rpc/account/{address}", params=params)
 
+        # balance is in compute-seconds; expose the human-readable AIT string too.
+        if "balance" in account_data:
+            account_data["balance_ait"] = format_ait(account_data["balance"])
+
         output(account_data, ctx.obj.get("output_format", "table"), title=f"Account: {address}")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -50,13 +56,7 @@ def list(ctx, rpc_url, chain_id):
         accounts = http_client.get("/rpc/accounts", params=params)
 
         output(accounts, ctx.obj.get("output_format", "table"), title="Accounts")
-    except NetworkError:
-        # Fallback to simulated data if RPC endpoint not available
-        accounts = {
-            "status": "simulated",
-            "accounts": [],
-            "message": "RPC endpoint not available - showing simulated accounts",
-        }
-        output(accounts, ctx.obj.get("output_format", "table"), title="Accounts (Simulated)")
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error listing accounts: {e}", from_exception=e)
