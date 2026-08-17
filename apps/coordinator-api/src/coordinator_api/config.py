@@ -5,10 +5,10 @@ Provides environment-based adapter selection and consolidated settings.
 """
 
 import os
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
 from aitbc.constants import LOG_DIR, REPO_DIR
@@ -69,10 +69,18 @@ class Settings(BaseAITBCConfig):
     db_max_overflow: int = Field(default=20, description="Database connection pool max overflow")
     db_pool_recycle: int = Field(default=3600, description="Database connection pool recycle time in seconds")
 
-    # API Keys
-    client_api_keys: list[str] = []
-    miner_api_keys: list[str] = []
-    admin_api_keys: list[str] = []
+    # API Keys.
+    #
+    # NoDecode is what lets `parse_api_keys` below see the raw environment string.
+    # pydantic-settings JSON-decodes any complex-typed variable inside EnvSettingsSource,
+    # *before* validators run, and raises SettingsError when that fails — so
+    # `MINER_API_KEYS=key-one,key-two`, the form docs/ops/follower-api-key.md tells operators
+    # to use, stopped the whole Settings object from constructing and took coordinator-api's
+    # startup with it. The comma-separated branch in the validator had never been reachable
+    # from the environment, only from code passing a string directly (V23-68b).
+    client_api_keys: Annotated[list[str], NoDecode] = []
+    miner_api_keys: Annotated[list[str], NoDecode] = []
+    admin_api_keys: Annotated[list[str], NoDecode] = []
 
     @field_validator("client_api_keys", "miner_api_keys", "admin_api_keys", mode="before")
     @classmethod
@@ -238,6 +246,33 @@ class Settings(BaseAITBCConfig):
             raise ValueError("DEBUG cannot be enabled in production")
         return self
 
+    @model_validator(mode="after")
+    def validate_service_keys_are_not_hub_credentials(self) -> "Settings":
+        """A service credential must not also be a hub credential (V23-68c).
+
+        On the deployed host, `MINER_API_KEY` in the miner's environment held the same value as
+        `COORDINATOR_API_KEY` — the key published in the world-readable bootstrap file — so the
+        published key was a working miner credential and nothing in the system said so. The two
+        keys grant different authority (V23-68), and a deployment that sets them to one value
+        has no boundary left between them, so this raises rather than warns.
+
+        Checked in every environment, not just production: the reuse is wrong wherever it
+        happens, and the deployed hub runs with ENVIRONMENT=development.
+        """
+        hub_credentials = {
+            value for value in (os.getenv("COORDINATOR_API_KEY"), os.getenv("SECRET_KEY"), self.secret_key) if value
+        }
+
+        for field_name in ("client_api_keys", "miner_api_keys", "admin_api_keys"):
+            if hub_credentials & set(getattr(self, field_name)):
+                raise ValueError(
+                    f"{field_name.upper()} reuses COORDINATOR_API_KEY or SECRET_KEY. Those are hub "
+                    "credentials with wider authority, and COORDINATOR_API_KEY has been published; "
+                    "generate a separate key for this role."
+                )
+
+        return self
+
 
 settings = Settings()
 
@@ -253,6 +288,18 @@ def validate_critical_environment_variables() -> None:
     if _is_production():
         if not os.getenv("SETTLEMENT_PRIVATE_KEY"):
             raise ValueError("SETTLEMENT_PRIVATE_KEY must be set in production")
+
+    # An empty miner list is only *validated* in production, so on a development-flagged
+    # deployment it passes silently and then answers 401 to every miner. Say so at startup,
+    # where an operator restarting the service will actually see it (V23-68c).
+    if not settings.miner_api_keys:
+        from aitbc.aitbc_logging import get_logger
+
+        get_logger(__name__).warning(
+            "MINER_API_KEYS is empty: every X-Api-Key request to the miner, settlement and "
+            "marketplace routers will be refused. Set it in /etc/aitbc/aitbc-coordinator-api.env "
+            "(JSON array form) — see docs/ops/follower-api-key.md."
+        )
 
 
 # Note: Secret validation moved to application startup (create_app() or main entry point)
