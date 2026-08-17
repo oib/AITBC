@@ -319,9 +319,17 @@ async def create_offer(
 
 
 @app.get("/v1/marketplace/analytics")
-async def get_analytics(period_type: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
+async def get_analytics(
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    # `period_type: str | None` with no default is a *required* query parameter to FastAPI --
+    # the same accident V23-83 found on cancel_offer and v0.6.6 found on /offers. The service
+    # below has always declared `period_type: str = "daily"`, and that default was unreachable:
+    # a caller who omitted the parameter got 422 instead, and one who supplied it overrode it.
+    # Stating "daily" here restores the intended behaviour and puts the default in the spec.
+    period_type: str = "daily",
+) -> Any:
     """Get marketplace analytics"""
-    return await svc.get_analytics(period_type=period_type)  # type: ignore[arg-type]
+    return await svc.get_analytics(period_type=period_type)
 
 
 @app.get("/v1/marketplace")
@@ -423,11 +431,13 @@ async def cancel_offer(
 
 @app.get("/v1/marketplace/performance")
 async def get_marketplace_performance(
-    period: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    # Required by the same accident as /analytics above, and feeding the same service default.
+    period: str = "daily",
 ) -> Any:
     """Get marketplace performance metrics (migrated from Coordinator API)"""
     logger.info("GET /v1/marketplace/performance called with period=%s", period)
-    analytics = await svc.get_analytics(period_type=period)  # type: ignore[arg-type]
+    analytics = await svc.get_analytics(period_type=period)
     performance = {
         "period": period,
         "total_volume": analytics.get("total_volume", 0),
@@ -700,14 +710,17 @@ async def rate_service(
 @app.get("/v1/marketplace/offer/{service_id}/ratings")
 async def get_service_ratings(
     service_id: str,
-    limit: int | None,
-    offset: int | None,
     svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    # Paging that could not be omitted: both were required, so "give me the first page" was
+    # spelled `?limit=50&offset=0` or it was a 422. The service's own `limit: int = 50,
+    # offset: int = 0` say what the first page should be; these now say the same thing.
+    limit: int = 50,
+    offset: int = 0,
 ) -> Any:
     """Get ratings for a marketplace service offer"""
     try:
         logger.info("GET /v1/marketplace/offer/%s/ratings called", service_id)
-        ratings = await svc.get_service_ratings(service_id, limit, offset)  # type: ignore[arg-type]
+        ratings = await svc.get_service_ratings(service_id, limit, offset)
         service = await svc.get_software_service(service_id)
         if not service:
             service = await svc.get_service_by_offer_id(service_id)
@@ -748,11 +761,15 @@ async def get_offer_by_id(offer_id: str, svc: Annotated[MarketplaceService, Depe
 
 
 @app.get("/v1/marketplace/ratings/unsynced")
-async def get_unsynced_ratings(limit: int | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
+async def get_unsynced_ratings(
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    # Same accident, same shape: the service declares `limit: int = 100`.
+    limit: int = 100,
+) -> Any:
     """Get ratings that haven't been synced to remote nodes"""
     try:
         logger.info("GET /v1/marketplace/ratings/unsynced called")
-        ratings = await svc.get_unsynced_ratings(limit)  # type: ignore[arg-type]
+        ratings = await svc.get_unsynced_ratings(limit)
         return {"ratings": ratings, "count": len(ratings)}
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/ratings/unsynced: %s: %s", type(e).__name__, str(e))
@@ -816,11 +833,19 @@ async def submit_transaction(
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None,
-    action: str | None,
-    status: str | None,
-    island_id: str | None,
     session: Annotated[AsyncSession, Depends(get_session_dep)],
+    # Four filters that the body below already treats as optional -- it branches on
+    # `not action` and guards `if status:` and `if island_id:` -- but which FastAPI made
+    # required, so an unfiltered "list the transactions" answered 422. Listing everything is
+    # what no filter means, and now says so.
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
+    # Accepted and ignored. Nothing in this handler reads it, and the rows it returns are all
+    # `"action": "offer"`, so there is no field for it to select on. Kept rather than removed
+    # so a caller already sending it is not met with a changed contract; wiring it up or
+    # dropping it is a separate decision, recorded in the release log.
+    transaction_type: str | None = None,
 ) -> Any:
     """Query marketplace transactions"""
     from sqlalchemy import select
