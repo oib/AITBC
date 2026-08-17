@@ -138,6 +138,25 @@ if not settings.proposer_key:
         logger.warning("Failed to load proposer key from keystore", extra={"error": str(e)})
 
 
+FORCE_PULL_GAP = 3  # blocks behind the peer before a pull is forced despite push mode
+
+
+def _pull_trigger(gap: int) -> str | None:
+    """Classify our height against a peer's: "behind", "ahead", or None when push is keeping up.
+
+    `gap` is `remote_height - local_height`. Only the positive side used to be examined, so a
+    follower sitting 1,458 blocks *ahead* of a peer that had been reset to genesis read as being
+    in sync and never pulled again — for 46 hours, across ~5,500 cycles (V23-90). Being ahead of
+    the peer we follow is not a healthy state; it is either divergence or a peer that lost its
+    history, and both need the pull path to look at hashes.
+    """
+    if gap >= FORCE_PULL_GAP:
+        return "behind"
+    if gap < 0:
+        return "ahead"
+    return None
+
+
 class BlockchainNode:
     def __init__(self) -> None:
         self._stop_event = asyncio.Event()
@@ -581,6 +600,17 @@ class BlockchainNode:
                                     result.get("updated", 0),
                                     result.get("match", False),
                                 )
+                            elif result.get("match") is False:
+                                # Reported even with nothing to sync: a root that stays wrong after
+                                # a full account sync was previously logged only when something
+                                # changed, so 414 mismatched cycles said nothing at all (V23-90).
+                                logger.warning(
+                                    "State sync did not converge for chain %s: local_root=%s remote_root=%s",
+                                    chain_id,
+                                    result.get("local_state_root"),
+                                    result.get("remote_state_root"),
+                                    extra={"chain_id": chain_id},
+                                )
                         except Exception as e:
                             logger.warning("State sync failed for chain %s: %s", chain_id, e)
                 state_sync_counter += 1
@@ -604,10 +634,23 @@ class BlockchainNode:
                             remote_height = remote_data.get("height", 0)
 
                             gap = remote_height - local_height
-                            if gap >= 3:  # Force pull if gap is 3 or more blocks
+                            trigger = _pull_trigger(gap)
+                            if trigger == "behind":
                                 logger.warning(
                                     "Block gap too large (%s blocks), forcing pull sync despite push mode",
                                     gap,
+                                    extra={"chain_id": chain_id, "local_height": local_height, "remote_height": remote_height},
+                                )
+                                force_pull = True
+                                break
+                            if trigger == "ahead":
+                                logger.warning(
+                                    "Local chain is %s blocks ahead of peer %s (local %s, peer %s), forcing pull sync to "
+                                    "check for divergence",
+                                    -gap,
+                                    source_url,
+                                    local_height,
+                                    remote_height,
                                     extra={"chain_id": chain_id, "local_height": local_height, "remote_height": remote_height},
                                 )
                                 force_pull = True

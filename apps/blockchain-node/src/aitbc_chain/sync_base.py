@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import httpx
 from sqlmodel import Session
@@ -14,6 +14,10 @@ from aitbc.sync import PeerCapabilityTracker
 
 from .base_models import Block
 from .sync_validator import ImportResult, ProposerSignatureValidator
+
+if TYPE_CHECKING:
+    # Imported for typing only: sync_divergence imports SyncBase from here at runtime.
+    from .sync_divergence import Divergence
 
 
 class SyncBase(Protocol):
@@ -61,6 +65,10 @@ class SyncBase(Protocol):
     def _resolve_fork(
         self, session: Session, block_data: dict[str, Any], transactions: list[dict[str, Any]] | None, our_head: Block
     ) -> ImportResult: ...
+
+    # Divergence detection
+    def detect_divergence(self, peer_url: str, peer_height: int, peer_hash: str) -> Divergence | None: ...
+    async def peer_head_divergence(self, source_url: str) -> Divergence | None: ...
 
     # Rejection / resync
     def _track_rejection(self, chain_id: str) -> None: ...
