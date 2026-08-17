@@ -124,8 +124,8 @@ class AnalyticsSummaryResponse(BaseModel):
 @rate_limit(rate=20, per=60)
 async def collect_market_data(
     request: Request,
-    period_type: AnalyticsPeriod | None,
     session: Annotated[Session, Depends(get_session)],
+    period_type: AnalyticsPeriod | None = None,
 ) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
     analytics_service = AnalyticsService(session)
@@ -142,11 +142,11 @@ async def collect_market_data(
 @rate_limit(rate=200, per=60)
 async def get_market_insights(
     request: Request,
-    time_period: str | None,
-    insight_type: str | None,
-    impact_level: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    time_period: str | None = None,
+    insight_type: str | None = None,
+    impact_level: str | None = None,
+    limit: int | None = None,
 ) -> dict[str, Any]:
     """Get market insights and analysis"""
     analytics_service = AnalyticsService(session)
@@ -175,12 +175,12 @@ async def get_market_insights(
 @rate_limit(rate=200, per=60)
 async def get_market_metrics(
     request: Request,
-    period_type: AnalyticsPeriod | None,
-    metric_name: str | None,
-    category: str | None,
-    geographic_region: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    period_type: AnalyticsPeriod | None = None,
+    metric_name: str | None = None,
+    category: str | None = None,
+    geographic_region: str | None = None,
+    limit: int | None = None,
 ) -> list[MetricResponse]:
     """Get market metrics with filters"""
     try:
@@ -373,9 +373,9 @@ async def generate_insight(
     insight_type: str,
     title: str,
     description: str,
-    confidence_score: float | None,
-    impact_level: str | None,
     session: Annotated[Session, Depends(get_session)],
+    confidence_score: float | None = None,
+    impact_level: str | None = None,
 ) -> MarketInsight:
     """Generate market insight"""
     try:
@@ -427,9 +427,9 @@ async def get_insight(
 @rate_limit(rate=200, per=60)
 async def get_market_trends(
     request: Request,
-    time_period: str | None,
     metric_categories: list[str] | None,
     session: Annotated[Session, Depends(get_session)],
+    time_period: str | None = None,
 ) -> dict[str, Any]:
     """Get market trends analysis"""
     analytics_service = AnalyticsService(session)
@@ -446,9 +446,9 @@ async def get_market_trends(
 @rate_limit(rate=200, per=60)
 async def get_market_segments(
     request: Request,
-    segment_by: str | None,
-    min_market_share: float | None,
     session: Annotated[Session, Depends(get_session)],
+    segment_by: str | None = None,
+    min_market_share: float | None = None,
 ) -> list[dict[str, Any]]:
     """Get market segment analysis"""
     analytics_service = AnalyticsService(session)
@@ -466,8 +466,8 @@ async def get_market_segments(
 async def get_competitor_analysis(
     request: Request,
     competitor_ids: list[str] | None,
-    analysis_depth: str | None,
     session: Annotated[Session, Depends(get_session)],
+    analysis_depth: str | None = None,
 ) -> dict[str, Any]:
     """Get competitive analysis"""
     analytics_service = AnalyticsService(session)
@@ -485,9 +485,9 @@ async def get_competitor_analysis(
 async def get_metric_forecast(
     request: Request,
     metric_name: str,
-    forecast_periods: int | None,
-    confidence_interval: float | None,
     session: Annotated[Session, Depends(get_session)],
+    forecast_periods: int | None = None,
+    confidence_interval: float | None = None,
 ) -> dict[str, Any]:
     """Get metric forecast"""
     analytics_service = AnalyticsService(session)
@@ -508,9 +508,9 @@ async def get_metric_forecast(
 @rate_limit(rate=200, per=60)
 async def get_active_alerts(
     request: Request,
-    severity: str | None,
-    category: str | None,
     session: Annotated[Session, Depends(get_session)],
+    severity: str | None = None,
+    category: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get active market alerts"""
     analytics_service = AnalyticsService(session)
@@ -546,9 +546,9 @@ async def acknowledge_alert(
 @rate_limit(rate=200, per=60)
 async def get_performance_benchmarks(
     request: Request,
-    benchmark_type: str | None,
-    time_period: str | None,
     session: Annotated[Session, Depends(get_session)],
+    benchmark_type: str | None = None,
+    time_period: str | None = None,
 ) -> dict[str, Any]:
     """Get performance benchmarks"""
     analytics_service = AnalyticsService(session)
@@ -565,9 +565,9 @@ async def get_performance_benchmarks(
 @rate_limit(rate=200, per=60)
 async def get_custom_queries(
     request: Request,
-    query_type: str | None,
-    created_by: str | None,
     session: Annotated[Session, Depends(get_session)],
+    query_type: str | None = None,
+    created_by: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get saved custom queries"""
     analytics_service = AnalyticsService(session)
@@ -586,8 +586,8 @@ async def create_custom_query(
     request: Request,
     query_name: str,
     query_definition: dict[str, Any],
-    query_type: str | None,
     session: Annotated[Session, Depends(get_session)],
+    query_type: str | None = None,
 ) -> dict[str, Any]:
     """Create custom analytics query"""
     analytics_service = AnalyticsService(session)
@@ -625,10 +625,10 @@ async def execute_custom_query(
 @rate_limit(rate=50, per=60)
 async def export_analytics_data(
     request: Request,
-    export_format: str | None,
     data_types: list[str] | None,
-    date_range: str | None,
     session: Annotated[Session, Depends(get_session)],
+    export_format: str | None = None,
+    date_range: str | None = None,
 ) -> dict[str, Any]:
     """Export analytics data"""
     analytics_service = AnalyticsService(session)

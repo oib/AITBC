@@ -54,7 +54,9 @@ async def submit_compute_request(
 
 @router.get("/requests")
 async def list_compute_requests(
-    gpu_id: str | None, status: str | None, svc: Annotated[ServeService, Depends(get_serve_service)]
+    svc: Annotated[ServeService, Depends(get_serve_service)],
+    gpu_id: str | None = None,
+    status: str | None = None,
 ) -> dict[str, Any]:
     """List compute requests, optionally filtered"""
     requests = await svc.list_compute_requests(gpu_id, status)

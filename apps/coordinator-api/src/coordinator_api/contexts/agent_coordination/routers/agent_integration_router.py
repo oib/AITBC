@@ -64,10 +64,10 @@ async def create_deployment_config(
 @rate_limit(rate=200, per=60)
 async def list_deployment_configs(
     request: Request,
-    workflow_id: str | None,
-    status: DeploymentStatus | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    workflow_id: str | None = None,
+    status: DeploymentStatus | None = None,
 ) -> list[AgentDeploymentConfig]:
     """List deployment configurations with filtering"""
     try:
@@ -121,9 +121,9 @@ async def get_deployment_config(
 async def deploy_workflow(
     request: Request,
     config_id: str,
-    target_environment: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    target_environment: str = "production",
 ) -> dict[str, Any]:
     """Deploy agent workflow to target environment"""
     try:
@@ -241,11 +241,11 @@ async def rollback_deployment(
 @rate_limit(rate=200, per=60)
 async def list_deployment_instances(
     request: Request,
-    deployment_id: str | None,
-    environment: str | None,
-    status: DeploymentStatus | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    deployment_id: str | None = None,
+    environment: str | None = None,
+    status: DeploymentStatus | None = None,
 ) -> list[AgentDeploymentInstance]:
     """List deployment instances with filtering"""
     try:
@@ -306,9 +306,9 @@ async def get_deployment_instance(
 async def integrate_with_zk_system(
     request: Request,
     execution_id: str,
-    verification_level: VerificationLevel | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    verification_level: VerificationLevel | None = None,
 ) -> dict[str, Any]:
     """Integrate agent execution with ZK proof system"""
     try:
@@ -338,9 +338,9 @@ async def integrate_with_zk_system(
 async def get_deployment_metrics(
     request: Request,
     deployment_id: str,
-    time_range: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
+    time_range: str = "1h",
 ) -> dict[str, Any]:
     """Get metrics for deployment over time range"""
     try:
@@ -515,9 +515,9 @@ async def get_production_health(
 @rate_limit(rate=200, per=60)
 async def get_production_alerts(
     request: Request,
-    severity: str | None,
-    limit: int | None,
     user: AdminDep,
+    severity: str | None = None,
+    limit: int = 50,
 ) -> dict[str, Any]:
     """Get production alerts and notifications"""
     try:

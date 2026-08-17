@@ -43,17 +43,17 @@ async def create_cross_chain_marketplace_offer(
     service_type: str,
     resource_specification: dict[str, Any],
     base_price: Decimal,
-    currency: str | None,
-    total_capacity: int | None,
     regions_available: list[str] | None,
     supported_chains: list[int] | None,
     cross_chain_pricing: dict[int, Decimal] | None,
-    auto_bridge_enabled: bool | None,
-    reputation_threshold: float | None,
-    deadline_minutes: int | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
     identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
+    currency: str = "USD",
+    total_capacity: int = 100,
+    auto_bridge_enabled: bool = True,
+    reputation_threshold: float = 500.0,
+    deadline_minutes: int = 60,
 ) -> dict[str, Any]:
     """Create a cross-chain enabled marketplace offer"""
     try:
@@ -70,8 +70,8 @@ async def create_cross_chain_marketplace_offer(
             regions_available=regions_available,
             supported_chains=supported_chains,
             cross_chain_pricing=cross_chain_pricing,
-            auto_bridge_enabled=auto_bridge_enabled if auto_bridge_enabled is not None else True,
-            reputation_threshold=reputation_threshold if reputation_threshold is not None else 500.0,
+            auto_bridge_enabled=auto_bridge_enabled,
+            reputation_threshold=reputation_threshold,
             deadline_minutes=deadline_minutes or 60,
         )
         return offer
@@ -83,15 +83,15 @@ async def create_cross_chain_marketplace_offer(
 
 @router.get("/offers/cross-chain", response_model=list[dict[str, Any]])
 async def get_integrated_marketplace_offers(
-    region: str | None,
-    service_type: str | None,
-    chain_id: int | None,
-    min_reputation: float | None,
-    include_cross_chain: bool | None,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
+    region: str | None = None,
+    service_type: str | None = None,
+    chain_id: int | None = None,
+    min_reputation: float | None = None,
+    include_cross_chain: bool = True,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Get integrated marketplace offers with cross-chain capabilities"""
     try:
@@ -100,7 +100,7 @@ async def get_integrated_marketplace_offers(
             service_type=service_type,
             chain_id=chain_id,
             min_reputation=min_reputation,
-            include_cross_chain=include_cross_chain if include_cross_chain is not None else True,
+            include_cross_chain=include_cross_chain,
             limit=limit or 100,
             offset=offset or 0,
         )
@@ -152,11 +152,11 @@ async def get_cross_chain_offer_details(
 @router.post("/offers/{offer_id}/optimize-pricing", response_model=dict[str, Any])
 async def optimize_offer_pricing(
     offer_id: str,
-    optimization_strategy: str | None,
     target_regions: list[str] | None,
     target_chains: list[int] | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
+    optimization_strategy: str = "balanced",
 ) -> dict[str, Any]:
     """Optimize pricing for a global marketplace offer"""
     try:
@@ -178,17 +178,17 @@ async def execute_cross_chain_transaction(
     buyer_id: str,
     offer_id: str,
     quantity: int,
-    source_chain: int | None,
-    target_chain: int | None,
-    source_region: str | None,
-    target_region: str | None,
-    payment_method: str | None,
-    bridge_protocol: BridgeProtocol | None,
-    priority: TransactionPriority | None,
-    auto_execute_bridge: bool | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
     identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
+    source_chain: int | None = None,
+    target_chain: int | None = None,
+    source_region: str = "global",
+    target_region: str = "global",
+    payment_method: str = "crypto",
+    bridge_protocol: BridgeProtocol | None = None,
+    priority: TransactionPriority | None = None,
+    auto_execute_bridge: bool = True,
 ) -> dict[str, Any]:
     """Execute a cross-chain marketplace transaction"""
     try:
@@ -206,7 +206,7 @@ async def execute_cross_chain_transaction(
             payment_method=payment_method or "crypto",
             bridge_protocol=bridge_protocol,
             priority=priority or TransactionPriority.MEDIUM,
-            auto_execute_bridge=auto_execute_bridge if auto_execute_bridge is not None else True,
+            auto_execute_bridge=auto_execute_bridge,
         )
         return transaction
     except ValueError:
@@ -217,15 +217,15 @@ async def execute_cross_chain_transaction(
 
 @router.get("/transactions/cross-chain", response_model=list[dict[str, Any]])
 async def get_cross_chain_transactions(
-    buyer_id: str | None,
-    seller_id: str | None,
-    source_chain: int | None,
-    target_chain: int | None,
-    status: str | None,
-    limit: int | None,
-    offset: int | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
+    buyer_id: str | None = None,
+    seller_id: str | None = None,
+    source_chain: int | None = None,
+    target_chain: int | None = None,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Get cross-chain marketplace transactions"""
     try:
@@ -269,11 +269,11 @@ async def get_cross_chain_transactions(
 
 @router.get("/analytics/cross-chain", response_model=dict[str, Any])
 async def get_cross_chain_analytics(
-    time_period_hours: int | None,
-    region: str | None,
-    chain_id: int | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
+    time_period_hours: int = 24,
+    region: str | None = None,
+    chain_id: int | None = None,
 ) -> dict[str, Any]:
     """Get comprehensive cross-chain analytics"""
     try:
@@ -480,9 +480,9 @@ async def get_integration_health(
 
 @router.post("/diagnostics/run", response_model=dict[str, Any])
 async def run_integration_diagnostics(
-    diagnostic_type: str | None,
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketplaceIntegrationService, Depends(get_integration_service)],
+    diagnostic_type: str | None = None,
 ) -> dict[str, Any]:
     """Run integration diagnostics"""
     try:

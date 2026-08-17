@@ -253,8 +253,8 @@ async def get_tier_progress(
 @rate_limit(rate=20, per=60)
 async def batch_process_pending_rewards(
     request: Request,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    limit: int | None = None,
 ) -> BatchProcessResponse:
     """Process pending reward distributions in batch.
 
@@ -270,10 +270,10 @@ async def batch_process_pending_rewards(
 @rate_limit(rate=200, per=60)
 async def get_reward_analytics(
     request: Request,
-    period_type: str | None,
-    start_date: str | None,
-    end_date: str | None,
     session: Annotated[Session, Depends(get_session)],
+    period_type: str = "monthly",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> RewardAnalyticsResponse:
     """Get reward system analytics"""
     reward_engine = RewardEngine(session)
@@ -298,10 +298,10 @@ async def get_reward_analytics(
 @rate_limit(rate=200, per=60)
 async def get_reward_leaderboard(
     request: Request,
-    tier: str | None,
-    period: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
+    tier: str | None = None,
+    period: str | None = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get reward leaderboard"""
     try:
@@ -374,8 +374,8 @@ async def get_reward_tiers(request: Request, session: Annotated[Session, Depends
 async def get_agent_milestones(
     request: Request,
     agent_id: str,
-    include_completed: bool | None,
     session: Annotated[Session, Depends(get_session)],
+    include_completed: bool | None = None,
 ) -> list[MilestoneResponse]:
     """Get milestones for an agent"""
     try:
@@ -413,9 +413,9 @@ async def get_agent_milestones(
 async def get_reward_distributions(
     request: Request,
     agent_id: str,
-    limit: int | None,
-    status: str | None,
     session: Annotated[Session, Depends(get_session)],
+    limit: int = 100,
+    status: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get reward distribution history for an agent"""
     try:

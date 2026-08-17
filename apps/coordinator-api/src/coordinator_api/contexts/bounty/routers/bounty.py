@@ -411,12 +411,12 @@ async def dispute_bounty_submission(
 @rate_limit(rate=200, per=60)
 async def get_my_created_bounties(
     request: Request,
-    status: BountyStatus | None,
-    page: int | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     user: AuthDep,
+    status: BountyStatus | None = None,
+    page: int = 1,
+    limit: int = 20,
 ) -> list[BountyResponse]:
     """Get bounties created by the current user"""
     try:
@@ -433,12 +433,12 @@ async def get_my_created_bounties(
 @rate_limit(rate=200, per=60)
 async def get_my_submissions(
     request: Request,
-    status: SubmissionStatus | None,
-    page: int | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
     user: AuthDep,
+    status: SubmissionStatus | None = None,
+    page: int = 1,
+    limit: int = 20,
 ) -> list[BountySubmissionResponse]:
     """Get submissions made by the current user"""
     try:
@@ -455,10 +455,10 @@ async def get_my_submissions(
 @rate_limit(rate=200, per=60)
 async def get_bounty_leaderboard(
     request: Request,
-    period: str | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    period: str = "weekly",
+    limit: int = 50,
 ) -> dict[str, Any]:
     """Get bounty leaderboard"""
     try:
@@ -473,9 +473,9 @@ async def get_bounty_leaderboard(
 @rate_limit(rate=200, per=60)
 async def get_bounty_stats(
     request: Request,
-    period: str | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    period: str = "weekly",
 ) -> BountyStatsResponse:
     """Get bounty statistics"""
     try:
@@ -538,9 +538,9 @@ async def get_bounty_categories(
 @rate_limit(rate=500, per=60)
 async def get_bounty_tags(
     request: Request,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    limit: int = 20,
 ) -> dict[str, Any]:
     """Get popular bounty tags"""
     try:
@@ -555,11 +555,11 @@ async def get_bounty_tags(
 @rate_limit(rate=200, per=60)
 async def search_bounties(
     request: Request,
-    query: str | None,
-    page: int | None,
-    limit: int | None,
     session: Annotated[Session, Depends(get_session)],
     bounty_service: Annotated[BountyService, Depends(get_bounty_service)],
+    query: str = "",
+    page: int = 1,
+    limit: int = 20,
 ) -> list[BountyResponse]:
     """Search bounties by text"""
     try:
