@@ -100,6 +100,45 @@ def test_the_coordinator_key_is_not_a_miner_credential(monkeypatch):
     assert response.status_code == 401
 
 
+def test_the_reason_for_a_401_reaches_the_log(monkeypatch, caplog):
+    """V23-68c: the two 401s need different actions, so the log has to tell them apart.
+
+    An unset `MINER_API_KEYS` and a wrong key both answered `Invalid API key`, which sent
+    operators looking at the credential when the list was simply empty. The response stays
+    generic — an anonymous caller is told nothing about the server's configuration.
+    """
+    import logging
+
+    monkeypatch.delenv("MINER_API_KEYS", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "development")
+
+    client = TestClient(_make_app())
+
+    with caplog.at_level(logging.WARNING):
+        response = client.get("/v1/miners/register", headers={"X-Api-Key": "anything"})
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid API key"}
+    assert "No miner API keys configured" in caplog.text
+    assert "/v1/miners/register" in caplog.text
+
+
+def test_a_wrong_key_is_logged_as_a_wrong_key(monkeypatch, caplog):
+    """The contrast that gives the test above its meaning."""
+    import logging
+
+    _configure_miner_key(monkeypatch)
+
+    client = TestClient(_make_app())
+
+    with caplog.at_level(logging.WARNING):
+        response = client.get("/v1/miners/register", headers={"X-Api-Key": "wrong-key"})
+
+    assert response.status_code == 401
+    assert "No miner API keys configured" not in caplog.text
+    assert "Invalid or missing API key" in caplog.text
+
+
 def test_auth_middleware_blocks_miner_key_on_admin_route(monkeypatch):
     """Test that a miner API key cannot access admin-only routes"""
     _configure_miner_key(monkeypatch)
