@@ -89,6 +89,25 @@ def test_a_miner_key_is_accepted(keys) -> None:
     assert require_miner_api_key(_Request())["role"] == "miner"
 
 
+def test_the_environment_is_read_even_where_coordinator_api_imports(keys) -> None:
+    """V23-68b: the settings object is built at import, so it cannot see a later value.
+
+    `require_miner_api_key` consulted `coordinator_api.config.settings.miner_api_keys` and
+    treated a failed *import* as the only reason to look at `MINER_API_KEYS`. Wherever
+    coordinator-api is importable — every service that installs it, and this test suite —
+    the environment was therefore unreachable, and a configured miner got
+    `401: No miner API keys configured`.
+    """
+    import importlib.util
+
+    from aitbc.auth.dependencies import _configured_miner_keys
+
+    assert importlib.util.find_spec("coordinator_api.config") is not None, (
+        "this test only means something while coordinator-api is importable"
+    )
+    assert MINER_KEY in _configured_miner_keys()
+
+
 def test_the_follower_key_is_not_a_miner_credential(keys, monkeypatch) -> None:
     """The published follower key is not in `MINER_API_KEYS`."""
     from aitbc.auth.dependencies import require_miner_api_key
