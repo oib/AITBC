@@ -30,6 +30,7 @@ from agent_app.routers.websocket import _authenticate_websocket
 
 FOLLOWER_KEY = "follower-" + "f" * 32
 HUB_KEY = "hub-" + "c" * 32
+MINER_KEY = "miner-" + "m" * 32
 
 
 @pytest.fixture
@@ -37,6 +38,7 @@ def keys(monkeypatch):
     """Both keys configured, as a hub running this actually would be."""
     monkeypatch.setenv("FOLLOWER_API_KEY", FOLLOWER_KEY)
     monkeypatch.setenv("COORDINATOR_API_KEY", HUB_KEY)
+    monkeypatch.setenv("MINER_API_KEYS", MINER_KEY)
     monkeypatch.delenv("SECRET_KEY", raising=False)
 
 
@@ -77,8 +79,18 @@ def test_the_hub_key_does_open_the_websocket(keys) -> None:
     assert _authenticate_websocket(None, HUB_KEY) is True
 
 
+def test_a_miner_key_is_accepted(keys) -> None:
+    """A key listed in `MINER_API_KEYS` is a miner credential."""
+    from aitbc.auth.dependencies import require_miner_api_key
+
+    class _Request:
+        headers = {"X-Api-Key": MINER_KEY}
+
+    assert require_miner_api_key(_Request())["role"] == "miner"
+
+
 def test_the_follower_key_is_not_a_miner_credential(keys, monkeypatch) -> None:
-    """`require_miner_api_key` falls back to COORDINATOR_API_KEY, never to this one."""
+    """The published follower key is not in `MINER_API_KEYS`."""
     from aitbc.auth.dependencies import require_miner_api_key
 
     class _Request:
@@ -90,19 +102,17 @@ def test_the_follower_key_is_not_a_miner_credential(keys, monkeypatch) -> None:
     assert raised.value.status_code == 401
 
 
-def test_the_miner_fallback_still_accepts_the_hub_key(keys) -> None:
-    """Pinned because it is the reason the hub key must stay off the public file.
-
-    Not an endorsement — `MINER_API_KEYS` should be set so this fallback stops applying.
-    Until it is, this is the deployed behaviour and it should be visible in a test rather
-    than discovered from a published file.
-    """
+def test_the_hub_key_is_not_a_miner_credential(keys) -> None:
+    """`COORDINATOR_API_KEY` no longer falls back to a miner credential (V23-68)."""
     from aitbc.auth.dependencies import require_miner_api_key
 
     class _Request:
         headers = {"X-Api-Key": HUB_KEY}
 
-    assert require_miner_api_key(_Request())["role"] == "miner"
+    with pytest.raises(HTTPException) as raised:
+        require_miner_api_key(_Request())
+
+    assert raised.value.status_code == 401
 
 
 # --- Ordinary rejections -----------------------------------------------------------------
