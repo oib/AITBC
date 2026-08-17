@@ -130,7 +130,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 request.state.user_id = user.get("sub")
                 request.state.user_role = user_role
                 return cast(Response, await call_next(request))
-            except HTTPException:
+            except HTTPException as exc:
+                # `exc.detail` says which of the two it was, and they need different actions:
+                # "No miner API keys configured" is a deployment fault, "Invalid or missing API
+                # key" is a bad credential. Collapsing both into "Invalid API key" sent every
+                # operator looking at the key when MINER_API_KEYS was simply unset (V23-68c).
+                #
+                # The reason is logged, not returned: an unauthenticated caller learns nothing
+                # about the server's configuration, and the operator reads the journal anyway.
+                logger.warning("X-Api-Key rejected on %s: %s", request.url.path, exc.detail)
                 return Response(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content='{"detail": "Invalid API key"}',
