@@ -2,8 +2,10 @@
 
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from aitbc.config.hub import hub_agent_url, hub_exchange_url
 
 
 class BaseAITBCConfig(BaseSettings):
@@ -34,13 +36,19 @@ class CLIConfig(BaseAITBCConfig):
     app_version: str = Field(default="2.1.0", description="CLI version")
 
     # Service URLs
-    exchange_service_url: str = Field(default="http://localhost:8106/api/v1", description="Exchange Service URL")
+    exchange_service_url: str = Field(
+        default="",
+        description="Exchange Service URL. Hub-only locally; empty means resolve from HUB_DISCOVERY_URL / HUB_EXCHANGE_URL.",
+    )
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
     marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
     coordinator_api_url: str = Field(default="", description="Coordinator API URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
-    agent_coordinator_url: str = Field(default="http://localhost:8107", description="Agent Coordinator URL")
+    agent_coordinator_url: str = Field(
+        default="",
+        description="Agent Coordinator URL. Hub-only locally; empty means resolve from HUB_DISCOVERY_URL / HUB_AGENT_URL.",
+    )
     edge_api_host: str = Field(default="localhost", description="Edge API host")
     edge_api_port: int = Field(default=8111, description="Edge API port")
     wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
@@ -76,6 +84,25 @@ class CLIConfig(BaseAITBCConfig):
     # Config file path (for backward compatibility)
     config_file: str | None = Field(default=None, description="Path to config file")
 
+    @model_validator(mode="after")
+    def _resolve_hub_only_urls(self) -> "CLIConfig":
+        """Fill hub-only service URLs from the env files when the caller left them empty.
+
+        ``localhost:8106`` / ``:8107`` are not valid defaults off a hub (V23-92).
+        The host comes from ``HUB_DISCOVERY_URL`` (or the explicit
+        ``HUB_AGENT_URL`` / ``HUB_EXCHANGE_URL``) in process env or
+        ``/etc/aitbc/{blockchain,node}.env``.
+        """
+        if not self.agent_coordinator_url:
+            resolved = hub_agent_url()
+            if resolved:
+                self.agent_coordinator_url = resolved
+        if not self.exchange_service_url:
+            resolved = hub_exchange_url()
+            if resolved:
+                self.exchange_service_url = resolved
+        return self
+
     @property
     def coordinator_url(self) -> str:
         """Deprecated alias for agent_coordinator_url"""
@@ -95,7 +122,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
 
             # Override with config file values
             return CLIConfig(
-                agent_coordinator_url=config_data.get("agent_coordinator_url", "http://localhost:8107"),
+                agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
                 wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8003"),
                 api_key=config_data.get("api_key"),
                 timeout=config_data.get("timeout", 30),

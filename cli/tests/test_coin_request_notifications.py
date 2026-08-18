@@ -16,29 +16,40 @@ URL_VARS = (
     "HERMES_COORDINATOR_URL",
     "HUB_AGENT_URL",
     "HUB_HERMES_URL",
+    "HUB_DISCOVERY_URL",
 )
 KEY_VARS = ("COORDINATOR_API_KEY", "SECRET_KEY", "FOLLOWER_API_KEY")
 
 
 @pytest.fixture
-def clean_env(monkeypatch):
+def clean_env(monkeypatch, tmp_path):
     """Start from a node that has none of these set.
 
     The module imports `/etc/aitbc/*.env` at import time, so without this the result depends
-    on what is deployed on the machine running the tests.
+    on what is deployed on the machine running the tests. Hub-host resolution also
+    reads those files; point it at an empty directory so the suite does not inherit
+    the machine's HUB_DISCOVERY_URL.
     """
     for name in URL_VARS + KEY_VARS + ("AGENT_ID", "HERMES_AGENT_ID"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("aitbc.config.hub._env_files", lambda: (tmp_path / "blockchain.env", tmp_path / "node.env"))
     return monkeypatch
 
 
 class TestAgentApiBase:
     """Which agent API a node resolves."""
 
-    def test_a_node_with_nothing_configured_uses_the_hub(self, clean_env):
-        assert _agent_api_base() == "https://hub.aitbc.bubuit.net/api/v1/agent"
+    def test_a_node_with_nothing_configured_refuses_to_invent_a_hub(self, clean_env):
+        with pytest.raises(RuntimeError, match="HUB_DISCOVERY_URL"):
+            _agent_api_base()
+
+    def test_hub_discovery_url_from_env_builds_the_agent_base(self, clean_env):
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+
+        assert _agent_api_base() == "https://hub.example.net/api/v1/agent"
 
     def test_the_default_is_never_a_local_port(self, clean_env):
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         assert "localhost" not in _agent_api_base()
 
     def test_a_local_coordinator_wins_when_set(self, clean_env):
@@ -92,6 +103,7 @@ class TestSendAgentNotification:
         assert post.call_args.args[0] == "https://hub.example.net/api/v1/agent/messages/send"
 
     def test_a_hub_credential_is_sent(self, clean_env):
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         clean_env.setenv("COORDINATOR_API_KEY", "hub-key")
 
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
@@ -101,6 +113,7 @@ class TestSendAgentNotification:
         assert post.call_args.kwargs["headers"] == {"x-api-key": "hub-key"}
 
     def test_the_secret_key_is_the_fallback(self, clean_env):
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         clean_env.setenv("SECRET_KEY", "secret-key")
 
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
@@ -111,6 +124,7 @@ class TestSendAgentNotification:
 
     def test_the_published_follower_key_is_not_sent(self, clean_env):
         """FOLLOWER_API_KEY is public and reaches /register and /execute only (V23-68)."""
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         clean_env.setenv("FOLLOWER_API_KEY", "published-key")
 
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
@@ -120,6 +134,7 @@ class TestSendAgentNotification:
         assert post.call_args.kwargs["headers"] == {}
 
     def test_a_401_says_it_needs_a_hub_credential(self, clean_env, capsys):
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
             post.return_value.status_code = 401
             post.return_value.text = "Unauthorized"
@@ -130,16 +145,18 @@ class TestSendAgentNotification:
         assert "hub credential" in out
 
     def test_a_connection_failure_names_the_url(self, clean_env, capsys):
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
             post.side_effect = OSError("connection refused")
             send_agent_notification("agent-b", "approved")
 
         out = capsys.readouterr().out
-        assert "hub.aitbc.bubuit.net" in out
+        assert "hub.example.net" in out
         assert "connection refused" in out
 
     def test_a_notification_failure_does_not_raise(self, clean_env):
         """The approve/reject commands call this after committing; it must not undo them."""
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
             post.side_effect = RuntimeError("boom")
 
