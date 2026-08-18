@@ -131,6 +131,18 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      # V23-102 deleted one unreachable module and left 21 more behind it. This is the half
+      # that keeps the number from growing back; the baseline it reads carries a reviewed
+      # verdict for every entry, so a 'keep' is a decision on record rather than a file
+      # nobody got around to.
+      - id: no-orphan-modules
+        name: no-orphan-modules
+        entry: python3 scripts/lint/no_orphan_modules.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
   # docs/api/*-openapi.json is generated from the apps, and the guard that says so existed
   # for a release before anything invoked it -- it was red on main that whole time (V23-82).
   #
