@@ -5,7 +5,7 @@
 #        (or: NEW_SECRET=... sudo -E ./rotate_jwt_secret.sh)
 # The secret is never passed as an argument -- argv is visible via ps and shell history.
 
-set -e
+set -euo pipefail
 
 # Configuration
 SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-marketplace" "aitbc-exchange" "aitbc-gpu")
@@ -177,14 +177,14 @@ for service in "${SERVICES[@]}"; do
     # Verify service is accepting requests (if applicable)
     case "$service" in
         "aitbc-coordinator-api")
-            if curl -s http://localhost:8203/health > /dev/null; then
+            if curl -fsS http://localhost:8203/health > /dev/null; then
                 log "${GREEN}$service health check passed${NC}"
             else
                 error_exit "$service health check failed"
             fi
             ;;
         "aitbc-marketplace")
-            if curl -s http://localhost:8104/health > /dev/null 2>&1; then
+            if curl -fsS http://localhost:8102/health > /dev/null 2>&1; then
                 log "${GREEN}$service health check passed${NC}"
             else
                 log "${YELLOW}$service health check not available, skipping${NC}"
@@ -236,7 +236,7 @@ for service in "${SERVICES[@]}"; do
     # Verify service is accepting requests
     case "$service" in
         "aitbc-coordinator-api")
-            if curl -s http://localhost:8203/health > /dev/null; then
+            if curl -fsS http://localhost:8203/health > /dev/null; then
                 log "${GREEN}$service health check passed${NC}"
             else
                 error_exit "$service health check failed with new secret"

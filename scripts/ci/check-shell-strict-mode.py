@@ -52,7 +52,13 @@ SKIP_SUFFIXES = (".bashrc", ".profile", ".env")
 # header, none of the 61 has strict mode, and adding it to one would switch `-u` on for
 # every fragment sourced after it. That is precisely the wholesale flip V23-23 said not to
 # do, arriving one file at a time through a check meant to prevent it.
-SKIP_DIRS = ("tests/orchestrator.d",)
+#
+# V23-99 adds the second on identical reasoning. `scripts/service-management/lib/services.sh`
+# is the canonical service list, `source`d by diagnose-, fix-, run-local- and stop-services.
+# It declares AITBC_SERVICES and AITBC_SERVICE_PORTS and defines one helper; it has no main
+# body to protect. Putting `set -euo pipefail` in it would switch strict mode on inside four
+# callers that never asked for it, which is the wholesale flip this check exists to prevent.
+SKIP_DIRS = ("tests/orchestrator.d", "scripts/service-management/lib")
 
 # Scripts whose omission is a deliberate, documented design decision rather than an
 # oversight. Each is exempt from the *specific* settings named, and nothing else -- an
@@ -84,10 +90,28 @@ SKIP_DIRS = ("tests/orchestrator.d",)
 #
 # Converting any of them is its own task, with its own testing. Until then the gap is
 # visible here rather than silently absent.
+#
+# V23-99 adds two more, again with a concrete failure rather than a worry. Both are
+# multi-node workflow drivers whose verification sections are deliberate diagnostic dumps --
+# a run of independent `curl ... | jq` lines meant to print what each node says, in a block
+# that only executes because something already failed:
+#
+#   workflow-agent/02_genesis_authority_setup_agent.sh  (lines 137-147)
+#   workflow-agent/05_complete_workflow_agent.sh        (lines 122-148, 228-229)
+#
+# Today the pipeline exits on jq's status, so a down node prints `null` and the dump
+# continues. Under pipefail the curl's status wins, and because these blocks sit after the
+# final `||` of an `agent execute ... || { ... }` list, `set -e` is in force inside them --
+# so the first unreachable node would abort the script and hide every check after it. That
+# is the same defect V23-99 exists to fix, arriving from the other direction. Guarding the
+# twelve lines is the real repair and belongs with someone who can run a two-node topology;
+# these scripts ssh to `aitbc1` and cannot be exercised from a shop node. They do take -u.
 SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
     "scripts/deployment/update.sh": ("set -e",),
     "scripts/deployment/setup.sh": ("set -u", "set -o pipefail"),
     "scripts/deployment/deploy.sh": ("set -u", "set -o pipefail"),
+    "scripts/workflow-agent/02_genesis_authority_setup_agent.sh": ("set -o pipefail",),
+    "scripts/workflow-agent/05_complete_workflow_agent.sh": ("set -o pipefail",),
 }
 
 

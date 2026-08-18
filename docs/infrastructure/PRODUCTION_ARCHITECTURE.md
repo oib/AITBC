@@ -100,7 +100,7 @@ Coordinator observability endpoints:
 
 - JSON metrics endpoint: `http://localhost:8203/v1/metrics`
 - Prometheus metrics endpoint: `http://localhost:8203/metrics`
-- Health endpoint: `http://localhost:8203/v1/health`
+- Health endpoint: `http://localhost:8203/health`
 - Web dashboard source: `/opt/aitbc/website/dashboards/metrics.html`
 
 Current monitoring flow:

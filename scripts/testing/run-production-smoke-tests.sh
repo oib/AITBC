@@ -13,7 +13,7 @@ VENV_DIR="${VENV_DIR:-$REPO_ROOT/venv}"
 PYTHON="${PYTHON:-$VENV_DIR/bin/python}"
 
 # Service health endpoints (overridable via environment)
-COORDINATOR_HEALTH_URL="${COORDINATOR_HEALTH_URL:-http://localhost:8203/v1/health}"
+COORDINATOR_HEALTH_URL="${COORDINATOR_HEALTH_URL:-http://localhost:8203/health}"
 BLOCKCHAIN_RPC_URL="${BLOCKCHAIN_RPC_URL:-http://localhost:8202/rpc/head}"
 WALLET_HEALTH_URL="${WALLET_HEALTH_URL:-http://localhost:8108/health}"
 EXCHANGE_HEALTH_URL="${EXCHANGE_HEALTH_URL:-http://localhost:8106/health}"

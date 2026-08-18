@@ -3,7 +3,7 @@
 # Updated 2026-03-30: Complete AI operations, advanced coordination, genesis reset
 # This script orchestrates all Agent agents for complete multi-node blockchain deployment
 
-set -e  # Exit on any error
+set -eu  # Exit on any error
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -119,10 +119,10 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
 
     # Check both nodes are running
     echo "Checking aitbc node..."
-    curl -s http://localhost:8202/health | jq .status
+    curl -fsS http://localhost:8202/health | jq .status
 
     echo "Checking aitbc1 node..."
-    ssh aitbc1 'curl -s http://localhost:8202/health | jq .status'
+    ssh aitbc1 'curl -fsS http://localhost:8202/health | jq .status'
 
     # Check sync status
     GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
@@ -145,7 +145,7 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
 
     # Check proposer
     echo "Proposer:"
-    curl -s http://localhost:8202/health | jq .proposer_id
+    curl -fsS http://localhost:8202/health | jq .proposer_id
 
     # Check services
     echo "Services:"
@@ -304,8 +304,8 @@ echo "=== Final Summary ==="
 
 # Display node status
 echo "📊 Node Status:"
-echo "aitbc (Genesis): $(curl -s http://localhost:8202/health | jq .status 2>/dev/null || echo 'Unknown')"
-echo "aitbc1 (Follower): $(ssh aitbc1 'curl -s http://localhost:8202/health | jq .status' 2>/dev/null || echo 'Unknown')"
+echo "aitbc (Genesis): $(curl -fsS http://localhost:8202/health | jq .status 2>/dev/null || echo 'Unknown')"
+echo "aitbc1 (Follower): $(ssh aitbc1 'curl -fsS http://localhost:8202/health | jq .status' 2>/dev/null || echo 'Unknown')"
 
 # Display blockchain height
 echo ""

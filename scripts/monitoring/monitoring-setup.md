@@ -173,9 +173,9 @@ scrape_configs:
       module: [http_2xx]
     static_configs:
       - targets:
-        - http://coordinator-api:8203/v1/health
-        - http://blockchain-node:8080/v1/health
-        - http://marketplace:8102/v1/health
+        - http://coordinator-api:8203/health
+        - http://blockchain-node:8202/health
+        - http://marketplace:8102/health
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance

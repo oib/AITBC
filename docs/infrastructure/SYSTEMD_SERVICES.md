@@ -34,7 +34,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 systemctl status aitbc-coordinator-api.service aitbc-marketplace.service
 
 # Verify service connectivity
-curl -s http://localhost:8203/v1/health | jq '.status'
+curl -s http://localhost:8203/health | jq '.status'
 curl -s http://localhost:8102/health | jq '.status'
 ```
 

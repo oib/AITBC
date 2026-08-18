@@ -4,7 +4,7 @@
 # Upgrade Existing SystemD Services to Production-Grade
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -263,7 +263,9 @@ systemctl status aitbc-marketplace.service --no-pager -l | head -10
 # Test service endpoints
 echo "Testing service endpoints..."
 sleep 5
-curl -s http://localhost:8002/health | head -5 || echo "Marketplace service not ready"
+# Was 8002 until V23-99. 8002 is aitbc-monitoring; it answers /health 200, so this
+# reported the marketplace ready whenever monitoring was up. Marketplace is 8102.
+curl -fsS http://localhost:8102/health | head -5 || echo "Marketplace service not ready"
 curl -s http://localhost:8007/health | head -5 || echo "Marketplace GPU endpoint not ready"
 
 # Step 7: Deploy to aitbc1

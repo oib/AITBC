@@ -4,7 +4,7 @@
 # AITBC Production Services Deployment - Part 2
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -86,8 +86,10 @@ echo "==============================="
 sleep 5
 
 # Test aitbc marketplace service
+# Was 8002 until V23-99. 8002 is aitbc-monitoring, which answers /health 200 on this
+# host, so this printed a healthy body and called it the marketplace. Marketplace is 8102.
 echo "Testing aitbc marketplace service..."
-curl -s http://localhost:8002/health | head -10 || echo "aitbc marketplace not responding"
+curl -fsS http://localhost:8102/health | head -10 || echo "aitbc marketplace not responding"
 
 # Test aitbc1 marketplace service
 echo "Testing aitbc1 marketplace service..."

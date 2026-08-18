@@ -156,7 +156,7 @@ server {
 
     # Health endpoint
     location /health {
-        proxy_pass http://127.0.0.1:8203/v1/health;
+        proxy_pass http://127.0.0.1:8203/health;
         proxy_set_header Host \$host;
     }
 
@@ -191,9 +191,9 @@ ssh "$SERVER" "systemctl status aitbc-exchange --no-pager -l | head -10"
 
 # Test endpoints
 print_status "Testing endpoints..."
-ssh "$SERVER" "curl -s http://127.0.0.1:8203/v1/health | head -c 100"
+ssh "$SERVER" "curl -fsS http://127.0.0.1:8203/health | head -c 100"
 echo ""
-ssh "$SERVER" "curl -s http://127.0.0.1:8106/health | head -c 100"
+ssh "$SERVER" "curl -fsS http://127.0.0.1:8106/health | head -c 100"
 echo ""
 
 echo ""

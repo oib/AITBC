@@ -3,7 +3,7 @@
 # Run AITBC services locally for domain access
 # Uses systemd services (the canonical deployment method)
 
-set -e
+set -euo pipefail
 
 # Service list and ports come from lib/services.sh so all of these scripts agree.
 source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
@@ -46,7 +46,7 @@ echo ""
 echo "🧪 Testing Services..."
 
 echo -n "Coordinator API Health: "
-if curl -s http://127.0.0.1:8203/v1/health > /dev/null 2>&1; then
+if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/health" > /dev/null 2>&1; then
     echo "✅ OK"
 else
     echo "❌ Failed"
@@ -60,28 +60,28 @@ else
 fi
 
 echo -n "Exchange: "
-if curl -s http://127.0.0.1:8106/health > /dev/null 2>&1; then
+if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" > /dev/null 2>&1; then
     echo "✅ OK"
 else
     echo "❌ Failed"
 fi
 
 echo -n "Marketplace: "
-if curl -s http://127.0.0.1:8107/health > /dev/null 2>&1; then
+if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}/health" > /dev/null 2>&1; then
     echo "✅ OK"
 else
     echo "❌ Failed"
 fi
 
 echo -n "Trading: "
-if curl -s http://127.0.0.1:8201/health > /dev/null 2>&1; then
+if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}/health" > /dev/null 2>&1; then
     echo "✅ OK"
 else
     echo "❌ Failed"
 fi
 
 echo -n "Wallet: "
-if curl -s http://127.0.0.1:8108/health > /dev/null 2>&1; then
+if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}/health" > /dev/null 2>&1; then
     echo "✅ OK"
 else
     echo "❌ Failed"
@@ -91,12 +91,12 @@ echo ""
 echo "✅ All services started!"
 echo ""
 echo "📋 Local URLs:"
-echo "   Coordinator API: http://127.0.0.1:8203/v1"
-echo "   Blockchain RPC:  http://127.0.0.1:8202/rpc"
-echo "   Exchange:        http://127.0.0.1:8106"
-echo "   Marketplace:     http://127.0.0.1:8107"
-echo "   Trading:         http://127.0.0.1:8201"
-echo "   Wallet:          http://127.0.0.1:8108"
+echo "   Coordinator API: http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/v1"
+echo "   Blockchain RPC:  http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-blockchain-rpc]}/rpc"
+echo "   Exchange:        http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}"
+echo "   Marketplace:     http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}"
+echo "   Trading:         http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}"
+echo "   Wallet:          http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}"
 echo ""
 echo "🌐 Domain URLs (if nginx is configured):"
 echo "   API:      https://aitbc.bubuit.net/api"
