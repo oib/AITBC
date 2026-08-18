@@ -5,6 +5,16 @@ AITBC CLI - Fixed version with modular command groups
 Canonical invocation: `aitbc` (installed via /opt/aitbc/venv/bin/aitbc)
 """
 
+import sys
+from pathlib import Path
+
+# Make the repository root discoverable so that the core ``aitbc`` package
+# can be imported by the CLI utilities. The CLI package itself lives under
+# ``cli/aitbc_cli`` and is still found through the editable installation.
+REPO_ROOT = str(Path(__file__).resolve().parents[3])
+if REPO_ROOT not in sys.path:
+    sys.path.append(REPO_ROOT)
+
 import click
 from aitbc_cli.utils.http_client import get_logger
 from aitbc_cli.commands.account import account
@@ -64,6 +74,7 @@ from aitbc_cli.commands.trade import trade
 
 # Import modular command groups
 from aitbc_cli.commands.system import system
+from aitbc_cli.commands.control import start, stop, restart
 from aitbc_cli.commands.tee import tee
 
 # Import new modular commands
@@ -151,6 +162,9 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
 
 # Add commands to CLI
 cli.add_command(system)
+cli.add_command(start)
+cli.add_command(stop)
+cli.add_command(restart)
 cli.add_command(market, name="market")
 cli.add_command(marketplace, name="marketplace")  # Keep old marketplace for compatibility
 cli.add_command(chain, name="blockchain")
