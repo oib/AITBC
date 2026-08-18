@@ -39,11 +39,19 @@ class TestPoolHubCommands:
 
         assert "sla" in pool_hub.commands
 
+    def test_pool_hub_commands_target_the_pool_hub_port(self):
+        """Both commands default to 8210 — pool-hub's port, not coordinator-api's 8203."""
+        from aitbc_cli.commands.pool_hub import pool_hub
+
+        for name in ("status", "sla"):
+            option = next(p for p in pool_hub.commands[name].params if p.name == "pool_hub_url")
+            assert option.default == "http://localhost:8210", f"{name} points at {option.default}"
+
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
     def test_pool_hub_status_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``pool-hub status`` returns pool hub status from the mocked RPC."""
+        """``pool-hub status`` reads /health — a route Pool Hub actually serves."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"pools": 5, "active_pools": 3}
+        mock_client.get.return_value = {"status": "ok", "db": True, "redis": True, "miners_online": 3}
 
         from aitbc_cli.commands.pool_hub import pool_hub
 
@@ -51,11 +59,11 @@ class TestPoolHubCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/api/pools/status" in mock_client.get.call_args[0][0]
+        assert mock_client.get.call_args[0][0] == "/health"
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
-    def test_pool_hub_status_falls_back_on_network_error(self, mock_http_class, runner):
-        """``pool-hub status`` falls back to simulated data on NetworkError."""
+    def test_pool_hub_status_aborts_on_network_error(self, mock_http_class, runner):
+        """``pool-hub status`` aborts on NetworkError rather than inventing pool counts."""
         from aitbc_cli.commands.pool_hub import pool_hub
         from aitbc_cli.utils.http_client import NetworkError
 
@@ -64,14 +72,14 @@ class TestPoolHubCommands:
 
         result = runner.invoke(pool_hub, ["status"])
 
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        assert result.exit_code != 0
+        assert "simulated" not in result.output
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
     def test_pool_hub_sla_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``pool-hub sla`` returns SLA data from the mocked RPC."""
+        """``pool-hub sla`` reads /v1/sla/status — a route Pool Hub actually serves."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"sla_compliance": 99.5, "pool_id": "default"}
+        mock_client.get.return_value = {"status": "healthy", "active_violations": 0}
 
         from aitbc_cli.commands.pool_hub import pool_hub
 
@@ -79,26 +87,22 @@ class TestPoolHubCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/api/pools/sla" in mock_client.get.call_args[0][0]
+        assert mock_client.get.call_args[0][0] == "/v1/sla/status"
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
-    def test_pool_hub_sla_with_pool_id(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``pool-hub sla --pool-id`` forwards the pool_id param."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"sla_compliance": 99.5, "pool_id": "my-pool"}
-
+    def test_pool_hub_sla_with_pool_id_is_rejected(self, mock_http_class, runner):
+        """``--pool-id`` is refused: Pool Hub reports SLA per miner and cannot filter by pool."""
         from aitbc_cli.commands.pool_hub import pool_hub
 
         result = runner.invoke(pool_hub, ["sla", "--pool-id", "my-pool"])
 
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        _, kwargs = mock_client.get.call_args
-        assert kwargs.get("params", {}).get("pool_id") == "my-pool"
+        assert result.exit_code != 0
+        # It must not answer with unfiltered data as though the filter had applied.
+        mock_http_class.return_value.get.assert_not_called()
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
-    def test_pool_hub_sla_falls_back_on_network_error(self, mock_http_class, runner):
-        """``pool-hub sla`` falls back to simulated data on NetworkError."""
+    def test_pool_hub_sla_aborts_on_network_error(self, mock_http_class, runner):
+        """``pool-hub sla`` aborts on NetworkError rather than inventing 100% compliance."""
         from aitbc_cli.commands.pool_hub import pool_hub
         from aitbc_cli.utils.http_client import NetworkError
 
@@ -107,8 +111,8 @@ class TestPoolHubCommands:
 
         result = runner.invoke(pool_hub, ["sla"])
 
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        assert result.exit_code != 0
+        assert "simulated" not in result.output
 
 
 if __name__ == "__main__":
