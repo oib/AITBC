@@ -23,27 +23,129 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Service health endpoints
-declare -A SERVICE_ENDPOINTS=(
+# Known HTTP health endpoints. This is the catalogue, not the probe list.
+# The probe list is built from the node's role so a shop or follower is not
+# blamed for hub-only units it is correct not to run (V23-92).
+declare -A ALL_SERVICE_ENDPOINTS=(
     ["aitbc-blockchain-rpc"]="http://localhost:8202/health"
-    ["aitbc-coordinator-api"]="http://localhost:8203/health"
-    ["aitbc-exchange"]="http://localhost:8106/health"
-    ["aitbc-agent-coordinator"]="http://localhost:8107/health"
-    ["aitbc-marketplace"]="http://localhost:8102/health"
     ["aitbc-wallet"]="http://localhost:8108/health"
-    # Absent until V23-96, which is how a 404 on Pool Hub's /health survived: nothing
-    # here ever asked for it. This map also drives the systemd and resource checks.
+    ["aitbc-trading"]="http://localhost:8104/health"
+    ["aitbc-governance"]="http://localhost:8105/health"
+    ["aitbc-coordinator-api"]="http://localhost:8203/health"
+    ["aitbc-api-gateway"]="http://localhost:8201/health"
+    ["aitbc-exchange"]="http://localhost:8106/health"
+    ["aitbc-marketplace"]="http://localhost:8102/health"
+    ["aitbc-agent-coordinator"]="http://localhost:8107/health"
+    ["aitbc-blockchain-explorer"]="http://localhost:8100/health"
+    ["aitbc-blockchain-event-bridge"]="http://localhost:8205/health"
+    ["aitbc-gpu"]="http://localhost:8101/health"
+    ["aitbc-edge"]="http://localhost:8111/health"
     ["aitbc-pool-hub"]="http://localhost:8210/health"
     # Absent until V23-98. Pool Hub was not the exception -- all six of these were
     # listening and answering /health 200 while this map watched five services and two
     # that are not installed on this host at all.
     ["aitbc-monitoring"]="http://localhost:8002/health"
-    ["aitbc-blockchain-explorer"]="http://localhost:8100/health"
-    ["aitbc-gpu"]="http://localhost:8101/health"
-    ["aitbc-trading"]="http://localhost:8104/health"
-    ["aitbc-governance"]="http://localhost:8105/health"
-    ["aitbc-edge"]="http://localhost:8111/health"
 )
+
+# Role lists match scripts/deployment/setup.sh get_services_for_role().
+# Units without an HTTP health port (node, p2p, miner, recovery, backup,
+# bridge-monitor, sync) stay off the endpoint map and are still covered by
+# the systemd status check when they appear in ROLE_SERVICES.
+_BASE_SERVICES=(
+    aitbc-blockchain-node
+    aitbc-blockchain-rpc
+    aitbc-wallet
+    aitbc-recovery
+    aitbc-monitoring
+    aitbc-backup.timer
+    aitbc-trading
+    aitbc-governance
+)
+_HUB_SERVICES=(
+    aitbc-blockchain-p2p
+    aitbc-coordinator-api
+    aitbc-api-gateway
+    aitbc-exchange
+    aitbc-marketplace
+    aitbc-bridge-monitor
+    aitbc-blockchain-event-bridge
+    aitbc-agent-coordinator
+    aitbc-blockchain-explorer
+)
+_FOLLOWER_SERVICES=(
+    aitbc-blockchain-sync
+    aitbc-blockchain-sync.timer
+    aitbc-blockchain-explorer
+)
+_SHOP_SERVICES=(
+    aitbc-gpu
+    aitbc-miner
+    aitbc-coordinator-api
+    aitbc-edge
+    aitbc-pool-hub
+    aitbc-marketplace
+)
+
+_node_role() {
+    # Capture the caller's env first. Sourcing the files would otherwise
+    # overwrite a pinned BLOCKCHAIN_MODE/MARKET_ROLE (used by the suite and
+    # by operators testing a role on a box that is already configured).
+    local pinned_mode="${BLOCKCHAIN_MODE:-}" pinned_market="${MARKET_ROLE:-}" pinned_hw="${HARDWARE_PROFILE:-}"
+    local blockchain_mode="" market_role="" hardware_profile=""
+    if [ -f "/etc/aitbc/blockchain.env" ]; then
+        # shellcheck disable=SC1091
+        source /etc/aitbc/blockchain.env 2>/dev/null || true
+        blockchain_mode="${BLOCKCHAIN_MODE:-}"
+        market_role="${MARKET_ROLE:-}"
+        hardware_profile="${HARDWARE_PROFILE:-}"
+    fi
+    if [ -f "/etc/aitbc/node.env" ]; then
+        # shellcheck disable=SC1091
+        source /etc/aitbc/node.env 2>/dev/null || true
+        blockchain_mode="${BLOCKCHAIN_MODE:-${blockchain_mode}}"
+        market_role="${MARKET_ROLE:-${market_role}}"
+        hardware_profile="${HARDWARE_PROFILE:-${hardware_profile}}"
+    fi
+    blockchain_mode="${pinned_mode:-${blockchain_mode}}"
+    market_role="${pinned_market:-${market_role}}"
+    hardware_profile="${pinned_hw:-${hardware_profile}}"
+    if [ "${blockchain_mode}" = "hub" ]; then
+        echo "hub"
+    elif [ "${market_role}" = "shop" ] && [ "${hardware_profile}" = "gpu" ]; then
+        echo "shop"
+    elif [ "${market_role}" = "customer" ]; then
+        echo "customer"
+    else
+        echo "follower"
+    fi
+}
+
+_services_for_role() {
+    local role="${1:-follower}"
+    local services=("${_BASE_SERVICES[@]}")
+    case "$role" in
+        hub) services+=("${_HUB_SERVICES[@]}") ;;
+        follower) services+=("${_FOLLOWER_SERVICES[@]}") ;;
+        shop)
+            services+=("${_SHOP_SERVICES[@]}")
+            services+=("${_FOLLOWER_SERVICES[@]}")
+            ;;
+        customer) ;;
+        *) services+=("${_FOLLOWER_SERVICES[@]}") ;;
+    esac
+    printf '%s\n' "${services[@]}"
+}
+
+declare -A SERVICE_ENDPOINTS=()
+ROLE="$(_node_role)"
+ROLE_SERVICES=()
+while IFS= read -r svc; do
+    [ -n "$svc" ] || continue
+    ROLE_SERVICES+=("$svc")
+    if [ -n "${ALL_SERVICE_ENDPOINTS[$svc]+x}" ]; then
+        SERVICE_ENDPOINTS["$svc"]="${ALL_SERVICE_ENDPOINTS[$svc]}"
+    fi
+done < <(_services_for_role "$ROLE")
 
 # Logging functions
 log() {
@@ -319,6 +421,7 @@ main() {
 
     log "=== Starting AITBC Health Check ==="
     log "Check type: $check_type"
+    log "Node role: $ROLE (${#ROLE_SERVICES[@]} units, ${#SERVICE_ENDPOINTS[@]} HTTP endpoints)"
     echo ""
 
     TOTAL_ERRORS=0
@@ -330,7 +433,7 @@ main() {
             log "Checking systemd services..."
             echo ""
 
-            for service in "${!SERVICE_ENDPOINTS[@]}"; do
+            for service in "${ROLE_SERVICES[@]}"; do
                 check_installed_service "$service" || continue
                 check_resource_usage "$service"
             done
@@ -370,7 +473,7 @@ main() {
 
             # Check services
             log "--- Service Status ---"
-            for service in "${!SERVICE_ENDPOINTS[@]}"; do
+            for service in "${ROLE_SERVICES[@]}"; do
                 check_installed_service "$service" || continue
                 check_resource_usage "$service"
             done
@@ -436,5 +539,6 @@ main() {
 # Handle script interruption
 trap 'error "Script interrupted"; exit 130' INT TERM
 
-# Run main function
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
