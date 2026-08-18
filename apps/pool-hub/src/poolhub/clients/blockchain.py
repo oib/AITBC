@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aitbc.config.hub import hub_agent_url
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.marketplace import BlockchainRPCClient
 from aitbc.rewards import REWARD_PER_SHARE, RewardPolicy
@@ -55,13 +56,13 @@ class PoolHubBlockchainClient:
         self,
         rpc_url: str = BLOCKCHAIN_RPC_URL,
         chain_id: str = "ait-hub",
-        coordinator_url: str = "http://localhost:8107",
+        coordinator_url: str | None = None,
         signer_address: str | None = None,
         signer_private_key: str | None = None,
     ) -> None:
         self._rpc = BlockchainRPCClient(rpc_url=rpc_url)
         self._chain_id = chain_id
-        self._coordinator_url = coordinator_url
+        self._coordinator_url = coordinator_url or hub_agent_url() or ""
         self._reward_policy = RewardPolicy()
         self._signer_address = signer_address or os.getenv("POOL_REWARD_ADDRESS")
         self._signer_private_key = signer_private_key or os.getenv("POOL_REWARD_PRIVATE_KEY")
