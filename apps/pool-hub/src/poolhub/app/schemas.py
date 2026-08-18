@@ -44,9 +44,12 @@ class HealthResponse(BaseModel):
     status: str
     db: bool
     redis: bool
-    miners_online: int
+    # None when the count could not be read (V23-96).  Reporting 0 there would be
+    # indistinguishable from "no miners are online", which is a different answer.
+    miners_online: int | None = None
     db_error: str | None = None
     redis_error: str | None = None
+    miners_error: str | None = None
 
 
 class MetricsResponse(BaseModel):
