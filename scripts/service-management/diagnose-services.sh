@@ -52,8 +52,22 @@ curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}/health" 2>/dev/
 
 echo ""
 echo "🌐 Remote Endpoints (via domain):"
-echo "Domain API Health:"
-curl -fsS https://aitbc.bubuit.net/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+# The bare aitbc.bubuit.net does not resolve from an AITBC node -- this host is
+# aitbc3.aitbc.bubuit.net -- so this line reported "❌ Failed" everywhere it ran, which is
+# indistinguishable from the hub being down. The hub is hub.aitbc.bubuit.net and serves
+# /api/health; /api/v1/* sits behind the gateway's auth and answers 401. HUB_URL and the
+# scenario file are the convention the workflow scripts already use.
+if [ -f /etc/aitbc/.env.scenario ]; then
+    # Scoped, per V23-23: the scenario file is operator-written and is not required to be
+    # clean under set -u.
+    set +u
+    # shellcheck disable=SC1091
+    source /etc/aitbc/.env.scenario
+    set -u
+fi
+HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+echo "Hub API Health ($HUB_URL/api/health):"
+curl -fsS --max-time 8 "$HUB_URL/api/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo ""
 echo "📝 Instructions:"
