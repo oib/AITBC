@@ -23,7 +23,7 @@ The Fully Homomorphic Encryption (FHE) Service enables encrypted computation on 
 ### Context Generation
 
 ```python
-from coordinator_api.services.fhe_service import FHEService
+from coordinator_api.contexts.zk_applications.services.fhe_service import FHEService
 
 fhe_service = FHEService()
 context = fhe_service.generate_fhe_context(
