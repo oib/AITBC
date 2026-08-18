@@ -128,7 +128,7 @@ ls -la /tmp/postgresql-backups/
 ./scripts/deployment/restore_postgresql.sh default /tmp/postgresql-backups/my-backup.sql.gz
 
 # Verify restore
-curl -s http://localhost:8203/v1/health
+curl -s http://localhost:8203/health
 ```
 
 ### Redis Restore
@@ -218,7 +218,7 @@ curl -s http://localhost:8202/rpc/head
    systemctl status aitbc-*
 
    # Verify API endpoints
-   curl -s http://coordinator-api:8203/v1/health
+   curl -s http://coordinator-api:8203/health
    curl -s http://blockchain-node:8080/v1/health
    ```
 

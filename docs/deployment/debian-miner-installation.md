@@ -360,7 +360,7 @@ netstat -tulpn | grep 11434
 
 ```bash
 # Test Coordinator URL
-curl http://your-coordinator-url:8203/v1/health
+curl http://your-coordinator-url:8203/health
 
 # Check firewall
 ufw status

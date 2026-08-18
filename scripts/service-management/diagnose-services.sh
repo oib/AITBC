@@ -2,6 +2,8 @@
 
 # Diagnose AITBC services
 
+set -euo pipefail
+
 # Service list and ports come from lib/services.sh so all of these scripts agree.
 source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
 
@@ -31,27 +33,27 @@ echo ""
 echo "🌐 Testing Endpoints:"
 
 echo "Coordinator API Health:"
-curl -s http://127.0.0.1:8203/v1/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo "Blockchain RPC:"
 curl -s http://127.0.0.1:8202/rpc/head 2>/dev/null | head -c 50 && echo "..." || echo "  ❌ Failed"
 
 echo "Exchange Health:"
-curl -s http://127.0.0.1:8106/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo "Marketplace Health:"
-curl -s http://127.0.0.1:8107/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo "Trading Health:"
-curl -s http://127.0.0.1:8201/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo "Wallet Health:"
-curl -s http://127.0.0.1:8108/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo ""
 echo "🌐 Remote Endpoints (via domain):"
 echo "Domain API Health:"
-curl -s https://aitbc.bubuit.net/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+curl -fsS https://aitbc.bubuit.net/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo ""
 echo "📝 Instructions:"
