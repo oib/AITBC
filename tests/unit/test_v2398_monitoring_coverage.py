@@ -61,13 +61,42 @@ ALREADY_MONITORED = {
     "aitbc-agent-coordinator": 8107,
 }
 
+# Added with the role filtering in V23-92, after this finding landed. Neither runs on a
+# shop node, so neither has a live probe behind it; they are here so the size assertion
+# below keeps checking against a full list.
+ADDED_WITH_ROLE_FILTERING = {
+    "aitbc-api-gateway": 8201,
+    "aitbc-blockchain-event-bridge": 8205,
+}
+
 
 def _service_endpoints() -> dict[str, str]:
-    """The SERVICE_ENDPOINTS map, parsed out of the script."""
+    """The full catalogue, parsed out of the script.
+
+    V23-92 split the map in two: ALL_SERVICE_ENDPOINTS is every service the platform has,
+    and SERVICE_ENDPOINTS is what this node's role is supposed to run, filtered out of it
+    at startup.  Which services exist and what port each binds is a property of the
+    catalogue, so that is what the coverage and port checks read.
+    """
     text = HEALTH_CHECK_SH.read_text(encoding="utf-8")
-    block = re.search(r"declare -A SERVICE_ENDPOINTS=\((.*?)\n\)", text, re.S)
-    assert block, "SERVICE_ENDPOINTS is not declared in health_check.sh"
+    block = re.search(r"declare -A ALL_SERVICE_ENDPOINTS=\((.*?)\n\)", text, re.S)
+    assert block, "ALL_SERVICE_ENDPOINTS is not declared in health_check.sh"
     return dict(re.findall(r'\["([^"]+)"\]="([^"]+)"', block.group(1)))
+
+
+def _role_endpoints(role: str) -> dict[str, str]:
+    """The subset a node of this role probes -- its unit list, intersected with the catalogue."""
+    text = HEALTH_CHECK_SH.read_text(encoding="utf-8")
+
+    def array(name: str) -> list[str]:
+        block = re.search(rf"^_{name}_SERVICES=\((.*?)\n\)", text, re.S | re.M)
+        assert block, f"_{name}_SERVICES is no longer a bash array"
+        return block.group(1).split()
+
+    extra = {"hub": ["HUB"], "follower": ["FOLLOWER"], "shop": ["SHOP", "FOLLOWER"], "customer": []}[role]
+    units = array("BASE") + [unit for group in extra for unit in array(group)]
+    catalogue = _service_endpoints()
+    return {unit: catalogue[unit] for unit in units if unit in catalogue}
 
 
 def _port_of(url: str) -> int:
@@ -99,7 +128,7 @@ def test_the_monitored_port_is_the_port_the_service_binds(service: str) -> None:
 
 def test_the_map_holds_exactly_the_services_we_know_about() -> None:
     """A new entry has to be accounted for here, which is where the port check lives."""
-    expected = set(PORT_SOURCES) | set(ALREADY_MONITORED)
+    expected = set(PORT_SOURCES) | set(ALREADY_MONITORED) | set(ADDED_WITH_ROLE_FILTERING)
 
     assert set(_service_endpoints()) == expected
 
@@ -221,12 +250,22 @@ def test_an_inactive_service_is_a_warning_not_an_error(stub_host: Path, tmp_path
 
 
 def test_a_healthy_host_passes(stub_host: Path, tmp_path: Path) -> None:
-    installed = " ".join(_service_endpoints())
-    result = _run(stub_host, tmp_path, "endpoints", INSTALLED=installed)
+    """Since V23-92 a healthy host is role-specific: the run covers the endpoints its role
+    is supposed to have, and the role is pinned here rather than read off this machine."""
+    expected = _role_endpoints("shop")
+    result = _run(
+        stub_host,
+        tmp_path,
+        "endpoints",
+        INSTALLED=" ".join(expected),
+        BLOCKCHAIN_MODE="follower",
+        MARKET_ROLE="shop",
+        HARDWARE_PROFILE="gpu",
+    )
 
     assert result.returncode == 0
     assert "All health checks passed" in result.stdout
-    for service in _service_endpoints():
+    for service in expected:
         assert f"{service} endpoint is healthy" in result.stdout
 
 

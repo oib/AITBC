@@ -64,6 +64,8 @@ NON_SPEC_HEALTH_PATHS: dict[int, set[str]] = {
     8105: {"/health", "/ready", "/live"},  # aitbc-governance
     8111: {"/health", "/ready"},  # aitbc-edge
     8210: {"/health"},  # aitbc-pool-hub (V23-96)
+    # Neither of these runs on a shop node, so they come from the source rather than a probe.
+    8205: {"/health"},  # blockchain_event_bridge/main.py:46
     # aitbc-exchange is not running here, so this one comes from the source: the request
     # dispatcher in apps/exchange/simple_exchange/handlers/__init__.py routes both spellings
     # to health_check(), so 8106/api/health is correct and must not be "fixed" to /health.
@@ -99,8 +101,6 @@ UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
     (8017, "/health"),
     (8080, "/health"),
     (8083, "/health"),
-    (8201, "/health"),
-    (8205, "/health"),
     (9090, "/-/healthy"),
     (9093, "/-/healthy"),
 }
@@ -146,10 +146,15 @@ def _shell_map(text: str, name: str) -> dict[str, int]:
 
 
 def _endpoint_map() -> dict[str, tuple[int, str]]:
-    """scripts/monitoring/health_check.sh SERVICE_ENDPOINTS, as service -> (port, path)."""
+    """health_check.sh ALL_SERVICE_ENDPOINTS, as service -> (port, path).
+
+    The catalogue, not the probe list: V23-92 made health_check.sh filter it down to the
+    units this node's role is supposed to run. What ports exist in the platform is a
+    property of the catalogue, so that is what this reads.
+    """
     text = HEALTH_CHECK_SH.read_text()
-    block = re.search(r"declare -A SERVICE_ENDPOINTS=\((.*?)\n\)", text, re.DOTALL)
-    assert block, "SERVICE_ENDPOINTS is no longer a `declare -A` block"
+    block = re.search(r"declare -A ALL_SERVICE_ENDPOINTS=\((.*?)\n\)", text, re.DOTALL)
+    assert block, "ALL_SERVICE_ENDPOINTS is no longer a `declare -A` block"
     entries = re.findall(r'\["([a-z-]+)"\]="http://localhost:(\d+)(/[a-z/]*)"', block.group(1))
     assert entries, "SERVICE_ENDPOINTS parsed empty"
     return {svc: (int(port), path) for svc, port, path in entries}
@@ -158,7 +163,25 @@ def _endpoint_map() -> dict[str, tuple[int, str]]:
 DECLARED_PORTS = {port for port, _ in _endpoint_map().values()}
 
 
+API_GATEWAY_PORT = 8201
+
+
+def _gateway_paths() -> set[str]:
+    """api-gateway's own /health, plus the proxied /v1/<service>/health it forwards.
+
+    Read off the SERVICES table in the app rather than written down, because the whole
+    point of the V23-99 doc fix was that the prefixes had been guessed: the examples said
+    /gpu/health on port 8203, where the truth is /v1/gpu/health on 8201.
+    """
+    main = (REPO_ROOT / "apps" / "api-gateway" / "src" / "api_gateway" / "main.py").read_text()
+    prefixes = re.findall(r'"prefix":\s*"(/v1/[a-z-]+)"', main)
+    assert prefixes, "api-gateway's SERVICES table no longer declares prefixes"
+    return {"/health"} | {f"{p}/health" for p in prefixes}
+
+
 def _expected_paths(port: int) -> set[str]:
+    if port == API_GATEWAY_PORT:
+        return _gateway_paths()
     if port in SPEC_BACKED_PORTS:
         return _spec_paths(SPEC_BACKED_PORTS[port])
     return NON_SPEC_HEALTH_PATHS[port]
@@ -169,7 +192,7 @@ class TestHealthPathsExist:
 
     def test_every_declared_port_is_covered_by_a_route_table(self):
         """Each port in the health map has either a committed spec or an explicit path set."""
-        uncovered = sorted(DECLARED_PORTS - set(SPEC_BACKED_PORTS) - set(NON_SPEC_HEALTH_PATHS))
+        uncovered = sorted(DECLARED_PORTS - set(SPEC_BACKED_PORTS) - set(NON_SPEC_HEALTH_PATHS) - {API_GATEWAY_PORT})
         assert not uncovered, (
             f"health_check.sh watches ports with no route table in this test: {uncovered}. "
             "Add the port to SPEC_BACKED_PORTS or NON_SPEC_HEALTH_PATHS."
