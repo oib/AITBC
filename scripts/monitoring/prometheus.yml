@@ -45,6 +45,15 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
 
+  # Pool Hub metrics — poolhub_miners_online and the match/reward counters.
+  # The gauge is only written when the count is actually known (V23-96), so a gap
+  # in this series means Pool Hub could not read it, not that the miners left.
+  - job_name: 'pool-hub'
+    static_configs:
+      - targets: ['localhost:8210']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
   # Agent Coordinator metrics (disabled - no /metrics endpoint)
   # - job_name: 'agent-coordinator'
   #   static_configs:
