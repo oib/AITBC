@@ -1,0 +1,117 @@
+{
+  "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state. Classified in V23-103: 10 'delete' (3,610 lines, queued for removal) and 12 'keep' (3,285 lines, unreachable on purpose).",
+  "total_modules": 22,
+  "total_lines": 6895,
+  "orphans": {
+    "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
+      "lines": 189,
+      "verdict": "keep",
+      "why": "The adapter half of the same design document."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_service.py": {
+      "lines": 316,
+      "verdict": "keep",
+      "why": "Named by docs/architecture/agent-service-di-architecture.md as a design target."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/analytics/services/advanced_analytics.py": {
+      "lines": 489,
+      "verdict": "delete",
+      "why": "The analytics router imports analytics_service.py. This one is 'referenced' only as the string 'advanced_analytics' in a privileges list, which cannot execute code."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/analytics/services/ai_analytics/surveillance.py": {
+      "lines": 600,
+      "verdict": "delete",
+      "why": "ai_analytics/__init__.py exports advanced_learning and analytics only. Documented solely in docs/archive/architecture/, under an import path that no longer exists."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/analytics/services/ai_analytics/trading_engine.py": {
+      "lines": 551,
+      "verdict": "delete",
+      "why": "Same orphan-inside-a-live-package as surveillance.py. The one hit elsewhere is a JSON string assertion in apps/ai-engine tests; that app has no trading_engine module."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/analytics/services/performance_monitoring.py": {
+      "lines": 329,
+      "verdict": "delete",
+      "why": "Third unreachable analytics service beside the live analytics_service.py. No documentation of any kind."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/language/services/multi_language/api_endpoints.py": {
+      "lines": 472,
+      "verdict": "keep",
+      "why": "A FastAPI router in the language context, which has zero references in main.py. Same whole-context decision as trading_surveillance.py."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/schemas/marketplace_enhanced.py": {
+      "lines": 105,
+      "verdict": "delete",
+      "why": "Pydantic schemas for a 'Phase 6.5' surface that was never wired. Schemas nothing validates against are the cheapest possible orphan to remove."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/external_providers.py": {
+      "lines": 159,
+      "verdict": "keep",
+      "why": "Documented with a working usage example in 06-external-providers.md."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/market_analytics.py": {
+      "lines": 112,
+      "verdict": "keep",
+      "why": "Documented in 05-analytics.md and docs/features/market-stats.md."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/marketplace_monitor.py": {
+      "lines": 280,
+      "verdict": "delete",
+      "why": "Already deleted by V23-102 (PR #268). This entry is present because that PR is unmerged; the guard will report it as shrunk when it lands."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/resource_matcher.py": {
+      "lines": 220,
+      "verdict": "keep",
+      "why": "Documented with a working usage example in docs/marketplace/advanced-marketplace/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/multimodal/services/modality_optimization.py": {
+      "lines": 665,
+      "verdict": "delete",
+      "why": "The multimodal context wires multimodal_agent.py; this is a second, unreachable optimizer. Its only mention outside itself is as a dict key in monitoring_dashboard.py, which is a label, not an import."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/payments/domain/payment.py": {
+      "lines": 3,
+      "verdict": "delete",
+      "why": "Three lines: a docstring and 'from __future__ import annotations'. Defines nothing."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments_service.py": {
+      "lines": 294,
+      "verdict": "delete",
+      "why": "The payments router imports payments.py. Undocumented."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/portfolio/services/portfolio_service.py": {
+      "lines": 294,
+      "verdict": "delete",
+      "why": "The portfolio router imports portfolio_aggregation_service.py. Undocumented."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/security/services/trading_surveillance.py": {
+      "lines": 493,
+      "verdict": "keep",
+      "why": "The security context has zero references in main.py -- it is unwired end to end. Retiring a whole bounded context is a larger decision than this guard should force."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/domain/amm.py": {
+      "lines": 360,
+      "verdict": "keep",
+      "why": "Defines database tables. The trading context is unwired end to end, but migrations exist for its tables; deleting the models risks orphaning them."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_enhanced.py": {
+      "lines": 45,
+      "verdict": "keep",
+      "why": "A deliberate stub. Its docstring records that the BFV implementation it replaced was not cryptographically secure and is disabled pending a vetted FHE library. Deleting it deletes a security decision."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_service.py": {
+      "lines": 334,
+      "verdict": "keep",
+      "why": "Documented as a developer surface in docs/development/fhe-service.md."
+    },
+    "apps/coordinator-api/src/coordinator_api/sdk/enterprise_client.py": {
+      "lines": 478,
+      "verdict": "keep",
+      "why": "An SDK client is outward-facing surface. Nothing inside the service is supposed to import it, so 'unimported' is the expected state, not a defect."
+    },
+    "apps/coordinator-api/src/coordinator_api/storage/models_governance.py": {
+      "lines": 107,
+      "verdict": "keep",
+      "why": "Defines database tables. Same migration risk as amm.py."
+    }
+  }
+}
