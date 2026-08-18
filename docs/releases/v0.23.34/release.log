@@ -1,0 +1,264 @@
+# v0.23.34 — High — the deployment scripts, and five services in a restart loop
+
+This is the topic-level summary of the detailed audit in [`change.log`](change.log).
+
+## Deployment & install
+
+### [V23-50](change.log#L5) — what `setup.sh` and `update.sh` were actually doing · CONFIRMED → RESOLVED
+
+Five services — coordinator-api, pool-hub, gpu, marketplace, trading — were restart-looping with the same import-time traceback:
+
+### [V23-77](change.log#L1926) — node startup could not tell a corrupt schema from a second start · CONFIRMED → RESOLVED
+
+`init_db` wrapped `chain_metadata.create_all(engine)` in an `except Exception` that re-raised only when the message did **not** contain "already exists". The reported finding is that this swallows real errors. Verifying it turned up three more defects in the same twelve lines, all in the path every node runs on every start, and none of them covered by a test — the two functions involved had no test file at all before this.
+
+### [V23-79](change.log#L2102) — a first install never migrated, and the check could not say so · CONFIRMED → RESOLVED
+
+Filed out of V23-75 as *"nothing runs the migrations… no systemd unit in the repo has an `ExecStartPre` that does"*. **The first half of that was wrong and I wrote it.** `update.sh` step 5 has run `alembic upgrade head` for every service with an `alembic.ini` since 1 July 2026, and does it carefully — per-service env file, service stopped for the duration, blockchain-node deliberately skipped.
+
+
+## Block signature & sync
+
+### [V23-51](change.log#L112) — a signature that does not survive a sync hop
+
+Found from the deployed node's journal: 10,031 warning lines in 24 hours, of which
+
+### [V23-52](change.log#L176) — the hub signs with a key that is not the proposer it declares
+
+V23-51 shipped and the hub was redeployed. The follower's rejection message changed:
+
+### [V23-54](change.log#L257) — the legacy address spelling never verifies
+
+The hub was repointed at the key it actually holds: `PROPOSER_ID` and the keystore now say `ait1fe2d63fe87db282083b9159e5857cac788af9e03`, and block 105,628 onward declare it. The signatures still did not verify, and the V23-52 log line said why in one line:
+
+### [V23-55](change.log#L296) — the follower could not bootstrap past the unverifiable range
+
+V23-51..54 fixed every code defect that kept a follower from verifying hub blocks, and the follower still could not sync. The reason is not a bug: 93,275–105,626 were signed with a key the hub no longer holds, and 105,627 carries no signature at all.
+
+### [V23-56](change.log#L351) — the genesis wallet and the block proposer are two different addresses
+
+Flagged after V23-52 as "`GENESIS_WALLET_ADDRESS` now points at `ait1fe2d63fe…` while `ait1db5247d0…` is still hardcoded in the CLI — a faucet request would go to the wrong address." That framing was backwards, and checking the chain says so in one query:
+
+### [V23-57](change.log#L427) — nothing checked that a key matched the identity it was labelled with
+
+Three defects with one root. Found while answering "what should be done on the hub", after the operator confirmed the treasury private key is not on that host: `GENESIS_PRIVATE_KEY` and `/var/lib/aitbc/wallets/genesis.json` both derive to `0xFe2d63FE…`, the block-signing address, while `genesis.json` declares `ait1db5247d0…`.
+
+### [V23-63](change.log#L883) — the hub's genesis key was correct; the comparison was wrong
+
+The hub could not sign anything. Every execute returned 500, and the journal said:
+
+
+## Credentials & trust
+
+### [V23-58](change.log#L486) — the hub published its own cluster credentials, and the repo told it to
+
+These are credentials, not configuration:
+
+### [V23-59](change.log#L584) — a follower could not bootstrap without permanently weakening its validation
+
+Surfaced by the chain reset: after `reset-follower-to-genesis.sh` this node sat at `{"detail":"no blocks yet"}` and could not reach height 1, with a correct `genesis.json` already installed at `/var/lib/aitbc/data/<chain>/genesis.json`.
+
+### [V23-60](change.log#L640) — RPC genesis bootstrap could never reach an HTTPS hub
+
+Found in the operator's `journalctl` output while confirming V23-59 had worked:
+
+### [V23-68](change.log#L1151) — a key named for a coordinator, published as if it were a faucet token
+
+The hub publishes `COORDINATOR_API_KEY` in `https://hub.aitbc.bubuit.net/agent/blockchain.env`, a file it serves to anyone (200, 1215 bytes). The intent is sound — an island needs to call `/register` and `/execute` without an operator handing out credentials — but that key is not scoped to those two endpoints:
+
+### [V23-68b](change.log#L4147) — the fix for a published credential, and the two ways it could not have worked · CONFIRMED → RESOLVED
+
+V23-68 removed the promotion that made `COORDINATOR_API_KEY` — a key published in a world-readable bootstrap file — a miner credential whenever no miner keys were configured, and told operators to set `MINER_API_KEYS` instead. Both halves of that were unreachable, and main was left red.
+
+### [V23-68c](change.log#L4235) — the published key was the miner's key, and the system said "invalid" instead · CONFIRMED → RESOLVED
+
+V23-68 removed the code path that promoted `COORDINATOR_API_KEY` to a miner credential when `miner_api_keys` was empty. V23-68b made the replacement setting readable. This entry is what setting it on the deployed host actually found, which is worse than either.
+
+
+## Database / Alembic
+
+### [V23-53](change.log#L215) — an idempotency fix that only works on one of the two backends
+
+`6a2413138` made two migrations re-runnable, because a deploy had to be run with `--no-migrate` to get past them. The coordinator-api half is fine. The governance half rewrote `002_v073_onchain_governance_fields` from Alembic operations into raw SQL:
+
+### [V23-64](change.log#L922) — the account canonicalisation is right; it dropped escrow's foreign keys on the way
+
+`bee3e4a83` closed the latent half of V23-63: an `AccountAddress` column type that normalises `0x…`, `ait1…` and `aitbc1…` to one lowercase `ait1` form on both bind and result, plus the same normalisation on trie keys. That is the right shape of fix — one normalisation point on account access rather than patches at each call site — and it works.
+
+### [V23-65](change.log#L969) — the account normalisation rewrites two fields that a signature covers
+
+The chain reset cleared the one `aitbc1` row that had already tripped this. It did not remove the cause, and the cause is reachable from outside.
+
+### [V23-65 (fix)](change.log#L1011) — signed columns store what was signed
+
+The two `xfail(strict=True)` tests above are now passing tests.
+
+### [V23-75](change.log#L1790) — `alembic upgrade head` built two of trading's nine tables · CONFIRMED → RESOLVED
+
+`apps/trading` manages its schema with Alembic and means it: `storage.init_db()` creates nothing, with a comment saying so — *"Schema management is Alembic's job. Do not call create_all() here. Run `alembic upgrade head` before service startup."* That is the right policy.
+
+
+## Coin requests & accounts
+
+### [V23-62](change.log#L728) — the faucet's treasury endpoint had no tests, and the deleted ones were green
+
+Two findings, from following up the `test(cleanup)` sweep.
+
+### [V23-62 (fix)](change.log#L785) — the execute endpoint now consults the request it claims to execute
+
+The four `xfail(strict=True)` tests added above are now passing tests. `request_id` had been reaching the handler and going nowhere but a log line; it is now the only field that matters.
+
+### [V23-62 (registration)](change.log#L839) — how a follower's request gets a row at the hub
+
+The execute fix refuses a `request_id` the hub has never seen, which is correct and broke a real flow: the hub's own database showed `req-follower-1782118019`, so requests raised on follower islands do reach it. Those requests exist only in the island's database, so the hub has nothing to consult.
+
+### [V23-66](change.log#L1048) — the coin-request database claims a payout the chain has never heard of
+
+`req-follower-1782118019` records a `transaction_hash` for a transaction that no longer exists. The hub's chain was reset on 2026-08-15 and rebuilt from genesis; the coin-request database was not, and nothing connects them. So it goes on asserting that a payout settled, on a chain nobody has any more.
+
+### [V23-67](change.log#L1110) — one grant per agent turned out to mean one grant per *name*
+
+`req-follower-1782118019` was granted 100 AIT to `ait1c10f…`. `req-follower-1782118019-v2` was granted 100 AIT to the same `ait1c10f…` and auto-approved. Reported from the hub, with the cause: the second request declared `sender="follower-ait-reset"` where the first declared `sender="follower"`.
+
+
+## Test suite cleanup
+
+### [V23-61](change.log#L689) — two passing test files were deleted by the red-CI cleanup
+
+While diagnosing the red gates on `main`, I traced the four remaining local failures to three root causes, none of which was the event-loop misconfiguration this log previously blamed:
+
+### [V23-69](change.log#L1195) — fourteen of sixteen app test suites had never run
+
+V23-67 turned up `apps/agent-coordinator/tests` sitting outside `testpaths`. It was not a one-off: `testpaths` listed two app suites out of sixteen, leaving **58 test files** that no run has ever collected — including 112 tests for coordinator-api, a deployed service, and the suites for wallet, exchange, marketplace, trading, gpu and pool-hub.
+
+### [V23-70](change.log#L1241) — the last three app suites, and a guard for the failure that hid them
+
+V23-69 left three suites out because they did not collect: `blockchain-explorer` (1 error), `miner` (3), `zk-circuits` (3). The errors were `No module named 'main'`, `'production_miner'` and `'zk_cache'` — one shared cause.
+
+### [V23-71](change.log#L1284) — 184 test files were deleted for producing no results
+
+Five commits dated 2026-08-14 — `0edfb53b7` through `ab846475c`, the last titled "remove skipped, errored, and failed test functions" — deleted **184 test files, about 51,000 lines**.
+
+### [V23-71b](change.log#L1345) — the app tranche, and what the deletions were actually made of
+
+49 more deleted test files across eight apps. **41 restored, 11 held back**, and the split is the useful part: the 2026-08-14 sweep was not uniformly wrong, and it was not uniformly right.
+
+### [V23-72](change.log#L1409) — two services, one table registry, four workarounds
+
+Every SQLModel class in this repo registers its `Table` on one process-global `MetaData` unless it says otherwise. `apps/governance` and `apps/coordinator-api` both model governance and both name their tables `governance_profiles`, `proposals`, `votes`, `dao_treasury` and `transparency_reports`.
+
+### [V23-73](change.log#L1492) — the test suite was running against the deployed databases
+
+Adding `apps/governance/tests` to `testpaths`, which V23-72 was supposed to make possible, broke five gpu and trading tests instead. Governance's conftest assigns `os.environ["DATABASE_URL"]` at import — correctly, and for a reason its own docstring explains — but the assignment is process-global and never restored, and gpu and trading both read `DATABASE_URL` at import time to build their engines.
+
+### [V23-74](change.log#L1560) — the chain shared its table registry with the coordinator, and two hooks paid for it
+
+Every SQLModel class in the repo registers its `Table` on one process-global `MetaData` unless it says otherwise. The chain is not the only thing here with a `Transaction`: `coordinator-api` has one too, along with its own `Block` and `Receipt`.
+
+### [V23-71c](change.log#L1613) — the seven files the shared registry had made unrestorable
+
+V23-71 restored what it could and stopped at seven files that failed in a full run while passing on their own. Six were coordinator-api files erroring on `no such table: users`, and the cause was not in them: `apps/blockchain-node/tests/conftest.py` and `tests/integration/conftest.py` were emptying SQLModel's global registry out from under every suite collected after them.
+
+### [V23-71 tranche 3](change.log#L1662) — the 103 deleted root tests, and why `tests/` was never collected
+
+The cleanup commits removed 103 files under `tests/`. Ten had already come back; of the remaining 93, **90 are restored and three stay deleted**. Of the 90, **45 sit in directories `testpaths` already names, and all 45 pass unchanged — 722 tests.** That is the whole story for half the tranche: they were deleted as "skipped, errored, and failed" and they are none of those.
+
+### [V23-84](change.log#L2824) — 87 tests, collected by a fallback, run by nobody · CONFIRMED → RESOLVED
+
+`cli/tests` was the last suite in the repository that no run collected. It is 87 tests over seven files, and the root suite went from 6,469 to **6,556** by adding one line to `testpaths`.
+
+### [V23-93](change.log#L4457) — a gate on seven production-writing scripts was skipping 159 unit tests · CONFIRMED → RESOLVED
+
+`tests/verification/` holds seven modules that are not unit tests: they read the live hub's head and then POST newly built blocks to `/rpc/importBlock`, jobs to `/v1/jobs` and miner results to `/v1/miners/{id}/result`. A passing run means blocks were accepted into production.
+
+
+## API correctness
+
+### [V23-76](change.log#L1874) — `GET /offers/{id}` told clients a missing offer existed · CONFIRMED → RESOLVED
+
+`GET /v1/marketplace/offers/{offer_id}` answered **200 with a body of `null`** for an offer that is not there. The route called `MarketplaceService.get_offer`, which returns `None` when nothing matches, and returned it. FastAPI serialized `None` to `null` and sent it with the default status.
+
+### [V23-80](change.log#L2294) — 703 operations, no 404s, and a drift guard nobody had run · CONFIRMED → RESOLVED
+
+Filed out of V23-76, which fixed `GET /v1/marketplace/offers/{id}` answering 200-null for a missing offer and noted that the published spec documented `200` and `422` for all eight `/offers/{...}` operations — including the six that had always returned 404.
+
+### [V23-81](change.log#L2405) — a 500, a 200 that wrote an orphan, and a zero that meant nothing · CONFIRMED → RESOLVED
+
+Filed out of V23-80's "noticed and not fixed": three marketplace routes under the same prefixes as V23-76's never answered 404. Probed against a throwaway database before touching anything, because **the filed description was wrong about one of the three**:
+
+### [V23-82](change.log#L2533) — the drift guard nothing invoked, and the reason it could not have failed anyway · CONFIRMED → RESOLVED
+
+`make openapi-check` has existed since v0.22 and works. Nothing ran it. It was therefore red on main for most of v0.23 without anyone hearing about it — agent-coordinator missing a route, blockchain-node missing a route, and coordinator-api's money fields still published as `"type": "number"` after the Decimal work, so a client generated from the spec would have parsed a decimal string as a float.
+
+### [V23-83](change.log#L2673) — two vocabularies for one column, and the endpoint that could not survive either · CONFIRMED → RESOLVED
+
+`POST /v1/marketplace/offers/{id}/cancel` answered **500 for every offer in the deployed database**. Not most, not the ones in an odd state — every one, by two different routes to the same failure.
+
+### [V23-86](change.log#L3166) — a workstation path that outlived the workstation, in 24 tracked scripts · CONFIRMED → RESOLVED
+
+`/home/oib/windsurf/aitbc` is a checkout on a developer's old machine. The repo is at `/opt/aitbc`. 24 tracked `*.py`/`*.sh` files still name that path, and every one of them either fails at its first command or operates on nothing.
+
+### [V23-87](change.log#L3321) — a security fix that flipped one keyword, and the script that stopped at its first command · CONFIRMED → RESOLVED
+
+`scripts/testing/qa-cycle.py` fetches `main`, runs the two package test suites, lints, requests sibling reviews on open PRs and reports repository status. Every caller of its `run_cmd` passed a single string:
+
+### [V23-88](change.log#L3476) — a lint fix that deleted nine defaults, and the five tests that recorded the result · CONFIRMED → RESOLVED
+
+Nine query parameters across five marketplace endpoints were required. Asking for analytics without saying which period, or listing transactions without a filter, answered `422` — and the published spec agreed, because FastAPI had been told they were mandatory:
+
+### [V23-89](change.log#L3664) — 283 query parameters that could never be what their type said they were · CONFIRMED → RESOLVED
+
+V23-88 fixed nine query parameters in `apps/marketplace` that FastAPI treated as required because they were annotated `X | None` with no default. This is the same fault everywhere else: **283 parameters, across 121 handlers in 30 files, in six applications.**
+
+### [V23-90](change.log#L3777) — a diverged follower reported health four different ways for 46 hours · CONFIRMED → RESOLVED
+
+The hub's chain database was reset to genesis on 2026-08-15 at 11:12 local. The follower on `aitbc3` was at height 4,211 of the chain the hub had just discarded — its last import was block 4,211 at 11:12:01, and the hub's replacement block 1 is stamped 11:12:19.
+
+### [V23-91](change.log#L3952) — a ZK subsystem that reported four circuits and could not produce one proof · CONFIRMED → RESOLVED
+
+`ZKProofService` loaded, logged `Available circuits: [...]`, and answered `enabled: true`. Every proof it was asked for failed, and every failure was reported as a proof failure rather than as a missing dependency. Five faults stacked here, each sufficient on its own to make proving impossible.
+
+
+## Lint, type checking & guards
+
+### [V23-78](change.log#L2020) — a log format switch that has not been read since June · CONFIRMED → RESOLVED
+
+`setup_logger` and `configure_logging` both took a `structured: bool` they never read; `setup_logger` also took a `format_string` it never read. That is the reported finding, and it is only the near end of it. The same switch had a third face — a `LOG_FORMAT` environment variable, read by `_get_log_format()`, which had no callers — and *that* one was wired into production: `LOG_FORMAT=json` was set in **five systemd units** and asserted by **two release gates**, one of which fails the release if it is missing.
+
+### [V23-85](change.log#L2967) — the security gate that exited on a usage error, in a hook nothing installed · CONFIRMED → RESOLVED
+
+Two independent failures, either of which alone would have been enough. The filed finding was the second one.
+
+### [V23-94](change.log#L4537) — the ML circuits' learning-rate checks did the opposite of what their comments said · CONFIRMED → RESOLVED
+
+Two circuits back `POST /v1/ml-zk/prove/training` and `POST /v1/ml-zk/prove/modular`. Both claimed to constrain the learning rate to `0 < lr < 1`. Neither did, in three different ways, and every one of them was invisible because nothing in the repository could compile a circuit.
+
+### [V23-95](change.log#L4760) — the build tree kept the unsatisfiable circuits V23-94 fixed only in the service tree · CONFIRMED → RESOLVED
+
+`ml_training_verification` and `modular_ml_components` exist twice. V23-94 fixed the copies under `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits/`, because those are the ones `ZKProofService` resolves, and documented the other copies as broken in `apps/zk-circuits/README.md` rather than fixing them.
+
+
+## Service health & monitoring
+
+### [V23-92](change.log#L4351) — a shop node notifying a service it is correct not to run · CONFIRMED → RESOLVED
+
+`aitbc coin-requests approve` and `reject` finish by calling `send_agent_notification()` to tell the requesting agent what happened. On this host — a follower/shop node — that call could not succeed, for two independent reasons, and both were invisible because the function catches everything and prints.
+
+### [V23-96](change.log#L4882) — Pool Hub's health endpoint answered 404, and 500'd on the outage it exists to report · CONFIRMED → RESOLVED
+
+Three defects sat in one 54-line handler, and a fourth aimed every operator tool at the wrong service. Together they meant that no path through the system could answer "is Pool Hub healthy?" — the endpoint was unreachable at its conventional address, the CLI asked a different service entirely, and when something genuinely broke the endpoint crashed rather than saying so.
+
+### [V23-97](change.log#L5044) — Pool Hub's billing sync and resolved-violation query never built a statement · CONFIRMED → RESOLVED
+
+Three query filters in Pool Hub spelled the SQLAlchemy operator `isnot_`. There is no such operator. A column offers `is_`, `is_not`, and the legacy alias `isnot`; the trailing underscore matches nothing, so `InstrumentedAttribute.__getattr__` raised `AttributeError` while the statement was still being *constructed* — before any database was touched.
+
+### [V23-98](change.log#L5144) — the health monitor watched five of the eleven services running on this host · CONFIRMED → RESOLVED
+
+V23-96 added Pool Hub to `SERVICE_ENDPOINTS` after a 404 on its `/health` survived in production because nothing ever probed it. Pool Hub was not the exception. This host runs eleven AITBC services; the map watched five of them, plus two units that are not installed here at all.
+
+
+## Orphan modules
+
+### [V23-103](change.log#L5268) — 22 modules nothing imports, and nothing that would have noticed a 23rd · CONFIRMED → GUARDED, DELETIONS PENDING
+
+V23-102 deleted `MarketplaceMonitor`: 280 lines of marketplace alerting no code path could reach, holding a module-level singleton whose `start()` nobody called. That fixed one module. It did not touch the reason there were more behind it, which is that nothing in this repository has ever noticed when a file stops being imported.

@@ -83,6 +83,7 @@ apps/edge/var/
 # ===================
 *.log
 !docs/releases/*/change.log
+!docs/releases/*/release.log
 logs/
 *.pid
 *.seed
