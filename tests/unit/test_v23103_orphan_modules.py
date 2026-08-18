@@ -72,13 +72,14 @@ class TestTheScanSeparatesReachableFromUnreachable:
     def test_a_name_that_appears_only_as_a_string_does_not_count_as_an_import(self, lint):
         """The reason the conservative count is wrong.
 
-        ``modality_optimization`` appears in ``monitoring_dashboard.py`` as a dict key and
-        ``advanced_analytics`` in a privileges list. Grep calls both reachable. Neither
+        ``external_providers`` appears as a table name string in
+        ``scripts/migration/create_advanced_marketplace_tables.py`` and ``fhe_enhanced``
+        appears in the ``fhe.py`` router docstring. Grep calls both reachable. Neither
         string can execute the module, and an AST walk says so.
         """
         found = lint._scan()
-        assert COORD + "contexts/multimodal/services/modality_optimization.py" in found
-        assert COORD + "contexts/analytics/services/advanced_analytics.py" in found
+        assert COORD + "contexts/marketplace/services/external_providers.py" in found
+        assert COORD + "contexts/zk_applications/services/fhe_enhanced.py" in found
 
     def test_entrypoints_are_not_reported(self, lint):
         """Nothing imports a ``main.py``; a process starts it."""
