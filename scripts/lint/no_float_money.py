@@ -366,6 +366,13 @@ def _violations_in(path: Path) -> list[str]:
         tree = ast.parse(source)
     except (SyntaxError, UnicodeDecodeError):
         return []
+    except FileNotFoundError:
+        # ``git ls-files`` reads the index, so a file deleted in the working tree but not
+        # yet staged is still listed. Without this the hook dies with a traceback partway
+        # through the run -- which is what deleting one .py file did in V23-102, turning a
+        # routine deletion into an unrelated-looking lint crash. A file that is not there
+        # holds no violations.
+        return []
 
     keys: list[str] = []
     strict = path.as_posix() in STRICT_FILES
