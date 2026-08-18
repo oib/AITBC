@@ -4756,3 +4756,165 @@ exported verification keys, so the committed artifacts could never match a rebui
   release — a vendored binary, a container, or a documented `cargo install` — is the step that
   would let the constraint counts and the harness compile be checked on every change rather
   than by hand.
+
+### V23-96 — Pool Hub's health endpoint answered 404, and 500'd on the outage it exists to report · CONFIRMED → RESOLVED
+
+Three defects sat in one 54-line handler, and a fourth aimed every operator tool at the
+wrong service. Together they meant that no path through the system could answer "is Pool
+Hub healthy?" — the endpoint was unreachable at its conventional address, the CLI asked a
+different service entirely, and when something genuinely broke the endpoint crashed rather
+than saying so.
+
+**1. `/health` returned 404.** `routers/health.py` declared `APIRouter(tags=["health"],
+prefix="/v1")` while `main.py:50` included it with `app.include_router(health_router)` —
+no prefix. That is the one combination that moves the route and leaves nothing at the root.
+Every *other* router in this app declares a resource prefix or none and lets `main.py` add
+`/v1`; every other service in the repo serves `/health` unversioned, because a health check
+is infrastructure, not versioned API surface. `agent-coordinator`, the only other service
+with a `routers/health.py`, uses exactly the `APIRouter()` + prefix-less include that
+`main.py` here already assumed. The include was right; the router had picked up a prefix
+nobody removed from the other side.
+
+**2. A database or Redis outage produced a 500 with no body.** The handler caught
+`SELECT 1` failing, recorded the message in `db_error`, caught `redis.ping()` failing,
+recorded `redis_error` — and then ran
+
+```python
+miner_repo = MinerRepository(session, redis)
+active_miners = await miner_repo.list_active_miners()
+```
+
+outside any `try`. `list_active_miners` issues another query on the same session, so it
+fails exactly when `SELECT 1` failed. The handler raised past the diagnosis it had just
+built and returned a bare 500. The `db_error` and `redis_error` fields — the entire reason
+this endpoint is more than a ping — were unreachable by construction: they could only be
+populated in the case that guaranteed they were never returned.
+
+**3. A degraded Pool Hub answered HTTP 200.** `status` was set to `"degraded"` in the body
+while the response code stayed 200, so anything reading the status code rather than parsing
+JSON — a load balancer, a systemd watchdog, `curl -f` — saw a healthy node.
+
+**4. Every tool aimed at 8203, which is coordinator-api.** `aitbc-pool-hub.service` binds
+`--port 8210`, and the port table in `docs/getting-started/setup-service-selection.md`
+publishes 8210. But `settings.py` defaulted `bind_port` to **8203**, and both CLI commands
+defaulted `--pool-hub-url` to `http://localhost:8203`. `aitbc pool-hub status` therefore
+queried the Coordinator API.
+
+It did not report that. It asked for `/api/pools/status`, a path **Pool Hub has never
+served** — the live route table has no `/api/pools/*` at all. `raise_for_status()` turns a
+404 into `requests.HTTPError`, `AITBCHTTPClient` maps every `RequestException` to
+`NetworkError`, and the command caught `NetworkError` and printed:
+
+```
+status: simulated
+pools: 0
+active_pools: 0
+message: RPC endpoint not available - showing simulated status
+```
+
+Exit code 0. Asked whether the pool hub was up, the CLI queried the wrong service on the
+wrong path and answered with numbers it made up. `pool-hub sla` did the same, reporting
+`sla_compliance: 100`.
+
+#### What changed
+
+The `/v1` prefix moved off the router, so `/health` resolves through the include `main.py`
+already had. `/v1/health` — the path the deployed service has actually been answering — is
+kept as a second route on the same handler with `include_in_schema=False`, so live probes
+do not break but only the root path is advertised.
+
+The miner listing moved inside a `try`. When it fails, `miners_online` is `null` rather
+than `0`: reporting zero would be indistinguishable from *no miners are online*, which is a
+different claim, and the new `miners_error` field carries the reason. For the same reason
+the Prometheus gauge is now set only on success — writing 0 into `poolhub_miners_online`
+during an outage fakes a miner exodus in the time series.
+
+A degraded response now carries **503**, so the status code and the body agree.
+
+`bind_port` and both CLI URL defaults are 8210. `pool-hub status` reads `/health`;
+`pool-hub sla` reads `/v1/sla/status`. Both simulated-data fallbacks are gone — an
+unreachable Pool Hub now aborts with the address it tried, which is the answer the operator
+asked for.
+
+`--pool-id` is now rejected with an explanation instead of silently ignored. Pool Hub
+tracks miners, not pools; its SLA surface is `/v1/sla/metrics/{miner_id}` and there is no
+route that filters by a pool. Accepting the flag and returning unfiltered data as though it
+had applied is the same defect as everything above in miniature.
+
+Pool Hub is also added to the monitoring it was absent from. `health_check.sh` gains
+`["aitbc-pool-hub"]="http://localhost:8210/health"`; that one map drives the systemd-status,
+resource-usage and endpoint checks, so a single entry covers all three. `prometheus.yml`
+gains a scrape job on 8210, which is what puts `poolhub_miners_online` into a time series.
+The endpoint check is `curl -sf`, which fails on the 503 a degraded Pool Hub now returns —
+so the status-code fix above is what makes the monitor able to tell healthy from degraded
+rather than just up from down.
+
+Four guards hold that together: the monitored URL is the one in the map, its port is the
+port `aitbc-pool-hub.service` passes to uvicorn, its **path is a route the real app serves**,
+and Prometheus has the job. The third is the check that was missing everywhere in this
+release — a 404 on `/health` survived precisely because nothing compared a probe's path
+against the route table of the service it names.
+
+#### Verification
+
+- Every endpoint guard was run against the pre-change code: **14 of those 16 fail**, each on
+  the defect it names — `/health` 404s, the router's prefix, both real-app route assertions,
+  all three outage cases raising instead of reporting, the null-vs-zero count, the three 503
+  cases, the healthy-200 case, and the port default.
+- Two are silent by design and stated as such: `test_the_previously_live_v1_path_still_answers`
+  passes before and after, which is the point — it guards the compatibility path, not the
+  fix. `test_the_gauge_is_not_zeroed_when_the_count_is_unknown` also passes on the old code,
+  but for the wrong reason: the old handler crashed before reaching the gauge line at all.
+  It is not discriminating on its own and is only meaningful alongside the outage tests.
+- The tests drive the real router and the real `MinerRepository` against stub session and
+  Redis objects. `SELECT 1` arrives as a `TextClause` and the miner listing as a `Select`,
+  so the two are failed independently — which is what separates "the database is down" from
+  "the miner query is broken", the case that previously 500'd with both pings green.
+- Nothing outside `apps/pool-hub` reads `miners_online`, so widening it to nullable breaks
+  no consumer in the repo. It can only be null in the case that used to be a 500, so no
+  working path regresses.
+- The four monitoring guards were run against the unmodified `health_check.sh` and
+  `prometheus.yml`: **all four fail**. Pool Hub is absent from `SERVICE_ENDPOINTS`, so the
+  URL, port and route-table assertions have nothing to read, and there is no `pool-hub`
+  scrape job. They pass with the two config changes, which is the only thing separating
+  "monitored" from "not monitored" here — neither file has any other guard.
+- Scoped suites — `apps/pool-hub/tests`, `tests/cli`, and the new file: 1,070 passed,
+  0 failures.
+- Full root suite: 6,672 tests, 0 failures, 0 errors, 131 skipped, exit 0 — up 21 from the
+  6,651 on the `main` this branch is cut from: 20 new health and monitoring tests plus one
+  net new CLI test (9 → 10). V23-95's 21 and V23-97's 8 are on branches that have not merged
+  yet and are not in this count.
+- `pre-commit run --files`: clean over all 10 changed paths.
+
+#### Not fixed here
+
+- **Four of the six replaced CLI tests were pinning the defect.** They asserted
+  `"/api/pools/status" in ...call_args` — a path the service does not serve — and that a
+  `NetworkError` produced exit 0 with `"simulated"` in the output. Mocked, they passed
+  forever while the command they described had never once worked against a real Pool Hub.
+  This is the third finding in this release with the same shape (V23-89's five 422 tests,
+  V23-92's agent URL), and there is still nothing that checks a CLI command's path against
+  the route table of the service it names.
+- **Nothing runs the health check on a schedule.** Pool Hub is now in the service map and
+  the scrape config, so a deploy, an `update.sh` run, or a manual invocation covers it —
+  but no timer or cron entry calls `health_check.sh` on this host, and the two monitoring
+  timers that do exist (`aitbc-cache-monitor`, `aitbc-memory-monitor`) are inactive.
+  Coverage that only runs when someone asks is not alerting. Scheduling it, and pointing
+  Prometheus at a live target list rather than the `aitbc-test` config in the repo, are
+  operator decisions.
+- **`scripts/monitoring/health-check.sh` — the hyphenated sibling — is still stale.** It
+  probes Coordinator API on 8000, "Learning Service" on 8203 (which is Coordinator API),
+  and Blockchain RPC on 8006, none of which match the deployed port table. Two health-check
+  scripts disagreeing about every port is its own finding; only the underscored one, the
+  one the deployment scripts actually call, is corrected here.
+- **`pool-hub status` now returns the health body**, which answers "is it up" but not "what
+  pools exist" — the question the command's name implies. Pool Hub has no pool resource;
+  the CLI group is modelled on a concept the service does not have. Reconciling the two is
+  a product decision, not a bug fix.
+- `bind_port` is dead config either way: `ServiceSettings` supplies `app_host`/`app_port`,
+  the systemd unit passes `--port` explicitly, and nothing reads `poolhub.settings.bind_port`.
+  It is corrected because a wrong number in a settings file is a wrong answer waiting to be
+  copied, not because anything currently binds from it.
+- The three `except Exception` handlers in this endpoint remain broad. They are appropriate
+  here — a health check must survive anything its probes raise — but they will also swallow
+  a genuine bug in `list_active_miners` as a degraded status rather than a crash.
