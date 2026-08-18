@@ -8610,6 +8610,128 @@ exported verification keys, so the committed artifacts could never match a rebui
   would let the constraint counts and the harness compile be checked on every change rather
   than by hand.
 
+### V23-95 — the build tree kept the unsatisfiable circuits V23-94 fixed only in the service tree · CONFIRMED → RESOLVED
+
+`ml_training_verification` and `modular_ml_components` exist twice. V23-94 fixed the copies
+under `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits/`, because
+those are the ones `ZKProofService` resolves, and documented the other copies as broken in
+`apps/zk-circuits/README.md` rather than fixing them. That left one circuit fixed and one not
+under the same name, which is worse than either tree being uniformly wrong: the corrected
+source and the unsatisfiable source were both present, both plausible, and nothing compared
+them.
+
+**1. Both build-tree sources were unsatisfiable.** The learning-rate check was
+
+```circom
+component lt1 = LessThan(252);   lt1.in[0] <== learning_rate;  lt1.in[1] <== 1;  lt1.out === 1;
+component gt0 = GreaterThan(252); gt0.in[0] <== learning_rate; gt0.in[1] <== 0;  gt0.out === 1;
+```
+
+which demands an integer strictly between 0 and 1. No value satisfies it, so neither circuit
+could produce a proof for any input at all.
+
+**2. The four `modular_ml_components_*` variants had never been audited.** All four were
+broken, in a different way from the base file: `_clean`, `_simple`, `_v2` and `_working` each
+carried a `LearningRateValidation` template containing **no constraints whatsoever** — not a
+weak check, an empty one — and all four still had `LossConstraint`'s
+`diff_squared * (1 - diff_squared / tolerance_squared) === 0`, a division by a signal that
+circom refuses to compile. `_clean` and `_working` were byte-identical to each other, so five
+files held four distinct contents. Nothing in the repository referenced any of them.
+
+**3. The build tree had no key for either of its own ML circuits.** Not a stale key — none. What
+it did have was `circuit_0000/0001.zkey`, 741-variable keys sitting beside a 766-wire
+`modular_ml_components.r1cs`. 741 is the shape of `receipt_simple`, and these are not
+byte-identical to `receipt_simple_000*.zkey`, so they are a second, independent ceremony for
+that circuit filed under a generic name. `test_final_v2_0001.zkey` is a 2-variable,
+0-constraint toy. A `.zkey` states the variable count of the system it was generated against,
+so every one of these mismatches was recorded in the files themselves and readable without a
+toolchain.
+
+#### What changed
+
+The two corrected sources were copied across, so both trees are byte-identical, and the build
+tree got its own phase 2. Identical sources through one compiler give identical constraint
+systems, and they did: 521 non-linear + 1 linear constraints over 514 wires for
+`ml_training_verification`, 773 + 1 over 766 wires for `modular_ml_components` — the same
+counts V23-94 recorded for the service tree, and both inside `pot12_final.ptau`'s 4096. The
+ptau is gitignored in the build tree and had to be borrowed from the service tree; the
+`CIRCUITS_DIR`/`PTAU` overrides that makes possible were already in the build script and are
+now documented in the README.
+
+The four variants are deleted, along with `_working`'s complete artifact set — `.r1cs`, `.sym`
+and a `_js/` directory with its own witness calculator. A circuit named `_working` that does not
+constrain its only scalar input is the most expensive filename in the tree, because it is the
+one someone reaches for.
+
+`tests/unit/test_v2395_zk_circuit_tree_parity.py` is 21 tests that make the drift itself fail a
+run. Sources byte-identical across both trees; compiled artifacts byte-identical too, so an
+edit that was never rebuilt is caught separately from an edit that was never ported. Key
+material is checked by parsing the binary headers rather than by looking for files, because the
+failure mode here was keys that existed and were for a different circuit — it reuses
+`zkey_header.py`, the parser the service already ships for V23-26a and V23-91, rather than
+adding a second copy of the format. The remaining tests are pattern guards over every `.circom`
+in the repository with comments stripped: no comparator bounded by a literal `0` or `1`, no
+`x * (1 - x) === x`, no division by a signal. Comments are stripped because the fixed circuits
+quote the old broken constraints in their docblocks on purpose, and a guard that cannot tell a
+warning from the thing it warns about would push those explanations out of the tree.
+
+#### Verification
+
+- Each guard was run against the pre-change content pulled from git, and each fires: the
+  literal-bound check on `gt0<=0, lt1<=1`; the nilpotent check on
+  `learning_rate*(1-learning_rate)===learning_rate`; the division check on `tolerance_squared`;
+  the key check on `circuit_0001.zkey`'s 741 variables against 766 wires. The two idioms that
+  must **not** trip them — `x * (1 - x) === 0` for booleanity, and division by a SCREAMING_CASE
+  template parameter — were confirmed silent.
+- End to end against the build tree's own artifacts alone: witness, `groth16 prove`, and
+  `groth16 verify` all succeed for both circuits. `ml_training_verification` at `lr = 0.01` over 3
+  epochs gives public signals `[970000, 1970000, 2970000, 3970000, 1]`, i.e. `1.0 - 3×0.01`
+  exactly. `modular_ml_components` with per-epoch gradients `[[1,2,1,3],[2,1,3,1],[1,1,1,1]]`
+  gives `[960000, 1960000, 2950000, 3950000, 1]` — parameter 2 took gradients 1, 3, 1, so
+  `3000000 - 5×10000`. It consumes the gradients it is given, where before they were hardcoded
+  to 1 inside the circuit.
+- The bound is the scale, in both trees: `lr = 0` rejected, `lr = 1` accepted (a real rate of
+  1e-6), `lr = 1000000` — exactly 1.0 — rejected, `lr = 5000000` rejected, `lr = 10000`
+  accepted. Ten for ten, the inverse of the ten-for-ten rejection this tree gave before.
+- `snarkjs zkey verify` answers **ZKey Ok!** for both new keys, both carry exactly 1
+  contribution by the artifact's own MPC section, and all four keys across the two trees now
+  match their `.r1cs` on both variable count and public-signal count.
+- `LossConstraint(32)` compiles in the build script's generated harness at 163 constraints. In
+  this tree it had never compiled at all.
+- Full root suite: 6,705 tests, 0 failures, 0 errors, 131 skipped, exit 0 — re-run after
+  merging the `main` that now carries V23-96 and V23-97, which stands at 6,684. The 21 new
+  tests are this finding's own.
+- `pre-commit run --files`: clean over all 16 changed paths. The `_js/` artifacts are covered by
+  V23-94's `zk-circuits/\w+_(cpp|js)/` exclusion, which matches this tree too; the regenerated
+  `.sym` files are plain text sitting outside it and passed the whitespace hooks unmodified
+  anyway. This tree has no `_cpp/` directory, so the build script's C++ install step was a no-op
+  here by design — it refreshes a generator only where one is already committed.
+
+#### Not fixed here
+
+- **The trusted setup is still development-only**, now in two trees instead of one. Both
+  ceremonies are single-contributor with unpublished entropy; whoever ran them can forge proofs
+  that verify. The build script says so on every run.
+- **Two trees is still the underlying problem.** The parity test makes divergence fail a run,
+  which is a guard, not a fix — the same circuit is still compiled and keyed twice, and the two
+  key sets are deliberately different, so a proof made against one tree does not verify against
+  the other. Collapsing them to one is the actual repair and is a larger change.
+- `circuit_0000/0001.zkey` are left in place. They are key material for a circuit this
+  directory already keys under its real name, and they are a different ceremony from
+  `receipt_simple_000*.zkey` rather than a copy of it. Deleting a proving key destroys entropy
+  that cannot be reproduced, and nothing here needed them gone — the README now says what they
+  are, which is what made them a trap. Removing them is an operator's call.
+- `apps/zk-circuits/` is still a committed scratchpad: `receipt_simple_clean.circom`, six
+  `test*.circom` files, `test_final_verifier.sol`, and five committed `.wtns` files that the
+  tree's own `.gitignore` would exclude if they were not already tracked. Untouched here; the
+  four ML variants were the ones sharing a name with a live circuit.
+- The 26 tests under `apps/zk-circuits/tests/` run in 0.34s and exercise `zk_cache.py` and
+  `compile_cached.py` with mocks and `/tmp` fixtures. They touch no circuit, no artifact and no
+  key, which is why none of this ever surfaced there.
+- `ml_training_verification`'s unit gradient is still a placeholder, as V23-94 recorded.
+- circom is still not obtainable from within the repository, so none of these builds can run in
+  CI. Everything above was verified by hand with a circom 2.1.9 binary kept outside the tree.
+
 ### V23-96 — Pool Hub's health endpoint answered 404, and 500'd on the outage it exists to report · CONFIRMED → RESOLVED
 
 Three defects sat in one 54-line handler, and a fourth aimed every operator tool at the
