@@ -2,7 +2,7 @@
 # agent Genesis Authority Setup Script for AITBC Node
 # This script uses agent agents to configure aitbc as the genesis authority node
 
-set -e  # Exit on any error
+set -eu  # Exit on any error
 
 
 # Source scenario configuration
@@ -121,7 +121,7 @@ agent execute --agent GenesisAgent --task wait_for_services || {
     sleep 10
     # Wait for RPC service to be ready
     for i in {1..30}; do
-        if curl -s http://localhost:8202/health >/dev/null 2>&1; then
+        if curl -fsS http://localhost:8202/health >/dev/null 2>&1; then
             echo "✅ Blockchain RPC service is ready"
             break
         fi
@@ -195,7 +195,7 @@ echo "🤖 Genesis node ready for follower synchronization"
 echo ""
 echo "=== Genesis Node Status ==="
 curl -s http://localhost:8202/rpc/head | jq '.height' 2>/dev/null || echo "RPC not responding"
-curl -s http://localhost:8202/health 2>/dev/null | jq '.status' || echo "Health check failed"
+curl -fsS http://localhost:8202/health 2>/dev/null | jq '.status' || echo "Health check failed"
 
 # Display agent status
 echo ""

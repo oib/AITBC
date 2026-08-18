@@ -88,23 +88,28 @@ Expected response:
 ### Service Registry — Testing
 
 ```bash
-curl http://localhost:8203/services
+curl http://localhost:8201/services
 ```
 
 ### Test Routing
 
+The gateway listens on 8201 (`aitbc-api-gateway.service`) and routes by the `/v1/<service>`
+prefixes in `SERVICES`. Until V23-99 these examples used port 8203 and unprefixed paths;
+8203 is coordinator-api, which serves neither `/services` nor `/gpu/health`, so every
+command here returned 404 against a healthy gateway.
+
 ```bash
 # Route to GPU service
-curl http://localhost:8203/gpu/health
+curl -fsS http://localhost:8201/v1/gpu/health
 
 # Route to Marketplace service
-curl http://localhost:8203/marketplace/health
+curl -fsS http://localhost:8201/v1/marketplace/health
 
 # Route to Trading service
-curl http://localhost:8203/trading/health
+curl -fsS http://localhost:8201/v1/trading/health
 
 # Route to Governance service
-curl http://localhost:8203/governance/health
+curl -fsS http://localhost:8201/v1/governance/health
 ```
 
 ## Architecture

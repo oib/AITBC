@@ -32,7 +32,7 @@ p2p:
 ```bash
 aitbc-chain start
 aitbc-chain status
-curl http://localhost:8202/rpc/health
+curl -fsS http://localhost:8202/health
 ```
 
 ## Prerequisites

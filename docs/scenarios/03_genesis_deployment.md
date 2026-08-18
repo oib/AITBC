@@ -315,7 +315,7 @@ ls -la /var/lib/aitbc/data/ait-mainnet/genesis.json
 ls -la /var/lib/aitbc/keystore/genesis.json
 
 # Check the blockchain node is running and reporting the correct chain ID
-curl -s http://localhost:8202/rpc/health | python -m json.tool
+curl -fsS http://localhost:8202/health | python -m json.tool
 ```
 
 ---

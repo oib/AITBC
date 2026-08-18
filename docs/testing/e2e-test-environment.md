@@ -69,13 +69,13 @@ systemctl status aitbc-marketplace
 
 ```bash
 # Check coordinator API
-curl -s http://localhost:8203/v1/health
+curl -s http://localhost:8203/health
 
 # Check blockchain node
 curl -s http://localhost:8080/v1/health
 
 # Check marketplace
-curl -s http://localhost:8102/v1/health
+curl -s http://localhost:8102/health
 ```
 
 ## Configuration

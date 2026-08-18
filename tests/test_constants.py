@@ -86,7 +86,7 @@ class TestConstants:
 
     def test_marketplace_port(self):
         """Test MARKETPLACE_PORT constant"""
-        assert MARKETPLACE_PORT == 8081
+        assert MARKETPLACE_PORT == 8102
 
 
 if __name__ == "__main__":
