@@ -320,9 +320,8 @@ def balance(ctx, name: str | None):
     try:
         client = get_wallet_client()
         balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
-        # Format balance as AIT if it's a raw seconds value
-        if "balance" in balance_data and isinstance(balance_data["balance"], int):
-            balance_data["balance"] = format_ait(balance_data["balance"])
+        # The wallet daemon already returns balance (compute-seconds) and balance_ait (formatted).
+        # Keep both fields exactly as returned so raw JSON is useful.
         output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
     except Exception as e:
         error(f"Error getting wallet balance: {e}")
