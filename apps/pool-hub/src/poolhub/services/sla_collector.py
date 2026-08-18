@@ -4,11 +4,12 @@ Collects and tracks SLA metrics for miners including uptime, response time, job 
 """
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import desc, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -339,31 +340,47 @@ class SLACollector:
 
 
 class SLACollectorScheduler:
-    """Scheduler for automated SLA metric collection"""
+    """Scheduler for automated SLA metric collection.
 
-    def __init__(self, sla_collector: SLACollector):
-        self.sla_collector = sla_collector
+    Takes a session *factory*, not an :class:`SLACollector` (V23-101): a loop that
+    runs for the lifetime of the process opens a session per pass rather than
+    holding one -- and the pooled connection behind it -- open indefinitely.
+    """
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
+        self.session_factory = session_factory
         self.logger = get_logger(__name__)
         self.running = False
+        self._task: asyncio.Task[Any] | None = None
 
     async def start(self, collection_interval_seconds: int = 300) -> None:
         """Start the SLA collection scheduler"""
         if self.running:
             return
         self.running = True
-        self.logger.info("SLA Collector scheduler started")
-        create_task_with_logging(self._collection_loop(collection_interval_seconds), name="sla_collection_loop")
+        self._task = create_task_with_logging(self._collection_loop(collection_interval_seconds), name="sla_collection_loop")
+        self.logger.info("SLA Collector scheduler started (every %ss)", collection_interval_seconds)
 
     async def stop(self) -> None:
-        """Stop the SLA collection scheduler"""
+        """Stop the SLA collection scheduler and await the loop's exit.
+
+        Clearing ``running`` alone left the task parked in ``asyncio.sleep`` for
+        up to a full interval, so shutdown returned with it still pending.
+        """
         self.running = False
+        task, self._task = self._task, None
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
         self.logger.info("SLA Collector scheduler stopped")
 
     async def _collection_loop(self, interval_seconds: int) -> None:
         """Background task that collects SLA metrics periodically"""
         while self.running:
             try:
-                await self.sla_collector.collect_all_miner_metrics()
+                async with self.session_factory() as session:
+                    await SLACollector(session).collect_all_miner_metrics()
                 await asyncio.sleep(interval_seconds)
             except Exception as e:
                 self.logger.error("Error in SLA collection loop: %s", e)
