@@ -9117,3 +9117,207 @@ this service. The RPC process is what exports the series, and it binds 8202.
   has never run on this host: no generated file, `no crontab for root`, and `/etc/cron.d`
   holds only `e2scrub_all`, `logcheck` and `sysstat`. Whether to schedule the health check
   here is still a decision nobody has made.
+
+### V23-103 — 22 modules nothing imports, and nothing that would have noticed a 23rd · CONFIRMED → GUARDED, DELETIONS PENDING
+
+V23-102 deleted `MarketplaceMonitor`: 280 lines of marketplace alerting no code path could
+reach, holding a module-level singleton whose `start()` nobody called. That fixed one
+module. It did not touch the reason there were more behind it, which is that nothing in
+this repository has ever noticed when a file stops being imported.
+
+Unreachable code is not free, and the cost is not disk. It is read during review, searched
+during debugging, and counted by every "how big is this service" question. Worse, it is
+*plausible*: an orphan looks exactly like working code, so a reader who finds
+`MarketplaceMonitor` reasonably concludes that marketplace alerting exists. It did not. The
+alerting that shipped lived in `MetricsCollector`, and the two disagreed about what a
+500ms threshold even applied to — p95 in the dead module, a mean in the live one.
+
+#### The count moves depending on who is counting
+
+Three strictness levels are defensible and they disagree badly. The V23-102 entry quoted a
+range of 17 to 28 for exactly this reason; this is the resolution of it.
+
+- **Any mention anywhere** — grep the tree for the module name. The most conservative and
+  the most wrong. It calls `modality_optimization` reachable because the string appears as
+  a dict key in `monitoring_dashboard.py:35`, and `advanced_analytics` because it appears
+  in a privileges list. Neither string can execute a module.
+- **Import graph inside one package** — misses cross-app imports, over-reports.
+- **Import graph across every tracked file**, tests and scripts and examples included. This
+  is the one that answers the question actually being asked. On `main` it gives **22
+  modules, 6,895 lines** under `coordinator_api`.
+
+```
+   665  contexts/multimodal/services/modality_optimization.py     delete
+   600  contexts/analytics/services/ai_analytics/surveillance.py  delete
+   551  contexts/analytics/services/ai_analytics/trading_engine.py delete
+   493  contexts/security/services/trading_surveillance.py        keep
+   489  contexts/analytics/services/advanced_analytics.py         delete
+   478  sdk/enterprise_client.py                                  keep
+   472  contexts/language/services/multi_language/api_endpoints.py keep
+   360  contexts/trading/domain/amm.py                            keep
+   334  contexts/zk_applications/services/fhe_service.py          keep
+   329  contexts/analytics/services/performance_monitoring.py     delete
+   316  contexts/agent_coordination/services/agent_service.py     keep
+   294  contexts/payments/services/payments_service.py            delete
+   294  contexts/portfolio/services/portfolio_service.py          delete
+   280  contexts/marketplace/services/marketplace_monitor.py      delete (V23-102, PR #268)
+   220  contexts/marketplace/services/resource_matcher.py         keep
+   189  adapters/agent_core_adapters.py                           keep
+   159  contexts/marketplace/services/external_providers.py       keep
+   112  contexts/marketplace/services/market_analytics.py         keep
+   107  storage/models_governance.py                              keep
+   105  contexts/marketplace/schemas/marketplace_enhanced.py      delete
+    45  contexts/zk_applications/services/fhe_enhanced.py         keep
+     3  contexts/payments/domain/payment.py                       delete
+```
+
+The dynamic-import escape was checked by hand rather than assumed: `services/__init__.py`
+is a lazy `__getattr__` shim, and it is over a **fixed four-entry map** — `ExplorerService`,
+`JobService`, `MarketplaceService`, `MinerService`. None of the four is an orphan, so no
+entry above is reachable through it.
+
+#### "Nothing imports it" is a reason to look, not a reason to delete
+
+Ten of the 22 earn deletion. Twelve do not, and the twelve are the point:
+
+- **`fhe_enhanced.py` is unreachable on purpose.** Its docstring records that the BFV
+  implementation it replaced is not cryptographically secure and is disabled pending a
+  vetted library. Deleting it deletes a security decision.
+- **`enterprise_client.py` is an SDK client.** Outward-facing surface is not supposed to be
+  imported by the service that ships it. "Unimported" is its expected state.
+- **`amm.py` and `models_governance.py` define database tables.** Task #28 added migrations
+  for trading's tables; deleting the models risks orphaning them.
+- **`trading_surveillance.py` and `multi_language/api_endpoints.py` belong to contexts that
+  are unwired end to end.** `security`, `language` and `trading` have zero references in
+  `main.py`. Retiring a whole bounded context is a larger decision than an orphan sweep.
+- **Five more are documented with working usage examples** — `resource_matcher`,
+  `external_providers`, `market_analytics`, `fhe_service`, and `agent_service` with
+  `agent_core_adapters` named by an architecture design document.
+
+What distinguishes the ten is a second, live module doing the same job in the same context,
+which the router actually imports:
+
+```
+payments             payments.py                        payments_service.py
+portfolio            portfolio_aggregation_service.py   portfolio_service.py
+analytics            analytics_service.py               advanced_analytics.py,
+                                                        performance_monitoring.py,
+                                                        ai_analytics/surveillance.py,
+                                                        ai_analytics/trading_engine.py
+multimodal           multimodal_agent.py                modality_optimization.py
+marketplace          marketplace.py                     marketplace_monitor.py
+```
+
+`ai_analytics/__init__.py` exports `advanced_learning` and `analytics` only, which is what
+makes `surveillance.py` and `trading_engine.py` orphans *inside a live package*. The single
+hit for `trading_engine` elsewhere in the repo is
+`apps/ai-engine/tests/test_integration_ai_engine.py:138`, asserting the string
+`"trading_engine"` is present in a JSON response — not an import, and that app has no
+module by that name. `payment.py` is three lines: a docstring and
+`from __future__ import annotations`.
+
+#### What shipped
+
+- **`scripts/lint/no_orphan_modules.py`** — builds the repo-wide import graph by AST and
+  reports guarded modules that nothing imports. It fails only on an entry not in the
+  baseline, so inherited debt does not turn the tree red while a new orphan does.
+- **`scripts/lint/no_orphan_modules_baseline.json`** — the 22, each with a line count, a
+  `verdict` of `delete` or `keep`, and a `why`. Shrink-only, the same contract
+  `no_float_money.py` has carried since its baseline went 210 → 0. A baselined entry is
+  debt with a number attached, not an accepted state.
+- **The `no-orphan-modules` pre-commit hook**, beside `no-float-money`.
+- **`docs/development/fhe-service.md`** imported `coordinator_api.services.fhe_service`, a
+  module that does not exist under that path. `fhe_service.py` is *kept* because that
+  document shows how to use it — so the justification rested on an import line nobody could
+  have followed. Corrected to
+  `coordinator_api.contexts.zk_applications.services.fhe_service`, and a test now imports
+  all four documented paths rather than trusting them.
+
+Three design choices worth the space, because each is a way this guard could have been
+worse than useless:
+
+- **The importer set includes tests, examples and scripts; the candidate set does not.** A
+  module reachable only from a test is still reachable. Backwards, this guard would have
+  nominated for deletion the exact code a suite depends on — and the deletion would have
+  looked green until the suite ran.
+- **Matching module names against string literals was tried and abandoned.** It is what
+  makes the "any mention anywhere" count wrong, and it exempts precisely the modules most
+  worth reporting. A real dynamic import should be baselined with a verdict saying so,
+  rather than paid for by loosening the parser for everything.
+- **`git ls-files` reads the index**, so a file deleted in the working tree and not yet
+  staged is still listed. That crashed `no_float_money.py` in V23-102 on an ordinary
+  deletion. Here it would have fired on the guard's own success — deleting orphans is the
+  workflow it exists to encourage — so the read is wrapped and a missing file contributes
+  no imports.
+
+#### Verification
+
+- `tests/unit/test_v23103_orphan_modules.py`: 21 tests, **18 fail on `main`** at
+  `b89064194`. The three that pass on both sides are the controls — the three documented
+  import paths that were already correct, sitting beside the fourth that was stale, so the
+  parametrised test cannot be passing for a reason unrelated to the fix.
+- Every assertion that reads the real tree is paired with a control: `fhe_enhanced.py` must
+  be reported, `marketplace/services/marketplace.py` must not. A scan that returned every
+  file in the tree fails.
+- `pre-commit run --files`: clean over all five changed paths, and `no-orphan-modules`
+  itself exits 0 against the tree it was baselined from.
+- Full root suite: 6,767 tests, 0 errors, 131 skipped, **18 failures, all 18 in
+  `tests/unit/test_v2398_monitoring_coverage.py`** — the pre-existing breakage where
+  V23-92's rename invalidated V23-98's guard, unchanged by this work and repaired in the
+  still-unmerged PR #265. 6,746 of those tests are `main`'s; 21 are this file's.
+- The guard changes no application code. Nothing in `coordinator_api` was edited: the whole
+  change is a lint, its baseline, a hook registration, a documentation import path, and a
+  test.
+
+#### Not fixed here
+
+- **The ten deletions did not land.** 3,610 lines classified `delete` above — 3,330 of them
+  outside V23-102's already-deleted module — are still in the tree. File removal was
+  refused by the environment's permission classifier, at a granularity that had been
+  permitted for `marketplace_monitor.py` earlier in the same session, and the refusal was
+  not worked around. The classification is complete and recorded per-file in the baseline,
+  so executing it is mechanical: delete the ten paths, run
+  `python scripts/lint/no_orphan_modules.py --update-baseline`, and the guard confirms the
+  shrink rather than objecting to it.
+- **The guarded root is `apps/coordinator-api/src/coordinator_api/` only.** Widening
+  `GUARDED_ROOTS` is a one-line change, and it was run to find out what it would cost:
+  across `apps/`, `libs/` and `cli/` the same scan reports **59 modules, 13,276 lines**.
+  `apps/blockchain-node` holds 19 of them at 4,340 lines — consistent with V23-101, which
+  flagged `chain_sync.py` and `combined_main.py` there without pursuing the rest. Those 37
+  modules outside coordinator-api are unreviewed, and a baseline of unreviewed entries is
+  the failure mode this guard is trying to avoid rather than an early version of it. The
+  narrow root is deliberate; widening it is the next pass, not a config tweak.
+- **Whether `security`, `language` and `trading` should exist at all.** Three bounded
+  contexts with zero references in `main.py`, holding **40 files and 11,923 lines** between
+  them — 2,943, 2,567 and 6,413. Only two of those files surface above as orphans, because
+  the rest import each other: a self-consistent subsystem that nothing starts looks exactly
+  like a healthy one to an import graph. That is a product decision, not a lint finding,
+  and it is the largest single item left in this area.
+- **`docs/architecture/agent-service-di-architecture.md` still uses `app.services.*` import
+  paths**, which no longer resolve. It is a design proposal describing a target state
+  rather than a usage document, so unlike `fhe-service.md` its paths were left alone — but
+  it is the stated reason two modules are kept, and a proposal nobody can follow is a
+  weaker reason than it looks.
+- **`market_analytics.py` is kept on documentation alone**, at 112 lines with no caller. It
+  is the weakest `keep` in the list.
+- **A health router whose "deep check" validates nothing.**
+  `contexts/multimodal/routers/modality_optimization_health.py` was read before signing off
+  the deletion of `modality_optimization.py`, on the theory that a live endpoint reporting
+  on a module nobody imports would change the verdict. It does not, for a worse reason:
+  `routers/__init__.py` imports the router and lists it in `__all__`, and **`main.py` never
+  mounts it**, so no route is served. Had it been served, it would have answered
+  `"status": "healthy"` for a "Modality Optimization Service (Port 8004)" — nothing listens
+  on 8004 — and its `modality_optimization_deep_health`, documented as "deep health check
+  with optimization strategy validation", is four `try` blocks each containing nothing but a
+  dictionary literal. The `except Exception` arms are unreachable and the reported
+  `compression_ratio`, `speedup: 180x` and `accuracy_retention: 97%` are constants, not
+  measurements.
+- **How many other routers are defined and never mounted is not answered here.** Two sweeps
+  disagreed (20 and 27) and both had false positives — routers `main.py` mounts under an
+  alias imported from the context path rather than from `routers/__init__.py`. The one case
+  above was confirmed by reading it; the class is real and the count is not established, so
+  no number is claimed. It is also a genuine blind spot of the guard shipped here: an
+  imported-but-unmounted router is reachable to an import graph and dead to a user.
+- **`marketplace/README.md`'s Services list still names two files that are not services**,
+  carried forward unfixed from V23-102. `contexts/multimodal/README.md:24` has the same
+  problem, listing `modality_optimization.py` among the context's contents.
