@@ -3,6 +3,7 @@ AITBC Configuration Module
 Hierarchical configuration with validation
 """
 
+from .hub import hub_agent_url, hub_discovery_host, hub_exchange_url, hub_service_url
 from .hierarchical_config import (
     HierarchicalConfig,
     create_config_template,
@@ -25,5 +26,9 @@ __all__ = [
     "HierarchicalConfig",
     "ValidatedAITBCConfig",
     "create_config_template",
+    "hub_agent_url",
+    "hub_discovery_host",
+    "hub_exchange_url",
+    "hub_service_url",
     "load_config",
 ]

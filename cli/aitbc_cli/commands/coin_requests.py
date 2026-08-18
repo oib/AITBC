@@ -60,13 +60,25 @@ def _agent_api_base() -> str:
     if local:
         return f"{local.rstrip('/')}/api/v1/agent"
 
-    hub = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
-    return hub.rstrip("/")
+    from aitbc.config.hub import hub_agent_url
+
+    hub = hub_agent_url()
+    if not hub:
+        raise RuntimeError(
+            "No hub agent URL configured. Set HUB_AGENT_URL, HUB_HERMES_URL, or HUB_DISCOVERY_URL "
+            "in /etc/aitbc/blockchain.env or /etc/aitbc/node.env."
+        )
+    return hub
 
 
 def send_agent_notification(recipient: str, content: str):
     """Send an agent message notification via Agent Coordinator."""
-    url = f"{_agent_api_base()}/messages/send"
+    try:
+        url = f"{_agent_api_base()}/messages/send"
+    except RuntimeError as e:
+        # Approve/reject already committed; naming the missing config is enough.
+        click.echo(f"Error sending notification: {e}")
+        return
     agent_id = os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "cli-admin"))
 
     # This call sent no credential at all, so it answered 401 anywhere the coordinator was
@@ -233,7 +245,15 @@ def execute(ctx, request_id):
 
         # If no local genesis key, forward to hub for execution
         if not tx_service.genesis_private_key:
-            hub_url = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
+            from aitbc.config.hub import hub_agent_url
+
+            hub_url = hub_agent_url()
+            if not hub_url:
+                click.echo(
+                    "Error: No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL "
+                    "in /etc/aitbc/blockchain.env."
+                )
+                return
             # FOLLOWER_API_KEY first: it is the one an island is meant to hold, published in
             # the public bootstrap file and scoped to /register and /execute. The other two
             # also open the agent WebSocket and coordinator-api's miner endpoints, so they

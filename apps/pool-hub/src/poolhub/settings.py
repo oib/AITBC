@@ -1,10 +1,11 @@
 from __future__ import annotations
+from aitbc.config.hub import hub_agent_url
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, Field, model_validator
 from pydantic_settings import SettingsConfigDict
 
 from aitbc_shared import DatabaseConfig, ServiceSettings
@@ -85,8 +86,17 @@ class Settings(ServiceSettings):
     blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
     default_chain_id: str = Field(default="ait-hub")
 
-    # Agent coordinator integration (v0.6.7 — miner registration)
-    agent_coordinator_url: str = Field(default="http://localhost:8107")
+    # Agent coordinator is hub-only (V23-92). Empty means resolve from
+    # HUB_AGENT_URL / HUB_DISCOVERY_URL in the node's env files.
+    agent_coordinator_url: str = Field(default="")
+
+    @model_validator(mode="after")
+    def _resolve_hub_agent_url(self) -> "Settings":
+        if not self.agent_coordinator_url:
+            resolved = hub_agent_url()
+            if resolved:
+                self.agent_coordinator_url = resolved
+        return self
 
     # Reward distribution (v0.6.7)
     enable_reward_distribution: bool = Field(default=False)  # feature-flagged
