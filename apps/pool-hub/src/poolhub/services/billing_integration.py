@@ -4,12 +4,13 @@ Integrates pool-hub usage data with coordinator-api's billing system.
 """
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -55,7 +56,39 @@ class BillingIntegration:
         job_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Record usage data to coordinator-api billing system"""
+        """Record usage data to coordinator-api billing system.
+
+        Reports a send failure in the return value rather than raising, so a
+        single unreachable event does not abort a caller's wider loop.  Callers
+        that need to *know* whether the event landed must use
+        :meth:`send_usage`, which propagates the failure — see V23-101:
+        ``sync_all_miners_usage`` counted a miner as processed on the strength
+        of this method returning, and it returns just as readily when nothing
+        was delivered.
+        """
+        try:
+            return await self.send_usage(
+                tenant_id=tenant_id,
+                resource_type=resource_type,
+                quantity=quantity,
+                unit_price=unit_price,
+                job_id=job_id,
+                metadata=metadata,
+            )
+        except Exception as e:
+            self.logger.error("Failed to record usage: %s", e)
+            return {"status": "failed", "error": str(e)}
+
+    async def send_usage(
+        self,
+        tenant_id: str,
+        resource_type: str,
+        quantity: Decimal,
+        unit_price: Decimal | None = None,
+        job_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Send one usage event to coordinator-api, raising if it does not land."""
         if not unit_price:
             pricing_config = self.fallback_pricing.get(resource_type, {})
             unit_price = pricing_config.get("unit_price", Decimal("0"))
@@ -73,15 +106,11 @@ class BillingIntegration:
         }
         if job_id:
             billing_event["job_id"] = job_id
-        try:
-            response = await self._send_billing_event(billing_event)
-            self.logger.info(
-                "Recorded usage: tenant=%s, resource=%s, quantity=%s, cost=%s", tenant_id, resource_type, quantity, total_cost
-            )
-            return response
-        except Exception as e:
-            self.logger.error("Failed to record usage: %s", e)
-            return {"status": "failed", "error": str(e)}
+        response = await self._send_billing_event(billing_event)
+        self.logger.info(
+            "Recorded usage: tenant=%s, resource=%s, quantity=%s, cost=%s", tenant_id, resource_type, quantity, total_cost
+        )
+        return response
 
     async def sync_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Sync usage data for a miner to coordinator-api billing"""
@@ -180,7 +209,13 @@ class BillingIntegration:
                 sync_details = []
                 for resource_type, quantity in usage_data.items():
                     if quantity > 0:
-                        record_result = await self.record_usage(
+                        # send_usage, not record_usage (V23-101): record_usage catches the
+                        # send failure and returns {"status": "failed"}, which reads as a
+                        # successful call here.  With the coordinator unreachable -- or
+                        # pointed at /api/billing/usage, a route coordinator-api does not
+                        # serve -- this loop reported miners_processed=1, miners_failed=0
+                        # and counted every dropped event as a usage record.
+                        record_result = await self.send_usage(
                             tenant_id=miner_id,
                             resource_type=resource_type,
                             quantity=quantity,
@@ -278,31 +313,50 @@ class BillingIntegration:
 
 
 class BillingIntegrationScheduler:
-    """Scheduler for automated billing synchronization"""
+    """Scheduler for automated billing synchronization.
 
-    def __init__(self, billing_integration: BillingIntegration):
-        self.billing_integration = billing_integration
+    Takes a session *factory*, not a :class:`BillingIntegration` (V23-101).  A
+    loop that runs for the lifetime of the process cannot hold one request-scoped
+    ``AsyncSession`` open forever: it pins a pooled connection and carries the
+    identity map -- and any failed transaction -- from one pass into the next.
+    Each pass opens its own session and closes it again.
+    """
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
+        self.session_factory = session_factory
         self.logger = get_logger(__name__)
         self.running = False
+        self._task: asyncio.Task[Any] | None = None
 
     async def start(self, sync_interval_hours: int = 1) -> None:
         """Start the billing synchronization scheduler"""
         if self.running:
             return
         self.running = True
-        self.logger.info("Billing Integration scheduler started")
-        create_task_with_logging(self._sync_loop(sync_interval_hours), name="billing_sync_loop")
+        self._task = create_task_with_logging(self._sync_loop(sync_interval_hours), name="billing_sync_loop")
+        self.logger.info("Billing Integration scheduler started (every %sh)", sync_interval_hours)
 
     async def stop(self) -> None:
-        """Stop the billing synchronization scheduler"""
+        """Stop the billing synchronization scheduler and await the loop's exit.
+
+        Clearing ``running`` alone left the task parked in a sleep of up to an
+        hour, so shutdown returned with it still pending and the event loop closed
+        underneath it.  The task is cancelled and awaited.
+        """
         self.running = False
+        task, self._task = self._task, None
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
         self.logger.info("Billing Integration scheduler stopped")
 
     async def _sync_loop(self, interval_hours: int) -> None:
         """Background task that syncs usage data periodically"""
         while self.running:
             try:
-                await self.billing_integration.sync_all_miners_usage(hours_back=interval_hours)
+                async with self.session_factory() as session:
+                    await BillingIntegration(session).sync_all_miners_usage(hours_back=interval_hours)
                 await asyncio.sleep(interval_hours * 3600)
             except Exception as e:
                 self.logger.error("Error in billing sync loop: %s", e)

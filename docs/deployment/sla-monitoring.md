@@ -130,6 +130,10 @@ class Settings(BaseSettings):
 
     # SLA Collection Configuration
     sla_collection_interval_seconds: int = Field(default=300)
+
+    # Whether the app starts the schedulers those two intervals configure
+    enable_sla_collection: bool = Field(default=False)
+    enable_billing_sync: bool = Field(default=False)
 ```
 
 ## Database Schema
@@ -407,38 +411,45 @@ Response:
 
 ## Automated Collection
 
-### SLA Collection Scheduler
+Both schedulers are started by the pool-hub app itself, from the lifespan in
+`poolhub/app/main.py`. Each is behind a flag, and **both default to off**:
 
-The SLA collector can be run as a background service to automatically collect metrics:
+| Environment variable | Default | Starts | Interval setting |
+|---|---|---|---|
+| `POOLHUB_ENABLE_SLA_COLLECTION` | `false` | `SLACollectorScheduler` | `POOLHUB_SLA_COLLECTION_INTERVAL_SECONDS` (300) |
+| `POOLHUB_ENABLE_BILLING_SYNC` | `false` | `BillingIntegrationScheduler` | `POOLHUB_BILLING_SYNC_INTERVAL_HOURS` (1) |
+
+With both off — the shipped default — SLA metrics are collected only when
+something calls `POST /v1/sla/metrics/collect`, and usage is synced only by
+`POST /v1/sla/billing/sync`.
+
+Before enabling `POOLHUB_ENABLE_BILLING_SYNC`, check that the coordinator named by
+`POOLHUB_COORDINATOR_BILLING_URL` actually serves `POST /api/billing/usage`.
+coordinator-api does not: the route is absent from its source and from all 272
+paths in `docs/api/coordinator/openapi.json`, so on a stock deployment this
+scheduler can only log an hourly failure.
+
+### Constructing a scheduler directly
+
+Both take a session **factory**, not a session — a loop that runs for the life of
+the process opens a session per pass instead of holding one, and its pooled
+connection, open indefinitely:
 
 ```python
-from poolhub.services.sla_collector import SLACollector, SLACollectorScheduler
-from poolhub.database import get_db
+from poolhub.database import get_session_factory
+from poolhub.services.sla_collector import SLACollectorScheduler
+from poolhub.services.billing_integration import BillingIntegrationScheduler
 
-# Initialize
-db = next(get_db())
-sla_collector = SLACollector(db)
-scheduler = SLACollectorScheduler(sla_collector)
+sla = SLACollectorScheduler(get_session_factory())
+await sla.start(collection_interval_seconds=300)   # every 5 minutes
 
-# Start automated collection (every 5 minutes)
-await scheduler.start(collection_interval_seconds=300)
-```
+billing = BillingIntegrationScheduler(get_session_factory())
+await billing.start(sync_interval_hours=1)         # every hour
 
-### Billing Sync Scheduler
-
-The billing integration can be run as a background service to automatically sync usage:
-
-```python
-from poolhub.services.billing_integration import BillingIntegration, BillingIntegrationScheduler
-from poolhub.database import get_db
-
-# Initialize
-db = next(get_db())
-billing_integration = BillingIntegration(db)
-scheduler = BillingIntegrationScheduler(billing_integration)
-
-# Start automated sync (every 1 hour)
-await scheduler.start(sync_interval_hours=1)
+# stop() cancels the loop task and awaits its exit, so shutdown does not leave a
+# task parked in a sleep of up to a full interval.
+await billing.stop()
+await sla.stop()
 ```
 
 ## Monitoring and Alerting
@@ -555,7 +566,10 @@ pytest --cov=poolhub.services.billing_integration tests/test_billing_integration
 
 The pool-hub integrates with coordinator-api's billing system via HTTP API:
 
-1. **Usage Recording**: Pool-hub sends usage events to coordinator-api's `/api/billing/usage` endpoint
+1. **Usage Recording**: Pool-hub posts usage events to coordinator-api's `/api/billing/usage`
+   endpoint — which coordinator-api does not serve. The route is absent from its source and
+   from all 272 paths of `docs/api/coordinator/openapi.json`, and everything it does publish
+   is under `/v1`. Until that endpoint exists, every usage event Pool-hub sends is dropped.
 2. **Billing Metrics**: Pool-hub can query billing metrics from coordinator-api
 3. **Invoice Generation**: Pool-hub can trigger invoice generation in coordinator-api
 4. **Capacity Planning**: Pool-hub provides capacity data to coordinator-api's capacity planning system
