@@ -229,7 +229,7 @@ verify_restore() {
     for pod in "${pods[@]}"; do
         if kubectl wait --for=condition=ready pod "$pod" -n "$NAMESPACE" --timeout=10s >/dev/null 2>&1; then
             # Check if node is responding
-            if kubectl exec -n "$NAMESPACE" "$pod" -- curl -s http://localhost:8080/v1/health >/dev/null 2>&1; then
+            if kubectl exec -n "$NAMESPACE" "$pod" -- curl -fsS http://localhost:8080/health >/dev/null 2>&1; then
                 # Get current block height
                 local current_height=$(kubectl exec -n "$NAMESPACE" "$pod" -- curl -s http://localhost:8080/v1/blocks/head | jq -r '.height // 0')
 

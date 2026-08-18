@@ -2,7 +2,7 @@
 # agent Follower Node Setup Script for AITBC Node
 # This script uses agent agents to configure aitbc1 as a follower node
 
-set -e  # Exit on any error
+set -euo pipefail  # Exit on any error
 
 
 # Source scenario configuration
@@ -118,7 +118,7 @@ agent execute --agent FollowerAgent --task wait_for_services --node aitbc1 || {
     ssh aitbc1 'sleep 10'
     # Wait for RPC service to be ready on aitbc1
     for i in {1..30}; do
-        if ssh aitbc1 'curl -s http://localhost:8202/health' >/dev/null 2>&1; then
+        if ssh aitbc1 'curl -fsS http://localhost:8202/health' >/dev/null 2>&1; then
             echo "✅ Follower RPC service is ready"
             break
         fi
@@ -132,7 +132,7 @@ echo "10. Establishing connection to genesis node via agent FollowerAgent..."
 agent execute --agent FollowerAgent --task connect_to_genesis --node aitbc1 || {
     echo "⚠️ agent genesis connection failed - using manual method"
     # Test connection from aitbc1 to aitbc
-    ssh aitbc1 'curl -s http://aitbc:8202/health | jq .status' || echo "⚠️ Cannot reach genesis node"
+    ssh aitbc1 'curl -fsS http://aitbc:8202/health | jq .status' || echo "⚠️ Cannot reach genesis node"
 }
 
 # 11. Start blockchain sync process (via agent)
@@ -225,7 +225,7 @@ echo "🤖 Follower node ready for wallet operations"
 echo ""
 echo "=== Follower Node Status ==="
 ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height' 2>/dev/null || echo "RPC not responding"
-ssh aitbc1 'curl -s http://localhost:8202/health' 2>/dev/null | jq '.status' || echo "Health check failed"
+ssh aitbc1 'curl -fsS http://localhost:8202/health' 2>/dev/null | jq '.status' || echo "Health check failed"
 
 # Display sync comparison
 echo ""
