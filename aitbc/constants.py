@@ -46,14 +46,20 @@ if _HOME_OVERRIDE:
     if not os.access(AITBC_HOME, os.W_OK):
         raise RuntimeError(f"AITBC_HOME={AITBC_HOME} is not writable")
 
-# Default ports
+# Default ports.
+#
+# Marketplace was 8081 and Exchange was 8001 until V23-99. Nothing has ever bound either --
+# the services listen on 8102 and 8106 -- so integration_layer.py, which is the only functional
+# consumer, built its default marketplace and exchange URLs pointing at closed ports. It reads
+# MARKETPLACE_SERVICE_URL and EXCHANGE_SERVICE_URL from the environment first, which is why a
+# configured deployment worked and the defaults were never exercised.
 BLOCKCHAIN_RPC_PORT = 8202
 BLOCKCHAIN_P2P_PORT = 8200
 AGENT_COORDINATOR_PORT = 8107
-MARKETPLACE_PORT = 8081
+MARKETPLACE_PORT = 8102
 COORDINATOR_API_PORT = 8203
 WALLET_PORT = 8108
-EXCHANGE_PORT = 8001
+EXCHANGE_PORT = 8106
 REDIS_PORT = 6379
 
 # Default URLs (derived from ports)

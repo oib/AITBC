@@ -68,7 +68,7 @@ wait_for_blockchain_node() {
     # Check if node is responding
     local retries=30
     while [[ $retries -gt 0 ]]; do
-        if kubectl exec -n "$NAMESPACE" "$pod" -- curl -s http://localhost:8080/v1/health >/dev/null 2>&1; then
+        if kubectl exec -n "$NAMESPACE" "$pod" -- curl -fsS http://localhost:8080/health >/dev/null 2>&1; then
             log "Blockchain node is ready"
             return 0
         fi

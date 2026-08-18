@@ -25,12 +25,17 @@ AITBC_SERVICES=(
 
 # Port each service listens on, for reachability checks. Services with no HTTP port are
 # simply absent rather than given a placeholder.
+# Marketplace was 8107 and Trading was 8201 until V23-99. Neither number was free: 8107 is
+# aitbc-agent-coordinator and 8201 is aitbc-api-gateway, so the two reachability checks built
+# on this map probed other services entirely -- and on a host that runs neither, they probed
+# nothing at all. The real ports are the ones the apps bind and scripts/monitoring/health_check.sh
+# watches.
 declare -A AITBC_SERVICE_PORTS=(
     [aitbc-coordinator-api]=8203
     [aitbc-blockchain-rpc]=8202
     [aitbc-exchange]=8106
-    [aitbc-marketplace]=8107
-    [aitbc-trading]=8201
+    [aitbc-marketplace]=8102
+    [aitbc-trading]=8104
     [aitbc-wallet]=8108
 )
 
