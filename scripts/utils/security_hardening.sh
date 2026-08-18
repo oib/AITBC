@@ -15,7 +15,10 @@ NC='\033[0m' # No Color
 
 # Configuration
 PRODUCTION_ENV="/opt/aitbc/apps/coordinator-api/.env.production"
-SERVICE_NAME="aitbc-coordinator"
+# The unit is aitbc-coordinator-api; "aitbc-coordinator" does not exist (V23-98). Its one
+# use is the closing "Restart services: systemctl restart $SERVICE_NAME" instruction, so
+# the last thing this script told an operator to run failed with "Unit not found".
+SERVICE_NAME="aitbc-coordinator-api"
 LOG_FILE="/var/log/aitbc-security-hardening.log"
 
 # Logging function
@@ -210,39 +213,27 @@ EOF
 setup_monitoring() {
     log "Setting up basic monitoring..."
 
-    # Create monitoring script
-    cat > /opt/aitbc/scripts/health-check.sh << 'EOF'
-#!/bin/bash
-# Health check script for AITBC services
+    # Schedule the health check the deployment scripts already call, instead of writing a
+    # third one (V23-98). What this used to generate checked two unit names that do not
+    # exist -- "aitbc-coordinator" and "blockchain-node", where the real units are
+    # aitbc-coordinator-api and aitbc-blockchain-node -- so its first check failed and it
+    # exited 1 every five minutes forever. It also probed https://aitbc.bubuit.net, which
+    # is a different host, and wrote itself into the git checkout as an untracked file.
+    local health_check="/opt/aitbc/scripts/monitoring/health_check.sh"
 
-SERVICES=("aitbc-coordinator" "blockchain-node")
-WEB_URL="https://aitbc.bubuit.net/api/v1/health"
-
-# Check systemd services
-for service in "${SERVICES[@]}"; do
-    if systemctl is-active --quiet "$service"; then
-        echo "✅ $service is running"
-    else
-        echo "❌ $service is not running"
-        exit 1
+    if [[ ! -x "$health_check" ]]; then
+        warning "$health_check is missing or not executable; health check not scheduled"
+        return 0
     fi
-done
 
-# Check web endpoint
-if curl -s -f "$WEB_URL" > /dev/null; then
-    echo "✅ Web endpoint is responding"
-else
-    echo "❌ Web endpoint is not responding"
-    exit 1
-fi
-
-echo "✅ All health checks passed"
-EOF
-
-    chmod +x /opt/aitbc/scripts/health-check.sh
-
-    # Create cron job for health checks
-    (crontab -l 2>/dev/null; echo "*/5 * * * * /opt/aitbc/scripts/health-check.sh >> /var/log/aitbc-health.log 2>&1") | crontab -
+    # Idempotent: nothing guarantees this function runs only once, and stacking duplicate
+    # crontab lines is how a five-minute check turns into several at once.
+    if crontab -l 2>/dev/null | grep -qF "$health_check"; then
+        log "Health check is already scheduled"
+    else
+        (crontab -l 2>/dev/null; echo "*/5 * * * * $health_check all >> /var/log/aitbc/health_check_cron.log 2>&1") | crontab -
+        log "Scheduled $health_check every 5 minutes"
+    fi
 
     success "Health monitoring configured"
 }

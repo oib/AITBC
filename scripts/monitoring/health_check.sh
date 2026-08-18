@@ -8,7 +8,9 @@ set -euo pipefail
 
 # Configuration
 REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
-LOG_DIR="/var/log/aitbc"
+# Overridable so a test run does not append to the production health log, matching the
+# REPO_ROOT convention directly above (V23-98).
+LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 HEALTH_CHECK_LOG="$LOG_DIR/health_check.log"
 ALERT_THRESHOLD_CPU=80
 ALERT_THRESHOLD_MEM=80
@@ -32,6 +34,15 @@ declare -A SERVICE_ENDPOINTS=(
     # Absent until V23-96, which is how a 404 on Pool Hub's /health survived: nothing
     # here ever asked for it. This map also drives the systemd and resource checks.
     ["aitbc-pool-hub"]="http://localhost:8210/health"
+    # Absent until V23-98. Pool Hub was not the exception -- all six of these were
+    # listening and answering /health 200 while this map watched five services and two
+    # that are not installed on this host at all.
+    ["aitbc-monitoring"]="http://localhost:8002/health"
+    ["aitbc-blockchain-explorer"]="http://localhost:8100/health"
+    ["aitbc-gpu"]="http://localhost:8101/health"
+    ["aitbc-trading"]="http://localhost:8104/health"
+    ["aitbc-governance"]="http://localhost:8105/health"
+    ["aitbc-edge"]="http://localhost:8111/health"
 )
 
 # Logging functions
@@ -83,6 +94,59 @@ check_service_status() {
         warning "$service is inactive"
         return 2
     fi
+}
+
+# Is this unit installed on this host at all?
+#
+# SERVICE_ENDPOINTS is one map shared across every kind of node, and this one is a
+# follower/shop node: aitbc-exchange and aitbc-agent-coordinator have never been
+# installed here. Counting an absent unit as a failure made the script exit 1 on every
+# run regardless of what was actually wrong, which is a plausible reason nobody ever
+# scheduled it. Absent is not down.
+service_is_installed() {
+    [[ "$(systemctl is-enabled "$1" 2>/dev/null || true)" != "not-found" ]]
+}
+
+# Systemd check for one service, skipping units this host does not have.
+#
+# It also keeps "inactive" a warning. check_service_status draws a three-way distinction --
+# running, failed, inactive -- and returns 0, 1, 2 for them. Every call site was
+# `check_service_status "$s" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))`, and `||` fires on any
+# non-zero, so that collapsed back to two and the warning path was unreachable. This makes
+# the counters agree with what the function already says.
+#
+# Returns non-zero only when the service was skipped, so callers can skip the follow-on
+# resource check too.
+check_installed_service() {
+    local service="$1"
+
+    if ! service_is_installed "$service"; then
+        log "$service is not installed on this host, skipping"
+        TOTAL_SKIPPED=$((TOTAL_SKIPPED + 1))
+        return 1
+    fi
+
+    local rc=0
+    check_service_status "$service" || rc=$?
+    case $rc in
+        0) ;;
+        2) TOTAL_WARNINGS=$((TOTAL_WARNINGS + 1)) ;;
+        *) TOTAL_ERRORS=$((TOTAL_ERRORS + 1)) ;;
+    esac
+    return 0
+}
+
+# Endpoint counterpart: an absent unit is skipped, not reported unreachable.
+check_installed_endpoint() {
+    local service="$1"
+
+    if ! service_is_installed "$service"; then
+        log "$service is not installed on this host, skipping"
+        TOTAL_SKIPPED=$((TOTAL_SKIPPED + 1))
+        return 0
+    fi
+
+    check_endpoint_health "$service" "${SERVICE_ENDPOINTS[$service]}" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
 }
 
 # Check API endpoint health
@@ -259,6 +323,7 @@ main() {
 
     TOTAL_ERRORS=0
     TOTAL_WARNINGS=0
+    TOTAL_SKIPPED=0
 
     case "$check_type" in
         "services")
@@ -266,7 +331,7 @@ main() {
             echo ""
 
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
-                check_service_status "$service" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+                check_installed_service "$service" || continue
                 check_resource_usage "$service"
             done
             ;;
@@ -275,7 +340,7 @@ main() {
             echo ""
 
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
-                check_endpoint_health "$service" "${SERVICE_ENDPOINTS[$service]}" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+                check_installed_endpoint "$service"
             done
             ;;
         "resources")
@@ -306,7 +371,7 @@ main() {
             # Check services
             log "--- Service Status ---"
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
-                check_service_status "$service" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+                check_installed_service "$service" || continue
                 check_resource_usage "$service"
             done
             echo ""
@@ -314,7 +379,7 @@ main() {
             # Check endpoints
             log "--- API Endpoints ---"
             for service in "${!SERVICE_ENDPOINTS[@]}"; do
-                check_endpoint_health "$service" "${SERVICE_ENDPOINTS[$service]}" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+                check_installed_endpoint "$service"
             done
             echo ""
 
@@ -351,6 +416,10 @@ main() {
 
     echo ""
     log "=== Health Check Complete ==="
+
+    if [[ $TOTAL_SKIPPED -gt 0 ]]; then
+        log "$TOTAL_SKIPPED check(s) skipped: unit not installed on this host"
+    fi
 
     if [[ $TOTAL_ERRORS -eq 0 ]] && [[ $TOTAL_WARNINGS -eq 0 ]]; then
         success "All health checks passed"
