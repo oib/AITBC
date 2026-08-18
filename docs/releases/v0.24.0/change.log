@@ -1,0 +1,28 @@
+# v0.24.0 — Hub node development special
+
+## V23-95 — Corrected ML circuits ported to the build tree
+
+The `modular_ml_components` and `ml_training_verification` circuits were corrected in the coordinator-api tree under V23-94; this release ports the same fixed-point learning-rate checks to the `apps/zk-circuits` build tree and re-runs the ceremony so both trees hold byte-identical, contributed keys. `tests/unit/test_v2395_zk_circuit_tree_parity.py` now fails if the two trees diverge again.
+
+## V23-96 — Pool Hub serves /health and describes outages instead of crashing
+
+`pool-hub` now exposes a real `/health` endpoint. Before this change the `/health` path returned 404 and the monitoring infrastructure never watched the service. The monitoring and `health_check.sh endpoints` checks now treat `aitbc-pool-hub` as a first-class service.
+
+## V23-97 — `is_not` operator fixed so billing sync can build a query
+
+The Pool Hub SLA/billing query builder now emits the `is_not` operator correctly, allowing `/v1/sla/violations?resolved=true` to return 200 instead of 500. The CLI also aborts with a clear message when asked for per-pool SLA or when the host is unreachable.
+
+## CLI — raw JSON, `balance_ait`, and `aitbc update`
+
+- `aitbc account get` now shows `balance_ait` alongside the raw compute-seconds balance.
+- `aitbc wallet balance` preserves the daemon's `balance`/`balance_ait` fields.
+- `aitbc --output json` returns unwrapped machine-readable JSON.
+- `aitbc update` pulls the latest `main` and runs `scripts/deployment/update.sh` in one command.
+
+## Live verification
+
+After the merges and restart on the hub node:
+- `/health` returns 200 with `db`, `redis`, and `miners_online` status.
+- `/v1/sla/violations?resolved=true` returns 200.
+- `aitbc pool-hub status` and `aitbc pool-hub sla` return live data instead of simulated.
+- `poolhub_miners_online` is exported on `/metrics` for Prometheus.
