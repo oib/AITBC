@@ -13,8 +13,14 @@ import time
 import aiohttp
 
 
+# Where the load is aimed. The old default, https://aitbc.bubuit.net/api/v1, names a host
+# no AITBC node resolves; the hub is hub.aitbc.bubuit.net and answers /api/. Aiming load at
+# a deployment is a decision, so this is overridable and the caller has to mean it.
+DEFAULT_BASE_URL = os.environ.get("AITBC_BASE_URL", "http://localhost:8203/v1")
+
+
 class ScalabilityValidator:
-    def __init__(self, base_url="https://aitbc.bubuit.net/api/v1"):
+    def __init__(self, base_url=DEFAULT_BASE_URL):
         self.base_url = base_url
         self.api_key = os.environ.get("AITBC_API_KEY")
         if not self.api_key:

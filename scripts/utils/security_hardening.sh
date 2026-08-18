@@ -231,7 +231,9 @@ setup_monitoring() {
     if crontab -l 2>/dev/null | grep -qF "$health_check"; then
         log "Health check is already scheduled"
     else
-        (crontab -l 2>/dev/null; echo "*/5 * * * * $health_check all >> /var/log/aitbc/health_check_cron.log 2>&1") | crontab -
+        # `|| true`: the subshell inherits set -e, so on a host with no crontab yet
+        # `crontab -l` exits 1 and hardening aborts here instead of installing the job.
+        (crontab -l 2>/dev/null || true; echo "*/5 * * * * $health_check all >> /var/log/aitbc/health_check_cron.log 2>&1") | crontab -
         log "Scheduled $health_check every 5 minutes"
     fi
 
