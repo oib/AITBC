@@ -81,23 +81,29 @@ review reads:
 - `receipt_simple` is the *same circuit* in both trees (identical `.circom`, `.r1cs`,
   `.wasm`) with **different key material under identical filenames** — two independent
   `groth16 setup` runs. A proof made with one tree's key does not verify against the other's
-  verification key.
-- `modular_ml_components` is a *different circuit* in each tree (527 wires here, 19 there),
-  and the `.zkey` files committed here were for the other tree's circuit. They have been
-  removed: this tree currently has **no proving key for its own `modular_ml_components`**.
-  Regenerate with `snarkjs groth16 setup` against the `.r1cs` here, then contribute.
+  verification key. Still true.
+- `modular_ml_components` and `ml_training_verification` **were** different circuits in each
+  tree, and the `.zkey` files committed here were for a different circuit again:
+  `circuit_0000/0001.zkey` are 741-variable keys, the shape of `receipt_simple`, sitting beside
+  a 766-wire `modular_ml_components.r1cs`. They are not byte-identical to
+  `receipt_simple_000*.zkey`, so they are a *separate* ceremony for that circuit kept under a
+  generic name; nothing in the repository references them. They are left in place rather than
+  deleted — key material cannot be regenerated identically once its entropy is gone — but they
+  are not a key for anything in this directory that lacks one. As of V23-95 the ML sources are
+  byte-identical across both trees and this tree has its own contributed keys for both.
 
 `tests/security/test_v2326_zk_artifacts.py` reads the binary headers and fails on both
-classes of mismatch, so the next divergence is caught in CI rather than in production.
+classes of mismatch, and `tests/unit/test_v2395_zk_circuit_tree_parity.py` fails if the two
+trees' ML sources or compiled artifacts stop matching — so the next divergence is caught by
+the suite rather than in production.
 
 To point the service at this tree instead of its in-package copy, set
-`COORDINATOR_ZK_CIRCUITS_DIR`. Note that it will find no usable `modular_ml_components` key
-here until one is generated.
+`COORDINATOR_ZK_CIRCUITS_DIR`.
 
-### This tree's two ML circuits are unsatisfiable (V23-94)
+### This tree's two ML circuits were unsatisfiable (V23-94, fixed in V23-95)
 
-`ml_training_verification.circom` and `modular_ml_components.circom` **here** cannot produce a
-proof for any input at all. Both validate the learning rate as
+`ml_training_verification.circom` and `modular_ml_components.circom` **here** could not produce
+a proof for any input at all. Both validated the learning rate as
 
 ```circom
 component lt1 = LessThan(252);   lt1.in[0] <== learning_rate;  lt1.in[1] <== 1;  lt1.out === 1;
@@ -105,13 +111,16 @@ component gt0 = GreaterThan(252); gt0.in[0] <== learning_rate; gt0.in[1] <== 0; 
 ```
 
 which asks for an integer strictly between 0 and 1. Both files were compiled with circom 2.1.9
-and driven at `learning_rate` = 0, 1, 2, 10000 and 1000000; every combination is rejected, ten
+and driven at `learning_rate` = 0, 1, 2, 10000 and 1000000; every combination was rejected, ten
 for ten. The comparison has to be against a fixed-point scale, not against the literal `1`.
 
-The service tree's copies had the same bug in two other forms — one provable only at
-`learning_rate = 0`, one with the check deleted outright — and have been fixed. **Take the
-corrected sources from the coordinator-api tree**, not from here. The five `modular_*` variants
-in this directory (`_clean`, `_simple`, `_v2`, `_working`, and the base file) were not audited.
+V23-94 fixed the service tree only, which left one circuit fixed and one not under the same
+name. V23-95 ported the corrected sources here and re-ran the ceremony, so both trees now hold
+the same fixed-point circuits: `Num2Bits(LR_BITS)` to bound the rate, `LessThan(LR_BITS)`
+against `LR_SCALE`, and `IsZero()` refusing zero. The four unaudited near-copies
+(`_clean`, `_simple`, `_v2`, `_working`) are deleted — nothing referenced any of them, `_clean`
+and `_working` were byte-identical, and all four had a `LearningRateValidation` template
+containing no constraints at all.
 
 ## Rebuilding the circuits
 
@@ -124,6 +133,20 @@ CIRCOM=/path/to/circom bash scripts/zk/build-circuits.sh                   # com
 CIRCOM=/path/to/circom bash scripts/zk/build-circuits.sh --install         # + .r1cs/.sym/.wasm
 CIRCOM=/path/to/circom bash scripts/zk/build-circuits.sh --install --ceremony  # + new keys
 ```
+
+Those default to the coordinator-api tree, the copy the service loads. To rebuild **this**
+tree, override `CIRCUITS_DIR` — and `PTAU`, because `pot12_final.ptau` is gitignored here and
+exists only in the service tree:
+
+```bash
+SVC=apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits
+CIRCUITS_DIR=apps/zk-circuits PTAU=$SVC/pot12_final.ptau CIRCOM=/path/to/circom \
+  bash scripts/zk/build-circuits.sh --install --ceremony
+```
+
+Both trees must be rebuilt from the same sources, or `tests/unit/test_v2395_zk_circuit_tree_parity.py`
+fails — deliberately. The artifacts are byte-identical when the sources are, so a diff there
+means one side was edited and not rebuilt.
 
 **circom 2.x is required and is not in this repository.** `node_modules/.bin/circom` is
 0.5.46, which predates `pragma circom 2.0.0` and cannot compile a single circuit in either
