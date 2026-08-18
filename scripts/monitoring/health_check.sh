@@ -29,6 +29,9 @@ declare -A SERVICE_ENDPOINTS=(
     ["aitbc-agent-coordinator"]="http://localhost:8107/health"
     ["aitbc-marketplace"]="http://localhost:8102/health"
     ["aitbc-wallet"]="http://localhost:8108/health"
+    # Absent until V23-96, which is how a 404 on Pool Hub's /health survived: nothing
+    # here ever asked for it. This map also drives the systemd and resource checks.
+    ["aitbc-pool-hub"]="http://localhost:8210/health"
 )
 
 # Logging functions

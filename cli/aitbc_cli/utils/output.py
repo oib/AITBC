@@ -21,7 +21,8 @@ def output(message, format=None, title=None, **kwargs):
         else:
             # Table format — just JSON for now
             message = json.dumps(message, indent=2)
-    if title:
+    # JSON/YAML output is meant to be machine-readable; do not wrap it in a title.
+    if title and format not in ("json", "yaml"):
         echo(f"\n{title}")
         echo("=" * len(title))
     echo(message, **kwargs)
