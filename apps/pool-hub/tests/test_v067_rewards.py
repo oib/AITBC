@@ -143,7 +143,9 @@ class TestPoolHubSettings:
         from poolhub.settings import Settings
 
         settings = Settings()
-        assert "8107" in settings.agent_coordinator_url
+        # Hub-only locally (V23-92). The field default is empty and is filled
+        # from HUB_DISCOVERY_URL / HUB_AGENT_URL — never localhost:8107.
+        assert "localhost:8107" not in settings.agent_coordinator_url
 
     def test_settings_enable_reward_distribution(self):
         from poolhub.settings import Settings
