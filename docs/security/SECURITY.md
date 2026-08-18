@@ -187,7 +187,7 @@ This security policy is intended to give security researchers clear guidelines f
 
 ### Disclaimer
 
-This security policy may be updated from time to time. The latest version will always be available at https://github.com/oib/AITBC/blob/main/SECURITY.md
+This security policy may be updated from time to time. The latest version will always be available at https://github.com/oib/AITBC/blob/main/.github/SECURITY.md
 
 ### License
 
