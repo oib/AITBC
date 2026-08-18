@@ -5140,3 +5140,127 @@ branch still filters `resolved_at IS NOT NULL`, the unresolved branch still filt
   outage. That handler shape repeats across `routers/sla.py`; narrowing it is a separate change.
 - `BillingIntegrationScheduler` is defined and never constructed. Dead as written, and the
   reason this defect was reachable only by explicit request rather than hourly.
+
+### V23-98 — the health monitor watched five of the eleven services running on this host · CONFIRMED → RESOLVED
+
+V23-96 added Pool Hub to `SERVICE_ENDPOINTS` after a 404 on its `/health` survived in
+production because nothing ever probed it. Pool Hub was not the exception. This host runs
+eleven AITBC services; the map watched five of them, plus two units that are not installed
+here at all.
+
+```
+listening + answering /health 200      watched before V23-98
+  8002  monitoring                       no
+  8100  blockchain-explorer              no
+  8101  gpu                              no
+  8102  marketplace                      yes
+  8104  trading                          no
+  8105  governance                       no
+  8108  wallet                           yes
+  8111  edge                             no
+  8202  blockchain-rpc                   yes
+  8203  coordinator-api                  yes
+  8210  pool-hub                         yes (V23-96)
+  ----  aitbc-exchange                   watched; systemctl says not-found
+  ----  aitbc-agent-coordinator          watched; systemctl says not-found
+```
+
+The two phantom entries are the more interesting half. `SERVICE_ENDPOINTS` is one map shared
+across every kind of node, and this one is a follower/shop node — `aitbc-exchange` and
+`aitbc-agent-coordinator` have never been installed on it. Both were counted as errors, so:
+
+- **`health_check.sh` exited 1 on every run this host has ever made**, whatever was actually
+  wrong. An exit code that never varies carries no information, which is a plausible reason
+  nobody ever put it on a schedule.
+- **"inactive" was an error too, despite being written as a warning.** `check_service_status`
+  draws a three-way distinction — running, failed, inactive — and returns 0, 1, 2 for them,
+  calling `warning` on the third. Every call site was
+  `check_service_status "$s" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))`, and `||` fires on any
+  non-zero, so it collapsed back to two and the warning path was unreachable. This host has a
+  unit of exactly that shape — `aitbc-blockchain-sync.service` is a timer-driven oneshot,
+  enabled and inactive between runs — though it is not in `SERVICE_ENDPOINTS`, having no HTTP
+  endpoint to probe.
+
+Two more health checks exist, and neither agrees with this one:
+
+- **`scripts/monitoring/health-check.sh`** — same directory, hyphen instead of underscore,
+  73 lines, referenced by nothing. Eleven of its twelve ports are fiction: Coordinator API on
+  8000, Exchange on 8001, Marketplace on 8007, Wallet on 8003, GPU on 8010, "Learning Service"
+  on 8203 (which is Coordinator API), Agent Coordinator on 8012, Agent Registry on 8013, Agent
+  Service on 8014, AI Service on 8015, Multimodal on 8020. Explorer on 8100 is the only one
+  that matches reality.
+- **`security_hardening.sh`'s `setup_monitoring()`** — generated a *third* checker with
+  `cat >` into `/opt/aitbc/scripts/health-check.sh`, untracked, inside the git checkout, and
+  installed it on a `*/5 * * * *` crontab. It checked two unit names that do not exist —
+  `aitbc-coordinator` and `blockchain-node`, where the real units are `aitbc-coordinator-api`
+  and `aitbc-blockchain-node` — so its first check failed and it exited 1 every five minutes
+  forever. It also probed `https://aitbc.bubuit.net/api/v1/health`, which is a different host.
+
+And Prometheus had the same shape of error: the `blockchain-node` job scraped `localhost:8006`,
+where nothing has ever listened — the same fictional port the hyphenated script claimed for
+this service. The RPC process is what exports the series, and it binds 8202.
+
+#### What changed
+
+- `scripts/monitoring/health_check.sh` — the six unwatched services added to
+  `SERVICE_ENDPOINTS`; `service_is_installed` gates both loops so an absent unit is skipped
+  and counted, not failed; `check_installed_service` maps rc 2 to `TOTAL_WARNINGS` and
+  anything else to `TOTAL_ERRORS`, so "inactive" is finally the warning it was always written
+  as; `TOTAL_SKIPPED` is reported in the summary; `LOG_DIR` is overridable like `REPO_ROOT`
+  directly above it, so a test run does not append to the production log.
+- `scripts/monitoring/prometheus.yml` — `trading` (8104) and `governance` (8105) jobs added;
+  `blockchain-node` retargeted from 8006 to 8202.
+- `scripts/monitoring/health-check.sh` — deleted.
+- `scripts/utils/security_hardening.sh` — `setup_monitoring()` now schedules
+  `scripts/monitoring/health_check.sh`, idempotently, instead of generating a checker of its
+  own; `SERVICE_NAME` corrected to `aitbc-coordinator-api`.
+- `tests/unit/test_v2398_monitoring_coverage.py` — 28 guards, new file.
+
+#### Verification
+
+- **The 28 guards were run against the unmodified files, pulled from `main` at `c5e038fdd`:
+  22 of them fail.** Six pass, and each is a regression guard rather than a defect guard —
+  Pool Hub's entry and port (V23-96), the unversioned-path rule, an installed-but-down service
+  still failing, a healthy host passing, and the health-map/Prometheus cross-check, which has
+  nothing to compare on the old content because the only overlapping job then was
+  `coordinator-api`.
+- The behavioural half runs the real script with stub `systemctl` and `curl` binaries ahead of
+  it on `PATH`, so it exercises control flow rather than asserting on source text. With
+  nothing installed the script must still exit 0; with `aitbc-pool-hub` installed and its port
+  refusing connections it must exit 1; with it installed and inactive it must exit 0 and say
+  "warning(s)".
+- Each of the seven services carries the file that decides its port —
+  `--port 8002` in the monitoring unit, `gpu_bind_port: int = 8101`,
+  `bind_port: int = Field(default=8104)`, `app_port: int = 8111`, and so on — so drift on
+  either side fails. Changing the monitor without changing the app breaks the test, and so
+  does the reverse.
+- Live on this host, after the change: `endpoints` mode reports 11 SUCCESS, 2 skipped,
+  "All health checks passed", exit 0. `services` mode reports the same. Before it, the same
+  two commands exited 1.
+- `LOG_DIR=<scratch> ./scripts/monitoring/health_check.sh endpoints` writes `health_check.log`
+  into the override directory and leaves `/var/log/aitbc` alone.
+- Full root suite: 6,733 tests, 0 failures, 0 errors, 131 skipped, exit 0 — 6,705 on `main`
+  plus this file's 28. `pre-commit run --files`: clean over all four changed paths.
+
+#### Not fixed here
+
+- **`coordinator-api`'s `/metrics/` answers 401.** Its scrape job has been in this config the
+  whole time and has never collected a series; Prometheus gets nothing but auth failures. The
+  fix is a scrape token, and a token committed to a config file in this repository would be
+  the wrong fix. Operator decision, and the reason the job is left as it is rather than
+  removed.
+- **Four of the six newly-watched services answer 404 on `/metrics`** — monitoring, explorer,
+  gpu and edge. They are deliberately absent from `prometheus.yml` rather than added as jobs
+  that would scrape nothing; the health check is what watches them for now.
+- **Two units set an environment variable the code does not read.** `aitbc-governance` sets
+  `GOVERNANCE_PORT=8105` while the service reads `GOVERNANCE_BIND_PORT`; `aitbc-edge` sets
+  `API_PORT=8111` while the service reads `settings.app_port`. Both work only because the
+  code default happens to match the unit's intent, so changing either unit file would silently
+  do nothing. The tests here pin the *code* default, which is what actually binds.
+- **Nothing compares a monitored URL's path against the named app's route table** for services
+  other than Pool Hub. V23-96 built that check for one service; generalising it needs each
+  app importable in the test process, which is a larger change than this one.
+- The `security_hardening.sh` repair only takes effect when an operator runs that script. It
+  has never run on this host: no generated file, `no crontab for root`, and `/etc/cron.d`
+  holds only `e2scrub_all`, `logcheck` and `sysstat`. Whether to schedule the health check
+  here is still a decision nobody has made.
