@@ -148,7 +148,8 @@ class BillingIntegration:
                         MatchResult.created_at <= end_date,
                     )
                 )
-                .where(MatchResult.eta_ms.isnot_(None))
+                # is_not, not isnot_ (V23-97) — see _collect_miner_usage below.
+                .where(MatchResult.eta_ms.is_not(None))
             )
             all_results = (await self.db.execute(result_stmt)).scalars().all()
 
@@ -223,7 +224,9 @@ class BillingIntegration:
                     MatchResult.miner_id == miner_id, MatchResult.created_at >= start_date, MatchResult.created_at <= end_date
                 )
             )
-            .where(MatchResult.eta_ms.isnot_(None))
+            # is_not, not isnot_ (V23-97).  `isnot_` is not a SQLAlchemy operator, so
+            # every billing sync raised AttributeError here before touching the database.
+            .where(MatchResult.eta_ms.is_not(None))
         )
         results = (await self.db.execute(result_stmt)).scalars().all()
         total_compute_time_ms = sum(r.eta_ms for r in results if r.eta_ms)
