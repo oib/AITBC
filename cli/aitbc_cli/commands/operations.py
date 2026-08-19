@@ -480,10 +480,8 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
     config = get_config()
 
     try:
-        # Get RPC URL from config (use hub for cross-node operations)
+        # Get RPC URL from config (default local blockchain RPC)
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        # Use hub RPC for cross-node transaction propagation
-        rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
         try:
@@ -543,10 +541,8 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
     config = get_config()
 
     try:
-        # Get RPC URL from config (use hub for cross-node operations)
+        # Get RPC URL from config (default local blockchain RPC)
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        # Use hub RPC for cross-node transaction propagation
-        rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
         try:
@@ -609,9 +605,8 @@ def get_proposal(ctx, proposal_id: str, format: str):
     config = get_config()
 
     try:
-        # Get RPC URL from config (use hub for cross-node operations)
+        # Get RPC URL from config (default local blockchain RPC)
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
 
         # Get chain_id
         try:
@@ -702,12 +697,12 @@ def execute(ctx, proposal_id: str, format: str):
     config = get_config()
 
     try:
-        # Get governance service URL
-        governance_url = getattr(config, "governance_service_url", "http://localhost:8105")
+        # Use the local blockchain RPC for on-chain governance execution
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
 
         # Submit execution request
-        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
-        result = http_client.post(f"/v1/governance/proposals/{proposal_id}/execute")
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.post(f"/rpc/governance/proposal/{proposal_id}/execute")
 
         success(f"Executed proposal {proposal_id}")
         output(result, ctx.obj.get("output_format", format))

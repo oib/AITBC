@@ -4209,6 +4209,82 @@
         }
       }
     },
+    "/rpc/governance/proposal/{proposal_id}/execute": {
+      "post": {
+        "tags": [
+          "rpc",
+          "staking",
+          "identity",
+          "governance"
+        ],
+        "summary": "Execute governance proposal",
+        "description": "Execute a passed governance proposal on the blockchain",
+        "operationId": "execute_governance_proposal_route_rpc_governance_proposal__proposal_id__execute_post",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Execution Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Execute Governance Proposal Route Rpc Governance Proposal  Proposal Id  Execute Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Governance module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/governance/proposal/{proposal_id}": {
       "get": {
         "tags": [
