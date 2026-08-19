@@ -94,10 +94,10 @@ class TestAICommands:
         mock_client.post.assert_called_once()
         posted_path = mock_client.post.call_args[0][0]
         posted_body = mock_client.post.call_args.kwargs.get("json")
-        assert "/api/v1/jobs" in posted_path
-        assert posted_body["job_type"] == "inference"
-        assert posted_body["prompt"] == "Hello world"
-        assert posted_body["payment"] == 5.0
+        assert "/v1/jobs" == posted_path
+        assert posted_body["payload"]["type"] == "inference"
+        assert posted_body["payload"]["prompt"] == "Hello world"
+        assert posted_body["payment_amount"] == 5.0
         assert "job_test_123" in result.output
 
     @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
@@ -134,7 +134,7 @@ class TestAICommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/api/v1/jobs/job_test_123" in mock_client.get.call_args[0][0]
+        assert "/v1/jobs/job_test_123" == mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
     @patch("aitbc_cli.commands.ai.get_config")
@@ -164,7 +164,7 @@ class TestAICommands:
         )
 
         assert result.exit_code == 0, result.output
-        assert "/api/v1/jobs/job_test_123/results" in mock_client.get.call_args[0][0]
+        assert "/v1/jobs/job_test_123/result" == mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
     @patch("aitbc_cli.commands.ai.get_config")
