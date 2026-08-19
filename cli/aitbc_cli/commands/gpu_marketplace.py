@@ -133,8 +133,15 @@ def list_gpus_cmd(ctx):
         try:
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             response = http_client.get("/v1/transactions")
-            # Response is a dict with 'gpus' key
-            transactions = response.get("gpus", [])
+            # The gpu-service returns the transaction list directly, or a dict with
+            # an 'error' key when the DB query fails.
+            if isinstance(response, dict):
+                if "error" in response:
+                    abort(ctx, f"GPU service error: {response['error']}")
+                    return
+                transactions = response.get("transactions", [])
+            else:
+                transactions = response
 
             if not transactions:
                 info("No registered GPUs found")
