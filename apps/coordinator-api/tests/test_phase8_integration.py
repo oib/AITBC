@@ -87,7 +87,10 @@ def test_marketplace_health_secondary():
 @pytest.mark.skipif(not os.getenv("BLOCKCHAIN_RPC_URL"), reason="BLOCKCHAIN_RPC_URL not set; blockchain RPC check skipped")
 def test_blockchain_rpc_head():
     """Test blockchain RPC head endpoint"""
-    _check_json(os.environ["BLOCKCHAIN_RPC_URL"])
+    url = os.environ["BLOCKCHAIN_RPC_URL"].rstrip("/")
+    if not url.endswith("/rpc/head"):
+        url = f"{url}/rpc/head"
+    _check_json(url)
 
 
 @pytest.mark.skipif(

@@ -85,9 +85,7 @@ def test_cli_defaults_do_not_point_at_local_hub_only_ports() -> None:
 
 
 def test_pool_hub_does_not_default_to_local_agent_coordinator() -> None:
-    settings_src = (REPO_ROOT / "apps" / "pool-hub" / "src" / "poolhub" / "settings.py").read_text(
-        encoding="utf-8"
-    )
+    settings_src = (REPO_ROOT / "apps" / "pool-hub" / "src" / "poolhub" / "settings.py").read_text(encoding="utf-8")
     client_src = (REPO_ROOT / "apps" / "pool-hub" / "src" / "poolhub" / "clients" / "blockchain.py").read_text(
         encoding="utf-8"
     )
