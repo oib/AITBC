@@ -152,7 +152,7 @@ class TestOperationsCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
-        assert "/v1/governance/proposals/prop1/execute" in mock_client.post.call_args[0][0]
+        assert "/rpc/governance/proposal/prop1/execute" in mock_client.post.call_args[0][0]
 
     @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
     @patch("aitbc_cli.commands.operations.get_config")

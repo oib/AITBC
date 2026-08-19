@@ -6,7 +6,7 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -44,6 +44,7 @@ class TestAnalyticsCommands:
     def test_analytics_summary_command(self, mock_load_config, mock_analytics_class, runner):
         """``analytics summary`` returns cross-chain analysis from the mocked analytics layer."""
         mock_analytics = mock_analytics_class.return_value
+        mock_analytics.collect_all_metrics = AsyncMock(return_value={})
         mock_analytics.get_cross_chain_analysis.return_value = {
             "total_chains": 3,
             "active_chains": 2,
@@ -72,6 +73,7 @@ class TestAnalyticsCommands:
     def test_analytics_summary_single_chain(self, mock_load_config, mock_analytics_class, runner):
         """``analytics summary --chain-id`` returns single-chain performance summary."""
         mock_analytics = mock_analytics_class.return_value
+        mock_analytics.collect_all_metrics = AsyncMock(return_value={})
         mock_analytics.get_chain_performance_summary.return_value = {
             "chain_id": "chain-1",
             "time_range_hours": 24,
