@@ -1,7 +1,10 @@
 """IPFS operations using CLI commands"""
 
+from typing import cast
+
 import os
 import tempfile
+from pathlib import Path
 
 from aitbc.aitbc_logging import get_logger
 
@@ -13,7 +16,7 @@ logger = get_logger(__name__)
 class IPFSOperations:
     """IPFS operations via CLI"""
 
-    def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
+    def __init__(self, cli_path: str | None = None):
         self.executor = CommandExecutor(cli_path)
 
     def store_ipfs(self, data: bytes, pin: bool = True, name: str | None = None) -> str:
@@ -38,7 +41,7 @@ class IPFSOperations:
             os.unlink(temp_path)
 
             if result["success"]:
-                return result["data"].get("cid")
+                return cast(str, result["data"].get("cid"))
             else:
                 logger.error("IPFS store failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
@@ -56,12 +59,15 @@ class IPFSOperations:
             result = self.executor.execute_command("ipfs", args)
 
             if result["success"]:
-                # If output path specified, read from file
+                file_path = result["data"].get("file_path")
                 if output_path:
-                    with open(output_path, "rb") as f:
-                        return f.read()
-                # Otherwise, return the file path from result
-                return result["data"].get("file_path", "")
+                    target = Path(output_path)
+                elif file_path:
+                    target = Path(file_path)
+                else:
+                    raise Exception("No file path in IPFS download response")
+                with target.open("rb") as f:
+                    return f.read()
             else:
                 logger.error("IPFS retrieve failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
@@ -74,7 +80,7 @@ class IPFSOperations:
         try:
             result = self.executor.execute_command("ipfs", ["pin", cid])
             if result["success"]:
-                return result["data"].get("pinned", False)
+                return cast(bool, result["data"].get("pinned", False))
             else:
                 logger.error("IPFS pin failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
@@ -87,7 +93,7 @@ class IPFSOperations:
         try:
             result = self.executor.execute_command("ipfs", ["list"])
             if result["success"]:
-                return result["data"].get("items", [])
+                return cast(list, result["data"].get("items", []))
             else:
                 logger.error("IPFS list failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
@@ -114,7 +120,7 @@ class IPFSOperations:
             os.unlink(temp_path)
 
             if result["success"]:
-                return result["data"].get("cid")
+                return cast(str, result["data"].get("cid"))
             else:
                 logger.error("IPFS store async failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
@@ -132,10 +138,15 @@ class IPFSOperations:
 
         result = await self.executor.execute_command_async("ipfs", args)
         if result["success"]:
+            file_path = result["data"].get("file_path")
             if output_path:
-                with open(output_path, "rb") as f:
-                    return f.read()
-            return result["data"].get("file_path", "")
+                target = Path(output_path)
+            elif file_path:
+                target = Path(file_path)
+            else:
+                raise Exception("No file path in IPFS download response")
+            with target.open("rb") as f:
+                return f.read()
         else:
             logger.error("IPFS retrieve async failed: %s", result.get("error"))
             raise Exception(result.get("error"))
