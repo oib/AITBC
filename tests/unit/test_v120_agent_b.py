@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from types import ModuleType
 from typing import Any
 
@@ -145,11 +146,14 @@ def test_economics_propose_invocation() -> None:
 
     economics = _import_module("aitbc_cli.commands.economics")
     runner = CliRunner()
-    result = runner.invoke(
-        economics.economics,
-        ["propose", "--parameter", "network_fee", "--current", "1", "--proposed", "2"],
-        obj={"output_format": "json"},
-    )
+    with patch(
+        "aitbc_cli.commands.economics.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30, api_key=None)
+    ):
+        result = runner.invoke(
+            economics.economics,
+            ["propose", "--parameter", "network_fee", "--current", "1", "--proposed", "2"],
+            obj={"output_format": "json"},
+        )
     assert result.exit_code == 0
     assert "network_fee" in result.output
 
