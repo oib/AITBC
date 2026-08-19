@@ -260,6 +260,27 @@ async def book_offer(
         raise
 
 
+@app.post("/v1/marketplace/bids/{bid_id}/complete")
+async def complete_bid(
+    bid_id: str,
+    request_data: dict[str, Any],
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+) -> Any:
+    """Complete a marketplace bid after on-chain payment confirms."""
+    try:
+        tx_hash = request_data.get("tx_hash") or request_data.get("transaction_hash", "")
+        if not tx_hash:
+            return JSONResponse(status_code=400, content={"error": "tx_hash is required"})
+        result = await svc.complete_bid(bid_id, tx_hash)
+        return result
+    except ValueError as e:
+        logger.info("Rejecting bid completion: %s", e)
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/bids/%s/complete: %s: %s", bid_id, type(e).__name__, str(e))
+        raise
+
+
 class MatchRequest(BaseModel):
     """Request model for marketplace matching (v0.6.6)."""
 
