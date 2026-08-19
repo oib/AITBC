@@ -12,10 +12,10 @@ from aiohttp import web
 
 # Regional endpoints configuration
 regions = {
-    "us-east": {"url": "http://127.0.0.1:18000", "weight": 3, "healthy": True, "edge_node": "aitbc-edge-primary"},
+    "us-east": {"url": "http://127.0.0.1:8203", "weight": 3, "healthy": True, "edge_node": "aitbc-edge-primary"},
     "us-west": {"url": "http://127.0.0.1:18001", "weight": 2, "healthy": True, "edge_node": "aitbc1-edge-secondary"},
     "eu-central": {"url": "http://127.0.0.1:8202", "weight": 2, "healthy": True, "edge_node": "localhost"},
-    "eu-west": {"url": "http://127.0.0.1:18000", "weight": 1, "healthy": True, "edge_node": "aitbc-edge-primary"},
+    "eu-west": {"url": "http://127.0.0.1:8203", "weight": 1, "healthy": True, "edge_node": "aitbc-edge-primary"},
     "ap-southeast": {"url": "http://127.0.0.1:18001", "weight": 2, "healthy": True, "edge_node": "aitbc1-edge-secondary"},
     "ap-northeast": {"url": "http://127.0.0.1:8202", "weight": 1, "healthy": True, "edge_node": "localhost"},
 }

@@ -24,8 +24,9 @@ def runner():
 def mock_config():
     """Mock configuration using SimpleNamespace (JSON-serializable, no Mock auto-attrs)"""
     return SimpleNamespace(
-        agent_coordinator_url="http://127.0.0.1:18000",
-        coordinator_url="http://127.0.0.1:18000",
+        coordinator_api_url="http://127.0.0.1:8203",
+        agent_coordinator_url="http://127.0.0.1:8107",
+        coordinator_url="http://127.0.0.1:8203",
         api_key=None,
         timeout=30,
         config_file="/home/oib/.aitbc/config.yaml",
@@ -55,7 +56,8 @@ class TestConfigCommands:
 
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["agent_coordinator_url"] == "http://127.0.0.1:18000"
+        assert data["coordinator_api_url"] == "http://127.0.0.1:8203"
+        assert data["agent_coordinator_url"] == "http://127.0.0.1:8107"
         assert data["api_key"] is None  # mock_config has api_key=None
         assert data["timeout"] == 30
 
@@ -67,7 +69,7 @@ class TestConfigCommands:
             )
 
             assert result.exit_code == 0
-            assert "Coordinator URL set to: http://new:8000" in result.output
+            assert "Agent coordinator URL set to: http://new:8000" in result.output
 
             # Verify file was created in current directory
             config_file = Path.cwd() / ".aitbc.yaml"
@@ -342,7 +344,7 @@ class TestConfigCommands:
 
     def test_validate_missing_url(self, runner, mock_config):
         """Test validating config with missing URL"""
-        mock_config.agent_coordinator_url = None
+        mock_config.coordinator_api_url = None
 
         result = runner.invoke(config, ["validate"], obj={"config": mock_config, "output": "table"})
 
@@ -351,7 +353,7 @@ class TestConfigCommands:
 
     def test_validate_invalid_url(self, runner, mock_config):
         """Test validating config with invalid URL"""
-        mock_config.agent_coordinator_url = "invalid-url"
+        mock_config.coordinator_api_url = "invalid-url"
 
         result = runner.invoke(config, ["validate"], obj={"config": mock_config, "output": "table"})
 
@@ -402,7 +404,8 @@ class TestConfigCommands:
             assert profile_file.exists()
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:18000"
+            assert profile_data["coordinator_api_url"] == "http://127.0.0.1:8203"
+            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:8107"
 
     def test_profiles_list(self, runner, mock_config, tmp_path):
         """Test listing configuration profiles"""

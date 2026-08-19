@@ -10,6 +10,14 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 
+def _auth_headers(ctx) -> dict[str, str] | None:
+    """Return Authorization header if the CLI was invoked with --api-key."""
+    token = ctx.obj.get("api_key")
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return None
+
+
 @click.group()
 def ai():
     """AI job submission and inspection"""
@@ -20,6 +28,7 @@ def ai():
 @click.option("--wallet", help="Wallet name")
 @click.option("--type", "job_type", help="Job type")
 @click.option("--prompt", help="Job prompt")
+@click.option("--model", help="Ollama model to use")
 @click.option("--payment", type=float, help="Payment amount")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
@@ -28,13 +37,13 @@ def ai():
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def submit(ctx, wallet, job_type, prompt, payment, password, password_file, chain_id, rpc_url, coordinator_url, format):
+def submit(ctx, wallet, job_type, prompt, model, payment, password, password_file, chain_id, rpc_url, coordinator_url, format):
     """Submit an AI job"""
     config = get_config()
 
     try:
         # Get coordinator URL
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -46,21 +55,29 @@ def submit(ctx, wallet, job_type, prompt, payment, password, password_file, chai
             with open(password_file) as f:
                 _ = f.read().strip()
 
-        # Prepare job data
-        job_data = {
-            "job_type": job_type or "inference",
+        # Prepare job data in the JobCreate shape expected by coordinator-api
+        payload = {
+            "type": job_type or "inference",
             "prompt": prompt or "",
         }
 
-        if payment:
-            job_data["payment"] = payment
+        if model:
+            payload["model"] = model
 
-        if wallet:
-            job_data["wallet"] = wallet
+        job_data = {
+            "payload": payload,
+            "constraints": {},
+            "ttl_seconds": 900,
+        }
+
+        if payment:
+            job_data["payment_amount"] = payment
+            job_data["payment_currency"] = "AITBC"
 
         # Submit to coordinator
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.post("/api/v1/jobs", json=job_data)
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.post("/v1/jobs", json=job_data)
 
         success(f"Job submitted: {result.get('job_id')}")
         output(result, ctx.obj.get("output_format", format))
@@ -82,16 +99,17 @@ def jobs(ctx, limit, status, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         params = {"limit": limit}
         if status:
             params["status"] = status
 
-        result = http_client.get("/api/v1/jobs", params=params)
+        result = http_client.get("/v1/jobs", params=params)
         output(result, ctx.obj.get("output_format", format), title="AI Jobs")
 
     except NetworkError as e:
@@ -110,15 +128,16 @@ def status(ctx, job_id, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
         if not job_id:
             abort(ctx, "Job ID required")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.get(f"/api/v1/jobs/{job_id}")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get(f"/v1/jobs/{job_id}")
 
         output(result, ctx.obj.get("output_format", format), title=f"Job Status: {job_id}")
 
@@ -143,12 +162,13 @@ def list(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.get("/api/v1/services")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get("/v1/services")
 
         output(result, ctx.obj.get("output_format", format), title="AI Services")
 
@@ -168,15 +188,16 @@ def service_status(ctx, name, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
         if not name:
             abort(ctx, "Service name required")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.get(f"/api/v1/services/{name}")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get(f"/v1/services/{name}")
 
         output(result, ctx.obj.get("output_format", format), title=f"Service Status: {name}")
 
@@ -196,15 +217,16 @@ def test(ctx, name, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
         if not name:
             abort(ctx, "Service name required")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.post(f"/api/v1/services/{name}/test")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.post(f"/v1/services/{name}/test")
 
         success(f"Service {name} test completed")
         output(result, ctx.obj.get("output_format", format), title=f"Service Test: {name}")
@@ -225,15 +247,16 @@ def results(ctx, job_id, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
         if not job_id:
             abort(ctx, "Job ID required")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.get(f"/api/v1/jobs/{job_id}/results")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get(f"/v1/jobs/{job_id}/result")
 
         output(result, ctx.obj.get("output_format", format), title=f"Job Results: {job_id}")
 
@@ -256,7 +279,7 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -268,8 +291,9 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
             with open(password_file) as f:
                 _ = f.read().strip()
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.delete(f"/api/v1/jobs/{job_id}")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.post(f"/v1/jobs/{job_id}/cancel")
 
         success(f"Job {job_id} cancelled")
         output(result, ctx.obj.get("output_format", format))
@@ -289,12 +313,13 @@ def stats(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.get("/api/v1/stats")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get("/v1/stats")
 
         output(result, ctx.obj.get("output_format", format), title="AI Service Statistics")
 
@@ -313,12 +338,13 @@ def distribution_stats(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.agent_coordinator_url
+        coord_url = coordinator_url or config.coordinator_api_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
-        result = http_client.get("/api/v1/agent/stats/distribution")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get("/v1/agent/stats/distribution")
 
         output(result, ctx.obj.get("output_format", format), title="Task Distribution Statistics")
 
