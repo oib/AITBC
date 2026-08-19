@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 05 Island Creation
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-06-25
-**Version**: 1.0
+**Last Updated**: 2026-08-19
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -279,6 +279,16 @@ aitbc exchange-island rates
 
 ---
 
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
+
 ## Related Resources
 
 - Source: `cli/aitbc_cli/commands/exchange_island.py` (buy, sell, orderbook, rates, orders, cancel)
@@ -287,5 +297,5 @@ aitbc exchange-island rates
 
 ---
 
-*Last updated: 2026-06-25*
-*Version: 1.0*
+*Last updated: 2026-08-19*
+*Version: 1.1*

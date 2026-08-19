@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 32 Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md)
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-07-05
+**Last Updated**: 2026-08-19
 **Version**: 1.1
 
 ## Navigation Path
@@ -400,6 +400,16 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/exchange/tests/test_simple_exc
 
 ---
 
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
+
 ## Related Resources
 
 - [v0.10.3 Change Log](../releases/v0.10.3/change.log) (includes backport section)
@@ -408,5 +418,5 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/exchange/tests/test_simple_exc
 
 ---
 
-*Last updated: 2026-07-05*
+*Last updated: 2026-08-19*
 *Version: 1.1*

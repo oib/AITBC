@@ -3,7 +3,7 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 02 Transaction Sending
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-06-30
+**Last Updated**: 2026-08-19
 **Version**: 1.1
 
 > **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only marketplace with bidding was deprecated in v0.4.7. This scenario describes on-chain GPU resource registration which is still valid, but the marketplace bidding functionality referenced in prerequisites is no longer available. The current marketplace focuses on hardware+software bundles with fixed pricing.
@@ -371,6 +371,16 @@ aitbc resource status
 
 ---
 
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
+
 ## Related Resources
 
 - Source: `cli/aitbc_cli/commands/gpu_marketplace.py` (`gpu` group: discover, register, unregister, update, list)
@@ -381,5 +391,5 @@ aitbc resource status
 
 ---
 
-*Last updated: 2026-06-25*
-*Version: 1.0*
+*Last updated: 2026-08-19*
+*Version: 1.1*
