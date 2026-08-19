@@ -2,7 +2,15 @@
 Wallet utility functions for AITBC CLI
 """
 
+import base64
+import hashlib
+import json
 from pathlib import Path
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 def decrypt_private_key(keystore_path: Path, password: str) -> str:
@@ -12,8 +20,6 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
     (``private_key`` is a dict with ``encrypted_data``, ``salt``, etc.) and the
     older blockchain-node AES-256-GCM keystore format (``crypto`` dict).
     """
-    import json
-
     from aitbc.security.encryption import decrypt_value
 
     with open(keystore_path) as f:
@@ -28,14 +34,6 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
     if isinstance(crypto, dict):
         cipher = crypto.get("cipher", crypto.get("algorithm", ""))
         if cipher in ("aes-256-gcm",):
-            import base64
-
-            from cryptography.hazmat.backends import default_backend
-            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
-            from cryptography.hazmat.primitives import hashes
-
             salt = bytes.fromhex(crypto["kdfparams"]["salt"])
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
@@ -51,9 +49,6 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
             return priv.hex()
 
         if cipher in ("fernet", "PBKDF2-SHA256-Fernet"):
-            import base64
-            import hashlib
-
             from cryptography.fernet import Fernet
 
             kdfparams = crypto.get("kdfparams", {})
@@ -69,4 +64,4 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
             priv = fernet.decrypt(ciphertext)
             return priv.decode()
 
-    raise ValueError(f"Unsupported keystore format in {keystore_path}")
+    raise ValueError(f"Unsupported cipher in keystore {keystore_path}")
