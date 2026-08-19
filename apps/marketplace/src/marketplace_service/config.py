@@ -7,6 +7,8 @@ coordinator integration fields.
 """
 
 from __future__ import annotations
+import os
+
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from aitbc_shared.core.config import ServiceSettings
@@ -24,8 +26,8 @@ class Settings(ServiceSettings):
     api_key: str | None = None
 
     # Blockchain integration
-    blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL
-    default_chain_id: str = "ait-hub"
+    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
+    default_chain_id: str = "ait-hub.aitbc.bubuit.net"
 
     # Agent coordinator integration (v0.6.6 matching → task queue)
     agent_coordinator_url: str = "http://localhost:8107"

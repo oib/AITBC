@@ -1,20 +1,29 @@
 """Global chain marketplace commands for AITBC CLI"""
 
 import asyncio
+import builtins
+
 import json
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 import click
 
 from ..config import get_config
 from ..core.config import load_multichain_config
-from ..core.marketplace import ChainType, GlobalChainMarketplace, MarketplaceStatus
+from ..core.marketplace import ChainType, GlobalChainMarketplace
 from ..utils import DECIMAL, error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+
+def _marketplace_client() -> AITBCHTTPClient:
+    """Return a HTTP client configured for the marketplace service."""
+    config = get_config()
+    return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
 
 
 @click.group()
@@ -46,9 +55,6 @@ def marketplace(ctx, chain_id: str | None):
 def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, currency, specs, metadata):
     """List a chain for sale in the marketplace"""
     try:
-        config = get_config()
-        from ..utils.http_client import AITBCHTTPClient
-
         # Parse chain type
         try:
             _ = ChainType(chain_type)
@@ -57,7 +63,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
             abort(ctx, f"Valid types: {[t.value for t in ChainType]}")
         # Parse price
         try:
-            _ = Decimal(price)
+            price_dec = Decimal(price)
         except (ValueError, TypeError):
             abort(ctx, "Invalid price format")
         # Parse specifications
@@ -74,49 +80,56 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
                 metadata_dict = json.loads(metadata)
             except json.JSONDecodeError:
                 abort(ctx, "Invalid JSON metadata")
-        # Create listing transaction
+
         listing_id = f"chain_listing_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        listing_data = {
-            "type": "marketplace",
-            "action": "list",
+        attributes = {
             "listing_id": listing_id,
-            "chain_id": chain_id,
             "chain_name": chain_name,
             "chain_type": chain_type,
             "description": description,
             "seller_id": seller_id,
-            # not-money: wire format, POSTed to /v1/transactions as a transaction body
-            "price": float(price),
             "currency": currency,
             "specs": chain_specs,
             "metadata": metadata_dict,
-            "status": "active",
-            "created_at": datetime.now().isoformat(),
         }
 
-        # Submit transaction to marketplace service
-        try:
-            http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-            _ = http_client.post("/v1/transactions", json=listing_data)
-            success(f"Chain listed successfully! Listing ID: {listing_id}")
+        offer_data = {
+            "provider": seller_id,
+            "capacity": 1,
+            "price": str(price_dec),
+            "price_per_hour": str(price_dec),
+            "sla": description,
+            "status": "available",
+            "attributes": attributes,
+            "chain_id": chain_id,
+            "region": metadata_dict.get("region") or "unknown",
+            "gpu_model": chain_specs.get("gpu_model"),
+            "gpu_count": chain_specs.get("gpu_count") or 1,
+            "gpu_memory_gb": chain_specs.get("vram_gb") or chain_specs.get("gpu_memory_gb"),
+        }
 
-            listing_info = {
-                "Listing ID": listing_id,
-                "Chain ID": chain_id,
-                "Chain Name": chain_name,
-                "Type": chain_type,
-                "Price": f"{price} {currency}",
-                "Seller": seller_id,
-                "Status": "active",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
+        http_client = _marketplace_client()
+        resp = http_client.post("/v1/marketplace/offers", json=offer_data)
+        result = resp.json() if hasattr(resp, "json") else resp
+        offer_id = result.get("id", listing_id)
+        success(f"Chain listed successfully! Listing ID: {offer_id}")
 
-            output(listing_info, ctx.obj.get("output_format", "table"))
-        except Exception as e:
-            abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
+        listing_info = {
+            "Listing ID": offer_id,
+            "Chain ID": chain_id,
+            "Chain Name": chain_name,
+            "Type": chain_type,
+            "Price": f"{price} {currency}",
+            "Seller": seller_id,
+            "Status": "available",
+            "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
 
+        output(listing_info, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}")
     except Exception as e:
-        abort(ctx, f"Error creating listing: {str(e)}", from_exception=e)
+        abort(ctx, f"Error creating listing: {e}", from_exception=e)
 
 
 @marketplace.command()
@@ -127,30 +140,34 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
 def buy(ctx, listing_id, buyer_id, payment):
     """Purchase a chain from the marketplace"""
     try:
-        config = load_multichain_config()
-        marketplace = GlobalChainMarketplace(config)
+        http_client = _marketplace_client()
+        booking_data = {
+            "wallet": buyer_id,
+            "buyer": buyer_id,
+            "duration_hours": 1.0,
+        }
+        resp = http_client.post(f"/v1/marketplace/offers/{listing_id}/book", json=booking_data)
+        result = resp.json() if hasattr(resp, "json") else resp
+        bid_id = result.get("bid_id")
+        if not bid_id:
+            abort(ctx, f"Failed to purchase listing: {result.get('error', 'unknown error')}")
 
-        # Purchase chain
-        transaction_id = asyncio.run(marketplace.purchase_chain(listing_id, buyer_id, payment))
+        success(f"Purchase initiated! Transaction ID: {bid_id}")
 
-        if transaction_id:
-            success(f"Purchase initiated! Transaction ID: {transaction_id}")
+        transaction_data = {
+            "Transaction ID": bid_id,
+            "Listing ID": listing_id,
+            "Buyer": buyer_id,
+            "Payment Method": payment,
+            "Status": "pending",
+            "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
 
-            transaction_data = {
-                "Transaction ID": transaction_id,
-                "Listing ID": listing_id,
-                "Buyer": buyer_id,
-                "Payment Method": payment,
-                "Status": "pending",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-
-            output(transaction_data, ctx.obj.get("output_format", "table"))
-        else:
-            abort(ctx, "Failed to purchase chain")
-
+        output(transaction_data, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}")
     except Exception as e:
-        abort(ctx, f"Error purchasing chain: {str(e)}", from_exception=e)
+        abort(ctx, f"Error purchasing chain: {e}", from_exception=e)
 
 
 @marketplace.command()
@@ -160,13 +177,13 @@ def buy(ctx, listing_id, buyer_id, payment):
 def complete(ctx, transaction_id, transaction_hash):
     """Complete a marketplace transaction"""
     try:
-        config = load_multichain_config()
-        marketplace = GlobalChainMarketplace(config)
-
-        # Complete transaction
-        completed = asyncio.run(marketplace.complete_transaction(transaction_id, transaction_hash))
-
-        if completed:
+        http_client = _marketplace_client()
+        resp = http_client.post(
+            f"/v1/marketplace/bids/{transaction_id}/complete",
+            json={"tx_hash": transaction_hash},
+        )
+        result = resp.json() if hasattr(resp, "json") else resp
+        if result.get("status") == "completed":
             success(f"Transaction {transaction_id} completed successfully!")
 
             transaction_data = {
@@ -178,10 +195,11 @@ def complete(ctx, transaction_id, transaction_hash):
 
             output(transaction_data, ctx.obj.get("output_format", "table"))
         else:
-            abort(ctx, f"Failed to complete transaction {transaction_id}")
-
+            abort(ctx, f"Failed to complete transaction {transaction_id}: {result.get('error', 'unknown')}")
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}")
     except Exception as e:
-        abort(ctx, f"Error completing transaction: {str(e)}", from_exception=e)
+        abort(ctx, f"Error completing transaction: {e}", from_exception=e)
 
 
 @marketplace.command()
@@ -195,14 +213,9 @@ def complete(ctx, transaction_id, transaction_hash):
 def search(ctx, type, min_price, max_price, seller, status, format):
     """Search chain listings in the marketplace"""
     try:
-        config = load_multichain_config()
-        marketplace = GlobalChainMarketplace(config)
-
-        # Parse filters
-        chain_type = None
         if type:
             try:
-                chain_type = ChainType(type)
+                _ = ChainType(type)
             except ValueError:
                 abort(ctx, f"Invalid chain type: {type}")
         min_price_dec = None
@@ -217,39 +230,57 @@ def search(ctx, type, min_price, max_price, seller, status, format):
                 max_price_dec = Decimal(max_price)
             except (ValueError, TypeError):
                 abort(ctx, "Invalid maximum price format")
-        listing_status = None
-        if status:
-            try:
-                listing_status = MarketplaceStatus(status)
-            except ValueError:
-                abort(ctx, f"Invalid status: {status}")
-        # Search listings
-        listings = asyncio.run(marketplace.search_listings(chain_type, min_price_dec, max_price_dec, seller, listing_status))
 
-        if not listings:
+        http_client = _marketplace_client()
+        params: dict[str, Any] = {}
+        if status:
+            # Scenario uses "active"; the marketplace service uses "available"
+            params["status"] = "available" if status.lower() == "active" else status
+        if seller:
+            params["provider"] = seller
+        resp = http_client.get("/v1/marketplace/offers", params=params)
+        offers = resp.json() if hasattr(resp, "json") else resp
+        if not isinstance(offers, builtins.list):
+            offers = []
+
+        # Client-side filters for scenario fields stored in attributes
+        filtered = []
+        for offer in offers:
+            attrs = offer.get("attributes") or {}
+            price = Decimal(str(offer.get("price") or 0))
+            if min_price_dec and price < min_price_dec:
+                continue
+            if max_price_dec and price > max_price_dec:
+                continue
+            if type and attrs.get("chain_type") != type:
+                continue
+            if seller and offer.get("provider") != seller:
+                continue
+            filtered.append(offer)
+
+        if not filtered:
             output("No listings found matching your criteria", ctx.obj.get("output_format", "table"))
             return
 
-        # Format output
         listing_data = [
             {
-                "Listing ID": listing.listing_id,
-                "Chain ID": listing.chain_id,
-                "Chain Name": listing.chain_name,
-                "Type": listing.chain_type.value,
-                "Price": f"{listing.price} {listing.currency}",
-                "Seller": listing.seller_id,
-                "Status": listing.status.value,
-                "Created": listing.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "Expires": listing.expires_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "Listing ID": offer.get("id"),
+                "Chain ID": offer.get("chain_id"),
+                "Chain Name": (offer.get("attributes") or {}).get("chain_name", ""),
+                "Type": (offer.get("attributes") or {}).get("chain_type", ""),
+                "Price": f"{offer.get('price')} {(offer.get('attributes') or {}).get('currency', 'ETH')}",
+                "Seller": offer.get("provider"),
+                "Status": offer.get("status"),
+                "Created": offer.get("created_at"),
             }
-            for listing in listings
+            for offer in filtered
         ]
 
         output(listing_data, ctx.obj.get("output_format", format), title="Marketplace Listings")
-
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}")
     except Exception as e:
-        abort(ctx, f"Error searching listings: {str(e)}", from_exception=e)
+        abort(ctx, f"Error searching listings: {e}", from_exception=e)
 
 
 @marketplace.command()
