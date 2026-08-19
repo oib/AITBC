@@ -37,6 +37,8 @@ from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core d
 from aitbc_cli.commands.developer import developer
 from aitbc_cli.commands.grant import grant
 from aitbc_cli.commands.economics import economics
+from aitbc_cli.commands.ipfs import ipfs
+from aitbc_cli.commands.oracle import oracle
 from aitbc_cli.commands.edge import edge
 from aitbc_cli.commands.explorer import explorer
 
@@ -187,6 +189,8 @@ cli.add_command(monitor)  # Re-enabled - no core dependency
 cli.add_command(node)
 cli.add_command(agent_comm)  # Cross-chain agent communication (distinct from `agent` SDK group)
 cli.add_command(exchange)
+cli.add_command(ipfs)  # Local content-addressed storage
+cli.add_command(oracle)  # Local data oracle
 cli.add_command(config_cmd, name="config")
 cli.add_command(list_wallets)
 cli.add_command(version)

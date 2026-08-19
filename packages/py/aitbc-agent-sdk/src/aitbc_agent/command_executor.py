@@ -49,6 +49,11 @@ class CommandExecutor:
                 except json.JSONDecodeError:
                     data = {"output": result.stdout}
 
+                # CLI commands emit {"success": true, "data": {...}}; unwrap the
+                # inner payload so callers can use result["data"].get("cid").
+                if isinstance(data, dict) and "data" in data and "success" in data:
+                    data = data["data"]
+
                 return {"success": True, "output": result.stdout, "data": data}
             else:
                 logger.error("Command failed: %s", result.stderr)
