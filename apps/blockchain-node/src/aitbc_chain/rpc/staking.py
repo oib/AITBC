@@ -119,7 +119,10 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         if stake.status != "active":
             raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
         now = datetime.now(UTC)
-        if stake.locked_until and now < stake.locked_until:
+        locked_until = stake.locked_until
+        if locked_until and locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=UTC)
+        if locked_until and now < locked_until:
             raise HTTPException(
                 status_code=400, detail=f"Lock period not expired. Locked until: {stake.locked_until.isoformat()}"
             )
