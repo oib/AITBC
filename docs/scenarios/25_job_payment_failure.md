@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 24 Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-07-05
-**Version**: 1.0
+**Last Updated**: 2026-08-19
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -188,6 +188,16 @@ journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep "Payme
 
 ---
 
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
+
 ## Related Resources
 
 - [Coordinator API Reference](../apps/coordinator/coordinator-api.md)
@@ -195,5 +205,5 @@ journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep "Payme
 
 ---
 
-*Last updated: 2026-07-05*
-*Version: 1.0*
+*Last updated: 2026-08-19*
+*Version: 1.1*
