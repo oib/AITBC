@@ -1,5 +1,7 @@
 """AI job submission and inspection commands for AITBC CLI"""
 
+import os
+
 import click
 
 from ..config import get_config
@@ -30,6 +32,8 @@ def ai():
 @click.option("--prompt", help="Job prompt")
 @click.option("--model", help="Ollama model to use")
 @click.option("--payment", type=float, help="Payment amount")
+@click.option("--buyer-address", help="Customer wallet address for escrow")
+@click.option("--provider-address", help="Provider wallet address for escrow")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
 @click.option("--chain-id", help="Chain ID")
@@ -37,7 +41,22 @@ def ai():
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def submit(ctx, wallet, job_type, prompt, model, payment, password, password_file, chain_id, rpc_url, coordinator_url, format):
+def submit(
+    ctx,
+    wallet,
+    job_type,
+    prompt,
+    model,
+    payment,
+    buyer_address,
+    provider_address,
+    password,
+    password_file,
+    chain_id,
+    rpc_url,
+    coordinator_url,
+    format,
+):
     """Submit an AI job"""
     config = get_config()
 
@@ -73,6 +92,8 @@ def submit(ctx, wallet, job_type, prompt, model, payment, password, password_fil
         if payment:
             job_data["payment_amount"] = payment
             job_data["payment_currency"] = "AITBC"
+            job_data["buyer_address"] = buyer_address or os.environ.get("CUSTOMER_WALLET_ADDRESS")
+            job_data["provider_address"] = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
 
         # Submit to coordinator
         headers = _auth_headers(ctx)
