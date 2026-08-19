@@ -208,7 +208,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 - All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
 - The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
 - The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+- The megaplan test suite is green: **0 failures**, **9 skipped** live-deployment verification tests under `tests/verification/` (gated by `AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`), and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
 
 
 ## Related Resources
@@ -218,5 +218,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-19*
-*Version: 1.1*
+*Last updated: 2026-08-20*
+*Version: 1.2*
