@@ -115,6 +115,62 @@ class CLIConfig(BaseAITBCConfig):
         return self.coordinator_api_url
 
 
+def _parse_env_file(env_path: Path) -> dict[str, str]:
+    """Parse a simple KEY=VALUE env file, ignoring comments and blank lines."""
+    values: dict[str, str] = {}
+    if not env_path.exists():
+        return values
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith(("#", ";")):
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            values[key] = value
+    return values
+
+
+def _resolve_api_key(config_data: dict[str, Any]) -> str | None:
+    """Resolve the API key from config, env, and credential files."""
+    if config_data.get("api_key"):
+        return str(config_data["api_key"])
+
+    if os.environ.get("AITBC_API_KEY"):
+        return os.environ["AITBC_API_KEY"]
+
+    env_files = [
+        Path.home() / ".aitbc" / "credentials.env",
+        Path("/etc/aitbc/aitbc-cli.env"),
+        Path("/etc/aitbc/aitbc-coordinator-api.env"),
+    ]
+    for env_path in env_files:
+        parsed = _parse_env_file(env_path)
+        if parsed.get("AITBC_API_KEY"):
+            return parsed["AITBC_API_KEY"]
+        miner_keys = parsed.get("MINER_API_KEYS", "")
+        if miner_keys:
+            miner_keys = miner_keys.strip()
+            if miner_keys.startswith("["):
+                try:
+                    import json
+
+                    keys = json.loads(miner_keys)
+                    if keys:
+                        return str(keys[0])
+                except (json.JSONDecodeError, IndexError):
+                    pass
+            elif "," in miner_keys:
+                return miner_keys.split(",")[0].strip()
+            else:
+                return miner_keys
+
+    return None
+
+
 def _load_config_file(config_path: Path) -> dict[str, Any]:
     """Load a YAML/JSON config file and normalize legacy aliases."""
     import yaml
@@ -142,7 +198,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
         config_data = _load_config_file(config_path)
 
         # Override with config file values
-        api_key = config_data.get("api_key") or os.environ.get("AITBC_API_KEY")
+        api_key = _resolve_api_key(config_data)
         return CLIConfig(
             coordinator_api_url=config_data.get("coordinator_api_url", ""),
             agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
