@@ -196,7 +196,7 @@ def test_required_proof_fields_complete() -> None:
 
 def test_bridge_config_defaults() -> None:
     c = BridgeConfig()
-    assert c.rpc_url == "http://localhost:8202"
+    assert c.rpc_url == "http://localhost:8202/rpc"
     assert c.chain_id == "ait-hub"
     assert c.timeout == 30
     assert c.retry_limit == 3
@@ -211,7 +211,7 @@ def test_bridge_config_defaults() -> None:
 
 def test_bridge_client_init_default_config() -> None:
     c = BridgeClient()
-    assert c.config.rpc_url == "http://localhost:8202"
+    assert c.config.rpc_url == "http://localhost:8202/rpc"
     assert c.config.chain_id == "ait-hub"
     assert c._client is None
 
