@@ -14,9 +14,9 @@ from ..utils.http_client import get_logger
 
 def _fmt(ctx: click.Context, command_format: str) -> str:
     """Respect command --format first, then global --output, then table."""
-    if command_format and command_format != "table":
+    if command_format != "table":
         return command_format
-    return _fmt(ctx, "table") or "table"
+    return ctx.obj.get("output_format", "table") or "table"
 
 
 logger = get_logger(__name__)
