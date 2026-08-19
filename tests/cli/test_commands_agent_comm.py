@@ -6,9 +6,11 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+
+from tests.fixtures.cli_mocks import make_cli_obj
 
 
 class TestAgentCommCommands:
@@ -39,22 +41,19 @@ class TestAgentCommCommands:
 
         assert "list" in agent_comm.commands
 
-    @patch("aitbc_cli.commands.agent_comm.asyncio.run")
-    @patch("aitbc_cli.commands.agent_comm.CrossChainAgentCommunication")
-    @patch("aitbc_cli.commands.agent_comm.load_multichain_config")
-    def test_agent_comm_register_command(self, mock_load_config, mock_comm_class, mock_asyncio_run, runner):
-        """``agent_comm register`` registers an agent and reports success.
-
-        Note: the production code assigns ``success = asyncio.run(...)`` which
-        shadows the imported ``success`` function.  We return a callable Mock
-        so the subsequent ``success(...)`` call does not raise.
-        """
-        # Return a callable that is truthy so the ``if success:`` branch runs
-        # and the ``success(...)`` call succeeds despite the name shadowing.
-        mock_asyncio_run.return_value = MagicMock(return_value=None)
+    @patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient")
+    def test_agent_comm_register_command(self, mock_http_class, runner, mock_config):
+        """``agent_comm register`` posts to the agent-coordinator."""
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {
+            "status": "success",
+            "agent_id": "agent-001",
+        }
 
         from aitbc_cli.commands.agent_comm import agent_comm
 
+        obj = make_cli_obj()
+        obj["config"] = mock_config
         result = runner.invoke(
             agent_comm,
             [
@@ -68,41 +67,45 @@ class TestAgentCommCommands:
                 "--reputation",
                 "0.8",
             ],
+            obj=obj,
         )
 
         assert result.exit_code == 0, result.output
-        mock_load_config.assert_called_once()
-        mock_comm_class.assert_called_once()
-        mock_asyncio_run.assert_called_once()
+        mock_client.post.assert_called_once()
+        posted_path = mock_client.post.call_args[0][0]
+        posted_body = mock_client.post.call_args.kwargs.get("json")
+        assert "/v1/agents/register" == posted_path
+        assert posted_body["agent_id"] == "agent-001"
+        assert posted_body["capabilities"] == ["compute", "storage"]
+        assert posted_body["chain_id"] == "test-chain"
 
-    @patch("aitbc_cli.commands.agent_comm.asyncio.run")
-    @patch("aitbc_cli.commands.agent_comm.CrossChainAgentCommunication")
-    @patch("aitbc_cli.commands.agent_comm.load_multichain_config")
-    def test_agent_comm_status_command(self, mock_load_config, mock_comm_class, mock_asyncio_run, runner):
-        """``agent_comm status`` retrieves agent status from the mocked comm layer."""
-        mock_asyncio_run.return_value = {
-            "agent_info": {
+    @patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient")
+    def test_agent_comm_status_command(self, mock_http_class, runner, mock_config):
+        """``agent_comm status`` fetches an agent from the agent-coordinator."""
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {
+            "agent": {
                 "agent_id": "agent-001",
                 "name": "TestAgent",
                 "chain_id": "test-chain",
                 "capabilities": ["compute"],
-                "reputation_score": 0.85,
-                "endpoint": "http://localhost:8000",
-                "version": "1.0.0",
-            },
-            "status": "active",
-            "message_queue_size": 0,
-            "active_collaborations": 0,
-            "last_seen": "2026-01-01T00:00:00Z",
+                "reputation": 0.85,
+                "status": "active",
+                "last_heartbeat": "2026-01-01T00:00:00Z",
+                "endpoints": {"http": "http://localhost:8000"},
+                "metadata": {"version": "1.0.0"},
+            }
         }
 
         from aitbc_cli.commands.agent_comm import agent_comm
 
-        result = runner.invoke(agent_comm, ["status", "agent-001"])
+        obj = make_cli_obj()
+        obj["config"] = mock_config
+        result = runner.invoke(agent_comm, ["status", "agent-001"], obj=obj)
 
         assert result.exit_code == 0, result.output
-        mock_load_config.assert_called_once()
-        mock_asyncio_run.assert_called_once()
+        mock_client.get.assert_called_once()
+        assert "/v1/agents/agent-001" == mock_client.get.call_args[0][0]
 
 
 if __name__ == "__main__":
