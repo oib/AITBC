@@ -8,7 +8,7 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
-from aitbc.utils import ait_to_seconds, format_ait
+from aitbc.utils import ait_to_seconds, format_ait, seconds_to_ait
 from aitbc_cli.commands.wallet import wallet
 from click.testing import CliRunner
 
@@ -137,13 +137,16 @@ class TestWalletCommands:
             def mock_post(path, json=None):
                 data = json or {}
                 if "/stake" in path and "/unstake" not in path:
+                    amount = data.get("amount", 50.0)
+                    balance_seconds = ait_to_seconds(state["balance"])
+                    remaining = balance_seconds - amount
                     stake = {
                         "stake_id": 123,
-                        "amount": data.get("amount", 50.0) / 10**18,
-                        "remaining_balance": state["balance"] - data.get("amount", 50.0) / 10**18,
+                        "amount": amount,
+                        "remaining_balance": remaining,
                         "locked_until": "2024-12-31",
                     }
-                    state["balance"] = stake["remaining_balance"]
+                    state["balance"] = seconds_to_ait(remaining)
                     state["stakes"].append(stake)
                     return stake
                 if "/unstake" in path:
@@ -346,7 +349,7 @@ class TestWalletCommands:
         data = extract_json_from_output(result.output)
         assert Decimal(data["amount"]) == Decimal("50")
         assert data["duration_days"] == 30
-        assert data["remaining_balance"] == 50.0  # 100 - 50
+        assert Decimal(data["remaining_balance"]) == Decimal("50")
         assert "stake_id" in data
 
     def test_stake_insufficient_balance(self, runner, temp_wallet, mock_config):
@@ -410,7 +413,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["total_staked"] == 30.0
+        assert Decimal(data["total_staked"]) == Decimal("30")
         assert data["active_stake_count"] == 1
         assert len(data["active_stakes"]) == 1
 
