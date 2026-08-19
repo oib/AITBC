@@ -324,7 +324,8 @@ class GovernanceService:
             staker_address=staker_address,
             amount_staked=Decimal(str(amount)),
             lock_period_days=lock_period_days,
-            unstakes_at=datetime.now(UTC) + timedelta(days=lock_period_days),
+            staked_at=datetime.now(UTC).replace(tzinfo=None),
+            unstakes_at=(datetime.now(UTC) + timedelta(days=lock_period_days)).replace(tzinfo=None),
             is_active=True,
         )
         self.session.add(stake)

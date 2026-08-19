@@ -166,7 +166,7 @@ class Delegation(GovernanceBase, table=True):
     delegator_address: str = Field(index=True)
     delegate_address: str = Field(index=True)
     voting_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     expires_at: datetime | None = None
     is_active: bool = Field(default=True)
 
@@ -187,7 +187,7 @@ class GovernanceToken(GovernanceBase, table=True):
     voting_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     rewards_claimed: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     rewards_pending: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class TokenStake(GovernanceBase, table=True):
@@ -204,7 +204,7 @@ class TokenStake(GovernanceBase, table=True):
     staker_address: str = Field(index=True)
     amount_staked: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     lock_period_days: int = Field(default=30)
-    staked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    staked_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     unstakes_at: datetime | None = None
     is_active: bool = Field(default=True)
     rewards_earned: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
@@ -226,7 +226,7 @@ class ProposalExecutionLog(GovernanceBase, table=True):
     status: str
     result: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     error_message: str | None = None
-    executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class DaoTreasury(GovernanceBase, table=True):
@@ -241,7 +241,7 @@ class DaoTreasury(GovernanceBase, table=True):
 
     asset_breakdown: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class TransparencyReport(GovernanceBase, table=True):
@@ -262,4 +262,4 @@ class TransparencyReport(GovernanceBase, table=True):
 
     metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
