@@ -10324,6 +10324,31 @@
         }
       }
     },
+    "/v1/monitoring/metrics": {
+      "get": {
+        "tags": [
+          "monitoring",
+          "monitoring"
+        ],
+        "summary": "Full monitoring metrics",
+        "description": "Return coordinator, job, miner, and system metrics for the CLI monitor group.",
+        "operationId": "monitoring_metrics_route_v1_monitoring_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Monitoring Metrics Route V1 Monitoring Metrics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/agents/workflows": {
       "post": {
         "tags": [
