@@ -8,11 +8,10 @@ explicitly requested role).
 
 import os
 import subprocess
-from typing import Optional
 
 import click
 
-from ..utils import error, output, success, warning
+from ..utils import error, output, success
 from ..utils.http_client import get_logger
 
 logger = get_logger(__name__)
@@ -20,7 +19,7 @@ logger = get_logger(__name__)
 HEALTH_CHECK_SCRIPT = "/opt/aitbc/scripts/monitoring/health_check.sh"
 
 
-def _role_env(role: Optional[str]) -> dict:
+def _role_env(role: str | None) -> dict:
     """Build an environment that pins the requested role for health_check.sh.
 
     The script ``scripts/monitoring/health_check.sh`` treats process
@@ -50,14 +49,13 @@ def _role_env(role: Optional[str]) -> dict:
     return env
 
 
-def _role_services(role: Optional[str]) -> list:
+def _role_services(role: str | None) -> list:
     """Resolve the systemd units for the given or detected role."""
     result = subprocess.run(
         [
             "bash",
             "-c",
-            f"source {HEALTH_CHECK_SCRIPT} >/dev/null 2>&1 "
-            '&& printf "%s\\n" "${ROLE_SERVICES[@]}"',
+            f'source {HEALTH_CHECK_SCRIPT} >/dev/null 2>&1 && printf "%s\\n" "${{ROLE_SERVICES[@]}}"',
         ],
         capture_output=True,
         text=True,
@@ -82,7 +80,7 @@ def _systemctl_prefix() -> list:
 def _control_services(
     ctx,
     action: str,
-    role: Optional[str],
+    role: str | None,
     dry_run: bool,
 ):
     """Run ``systemctl <action>`` for each unit of the selected role."""
@@ -121,12 +119,14 @@ def _control_services(
             overall_ok = False
             err = res.stderr.strip() or res.stdout.strip()
             error(f"{action} {svc} failed: {err}")
-        results.append({
-            "service": svc,
-            "action": action,
-            "status": "ok" if ok else "failed",
-            "message": res.stderr.strip() if not ok else res.stdout.strip(),
-        })
+        results.append(
+            {
+                "service": svc,
+                "action": action,
+                "status": "ok" if ok else "failed",
+                "message": res.stderr.strip() if not ok else res.stdout.strip(),
+            }
+        )
 
     output(
         {"role": role or "auto", "action": action, "services": results},
