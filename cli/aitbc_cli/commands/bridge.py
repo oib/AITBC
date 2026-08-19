@@ -10,14 +10,46 @@ for bridge multi-sig management.
 
 import asyncio
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import click
+import httpx
 
 from aitbc.bridge import BridgeClient, BridgeConfig
 
 from ..utils import output
 from ..utils.error_handling import abort
+
+
+_EVENT_BRIDGE_URL = os.getenv("EVENT_BRIDGE_URL", "http://127.0.0.1:8205")
+_SERVICE_NAME = "aitbc-blockchain-event-bridge"
+
+
+def _event_bridge_status() -> dict[str, str]:
+    """Read the event bridge service status over HTTP."""
+    try:
+        resp = httpx.get(f"{_EVENT_BRIDGE_URL}/", timeout=5.0)
+        resp.raise_for_status()
+        data = resp.json()
+        return {"status": data.get("status", "unknown"), "bridge_status": "active"}
+    except Exception as e:
+        return {"status": f"unreachable ({e})", "bridge_status": "inactive"}
+
+
+def _systemctl(action: str) -> tuple[bool, str]:
+    """Run systemctl action on the event bridge service."""
+    try:
+        result = subprocess.run(
+            ["systemctl", action, _SERVICE_NAME],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return result.returncode == 0, (result.stdout + result.stderr).strip()
+    except Exception as e:
+        return False, str(e)
 
 
 def _get_bridge_client(rpc_url: str) -> BridgeClient:
@@ -39,7 +71,7 @@ def bridge():
 @click.option("--asset", default="native", help="Asset type (default: native)")
 @click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
 @click.option("--signature", default="", help="Sender signature authorizing the lock")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, signature, rpc_url):
     """Lock funds for a cross-chain bridge transfer"""
@@ -69,7 +101,7 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
 @click.option("--confirmer", required=True, help="Confirmer address")
 @click.option("--signature", required=True, help="Confirmer signature")
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="JSON file containing the lock proof")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def confirm(ctx, transfer_id, confirmer, signature, proof_file, rpc_url):
     """Confirm and release a cross-chain bridge transfer"""
@@ -99,7 +131,7 @@ def confirm(ctx, transfer_id, confirmer, signature, proof_file, rpc_url):
 @click.option("--transfer-id", required=True, help="Transfer ID to refund")
 @click.option("--sender", required=True, help="Original sender address")
 @click.option("--signature", required=True, help="Sender signature authorizing the unlock")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def unlock(ctx, transfer_id, sender, signature, rpc_url):
     """Refund/cancel a pending bridge transfer"""
@@ -121,11 +153,15 @@ def unlock(ctx, transfer_id, sender, signature, rpc_url):
 
 
 @bridge.command()
-@click.option("--transfer-id", required=True, help="Transfer ID to query")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.argument("transfer-id", required=False)
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def status(ctx, transfer_id, rpc_url):
-    """Get the status of a cross-chain bridge transfer"""
+    """Get bridge service status or a specific transfer status"""
+    if not transfer_id:
+        result = _event_bridge_status()
+        output(result, ctx.obj.get("output_format", "table"), title="Bridge Status")
+        return
 
     async def _status():
         client = _get_bridge_client(rpc_url)
@@ -140,8 +176,40 @@ def status(ctx, transfer_id, rpc_url):
 
 
 @bridge.command()
+@click.pass_context
+def start(ctx):
+    """Start the blockchain event bridge service"""
+    ok, msg = _systemctl("start")
+    if not ok:
+        abort(ctx, f"Failed to start bridge service: {msg}")
+        return
+    import time
+
+    time.sleep(2)
+    result = _event_bridge_status()
+    result["action"] = "start"
+    result["service"] = _SERVICE_NAME
+    output(result, ctx.obj.get("output_format", "table"), title="Bridge Started")
+
+
+@bridge.command()
+@click.pass_context
+def stop(ctx):
+    """Stop the blockchain event bridge service"""
+    ok, msg = _systemctl("stop")
+    if not ok:
+        abort(ctx, f"Failed to stop bridge service: {msg}")
+        return
+    output(
+        {"status": "stopped", "bridge_status": "stopped", "action": "stop", "service": _SERVICE_NAME},
+        ctx.obj.get("output_format", "table"),
+        title="Bridge Stopped",
+    )
+
+
+@bridge.command()
 @click.option("--chain-id", default=None, help="Filter by chain ID")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def pending(ctx, chain_id, rpc_url):
     """List pending bridge transfers"""
@@ -160,7 +228,7 @@ def pending(ctx, chain_id, rpc_url):
 
 @bridge.command()
 @click.option("--chain-id", required=True, help="Chain ID to query balance for")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def balance(ctx, chain_id, rpc_url):
     """Get bridge balance for a chain (total locked amount)"""
@@ -178,7 +246,7 @@ def balance(ctx, chain_id, rpc_url):
 
 
 @bridge.command()
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def health(ctx, rpc_url):
     """Check bridge health status"""
@@ -196,7 +264,7 @@ def health(ctx, rpc_url):
 
 
 @bridge.command(name="security-status")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def security_status(ctx, rpc_url):
     """Get bridge security status (multi-sig config, validator count, etc.)"""
@@ -223,7 +291,7 @@ def security_status(ctx, rpc_url):
     help="Validator's private key hex (for signing the registration request)",
 )
 @click.option("--epoch", default=0, type=int, help="Validator set epoch number (default: 0)")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def register_validator(ctx, chain_id, address, public_key, private_key, epoch, rpc_url):
     """Register a bridge validator for multi-sig operations"""
@@ -256,7 +324,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, epoch, r
 
 
 @bridge.command(name="oracle-status")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def oracle_status(ctx, rpc_url):
     """Get bridge oracle/verification status (v0.7.2)

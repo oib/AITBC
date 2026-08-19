@@ -39,7 +39,7 @@ def rates(ctx, from_chain: str | None, to_chain: str | None, from_token: str | N
 
         if from_chain and to_chain:
             # Get specific rate
-            pair_key = f"{from_chain}-{to_chain}"
+            pair_key = f"{from_chain}::{to_chain}"
             if pair_key in rates:
                 success(f"Exchange rate {from_chain} → {to_chain}: {rates[pair_key]}")
             else:
@@ -49,7 +49,7 @@ def rates(ctx, from_chain: str | None, to_chain: str | None, from_token: str | N
             success("Cross-chain exchange rates:")
             rate_table = []
             for pair, rate in rates.items():
-                chains = pair.split("-")
+                chains = pair.split("::")
                 rate_table.append([chains[0], chains[1], f"{rate:.6f}"])
 
             if rate_table:
@@ -96,7 +96,7 @@ def swap(
 
     # Use default address if not provided
     if not address:
-        address = config.get("default_address", "0x1234567890123456789012345678901234567890")
+        address = getattr(config, "default_address", "0x1234567890123456789012345678901234567890")
 
     # Calculate minimum amount if not provided
     if not min_amount:
@@ -104,11 +104,11 @@ def swap(
         try:
             client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
             rates_data = client.get("/cross-chain/rates")
-            pair_key = f"{from_chain}-{to_chain}"
-            rate = rates_data.get("rates", {}).get(pair_key, 1.0)
-            min_amount = amount * rate * (1 - slippage) * 0.97  # Account for fees
+            pair_key = f"{from_chain}::{to_chain}"
+            rate = Decimal(str(rates_data.get("rates", {}).get(pair_key, 1.0)))
+            min_amount = amount * rate * Decimal(1 - slippage) * Decimal("0.97")  # Account for fees
         except (requests.RequestException, KeyError, ValueError):
-            min_amount = amount * 0.95
+            min_amount = amount * Decimal("0.95")
 
     swap_data = {
         "from_chain": from_chain,
@@ -261,7 +261,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str, amount: Decima
 
     # Use default recipient if not provided
     if not recipient:
-        recipient = config.get("default_address", "0x1234567890123456789012345678901234567890")
+        recipient = getattr(config, "default_address", "0x1234567890123456789012345678901234567890")
 
     bridge_data = {
         "source_chain": source_chain,
