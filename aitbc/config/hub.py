@@ -17,6 +17,7 @@ from pathlib import Path
 
 from aitbc.constants import CONFIG_DIR
 
+
 def _env_files() -> tuple[Path, Path]:
     return (CONFIG_DIR / "blockchain.env", CONFIG_DIR / "node.env")
 
@@ -81,3 +82,17 @@ def hub_exchange_url() -> str | None:
     if explicit:
         return explicit.rstrip("/")
     return hub_service_url("exchange")
+
+
+def hub_coordinator_url() -> str | None:
+    """Where the hub's coordinator API is mounted.
+
+    ``HUB_COORDINATOR_URL`` / ``COORDINATOR_API_URL`` are already a full base
+    (prefix included). Otherwise the path is built from ``HUB_DISCOVERY_URL``.
+    """
+    explicit = os.getenv("HUB_COORDINATOR_URL") or os.getenv("COORDINATOR_API_URL")
+    if explicit:
+        return explicit.rstrip("/")
+    # The coordinator-api is mounted under /v1 in the service. Public nginx
+    # can proxy it at /v1 or at a dedicated path; default to /v1.
+    return hub_service_url("v1")

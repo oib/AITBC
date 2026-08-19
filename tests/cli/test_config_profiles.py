@@ -24,7 +24,8 @@ def runner():
 def mock_config():
     """Mock configuration"""
     config = Mock()
-    config.agent_coordinator_url = "http://127.0.0.1:18000"
+    config.coordinator_api_url = "http://127.0.0.1:8203"
+    config.agent_coordinator_url = "http://127.0.0.1:8107"
     config.api_key = None
     config.timeout = 30
     config.config_file = "/home/oib/.aitbc/config.yaml"
@@ -63,7 +64,8 @@ class TestConfigProfilesIntegration:
             # Verify file content
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:18000"
+            assert profile_data["coordinator_api_url"] == "http://127.0.0.1:8203"
+            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:8107"
             assert profile_data["timeout"] == 30
             assert "api_key" not in profile_data  # API key should not be saved
 
@@ -87,7 +89,8 @@ class TestConfigProfilesIntegration:
             # Verify file was overwritten
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:18000"
+            assert profile_data["coordinator_api_url"] == "http://127.0.0.1:8203"
+            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:8107"
             assert profile_data["timeout"] == 30
 
     def test_profiles_list_empty(self, runner, mock_config, profiles_dir):
@@ -255,6 +258,7 @@ class TestConfigProfilesIntegration:
         mock_get_config.return_value = mock_config
         """Test saving profiles with different config values"""
         # Modify config for different profile
+        mock_config.coordinator_api_url = "http://different:9000"
         mock_config.agent_coordinator_url = "http://different:9000"
         mock_config.timeout = 90
 
@@ -270,6 +274,7 @@ class TestConfigProfilesIntegration:
             profile_file = profiles_dir / "different_profile.yaml"
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
+            assert profile_data["coordinator_api_url"] == "http://different:9000"
             assert profile_data["agent_coordinator_url"] == "http://different:9000"
             assert profile_data["timeout"] == 90
 

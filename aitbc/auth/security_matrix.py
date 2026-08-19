@@ -72,6 +72,8 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/marketplace/gpu/*/delete": AuthLevel.MINER,
     "/v1/marketplace/gpu/sync-offers": AuthLevel.MINER,
     # Client routes
+    "/v1/jobs": AuthLevel.CLIENT,
+    "/v1/jobs/*": AuthLevel.CLIENT,
     "/v1/marketplace/gpu/purchase": AuthLevel.CLIENT,
     "/v1/marketplace/gpu/*/book": AuthLevel.CLIENT,
     "/v1/marketplace/gpu/bid": AuthLevel.CLIENT,

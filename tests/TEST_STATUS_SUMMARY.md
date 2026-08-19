@@ -45,4 +45,4 @@ Coverage:
 |---|---|
 | `tests/production/*` | Agent coordinator on `localhost:9001` |
 | `apps/pool-hub` DB tests | `POOLHUB_TEST_POSTGRES_DSN` |
-| `tests/cli/test_simulate_integration.py`, `test_workflow.py` | coordinator-api on `127.0.0.1:18000` |
+| `tests/cli/test_simulate_integration.py`, `test_workflow.py` | coordinator-api on `127.0.0.1:8203` |
