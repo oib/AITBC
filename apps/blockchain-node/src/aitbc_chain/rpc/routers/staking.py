@@ -37,6 +37,7 @@ try:
         stake_tokens,
         unstake_tokens,
         verify_agent_identity,
+        execute_governance_proposal,
     )
 except ImportError as e:
     _logger.error("Staking module not available: %s — affected endpoints will return 503", e)
@@ -112,6 +113,20 @@ async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[
     if cast_governance_vote is None:
         raise HTTPException(status_code=503, detail="Governance module not available")
     return await cast_governance_vote(request, vote_data)  # type: ignore[no-any-return]
+
+
+@router.post("/governance/proposal/{proposal_id}/execute", summary="Execute governance proposal")
+@rate_limit(rate=10, per=60)
+async def execute_governance_proposal_route(
+    request: Request, proposal_id: str, execution_data: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Execute a passed governance proposal on the blockchain"""
+    if execute_governance_proposal is None:
+        raise HTTPException(status_code=503, detail="Governance module not available")
+    data = execution_data or {}
+    return dict(
+        await execute_governance_proposal(request, proposal_id, data.get("executor_address", ""), data.get("chain_id"))
+    )
 
 
 @router.get("/governance/proposal/{proposal_id}", summary="Get governance proposal")

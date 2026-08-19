@@ -66,5 +66,5 @@ async def init_db() -> None:
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Get database session"""
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
