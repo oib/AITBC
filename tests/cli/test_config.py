@@ -50,8 +50,10 @@ def temp_config_file():
 class TestConfigCommands:
     """Test config command group"""
 
-    def test_show_config(self, runner, mock_config):
+    @patch("aitbc_cli.commands.config.get_config", return_value=None)
+    def test_show_config(self, mock_get_config, runner, mock_config):
         """Test showing current configuration"""
+        mock_get_config.return_value = mock_config
         result = runner.invoke(config, ["show"], obj={"config": mock_config, "output": "json"})
 
         assert result.exit_code == 0
@@ -80,12 +82,13 @@ class TestConfigCommands:
 
     def test_set_api_key(self, runner, mock_config):
         """Test setting API key"""
-        result = runner.invoke(
-            config, ["set", "api_key", "new_test_key_12345"], obj={"config": mock_config, "output": "table"}
-        )
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                config, ["set", "api_key", "new_test_key_12345"], obj={"config": mock_config, "output": "table"}
+            )
 
-        assert result.exit_code == 0
-        assert "API key set (use --global to set permanently)" in result.output
+            assert result.exit_code == 0
+            assert "API key set (use --global to set permanently)" in result.output
 
     def test_set_timeout(self, runner, mock_config):
         """Test setting timeout"""
