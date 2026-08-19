@@ -31642,6 +31642,30 @@
             "title": "Escrow Timeout Seconds",
             "description": "Escrow timeout in seconds",
             "default": 3600
+          },
+          "buyer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Address",
+            "description": "Customer wallet address for escrow"
+          },
+          "provider_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Address",
+            "description": "Provider wallet address for escrow"
           }
         },
         "type": "object",
@@ -36886,6 +36910,28 @@
             "type": "string",
             "title": "Payment Currency",
             "default": "AITBC"
+          },
+          "buyer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Address"
+          },
+          "provider_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Address"
           }
         },
         "type": "object",
