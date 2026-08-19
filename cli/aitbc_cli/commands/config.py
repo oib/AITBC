@@ -23,9 +23,10 @@ def config():
 @click.pass_context
 def show(ctx):
     """Show current configuration"""
-    config = ctx.obj["config"]
+    config = ctx.obj.get("config") or get_config()
 
     config_dict = {
+        "coordinator_api_url": config.coordinator_api_url,
         "agent_coordinator_url": config.agent_coordinator_url,
         "api_key": "***REDACTED***" if config.api_key else None,
         "timeout": getattr(config, "timeout", 30),
@@ -69,10 +70,14 @@ def set(ctx, key: str, value: str, global_config: bool):
         config_data["api_key"] = value
         if ctx.obj["output"] == "table":
             success("API key set (use --global to set permanently)")
+    elif key in ("coordinator_api_url", "coordinator_url"):
+        config_data["coordinator_api_url"] = value
+        if ctx.obj["output"] == "table":
+            success(f"Coordinator API URL set to: {value}")
     elif key == "agent_coordinator_url":
         config_data["agent_coordinator_url"] = value
         if ctx.obj["output"] == "table":
-            success(f"Coordinator URL set to: {value}")
+            success(f"Agent coordinator URL set to: {value}")
     elif key == "timeout":
         try:
             config_data["timeout"] = int(value)
@@ -120,8 +125,12 @@ def edit(ctx, global_config: bool):
 
     # Create if doesn't exist
     if not config_file.exists():
-        config = ctx.obj["config"]
-        config_data = {"agent_coordinator_url": config.agent_coordinator_url, "timeout": getattr(config, "timeout", 30)}
+        config = ctx.obj.get("config") or get_config()
+        config_data = {
+            "coordinator_api_url": config.coordinator_api_url,
+            "agent_coordinator_url": config.agent_coordinator_url,
+            "timeout": getattr(config, "timeout", 30),
+        }
         with open(config_file, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False)
 
@@ -240,16 +249,16 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
 @click.pass_context
 def validate(ctx):
     """Validate configuration"""
-    config = ctx.obj["config"]
+    config = ctx.obj.get("config") or get_config()
 
     errors = []
     warnings = []
 
-    # Validate coordinator URL
-    if not config.agent_coordinator_url:
-        errors.append("Coordinator URL is not set")
-    elif not config.agent_coordinator_url.startswith(("http://", "https://")):
-        errors.append("Coordinator URL must start with http:// or https://")
+    # Validate coordinator API URL (used by ai/job commands)
+    if not config.coordinator_api_url:
+        errors.append("Coordinator API URL is not set")
+    elif not config.coordinator_api_url.startswith(("http://", "https://")):
+        errors.append("Coordinator API URL must start with http:// or https://")
 
     # Validate API key
     if not config.api_key:
@@ -323,7 +332,11 @@ def save(ctx, name: str):
     profile_file = profiles_dir / f"{name}.yaml"
 
     # Save profile (without API key)
-    profile_data = {"agent_coordinator_url": config.agent_coordinator_url, "timeout": getattr(config, "timeout", 30)}
+    profile_data = {
+        "coordinator_api_url": config.coordinator_api_url,
+        "agent_coordinator_url": config.agent_coordinator_url,
+        "timeout": getattr(config, "timeout", 30),
+    }
 
     with open(profile_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
@@ -349,6 +362,7 @@ def list():
         profiles.append(
             {
                 "name": profile_file.stem,
+                "coordinator_api_url": profile_data.get("coordinator_api_url"),
                 "agent_coordinator_url": profile_data.get("agent_coordinator_url"),
                 "timeout": profile_data.get("timeout", 30),
             }

@@ -9,7 +9,7 @@ For optional endpoints:
   ECON_STATS_URL     # e.g., http://127.0.0.1:8000/v1/economics/summary
 
 For task-based health checks:
-  MARKETPLACE_HEALTH_URL      # e.g., http://127.0.0.1:18000/v1/health  (multi-region primary)
+  MARKETPLACE_HEALTH_URL      # e.g., http://127.0.0.1:8203/v1/health  (multi-region primary)
   MARKETPLACE_HEALTH_URL_ALT  # e.g., http://127.0.0.1:18001/v1/health  (multi-region secondary)
   BLOCKCHAIN_RPC_URL          # e.g., http://127.0.0.1:9080/rpc/head     (blockchain integration)
   COORDINATOR_HEALTH_URL      # e.g., http://127.0.0.1:8000/v1/health    (agent economics / API health)
