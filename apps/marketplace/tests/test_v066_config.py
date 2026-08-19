@@ -38,7 +38,7 @@ class TestMarketplaceConfig:
         from marketplace_service.config import settings
 
         assert hasattr(settings, "default_chain_id")
-        assert settings.default_chain_id == "ait-hub"
+        assert settings.default_chain_id == "ait-hub.aitbc.bubuit.net"
 
     def test_marketplace_config_agent_coordinator_url(self):
         """Config has agent_coordinator_url field."""
@@ -107,6 +107,7 @@ class TestGpuConfig:
 
         assert hasattr(settings, "default_chain_id")
         assert settings.default_chain_id == "ait-hub"
+        assert settings.default_chain_id != ""
         assert settings.default_chain_id != ""
 
     def test_gpu_config_bind_host(self):

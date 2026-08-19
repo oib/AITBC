@@ -60,7 +60,7 @@ class TestMarketplaceCmdCommands:
     @patch("aitbc_cli.utils.chain_id.get_chain_id")
     @patch("aitbc_cli.commands.marketplace_cmd.load_multichain_config")
     @patch("aitbc_cli.commands.marketplace_cmd.get_config")
-    @patch("aitbc_cli.utils.http_client.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.marketplace_cmd.AITBCHTTPClient")
     def test_marketplace_list_command(
         self,
         mock_http_class,
@@ -94,12 +94,12 @@ class TestMarketplaceCmdCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
-        assert "/v1/transactions" in mock_client.post.call_args[0][0]
+        assert "/v1/marketplace/offers" in mock_client.post.call_args[0][0]
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id")
     @patch("aitbc_cli.commands.marketplace_cmd.load_multichain_config")
     @patch("aitbc_cli.commands.marketplace_cmd.get_config")
-    @patch("aitbc_cli.utils.http_client.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.marketplace_cmd.AITBCHTTPClient")
     def test_marketplace_list_with_currency(
         self,
         mock_http_class,
@@ -135,12 +135,12 @@ class TestMarketplaceCmdCommands:
 
         assert result.exit_code == 0, result.output
         _, kwargs = mock_client.post.call_args
-        assert kwargs["json"]["currency"] == "USDC"
+        assert kwargs["json"]["attributes"]["currency"] == "USDC"
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id")
     @patch("aitbc_cli.commands.marketplace_cmd.load_multichain_config")
     @patch("aitbc_cli.commands.marketplace_cmd.get_config")
-    @patch("aitbc_cli.utils.http_client.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.marketplace_cmd.AITBCHTTPClient")
     def test_marketplace_list_invalid_chain_type(
         self,
         mock_http_class,

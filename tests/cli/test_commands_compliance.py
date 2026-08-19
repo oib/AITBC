@@ -14,6 +14,7 @@ asserting real policy outcomes (hipaa permits phi but not pci) rather than fixed
 """
 
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -140,7 +141,8 @@ class TestComplianceExportAudit:
         from aitbc_cli.commands.compliance import compliance
 
         target = tmp_path / "audit.json"
-        result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+        with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
 
         assert result.exit_code == 0, result.output
         assert target.exists()
@@ -153,7 +155,8 @@ class TestComplianceExportAudit:
         from aitbc_cli.commands.compliance import compliance
 
         target = tmp_path / "audit.json"
-        result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+        with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
 
         assert result.exit_code == 0, result.output
         records = json.loads(target.read_text())["records"]
@@ -167,7 +170,8 @@ class TestComplianceExportAudit:
         from aitbc_cli.commands.compliance import compliance
 
         target = tmp_path / "audit.json"
-        result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
+        with patch("aitbc_cli.commands.compliance.get_config", return_value=MagicMock(coordinator_api_url=None, timeout=30)):
+            result = runner.invoke(compliance, ["export-audit", "--output-file", str(target)])
 
         assert result.exit_code == 0, result.output
         written = len(json.loads(target.read_text())["records"])
