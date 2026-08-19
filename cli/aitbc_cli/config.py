@@ -1,11 +1,12 @@
 """Configuration module for AITBC CLI"""
 
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from aitbc.config.hub import hub_agent_url, hub_exchange_url
+from aitbc.config.hub import hub_agent_url, hub_coordinator_url, hub_exchange_url
 
 
 class BaseAITBCConfig(BaseSettings):
@@ -93,6 +94,10 @@ class CLIConfig(BaseAITBCConfig):
         ``HUB_AGENT_URL`` / ``HUB_EXCHANGE_URL``) in process env or
         ``/etc/aitbc/{blockchain,node}.env``.
         """
+        if not self.coordinator_api_url:
+            resolved = hub_coordinator_url()
+            if resolved:
+                self.coordinator_api_url = resolved
         if not self.agent_coordinator_url:
             resolved = hub_agent_url()
             if resolved:
@@ -105,28 +110,44 @@ class CLIConfig(BaseAITBCConfig):
 
     @property
     def coordinator_url(self) -> str:
-        """Deprecated alias for agent_coordinator_url"""
-        return self.agent_coordinator_url
+        """Deprecated alias for coordinator_api_url"""
+        return self.coordinator_api_url
+
+
+def _load_config_file(config_path: Path) -> dict[str, Any]:
+    """Load a YAML/JSON config file and normalize legacy aliases."""
+    import yaml
+
+    with open(config_path) as f:
+        config_data = yaml.safe_load(f) or {}
+
+    # Legacy alias: "coordinator_url" maps to the job coordinator API.
+    if "coordinator_url" in config_data and "coordinator_api_url" not in config_data:
+        config_data["coordinator_api_url"] = config_data.pop("coordinator_url")
+
+    return config_data
 
 
 def get_config(config_file: str | None = None) -> CLIConfig:
     """Load CLI configuration from shared config system"""
-    # For backward compatibility, allow config_file override
+    # Determine the config file to load. If not explicitly provided, look for
+    # the repository/working-directory .aitbc.yaml.
     if config_file:
         config_path = Path(config_file)
-        if config_path.exists():
-            import yaml
+    else:
+        config_path = Path.cwd() / ".aitbc.yaml"
 
-            with open(config_path) as f:
-                config_data = yaml.safe_load(f) or {}
+    if config_path.exists():
+        config_data = _load_config_file(config_path)
 
-            # Override with config file values
-            return CLIConfig(
-                agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
-                wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8003"),
-                api_key=config_data.get("api_key"),
-                timeout=config_data.get("timeout", 30),
-            )
+        # Override with config file values
+        return CLIConfig(
+            coordinator_api_url=config_data.get("coordinator_api_url", ""),
+            agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
+            wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8108"),
+            api_key=config_data.get("api_key"),
+            timeout=config_data.get("timeout", 30),
+        )
 
     # Use shared config system with environment variables
     return CLIConfig()
