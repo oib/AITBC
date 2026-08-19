@@ -10,12 +10,15 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
+import os
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc_agent_core import get_active_brand
 
+from ....config import settings
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
@@ -31,6 +34,7 @@ class PaymentService:
         self.session = session
         self.wallet_base_url = f"http://127.0.0.1:{WALLET_PORT}"
         self.exchange_base_url = "http://127.0.0.1:8106"
+        self.blockchain_rpc_url = settings.blockchain_rpc_url.rstrip("/")
 
     def _require_owned_job(self, job_id: str, client_id: str) -> Job:
         """Fetch a job and verify it belongs to the requesting client."""
@@ -56,7 +60,11 @@ class PaymentService:
             self.session.add(payment)
             if payment_data.payment_method == "aitbc_token":
                 try:
-                    escrow = await self._create_token_escrow(payment)
+                    escrow = await self._create_token_escrow(
+                        payment,
+                        buyer_address=payment_data.buyer_address,
+                        provider_address=payment_data.provider_address,
+                    )
                     if escrow is not None:
                         self.session.add(escrow)
                 except Exception as e:
@@ -75,29 +83,44 @@ class PaymentService:
             logger.error("Failed to create payment: %s", e)
             raise
 
-    async def _create_token_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
-        """Create an escrow for token payments"""
+    async def _create_token_escrow(
+        self,
+        payment: JobPayment,
+        buyer_address: str | None = None,
+        provider_address: str | None = None,
+    ) -> PaymentEscrow | None:
+        """Create an escrow for token payments using the blockchain escrow contract."""
+        buyer = buyer_address or os.getenv("PAYMENT_BUYER_ADDRESS") or os.getenv("GENESIS_ADDRESS")
+        provider = provider_address or os.getenv("PAYMENT_PROVIDER_ADDRESS") or buyer
+        if not buyer or not provider:
+            logger.warning("No buyer or provider address available for escrow; skipping payment")
+            return None
         try:
             client = AITBCHTTPClient(timeout=10.0)
             response = client.post(
-                f"{self.exchange_base_url}/api/v1/token/escrow/create",
+                f"{self.blockchain_rpc_url}/rpc/escrow/create",
                 json={
-                    "amount": str(payment.amount),
-                    "currency": payment.currency,
                     "job_id": payment.job_id,
-                    "timeout_seconds": 3600,
+                    "buyer": buyer,
+                    "provider": provider,
+                    "amount": str(payment.amount),
                 },
             )
             escrow_data = response
-            payment.escrow_address = escrow_data.get("escrow_id")
+            contract_id = escrow_data.get("contract_id")
+            payment.escrow_address = contract_id
             payment.status = "escrowed"
             payment.escrowed_at = datetime.now(UTC)
             payment.updated_at = datetime.now(UTC)
+            if payment.meta_data is None:
+                payment.meta_data = {}
+            payment.meta_data["buyer_address"] = buyer
+            payment.meta_data["provider_address"] = provider
             escrow = PaymentEscrow(
                 payment_id=payment.id,
                 amount=payment.amount,
                 currency=payment.currency,
-                address=escrow_data.get("escrow_id"),
+                address=contract_id,
                 expires_at=datetime.now(UTC) + timedelta(hours=1),
             )
             if escrow is not None:
@@ -151,7 +174,7 @@ class PaymentService:
             return None
 
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
-        """Release payment from escrow to miner"""
+        """Release payment from escrow to miner using the blockchain escrow contract."""
         payment = self.session.get(JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
             return False
@@ -162,13 +185,13 @@ class PaymentService:
             client = AITBCHTTPClient(timeout=30.0)
             try:
                 release_data = client.post(
-                    f"{self.wallet_base_url}/api/v1/escrow/release",
-                    json={"address": payment.escrow_address, "reason": reason or "Job completed successfully"},
+                    f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
+                    json={"reason": reason or "Job completed successfully"},
                 )
                 payment.status = "released"
                 payment.released_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
-                payment.transaction_hash = release_data.get("transaction_hash")
+                payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )
