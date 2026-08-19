@@ -3,8 +3,8 @@
 **Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-35)
 **Prerequisites**: AITBC CLI (`aitbc`) installed, basic Python knowledge
 **Estimated Time**: 10-30 minutes per scenario
-**Last Updated**: 2026-08-19
-**Version**: 1.3
+**Last Updated**: 2026-08-20
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -107,11 +107,11 @@ The current codebase megaplan is the two-node hub/shop marketplace end-to-end fl
 - The shop miner picks up, executes, and completes the job.
 - Results and payment/escrow state are queried from the hub.
 - The Agent SDK `ComputeConsumer` now supports `auth_token` and `coordinator_url` in `create(...)`.
-- The full test suite is being driven to green (21 failures remain in unrelated CLI/marketplace/bridge areas).
+- The megaplan test suite is green: **0 failures**, **9 skipped** live-deployment verification tests under `tests/verification/` (gated by `AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`), and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
 
 Each scenario below has been refreshed to reflect the current API paths, ports, and JWT auth requirements.
 
 ---
 
-*Last updated: 2026-08-19*
-*Version: 1.3*
+*Last updated: 2026-08-20*
+*Version: 1.4*
