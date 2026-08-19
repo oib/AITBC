@@ -250,8 +250,7 @@ def execute(ctx, request_id):
             hub_url = hub_agent_url()
             if not hub_url:
                 click.echo(
-                    "Error: No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL "
-                    "in /etc/aitbc/blockchain.env."
+                    "Error: No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL in /etc/aitbc/blockchain.env."
                 )
                 return
             # FOLLOWER_API_KEY first: it is the one an island is meant to hold, published in

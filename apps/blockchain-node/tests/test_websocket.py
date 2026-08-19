@@ -3,38 +3,49 @@ from __future__ import annotations
 import asyncio
 from contextlib import ExitStack
 
-import pytest
 from aitbc_chain.app import create_app
 from aitbc_chain.gossip import gossip_broker
 from fastapi.testclient import TestClient
 
-# WebSocket tests require a running Postgres instance (the app connects on startup).
-pytestmark = pytest.mark.requires_postgres
-
 
 def _publish(topic: str, message: dict) -> None:
-    asyncio.run(gossip_broker.publish(topic, message))
+    """Publish directly to the in-memory backend from the app's event loop.
+
+    This wakes websocket subscribers without depending on cross-loop-safe
+    asyncio primitives in the broker's global dedup/priority path.
+    """
+    loop = getattr(gossip_broker, "_app_loop", None)
+    if loop is None:
+        loop = asyncio.get_event_loop()
+
+    async def _do_publish():
+        backend = gossip_broker._backend
+        if backend is None:
+            raise RuntimeError("Gossip broker has no backend")
+        await backend.publish(topic, message)
+
+    fut = asyncio.run_coroutine_threadsafe(_do_publish(), loop)
+    fut.result(timeout=5.0)
 
 
 def test_blocks_websocket_stream() -> None:
-    client = TestClient(create_app())
-
-    with client.websocket_connect("/rpc/ws/blocks") as websocket:
-        payload = {
-            "height": 1,
-            "hash": "0x" + "1" * 64,
-            "parent_hash": "0x" + "0" * 64,
-            "timestamp": "2025-01-01T00:00:00Z",
-            "tx_count": 2,
-        }
-        _publish("blocks", payload)
-        message = websocket.receive_json()
-        assert message == payload
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/blocks") as websocket:
+            payload = {
+                "height": 1,
+                "hash": "0x" + "1" * 64,
+                "parent_hash": "0x" + "0" * 64,
+                "timestamp": "2025-01-01T00:00:00Z",
+                "tx_count": 2,
+            }
+            _publish("blocks", payload)
+            message = websocket.receive_json()
+            assert message == payload
 
 
 def test_blocks_websocket_multiple_subscribers_receive_all_payloads() -> None:
     with TestClient(create_app()) as client, ExitStack() as stack:
-        sockets = [stack.enter_context(client.websocket_connect("/rpc/ws/blocks")) for _ in range(3)]
+        sockets = [stack.enter_context(client.websocket_connect("/rpc/blocks")) for _ in range(3)]
 
         payloads = [
             {
@@ -73,7 +84,7 @@ def test_blocks_websocket_high_volume_load() -> None:
     subscriber_count = 4
 
     with TestClient(create_app()) as client, ExitStack() as stack:
-        sockets = [stack.enter_context(client.websocket_connect("/rpc/ws/blocks")) for _ in range(subscriber_count)]
+        sockets = [stack.enter_context(client.websocket_connect("/rpc/blocks")) for _ in range(subscriber_count)]
 
         payloads = []
         for height in range(message_count):
@@ -93,31 +104,30 @@ def test_blocks_websocket_high_volume_load() -> None:
 
 
 def test_transactions_websocket_cleans_up_on_disconnect() -> None:
-    client = TestClient(create_app())
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/transactions") as websocket:
+            payload = {
+                "tx_hash": "0x" + "b" * 64,
+                "sender": "alice",
+                "recipient": "carol",
+                "payload": {"amount": 2},
+                "nonce": 7,
+                "fee": 1,
+                "type": "TRANSFER",
+            }
+            _publish("transactions", payload)
+            assert websocket.receive_json() == payload
 
-    with client.websocket_connect("/rpc/ws/transactions") as websocket:
-        payload = {
-            "tx_hash": "0x" + "b" * 64,
-            "sender": "alice",
-            "recipient": "carol",
-            "payload": {"amount": 2},
-            "nonce": 7,
-            "fee": 1,
-            "type": "TRANSFER",
-        }
-        _publish("transactions", payload)
-        assert websocket.receive_json() == payload
-
-    # After closing the websocket, publishing again should not raise and should not hang.
-    _publish(
-        "transactions",
-        {
-            "tx_hash": "0x" + "c" * 64,
-            "sender": "alice",
-            "recipient": "dave",
-            "payload": {"amount": 3},
-            "nonce": 8,
-            "fee": 1,
-            "type": "TRANSFER",
-        },
-    )
+        # After closing the websocket, publishing again should not raise and should not hang.
+        _publish(
+            "transactions",
+            {
+                "tx_hash": "0x" + "c" * 64,
+                "sender": "alice",
+                "recipient": "dave",
+                "payload": {"amount": 3},
+                "nonce": 8,
+                "fee": 1,
+                "type": "TRANSFER",
+            },
+        )
