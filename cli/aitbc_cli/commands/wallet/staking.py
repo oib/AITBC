@@ -1,18 +1,60 @@
 """Staking wallet commands"""
 
-from datetime import datetime, timedelta
+import json
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import click
 
 from aitbc_agent_core import get_active_brand
+
+from aitbc.utils.units import ait_to_seconds, seconds_to_ait
+
+from ...config import get_config
 from ...utils import DECIMAL, error, output, success
+from ...utils.crypto_utils import bech32_to_hex
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 
 _brand = get_active_brand()
+
+
+def _get_rpc_url(ctx: click.Context) -> str:
+    """Resolve the blockchain RPC URL, preferring the wallet command override."""
+    rpc_url = ctx.obj.get("rpc_url") if ctx.obj else None
+    if not rpc_url:
+        config = get_config()
+        rpc_url = getattr(config, "blockchain_rpc_url", None) or "http://localhost:8202"
+    return rpc_url
+
+
+def _get_chain_id(rpc_url: str) -> str:
+    """Resolve chain_id, falling back to the environment default."""
+    try:
+        from ...utils.chain_id import get_chain_id
+
+        return get_chain_id(rpc_url, override=None, timeout=5)
+    except Exception:
+        import os
+
+        return os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+
+def _sign_staking_message(wallet_data: dict[str, Any], sign_data: dict[str, Any]) -> str:
+    """Sign the canonical JSON of sign_data with the wallet's private key."""
+    from aitbc.crypto.crypto import sign_transaction_hash
+    from eth_utils import keccak
+
+    private_key = wallet_data.get("private_key")
+    if not private_key:
+        raise click.ClickException("Wallet private key is not available")
+
+    message = json.dumps(sign_data, sort_keys=True, separators=(",", ":")).encode()
+    message_hash = keccak(message).hex()
+    return sign_transaction_hash(message_hash, str(private_key))
 
 
 @wallet.command()
@@ -31,38 +73,34 @@ def stake(ctx, amount: Decimal, duration: int):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    # Convert bech32 address to hex for RPC compatibility
-    from ...utils.crypto_utils import bech32_to_hex
-
     hex_address = bech32_to_hex(sender_address)
+    rpc_url = _get_rpc_url(ctx)
+    chain_id = _get_chain_id(rpc_url)
 
-    # Get RPC URL from config (use hub for cross-node operations)
-    from ...config import get_config
+    amount_seconds = ait_to_seconds(amount)
+    sign_data = {
+        "address": hex_address.lower().strip(),
+        "amount": amount_seconds,
+        "chain_id": chain_id,
+        "action": "stake",
+    }
 
-    config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-    # Use hub RPC for cross-node transaction propagation
-    rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
-
-    # Get chain_id
     try:
-        from ...utils.chain_id import get_chain_id
+        signature = _sign_staking_message(wallet_data, sign_data)
+    except click.ClickException as e:
+        error(str(e))
+        return
 
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception:
-        import os
+    stake_data = {
+        "address": hex_address,
+        "amount": amount_seconds,
+        "lock_days": duration,
+        "chain_id": chain_id,
+        "signature": signature,
+    }
 
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-
-    # Submit staking request to blockchain RPC
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        stake_data = {
-            "address": hex_address,
-            "amount": int(amount * 10**18),  # Convert to wei -- exact, now that amount is Decimal
-            "lock_days": duration,
-            "chain_id": chain_id,
-        }
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
         success(f"Staked {amount} {_brand.token_symbol} for {duration} days")
@@ -73,7 +111,7 @@ def stake(ctx, amount: Decimal, duration: int):
                 "amount": str(amount),
                 "duration_days": duration,
                 "locked_until": result.get("locked_until"),
-                "remaining_balance": result.get("remaining_balance"),
+                "remaining_balance": str(seconds_to_ait(result.get("remaining_balance", 0))),
                 "chain_id": chain_id,
             },
             ctx.obj.get("output_format", "table"),
@@ -98,33 +136,33 @@ def unstake(ctx, stake_id: str):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    # Convert bech32 address to hex for RPC compatibility
-    from ...utils.crypto_utils import bech32_to_hex
-
     hex_address = bech32_to_hex(sender_address)
+    rpc_url = _get_rpc_url(ctx)
+    chain_id = _get_chain_id(rpc_url)
 
-    # Get RPC URL from config (use hub for cross-node operations)
-    from ...config import get_config
+    stake_id_int = int(stake_id)
+    sign_data = {
+        "address": hex_address.lower().strip(),
+        "stake_id": stake_id_int,
+        "chain_id": chain_id,
+        "action": "unstake",
+    }
 
-    config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-    # Use hub RPC for cross-node transaction propagation
-    rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
-
-    # Get chain_id
     try:
-        from ...utils.chain_id import get_chain_id
+        signature = _sign_staking_message(wallet_data, sign_data)
+    except click.ClickException as e:
+        error(str(e))
+        return
 
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception:
-        import os
+    unstake_data = {
+        "address": hex_address,
+        "stake_id": stake_id_int,
+        "chain_id": chain_id,
+        "signature": signature,
+    }
 
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-
-    # Submit unstaking request to blockchain RPC
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        unstake_data = {"address": hex_address, "stake_id": int(stake_id), "chain_id": chain_id}
         result = http_client.post("/rpc/staking/unstake", json=unstake_data)
 
         success(f"Unstaked tokens from stake {stake_id}")
@@ -132,8 +170,8 @@ def unstake(ctx, stake_id: str):
             {
                 "wallet": wallet_name,
                 "stake_id": stake_id,
-                "amount": result.get("amount"),
-                "new_balance": result.get("new_balance"),
+                "amount": str(seconds_to_ait(result.get("amount", 0))),
+                "new_balance": str(seconds_to_ait(result.get("new_balance", 0))),
                 "status": result.get("status"),
                 "chain_id": chain_id,
             },
@@ -158,30 +196,10 @@ def staking_info(ctx):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    # Convert bech32 address to hex for RPC compatibility
-    from ...utils.crypto_utils import bech32_to_hex
-
     hex_address = bech32_to_hex(sender_address)
+    rpc_url = _get_rpc_url(ctx)
+    chain_id = _get_chain_id(rpc_url)
 
-    # Get RPC URL from config (use hub for cross-node operations)
-    from ...config import get_config
-
-    config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-    # Use hub RPC for cross-node transaction propagation
-    rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
-
-    # Get chain_id
-    try:
-        from ...utils.chain_id import get_chain_id
-
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception:
-        import os
-
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-
-    # Query staking info from blockchain RPC
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.get(f"/rpc/staking/{hex_address}?chain_id={chain_id}")
@@ -191,9 +209,11 @@ def staking_info(ctx):
                 "wallet": wallet_name,
                 "address": sender_address,
                 "chain_id": chain_id,
-                "total_staked": result.get("total_staked"),
+                "total_staked": str(seconds_to_ait(result.get("total_staked", 0))),
                 "active_stake_count": result.get("active_stake_count"),
-                "active_stakes": result.get("active_stakes", []),
+                "active_stakes": [
+                    {**s, "amount": str(seconds_to_ait(s.get("amount", 0)))} for s in result.get("active_stakes", [])
+                ],
             },
             ctx.obj.get("output_format", "table"),
         )
@@ -241,7 +261,7 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int):
     import secrets
 
     stake_id = f"liq_{secrets.token_hex(6)}"
-    now = datetime.now()
+    now = datetime.now(UTC)
 
     liq_record = {
         "stake_id": stake_id,
@@ -324,15 +344,13 @@ def liquidity_unstake(ctx, stake_id: str):
 
     # Calculate rewards
     start = datetime.fromisoformat(record["start_date"])
-    days_staked = max((datetime.now() - start).total_seconds() / 86400, 0.001)
+    days_staked = max((datetime.now(UTC) - start.replace(tzinfo=UTC)).total_seconds() / 86400, 0.001)
     principal = _wallet_amount(record["amount"])
-    # apy and days_staked are genuinely dimensionless; converting them at the
-    # multiplication keeps the principal exact instead of wrapping a float product
     rewards = principal * (Decimal(str(record["apy"])) / 100) * (Decimal(str(days_staked)) / 365)
     total = principal + rewards
 
     record["status"] = "completed"
-    record["end_date"] = datetime.now().isoformat()
+    record["end_date"] = datetime.now(UTC).isoformat()
     record["rewards"] = str(round(rewards, 6))
 
     wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + total)
@@ -345,7 +363,7 @@ def liquidity_unstake(ctx, stake_id: str):
             "rewards": str(round(rewards, 6)),
             "pool": record["pool"],
             "stake_id": stake_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     )
 
