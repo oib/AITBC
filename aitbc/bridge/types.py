@@ -134,7 +134,7 @@ class ThresholdProof:
 class BridgeConfig:
     """Configuration for bridge operations."""
 
-    rpc_url: str = "http://localhost:8202"
+    rpc_url: str = "http://localhost:8202/rpc"
     chain_id: str = "ait-hub"
     timeout: int = 30
     retry_limit: int = 3

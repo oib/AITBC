@@ -107,6 +107,13 @@ class CLIConfig(BaseAITBCConfig):
             resolved = hub_exchange_url()
             if resolved:
                 self.exchange_service_url = resolved
+            else:
+                # Fallback to the local blockchain RPC so cross-chain CLI
+                # commands can reach the in-process cross-chain endpoints.
+                rpc = (self.blockchain_rpc_url or "http://localhost:8202").rstrip("/")
+                if not rpc.endswith("/rpc"):
+                    rpc = f"{rpc}/rpc"
+                self.exchange_service_url = rpc
         return self
 
     @property

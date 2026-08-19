@@ -100,6 +100,13 @@ except ImportError as e:
     _import_failed("Bridge sub-router", e)
 
 try:
+    from .routers.cross_chain import router as cross_chain_router
+
+    router.include_router(cross_chain_router)
+except ImportError as e:
+    _import_failed("Cross-chain sub-router", e)
+
+try:
     from .gpu_resources import *  # noqa: F403
 except ImportError as e:
     _import_failed("GPU resources module", e)

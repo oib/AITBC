@@ -6292,6 +6292,440 @@
         }
       }
     },
+    "/rpc/cross-chain/rates": {
+      "get": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Get cross-chain exchange rates",
+        "description": "Return hard-coded cross-chain exchange rates.",
+        "operationId": "get_cross_chain_rates_rpc_cross_chain_rates_get",
+        "parameters": [
+          {
+            "name": "from_chain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Chain"
+            }
+          },
+          {
+            "name": "to_chain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Chain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Cross Chain Rates Rpc Cross Chain Rates Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No rate for {from_chain} -> {to_chain}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/swap": {
+      "post": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Create cross-chain swap",
+        "description": "Create a cross-chain swap and return its details.",
+        "operationId": "create_cross_chain_swap_rpc_swap_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Swap Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Cross Chain Swap Rpc Swap Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from_chain, to_chain, from_token and to_token are required / amount must be positive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/cross-chain/swap/{swap_id}": {
+      "get": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Get cross-chain swap status",
+        "description": "Return the status of a cross-chain swap.",
+        "operationId": "get_cross_chain_swap_rpc_cross_chain_swap__swap_id__get",
+        "parameters": [
+          {
+            "name": "swap_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Swap Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Cross Chain Swap Rpc Cross Chain Swap  Swap Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Swap not found: {swap_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/cross-chain/swaps": {
+      "get": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "List cross-chain swaps",
+        "description": "List cross-chain swaps with optional filters.",
+        "operationId": "list_cross_chain_swaps_rpc_cross_chain_swaps_get",
+        "parameters": [
+          {
+            "name": "user_address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Address"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Cross Chain Swaps Rpc Cross Chain Swaps Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/cross-chain/bridge": {
+      "post": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Create cross-chain bridge transaction",
+        "description": "Create a cross-chain bridge transaction.",
+        "operationId": "create_cross_chain_bridge_rpc_cross_chain_bridge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Bridge Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Cross Chain Bridge Rpc Cross Chain Bridge Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "source_chain, target_chain, token and recipient_address are required / amount must be positive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/cross-chain/bridge/{bridge_id}": {
+      "get": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Get cross-chain bridge status",
+        "description": "Return the status of a cross-chain bridge transaction.",
+        "operationId": "get_cross_chain_bridge_rpc_cross_chain_bridge__bridge_id__get",
+        "parameters": [
+          {
+            "name": "bridge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bridge Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Cross Chain Bridge Rpc Cross Chain Bridge  Bridge Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bridge not found: {bridge_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/cross-chain/pools": {
+      "get": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Show cross-chain liquidity pools",
+        "description": "Return cross-chain liquidity pools.",
+        "operationId": "get_cross_chain_pools_rpc_cross_chain_pools_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Cross Chain Pools Rpc Cross Chain Pools Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/cross-chain/stats": {
+      "get": {
+        "tags": [
+          "rpc",
+          "cross-chain"
+        ],
+        "summary": "Show cross-chain trading statistics",
+        "description": "Return aggregate cross-chain trading statistics.",
+        "operationId": "get_cross_chain_stats_rpc_cross_chain_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Cross Chain Stats Rpc Cross Chain Stats Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/gpus": {
       "get": {
         "tags": [
