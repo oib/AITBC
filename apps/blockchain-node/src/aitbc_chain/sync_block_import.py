@@ -57,6 +57,8 @@ class BlockImportMixin(SyncBase):
         start = time.perf_counter()
         height = block_data.get("height", -1)
         block_hash = block_data.get("hash", "")
+        if transactions is None:
+            transactions = block_data.get("transactions") or []
         parent_hash = block_data.get("parent_hash", "")
         metrics_registry.increment("sync_blocks_received_total")
         if self._validate_signatures:
@@ -141,6 +143,27 @@ class BlockImportMixin(SyncBase):
         from datetime import UTC, datetime
 
         block_hash = block_data["hash"]
+
+        # Normalize transaction data from blocks-range (Transaction model dumps use
+        # sender/recipient/value/tx_hash) to the signed transaction shape the state
+        # transition expects (from/to/amount/fee/nonce/type/chain_id/signature/payload).
+        if transactions:
+            normalized = []
+            for raw_tx in transactions:
+                norm = dict(raw_tx)
+                if "from" not in norm and "sender" in norm:
+                    norm["from"] = norm["sender"]
+                if "to" not in norm and "recipient" in norm:
+                    norm["to"] = norm["recipient"]
+                if "amount" not in norm and "value" in norm:
+                    norm["amount"] = norm["value"]
+                if "signature" not in norm:
+                    norm["signature"] = ""
+                if "chain_id" not in norm:
+                    norm["chain_id"] = self._chain_id
+                normalized.append(norm)
+            transactions = normalized
+
         timestamp_str = block_data.get("timestamp", "")
         try:
             timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(UTC)
@@ -260,21 +283,21 @@ class BlockImportMixin(SyncBase):
                     # Create Transaction records for all successful txs.
                     for delta in successful_deltas:
                         tx_data = tx_hash_to_data.get(delta.tx_hash, {})
-                        tx = ChainTransaction(
+                        db_tx = ChainTransaction(
                             chain_id=self._chain_id,
                             tx_hash=delta.tx_hash,
                             block_height=block_data["height"],
                             # Raw, not the canonicalised delta: these are signed (V23-65).
                             sender=tx_data.get("from", delta.sender),
                             recipient=tx_data.get("to", delta.recipient),
-                            payload=tx_data,
+                            payload=tx_data.get("payload", {}),
                             type=delta.tx_type,
                             value=tx_data.get("value", tx_data.get("amount", 0)),
                             fee=tx_data.get("fee", 0),
                             nonce=tx_data.get("nonce", 0),
                             status="confirmed",
                         )
-                        session.add(tx)
+                        session.add(db_tx)
                     # Log failed transactions.
                     for delta in all_deltas:
                         if not delta.success:
@@ -308,17 +331,21 @@ class BlockImportMixin(SyncBase):
                         tx_type = tx_type.upper()
                     else:
                         tx_type = "TRANSFER"
-                    tx = ChainTransaction(
+                    db_tx = ChainTransaction(
                         chain_id=self._chain_id,
                         tx_hash=tx_hash,
                         block_height=block_data["height"],
                         # Raw, not the canonicalised locals: these are signed (V23-65).
                         sender=tx_data.get("from", sender_addr),
                         recipient=tx_data.get("to", recipient_addr),
-                        payload=tx_data,
+                        payload=tx_data.get("payload", {}),
                         type=tx_type,
+                        value=tx_data.get("value", tx_data.get("amount", 0)),
+                        fee=tx_data.get("fee", 0),
+                        nonce=tx_data.get("nonce", 0),
+                        status="confirmed",
                     )
-                    session.add(tx)
+                    session.add(db_tx)
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
             # Compute state root from the full account state. The previous
