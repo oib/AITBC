@@ -3,8 +3,8 @@
 **Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-35)
 **Prerequisites**: AITBC CLI (`aitbc`) installed, basic Python knowledge
 **Estimated Time**: 10-30 minutes per scenario
-**Last Updated**: 2026-07-05
-**Version**: 1.1
+**Last Updated**: 2026-08-19
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -98,5 +98,20 @@ These scenarios verify fixes applied to shop-node services (v0.10.3). They test 
 
 ---
 
-*Last updated: 2026-07-05*
-*Version: 1.2*
+## Megaplan Status
+
+The current codebase megaplan is the two-node hub/shop marketplace end-to-end flow (hub `hub.aitbc` ↔ shop `aitbc3`):
+
+- GPU offers are advertised from the shop.
+- AI jobs are submitted from the hub using authenticated coordinator API calls.
+- The shop miner picks up, executes, and completes the job.
+- Results and payment/escrow state are queried from the hub.
+- The Agent SDK `ComputeConsumer` now supports `auth_token` and `coordinator_url` in `create(...)`.
+- The full test suite is being driven to green (21 failures remain in unrelated CLI/marketplace/bridge areas).
+
+Each scenario below has been refreshed to reflect the current API paths, ports, and JWT auth requirements.
+
+---
+
+*Last updated: 2026-08-19*
+*Version: 1.3*

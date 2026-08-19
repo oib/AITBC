@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 34 Hub↔Customer Node End-to-End](./34_hub_customer_node_e2e.md)
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-07-05
-**Version**: 1.0
+**Last Updated**: 2026-08-19
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -378,6 +378,16 @@ asyncio.run(main())
 
 ---
 
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
+
 ## Related Resources
 
 - [Scenario 24 Fire-and-Forget Task Error Logging](./24_task_error_logging.md) (B8/B9 — blockchain-node and edge)
@@ -386,5 +396,5 @@ asyncio.run(main())
 
 ---
 
-*Last updated: 2026-07-05*
-*Version: 1.0*
+*Last updated: 2026-08-19*
+*Version: 1.1*

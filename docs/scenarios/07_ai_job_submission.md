@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 06 Basic Trading
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-06-25
-**Version**: 1.0
+**Last Updated**: 2026-08-19
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -51,13 +51,15 @@ An AI agent needs to run an inference or training workload on the the network. I
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - A wallet with AIT balance (created in Scenario 01)
+- A valid JWT for the coordinator API (`--api-key` or `AITBC_API_KEY`)
 - Coordinator API reachable at `http://localhost:8203` (override with `--coordinator-url`)
 
 ### Setup Required
 
-- Configure the coordinator URL: `aitbc config set coordinator_url http://localhost:8203`
+- Configure the coordinator URL: `aitbc config set coordinator_api_url http://localhost:8203`
 - Ensure the coordinator-api service is running
 - Have a wallet name and (optionally) a password file ready
+- Have a valid JWT token for `Authorization: Bearer` requests
 
 ---
 
@@ -69,7 +71,7 @@ Submit a job with a wallet, job type, prompt, and payment amount. The coordinato
 
 ```bash
 # Submit an inference job paying 5.0 AIT from wallet "agent-wallet"
-aitbc ai submit \
+aitbc --api-key "$COORDINATOR_TOKEN" ai submit \
   --wallet agent-wallet \
   --type inference \
   --prompt "Summarize the latest AITBC block headers" \
@@ -185,7 +187,10 @@ The `aitbc_agent` package exposes `ComputeConsumer`, an `Agent` subclass for age
 
 ```python
 import asyncio
+import os
 from aitbc_agent import ComputeConsumer
+
+TOKEN = os.environ.get("AITBC_COORDINATOR_TOKEN")  # JWT with role "client"
 
 async def main() -> None:
     # Create a consumer agent with generated RSA identity
@@ -197,12 +202,9 @@ async def main() -> None:
             "performance_score": 0.0,
             "max_concurrent_jobs": 1,
         },
+        coordinator_url="http://localhost:8203",
+        auth_token=TOKEN,
     )
-    # Point at the local coordinator API
-    consumer.coordinator_url = "http://localhost:8203"
-
-    # Register the consumer on the network
-    await consumer.register()
 
     # Submit a job (returns a job_id string)
     job_id = await consumer.submit_job(
@@ -210,6 +212,7 @@ async def main() -> None:
         input_data={"prompt": "Summarize the latest AITBC block headers"},
         requirements={"max_latency_ms": 5000},
         max_price=5.0,
+        buyer_address="aitbc1...",  # funded wallet for escrow
     )
     print(f"Submitted job: {job_id}")
 
@@ -243,14 +246,15 @@ async def main() -> None:
         name="inference-buyer",
         agent_type="consumer",
         capabilities={"compute_type": "inference", "max_concurrent_jobs": 1},
+        coordinator_url="http://localhost:8203",
+        auth_token=TOKEN,
     )
-    consumer.coordinator_url = "http://localhost:8203"
-    await consumer.register()
 
     job_id = await consumer.submit_job(
         job_type="inference",
         input_data={"prompt": "Translate this document to French"},
         max_price=3.0,
+        buyer_address="aitbc1...",
     )
     result = await wait_for_completion(consumer, job_id)
     print(result)
@@ -272,9 +276,15 @@ async def main() -> None:
         name="inference-buyer",
         agent_type="consumer",
         capabilities={"compute_type": "inference"},
+        coordinator_url="http://localhost:8203",
+        auth_token=TOKEN,
     )
-    consumer.coordinator_url = "http://localhost:8203"
-    job_id = await consumer.submit_job("inference", {"prompt": "test"}, max_price=1.0)
+    job_id = await consumer.submit_job(
+        "inference",
+        {"prompt": "test"},
+        max_price=1.0,
+        buyer_address="aitbc1...",
+    )
     ok = await consumer.cancel_job(job_id)
     print(f"Cancelled {job_id}: {ok}")
 
@@ -300,19 +310,29 @@ Confirm the job lifecycle end-to-end:
 
 ```bash
 # Submit a job and capture its job_id
-aitbc ai submit --wallet agent-wallet --type inference --prompt "hello" --payment 1.0 --format json
+aitbc --api-key "$COORDINATOR_TOKEN" ai submit --wallet agent-wallet --type inference --prompt "hello" --payment 1.0 --format json
 
 # Poll until status is completed/failed
-aitbc ai status --job-id <job_id>
+aitbc --api-key "$COORDINATOR_TOKEN" ai status --job-id <job_id>
 
 # Fetch the result payload
-aitbc ai results --job-id <job_id>
+aitbc --api-key "$COORDINATOR_TOKEN" ai results --job-id <job_id>
 
 # Confirm the job appears in the list
-aitbc ai jobs --status completed --limit 5
+aitbc --api-key "$COORDINATOR_TOKEN" ai jobs --status completed --limit 5
 ```
 
 ---
+
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
 
 ## Related Resources
 
@@ -322,5 +342,5 @@ aitbc ai jobs --status completed --limit 5
 
 ---
 
-*Last updated: 2026-06-25*
-*Version: 1.0*
+*Last updated: 2026-08-19*
+*Version: 1.1*

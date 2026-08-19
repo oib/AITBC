@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 25 Job Submission with Payment Failure](./25_job_payment_failure.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-07-05
-**Version**: 1.0
+**Last Updated**: 2026-08-19
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -181,6 +181,16 @@ curl -sf http://localhost:8203/v1/marketplace/orders > /dev/null && echo "Orders
 
 ---
 
+## Megaplan Status
+
+This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+
+- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
+- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
+- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Test-suite hardening is still in progress; the targeted scenarios here are green, but the full project suite still has a small number of unrelated failures.
+
+
 ## Related Resources
 
 - GPU Marketplace
@@ -188,5 +198,5 @@ curl -sf http://localhost:8203/v1/marketplace/orders > /dev/null && echo "Orders
 
 ---
 
-*Last updated: 2026-07-05*
-*Version: 1.0*
+*Last updated: 2026-08-19*
+*Version: 1.1*
