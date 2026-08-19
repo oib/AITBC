@@ -30,6 +30,7 @@ class JobRequest:
     max_price_per_hour: Decimal = Decimal("0")
     priority: str = "normal"
     deadline: str | None = None
+    job_id: str | None = None
 
 
 @dataclass
@@ -53,14 +54,23 @@ class ComputeConsumer(Agent):
         identity: AgentIdentity,
         capabilities: AgentCapabilities,
         coordinator_url: str | None = None,
+        auth_token: str | None = None,
     ) -> None:
         super().__init__(identity, capabilities, coordinator_url)
+        self.auth_token = auth_token
         self.pending_jobs: list[JobRequest] = []
         self.completed_jobs: list[JobResult] = []
         self.total_spent: Decimal = Decimal("0")
 
     @classmethod
-    def create(cls, name: str, agent_type: str, capabilities: dict[str, Any]) -> "ComputeConsumer":
+    def create(
+        cls,
+        name: str,
+        agent_type: str,
+        capabilities: dict[str, Any],
+        coordinator_url: str | None = None,
+        auth_token: str | None = None,
+    ) -> "ComputeConsumer":
         """Create a new ComputeConsumer agent"""
         # Generate cryptographic keys
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -96,7 +106,7 @@ class ComputeConsumer(Agent):
             specialization=capabilities.get("specialization"),
         )
 
-        return cls(identity, agent_capabilities)
+        return cls(identity, agent_capabilities, coordinator_url=coordinator_url, auth_token=auth_token)
 
     async def submit_job(
         self,
@@ -104,6 +114,8 @@ class ComputeConsumer(Agent):
         input_data: dict[str, Any],
         requirements: dict[str, Any] | None = None,
         max_price: Decimal = Decimal("0"),
+        buyer_address: str | None = None,
+        provider_address: str | None = None,
     ) -> str:
         """Submit a compute job to the network via coordinator API"""
         job = JobRequest(
@@ -116,26 +128,41 @@ class ComputeConsumer(Agent):
         self.pending_jobs.append(job)
         logger.info("Job submitted: %s by %s", job_type, self.identity.id)
 
+        headers = {}
+        if self.auth_token:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+
+        buyer = buyer_address or self.identity.address
+
+        payload: dict[str, Any] = {
+            "consumer_id": job.consumer_id,
+            "payload": {"type": job.job_type, **(job.input_data or {})},
+            "constraints": job.requirements or {},
+            "payment_amount": job.max_price_per_hour,
+            "payment_currency": "AIT",
+            "ttl_seconds": 900,
+        }
+        if buyer:
+            payload["buyer_address"] = buyer
+        if provider_address:
+            payload["provider_address"] = provider_address
+
         # Submit to coordinator for matching
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.coordinator_url}/v1/jobs",
-                    json={
-                        "consumer_id": job.consumer_id,
-                        "job_type": job.job_type,
-                        "input_data": job.input_data,
-                        "requirements": job.requirements,
-                        "max_price_per_hour": str(job.max_price_per_hour),
-                        "priority": job.priority,
-                    },
-                    timeout=10,
+                    json=payload,
+                    headers=headers,
+                    timeout=30,
                 )
                 if response.status_code == 201:
                     result = response.json()
-                    return result.get("job_id", f"job_{self.identity.id}_{len(self.pending_jobs)}")
+                    job_id = result.get("job_id", f"job_{self.identity.id}_{len(self.pending_jobs)}")
+                    job.job_id = job_id
+                    return job_id
                 else:
-                    logger.error("Failed to submit job to coordinator: %s", response.status_code)
+                    logger.error("Failed to submit job to coordinator: %s %s", response.status_code, response.text)
                     return f"job_{self.identity.id}_{len(self.pending_jobs)}"
         except Exception as e:
             logger.error("Error submitting job to coordinator: %s", e)
@@ -143,9 +170,17 @@ class ComputeConsumer(Agent):
 
     async def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Query coordinator for job status"""
+        headers = {}
+        if self.auth_token:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", timeout=10)
+                response = await client.get(
+                    f"{self.coordinator_url}/v1/jobs/{job_id}",
+                    headers=headers,
+                    timeout=30,
+                )
                 if response.status_code == 200:
                     return response.json()
                 else:

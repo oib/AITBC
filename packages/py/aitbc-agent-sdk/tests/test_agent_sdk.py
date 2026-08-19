@@ -2,6 +2,9 @@
 
 from decimal import Decimal
 
+import asyncio
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 from aitbc_agent.agent import Agent, AgentCapabilities, AITBCAgent
 from aitbc_agent.compute_consumer import ComputeConsumer, JobRequest, JobResult
@@ -176,6 +179,93 @@ class TestComputeConsumer:
         assert "total_spent" in summary
         assert "completed_jobs" in summary
         assert "pending_jobs" in summary
+
+    def test_create_consumer_with_auth_token(self):
+        """ComputeConsumer factory accepts and stores an auth token"""
+        consumer = ComputeConsumer.create(
+            name="auth-consumer",
+            agent_type="consumer",
+            capabilities={"compute_type": "inference"},
+            coordinator_url="http://coordinator:8203",
+            auth_token="test-jwt-token",
+        )
+        assert consumer.auth_token == "test-jwt-token"
+        assert consumer.coordinator_url == "http://coordinator:8203"
+
+    def test_submit_job_sends_auth_and_payload_shape(self):
+        """submit_job sends Bearer token and a JobCreate-compatible payload"""
+        consumer = ComputeConsumer.create(
+            name="auth-consumer",
+            agent_type="consumer",
+            capabilities={"compute_type": "inference"},
+            coordinator_url="http://coordinator:8203",
+            auth_token="test-jwt-token",
+        )
+
+        mock_response = AsyncMock()
+        mock_response.status_code = 201
+        mock_response.json = Mock(return_value={"job_id": "job_123"})
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = False
+        mock_client.post.return_value = mock_response
+
+        async def _run():
+            with patch("aitbc_agent.compute_consumer.httpx.AsyncClient", return_value=mock_client):
+                return await consumer.submit_job(
+                    job_type="inference",
+                    input_data={"prompt": "hello"},
+                    requirements={"gpu": True},
+                    max_price=Decimal("5.0"),
+                    buyer_address="0xBuyer1",
+                    provider_address="0xProvider1",
+                )
+
+        job_id = asyncio.run(_run())
+        assert job_id == "job_123"
+
+        call_kwargs = mock_client.post.call_args.kwargs
+        assert call_kwargs["headers"] == {"Authorization": "Bearer test-jwt-token"}
+
+        sent = call_kwargs["json"]
+        assert sent["consumer_id"] == consumer.identity.id
+        assert sent["payload"] == {"type": "inference", "prompt": "hello"}
+        assert sent["constraints"] == {"gpu": True}
+        assert sent["payment_amount"] == Decimal("5.0")
+        assert sent["payment_currency"] == "AIT"
+        assert sent["buyer_address"] == "0xBuyer1"
+        assert sent["provider_address"] == "0xProvider1"
+        assert "ttl_seconds" in sent
+
+    def test_get_job_status_sends_auth_header(self):
+        """get_job_status includes the Bearer token"""
+        consumer = ComputeConsumer.create(
+            name="auth-consumer",
+            agent_type="consumer",
+            capabilities={"compute_type": "inference"},
+            coordinator_url="http://coordinator:8203",
+            auth_token="test-jwt-token",
+        )
+
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json = Mock(return_value={"job_id": "job_123", "state": "COMPLETED"})
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = False
+        mock_client.get.return_value = mock_response
+
+        async def _run():
+            with patch("aitbc_agent.compute_consumer.httpx.AsyncClient", return_value=mock_client):
+                return await consumer.get_job_status("job_123")
+
+        result = asyncio.run(_run())
+        assert result["state"] == "COMPLETED"
+
+        call_kwargs = mock_client.get.call_args.kwargs
+        assert call_kwargs["headers"] == {"Authorization": "Bearer test-jwt-token"}
 
 
 class TestAgentIntegration:
