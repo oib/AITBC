@@ -37,7 +37,12 @@ async def submit_job(
         try:
             payment_service = PaymentService(session)
             payment_create = JobPaymentCreate(
-                job_id=job.id, amount=req.payment_amount, currency=req.payment_currency, payment_method="aitbc_token"
+                job_id=job.id,
+                amount=req.payment_amount,
+                currency=req.payment_currency,
+                payment_method="aitbc_token",
+                buyer_address=req.buyer_address,
+                provider_address=req.provider_address,
             )
             # V23-46: create_payment(client_id, job_id, payment_data). Passing (job.id,
             # payment_create) made client_id=job.id, job_id=payment_create, and left

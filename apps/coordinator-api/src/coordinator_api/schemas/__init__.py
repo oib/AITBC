@@ -26,6 +26,8 @@ class JobPaymentCreate(BaseModel):
     currency: str = Field(default=_brand.token_symbol, description="Payment currency")
     payment_method: str = Field(default="aitbc_token", description="Payment method")
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
+    buyer_address: str | None = Field(default=None, description="Customer wallet address for escrow")
+    provider_address: str | None = Field(default=None, description="Provider wallet address for escrow")
 
     @field_validator("job_id")
     @classmethod
@@ -283,6 +285,8 @@ class JobCreate(BaseModel):
     ttl_seconds: int = 900
     payment_amount: Decimal | None = None  # Amount to pay for the job
     payment_currency: str = _brand.token_symbol  # Jobs paid with network tokens
+    buyer_address: str | None = None  # Customer wallet address for escrow
+    provider_address: str | None = None  # Provider wallet address for escrow
 
 
 class JobView(BaseModel):
