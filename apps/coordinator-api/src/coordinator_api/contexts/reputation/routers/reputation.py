@@ -277,15 +277,15 @@ async def get_trust_score_breakdown(
 async def get_reputation_leaderboard(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    category: str = "overall",
+    category: str = "trust_score",
     limit: int = 100,
-    region: str = "global",
+    region: str = "",
 ) -> list[LeaderboardEntry]:
     """Get reputation leaderboard"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         leaderboard_data = await reputation_service.get_leaderboard(
-            category=category or "overall", limit=limit or 100, region=region or "global"
+            category=category or "trust_score", limit=limit or 100, region=region
         )
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
     except Exception as e:
