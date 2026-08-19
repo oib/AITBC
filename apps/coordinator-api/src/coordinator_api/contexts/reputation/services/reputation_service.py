@@ -428,10 +428,13 @@ class ReputationService:
         self, category: str = "trust_score", limit: int = 50, region: str | None = None
     ) -> list[dict[str, Any]]:
         """Get reputation leaderboard"""
+        if not hasattr(AgentReputation, category):
+            category = "trust_score"
         query = select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(limit)
         if region:
             query = query.where(AgentReputation.geographic_region == region)
-        reputations = self.session.execute(query).scalars().all()
+        result = self.session.execute(query)
+        reputations = result.scalars().all()
         leaderboard = []
         for rank, reputation in enumerate(reputations, 1):
             leaderboard.append(

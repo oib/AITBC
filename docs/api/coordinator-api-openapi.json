@@ -23897,7 +23897,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "default": "overall",
+              "default": "trust_score",
               "title": "Category"
             }
           },
@@ -23917,7 +23917,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "default": "global",
+              "default": "",
               "title": "Region"
             }
           }
