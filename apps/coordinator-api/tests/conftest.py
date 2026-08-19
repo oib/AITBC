@@ -14,6 +14,14 @@ os.environ.setdefault("URL", "sqlite:////tmp/aitbc-coordinator-test.db")
 os.environ.setdefault("JWT_SECRET", "test-secret-for-coordinator-tests" * 2)
 os.environ.setdefault("TEST_MODE", "true")
 
+os.environ.setdefault("EXPLORER_API_URL", "http://127.0.0.1:8100/health")
+os.environ.setdefault("MARKET_STATS_URL", "http://127.0.0.1:8102/health")
+os.environ.setdefault("ECON_STATS_URL", "http://127.0.0.1:8104/health")
+os.environ.setdefault("MARKETPLACE_HEALTH_URL", "http://127.0.0.1:8102/health")
+os.environ.setdefault("MARKETPLACE_HEALTH_URL_ALT", "http://127.0.0.1:8104/health")
+os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+os.environ.setdefault("COORDINATOR_HEALTH_URL", "http://127.0.0.1:8203/health")
+
 from coordinator_api.main import app  # noqa: E402
 from coordinator_api.storage import get_session  # noqa: E402
 

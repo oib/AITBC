@@ -5,8 +5,8 @@ Tests for enhanced logging module
 import json
 import logging
 from io import StringIO
+import sys
 
-import pytest
 
 from aitbc.aitbc_logging import (
     JournalFormatter,
@@ -55,7 +55,7 @@ class TestStructuredFormatter:
         try:
             raise ValueError("Test exception")
         except ValueError:
-            exc_info = True
+            exc_info = sys.exc_info()
 
         record = logging.LogRecord(
             name="test_logger",
@@ -66,11 +66,6 @@ class TestStructuredFormatter:
             args=(),
             exc_info=exc_info,
         )
-
-        # Skip this test if exc_info is True (not a real exception tuple)
-        # In real usage, exc_info would be a tuple from sys.exc_info()
-        if exc_info is True:
-            pytest.skip("Need real exception info for this test")
 
         formatted = formatter.format(record)
         log_entry = json.loads(formatted)
