@@ -146,7 +146,7 @@ class TestGovernanceCommands:
         assert result.exit_code == 0
         mock_http.return_value.post.assert_called_once()
         call_args = mock_http.return_value.post.call_args
-        assert "/v1/governance/proposals/prop_123/execute" in call_args[0][0]
+        assert "/rpc/governance/proposal/prop_123/execute" in call_args[0][0]
 
     def test_voting_power_command(self, runner, mock_config, mock_http, temp_wallet_dir):
         """Test voting power query command"""
