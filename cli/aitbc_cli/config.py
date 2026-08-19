@@ -1,5 +1,6 @@
 """Configuration module for AITBC CLI"""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -141,11 +142,12 @@ def get_config(config_file: str | None = None) -> CLIConfig:
         config_data = _load_config_file(config_path)
 
         # Override with config file values
+        api_key = config_data.get("api_key") or os.environ.get("AITBC_API_KEY")
         return CLIConfig(
             coordinator_api_url=config_data.get("coordinator_api_url", ""),
             agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
             wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8108"),
-            api_key=config_data.get("api_key"),
+            api_key=api_key,
             timeout=config_data.get("timeout", 30),
         )
 

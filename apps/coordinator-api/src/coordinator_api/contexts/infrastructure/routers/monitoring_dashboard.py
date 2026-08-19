@@ -175,10 +175,9 @@ async def system_metrics(request: Request) -> dict[str, Any]:
 async def collect_all_health_data() -> dict[str, Any]:
     """Collect health data from all enhanced services"""
     health_data = {}
-    client = AITBCHTTPClient(timeout=5.0)
     tasks = []
     for service_id, service_info in SERVICES.items():
-        task = check_service_health(client, service_id, service_info)  # type: ignore[arg-type, call-arg]
+        task = check_service_health(service_id, service_info)
         tasks.append(task)
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for i, (service_id, _service_info) in enumerate(SERVICES.items()):
@@ -195,7 +194,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
     Check health status of a specific service
     """
     try:
-        client = AITBCHTTPClient(timeout=5.0)
+        client = AITBCHTTPClient(timeout=2.0, max_retries=0)
         health_url = f"{service_config['url']}/health"
         response = client.get(health_url)
         return {"status": "healthy", "response_time": 0.1, "last_check": datetime.now(UTC).isoformat(), "details": response}
@@ -235,3 +234,68 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
         "health_percentage": status_counts["healthy"] / len(health_data) * 100 if health_data else 0,
         "uptime_estimate": "99.9%",
     }
+
+
+@router.get("/metrics", tags=["monitoring"], summary="Full monitoring metrics")
+@rate_limit(rate=100, per=60)
+async def monitoring_metrics_route(request: Request) -> dict[str, Any]:
+    """Return coordinator, job, miner, and system metrics for the CLI monitor group."""
+    from sqlmodel import select
+    from ....storage.db import get_session
+    from ...infrastructure.domain.job import Job
+    from ...infrastructure.domain.miner import Miner
+
+    metrics: dict[str, Any] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "coordinator": {"status": "online"},
+        "jobs": {
+            "total": 0,
+            "completed": 0,
+            "pending": 0,
+            "failed": 0,
+        },
+        "miners": {
+            "total": 0,
+            "online": 0,
+            "offline": 0,
+        },
+    }
+
+    try:
+        with next(get_session()) as session:
+            all_jobs = session.exec(select(Job)).all()
+            for job in all_jobs:
+                metrics["jobs"]["total"] += 1
+                if job.state == "COMPLETED":
+                    metrics["jobs"]["completed"] += 1
+                elif job.state == "FAILED":
+                    metrics["jobs"]["failed"] += 1
+                elif job.state in ("QUEUED", "ASSIGNED", "RUNNING"):
+                    metrics["jobs"]["pending"] += 1
+
+            all_miners = session.exec(select(Miner)).all()
+            for miner in all_miners:
+                metrics["miners"]["total"] += 1
+                if miner.status == "ONLINE":
+                    metrics["miners"]["online"] += 1
+                else:
+                    metrics["miners"]["offline"] += 1
+    except Exception as e:
+        logger.error("Failed to collect job/miner metrics: %s", e)
+
+    # Add system metrics
+    try:
+        import psutil
+
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        metrics["system"] = {
+            "cpu_percent": psutil.cpu_percent(interval=0.1),
+            "memory_percent": memory.percent,
+            "memory_available_gb": memory.available / (1024**3),
+            "disk_percent": disk.percent,
+        }
+    except Exception:
+        metrics["system"] = {}
+
+    return metrics
