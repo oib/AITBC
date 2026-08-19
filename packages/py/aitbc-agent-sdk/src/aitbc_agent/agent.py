@@ -105,6 +105,8 @@ class Agent:
     ):
         self.identity = identity
         self.capabilities = capabilities
+        self.agent_type = "worker"
+        self.chain_id = ""
         self.registered = False
         self.reputation_score = 0.0
         self.earnings = 0.0
@@ -179,17 +181,31 @@ class Agent:
         # Create capabilities object
         agent_capabilities = AgentCapabilities(**capabilities)
 
-        return cls(identity, agent_capabilities)
+        agent = cls(identity, agent_capabilities)
+        agent.agent_type = agent_type
+        return agent
 
     async def register(self) -> bool:
         """Register the agent on the AITBC network"""
         try:
+            cap_list = [self.capabilities.compute_type]
+            if self.capabilities.specialization:
+                cap_list.append(self.capabilities.specialization)
+            if self.capabilities.supported_models:
+                cap_list.extend(self.capabilities.supported_models)
+
             registration_data = {
                 "agent_id": self.identity.id,
-                "name": self.identity.name,
-                "address": self.identity.address,
-                "public_key": self.identity.public_key,
-                "capabilities": {
+                "agent_type": self.agent_type or self.capabilities.compute_type or "worker",
+                "capabilities": cap_list,
+                "services": cap_list,
+                "endpoints": {"http": self.coordinator_url},
+                "metadata": {
+                    "name": self.identity.name,
+                    "address": self.identity.address,
+                    "public_key": self.identity.public_key,
+                    "reputation": self.reputation_score,
+                    "version": "1.0.0",
                     "compute_type": self.capabilities.compute_type,
                     "gpu_memory": self.capabilities.gpu_memory,
                     "supported_models": self.capabilities.supported_models,
@@ -197,24 +213,20 @@ class Agent:
                     "max_concurrent_jobs": self.capabilities.max_concurrent_jobs,
                     "specialization": self.capabilities.specialization,
                 },
-                "timestamp": datetime.now(UTC).isoformat(),
+                "chain_id": self.chain_id,
+                "island_id": "",
             }
-
-            # Sign registration data
-            signature = self.identity.sign_message(registration_data)
-            registration_data["signature"] = signature
 
             # Submit to AITBC network registration endpoint
             try:
-                response = await self.http_client.post("/v1/agents/register", json=registration_data)
+                result = self.http_client.post("/v1/agents/register", json=registration_data)
 
-                if response.status_code == 201:
-                    _ = response.json()
+                if result and (result.get("status") == "success" or result.get("agent_id")):
                     self.registered = True
                     logger.info("Agent %s registered successfully", self.identity.id)
                     return True
                 else:
-                    logger.error("Registration failed: %s", response.status_code)
+                    logger.error("Registration failed: %s", result)
                     return False
             except NetworkError as e:
                 logger.error("Network error during registration: %s", e)

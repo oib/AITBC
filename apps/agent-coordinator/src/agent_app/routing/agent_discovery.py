@@ -48,6 +48,9 @@ class AgentType(StrEnum):
     MONITOR = "monitor"
     GATEWAY = "gateway"
     ORCHESTRATOR = "orchestrator"
+    INFERENCE = "inference"
+    TRAINING = "training"
+    PROCESSING = "processing"
 
 
 @dataclass

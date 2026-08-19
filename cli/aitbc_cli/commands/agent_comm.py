@@ -1,19 +1,33 @@
 """Cross-chain agent communication commands for AITBC CLI"""
 
-import asyncio
-import json
 from datetime import datetime
 from typing import Any
 
 import click
 
-from ..core.agent_communication import AgentInfo, AgentMessage, AgentStatus, CrossChainAgentCommunication, MessageType
-from ..core.config import load_multichain_config
-from ..utils import error, output, success
+from ..utils import output, success
 from ..utils.error_handling import abort
-from ..utils.http_client import get_logger
+from ..utils.http_client import AITBCHTTPClient, get_logger
 
 logger = get_logger(__name__)
+
+
+def _fmt(ctx: click.Context, command_format: str) -> str:
+    """Respect command --format first, then global --output, then table."""
+    if command_format and command_format != "table":
+        return command_format
+    return ctx.obj.get("output_format", "table") or "table"
+
+
+def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
+    """Build an HTTP client for the agent-coordinator endpoints."""
+    config = ctx.obj["config"]
+    base_url = config.agent_coordinator_url or "http://localhost:8107"
+    api_key = ctx.obj.get("api_key") or config.api_key
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    return AITBCHTTPClient(base_url=base_url, headers=headers, timeout=30)
 
 
 @click.group()
@@ -30,101 +44,91 @@ def agent_comm():
 @click.option("--capabilities", help="Comma-separated list of capabilities")
 @click.option("--reputation", default=0.5, help="Initial reputation score")
 @click.option("--version", default="1.0.0", help="Agent version")
+@click.option("--agent-type", default="worker", help="Agent type (worker, specialist, etc.)")
 @click.pass_context
-def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version):
+def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version, agent_type):
     """Register an agent in the cross-chain network"""
     try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Parse capabilities
-        cap_list = capabilities.split(",") if capabilities else []
-
-        # Create agent info
-        agent_info = AgentInfo(
-            agent_id=agent_id,
-            name=name,
-            chain_id=chain_id,
-            node_id="default-node",  # Would be determined dynamically
-            status=AgentStatus.ACTIVE,
-            capabilities=cap_list,
-            reputation_score=reputation,
-            last_seen=datetime.now(),
-            endpoint=endpoint,
-            version=version,
-        )
-
-        # Register agent
-        registration_success = asyncio.run(comm.register_agent(agent_info))
-
-        if registration_success:
+        cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else []
+        client = _agent_client(ctx)
+        payload = {
+            "agent_id": agent_id,
+            "agent_type": agent_type,
+            "capabilities": cap_list,
+            "services": cap_list,
+            "endpoints": {"http": endpoint},
+            "metadata": {
+                "name": name,
+                "reputation": float(reputation),
+                "version": version,
+                "endpoint": endpoint,
+            },
+            "chain_id": chain_id,
+            "island_id": "",
+        }
+        result = client.post("/v1/agents/register", json=payload)
+        if result.get("status") == "success":
             success(f"Agent {agent_id} registered successfully!")
-
             agent_data = {
                 "Agent ID": agent_id,
                 "Name": name,
                 "Chain ID": chain_id,
                 "Status": "active",
                 "Capabilities": ", ".join(cap_list),
-                "Reputation": f"{reputation:.2f}",
+                "Reputation": f"{float(reputation):.2f}",
                 "Endpoint": endpoint,
                 "Version": version,
             }
-
             output(agent_data, ctx.obj.get("output_format", "table"))
         else:
             abort(ctx, f"Failed to register agent {agent_id}")
-
     except Exception as e:
         abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
 
-@agent_comm.command()
+@agent_comm.command(name="list")
 @click.option("--chain-id", help="Filter by chain ID")
 @click.option("--status", type=click.Choice(["active", "inactive", "busy", "offline"]), help="Filter by status")
 @click.option("--capabilities", help="Filter by capabilities (comma-separated)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def list(ctx, chain_id, status, capabilities, format):
+def list_agents(ctx, chain_id, status, capabilities, output_format):
     """List registered agents"""
     try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Get all agents
-        agents = list(comm.agents.values())
-
-        # Apply filters
+        client = _agent_client(ctx)
+        query: dict[str, Any] = {"status": status or "active", "limit": 100}
         if chain_id:
-            agents = [a for a in agents if a.chain_id == chain_id]
-
-        if status:
-            agents = [a for a in agents if a.status.value == status]
-
+            query["chain_id"] = chain_id
         if capabilities:
-            required_caps = [cap.strip() for cap in capabilities.split(",")]
-            agents = [a for a in agents if any(cap in a.capabilities for cap in required_caps)]
-
+            query["capabilities"] = [c.strip() for c in capabilities.split(",")]
+        result = client.post("/v1/agents/discover", json=query)
+        agents = result.get("agents", [])
         if not agents:
-            output("No agents found", ctx.obj.get("output_format", "table"))
+            output({"message": "No agents found"}, _fmt(ctx, output_format))
             return
 
-        # Format output
-        agent_data = [
-            {
-                "Agent ID": agent.agent_id,
-                "Name": agent.name,
-                "Chain ID": agent.chain_id,
-                "Status": agent.status.value,
-                "Reputation": f"{agent.reputation_score:.2f}",
-                "Capabilities": ", ".join(agent.capabilities[:3]),  # Show first 3
-                "Last Seen": agent.last_seen.strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            for agent in agents
-        ]
+        agent_data = []
+        for agent in agents:
+            metadata = agent.get("metadata", {}) or {}
+            last_seen = agent.get("last_heartbeat", "")
+            if isinstance(last_seen, str) and last_seen:
+                try:
+                    last_seen = datetime.fromisoformat(last_seen).strftime("%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    pass
+            agent_data.append(
+                {
+                    "Agent ID": agent.get("agent_id"),
+                    "Name": metadata.get("name", agent.get("agent_id")),
+                    "Chain ID": agent.get("chain_id", ""),
+                    "Status": agent.get("status", ""),
+                    "Reputation": f"{float(metadata.get('reputation', 0.5)):.2f}",
+                    "Capabilities": ", ".join(agent.get("capabilities", [])[:3]),
+                    "Last Seen": last_seen,
+                }
+            )
 
-        output(agent_data, ctx.obj.get("output_format", format), title="Registered Agents")
-
+        output(agent_data, _fmt(ctx, output_format), title="Registered Agents")
     except Exception as e:
         abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
@@ -132,42 +136,125 @@ def list(ctx, chain_id, status, capabilities, format):
 @agent_comm.command()
 @click.argument("chain_id")
 @click.option("--capabilities", help="Required capabilities (comma-separated)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def discover(ctx, chain_id, capabilities, format):
+def discover(ctx, chain_id, capabilities, output_format):
     """Discover agents on a specific chain"""
     try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Parse capabilities
-        cap_list = capabilities.split(",") if capabilities else None
-
-        # Discover agents
-        agents = asyncio.run(comm.discover_agents(chain_id, cap_list))
-
+        client = _agent_client(ctx)
+        cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else None
+        query: dict[str, Any] = {"chain_id": chain_id, "status": "active"}
+        if cap_list:
+            query["capabilities"] = cap_list
+        result = client.post("/v1/agents/discover", json=query)
+        agents = result.get("agents", [])
         if not agents:
-            output(f"No agents found on chain {chain_id}", ctx.obj.get("output_format", "table"))
+            output({"message": f"No agents found on chain {chain_id}"}, _fmt(ctx, output_format))
             return
 
-        # Format output
         agent_data = [
             {
-                "Agent ID": agent.agent_id,
-                "Name": agent.name,
-                "Status": agent.status.value,
-                "Reputation": f"{agent.reputation_score:.2f}",
-                "Capabilities": ", ".join(agent.capabilities),
-                "Endpoint": agent.endpoint,
-                "Version": agent.version,
+                "Agent ID": agent.get("agent_id"),
+                "Name": agent.get("metadata", {}).get("name", agent.get("agent_id")),
+                "Status": agent.get("status", ""),
+                "Reputation": f"{float(agent.get('metadata', {}).get('reputation', 0.5)):.2f}",
+                "Capabilities": ", ".join(agent.get("capabilities", [])),
+                "Endpoint": agent.get("endpoints", {}).get("http", ""),
+                "Version": agent.get("metadata", {}).get("version", "1.0.0"),
             }
             for agent in agents
         ]
 
-        output(agent_data, ctx.obj.get("output_format", format), title=f"Agents on Chain {chain_id}")
-
+        output(agent_data, _fmt(ctx, output_format), title=f"Agents on Chain {chain_id}")
     except Exception as e:
         abort(ctx, f"Error discovering agents: {str(e)}", from_exception=e)
+
+
+@agent_comm.command()
+@click.argument("agent_id")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def status(ctx, agent_id, output_format):
+    """Get detailed agent status"""
+    try:
+        client = _agent_client(ctx)
+        result = client.get(f"/v1/agents/{agent_id}")
+        agent = result.get("agent", {})
+        if not agent:
+            abort(ctx, f"Agent {agent_id} not found")
+
+        metadata = agent.get("metadata", {}) or {}
+        status_data = [
+            {"Metric": "Agent ID", "Value": agent.get("agent_id", "N/A")},
+            {"Metric": "Name", "Value": metadata.get("name", "N/A")},
+            {"Metric": "Chain ID", "Value": agent.get("chain_id", "N/A")},
+            {"Metric": "Status", "Value": agent.get("status", "N/A")},
+            {"Metric": "Reputation", "Value": f"{float(metadata.get('reputation', 0)):.3f}"},
+            {"Metric": "Capabilities", "Value": ", ".join(agent.get("capabilities", []))},
+            {"Metric": "Message Queue Size", "Value": metadata.get("message_queue_size", 0)},
+            {"Metric": "Active Collaborations", "Value": metadata.get("active_collaborations", 0)},
+            {"Metric": "Last Seen", "Value": agent.get("last_heartbeat", "N/A")},
+            {"Metric": "Endpoint", "Value": agent.get("endpoints", {}).get("http", "N/A")},
+            {"Metric": "Version", "Value": metadata.get("version", "N/A")},
+        ]
+
+        output(status_data, _fmt(ctx, output_format), title=f"Agent Status: {agent_id}")
+    except Exception as e:
+        abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
+
+
+@agent_comm.command()
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def network(ctx, output_format):
+    """Get cross-chain network overview"""
+    try:
+        client = _agent_client(ctx)
+        result = client.post("/v1/agents/discover", json={"status": "active", "limit": 1000})
+        agents = result.get("agents", [])
+
+        total = len(agents)
+        active = sum(1 for a in agents if a.get("status") == "active")
+        agents_by_chain: dict[str, int] = {}
+        active_by_chain: dict[str, int] = {}
+        reputation_sum = 0.0
+        reputation_count = 0
+
+        for agent in agents:
+            chain_id = agent.get("chain_id", "unknown") or "unknown"
+            agents_by_chain[chain_id] = agents_by_chain.get(chain_id, 0) + 1
+            if agent.get("status") == "active":
+                active_by_chain[chain_id] = active_by_chain.get(chain_id, 0) + 1
+            rep = float(agent.get("metadata", {}).get("reputation", 0))
+            reputation_sum += rep
+            reputation_count += 1
+
+        overview_data = [
+            {"Metric": "Total Agents", "Value": total},
+            {"Metric": "Active Agents", "Value": active},
+            {"Metric": "Total Collaborations", "Value": 0},
+            {"Metric": "Active Collaborations", "Value": 0},
+            {"Metric": "Total Messages", "Value": 0},
+            {"Metric": "Queued Messages", "Value": 0},
+            {"Metric": "Average Reputation", "Value": f"{reputation_sum / max(1, reputation_count):.3f}"},
+            {"Metric": "Routing Table Size", "Value": total},
+            {"Metric": "Discovery Cache Size", "Value": total},
+        ]
+
+        output(overview_data, _fmt(ctx, output_format), title="Network Overview")
+
+        if agents_by_chain:
+            chain_data = [
+                {
+                    "Chain ID": chain_id,
+                    "Total Agents": count,
+                    "Active Agents": active_by_chain.get(chain_id, 0),
+                }
+                for chain_id, count in agents_by_chain.items()
+            ]
+            output(chain_data, _fmt(ctx, output_format), title="Agents by Chain")
+    except Exception as e:
+        abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -175,68 +262,17 @@ def discover(ctx, chain_id, capabilities, format):
 @click.argument("receiver_id")
 @click.argument("message_type")
 @click.argument("chain_id")
-@click.option("--payload", help="Message payload (JSON string)")
+@click.option("--payload", default="{}", help="JSON payload string")
 @click.option("--target-chain", help="Target chain for cross-chain messages")
 @click.option("--priority", default=5, help="Message priority (1-10)")
 @click.option("--ttl", default=3600, help="Time to live in seconds")
 @click.pass_context
 def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_chain, priority, ttl):
     """Send a message to an agent"""
-    try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Parse message type
-        try:
-            msg_type = MessageType(message_type)
-        except ValueError:
-            error(f"Invalid message type: {message_type}")
-            abort(ctx, f"Valid types: {[t.value for t in MessageType]}")
-        # Parse payload
-        payload_dict = {}
-        if payload:
-            try:
-                payload_dict = json.loads(payload)
-            except json.JSONDecodeError:
-                abort(ctx, "Invalid JSON payload")
-        # Create message
-        message = AgentMessage(
-            message_id=f"msg_{datetime.now().strftime('%Y%m%d%H%M%S')}_{sender_id}",
-            sender_id=sender_id,
-            receiver_id=receiver_id,
-            message_type=msg_type,
-            chain_id=chain_id,
-            target_chain_id=target_chain,
-            payload=payload_dict,
-            timestamp=datetime.now(),
-            signature="auto_generated",  # Would be cryptographically signed
-            priority=priority,
-            ttl_seconds=ttl,
-        )
-
-        # Send message
-        send_success = asyncio.run(comm.send_message(message))
-
-        if send_success:
-            success(f"Message sent successfully to {receiver_id}")
-
-            message_data = {
-                "Message ID": message.message_id,
-                "Sender": sender_id,
-                "Receiver": receiver_id,
-                "Type": message_type,
-                "Chain": chain_id,
-                "Target Chain": target_chain or "Same",
-                "Priority": priority,
-                "TTL": f"{ttl}s",
-                "Sent": message.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            }
-
-            output(message_data, ctx.obj.get("output_format", "table"))
-        else:
-            abort(ctx, f"Failed to send message to {receiver_id}")
-    except Exception as e:
-        abort(ctx, f"Error sending message: {str(e)}", from_exception=e)
+    output(
+        {"message": "Agent-to-agent send is not available via the coordinator API"},
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @agent_comm.command()
@@ -246,36 +282,10 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
 @click.pass_context
 def collaborate(ctx, agent_ids, collaboration_type, governance):
     """Create a multi-agent collaboration"""
-    try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Parse governance rules
-        governance_dict = {}
-        if governance:
-            try:
-                governance_dict = json.loads(governance)
-            except json.JSONDecodeError:
-                abort(ctx, "Invalid JSON governance rules")
-        # Create collaboration
-        collaboration_id = asyncio.run(comm.create_collaboration(list(agent_ids), collaboration_type, governance_dict))
-
-        if collaboration_id:
-            success(f"Collaboration created: {collaboration_id}")
-
-            collab_data = {
-                "Collaboration ID": collaboration_id,
-                "Type": collaboration_type,
-                "Participants": ", ".join(agent_ids),
-                "Status": "active",
-                "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-
-            output(collab_data, ctx.obj.get("output_format", "table"))
-        else:
-            abort(ctx, "Failed to create collaboration")
-    except Exception as e:
-        abort(ctx, f"Error creating collaboration: {str(e)}", from_exception=e)
+    output(
+        {"message": "Agent collaboration is not available via the coordinator API"},
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @agent_comm.command()
@@ -285,145 +295,10 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
 @click.pass_context
 def reputation(ctx, agent_id, interaction_result, feedback):
     """Update agent reputation"""
-    try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Update reputation
-        update_success = asyncio.run(comm.update_reputation(agent_id, interaction_result == "success", feedback))
-
-        if update_success:
-            # Get updated reputation
-            agent_status = asyncio.run(comm.get_agent_status(agent_id))
-
-            if agent_status and agent_status.get("reputation"):
-                rep = agent_status["reputation"]
-                success(f"Reputation updated for {agent_id}")
-
-                rep_data = {
-                    "Agent ID": agent_id,
-                    "Reputation Score": f"{rep['reputation_score']:.3f}",
-                    "Total Interactions": rep["total_interactions"],
-                    "Successful": rep["successful_interactions"],
-                    "Failed": rep["failed_interactions"],
-                    "Success Rate": f"{(rep['successful_interactions'] / rep['total_interactions'] * 100):.1f}%"
-                    if rep["total_interactions"] > 0
-                    else "N/A",
-                    "Last Updated": rep["last_updated"],
-                }
-
-                output(rep_data, ctx.obj.get("output_format", "table"))
-            else:
-                success(f"Reputation updated for {agent_id}")
-        else:
-            abort(ctx, f"Failed to update reputation for {agent_id}")
-
-    except Exception as e:
-        abort(ctx, f"Error updating reputation: {str(e)}", from_exception=e)
-
-
-@agent_comm.command()
-@click.argument("agent_id")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-@click.pass_context
-def status(ctx, agent_id, format):
-    """Get detailed agent status"""
-    try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Get agent status
-        agent_status = asyncio.run(comm.get_agent_status(agent_id))
-
-        if not agent_status:
-            abort(ctx, f"Agent {agent_id} not found")
-
-        # Format output
-        agent_info_dict = agent_status.get("agent_info")  # type: ignore[union-attr]
-        if agent_info_dict is None:
-            agent_info: dict[str, Any] = {}
-        elif isinstance(agent_info_dict, dict):
-            agent_info = agent_info_dict
-        else:
-            agent_info = {}
-        status_data = [
-            {"Metric": "Agent ID", "Value": agent_info.get("agent_id", "N/A")},
-            {"Metric": "Name", "Value": agent_info.get("name", "N/A")},
-            {"Metric": "Chain ID", "Value": agent_info.get("chain_id", "N/A")},
-            {"Metric": "Status", "Value": agent_status.get("status", "N/A") if agent_status else "N/A"},
-            {
-                "Metric": "Reputation",
-                "Value": f"{agent_info.get('reputation_score', 0):.3f}"
-                if agent_status and agent_status.get("reputation")
-                else "N/A",
-            },
-            {"Metric": "Capabilities", "Value": ", ".join(agent_info.get("capabilities", []))},
-            {"Metric": "Message Queue Size", "Value": agent_status.get("message_queue_size", 0) if agent_status else 0},
-            {"Metric": "Active Collaborations", "Value": agent_status.get("active_collaborations", 0) if agent_status else 0},
-            {"Metric": "Last Seen", "Value": agent_status.get("last_seen", "N/A") if agent_status else "N/A"},
-            {"Metric": "Endpoint", "Value": agent_info.get("endpoint", "N/A")},
-            {"Metric": "Version", "Value": agent_info.get("version", "N/A")},
-        ]
-
-        output(status_data, ctx.obj.get("output_format", format), title=f"Agent Status: {agent_id}")
-
-    except Exception as e:
-        abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
-
-
-@agent_comm.command()
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-@click.pass_context
-def network(ctx, format):
-    """Get cross-chain network overview"""
-    try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        # Get network overview
-        overview = asyncio.run(comm.get_network_overview())
-
-        if not overview:
-            abort(ctx, "No network data available")
-
-        # Overview data
-        overview_data = [
-            {"Metric": "Total Agents", "Value": overview["total_agents"]},
-            {"Metric": "Active Agents", "Value": overview["active_agents"]},
-            {"Metric": "Total Collaborations", "Value": overview["total_collaborations"]},
-            {"Metric": "Active Collaborations", "Value": overview["active_collaborations"]},
-            {"Metric": "Total Messages", "Value": overview["total_messages"]},
-            {"Metric": "Queued Messages", "Value": overview["queued_messages"]},
-            {"Metric": "Average Reputation", "Value": f"{overview['average_reputation']:.3f}"},
-            {"Metric": "Routing Table Size", "Value": overview["routing_table_size"]},
-            {"Metric": "Discovery Cache Size", "Value": overview["discovery_cache_size"]},
-        ]
-
-        output(overview_data, ctx.obj.get("output_format", format), title="Network Overview")
-
-        # Agents by chain
-        if overview["agents_by_chain"]:
-            chain_data = [
-                {
-                    "Chain ID": chain_id,
-                    "Total Agents": count,
-                    "Active Agents": overview["active_agents_by_chain"].get(chain_id, 0),
-                }
-                for chain_id, count in overview["agents_by_chain"].items()
-            ]
-
-            output(chain_data, ctx.obj.get("output_format", format), title="Agents by Chain")
-
-        # Collaborations by type
-        if overview["collaborations_by_type"]:
-            collab_data = [
-                {"Type": collab_type, "Count": count} for collab_type, count in overview["collaborations_by_type"].items()
-            ]
-
-            output(collab_data, ctx.obj.get("output_format", format), title="Collaborations by Type")
-
-    except Exception as e:
-        abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
+    output(
+        {"message": "Agent reputation update is not available via the coordinator API"},
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @agent_comm.command()
@@ -432,72 +307,7 @@ def network(ctx, format):
 @click.pass_context
 def monitor(ctx, realtime, interval):
     """Monitor cross-chain agent communication"""
-    try:
-        config = load_multichain_config()
-        comm = CrossChainAgentCommunication(config)
-
-        if realtime:
-            # Real-time monitoring
-            import time
-
-            from rich.console import Console
-            from rich.live import Live
-            from rich.table import Table
-
-            console = Console()
-
-            def generate_monitor_table():
-                try:
-                    overview = asyncio.run(comm.get_network_overview())
-
-                    table = Table(title=f"Agent Network Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    table.add_column("Metric", style="cyan")
-                    table.add_column("Value", style="green")
-
-                    table.add_row("Total Agents", str(overview["total_agents"]))
-                    table.add_row("Active Agents", str(overview["active_agents"]))
-                    table.add_row("Active Collaborations", str(overview["active_collaborations"]))
-                    table.add_row("Queued Messages", str(overview["queued_messages"]))
-                    table.add_row("Avg Reputation", f"{overview['average_reputation']:.3f}")
-
-                    # Add top chains by agent count
-                    if overview["agents_by_chain"]:
-                        table.add_row("", "")
-                        table.add_row("Top Chains by Agents", "")
-                        for chain_id, count in sorted(overview["agents_by_chain"].items(), key=lambda x: x[1], reverse=True)[
-                            :3
-                        ]:
-                            active = overview["active_agents_by_chain"].get(chain_id, 0)
-                            table.add_row(f"  {chain_id}", f"{count} total, {active} active")
-
-                    return table
-                except Exception as e:
-                    logger.warning("Error getting network data: %s", e, exc_info=True)
-                    return f"Error getting network data: {e}"
-
-            with Live(generate_monitor_table(), refresh_per_second=1) as live:
-                try:
-                    while True:
-                        live.update(generate_monitor_table())
-                        time.sleep(interval)
-                except KeyboardInterrupt:
-                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
-        else:
-            # Single snapshot
-            overview = asyncio.run(comm.get_network_overview())
-
-            monitor_data = [
-                {"Metric": "Total Agents", "Value": overview["total_agents"]},
-                {"Metric": "Active Agents", "Value": overview["active_agents"]},
-                {"Metric": "Total Collaborations", "Value": overview["total_collaborations"]},
-                {"Metric": "Active Collaborations", "Value": overview["active_collaborations"]},
-                {"Metric": "Total Messages", "Value": overview["total_messages"]},
-                {"Metric": "Queued Messages", "Value": overview["queued_messages"]},
-                {"Metric": "Average Reputation", "Value": f"{overview['average_reputation']:.3f}"},
-                {"Metric": "Routing Table Size", "Value": overview["routing_table_size"]},
-            ]
-
-            output(monitor_data, ctx.obj.get("output_format", "table"), title="Agent Network Monitor")
-
-    except Exception as e:
-        abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
+    output(
+        {"message": "Real-time agent monitor is not available via the coordinator API"},
+        ctx.obj.get("output_format", "table"),
+    )
