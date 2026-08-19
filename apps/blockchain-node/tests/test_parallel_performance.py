@@ -31,17 +31,8 @@ from aitbc_chain.state.pure_state_transition import (
 
 pytestmark = pytest.mark.slow
 
-
-def _is_slow_mode() -> bool:
-    """Check if tests are running with -m slow."""
-    import sys
-
-    return "-m slow" in " ".join(sys.argv) or any("slow" in arg for arg in sys.argv if arg.startswith("-m"))
-
-
-# Skip all tests in this module unless -m slow is explicitly passed.
-# Timing benchmarks are inherently flaky when run alongside other tests.
-pytestmark = [pytest.mark.slow, pytest.mark.skipif(not _is_slow_mode(), reason="Timing benchmarks require -m slow")]
+# Timing benchmarks are kept under the "slow" marker for optional filtering,
+# but they now run in the default suite as well.
 
 CHAIN_ID = "perf-chain"
 INITIAL_BALANCE = 1_000_000

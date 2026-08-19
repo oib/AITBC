@@ -194,3 +194,32 @@ def session_fixture(engine):
     with Session(engine) as session:
         yield session
         session.rollback()
+
+
+import asyncio as _aiocapture_module
+from aitbc_chain.gossip import gossip_broker as _gossip_broker
+
+_captured_loop = None
+_original_set_backend = _gossip_broker.set_backend
+
+
+async def _set_backend_and_capture(backend):
+    """Capture the event loop used by the broker and pass through to the original setter."""
+    global _captured_loop
+    _captured_loop = _aiocapture_module.get_running_loop()
+    _gossip_broker._app_loop = _captured_loop
+    # Recreate locks inside the captured loop to avoid loop mismatch when tests publish cross-thread.
+    _gossip_broker._lock = _aiocapture_module.Lock()
+    _gossip_broker._dedup_lock = _aiocapture_module.Lock()
+    return await _original_set_backend(backend)
+
+
+@pytest.fixture(autouse=True)
+def _blockchain_node_in_memory(monkeypatch) -> None:
+    """Use in-memory gossip/mempool backends and capture the app loop for cross-thread publishing."""
+    monkeypatch.setattr(settings, "gossip_backend", "memory")
+    monkeypatch.setattr(settings, "gossip_broadcast_url", "")
+    monkeypatch.setattr(settings, "mempool_backend", "memory")
+    monkeypatch.setattr(settings, "mempool_db_url", "")
+    monkeypatch.setattr(settings, "gossip_priority_enabled", False)
+    monkeypatch.setattr(_gossip_broker, "set_backend", _set_backend_and_capture)

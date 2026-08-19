@@ -259,7 +259,6 @@ class TestHTTPMethods:
 
 
 class TestAsyncHTTPClient:
-    @pytest.mark.skip(reason="pytest-asyncio not configured")
     async def test_async_get(self):
         from aitbc.network import AsyncAITBCHTTPClient
 
