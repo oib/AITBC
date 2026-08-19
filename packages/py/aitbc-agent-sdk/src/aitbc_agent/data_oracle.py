@@ -1,5 +1,6 @@
 """Data oracle operations using CLI commands"""
 
+from typing import cast
 from decimal import Decimal
 import asyncio
 from collections.abc import Callable
@@ -14,7 +15,7 @@ logger = get_logger(__name__)
 class DataOracleOperations:
     """Data oracle operations via CLI"""
 
-    def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
+    def __init__(self, cli_path: str | None = None):
         self.executor = CommandExecutor(cli_path)
 
     def announce_data_availability(self, cid: str, price: Decimal, description: str = "") -> str:
@@ -26,7 +27,7 @@ class DataOracleOperations:
 
             result = self.executor.execute_command("oracle", args)
             if result["success"]:
-                return result["data"].get("announcement_id", cid)
+                return cast(str, result["data"].get("announcement_id", cid))
             else:
                 logger.error("Data oracle announce failed: %s", result.get("error"))
                 raise Exception(result.get("error"))
@@ -40,7 +41,7 @@ class DataOracleOperations:
             # For now, use IPFS retrieve
             from .ipfs import IPFSOperations
 
-            ipfs = IPFSOperations(self.executor.cli_path)
+            ipfs = IPFSOperations(None)
             return ipfs.retrieve_ipfs(cid)
         except Exception as e:
             logger.error("retrieve_data failed: %s", e)
@@ -71,7 +72,7 @@ class DataOracleOperations:
 
         result = await self.executor.execute_command_async("oracle", args)
         if result["success"]:
-            return result["data"].get("announcement_id", cid)
+            return cast(str, result["data"].get("announcement_id", cid))
         else:
             logger.error("Data oracle announce async failed: %s", result.get("error"))
             raise Exception(result.get("error"))
