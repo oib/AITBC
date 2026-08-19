@@ -11,6 +11,14 @@ from ..utils import output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import get_logger
 
+
+def _fmt(ctx: click.Context, command_format: str) -> str:
+    """Respect command --format first, then global --output, then table."""
+    if command_format and command_format != "table":
+        return command_format
+    return _fmt(ctx, "table") or "table"
+
+
 logger = get_logger(__name__)
 
 
@@ -31,6 +39,9 @@ def summary(ctx, chain_id, hours, format):
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
 
+        # Ensure metrics are collected before producing any summary
+        asyncio.run(analytics.collect_all_metrics())
+
         if chain_id:
             # Single chain summary
             summary = analytics.get_chain_performance_summary(chain_id, hours)
@@ -49,7 +60,7 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Avg Gas Price", "Value": f"{summary['statistics']['gas_price']['avg']:,} wei"},
             ]
 
-            output(summary_data, ctx.obj.get("output_format", format), title=f"Chain Summary: {chain_id}")
+            output(summary_data, _fmt(ctx, format), title=f"Chain Summary: {chain_id}")
         else:
             # Cross-chain analysis
             analysis = analytics.get_cross_chain_analysis()
@@ -69,7 +80,7 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
             ]
 
-            output(overview_data, ctx.obj.get("output_format", format), title="Cross-Chain Analysis Overview")
+            output(overview_data, _fmt(ctx, format), title="Cross-Chain Analysis Overview")
 
             # Performance comparison
             if analysis["performance_comparison"]:
@@ -83,7 +94,7 @@ def summary(ctx, chain_id, hours, format):
                     for chain_id, data in analysis["performance_comparison"].items()
                 ]
 
-                output(comparison_data, ctx.obj.get("output_format", format), title="Chain Performance Comparison")
+                output(comparison_data, _fmt(ctx, format), title="Chain Performance Comparison")
 
     except Exception as e:
         abort(ctx, f"Error getting analytics summary: {str(e)}", from_exception=e)
@@ -189,7 +200,7 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]},
                 ]
 
-                output(monitor_data, ctx.obj.get("output_format", "table"), title=f"Chain Monitor: {chain_id}")
+                output(monitor_data, _fmt(ctx, "table"), title=f"Chain Monitor: {chain_id}")
             else:
                 analysis = analytics.get_cross_chain_analysis()
 
@@ -204,7 +215,7 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
                 ]
 
-                output(monitor_data, ctx.obj.get("output_format", "table"), title="System Monitor")
+                output(monitor_data, _fmt(ctx, "table"), title="System Monitor")
 
     except Exception as e:
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
@@ -241,7 +252,7 @@ def predict(ctx, chain_id, hours, format):
                 for pred in predictions
             ]
 
-            output(prediction_data, ctx.obj.get("output_format", format), title=f"Performance Predictions: {chain_id}")
+            output(prediction_data, _fmt(ctx, format), title=f"Performance Predictions: {chain_id}")
         else:
             # All chains prediction
             analysis = analytics.get_cross_chain_analysis()
@@ -269,7 +280,7 @@ def predict(ctx, chain_id, hours, format):
                         }
                     )
 
-            output(prediction_data, ctx.obj.get("output_format", format), title="Chain Performance Predictions")
+            output(prediction_data, _fmt(ctx, format), title="Chain Performance Predictions")
 
     except Exception as e:
         abort(ctx, f"Error generating predictions: {str(e)}", from_exception=e)
@@ -308,9 +319,7 @@ def optimize(ctx, chain_id, format):
                 for rec in recommendations
             ]
 
-            output(
-                recommendation_data, ctx.obj.get("output_format", format), title=f"Optimization Recommendations: {chain_id}"
-            )
+            output(recommendation_data, _fmt(ctx, format), title=f"Optimization Recommendations: {chain_id}")
         else:
             # All chains recommendations
             analysis = analytics.get_cross_chain_analysis()
@@ -340,7 +349,7 @@ def optimize(ctx, chain_id, format):
                         }
                     )
 
-            output(recommendation_data, ctx.obj.get("output_format", format), title="Chain Optimization Recommendations")
+            output(recommendation_data, _fmt(ctx, format), title="Chain Optimization Recommendations")
 
     except Exception as e:
         abort(ctx, f"Error getting optimization recommendations: {str(e)}", from_exception=e)
@@ -384,7 +393,7 @@ def alerts(ctx, severity, hours, format):
             for alert in filtered_alerts
         ]
 
-        output(alert_data, ctx.obj.get("output_format", format), title=f"Performance Alerts (Last {hours}h)")
+        output(alert_data, _fmt(ctx, format), title=f"Performance Alerts (Last {hours}h)")
 
     except Exception as e:
         abort(ctx, f"Error getting alerts: {str(e)}", from_exception=e)
