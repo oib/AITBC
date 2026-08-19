@@ -9,7 +9,8 @@ from decimal import Decimal
 from pathlib import Path
 
 import click
-from cryptography.hazmat.primitives.asymmetric import ed25519
+from eth_keys import keys
+from eth_utils import keccak
 
 from aitbc import ValidationError
 from aitbc.utils import ait_to_seconds, format_ait
@@ -46,7 +47,7 @@ def _send_transaction_impl(
     keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
     rpc_url: str = DEFAULT_RPC_URL,
 ) -> str | None:
-    """Send transaction from one wallet to another"""
+    """Send a secp256k1-signed transaction from one wallet to another."""
 
     # Validate recipient address
     try:
@@ -56,7 +57,7 @@ def _send_transaction_impl(
         error(f"Invalid recipient address: {e}")
         return None
 
-    # Validate amount
+    # Validate amount/fee
     if amount <= 0:
         logger.error("Invalid amount: %s must be positive", amount)
         error("Amount must be positive")
@@ -75,61 +76,61 @@ def _send_transaction_impl(
 
     # Decrypt private key if wallet is encrypted, otherwise use directly
     try:
-        # Check if wallet is encrypted
-        if sender_data.get("encrypted") or sender_data.get("encrypted_private_key"):
-            # Wallet is encrypted, need to decrypt
+        if sender_data.get("encrypted") and isinstance(sender_data.get("private_key"), dict):
+            private_key_hex = decrypt_private_key(sender_keystore, password)
+        elif sender_data.get("encrypted_private_key"):
             private_key_hex = decrypt_private_key(sender_keystore, password)
         else:
-            # Wallet is not encrypted (created with --no-encrypt), use private_key directly
+            # Unencrypted wallet (created with --no-encrypt)
             private_key_hex = sender_data.get("private_key")
             if not private_key_hex:
                 error("Wallet does not contain private key")
                 return None
 
         # Strip 0x prefix if present
-        if private_key_hex.startswith("0x"):
+        if isinstance(private_key_hex, str) and private_key_hex.startswith("0x"):
             private_key_hex = private_key_hex[2:]
 
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
+        private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
+        logger.error("Error loading private key: %s", e)
         error(f"Error loading private key: {e}")
         return None
 
-    # Get chain_id from RPC health endpoint or use override
+    # Resolve chain_id and nonce from the blockchain node
     from ..utils.chain_id import get_chain_id
 
-    _ = get_chain_id(rpc_url, override=None, timeout=5)
+    chain_id = get_chain_id(rpc_url, override=None, timeout=5)
 
-    # Get actual nonce from blockchain
     actual_nonce = 0
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
         account_data = http_client.get(f"/rpc/account/{sender_address}")
         actual_nonce = account_data.get("nonce", 0)
-    except NetworkError:
-        actual_nonce = 0
     except Exception:
         actual_nonce = 0
 
-    # Create transaction payload
-    # RPC expects all fields at top level, with payload as additional free-form object
-    # The chain settles in compute-seconds, which is what `wallet send` has always sent
-    # (aitbc/utils/units.py). int() here read --amount as if it were already seconds, so
-    # every amount below 1 AIT -- including the 0.001 default fee -- was truncated to 0.
+    # Convert AIT to compute-seconds (chain unit)
+    amount_seconds = ait_to_seconds(amount)
+    fee_seconds = ait_to_seconds(fee)
+
+    # The TransactionRequest model adds to/amount to payload, so we include them up front
+    # and sign over the exact dict the verifier will hash.
     transaction = {
+        "chain_id": chain_id,
         "from": sender_address,
         "to": to_address,
-        "amount": ait_to_seconds(amount),
-        "fee": ait_to_seconds(fee),
+        "amount": amount_seconds,
+        "fee": fee_seconds,
         "nonce": actual_nonce,
         "type": "TRANSFER",
-        "payload": {},
+        "payload": {"to": to_address, "amount": amount_seconds},
     }
 
-    # Sign transaction
-    message = json.dumps(transaction, sort_keys=True).encode()
-    signature = private_key.sign(message)  # cryptography library returns just signature bytes
-    transaction["signature"] = signature.hex()
+    # Sign the canonical JSON (sort_keys, compact) of all fields except the signature.
+    message = json.dumps(transaction, sort_keys=True, separators=(",", ":")).encode()
+    signature = private_key.sign_msg_hash(keccak(message))
+    transaction["signature"] = signature.to_bytes().hex()
 
     # Submit to blockchain
     try:
@@ -225,7 +226,8 @@ def send(
                     abort(None, f"Password prompt failed: {e}", from_exception=e)
 
     if not rpc_url:
-        rpc_url = DEFAULT_RPC_URL
+        config = get_config()
+        rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
 
     if password is None:
         error("Password is required for transaction")
@@ -330,7 +332,8 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                     abort(None, f"Password prompt failed: {e}", from_exception=e)
 
     if not rpc_url:
-        rpc_url = DEFAULT_RPC_URL
+        config = get_config()
+        rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
 
     if password is None:
         error("Password is required for batch transactions")
