@@ -785,6 +785,110 @@ class MarketplaceService:
             logger.error("Error in _update_service_rating: %s: %s", type(e).__name__, str(e))
             raise
 
+    def _canonical_ait_address(self, address: str) -> str:
+        """Return a canonical ait1 spelling for address comparison.
+
+        The chain stores whatever the signer wrote, so a buyer wallet may be
+        passed as an `0x` address while the node keeps it as `0x` or re-spells
+        it as `ait1`. Comparing after stripping the `0x`/`ait1`/`aitbc1`
+        prefixes and lower-casing avoids mismatches from formatting.
+        """
+        value = (address or "").lower().strip()
+        if value.startswith("0x"):
+            body = value[2:]
+        elif value.startswith("aitbc1"):
+            body = value[len("aitbc1") :]
+        elif value.startswith("ait1"):
+            body = value[len("ait1") :]
+        else:
+            body = value
+        if len(body) == 40 and all(c in "0123456789abcdef" for c in body):
+            return f"ait1{body}"
+        return value
+
+    async def complete_bid(
+        self,
+        bid_id: str,
+        tx_hash: str,
+        chain_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Complete a marketplace bid after confirming the on-chain payment."""
+        try:
+            logger.info("complete_bid called with bid_id=%s, tx_hash=%s", bid_id, tx_hash)
+            stmt = select(Bid).where(Bid.id == bid_id)
+            result = (await self.session.execute(stmt)).first()
+            bid = result[0] if result else None
+            if not bid:
+                raise ValueError(f"Bid not found: {bid_id}")
+
+            offer = await self.get_offer(bid.offer_id)
+            if not offer:
+                raise ValueError(f"Offer not found: {bid.offer_id}")
+
+            if bid.status == "completed":
+                return {
+                    "bid_id": bid_id,
+                    "offer_id": offer.id,
+                    "tx_hash": tx_hash,
+                    "status": "completed",
+                    "message": "Bid already completed",
+                }
+
+            resolved_chain_id = chain_id or settings.default_chain_id
+            tx = await self._rpc_client.get_transaction(tx_hash, chain_id=resolved_chain_id)
+            if not tx:
+                raise ValueError(f"Transaction {tx_hash} not found on chain {resolved_chain_id}")
+            if tx.get("status") != "confirmed":
+                raise ValueError(f"Transaction {tx_hash} is not confirmed")
+
+            tx_sender = self._canonical_ait_address(str(tx.get("sender", "")))
+            tx_recipient = self._canonical_ait_address(str(tx.get("recipient", "")))
+            expected_sender = self._canonical_ait_address(bid.buyer)
+            expected_recipient = self._canonical_ait_address(offer.provider or "")
+
+            if expected_sender and tx_sender != expected_sender:
+                raise ValueError(f"Transaction sender {tx_sender} does not match buyer {expected_sender}")
+            if expected_recipient and tx_recipient != expected_recipient:
+                raise ValueError(f"Transaction recipient {tx_recipient} does not match provider {expected_recipient}")
+
+            # price is stored in AIT; on-chain value is in compute-seconds (1 AIT = 3600)
+            required_value = int(bid.price * Decimal("3600"))
+            tx_value = int(tx.get("value", 0) or 0)
+            if required_value > 0 and tx_value < required_value:
+                raise ValueError(f"Transaction value {tx_value} compute-seconds is less than required {required_value}")
+
+            bid.status = "completed"
+            bid.tx_hash = tx_hash
+            self.session.add(bid)
+
+            # Transition offer reserved -> in_use -> delisted (closed/sold)
+            current = to_offer_status(offer.status)
+            fsm1 = OfferFSM(current)
+            fsm1.transition(OfferStatus.IN_USE)
+            offer.status = "in_use"
+            self.session.add(offer)
+            await self.session.commit()
+
+            fsm2 = OfferFSM(OfferStatus.IN_USE)
+            fsm2.transition(OfferStatus.DELISTED)
+            offer.status = "delisted"
+            self.session.add(offer)
+            await self.session.commit()
+
+            logger.info("Bid %s completed; offer %s delisted", bid_id, offer.id)
+            return {
+                "bid_id": bid_id,
+                "offer_id": offer.id,
+                "tx_hash": tx_hash,
+                "status": "completed",
+                "message": "Bid completed successfully",
+            }
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error("Error in complete_bid: %s: %s", type(e).__name__, str(e))
+            raise
+
     async def get_service_by_offer_id(self, offer_id: str) -> dict[str, Any] | None:
         """Get a software service by offer_id"""
         from sqlalchemy import select
