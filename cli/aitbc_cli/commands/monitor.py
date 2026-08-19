@@ -10,13 +10,21 @@ import click
 from rich.console import Console
 
 from ..utils import error, output, success
-
-# Import shared modules
 from ..utils.http_client import AITBCHTTPClient, get_logger
 
-# Initialize logger and console
 logger = get_logger(__name__)
 console = Console()
+
+
+def _monitoring_client(ctx: click.Context, timeout: int = 10) -> AITBCHTTPClient:
+    """Build an HTTP client for the coordinator monitoring endpoints."""
+    config = ctx.obj["config"]
+    base_url = ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
+    api_key = ctx.obj.get("api_key") or config.api_key
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    return AITBCHTTPClient(base_url=base_url, headers=headers, timeout=timeout)
 
 
 @click.group()
@@ -31,7 +39,6 @@ def monitor():
 @click.pass_context
 def dashboard(ctx, refresh: int, duration: int):
     """Real-time system dashboard"""
-    config = ctx.obj["config"]
     start_time = time.time()
 
     try:
@@ -43,32 +50,24 @@ def dashboard(ctx, refresh: int, duration: int):
             console.clear()
             console.rule("[bold blue]AITBC Dashboard[/bold blue]")
             console.print(f"[dim]Refreshing every {refresh}s | Elapsed: {int(elapsed)}s[/dim]\n")
-            # Fetch system dashboard
             try:
-                http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=5)
-                # Get dashboard data
-                url = "/api/v1/dashboard"
-                dashboard = http_client.get(url, headers={"X-Api-Key": config.api_key or ""})
+                client = _monitoring_client(ctx, timeout=30)
+                data = client.get("/v1/monitoring/dashboard")
                 console.print("[bold green]Dashboard Status:[/bold green] Online")
-                # Overall status
-                overall_status = dashboard.get("overall_status", "unknown")
-                console.print(f"  Overall Status: {overall_status}")
-                # Services summary
-                services = dashboard.get("services", {})
+                overall = data.get("overall_status", "unknown")
+                console.print(f"  Overall Status: {overall}")
+                services = data.get("services", {})
                 console.print(f"  Services: {len(services)}")
                 for service_name, service_data in services.items():
                     status = service_data.get("status", "unknown")
                     console.print(f"    {service_name}: {status}")
-                # Metrics summary
-                metrics = dashboard.get("metrics", {})
+                metrics = data.get("metrics", {})
                 if metrics:
-                    health_pct = metrics.get("health_percentage", 0)
-                    console.print(f"  Health: {health_pct:.1f}%")
+                    console.print(f"  Health: {metrics.get('health_percentage', 0):.1f}%")
             except Exception as e:
                 console.print(f"[red]Error fetching data: {e}[/red]")
             console.print("\n[dim]Press Ctrl+C to exit[/dim]")
             time.sleep(refresh)
-
     except KeyboardInterrupt:
         console.print("\n[bold]Dashboard stopped[/bold]")
 
@@ -79,9 +78,6 @@ def dashboard(ctx, refresh: int, duration: int):
 @click.pass_context
 def metrics(ctx, period: str, export_path: str | None):
     """Collect and display system metrics"""
-    config = ctx.obj["config"]
-
-    # Parse period
     multipliers = {"h": 3600, "d": 86400}
     unit = period[-1]
     value = int(period[:-1])
@@ -92,50 +88,19 @@ def metrics(ctx, period: str, export_path: str | None):
         "period": period,
         "since": since.isoformat(),
         "collected_at": datetime.now().isoformat(),
-        "coordinator": {},
-        "jobs": {},
-        "miners": {},
+        "coordinator": {"status": "offline"},
+        "jobs": {"total": 0, "completed": 0, "pending": 0, "failed": 0},
+        "miners": {"total": 0, "online": 0, "offline": 0},
     }
 
     try:
-        # Coordinator metrics
-        try:
-            coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-            coordinator_data = coordinator_client.get("/status", headers={"X-Api-Key": config.api_key or ""})
-            coordinator_data["status"] = "online"
-            metrics_data["coordinator"] = coordinator_data
-        except Exception:
-            metrics_data["coordinator"] = {"status": "offline"}
-
-        # Job metrics
-        try:
-            coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-            jobs: Any = coordinator_client.get("/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 100})
-            if isinstance(jobs, list):
-                metrics_data["jobs"] = {
-                    "total": len(jobs),
-                    "completed": sum(1 for j in jobs if j.get("status") == "completed"),
-                    "pending": sum(1 for j in jobs if j.get("status") == "pending"),
-                    "failed": sum(1 for j in jobs if j.get("status") == "failed"),
-                }
-        except Exception:
-            metrics_data["jobs"] = {"error": "unavailable"}
-
-        # Miner metrics
-        try:
-            coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-            miners: Any = coordinator_client.get("/v1/miners", headers={"X-Api-Key": config.api_key or ""})
-            if isinstance(miners, list):
-                metrics_data["miners"] = {
-                    "total": len(miners),
-                    "online": sum(1 for m in miners if m.get("status") == "ONLINE"),
-                    "offline": sum(1 for m in miners if m.get("status") != "ONLINE"),
-                }
-        except Exception:
-            metrics_data["miners"] = {"error": "unavailable"}
-
+        client = _monitoring_client(ctx, timeout=10)
+        data = client.get("/v1/monitoring/metrics")
+        metrics_data["coordinator"] = data.get("coordinator", {"status": "online"})
+        metrics_data["jobs"] = data.get("jobs", metrics_data["jobs"])
+        metrics_data["miners"] = data.get("miners", metrics_data["miners"])
     except Exception as e:
-        error(f"Failed to collect metrics: {e}")
+        logger.error("Failed to collect metrics: %s", e)
 
     if export_path:
         with open(export_path, "w") as f:
@@ -159,12 +124,10 @@ def metrics(ctx, period: str, export_path: str | None):
 @click.pass_context
 def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold: float | None, webhook: str | None):
     """Configure monitoring alerts"""
-    ctx.obj["config"]
     alerts_dir = Path.home() / ".aitbc" / "alerts"
     alerts_dir.mkdir(parents=True, exist_ok=True)
     alerts_file = alerts_dir / "alerts.json"
 
-    # Load existing alerts
     existing: list[dict[str, Any]] = []
     if alerts_file.exists():
         with open(alerts_file) as f:
@@ -236,34 +199,35 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
 @click.pass_context
 def history(ctx, period: str):
     """Historical data analysis"""
-    config = ctx.obj["config"]
-
     multipliers = {"h": 3600, "d": 86400}
     unit = period[-1]
     value = int(period[:-1])
     seconds = value * multipliers.get(unit, 3600)
     since = datetime.now() - timedelta(seconds=seconds)
 
-    analysis = {"period": period, "since": since.isoformat(), "analyzed_at": datetime.now().isoformat(), "summary": {}}
+    analysis = {
+        "period": period,
+        "since": since.isoformat(),
+        "analyzed_at": datetime.now().isoformat(),
+        "summary": {},
+    }
 
     try:
-        coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        try:
-            jobs: Any = coordinator_client.get("/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 500})
-            if isinstance(jobs, list):
-                completed = [j for j in jobs if j.get("status") == "completed"]
-                failed = [j for j in jobs if j.get("status") == "failed"]
-                analysis["summary"] = {
-                    "total_jobs": len(jobs),
-                    "completed": len(completed),
-                    "failed": len(failed),
-                    "success_rate": f"{len(completed) / max(1, len(jobs)) * 100:.1f}%",
-                }
-        except Exception:
-            analysis["summary"] = {"error": "Could not fetch job data"}
-
-    except Exception as e:
-        error(f"Analysis failed: {e}")
+        client = _monitoring_client(ctx, timeout=10)
+        data = client.get("/v1/monitoring/metrics")
+        jobs = data.get("jobs", {})
+        total = jobs.get("total", 0)
+        completed = jobs.get("completed", 0)
+        failed = jobs.get("failed", 0)
+        success_rate = f"{completed / max(1, total) * 100:.1f}%"
+        analysis["summary"] = {
+            "total_jobs": total,
+            "completed": completed,
+            "failed": failed,
+            "success_rate": success_rate,
+        }
+    except Exception:
+        analysis["summary"] = {"error": "Could not fetch job data"}
 
     output(analysis, ctx.obj["output_format"])
 
@@ -276,7 +240,6 @@ def history(ctx, period: str):
 @click.pass_context
 def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | None):
     """Manage webhook notifications"""
-    ctx.obj["config"]
     webhooks_dir = Path.home() / ".aitbc" / "webhooks"
     webhooks_dir.mkdir(parents=True, exist_ok=True)
     webhooks_file = webhooks_dir / "webhooks.json"
@@ -353,7 +316,6 @@ def _ensure_campaigns():
     CAMPAIGNS_DIR.mkdir(parents=True, exist_ok=True)
     campaigns_file = CAMPAIGNS_DIR / "campaigns.json"
     if not campaigns_file.exists():
-        # Seed with default campaigns
         default = {
             "campaigns": [
                 {
@@ -398,7 +360,6 @@ def campaigns(ctx, status: str):
 
     campaign_list = data.get("campaigns", [])
 
-    # Auto-update status
     now = datetime.now()
     for c in campaign_list:
         end = datetime.fromisoformat(c["end_date"])
