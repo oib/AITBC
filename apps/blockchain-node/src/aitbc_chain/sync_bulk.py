@@ -238,7 +238,9 @@ class BulkSyncMixin(SyncBase):
                 logger.warning("No blocks returned for range", extra={"start": current, "end": batch_end})
                 break
             for block_data in batch:
-                result = self.import_block(block_data, skip_state_root_validation=True)
+                result = self.import_block(
+                    block_data, transactions=block_data.get("transactions"), skip_state_root_validation=True
+                )
                 if result.accepted:
                     imported += 1
                     logger.info(
@@ -327,7 +329,9 @@ class BulkSyncMixin(SyncBase):
         # Import merged block list
         imported = 0
         for block_data in unique_blocks:
-            result = self.import_block(block_data, skip_state_root_validation=True)
+            result = self.import_block(
+                block_data, transactions=block_data.get("transactions"), skip_state_root_validation=True
+            )
             if result.accepted:
                 imported += 1
             else:
