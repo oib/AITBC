@@ -128,6 +128,21 @@ class BlockchainRPCClient:
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
 
+    async def get_transaction(self, tx_hash: str, chain_id: str | None = None) -> dict[str, Any] | None:
+        """Look up a transaction on the blockchain by hash.
+
+        Calls GET /rpc/transaction/{tx_hash}. Returns None if not found (404).
+        """
+        params: dict[str, Any] = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.get(f"{self._rpc_url}/rpc/transaction/{tx_hash}", params=params)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return cast(dict[str, Any], resp.json())
+
     async def verify_escrow(self, job_id: str, *, escrow_id: str | None = None) -> dict[str, Any] | None:
         """Verify escrow status on blockchain.
 

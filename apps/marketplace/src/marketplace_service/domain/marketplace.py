@@ -79,7 +79,8 @@ class Bid(MarketplaceBase, table=True):
     buyer: str = Field(default="", index=True)
     capacity: float = Field(default=0.0)
     price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    status: str = Field(default="pending", index=True)  # pending, active, cancelled
+    status: str = Field(default="pending", index=True)  # pending, completed, active, cancelled
+    tx_hash: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
 
 
