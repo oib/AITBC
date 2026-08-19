@@ -79,24 +79,81 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
         return {"error": str(e)}
 
 
+_AGENT_TYPE_MAP = {
+    "provider": "worker",
+    "consumer": "coordinator",
+    "general": "coordinator",
+}
+
+
+def _map_agent_type(agent_type: str) -> str:
+    """Map user-facing agent types to agent-coordinator internal types."""
+    return _AGENT_TYPE_MAP.get(agent_type, agent_type)
+
+
 async def register_agent(agent_id: str, coordinator_url: str | None = None) -> dict:
     """Register an agent with the coordinator"""
-    if Agent is None:
-        return {"error": "Agent SDK not available"}
     if coordinator_url is None:
         config = get_config()
         coordinator_url = config.agent_coordinator_url
 
     try:
-        # For now, return a simulated registration response
-        # In a real implementation, this would load the agent from storage and call register()
+        config_dir = get_agent_config_dir()
+        agent_file: Path | None = None
+        for f in config_dir.glob("*.json"):
+            try:
+                with open(f) as fp:
+                    data = json.load(fp)
+                if data.get("agent_id") == agent_id:
+                    agent_file = f
+                    break
+            except Exception:
+                continue
+
+        if not agent_file:
+            return {"error": f"Agent configuration not found for id: {agent_id}"}
+
+        with open(agent_file) as fp:
+            agent_data = json.load(fp)
+
+        capabilities = agent_data.get("capabilities") or {}
+        capability_list: list[str] = []
+        for _k, v in capabilities.items():
+            if v is None:
+                continue
+            if isinstance(v, list):
+                for item in v:
+                    capability_list.append(str(item))
+            else:
+                capability_list.append(str(v))
+
+        request_body = {
+            "agent_id": agent_id,
+            "agent_type": _map_agent_type(agent_data.get("agent_type", "general")),
+            "capabilities": capability_list,
+            "services": [],
+            "endpoints": {},
+            "metadata": {
+                "name": agent_data.get("name", agent_id),
+                "original_agent_type": agent_data.get("agent_type", "general"),
+            },
+            "chain_id": agent_data.get("chain_id") or get_config().chain_id,
+        }
+
+        client = AITBCHTTPClient(base_url=coordinator_url, timeout=10)
+        resp = client.post("/v1/agents/register", json=request_body)
+        result = resp.json() if hasattr(resp, "json") else resp
+        result["coordinator_url"] = coordinator_url
         return {
             "success": True,
             "agent_id": agent_id,
             "registered": True,
             "coordinator_url": coordinator_url,
-            "message": "Agent registered successfully (simulated)",
+            "message": result.get("message", "Agent registered successfully"),
         }
+    except NetworkError as e:
+        logger.warning("Agent SDK registration failed: %s", e)
+        return {"error": f"Failed to register agent with coordinator: {e}"}
     except Exception as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
@@ -409,7 +466,7 @@ try:
         try:
             # Get RPC URL from config (use hub for cross-node operations)
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
+            # Use the configured blockchain RPC URL directly; followers can set it to the hub.
 
             # Get chain_id
             try:
@@ -475,7 +532,7 @@ try:
         try:
             # Get RPC URL from config (use hub for cross-node operations)
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
+            # Use the configured blockchain RPC URL directly; followers can set it to the hub.
 
             # Get chain_id
             try:
@@ -508,7 +565,7 @@ try:
         try:
             # Get RPC URL from config (use hub for cross-node operations)
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
+            # Use the configured blockchain RPC URL directly; followers can set it to the hub.
 
             # Get chain_id
             try:
@@ -809,10 +866,26 @@ try:
             if limit:
                 params["limit"] = limit
 
-            response = requests.get(f"{coordinator_url}/api/v1/agent/discover", params=params, timeout=10)
-            response.raise_for_status()
-            result = response.json()
-            output(result, ctx.obj.get("output_format", format), title="Discovered Agents")
+            body: dict[str, Any] = {"query": {}}
+            if capability:
+                body["query"]["capabilities"] = [capability]
+            if agent_type:
+                body["query"]["agent_type"] = _map_agent_type(agent_type)
+            if min_health > 0:
+                body["query"]["min_health_score"] = min_health
+            if limit:
+                body["query"]["limit"] = limit
+            client = AITBCHTTPClient(base_url=coordinator_url, timeout=10)
+            result: dict[str, Any] = client.post("/v1/agents/discover", json=body)
+            output(
+                {
+                    "discovered_agents": result.get("agents", []),
+                    "count": result.get("count", 0),
+                    "status": result.get("status", "success"),
+                },
+                ctx.obj.get("output_format", format),
+                title="Discovered Agents",
+            )
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
