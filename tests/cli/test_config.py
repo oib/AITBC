@@ -436,16 +436,17 @@ class TestConfigCommands:
         profiles_dir.mkdir(parents=True, exist_ok=True)
 
         profile_file = profiles_dir / "load_me.yaml"
-        profile_file.write_text(yaml.dump({"coordinator_url": "http://127.0.0.1:18000"}))
+        profile_file.write_text(yaml.dump({"coordinator_api_url": "http://127.0.0.1:8203", "agent_coordinator_url": "http://127.0.0.1:8107"}))
 
         # Patch Path.home to return tmp_path
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = tmp_path
 
-            result = runner.invoke(config, ["profiles", "load", "load_me"], obj={"config": mock_config, "output": "table"})
+            with runner.isolated_filesystem(temp_dir=tmp_path):
+                result = runner.invoke(config, ["profiles", "load", "load_me"], obj={"config": mock_config, "output": "table"})
 
-            assert result.exit_code == 0
-            assert "Profile 'load_me' loaded" in result.output
+                assert result.exit_code == 0
+                assert "Profile 'load_me' loaded" in result.output
 
     def test_profiles_delete(self, runner, mock_config, tmp_path):
         """Test deleting a configuration profile"""
