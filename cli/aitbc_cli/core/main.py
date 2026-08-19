@@ -145,6 +145,8 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     aitbc system audit
     aitbc system check --service marketplace
     """
+    from aitbc_cli.config import get_config
+
     ctx.ensure_object(dict)
     ctx.obj["url"] = url
     ctx.obj["api_key"] = api_key
@@ -152,6 +154,11 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     ctx.obj["output_format"] = output
     ctx.obj["verbose"] = verbose
     ctx.obj["debug"] = debug
+
+    # Load the configuration object once and share it with all subcommands.
+    # Commands that need fresh data (e.g., after a config set) can call
+    # get_config() directly.
+    ctx.obj["config"] = get_config()
 
     # Handle chain_id with auto-detection
     from aitbc_cli.utils.chain_id import get_chain_id
