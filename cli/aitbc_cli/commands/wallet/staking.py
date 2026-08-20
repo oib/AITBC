@@ -92,7 +92,7 @@ def stake(ctx, amount: Decimal, duration: int):
         return
 
     stake_data = {
-        "address": hex_address,
+        "address": hex_address.lower().strip(),
         "amount": amount_seconds,
         "lock_days": duration,
         "chain_id": chain_id,
@@ -155,7 +155,7 @@ def unstake(ctx, stake_id: str):
         return
 
     unstake_data = {
-        "address": hex_address,
+        "address": hex_address.lower().strip(),
         "stake_id": stake_id_int,
         "chain_id": chain_id,
         "signature": signature,
