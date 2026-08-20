@@ -54,6 +54,13 @@ This batch of fixes completes the live two-node flow between `hub.aitbc` (custom
 
 ## Scenario replay and follow-up fixes (2026-08-20)
 
+- `6200888ca` `fix(cli/agent-comm)`: `aitbc agent-comm` now uses the `/v1`
+  coordinator mount after Hermes was renamed to agent. `register` and
+  `discover` work live from `aitbc3`.
+- `2b8508c28` `fix(cli/wallet)`: `aitbc wallet unstake` surfaces the real
+  RPC rejection body (e.g. stake lock expiry) instead of a generic 400.
+
+
 Continuing the live two-node validation on `aitbc3` and `hub.aitbc`:
 
 - `5886697ac` `fix(cli/transactions)`: `aitbc transactions status` and `pending` now fall back to the configured hub `blockchain_rpc_url` instead of `localhost:8202`.
