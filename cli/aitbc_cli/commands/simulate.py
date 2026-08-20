@@ -37,7 +37,7 @@ def blockchain(blocks, transactions, delay, output, seed):
     rng, use_real_sleeps = make_rng(seed)
     results: list[dict[str, Any]] = []
     for block_num in range(blocks):
-        block_timestamp = rng.advance(delay if use_real_sleeps else 0.0)
+        block_timestamp = rng.advance(delay)
         # Simulate block production
         block_data: dict[str, Any] = {
             "block_number": block_num + 1,
@@ -71,11 +71,8 @@ def blockchain(blocks, transactions, delay, output, seed):
         else:
             click.echo(json.dumps(block_data, indent=2))
 
-        if delay > 0 and block_num < blocks - 1:
-            if use_real_sleeps:
-                rng.sleep(delay)
-            else:
-                rng.sleep(0.0)
+        if delay > 0 and block_num < blocks - 1 and use_real_sleeps:
+            rng.sleep(delay)
 
     # Summary
     total_txs = sum(block["tx_count"] for block in results)
@@ -171,11 +168,8 @@ def price(price, volatility, timesteps, delay, seed):
 
         click.echo(f"Step {step + 1}: {current_price:.4f} AIT ({change_percent:+.2f}%)")
 
-        if delay > 0 and step < timesteps - 1:
-            if use_real_sleeps:
-                rng.sleep(delay)
-            else:
-                rng.sleep(0.0)
+        if delay > 0 and step < timesteps - 1 and use_real_sleeps:
+            rng.sleep(delay)
 
     # Statistics
     min_price = min(prices)
@@ -268,11 +262,8 @@ def network(nodes, network_delay, failure_rate, seed):
                 f"Step {step + 1}: {producer['id']} produced block {producer['height']}, {len(active_nodes)} nodes active"
             )
 
-        if network_delay > 0:
-            if use_real_sleeps:
-                rng.sleep(network_delay)
-            else:
-                rng.sleep(0.0)
+        if network_delay > 0 and use_real_sleeps:
+            rng.sleep(network_delay)
 
     # Final network status
     click.echo("\nFinal Network Status:")
@@ -292,7 +283,7 @@ def ai_jobs(jobs, models, duration_range, delay, seed):
     """Simulate AI job submission and processing"""
     click.echo(f"Simulating {jobs} AI jobs with models: {models}")
 
-    rng, _ = make_rng(seed)
+    rng, use_real_sleeps = make_rng(seed)
     base_time = rng.now()
 
     # Parse models
@@ -346,7 +337,7 @@ def ai_jobs(jobs, models, duration_range, delay, seed):
                     completed_jobs.append(job)
                     click.echo(f"Completed {job['job_id']} in {job['actual_duration']:.1f}s")
 
-        if delay > 0:
+        if delay > 0 and use_real_sleeps:
             rng.sleep(delay)
 
     # Job statistics
