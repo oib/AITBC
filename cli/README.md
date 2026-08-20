@@ -1,434 +1,79 @@
 # AITBC CLI
 
-The AITBC CLI is a comprehensive command-line interface for managing the AITBC blockchain network, including wallet operations, blockchain management, AI compute jobs, agent coordination, marketplace interactions, and federated mesh operations.
-
-**Version**: 2.1.0 (CLI runtime) · **Package**: `aitbc-cli` · **Python**: ≥ 3.13
+Command-line interface for the AITBC network.
 
 ## Installation
 
-The CLI is installed as part of the AITBC deployment via `scripts/deployment/setup.sh`, which performs an editable install of this package into the shared venv at `/opt/aitbc/venv` and exposes a wrapper at `/usr/local/bin/aitbc`.
-
 ```bash
-# Editable install (used by the deployment script)
-cd /opt/aitbc/cli
-/opt/aitbc/venv/bin/pip install -e .
-
-# Verify
-aitbc --version
-# aitbc, version 2.1.0
-```
-
-The wrapper script (`/usr/local/bin/aitbc`) invokes `/opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"`, so `aitbc` works from any shell without manually activating the venv.
-
-## Quick Start
-
-```bash
-# Top-level help (lists all 50+ command groups)
+pip install ./cli
 aitbc --help
-
-# Create a wallet
-aitbc wallet create my-wallet --password-file /var/lib/aitbc/keystore/.password
-
-# Check chain info
-aitbc blockchain info
-
-# Network status
-aitbc network status
-
-# Submit an AI job
-aitbc ai submit --wallet my-wallet --type text-generation --prompt "Hello world" --payment 10
 ```
 
-## Command Structure
-
-The CLI uses a nested Click group structure:
-
-```
-aitbc [GLOBAL OPTIONS] <command-group> <subcommand> [OPTIONS]
-```
-
-Global options (apply to all commands):
-
-| Option | Description |
-|---|---|
-| `--url TEXT` | Coordinator API URL (overrides config) |
-| `--api-key TEXT` | API key for authentication |
-| `--chain-id TEXT` | Chain ID for multichain operations (e.g. `ait-mainnet`, `ait-devnet`) |
-| `--output [table\|json\|yaml\|csv]` | Output format (default: `table`) |
-| `-v, --verbose` | Increase verbosity (repeatable) |
-| `--debug` | Enable debug mode |
-| `--version` | Show version and exit |
-
-## Command Groups
-
-The CLI exposes 50+ top-level command groups registered in `aitbc_cli/core/main.py`. The main groups:
+## Group catalog
 
 | Group | Description | Key subcommands |
-|---|---|---|
-| `wallet` | Wallet management & transactions | `create`, `list`, `balance`, `send`, `import-wallet`, `export`, `stake`, `unstake`, `multisig-*`, `request-payment` |
-| `blockchain` | Multi-chain management | `info`, `list`, `create`, `add`, `remove`, `migrate`, `backup`, `restore`, `monitor` |
-| `network` | Peer connectivity & subscriptions | `status`, `peers`, `test`, `force-sync`, `subscribe`, `subscribers`, `lease-status`, `heartbeat` |
-| `market` | On-chain GPU marketplace | `offer`, `list`, `match`, `cancel`, `escrow`, `run`, `transcribe`, `transcode`, `rate`, `ratings` |
-| `marketplace` | Global chain marketplace (legacy compat) | `list`, `create`, `buy` |
-| `ai` | AI compute job management | `submit`, `jobs`, `status`, `cancel`, `results`, `stats`, `service` |
-| `agent` | Agent SDK & coordinator | `create`, `register`, `list`, `status`, `capabilities`, `submit`, `jobs`, `workflow`, `config-*` |
-| `agent-comm` | Cross-chain agent communication | `register`, `send`, `receive` |
-| `mining` | Mining operations | `start`, `stop`, `status`, `list` |
-| `agent-msg` | Agent messaging via Agent Coordinator (8107) | `ping`, `send`, `receive`, `peers`, `request-coins` |
-| `node` | Federated mesh node management | `add`, `list`, `info`, `remove`, `test`, `bridge`, `chain`, `hub`, `island` |
-| `exchange` | Exchange integration & trading | `register`, `create-pair`, `add-liquidity`, `start-trading`, `status`, `monitor` |
-| `exchange-island` | AIT/ETH trading on islands | (island exchange ops) |
-| `gpu` | Local GPU hardware management | (GPU service ops) |
-| `gpu-onchain` | On-chain GPU resource tracking | (on-chain GPU ops) |
-| `sync` | Blockchain synchronization | `bulk` |
-| `system` | System management & audits | `architect`, `audit`, `check`, `config`, `restart`, `status` |
-| `governance` | Governance operations | (proposal lifecycle) |
-| `genesis` | Genesis block & wallet generation | (genesis ops) |
-| `analytics` | Chain analytics & monitoring | (analytics ops) |
-| `monitor` | Monitoring, metrics, alerts | (monitoring ops) |
-| `performance` | Performance monitoring | (perf ops) |
-| `reputation` | Reputation management | (reputation ops) |
-| `bridge` | Blockchain event bridge | (bridge ops) |
-| `messaging` | Messaging system & forum | (messaging ops) |
-| `workflow` | Workflow automation | (workflow ops) |
-| `resource` | Agent resource allocation | (allocate, optimize) |
-| `operations` | General operations | (ops) |
-| `pool-hub` | Pool hub SLA & billing | (pool-hub ops) |
-| `contract` | Smart contract operations | (contract ops) |
-| `script` | Script execution & management | (script ops) |
-| `economics` | Economic intelligence & modeling | (economics ops) |
-| `cluster` | Cluster management | (cluster ops) |
-| `security` | Security audit & monitoring | (security ops) |
-| `compliance` | Compliance checking & reporting | (compliance ops) |
-| `edge` | Edge API (island, GPU, database, serve) | (edge ops) |
-| `account` | Account information & management | (account ops) |
-| `coin-requests` | Coin transfer request management | (request ops) |
-| `explorer` | Blockchain explorer data access | (explorer ops) |
-| `simulate` | Blockchain scenario simulation | (simulate ops) |
-| `crosschain` | Cross-chain trading operations | (cross-chain ops) |
-| `config` | Manage CLI configuration | (config ops) |
-| `list` | Legacy wallet list alias | — |
-| `version` | Show version information | — |
-
-Run `aitbc <group> --help` for the full subcommand list and options of any group.
-
-## Common Use Cases
-
-### Wallet Management
-
-```bash
-# Create wallet with password file
-aitbc wallet create demo-wallet --password-file /var/lib/aitbc/keystore/.password
-
-# List all wallets
-aitbc wallet list
-
-# Check balance
-aitbc wallet balance demo-wallet
-
-# Send transaction
-aitbc wallet send demo-wallet --to <recipient-address> --amount 1000 --password-file /var/lib/aitbc/keystore/.password
-
-# Import wallet from JSON export
-aitbc wallet import-wallet imported-wallet --path /path/to/wallet.json
-
-# Stake / unstake
-aitbc wallet stake demo-wallet --amount 500 --password-file /var/lib/aitbc/keystore/.password
-aitbc wallet unstake demo-wallet --amount 500 --password-file /var/lib/aitbc/keystore/.password
-
-# Multisig
-aitbc wallet multisig-create --owners alice,bob --required 2
-aitbc wallet multisig-propose --wallet msig --to <addr> --amount 100
-aitbc wallet multisig-sign --wallet msig --proposal-id 1
-```
-
-### Blockchain Operations
-
-```bash
-# Chain info
-aitbc blockchain info
-
-# List configured chains
-aitbc blockchain list
-
-# Create a new chain from genesis config
-aitbc blockchain create --config /path/to/genesis.yaml
-
-# Monitor chain activity
-aitbc blockchain monitor --chain-id ait-mainnet
-```
-
-### Network & Sync
-
-```bash
-# Network status
-aitbc network status
-
-# List peers
-aitbc network peers
-
-# Test connectivity to a peer
-aitbc network test --peer <peer-address>
-
-# Force synchronization
-aitbc network force-sync
-
-# Subscribe this follower node to a hub
-aitbc network subscribe --hub-url https://hub.aitbc.bubuit.net
-
-# Bulk import blocks from a leader to catch up
-aitbc sync bulk --leader-url http://hub.aitbc.bubuit.net:8202
-```
-
-### Agent Ping/Pong (Follower ↔ Hub)
-
-Followers can ping a remote agent (e.g. the hub coordinator) and wait for its PONG reply:
-
-```bash
-# Ping the hub coordinator agent and wait up to 10s for PONG
-aitbc agent-msg ping \
-  --agent hub-coordinator \
-  --sender my-follower-agent \
-  --coordinator-url http://hub.aitbc.bubuit.net:8107 \
-  --timeout 10
-```
-
-This sends a `PING` message to the coordinator's `/api/v1/agent/messages/send` endpoint and polls `/api/v1/agent/messages/{sender}` for the `PONG` reply.
-
-### AI Compute
-
-```bash
-# Submit AI job
-aitbc ai submit --wallet my-wallet --type text-generation --prompt "Hello world" --payment 10
-
-# List AI jobs
-aitbc ai jobs
-
-# Get specific job status
-aitbc ai status --job-id <job-id>
-
-# Get results
-aitbc ai results --job-id <job-id>
-
-# Cancel
-aitbc ai cancel --job-id <job-id> --wallet my-wallet
-```
-
-### Agent SDK
-
-```bash
-# Create a new agent (auto-detect capabilities)
-aitbc agent create --name my-agent --type provider --auto-detect
-
-# Register with coordinator
-aitbc agent register --agent-id <agent-id> --coordinator-url http://localhost:8203
-
-# List local agents
-aitbc agent list
-
-# Get agent status
-aitbc agent status --agent-id <agent-id>
-
-# Show auto-detected system capabilities
-aitbc agent capabilities
-```
-
-### Mining
-
-```bash
-aitbc mining start --wallet my-wallet --threads 4
-aitbc mining status
-aitbc mining stop
-aitbc mining list
-```
-
-### Marketplace (on-chain GPU)
-
-```bash
-# List offers and bids
-aitbc market list
-
-# List a hardware+software bundle offer
-aitbc market offer --gpu-id gpu-0 --memory 24 --price 100
-
-# Match bids with offers (price discovery)
-aitbc market match
-
-# Run an inference job against a software offer
-aitbc market run --offer-id <offer-id> --input input.json
-
-# Rate a service offer
-aitbc market rate --offer-id <offer-id> --rating 5
-```
-
-### Node / Federated Mesh
-
-```bash
-# List configured nodes
-aitbc node list
-
-# Add a node
-aitbc node add --name my-node --url http://node.example:8202
-
-# Test connectivity
-aitbc node test --name my-node
-
-# Hub / island / bridge subcommands
-aitbc node hub --help
-aitbc node island --help
-aitbc node bridge --help
-```
-
-## Configuration
-
-### Environment Variables
-
-- `AITBC_RPC_URL`: Default RPC endpoint URL
-- `AITBC_COORDINATOR_URL`: Agent coordinator URL
-- `AITBC_KEYSTORE_DIR`: Directory for wallet keystore files
-- `AITBC_DATA_DIR`: Directory for blockchain data
-
-### Configuration Files
-
-- `/etc/aitbc/blockchain.env`: Node role & blockchain config (`BLOCKCHAIN_MODE`, `MARKET_ROLE`, `HARDWARE_PROFILE`)
-- `/etc/aitbc/node.env`: Node-specific configuration
-- `~/.aitbc/config`: User-specific configuration
-
-Use `aitbc config --help` for in-CLI configuration management.
-
-## Output Formats
-
-Most commands support multiple output formats via the global `--output` flag:
-
-```bash
-# Table (default, human-readable)
-aitbc wallet list --output table
-
-# JSON (machine-readable, script-friendly)
-aitbc wallet list --output json
-
-# YAML
-aitbc wallet list --output yaml
-
-# CSV
-aitbc wallet list --output csv
-```
-
-## Remote Operations
-
-Connect to remote blockchain/coordinator endpoints:
-
-```bash
-# Per-invocation override
-aitbc wallet balance my-wallet --url http://remote-node:8203
-
-# Persistent via env var
-export AITBC_RPC_URL=http://remote-node:8202
-aitbc wallet balance my-wallet
-```
-
-## Password Management
-
-Multiple password input methods:
-
-```bash
-# Interactive prompt (default)
-aitbc wallet send my-wallet --to <address> --amount 1000
-
-# Password file (recommended for scripts)
-aitbc wallet send my-wallet --to <address> --amount 1000 --password-file /var/lib/aitbc/keystore/.password
-
-# Direct password (NOT recommended for production)
-aitbc wallet send my-wallet --to <address> --amount 1000 --password mypassword
-```
-
-## Script Integration
-
-```bash
-#!/bin/bash
-BALANCE=$(aitbc wallet balance my-wallet --output json | jq -r '.balance')
-
-if [ "$BALANCE" -gt "1000" ]; then
-  echo "Sufficient balance"
-  aitbc wallet send my-wallet --to "$RECIPIENT" --amount 1000 \
-    --password-file /var/lib/aitbc/keystore/.password
-else
-  echo "Insufficient balance: $BALANCE AIT"
-fi
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Permission Denied** — keystore files need `600` perms:
-```bash
-ls -la /var/lib/aitbc/keystore/
-chmod 600 /var/lib/aitbc/keystore/*.json
-```
-
-**Connection Refused** — verify the RPC service:
-```bash
-systemctl status aitbc-blockchain-rpc.service
-systemctl start aitbc-blockchain-rpc.service
-```
-
-**Invalid Wallet** — verify the wallet exists:
-```bash
-aitbc wallet list
-ls -la /var/lib/aitbc/keystore/
-```
-
-### Debug Mode
-
-```bash
-aitbc --debug wallet balance my-wallet
-aitbc -vv network status
-```
-
-## Development
-
-### Running from Source
-
-```bash
-# Editable install into the shared venv
-cd /opt/aitbc/cli
-/opt/aitbc/venv/bin/pip install -e .
-
-# Or invoke the module directly without installing
-/opt/aitbc/venv/bin/python -m aitbc_cli.core.main --help
-```
-
-### Testing
-
-The CLI has two test locations:
-
-```bash
-# CLI-internal smoke tests
-cd /opt/aitbc/cli
-/opt/aitbc/venv/bin/python -m pytest tests/
-
-# Comprehensive command & integration tests (119 files)
-cd /opt/aitbc
-/opt/aitbc/venv/bin/python -m pytest tests/cli/
-```
-
-### Project Layout
-
-See `FILE_ORGANIZATION_SUMMARY.md` for the full directory tree and `docs/FILE_ORGANIZATION_SUMMARY.md` for the docs subdirectory.
-
-## Additional Documentation
-
-- **CLI Usage Guide**: `CLI_USAGE_GUIDE.md` — detailed command examples and workflows
-- **File Organization**: `FILE_ORGANIZATION_SUMMARY.md` — directory structure reference
-- **Disabled Commands Cleanup**: `docs/DISABLED_COMMANDS_CLEANUP.md` — historical analysis of re-enabled commands
-- **Agent SDK**: `packages/py/aitbc-agent-sdk/README.md` — agent development
-- **Blockchain docs**: `docs/blockchain/`
-- **REST API reference**: `docs/api.html`
-
-## Support
-
-1. Check this README and `CLI_USAGE_GUIDE.md`
-2. Run `aitbc <group> --help` for command-specific guidance
-3. Run with `--debug` for verbose error information
-4. Check system logs in `/var/log/aitbc/`
+|-------|-------------|-----------------|
+| `account` | Account information and management | `get`, `list` |
+| `agent` | Agent SDK management commands | `cancel`, `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `job`, `jobs`, `list`, `register`, `register-identity`, `status`, `submit`, `subscribe`, `verify-identity`, `workflow` |
+| `agent-comm` | Cross-chain agent communication commands | `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status` |
+| `agent-msg` | Agent messaging commands (ping, send, receive, peers, request-coins). | `peers`, `ping`, `receive`, `request-coins`, `send` |
+| `agent-wallet` | Agent-owned wallet, staking, and rebalancing commands. | `balance`, `rebalance`, `stake` |
+| `ai` | AI job submission and inspection | `cancel`, `distribution-stats`, `jobs`, `results`, `service`, `stats`, `status`, `submit` |
+| `analytics` | Chain analytics and monitoring commands | `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary` |
+| `blockchain` | Multi-chain management commands | `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status` |
+| `bond` | Provider performance bond lifecycle commands. | `appeal`, `status`, `top-up` |
+| `bootstrap` | Bootstrap local development and configuration files. | `bootstrap-env` |
+| `bridge` | Cross-chain bridge management | `balance`, `confirm`, `health`, `lock`, `oracle-status`, `pending`, `register-validator`, `security-status`, `start`, `status`, `stop`, `unlock` |
+| `chain` | Multi-chain management commands | `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status` |
+| `cluster` | Cluster management and operations | `balance`, `status`, `sync` |
+| `coin-requests` | Manage coin transfer requests. | `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show` |
+| `compliance` | Compliance policy, classification, and audit commands. | `check`, `classify`, `export-audit` |
+| `confidential` | Confidential TEE-signed transaction commands. | `balance`, `send` |
+| `config` | Manage CLI configuration | `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate` |
+| `contract` | Smart contract operations | `call`, `deploy` |
+| `crosschain` | Cross-chain trading operations | `bridge`, `bridge-status`, `pools`, `rates`, `stats`, `status`, `swap`, `swaps` |
+| `deploy` | Deploy and manage white-label platform configurations. | `deploy-brand` |
+| `developer` | Developer registry commands. | `list`, `register` |
+| `economics` | Economic intelligence, modeling, and OpenClaw DAO governance. | `distributed`, `market`, `model`, `propose`, `status`, `vote` |
+| `edge` | Edge API commands for island, GPU, database, serve, and metrics operations | `balance`, `database`, `gpu`, `island`, `metrics`, `serve`, `status`, `transfer` |
+| `exchange` | Exchange integration and trading management commands | `add-liquidity`, `create-pair`, `list`, `monitor`, `register`, `start-trading`, `status` |
+| `exchange-island` | Exchange commands for trading AIT against ETH on the island | `buy`, `cancel`, `orderbook`, `orders`, `rates`, `sell` |
+| `explorer` | Blockchain Explorer commands - access blockchain data via Explorer API | `activity-timeline`, `block`, `block-by-hash`, `blocks-by-address`, `chain-head`, `chains`, `latest-blocks`, `network-stats`, `non-empty-blocks`, `provider-reputation`, `search-transactions`, `top-addresses`, `transaction`, `transaction-by-hash` |
+| `genesis` | Genesis block and wallet generation commands | `info`, `init`, `sync-from-hub`, `verify` |
+| `governance` | Governance operations — on-chain proposals, voting, and execution | `aggregate-votes`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote` |
+| `gpu` | Local GPU service commands for hardware management | `discover`, `list-gpus`, `register`, `unregister`, `update` |
+| `gpu-onchain` | GPU resource tracking commands (on-chain) | `allocate`, `allocations`, `list`, `query`, `register` |
+| `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
+| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `list`, `pin`, `upload` |
+| `list` | Legacy wallet list alias |  |
+| `market` | Blockchain marketplace commands for GPU trading | `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcode`, `transcribe` |
+| `marketplace` | Global chain marketplace commands | `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions` |
+| `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
+| `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
+| `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks` |
+| `network` | Peer connectivity and network operations | `force-sync`, `heartbeat`, `lease-status`, `peers`, `status`, `subscribe`, `subscribers`, `test` |
+| `node` | Node management commands | `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test` |
+| `operations` | General operations commands | `agent`, `ai`, `governance`, `marketplace` |
+| `oracle` | Local data oracle for agent data availability announcements. | `listings`, `store` |
+| `performance` | Performance monitoring and optimization | `benchmark`, `optimize`, `tune` |
+| `platform` | Scaffold white-label platform configurations. | `init-platform` |
+| `plugin` | Scaffold and manage AITBC plugins. | `create` |
+| `pool-hub` | Pool hub management for SLA monitoring and billing | `sla`, `status` |
+| `reinvest` | Autonomous reinvestment and capacity planning commands. | `policy`, `simulate` |
+| `reputation` | Reputation management commands | `create-profile`, `feedback`, `leaderboard`, `metrics`, `profile`, `trust-score` |
+| `resource` | Manage agent resource allocations via coordinator-api | `allocate`, `optimize` |
+| `restart` | Restart all AITBC services for the current (or selected) role |  |
+| `script` | Script execution and management | `list`, `run` |
+| `security` | Security audit and monitoring | `audit`, `patch`, `scan` |
+| `simulate` | Simulate blockchain scenarios and test environments | `ai-jobs`, `blockchain`, `network`, `price`, `result`, `run`, `status`, `wallets` |
+| `start` | Start all AITBC services for the current (or selected) role |  |
+| `stop` | Stop all AITBC services for the current (or selected) role |  |
+| `sync` | Blockchain synchronization utilities | `bulk`, `status` |
+| `system` | System management commands | `architect`, `audit`, `check`, `config`, `restart`, `status` |
+| `tee` | Trusted Execution Environment (TEE) commands. | `attest`, `launch`, `verify` |
+| `trade` | Inter-chain trading operations | `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch` |
+| `transactions` | Transaction management commands | `batch`, `estimate-fee`, `pending`, `search`, `send`, `status` |
+| `update` | Pull the latest code and run scripts/deployment/update.sh. |  |
+| `version` | Show version information |  |
+| `wallet` | Manage your wallets and transactions | `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake` |
+| `workflow` | Workflow management commands | `list`, `run`, `status`, `stop` |

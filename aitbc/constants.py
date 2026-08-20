@@ -63,7 +63,7 @@ EXCHANGE_PORT = 8106
 REDIS_PORT = 6379
 
 # Default URLs (derived from ports)
-BLOCKCHAIN_RPC_URL = f"http://localhost:{BLOCKCHAIN_RPC_PORT}"
+BLOCKCHAIN_RPC_URL = f"http://127.0.0.1:{BLOCKCHAIN_RPC_PORT}"
 
 # CORS origins
 DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8080"]

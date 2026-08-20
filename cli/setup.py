@@ -1,61 +1,42 @@
 #!/usr/bin/env python3
-"""
-AITBC CLI Setup Script
-"""
+"""AITBC CLI Setup Script"""
 
+from pathlib import Path
 from setuptools import find_packages, setup
 
 
-# Read README file
-def read_readme():
-    with open("docs/README.md", encoding="utf-8") as fh:
-        return fh.read()
+def read_readme() -> str:
+    readme = Path("README.md")
+    if readme.is_file():
+        return readme.read_text(encoding="utf-8")
+    return "AITBC Command Line Interface"
 
 
-# Read requirements from pyproject.toml
-def read_requirements():
-    # Fallback to hardcoded list
-    return [
-        "click>=8.0",
-        "rich>=13.0",
-        "PyYAML",
-        "requests",
-        "cryptography",
-    ]
+def read_requirements() -> list[str]:
+    req = Path("requirements.txt")
+    if req.is_file():
+        return [
+            line.strip() for line in req.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")
+        ]
+    return []
 
 
 setup(
     name="aitbc-cli",
-    version="0.10.16",
+    version="0.10.18",
     author="AITBC Team",
     author_email="team@aitbc.net",
     description="AITBC Command Line Interface Tools",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     url="https://aitbc.net",
-    project_urls={
-        "Homepage": "https://aitbc.net",
-        "Repository": "https://github.com/aitbc/aitbc",
-        "Documentation": "https://docs.aitbc.net",
-    },
-    packages=find_packages(include=["aitbc_cli", "aitbc_cli.*"], exclude=["aitbc"]),
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Operating System :: OS Independent",
-        "Topic :: Software Development :: Libraries :: Python Modules",
-        "Topic :: System :: Distributed Computing",
-    ],
+    packages=find_packages(include=["aitbc_cli", "aitbc_cli.*"]),
     python_requires=">=3.13",
     install_requires=read_requirements(),
     extras_require={
         "dev": [
             "pytest>=7.0.0",
-            "pytest-asyncio>=0.21.0",
+            "pytest-asyncio>=0.23.0",
             "pytest-cov>=4.0.0",
             "pytest-mock>=3.10.0",
             "black>=22.0.0",
