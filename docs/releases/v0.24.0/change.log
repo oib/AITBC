@@ -30,3 +30,260 @@ After the merges and restart on the hub node:
 - `/v1/sla/violations?resolved=true` returns 200.
 - `aitbc pool-hub status` and `aitbc pool-hub sla` return live data instead of simulated.
 - `poolhub_miners_online` is exported on `/metrics` for Prometheus.
+
+## Commits since v0.23.0
+
+* a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
+* f2d7ff4c8 fix(ci): drop stale pnpm artifacts in contracts/, guard against their return [AITBC-132]
+* d24da34e8 docs(releases): close V23-16 and mark v0.23 complete [AITBC-133]
+* 4974a5233 fix(ci): repoint package-tests.yml at packages that exist [AITBC-134]
+* a8962b154 fix(ci): correct CLI import path in cli-level1-tests.yml [AITBC-131]
+* b00e3be12 fix(ci): add prometheus-client to CLI test dependencies [AITBC-131]
+* e4a6cdc16 fix(ci): use main requirements.txt for CLI tests [AITBC-131]
+* 56988a9ad fix(ci): fix binary name in CLI tests [AITBC-131]
+* 172e4c9ff fix(ci): use aitbc command from PATH in CLI tests [AITBC-131]
+* 943999be8 fix(ci): handle timeout/connection issues in CLI wallet list test [AITBC-131]
+* 9057ef4bd fix(ci): use correct chain command in CLI tests [AITBC-131]
+* 8b5040158 ci: check out the commit under test instead of assuming /opt/aitbc [AITBC-136]
+* a1499543c ci: migrate the remaining 25 workflows to actions/checkout [AITBC-136]
+* 72c69be27 fix(ci): point sync verification at the public island, and stop it passing vacuously [AITBC-137]
+* 776f8198a fix(deployment): install local packages/py/* during venv sync
+* 0a1c176cc fix(nginx): add corrected nginx example and update setup references
+* a4a44bc5c fix(ci): resolve the repo root from the script instead of hardcoding /opt/aitbc [AITBC-138]
+* 2e377b829 fix(website): correct broken quick-start link on landing page
+* 9dca4fb4e fix(apps): wire AI job submission into the mempool with signature validation [AITBC-162]
+* a779b4c25 fix(cli): repair wallet import and use blockchain command in tests [AITBC-131]
+* 0533bf2e6 fix(ci): install local packages and add aitbc-agent-core to PYTHONPATH for cli-level1-tests [AITBC-131]
+* c2d023790 fix(tests): make cli-level1-tests scripts CI-safe and use aitbc from PATH [AITBC-131]
+* 72f2bcf02 fix(ci): activate venv before running cli-test-commands.sh [AITBC-131]
+* f5740a0d9 fix(ci): add missing deps, update requirements, and sync docs validation [AITBC-136]
+* a7bc3b264 fix(ci): make priority docs metadata check non-blocking [AITBC-136]
+* 9d02a9621 fix(ci): install requirements and local packages in python/coverage/package tests [AITBC-136]
+* 8a69ebb35 fix(ci): use text-only marker for API docs validation [AITBC-136]
+* 30b9cacb7 ci: remove all mainnet and testnet workflows and references [AITBC-136]
+* 79e2bacf0 fix(ci): add filelock to runtime deps and missing test extras, add markdownlint config [AITBC-999]
+* 36ab971ad fix(ci): pin OpenZeppelin install and set PYTHONPATH for CLI smoke [AITBC-999]
+* 84c870124 fix(ci): register AgentReputation for rewards FK and add MYPYPATH for package tests [AITBC-999]
+* 4d0aadf02 chore(repo): remove .cursor rules and mcp config [AITBC-999]
+* 9213445dc chore(repo): remove legacy network and integration test workflows [AITBC-999]
+* 287223e32 ci(security): skip editable package and ignore unfixable ecdsa CVE [AITBC-999]
+* 641dcaa0d test(async): replace asyncio.run() with await in async tests [AITBC-999]
+* a6d294ebe fix(security): avoid unawaited store_audit_key coroutine [AITBC-999]
+* 9a0a35573 fix(coordinator-api): stop advertising SDKs that do not exist [AITBC-141]
+* 9edcfdd6e docs(api,development): drop JS SDK references from current-facing docs [AITBC-139]
+* b00c7ef93 docs(api,sdk): rewrite Python SDK examples against the real API [AITBC-140]
+* cb1380eff fix(scripts): default Redis health check to localhost with env override [AITBC-142]
+* 6dba68c21 fix(sdk): point send_payment at the endpoint that exists [AITBC-142]
+* 361c30c00 ci: filter pull_request triggers by path, and repair three dead filters [AITBC-141]
+* 6270f6893 docs(api): delete the JS SDK examples, whose SDK no longer exists [AITBC-138]
+* 822255c06 docs(packages): correct the stale reason pnpm was chosen for packages/ [AITBC-130]
+* c9f9351d0 fix(cli): repair the entrypoint the v0.23 remediation commit broke [AITBC-131]
+* 2352b652e fix(contracts): make all 20 scripts run, and correct what AITBC-128 claimed [AITBC-130]
+* be23ff21c docs(development): fix fake SDK links in developer guide [AITBC-138]
+* 39186d12f fix(crypto): one canonical ECDSA recovery, and a guard against a tenth (V23-01..05)
+* 9e0f355a1 fix(release): restore v0.23 release.log after AITBC-110 rebase [AITBC-999]
+* b1550a75a docs(releases): backfill v0.21.2 and v0.22.1 release logs [AITBC-999]
+* 0a64b24cc fix(crypto): wire V23-04 signature metrics into verify_block_signature
+* cb654a338 fix(governance): repair seven unusable endpoints and take the suite to green [AITBC-143]
+* b4771895e fix(lint): make the money guard find money, and run it [AITBC-146]
+* 75df773e9 ci(coverage-phase-1): clear addopts instead of -c /dev/null so pytest markers load
+* a4d5f6aa5 fix(cli): redact env values for keys that look like secrets [AITBC-91]
+* f9c4fe62f fix(cli): report chain migration infeasible instead of fabricated stats [AITBC-91]
+* de0e57fc6 fix(cli): disambiguate agent-msg group and remove empty client stub [AITBC-91]
+* 9f60f76a2 chore(tests): move 112 shell test scripts to tests/tooling [AITBC-91]
+* 44705b291 chore(tests): update runner and script paths for tests/tooling [AITBC-91]
+* 4fc6f4ddf docs(sop): update shell test paths to tests/tooling [AITBC-91]
+* 5593ba302 chore(tests): clean remaining tests/test- references in runner comments [AITBC-91]
+* b4c44414d docs(tests): update remaining test references in comments and maps [AITBC-91]
+* 5e7345637 ci(gitea): load pytest markers in workflow test runs
+* 1ad318a4c docs(skills): add tea PR merge and close examples to skill guide
+* 5e0053653 ci: enable multi-validator consensus for test suites
+* 5325b1802 fix(cli): restore `agent` alias for the messaging command group
+* 2c7fa536a fix(money): re-land the Decimal migration — 210 float-money violations to 0 [AITBC-152]
+* e38af8a42 fix(tests): repoint the ABS-285 structural guard at tests/tooling/ [AITBC-153]
+* ac31a3e6f fix(cli): one unit for AIT amounts, and a display that agrees with it [AITBC-154]
+* 506e2fa0b fix(coordinator): repoint the chain client at endpoints that exist [AITBC-155]
+* 2d2d0b500 refactor(cli): delete the shadow cli/utils tree, keep the one unique module [AITBC-156]
+* 022e5dd05 test(coordinator): cover kyc_aml_providers, and pin what it actually does [AITBC-157]
+* faf366b63 docs(blockchain): decide and enforce float money at the signature boundary [AITBC-158]
+* 6c8daed61 fix(types): mypy baseline 29 -> 0, and five of them were TypeErrors [AITBC-159]
+* 113e520a6 feat(db): Alembic for gpu and edge, and the env var that does nothing [AITBC-160]
+* 44d30c633 fix(consensus): record what a slash cost, not the rate it used [AITBC-161]
+* 906687f31 fix(db): migrate the chain database the node actually uses [AITBC-162]
+* 271d395f2 fix(deploy): repermission /var/lib/aitbc, and stop migrating the wrong DBs [AITBC-163]
+* 09b0702fc fix(sync): keep the proposer signature across a sync hop [AITBC-164]
+* 91d4146bd fix(crypto): name the key that actually signed when a block is rejected [AITBC-165]
+* 6a2413138 fix(migrations): make coordinator pricing and governance migrations idempotent [AITBC-165]
+* ff239f7c5 fix(migrations): make the governance idempotency guard work on both backends [AITBC-166]
+* f5a14239e fix(crypto): verify signatures against the legacy address spelling [AITBC-167]
+* fbdca7186 ops(chain): backfill the unverifiable block range so followers can resync [AITBC-168]
+* e67ba6536 fix(cli): read the genesis wallet from config, not a hardcoded address [AITBC-169]
+* f19eb5bc0 ops(backup): capture wallets, all postgres dbs, and key/address audit [AITBC-169]
+* 91c55e41c ops(genesis): add create-genesis-block.py for hard-fork reset [AITBC-170]
+* 67e596fec ops(deploy): default update.sh to the gitea origin remote [AITBC-171]
+* 7238a91dc ops(follower): publish genesis.json and auto-download it for reset [AITBC-172]
+* 7110460ef fix(chain): verify a key controls the identity it is labelled with [AITBC-170]
+* 546af02e0 fix(security): stop publishing cluster credentials over HTTP [AITBC-999]
+* 175cec115 fix(chain): let a follower build its own genesis block [AITBC-999]
+* 0a42cdb1e fix(chain): preserve https in peer URLs for RPC genesis bootstrap [AITBC-999]
+* 201c62564 fix(rpc): validate chain_id and init db before import_block [AITBC-173]
+* e717357be test(integration): update auth flow to wallet-signed nonce challenge
+* 98cb4d2ff fix(logging): refuse relative LOG_DIR values to avoid stray placeholder/ trees
+* c791a92b5 test(atomic): fix timelock tests to check duration margin, not absolute heights
+* d49bf9b30 test(integration): delete obsolete skipped integration test modules
+* 7be7cd188 test: delete 21 legacy/stub test files
+* d6fff6927 ci(staking): add httpx to staking test venv extra packages
+* 60b552abb test(coordinator): make SRC_ROOT relative so ignored-module tests find files in CI
+* 5a2c0e09d ci(package-tests): load pytest markers instead of dropping config
+* 41c15caec ci(security): strip local editable from requirements before pip-audit
+* fa390727f fix: hard-coded /opt/aitbc paths in agent-coordinator wrapper and tests
+* 375d8d643 ci(package-tests): install pytest-asyncio for aitbc-agent-sdk package tests
+* b6634a15f ci: remove coverage-phase-1 and coverage-phase-2 workflows
+* ff0b92383 fix(agent-coordinator-wrapper): use parents[2] for repo root
+* d300bcaff ci: remove remaining failing gitea workflows
+* 780cc00dd ci: remove all gitea workflow files
+* 93486dc5c ci: remove all github workflow files
+* c594e682c docs(readme): rewrite README as welcome page for hub/shop/client roles
+* 3b3b57449 docs(docs): refresh high-traffic docs and add refresh audit
+* df31e33ef docs(archive): archive stale apps/clients/ guides and update cross-links
+* 931f95c42 docs(docs): refresh quick reference, agent coordinator CLI, and developer overview
+* 3fdc7abc4 docs(apps): create per-app landing pages and regenerate app catalog
+* 1e5a6d588 docs(cleanup): remove boilerplate documentation and root harness files
+* f9075f401 docs(contributing): create project CONTRIBUTING.md and fix dead references
+* dbadf7e79 docs(features): repair link corruption and lint-clean docs/features
+* 90464ab1b docs(ports): normalize agent-coordinator port 9001→8107 and archive stale docs
+* e2e69abe6 docs(lint): auto-fix markdownlint formatting across docs tree
+* e34c016ff docs(audit): update DOCS_REFRESH_AUDIT progress and apply minor formatting
+* 3ca0ecbf4 docs(lint): deduplicate headings and fix MD033/MD051/MD028 in current docs
+* ea463edf8 docs(lint): clean historical release notes to pass markdownlint
+* 9e7624671 docs(cleanup): archive stale microservices testing and migration docs
+* ace20e795 docs(ports): fix stale localhost port numbers in current docs
+* f835b0d7e chore(cleanup): remove boilerplate from .gitignore and .github
+* a0a6bb33f docs(audit): update DOCS_REFRESH_AUDIT with final validation status
+* c4750148d fix(blockchain): #161 hardcoded /rpc/status counters, #162 AI job block inclusion, #163 branch protection
+* 6c76d2deb test(blockchain): make blockchain-node tests hermetic for chain validation
+* 0edfb53b7 test(blockchain): clean up skipped tests in blockchain-node suite
+* 2086fe9c2 test(suite): delete skipped root test suites and fix signature regression
+* ea97ba9aa test(apps): delete skipped integration tests in pool-hub and coordinator-api
+* f50aaa5e8 test(coordinator-api): delete broken tests with missing fixtures
+* ab846475c test(cleanup): remove skipped, errored, and failed test functions
+* 75438b254 test(integration): restore two green suites deleted by the CI cleanup [AITBC-999]
+* 4d28fbc44 test(V23-62): cover the faucet execute endpoint, restore green security tests
+* 04a2a50cd fix(V23-62): execute the approved coin request, not the one in the body
+* bcab0a77d feat(V23-62): register a follower's coin request at the hub before executing
+* 8e0b9e79d fix(V23-63): compare the genesis address canonically, sign with the configured spelling
+* ca697f083 fix(crypto): use genesis_address consistently in TransactionService signing
+* bee3e4a83 fix(blockchain-node): canonicalize account address spellings in DB and trie
+* 616b6c308 fix(V23-64): restore escrow's foreign keys, test the account canonicalization
+* 83b45a7d5 fix(blockchain-node): normalise raw from/to at the state-transition boundary
+* 566a81c9a test(V23-65): pin that storage rewrites two signature-covered fields
+* 9c4ced7bc fix(V23-65): store signature-covered address columns verbatim
+* 12cf8babb feat(V23-66): reconcile the coin-request database against the chain
+* 2113b822a fix(cli): include chain_id in reconcile RPC lookup
+* b0b602ea1 fix(V23-66a): resolve an omitted chain_id to the node's own chain
+* 00a0bd89e fix(V23-67): count faucet grants against the destination wallet, not the name
+* 9c91e8807 feat(V23-68): add a follower API key scoped to register and execute
+* 8a9dbb896 test(V23-69): collect nine app test suites that had never run
+* 969c10170 test(V23-70): collect the last three app suites, guard module identity
+* 7845fbfce test(V23-71): restore the edge and governance tests deleted as "failed"
+* dcabb9b25 test(V23-71b): restore 41 more deleted app tests, hold back 11
+* da193e6cd fix(V23-72): give governance and gpu their own SQLModel MetaData
+* e2cb30782 fix(V23-72): give marketplace its own SQLModel MetaData too
+* 2c8a3dc19 fix(V23-73): stop the test suite running against deployed databases
+* 65b057ec8 fix(v23-73): do not crash the guard on an unfinished engine
+* 4840ffa09 fix(v23-74): give aitbc_chain and trading their own SQLModel metadata
+* ff9f51891 fix(v23-74): repoint the three test harnesses at chain_metadata
+* 151afc206 test(v23-71c): restore the seven files blocked on the shared registry
+* c1e0bb042 test(root): restore 90 deleted tests/ files and collect the directory
+* 8f2f60326 fix(v23-75): migrate the seven trading tables Alembic never built
+* 591e8d461 fix(v23-76): 404 for a marketplace offer that does not exist
+* 55d38bd64 fix(blockchain-node): stop node startup writing a wrong schema silently
+* de957590e refactor(logging): delete the log format switch nothing reads
+* 1c4025653 fix(deploy): migrate on first install, and make the readiness check able to fail
+* a7ca00f6b docs(openapi): document the error responses the handlers actually return
+* bb0c59f31 fix(marketplace): answer 404 on three routes that reported success or failure
+* 483654fcf fix(openapi): run the drift guard, and make it capable of failing
+* 61e29702a fix(marketplace): reconcile the two status vocabularies so an offer can be cancelled
+* adeba5b5e test(cli): collect cli/tests in the main run, and delete the config that never worked
+* 45053570c fix(security): make the bandit pre-push hook installable, runnable and green
+* e920bdf6e chore(scripts): delete 19 dead scripts and repair 5 that pointed at a workstation
+* 75fde1621 fix(scripts): pass argv lists to qa-cycle run_cmd, which had strings under shell=False
+* 71ca92ae0 docs: split v0.23 release log into v0.23.x sub-releases
+* 7f5350846 fix(exchange): preserve raw request path and legacy header semantics in FastAPI adapter
+* 5451ab8a0 fix(pool-hub): support SQLite DSN and wrap online migrations in a transaction
+* b64b308c8 fix(scripts): remove eval usage, repair bash -n failures, and enforce strict mode (OPS-16)
+* d60f9bb83 fix(scripts): resolve shellcheck findings in deployment and operational scripts
+* 9c73e9c3f fix(marketplace): restore the nine query-param defaults a B008 fix deleted
+* 6c15b33c3 fix(api): give 283 required-by-accident query params the default their type implies
+* a4f5b9159 fix(blockchain-node): detect chain divergence instead of reporting health (V23-90)
+* d95061c32 fix(zk): restore snarkjs proving and verification round-trip (V23-91)
+* 52b66854b fix(auth): emit the miner API-key fallback warning once (V23-68)
+* 5fef0025d fix(zk): regenerate a real modular_ml_components proving key (V23-91)
+* dd250092e fix(auth): enforce MINER_API_KEYS and remove COORDINATOR_API_KEY fallback (V23-68)
+* 5a48deea4 docs(zk): record V23-91 in the release log and correct the circuits README
+* a32664d05 fix(auth): read MINER_API_KEYS at call time, and let its documented form parse (V23-68b)
+* c2123f144 fix(auth): stop a hub credential being reused as a service key, and name the real 401 (V23-68c)
+* 40f42c181 docs(releases): the hub key is unpublished but unrotated, and there are two of them (V23-68c)
+* eb2991354 fix(cli): send coin-request notifications to the hub, with a credential (V23-92)
+* 4945dec13 fix(tests): confine the production-write gate to its own directory (V23-93)
+* e0e700ee0 fix(zk): make the ML circuits' learning-rate checks constrain what they claim (V23-94)
+* 81d9c2135 ops(security): generate and set WALLET_IMPORT_PASSWORD in blockchain-secrets.env
+* e3608ece3 fix(zk): port the corrected ML circuits to the build tree and re-key it (V23-95)
+* fc72bde4e feat(cli): raw JSON and balance_ait for account and wallet commands
+* 8db749bb7 fix(pool-hub): serve /health, describe an outage instead of crashing on it (V23-96)
+* 4f5f6282d feat(cli): add `aitbc update` command
+* cd0a89faa fix(pool-hub): spell the operator `is_not`, so billing sync can build a query (V23-97)
+* c81a4c9c7 fix(monitoring): put Pool Hub in the monitoring that never watched it (V23-96)
+* 55a2b5778 docs(release): v0.24.0 hub node development special
+* 798f0855b fix(monitoring): watch the six live services the health check never probed (V23-98)
+* 3faa469f6 fix(config): resolve hub-only service URLs from node env files (V23-92)
+* d57d680c3 fix(monitoring): probe only the units that belong to this node's role
+* b89064194 feat(cli): add role-aware aitbc start/stop/restart commands
+* 88954b604 fix(lint): fail when a module nothing imports appears (V23-103)
+* dc3033fc0 fix(coordinator-api): delete the 10 queued orphan modules
+* a20707617 fix(scripts): health gates that probe a 404 path and cannot fail (V23-99)
+* 571f035f5 fix(scripts): stop gating on health paths the services do not serve (V23-99)
+* 4fe5cc64a fix(monitoring): stop alerting on two units and a host that do not exist (V23-100)
+* b4ee8735b fix(pool-hub): start the SLA and billing schedulers, and stop counting dropped events as sent (V23-101)
+* 9abb829d4 fix(coordinator-api): delete the unreachable MarketplaceMonitor, keep its percentiles (V23-102)
+* 6e1b3f334 fix(scripts): ignore .venv packages in check-type-ignores
+* a1149fdc4 docs(releases): add v0.23.34 release.log topic index
+* cca43c0a6 chore: remove harness boilerplate files
+* fe748cb90 docs(security): point policy link at .github/SECURITY.md
+* a38a8b008 fix(cli): resolve legacy port 18000 and enable cross-node AI job flow
+* bbd111391 test(cli): isolate profile load test and remove legacy 18000 fixture
+* 7f0eecaca test(cli): isolate config set/show tests against local .aitbc.yaml
+* 081ff2b86 fix(cli): correct gpu list-gpus response parsing and handle service errors
+* dbef6fb76 feat(payments): wire token escrow to blockchain /rpc/escrow endpoints and add CLI addresses
+* 9867595bc fix(cli): use hub_discovery_url only when resolving localhost RPC on follower nodes
+* 109cba24c fix(gpu): auto-add missing DB columns at startup and add chain_id migration
+* bdf5b8b55 fix(cli): use secp256k1 signing and chain_id in aitbc transactions send
+* b19b94cd7 fix(sync): apply block transactions during bulk import and normalize blocks-range tx data
+* 1351db19a feat(marketplace): wire list/search/buy/complete CLI to marketplace service and add bid completion
+* 76b36f610 fix(cli): wire agent register/discover to agent-coordinator and use configured RPC for identity
+* 8f9d28ab8 feat(cli,agent-sdk): add ipfs and oracle CLI commands and fix SDK CLI integration
+* ee7d9b057 fix(cli,coordinator-api): wire reputation commands to live coordinator and fix leaderboard defaults
+* 9439b07ce fix(cli): wire aitbc mining commands to blockchain RPC with wallet auth and keystore paths
+* e6075420a fix(cli,blockchain-node): sign staking requests, use compute-seconds, fix unstake datetime and liquidity flows
+* 0f004a816 fix(cli,coordinator-api): wire monitor dashboard/metrics/history to coordinator monitoring endpoints
+* 81468d6a7 fix(cli): resolve AITBC_API_KEY from env files and MINER_API_KEYS fallback
+* 9ad015247 fix(cli,agent-coordinator,agent-sdk): wire agent-comm to live agent-coordinator and fix SDK register
+* a351e64f9 fix(cli,blockchain-node,governance): wire governance voting end-to-end
+* a9cab2739 fix(cli): make aitbc analytics commands return data and respect --format json
+* 96611c04d fix(cli): resolve recursion in analytics --format handling
+* 98a1e7599 feat(blockchain-node,cli): add cross-chain swap/bridge endpoints and fix bridge event-bridge commands
+* 24e7b758d fix(agent-sdk): add JWT auth support and align ComputeConsumer payload with JobCreate
+* 75706fe11 test(cli): update ai and agent-comm tests for current coordinator endpoints
+* e21d7271a fix(cli,tests): make wallet decryption testable and fix staking units
+* 3d86f94fe docs(scenarios): refresh all 35 scenario docs for current megaplan
+* 9bbb57de6 test(production): remove stale `tests/production` suite
+* adbb53e4b test(cli): fix config, analytics, mining, and governance CLI tests
+* 83781c62b test(cli,unit,marketplace): fix remaining 15 failures in the megaplan suite
+* a03e19161 test(blockchain-node,coordinator,unit): clear 15 non-production skipped tests
+* 41f63dc7f docs(scenarios): update all 35 scenario docs for green suite status
+* 259730423 feat(cli): wire simulated fallbacks to be deterministic
+* 8f9e4269d fix(cli): make simulation timing deterministic and avoid double clock advances
+* f60d13876 test(verification): convert production-write tests to safe local integration
+* ab818d521 docs(scenarios): update suite status to 0 skipped
+* e9cf37d3d docs(scenarios): add deterministic CLI simulation and fallback examples
+* 22f93ebb4 test(verification): harden converted verification integration tests
