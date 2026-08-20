@@ -1,14 +1,17 @@
-"""
-The production-write gate must skip `tests/verification/` and nothing else (V23-93).
+"""The production-write gate must skip ``tests/verification/`` and nothing else (V23-93).
 
-`tests/verification/conftest.py` skips any module whose source names a deployment host,
-because every module in that directory POSTs to it. But `pytest_collection_modifyitems` is
-handed the whole session's item list regardless of which `conftest.py` defines it, so for one
+``tests/verification/conftest.py`` skips any module whose source names a deployment host,
+because every module in that directory POSTs to it. But ``pytest_collection_modifyitems`` is
+handed the whole session's item list regardless of which ``conftest.py`` defines it, so for one
 release that text match ran against the entire repository and skipped 159 ordinary unit tests
 for mentioning the hostname in a URL constant or a docstring.
 
-This file names the host itself, on purpose: before the fix, that alone was enough to skip it.
+These tests exercise the gate logic with temporary files so the suite does not depend on the
+real contents of ``tests/verification/``. The gate still protects against any future test file
+in that directory that names a live deployment host.
 """
+
+from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
@@ -20,7 +23,7 @@ GATE_CONFTEST = REPO_ROOT / "tests" / "verification" / "conftest.py"
 
 
 def _load_gate():
-    """Import the conftest as a plain module, by path — pytest owns the real import."""
+    """Import the conftest as a plain module, by path -- pytest owns the real import."""
     spec = importlib.util.spec_from_file_location("_verification_gate", GATE_CONFTEST)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -68,10 +71,10 @@ class TestThisFileItself:
     def test_this_test_is_not_skipped(self):
         """Reaching this line is the assertion.
 
-        This module's source contains `bubuit.net` (above and in the fixtures), which is what
-        the repo-wide match keyed on. If the gate regresses, this test stops running — and a
+        This module's source contains ``bubuit.net`` (above and in the fixtures), which is what
+        the repo-wide match keyed on. If the gate regresses, this test stops running -- and a
         test that stops running is exactly the failure mode V23-93 was about, so it is asserted
-        from the outside too, by `test_the_gate_only_skips_its_own_directory`.
+        from the outside too, by ``test_the_gate_only_skips_its_own_directory``.
         """
         assert True
 
@@ -93,10 +96,13 @@ def _run_hook(gate, paths: list[Path]) -> dict[Path, bool]:
     return {item.path: bool(item.markers) for item in items}
 
 
-def test_the_hook_skips_inside_and_leaves_outside_alone(gate, monkeypatch):
+def test_the_hook_skips_inside_and_leaves_outside_alone(gate, monkeypatch, tmp_path):
+    """A file inside the gated dir that names the host is skipped; a file outside is not."""
     monkeypatch.delenv(gate.ALLOW_ENV, raising=False)
+    monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
-    inside = GATE_CONFTEST.parent / "test_minimal.py"
+    inside = tmp_path / "test_hosted.py"
+    inside.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
     outside = Path(__file__)
 
     skipped = _run_hook(gate, [inside, outside])
@@ -105,32 +111,50 @@ def test_the_hook_skips_inside_and_leaves_outside_alone(gate, monkeypatch):
     assert skipped[outside] is False, "this file names the host too, and must still run"
 
 
-def test_the_opt_in_env_var_disarms_the_hook(gate, monkeypatch):
+def test_the_opt_in_env_var_disarms_the_hook(gate, monkeypatch, tmp_path):
+    """Setting the opt-in env var prevents the hook from gating files."""
     monkeypatch.setenv(gate.ALLOW_ENV, "1")
+    monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
-    inside = GATE_CONFTEST.parent / "test_minimal.py"
+    inside = tmp_path / "test_hosted.py"
+    inside.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
 
     assert _run_hook(gate, [inside])[inside] is False
 
 
-def test_the_repo_wide_reach_is_measured_not_assumed(gate):
-    """How many files outside the gated directory the text match alone would have caught.
+def test_the_repo_wide_reach_is_measured_not_assumed(gate, monkeypatch, tmp_path):
+    """The text match alone must not skip files outside the gated directory.
 
-    This is the blast radius of V23-93. It is asserted as non-zero so the test cannot pass by
-    accident on a tree where nothing names the host: if that ever becomes zero, the regression
-    this file guards against would be undetectable and the guard should be rewritten.
+    Build a temporary tree containing a fake ``tests/verification`` directory and several
+    ordinary test files outside it, all naming the host. Only the files inside the gated
+    directory should be skipped.
     """
+    monkeypatch.delenv(gate.ALLOW_ENV, raising=False)
+    gated_dir = tmp_path / "tests" / "verification"
+    other_dir = tmp_path / "tests" / "cli"
+    gated_dir.mkdir(parents=True)
+    other_dir.mkdir(parents=True)
+
+    gated_file = gated_dir / "test_hosted.py"
+    outside_file_a = other_dir / "test_a.py"
+    outside_file_b = other_dir / "test_b.py"
+
+    for f in (gated_file, outside_file_a, outside_file_b):
+        f.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
+
+    monkeypatch.setattr(gate, "GATED_DIR", gated_dir)
+
     outside_matching = [
         p
-        for p in REPO_ROOT.glob("**/test_*.py")
-        if not gate._is_in_this_directory(p) and gate._names_production_host(p) and "venv" not in p.parts
+        for p in [gated_file, outside_file_a, outside_file_b]
+        if not gate._is_in_this_directory(p) and gate._names_production_host(p)
     ]
+    assert len(outside_matching) == 2, "expected two outside files to match the host text"
 
-    assert len(outside_matching) > 1
+    skipped = _run_hook(gate, [gated_file, outside_file_a, outside_file_b])
 
-    skipped = _run_hook(gate, outside_matching)
-
-    assert not any(skipped.values())
+    assert skipped[gated_file] is True, "gated file must be skipped"
+    assert not any(skipped[p] for p in outside_matching), "no file outside the gated dir may be skipped"
 
 
 if __name__ == "__main__":
