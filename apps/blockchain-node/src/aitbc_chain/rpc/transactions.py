@@ -194,10 +194,9 @@ async def query_transactions(
     address: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
-    chain_id_arg = chain_id if chain_id else ""
-    resolved_chain_id = get_chain_id(chain_id_arg)
+    resolved_chain_id = get_chain_id(chain_id)
 
-    _logger.info(f"Query transactions - chain_id_arg: {chain_id_arg}, resolved_chain_id: {resolved_chain_id}")
+    _logger.info(f"Query transactions - resolved_chain_id: {resolved_chain_id}")
 
     with session_scope() as session:
         query = select(Transaction).where(Transaction.chain_id == resolved_chain_id)
