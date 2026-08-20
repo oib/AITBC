@@ -202,7 +202,7 @@ async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: Deci
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
                 f"{settings.blockchain_rpc_url}/rpc/escrow/create",
-                json={"job_id": job_id, "buyer": buyer, "provider": provider, "amount": amount},
+                json={"job_id": job_id, "buyer": buyer, "provider": provider, "amount": str(amount)},
             )
             if resp.status_code == 200:
                 logger.info("Escrow created for job %s: %s", job_id, resp.json().get("contract_id"))
