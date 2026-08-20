@@ -8,18 +8,16 @@ from datetime import UTC, datetime
 import requests
 
 from .conftest import (
-    DEFAULT_CHAIN_ID,
-    DEFAULT_RPC_URL,
     compute_block_hash,
     make_signed_block,
     sign_block,
 )
 
 
-def test_block_import():
+def test_block_import(local_node):
     """Exercise import validation, acceptance, duplicate and conflict handling locally."""
-    base = DEFAULT_RPC_URL
-    chain_id = DEFAULT_CHAIN_ID
+    base = local_node["url"]
+    chain_id = local_node["chain_id"]
 
     print("Testing Block Import Endpoint")
     print("=" * 50)

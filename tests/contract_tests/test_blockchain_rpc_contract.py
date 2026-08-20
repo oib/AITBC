@@ -126,8 +126,8 @@ class TestBlockchainRPCContracts:
                 data = response.json()
 
                 # Contract: Should contain transaction fields
-                assert "hash" in data, "Missing hash field"
-                assert data["hash"] == sample_hash, "Transaction hash should match request"
+                assert "tx_hash" in data, "Missing tx_hash field"
+                assert data["tx_hash"] == sample_hash, "Transaction hash should match request"
 
         except httpx.ConnectError:
             pass
