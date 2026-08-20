@@ -617,3 +617,6 @@ def asks(ctx, market: str | None, limit: int):
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error fetching asks: {e}")
+
+
+marketplace.add_command(list, name="create")
