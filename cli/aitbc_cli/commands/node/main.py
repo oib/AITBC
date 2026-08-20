@@ -268,3 +268,6 @@ def remove(ctx, node_id, force):
     except Exception as e:
         error(f"Error removing node: {str(e)}")
         raise click.Abort() from e
+
+
+node.add_command(node_info, name="info")

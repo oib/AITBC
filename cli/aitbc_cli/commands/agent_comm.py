@@ -311,3 +311,18 @@ def monitor(ctx, realtime, interval):
         {"message": "Real-time agent monitor is not available via the coordinator API"},
         ctx.obj.get("output_format", "table"),
     )
+
+
+@agent_comm.command(name="receive")
+@click.argument("receiver_id")
+@click.option("--limit", default=10, help="Maximum number of messages to return")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def receive(ctx, receiver_id, limit, format):
+    """Receive queued messages for an agent"""
+    try:
+        client = _agent_client(ctx)
+        result = client.get(f"/v1/agents/{receiver_id}/messages", params={"limit": limit})
+        output(result, _fmt(ctx, format))
+    except Exception as e:
+        output({"message": f"Error receiving messages: {e}"}, _fmt(ctx, format))
