@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-20
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -298,6 +298,92 @@ journalctl -u aitbc-blockchain-rpc --since "5 min ago" --no-pager | grep -iE "br
 journalctl -u aitbc-exchange --since "5 min ago" --no-pager | grep -iE "order|BUY"
 ```
 
+### Step 10: Submit a Paid AI Job with Escrow and On-Chain Settlement
+
+On the **customer/hub node** (`hub.aitbc`), run a paid job to a provider on the shop node (`aitbc3`). The example provider address is `aitbc1a54b82312beb65d0e90c21717ea372396991fa36` (`test-wallet-3` on the shop node); use a valid client JWT for `--api-key`.
+
+```bash
+aitbc --api-key "$CLIENT_JWT" ai submit \
+  --prompt "Cross-node paid job test" \
+  --payment 1.0 \
+  --wallet genesis \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36
+```
+
+**Expected output:**
+
+```json
+{
+  "job_id": "...",
+  "state": "QUEUED",
+  "payment_id": "...",
+  "payment_status": "escrowed"
+}
+```
+
+Wait for the shop node to execute the job and the coordinator to release the escrow:
+
+```bash
+aitbc --api-key "$CLIENT_JWT" ai status --job-id <job_id>
+```
+
+**Expected output:**
+
+```json
+{
+  "job_id": "...",
+  "state": "COMPLETED",
+  "payment_status": "released"
+}
+```
+
+Verify the provider's on-chain balance and transaction history from the customer node:
+
+```bash
+aitbc wallet balance test-wallet-3
+aitbc wallet transactions test-wallet-3
+aitbc account get --address aitbc1a54b82312beb65d0e90c21717ea372396991fa36
+```
+
+**Expected output:**
+
+- `aitbc wallet balance test-wallet-3` shows `0.9750 AIT` (payment minus fee).
+- `aitbc wallet transactions test-wallet-3` lists one confirmed `ESCROW_RELEASE` transaction from the genesis address.
+- `aitbc account get` returns the account with a balance of `3510` compute-seconds (0.975 AIT).
+
+**Interpretation:** The coordinator creates an escrow contract, the shop executes the job, the coordinator releases the payment, and the blockchain RPC signs and settles the `ESCROW_RELEASE` transaction on-chain.
+
+### Step 11: Publish a GPU Marketplace Offer from the Shop Node
+
+On the **shop node** (`aitbc3`), list a software offer backed by the local GPU and Ollama service:
+
+```bash
+aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
+```
+
+**Expected output:**
+
+```json
+{
+  "success": true,
+  "transaction_hash": "...",
+  "message": "Marketplace transaction submitted to mempool"
+}
+```
+
+Then, on the **customer/hub node**, verify the offer is discoverable:
+
+```bash
+aitbc market list --service-type ollama
+```
+
+**Expected output:**
+
+- The list includes an offer with `Model: llama3.2:3b`, `Service Type: ollama`, `Price: 0.00100000 per_1k_tokens`, and `Node ID: aitbc3`.
+
+**Interpretation:** The shop node can publish GPU-backed software offers to the hub's marketplace; the offer is stored both as an on-chain `GPU_MARKETPLACE` transaction and in the hub's marketplace service.
+
+
 ---
 
 ## Code Examples
@@ -351,6 +437,9 @@ After completing this scenario, you should be able to:
 - Confirm the hub's coordinator-api uses `settings.blockchain_rpc_url` (A6) instead of hardcoded localhost
 - Submit a job from the customer node to the hub's coordinator-api
 - Query the hub's bridge RPC and exchange from the customer node
+- Submit a paid AI job with escrow and confirm on-chain payment settlement
+- Query provider wallet balance and transaction history for the released payment
+- Publish a GPU-backed marketplace offer from the shop node and discover it from the hub
 - Verify hub-side logs show the cross-node requests
 
 ---
@@ -386,6 +475,8 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 - All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
 - The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
 - The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
+- Paid AI jobs with escrow now settle on-chain via signed `ESCROW_RELEASE` marketplace transactions.
+- `aitbc market offer` correctly registers GPU-backed offers with the hub marketplace.
 - The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
 
 
