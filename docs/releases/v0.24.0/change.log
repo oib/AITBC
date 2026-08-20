@@ -52,6 +52,19 @@ This batch of fixes completes the live two-node flow between `hub.aitbc` (custom
 - Legacy `http://127.0.0.1:18000` and `18001` references were removed from test scripts, completion, and example comments.
 - `scripts/testing/run_all_tests.sh` was updated to use current, valid CLI options and now passes 9/9 CLI smoke tests.
 
+## Scenario replay and follow-up fixes (2026-08-20)
+
+Continuing the live two-node validation on `aitbc3` and `hub.aitbc`:
+
+- `5886697ac` `fix(cli/transactions)`: `aitbc transactions status` and `pending` now fall back to the configured hub `blockchain_rpc_url` instead of `localhost:8202`.
+- `e4171eb0c` `fix(cli/messaging)`: `aitbc messaging topic` falls back to a deterministic simulated topic when the RPC is unavailable, matching `send`/`list`.
+- `21fd6f317` `fix(cli/reputation)`: `aitbc reputation` no longer double-prepends `/v1` to coordinator paths.
+- `110cd9bb0` `fix(cli/wallet)`: `aitbc wallet stake` no longer calls `.token_symbol` on a string brand.
+- `e1cd871dd` `fix(cli/exchange-island)`: `aitbc exchange-island` falls back to `exchange_service_url` when island credentials lack an RPC endpoint.
+- `5f573315f` `fix(cli/wallet)`: `stake` and `unstake` now send canonical lower-case addresses in the JSON payload.
+
+Replayed scenarios 01-02, 04, 06 (partial, exchange not deployed), 08, 10-14, 16 (auth still open), 17-22, 28-33, and 36.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
