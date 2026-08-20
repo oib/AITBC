@@ -5,6 +5,7 @@ import click
 from ..utils import output
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.simulation import simulated_id, simulated_timestamp
 
 
 @click.group()
@@ -30,8 +31,8 @@ def send(ctx, recipient, message, rpc_url):
             "status": "simulated",
             "recipient": recipient,
             "message": message,
-            "message_id": "simulated_id",
-            "timestamp": "now",
+            "message_id": simulated_id("msg", recipient, message),
+            "timestamp": simulated_timestamp(),
         }
         output(result, ctx.obj.get("output_format", "table"), title="Message Sent (Simulated)")
     except Exception as e:
