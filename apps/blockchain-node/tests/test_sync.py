@@ -319,6 +319,31 @@ class TestChainSyncAppend:
         assert result.accepted is False
         assert "Gap" in result.reason
 
+    def test_next_height_with_unknown_parent_is_divergence(self, session_factory):
+        """Peer one height ahead whose parent is not our tip is a fork, not unhandled.
+
+        Production symptom: shop at 6936 with a local proposer tip could not import
+        hub 6937 (parent = hub 6936) and logged "Unhandled import case" forever.
+        """
+        sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
+        _seed_chain(session_factory, count=3, chain_id="test")
+        ts = datetime(2026, 6, 1)
+        alien_parent = "0x" + "ab" * 32
+        bh = _make_block_hash("test", 3, alien_parent, ts)
+        result = sync.import_block(
+            {
+                "height": 3,
+                "hash": bh,
+                "parent_hash": alien_parent,
+                "proposer": "node-b",
+                "timestamp": ts.isoformat(),
+            }
+        )
+        assert result.accepted is False
+        assert result.diverged is True
+        assert "Divergent chain" in result.reason
+        assert "Unhandled" not in result.reason
+
 
 class TestChainSyncBulkImport:
     def test_append_with_transactions(self, session_factory):

@@ -17,7 +17,11 @@ def _load_env_file(path: str, override: bool = False):
     if os.getenv("AITBC_SKIP_ENV_FILES"):
         return
     if os.path.exists(path):
-        with open(path) as f:
+        try:
+            fh = open(path)
+        except OSError:
+            return
+        with fh as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
