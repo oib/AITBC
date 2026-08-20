@@ -49,7 +49,7 @@
   - Bare backup created at `/var/backups/aitbc-git-history-1787250425`.
   - `git log --all -- .gitea_token.sh` on `aitbc3` now returns no commits.
   - Gitea tags and remaining branches (`main`, `release/v0.24.0`, `fix-*`, `cli-*`) were force-pushed.
-  - **Caveat**: GitHub `main` is protected; the token is still in the GitHub mirror `main` history until an admin can unprotect and force-push or open an issue.
+  - GitHub `main` branch protection was temporarily removed and the rewritten `main` was force-pushed. Branch protection was not restored (per request).
 - [ ] Keep `AGENTS.md`, `TASKLIST.md`, and `LIVE_VALIDATION_SUMMARY.md` in `/home/oib/windsurf/aitbc` accurate as the workspace evolves.
 - [ ] Provide diffs / verification for Agent A when requested.
 - [ ] Do not commit or push release work from the IDE host — only from `aitbc3` or `hub.aitbc`.
