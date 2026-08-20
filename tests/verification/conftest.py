@@ -43,6 +43,9 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
+import subprocess
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -64,6 +67,7 @@ except Exception:  # pragma: no cover
 PRODUCTION_HOST_RE = re.compile(r"\bbubuit\.net\b")
 
 ALLOW_ENV = "AITBC_ALLOW_PRODUCTION_WRITE_TESTS"
+RESET_ENV = "AITBC_VERIFICATION_ENABLE_RESET"
 
 #: The only directory this gate speaks for. See the module docstring: the hook itself is
 #: repo-wide, so the boundary has to be enforced here rather than assumed from placement.
@@ -79,6 +83,9 @@ DEFAULT_CHAIN_ID = "ait-hub.aitbc.bubuit.net"
 
 #: Deterministic secp256k1 test key for signing verification blocks.
 DEFAULT_PROPOSER_PRIVATE_KEY = "0x" + "1" * 64
+
+#: DB file for the default local chain.
+DEFAULT_CHAIN_DB = Path("/var/lib/aitbc/data") / DEFAULT_CHAIN_ID / "chain.db"
 
 
 def _is_in_this_directory(path) -> bool:  # noqa: ANN001 - pytest hands us its own path type
@@ -185,3 +192,104 @@ def get_head(base_url: str = DEFAULT_RPC_URL) -> dict[str, Any]:
     response = requests.get(f"{base_url}/head", timeout=10)
     response.raise_for_status()
     return response.json()
+
+
+def _hash(label: str) -> str:
+    """Return a deterministic 64-hex hash for a test label."""
+    return "0x" + hashlib.sha256(label.encode()).hexdigest()
+
+
+def unique_address(label: str) -> str:
+    """Return a deterministic 0x-prefixed 40-hex address for ``label``."""
+    return _hash(label)[:42]
+
+
+def unique_tx_hash(label: str) -> str:
+    """Return a deterministic 64-hex transaction hash for ``label``."""
+    return _hash(label)
+
+
+def _wait_for_node(base_url: str, timeout: float = 30.0) -> None:
+    """Poll ``/head`` until the local RPC is responsive."""
+    deadline = time.time() + timeout
+    last_err = None
+    while time.time() < deadline:
+        try:
+            response = requests.get(f"{base_url}/head", timeout=2)
+            if response.status_code == 200 and response.json().get("height") is not None:
+                return
+        except (requests.RequestException, ValueError) as exc:
+            last_err = exc
+        time.sleep(0.5)
+    raise TimeoutError(f"Local RPC not ready after {timeout}s: {last_err}")
+
+
+def _service_action(action: str) -> None:
+    """Run ``systemctl <action> aitbc-blockchain-rpc`` if systemctl is available."""
+    if shutil.which("systemctl") is None:
+        return
+    subprocess.run(
+        ["systemctl", action, "aitbc-blockchain-rpc.service"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _reset_chain_db(chain_id: str, baseline_height: int, db_path: Path) -> None:
+    """Delete blocks, transactions, and ephemeral accounts created above ``baseline_height``.
+
+    This is an optional, destructive teardown step. It is only executed when the
+    ``AITBC_VERIFICATION_ENABLE_RESET`` environment variable is set, and only on the
+    designated local verification node.
+    """
+    if not db_path.exists():
+        return
+
+    try:
+        import sqlite3
+    except ImportError:
+        return
+
+    _service_action("stop")
+    try:
+        with sqlite3.connect(db_path, isolation_level=None) as conn:
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.execute('DELETE FROM "transaction" WHERE chain_id = ? AND block_height > ?', (chain_id, baseline_height))
+            conn.execute("DELETE FROM block WHERE chain_id = ? AND height > ?", (chain_id, baseline_height))
+    finally:
+        _service_action("start")
+        _wait_for_node(DEFAULT_RPC_URL)
+
+
+@pytest.fixture(scope="module")
+def local_node() -> dict[str, Any]:
+    """Provide the local blockchain RPC URL and chain ID and capture a reset baseline.
+
+    A fresh, deterministic ``baseline_height`` is captured per module.  Tests should use
+    :func:`unique_address` and :func:`unique_tx_hash` to avoid collisions with the live
+    chain and with other tests.  If ``AITBC_VERIFICATION_ENABLE_RESET=1`` is set, the chain
+    is rolled back to ``baseline_height`` after the module finishes, restoring the node to
+    its pre-test state.
+    """
+    base_url = DEFAULT_RPC_URL
+    _wait_for_node(base_url)
+    baseline = get_head(base_url)
+    node_info = {
+        "url": base_url,
+        "chain_id": DEFAULT_CHAIN_ID,
+        "db_path": DEFAULT_CHAIN_DB,
+        "baseline_height": baseline["height"],
+        "baseline_hash": baseline["hash"],
+    }
+
+    yield node_info
+
+    if os.environ.get(RESET_ENV) == "1":
+        _reset_chain_db(DEFAULT_CHAIN_ID, baseline["height"], DEFAULT_CHAIN_DB)
+
+
+@pytest.fixture
+def test_id(request: pytest.FixtureRequest) -> str:
+    """Return a stable, test-scoped identifier based on the test name."""
+    return f"{request.module.__name__}.{request.node.name}"

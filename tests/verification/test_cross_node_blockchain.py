@@ -5,19 +5,18 @@ from __future__ import annotations
 
 import time
 
-import pytest
 import requests
 
-from .conftest import DEFAULT_CHAIN_ID, DEFAULT_RPC_URL, make_signed_block
+from .conftest import make_signed_block
 
 
-def _head(base_url: str = DEFAULT_RPC_URL) -> dict:
+def _head(base_url: str) -> dict:
     response = requests.get(f"{base_url}/head", timeout=10)
     response.raise_for_status()
     return response.json()
 
 
-def _health(base_url: str = DEFAULT_RPC_URL) -> dict:
+def _health(base_url: str) -> dict:
     """Fetch the node health endpoint. The RPC path is /rpc; health lives at /health."""
     health_url = base_url.rsplit("/rpc", 1)[0] + "/health"
     response = requests.get(health_url, timeout=10)
@@ -25,59 +24,57 @@ def _health(base_url: str = DEFAULT_RPC_URL) -> dict:
     return response.json()
 
 
-def test_cross_node_chain_id_consistency():
+def test_cross_node_chain_id_consistency(local_node):
     """The local node reports a single supported chain ID matching the test default."""
     print("\n" + "=" * 60)
     print("TEST 1: Chain ID Consistency")
     print("=" * 60)
 
-    health = _health()
+    health = _health(local_node["url"])
     supported = health.get("supported_chains", [])
     print(f"Local node supported chains: {supported}")
 
     assert len(supported) >= 1, "Node should report at least one supported chain"
-    assert DEFAULT_CHAIN_ID in supported, f"Expected {DEFAULT_CHAIN_ID} in supported chains, got {supported}"
-    print(f"✅ All nodes are using chain_id: {DEFAULT_CHAIN_ID}")
+    assert local_node["chain_id"] in supported, f"Expected {local_node['chain_id']} in supported chains, got {supported}"
+    print(f"✅ All nodes are using chain_id: {local_node['chain_id']}")
 
 
-def test_cross_node_block_sync():
+def test_cross_node_block_sync(local_node):
     """Import a signed block locally and verify the chain head advances."""
     print("\n" + "=" * 60)
     print("TEST 2: Block Synchronization")
     print("=" * 60)
 
-    head = _head()
+    head = _head(local_node["url"])
     print(f"Local node: height={head['height']}, hash={head['hash']}")
 
     height = head["height"] + 1
     block = make_signed_block(
-        chain_id=DEFAULT_CHAIN_ID,
+        chain_id=local_node["chain_id"],
         height=height,
         parent_hash=head["hash"],
     )
 
-    response = requests.post(f"{DEFAULT_RPC_URL}/importBlock", json=block, timeout=10)
+    response = requests.post(f"{local_node['url']}/importBlock", json=block, timeout=10)
     print(f"Import status: {response.status_code}")
-    if response.status_code == 200:
-        print(f"✅ Block imported locally: height={height}, hash={block['hash']}")
-    else:
-        print(f"❌ Failed to import block locally: {response.text}")
-        pytest.fail("Local block import failed")
+    assert response.status_code == 200, f"Local block import failed: {response.text}"
+    assert response.json()["success"] is True, "Block import should report success"
+    print(f"✅ Block imported locally: height={height}, hash={block['hash']}")
 
     # Brief wait for any asynchronous head cache invalidation
     time.sleep(0.5)
-    new_head = _head()
+    new_head = _head(local_node["url"])
     print(f"New local head: height={new_head['height']}, hash={new_head['hash']}")
     assert new_head["height"] >= height, "Local head should advance after import"
 
 
-def test_cross_node_block_range():
+def test_cross_node_block_range(local_node):
     """The local node can return a range of blocks."""
     print("\n" + "=" * 60)
     print("TEST 3: Block Range Query")
     print("=" * 60)
 
-    response = requests.get(f"{DEFAULT_RPC_URL}/blocks-range", params={"start": 0, "end": 5}, timeout=10)
+    response = requests.get(f"{local_node['url']}/blocks-range", params={"start": 0, "end": 5}, timeout=10)
     response.raise_for_status()
     data = response.json()
     blocks = data.get("blocks", [])
@@ -86,13 +83,13 @@ def test_cross_node_block_range():
     print("✅ Local node can query block ranges")
 
 
-def test_cross_node_connectivity():
+def test_cross_node_connectivity(local_node):
     """The local node is reachable via RPC."""
     print("\n" + "=" * 60)
     print("TEST 4: Node RPC Connectivity")
     print("=" * 60)
 
-    head = _head()
+    head = _head(local_node["url"])
     print(f"Local node: reachable, height={head.get('height')}")
     assert head.get("height") is not None, "Local node did not return valid head"
     print("✅ Local node is reachable via RPC")
@@ -103,7 +100,16 @@ def run_cross_node_tests():
     print("\n" + "=" * 60)
     print("CROSS-NODE BLOCKCHAIN FEATURE TESTS (LOCAL)")
     print("=" * 60)
+
+    from .conftest import DEFAULT_CHAIN_ID, DEFAULT_RPC_URL
+
     print(f"Expected chain_id: {DEFAULT_CHAIN_ID}")
+
+    class _LocalNode:
+        def __getitem__(self, key):
+            return {"url": DEFAULT_RPC_URL, "chain_id": DEFAULT_CHAIN_ID}[key]
+
+    local_node = _LocalNode()
 
     tests = [
         ("Chain ID Consistency", test_cross_node_chain_id_consistency),
@@ -115,7 +121,7 @@ def run_cross_node_tests():
     results = []
     for test_name, test_func in tests:
         try:
-            test_func()
+            test_func(local_node)
             results.append((test_name, True))
         except (AssertionError, Exception) as e:
             print(f"❌ {test_name} FAILED: {e}")
