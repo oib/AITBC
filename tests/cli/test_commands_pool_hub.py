@@ -40,12 +40,32 @@ class TestPoolHubCommands:
         assert "sla" in pool_hub.commands
 
     def test_pool_hub_commands_target_the_pool_hub_port(self):
-        """Both commands default to 8210 — pool-hub's port, not coordinator-api's 8203."""
+        """Click option default is unset; hub vs follower URL is resolved at invoke time."""
+        from aitbc_cli.commands import pool_hub as pool_hub_mod
         from aitbc_cli.commands.pool_hub import pool_hub
 
         for name in ("status", "sla"):
             option = next(p for p in pool_hub.commands[name].params if p.name == "pool_hub_url")
-            assert option.default == "http://localhost:8210", f"{name} points at {option.default}"
+            assert option.default is None, f"{name} points at {option.default}"
+        assert pool_hub_mod.DEFAULT_POOL_HUB_URL == "http://localhost:8210"
+
+    def test_default_pool_hub_url_uses_localhost_on_hub(self, monkeypatch):
+        from aitbc_cli.commands.pool_hub import _default_pool_hub_url
+
+        monkeypatch.setenv("NODE_ROLE", "hub")
+        assert _default_pool_hub_url() == "http://localhost:8210"
+
+    def test_default_pool_hub_url_uses_hub_host_on_follower(self, monkeypatch):
+        from aitbc_cli.commands.pool_hub import _default_pool_hub_url
+
+        monkeypatch.setenv("NODE_ROLE", "follower")
+        monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("POOL_HUB_URL", raising=False)
+        monkeypatch.setattr(
+            "aitbc.config.hub.hub_service_url",
+            lambda path: f"https://hub.example.net/{path}",
+        )
+        assert _default_pool_hub_url() == "https://hub.example.net/pool-hub"
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
     def test_pool_hub_status_command(self, mock_http_class, runner, mock_blockchain_rpc):
