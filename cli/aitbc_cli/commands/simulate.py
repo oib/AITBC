@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """
 AITBC CLI - Simulate Command
-Simulate blockchain scenarios and test environments
+Simulate blockchain scenarios and test environments deterministically.
 """
 
 import json
-import random
-import time
 from typing import Any
 
 import click
 
 from ..config import get_config
-from ..utils.output import error, output, success
-
-
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.output import error, output, success
+from ..utils.simulation import make_rng
 
 logger = get_logger(__name__)
 
@@ -32,23 +29,30 @@ def simulate():
 @click.option("--transactions", default=50, help="Number of transactions per block")
 @click.option("--delay", default=1.0, help="Delay between blocks (seconds)")
 @click.option("--output", default="table", type=click.Choice(["table", "json", "yaml"]))
-def blockchain(blocks, transactions, delay, output):
+@click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
+def blockchain(blocks, transactions, delay, output, seed):
     """Simulate blockchain block production and transactions"""
     click.echo(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
 
+    rng, use_real_sleeps = make_rng(seed)
     results: list[dict[str, Any]] = []
     for block_num in range(blocks):
+        block_timestamp = rng.advance(delay if use_real_sleeps else 0.0)
         # Simulate block production
-        block_data: dict[str, Any] = {"block_number": block_num + 1, "timestamp": time.time(), "transactions": []}
+        block_data: dict[str, Any] = {
+            "block_number": block_num + 1,
+            "timestamp": block_timestamp,
+            "transactions": [],
+        }
 
         # Generate transactions
         for _tx_num in range(transactions):
             tx = {
-                "tx_id": f"0x{random.getrandbits(256):064x}",
-                "from_address": f"ait{random.getrandbits(160):040x}",
-                "to_address": f"ait{random.getrandbits(160):040x}",
-                "amount": random.uniform(0.1, 1000.0),
-                "fee": random.uniform(0.01, 1.0),
+                "tx_id": f"0x{rng.getrandbits(256):064x}",
+                "from_address": f"ait{rng.getrandbits(160):040x}",
+                "to_address": f"ait{rng.getrandbits(160):040x}",
+                "amount": round(rng.uniform(0.1, 1000.0), 8),
+                "fee": round(rng.uniform(0.01, 1.0), 8),
             }
             block_data["transactions"].append(tx)
 
@@ -68,7 +72,10 @@ def blockchain(blocks, transactions, delay, output):
             click.echo(json.dumps(block_data, indent=2))
 
         if delay > 0 and block_num < blocks - 1:
-            time.sleep(delay)
+            if use_real_sleeps:
+                rng.sleep(delay)
+            else:
+                rng.sleep(0.0)
 
     # Summary
     total_txs = sum(block["tx_count"] for block in results)
@@ -84,13 +91,16 @@ def blockchain(blocks, transactions, delay, output):
 
 
 @simulate.command()
-@click.option("--wallets", default=5, help="Number of wallets to create")
+@click.option("--wallets", default=5, help="Number of wallets to simulate")
 @click.option("--balance", default=1000.0, help="Initial balance for each wallet")
 @click.option("--transactions", default=20, help="Number of transactions to simulate")
 @click.option("--amount-range", default="1.0-100.0", help="Transaction amount range (min-max)")
-def wallets(wallets, balance, transactions, amount_range):
+@click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
+def wallets(wallets, balance, transactions, amount_range, seed):
     """Simulate wallet creation and transactions"""
     click.echo(f"Simulating {wallets} wallets with {balance:.2f} AIT initial balance")
+
+    rng, _ = make_rng(seed)
 
     # Parse amount range
     try:
@@ -101,7 +111,11 @@ def wallets(wallets, balance, transactions, amount_range):
     # Create wallets
     created_wallets = []
     for i in range(wallets):
-        wallet = {"name": f"sim_wallet_{i + 1}", "address": f"ait{random.getrandbits(160):040x}", "balance": balance}
+        wallet = {
+            "name": f"sim_wallet_{i + 1}",
+            "address": f"ait{rng.getrandbits(160):040x}",
+            "balance": balance,
+        }
         created_wallets.append(wallet)
         click.echo(f"Created wallet {wallet['name']}: {wallet['address']} with {balance:.2f} AIT")
 
@@ -109,11 +123,11 @@ def wallets(wallets, balance, transactions, amount_range):
     click.echo(f"\nSimulating {transactions} transactions...")
     for i in range(transactions):
         # Random sender and receiver
-        sender = random.choice(created_wallets)
-        receiver = random.choice([w for w in created_wallets if w != sender])
+        sender = rng.choice(created_wallets)
+        receiver = rng.choice([w for w in created_wallets if w != sender])
 
         # Random amount
-        amount = random.uniform(min_amount, max_amount)
+        amount = round(rng.uniform(min_amount, max_amount), 8)
 
         # Check if sender has enough balance
         if sender["balance"] >= amount:
@@ -135,16 +149,19 @@ def wallets(wallets, balance, transactions, amount_range):
 @click.option("--volatility", default=0.05, help="Price volatility (0.0-1.0)")
 @click.option("--timesteps", default=100, help="Number of timesteps to simulate")
 @click.option("--delay", default=0.1, help="Delay between timesteps (seconds)")
-def price(price, volatility, timesteps, delay):
+@click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
+def price(price, volatility, timesteps, delay, seed):
     """Simulate AIT price movements"""
     click.echo(f"Simulating AIT price from {price:.2f} with {volatility:.2f} volatility")
+
+    rng, use_real_sleeps = make_rng(seed)
 
     current_price = price
     prices = [current_price]
 
     for step in range(timesteps):
         # Random price change
-        change_percent = random.uniform(-volatility, volatility)
+        change_percent = rng.uniform(-volatility, volatility)
         current_price = current_price * (1 + change_percent)
 
         # Ensure price doesn't go negative
@@ -152,10 +169,13 @@ def price(price, volatility, timesteps, delay):
 
         prices.append(current_price)
 
-        click.echo(f"Step {step + 1}: {current_price:.4f} AIT ({change_percent:+.2%})")
+        click.echo(f"Step {step + 1}: {current_price:.4f} AIT ({change_percent:+.2f}%)")
 
         if delay > 0 and step < timesteps - 1:
-            time.sleep(delay)
+            if use_real_sleeps:
+                rng.sleep(delay)
+            else:
+                rng.sleep(0.0)
 
     # Statistics
     min_price = min(prices)
@@ -175,9 +195,12 @@ def price(price, volatility, timesteps, delay):
 @click.option("--nodes", default=3, help="Number of nodes to simulate")
 @click.option("--network-delay", default=0.1, help="Network delay in seconds")
 @click.option("--failure-rate", default=0.05, help="Node failure rate (0.0-1.0)")
-def network(nodes, network_delay, failure_rate):
+@click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
+def network(nodes, network_delay, failure_rate, seed):
     """Simulate network topology and node failures"""
     click.echo(f"Simulating network with {nodes} nodes, {network_delay}s delay, {failure_rate:.2f} failure rate")
+
+    rng, use_real_sleeps = make_rng(seed)
 
     # Create nodes
     network_nodes: list[dict[str, Any]] = []
@@ -200,8 +223,9 @@ def network(nodes, network_delay, failure_rate):
 
         # Connect to random nodes (mesh)
         if len(network_nodes) > 2:
-            mesh_connections = random.sample(
-                [n["id"] for n in network_nodes if n["id"] != node["id"]], min(2, len(network_nodes) - 1)
+            mesh_connections = rng.sample(
+                [n["id"] for n in network_nodes if n["id"] != node["id"]],
+                min(2, len(network_nodes) - 1),
             )
             for conn in mesh_connections:
                 if conn not in node_connected_to:
@@ -220,7 +244,7 @@ def network(nodes, network_delay, failure_rate):
     for step in range(10):
         # Simulate failures
         for node in active_nodes:
-            if random.random() < failure_rate:
+            if rng.random() < failure_rate:
                 node["status"] = "failed"
                 click.echo(f"Step {step + 1}: {node['id']} failed")
 
@@ -230,7 +254,7 @@ def network(nodes, network_delay, failure_rate):
         # Simulate block propagation
         if active_nodes:
             # Random node produces block
-            producer = random.choice(active_nodes)
+            producer = rng.choice(active_nodes)
             producer_height: int = producer["height"]
             producer["height"] = producer_height + 1
 
@@ -244,7 +268,11 @@ def network(nodes, network_delay, failure_rate):
                 f"Step {step + 1}: {producer['id']} produced block {producer['height']}, {len(active_nodes)} nodes active"
             )
 
-        time.sleep(network_delay)
+        if network_delay > 0:
+            if use_real_sleeps:
+                rng.sleep(network_delay)
+            else:
+                rng.sleep(0.0)
 
     # Final network status
     click.echo("\nFinal Network Status:")
@@ -258,9 +286,14 @@ def network(nodes, network_delay, failure_rate):
 @click.option("--jobs", default=10, help="Number of AI jobs to simulate")
 @click.option("--models", default="text-generation,image-generation", help="Available models (comma-separated)")
 @click.option("--duration-range", default="30-300", help="Job duration range in seconds (min-max)")
-def ai_jobs(jobs, models, duration_range):
+@click.option("--delay", default=1.0, help="Delay between job status checks (seconds)")
+@click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
+def ai_jobs(jobs, models, duration_range, delay, seed):
     """Simulate AI job submission and processing"""
     click.echo(f"Simulating {jobs} AI jobs with models: {models}")
+
+    rng, _ = make_rng(seed)
+    base_time = rng.now()
 
     # Parse models
     model_list = [m.strip() for m in models.split(",")]
@@ -276,11 +309,11 @@ def ai_jobs(jobs, models, duration_range):
     for i in range(jobs):
         job = {
             "job_id": f"job_{i + 1:03d}",
-            "model": random.choice(model_list),
+            "model": rng.choice(model_list),
             "status": "queued",
-            "submit_time": time.time(),
-            "duration": random.randint(min_duration, max_duration),
-            "wallet": f"wallet_{random.randint(1, 5):03d}",
+            "submit_time": base_time,
+            "duration": rng.randint(min_duration, max_duration),
+            "wallet": f"wallet_{rng.randint(1, 5):03d}",
         }
         submitted_jobs.append(job)
 
@@ -291,9 +324,12 @@ def ai_jobs(jobs, models, duration_range):
     processing_jobs = submitted_jobs.copy()
     completed_jobs = []
 
-    current_time = time.time()
-    while processing_jobs and current_time < time.time() + 600:  # Max 10 minutes
-        current_time = time.time()
+    current_time = base_time
+    max_iterations = max(jobs * max(max_duration, 1) // max(delay, 1) + 10, 1000)
+    iteration = 0
+    while processing_jobs and iteration < max_iterations:
+        iteration += 1
+        current_time += delay
 
         for job in processing_jobs[:]:
             if job["status"] == "queued" and current_time - job["submit_time"] > 5:
@@ -310,7 +346,8 @@ def ai_jobs(jobs, models, duration_range):
                     completed_jobs.append(job)
                     click.echo(f"Completed {job['job_id']} in {job['actual_duration']:.1f}s")
 
-        time.sleep(1)  # Check every second
+        if delay > 0:
+            rng.sleep(delay)
 
     # Job statistics
     click.echo("\nJob Statistics:")
@@ -398,7 +435,6 @@ def result(ctx, simulation_id: str):
         ctx.exit(1)
     except Exception as e:
         error(f"Error fetching simulation results: {e}")
-        ctx.exit(1)
 
 
 if __name__ == "__main__":
