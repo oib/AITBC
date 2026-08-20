@@ -167,13 +167,20 @@ class MatchingService:
             job_id = None
             try:
                 task_payload = {
-                    "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
-                    "offer_id": best_offer.id,
+                    "task_data": {
+                        "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
+                        "offer_id": best_offer.id,
+                        "provider": best_offer.provider,
+                        "price_per_hour": str(best_offer.price_per_hour) if best_offer.price_per_hour is not None else None,
+                        "requirements": requirements,
+                    },
+                    "priority": "normal",
                     "requirements": requirements,
-                    "max_price": max_price,
-                    "preferred_region": preferred_region,
-                    "payment": {"escrow_required": True},
+                    "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
+                    "payment": None,
                 }
+                if max_price is not None:
+                    task_payload["task_data"]["max_price"] = float(max_price)
                 client = self._ensure_client()
                 resp = await client.post(
                     f"{settings.agent_coordinator_url}/tasks/submit",
