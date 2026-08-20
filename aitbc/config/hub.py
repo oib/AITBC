@@ -86,10 +86,10 @@ def hub_agent_url() -> str | None:
     ``HUB_AGENT_URL`` / ``HUB_HERMES_URL`` are already a full base (prefix
     included). Otherwise the path is built from ``HUB_DISCOVERY_URL``.
     """
-    explicit = os.getenv("HUB_AGENT_URL") or os.getenv("HUB_HERMES_URL")
+    explicit = os.getenv("HUB_AGENT_URL")
     if explicit:
         return explicit.rstrip("/")
-    return hub_service_url("api/v1/agent")
+    return hub_service_url("v1")
 
 
 def hub_exchange_url() -> str | None:
