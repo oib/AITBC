@@ -113,6 +113,20 @@ Do not, from the IDE host:
 - assume `/opt/aitbc` is the same tree as `aitbc3` or `hub.aitbc`
 - use `/opt/aitbc` or `/home/oib/windsurf/aitbc` for live production commits
 
+## Operational hints
+
+- After starting or restarting a live service, watch its logs in real time with `journalctl`:
+
+  ```bash
+  # shop node
+  ssh aitbc3 'journalctl -f -u aitbc-blockchain-node -u aitbc-blockchain-p2p -u aitbc-blockchain-rpc'
+
+  # hub node
+  ssh hub.aitbc 'journalctl -f -u aitbc-coordinator-api -u aitbc-exchange -u aitbc-marketplace -u aitbc-pool-hub'
+  ```
+
+  Use `-n 50` to see the last 50 lines, and add `--no-pager` for non-interactive output.
+
 ## Task tracking
 
 `AGENTS.md` is for workspace rules and conventions only. Open tasks, assignments and current state belong in `TASKLIST.md` in the same directory.
