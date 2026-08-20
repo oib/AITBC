@@ -107,7 +107,7 @@ The current codebase megaplan is the two-node hub/shop marketplace end-to-end fl
 - The shop miner picks up, executes, and completes the job.
 - Results and payment/escrow state are queried from the hub.
 - The Agent SDK `ComputeConsumer` now supports `auth_token` and `coordinator_url` in `create(...)`.
-- The megaplan test suite is green: **0 failures**, **9 skipped** live-deployment verification tests under `tests/verification/` (gated by `AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`), and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
+- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
 
 Each scenario below has been refreshed to reflect the current API paths, ports, and JWT auth requirements.
 
