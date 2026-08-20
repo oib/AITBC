@@ -258,7 +258,7 @@ def orderbook(ctx, pair: str, limit: int):
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             response = http_client.get("/transactions", params=params)
             # Response is a dict with 'transactions' key
-            transactions = response.get("transactions", [])
+            transactions = response if isinstance(response, list) else response.get("transactions", [])
 
             # Separate buy and sell orders
             buy_orders = []
