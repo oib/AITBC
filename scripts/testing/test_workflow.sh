@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-COORDINATOR_URL="http://127.0.0.1:18000"
+COORDINATOR_URL="http://127.0.0.1:8203"
 TEST_WORKFLOW="test_workflow_$$"
 
 # Colors for output

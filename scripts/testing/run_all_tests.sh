@@ -137,14 +137,14 @@ run_cli_tests() {
         fi
     }
 
-    run_cli_test "chain:list:aitbc" aitbc chain list --node-endpoint http://127.0.0.1:18000
-    run_cli_test "chain:list:aitbc1" aitbc chain list --node-endpoint http://127.0.0.1:18001
-    run_cli_test "analytics:summary:aitbc" aitbc analytics summary --node-endpoint http://127.0.0.1:18000
-    run_cli_test "analytics:summary:aitbc1" aitbc analytics summary --node-endpoint http://127.0.0.1:18001
-    run_cli_test "marketplace:list:aitbc" aitbc marketplace list --marketplace-url http://127.0.0.1:18000
-    run_cli_test "marketplace:list:aitbc1" aitbc marketplace list --marketplace-url http://127.0.0.1:18001
-    run_cli_test "agent_comm:list:aitbc" aitbc agent_comm list --node-endpoint http://127.0.0.1:18000
-    run_cli_test "agent_comm:list:aitbc1" aitbc agent_comm list --node-endpoint http://127.0.0.1:18001
+    run_cli_test "chain:list:aitbc" aitbc chain list --node-endpoint http://127.0.0.1:8203
+    run_cli_test "chain:list:aitbc1" aitbc chain list --node-endpoint http://127.0.0.1:8203
+    run_cli_test "analytics:summary:aitbc" aitbc analytics summary --node-endpoint http://127.0.0.1:8203
+    run_cli_test "analytics:summary:aitbc1" aitbc analytics summary --node-endpoint http://127.0.0.1:8203
+    run_cli_test "marketplace:list:aitbc" aitbc marketplace list --marketplace-url http://127.0.0.1:8203
+    run_cli_test "marketplace:list:aitbc1" aitbc marketplace list --marketplace-url http://127.0.0.1:8203
+    run_cli_test "agent_comm:list:aitbc" aitbc agent_comm list --node-endpoint http://127.0.0.1:8203
+    run_cli_test "agent_comm:list:aitbc1" aitbc agent_comm list --node-endpoint http://127.0.0.1:8203
     run_cli_test "deploy:overview:aitbc" aitbc deploy overview --format table
 
     echo ""
