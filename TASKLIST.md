@@ -52,6 +52,7 @@
 - [x] Replayed scenario 06: `exchange-island orderbook`, `rates`, and `orders` work; `buy`/`sell`/`cancel` need the validator keystore.
 - [x] Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `hub.aitbc` to a clean working tree.
 - [x] Update the release change log on `aitbc3` (shop-chain fork recovery section in v0.24.0).
+- [ ] Document wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
 
 ## Agent B (localhost / documentation / support)
 

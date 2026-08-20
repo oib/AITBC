@@ -127,6 +127,30 @@ Do not, from the IDE host:
 
   Use `-n 50` to see the last 50 lines, and add `--no-pager` for non-interactive output.
 
+## Wallet key mismatches
+
+If a wallet's stored key does not match the address it is supposed to control,
+do **not** attempt to regenerate the key from the address. A public address
+cannot be reversed to a private key, and any regenerated key would be a new
+wallet unrelated to the original funds.
+
+Recommended response:
+
+1. Record the mismatch in `LIVE_VALIDATION_SUMMARY.md` under the relevant
+   scenario or finding.
+2. Check whether the original seed phrase, private key, or backup still exists
+   on the node (e.g. `/var/lib/aitbc/wallets/`, `~/.aitbc/wallets/`, or the
+   wallet daemon). Do not search for these files unless explicitly asked.
+3. If the original seed is available, import or derive the correct key into a
+   new wallet and migrate funds/balances to it.
+4. If the original seed is not available, the key cannot be safely recovered.
+   Recommend deprecating the mismatched wallet and creating a fresh wallet with
+   a new, safely-backed-up seed. Do not attempt to brute-force or reconstruct
+   the missing key.
+
+This is a data integrity / operator-recovery issue, not a CLI bug that can be
+fixed by code changes alone.
+
 ## Task tracking
 
 `AGENTS.md` is for workspace rules and conventions only. Open tasks, assignments and current state belong in `TASKLIST.md` in the same directory.
