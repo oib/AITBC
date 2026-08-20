@@ -389,7 +389,8 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             error(f"Error: {e}")
     else:
         if not rpc_url:
-            rpc_url = DEFAULT_RPC_URL
+            config = get_config()
+            rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
 
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -407,7 +408,8 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
 def pending(rpc_url: str | None):
     """Get pending transactions"""
     if not rpc_url:
-        rpc_url = DEFAULT_RPC_URL
+        config = get_config()
+        rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
