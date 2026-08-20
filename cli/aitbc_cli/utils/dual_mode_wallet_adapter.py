@@ -128,11 +128,30 @@ class DualModeWalletAdapter:
         }
 
     def list_wallets(self) -> list[dict[str, Any]]:
-        """List wallets using the appropriate mode"""
+        """List wallets from daemon and/or file storage."""
+        wallets: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
         if self.use_daemon:
-            return self._list_wallets_daemon()
-        else:
-            return self._list_wallets_file()
+            daemon_wallets = self._list_wallets_daemon()
+            for w in daemon_wallets:
+                w["mode"] = "daemon"
+                key = w.get("wallet_name") or w.get("wallet_id") or w.get("address", "")
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                wallets.append(w)
+
+        for w in self._list_wallets_file():
+            key = w.get("wallet_name") or w.get("wallet_id") or w.get("address", "")
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            wallets.append(w)
+
+        return wallets
 
     def _list_wallets_daemon(self) -> list[dict[str, Any]]:
         """List wallets using daemon"""
