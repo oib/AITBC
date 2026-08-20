@@ -66,7 +66,7 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
             "chain_id": chain_id,
             "island_id": "",
         }
-        result = client.post("/v1/agents/register", json=payload)
+        result = client.post("/agents/register", json=payload)
         if result.get("status") == "success":
             success(f"Agent {agent_id} registered successfully!")
             agent_data = {
@@ -101,7 +101,7 @@ def list_agents(ctx, chain_id, status, capabilities, output_format):
             query["chain_id"] = chain_id
         if capabilities:
             query["capabilities"] = [c.strip() for c in capabilities.split(",")]
-        result = client.post("/v1/agents/discover", json=query)
+        result = client.post("/agents/discover", json=query)
         agents = result.get("agents", [])
         if not agents:
             output({"message": "No agents found"}, _fmt(ctx, output_format))
@@ -146,7 +146,7 @@ def discover(ctx, chain_id, capabilities, output_format):
         query: dict[str, Any] = {"chain_id": chain_id, "status": "active"}
         if cap_list:
             query["capabilities"] = cap_list
-        result = client.post("/v1/agents/discover", json=query)
+        result = client.post("/agents/discover", json=query)
         agents = result.get("agents", [])
         if not agents:
             output({"message": f"No agents found on chain {chain_id}"}, _fmt(ctx, output_format))
@@ -178,7 +178,7 @@ def status(ctx, agent_id, output_format):
     """Get detailed agent status"""
     try:
         client = _agent_client(ctx)
-        result = client.get(f"/v1/agents/{agent_id}")
+        result = client.get(f"/agents/{agent_id}")
         agent = result.get("agent", {})
         if not agent:
             abort(ctx, f"Agent {agent_id} not found")
@@ -210,7 +210,7 @@ def network(ctx, output_format):
     """Get cross-chain network overview"""
     try:
         client = _agent_client(ctx)
-        result = client.post("/v1/agents/discover", json={"status": "active", "limit": 1000})
+        result = client.post("/agents/discover", json={"status": "active", "limit": 1000})
         agents = result.get("agents", [])
 
         total = len(agents)
@@ -322,7 +322,7 @@ def receive(ctx, receiver_id, limit, format):
     """Receive queued messages for an agent"""
     try:
         client = _agent_client(ctx)
-        result = client.get(f"/v1/agents/{receiver_id}/messages", params={"limit": limit})
+        result = client.get(f"/agents/{receiver_id}/messages", params={"limit": limit})
         output(result, _fmt(ctx, format))
     except Exception as e:
         output({"message": f"Error receiving messages: {e}"}, _fmt(ctx, format))
