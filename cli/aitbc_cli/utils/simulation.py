@@ -53,8 +53,9 @@ class SimulatedRNG:
         return self._clock
 
     def sleep(self, seconds: float) -> None:
-        """Advance the simulated clock by ``seconds``."""
-        self._clock += max(float(seconds), 0.0)
+        """No-op real-time sleep for deterministic runs."""
+        # Deterministic simulations run as fast as possible; the clock is
+        # advanced only through ``advance()`` so timestamps are reproducible.
 
     def advance(self, step: float = 1.0) -> float:
         """Advance the clock and return the new time."""
@@ -83,17 +84,21 @@ class SimulatedRNG:
 class LiveRNG:
     """Live random source and clock for non-deterministic simulations."""
 
-    __slots__ = ()
+    __slots__ = ("_clock",)
+
+    def __init__(self) -> None:
+        self._clock = _time.time()
 
     def now(self) -> float:
-        return _time.time()
+        return self._clock
 
     def sleep(self, seconds: float) -> None:
+        """Sleep in real time without changing the simulation clock."""
         _time.sleep(max(float(seconds), 0.0))
 
     def advance(self, step: float = 1.0) -> float:
-        # Advance a simulated clock while still anchoring to real time.
-        return _time.time() + step
+        self._clock += step
+        return self._clock
 
     def getrandbits(self, k: int) -> int:
         return random.getrandbits(k)
