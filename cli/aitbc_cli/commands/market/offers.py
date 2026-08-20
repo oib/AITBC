@@ -579,7 +579,7 @@ def offer(
         try:
             plugin_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
             plugin_client.post(
-                "/v1/marketplace/software-services",
+                "/v1/marketplace/offer",
                 json={
                     "service_type": service_type,
                     "model": model_or_variant,
