@@ -59,19 +59,20 @@ def load_island_credentials() -> dict[str, Any]:
 
 def get_rpc_endpoint() -> str:
     """
-    Get the RPC endpoint from island credentials
+    Get the RPC endpoint from island credentials.
 
-    Returns:
-        str: RPC endpoint URL
-
-    Raises:
-        FileNotFoundError: If credentials file does not exist
-        ValueError: If RPC endpoint is missing from credentials
+    Falls back to the configured exchange service URL when the island
+    credentials file does not yet contain an explicit RPC endpoint.
     """
     credentials = load_island_credentials()
     rpc_endpoint = credentials.get("credentials", {}).get("rpc_endpoint")
 
     if not rpc_endpoint:
+        from ..config import get_config
+
+        fallback = getattr(get_config(), "exchange_service_url", "")
+        if fallback:
+            return fallback.rstrip("/")
         raise ValueError("RPC endpoint not found in island credentials")
 
     return rpc_endpoint  # type: ignore[no-any-return]
