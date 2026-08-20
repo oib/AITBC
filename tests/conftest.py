@@ -33,24 +33,24 @@ source_paths = [
 for path in source_paths:
     full_path = project_root / path
     if full_path.exists():
-        sys.path.insert(0, str(full_path))
+        sys.path.append(str(full_path))
 
 # Add test paths for imports
 test_paths = [
     "packages/py/aitbc-crypto/tests",
-    "packages/py/aitbc-sdk/tests", 
+    "packages/py/aitbc-sdk/tests",
     "apps/coordinator-api/tests",
     "apps/wallet-daemon/tests",
     "apps/blockchain-node/tests",
     "apps/pool-hub/tests",
     "apps/explorer-web/tests",
-    "cli/tests"
+    "cli/tests",
 ]
 
 for path in test_paths:
     full_path = project_root / path
     if full_path.exists():
-        sys.path.insert(0, str(full_path))
+        sys.path.append(str(full_path))
 
 # Set up test environment
 os.environ["TEST_MODE"] = "true"
