@@ -28,7 +28,7 @@
 - [x] Remove legacy `http://127.0.0.1:18000/18001` references from tests and scripts.
 - [x] Investigate shop chain lag — it was a **fork at 6815**, not missing P2P. Follower reset + pull sync restored height 7569 matching hub.
 - [x] Follow-up: `import_block` reports unknown parent as `diverged=True` instead of "Unhandled import case" (commit `0983db5fb`).
-- [ ] Follow-up: shop still has no `aitbc-blockchain-p2p` unit (bulk pull via HTTPS works; live gossip may still be weak).
+- [x] Follow-up: `aitbc-blockchain-p2p` installed and active on `aitbc3` after resetting the local PostgreSQL WAL and creating the `aitbc_mempool` database.
 - [x] `aitbc market offer` as root can load `aitbc`-owned island credentials; non-root CLI import no longer dies on unreadable `blockchain-secrets.env`.
 - [x] `aitbc market offer` 400s fixed: `my-agent-wallet` funded from genesis and offer re-published (`6b9ede797`).
 - [x] `aitbc pool-hub` and hub URL resolution now fall back to `HUB_P2P_HOST` / `HUB_RPC_URL` on follower nodes.
@@ -45,11 +45,12 @@
 - [x] Replayed scenarios 10, 11, 12, 13, and 14 (partial) live on `aitbc3`.
 - [x] Replayed scenarios 16, 17, 18, 19, and 20 live on `aitbc3`.
 - [x] Investigate/fix `aitbc agent-comm register` double `/v1/hermes/v1` URL path and 401 response (`6200888ca`).
+- [x] `aitbc wallet unstake` now prints the real lock-expiry reason from the staking RPC (`2b8508c28`).
 - [x] `aitbc exchange-island` falls back to `exchange_service_url` when credentials lack `rpc_endpoint` (`e1cd871dd`).
 - [x] Replayed scenario 08 marketplace bidding (`aitbc marketplace buy` works).
 - [x] Replayed scenario 36 pool hub SLA e2e live on `aitbc3`.
-- [ ] Validate scenario 06 once the hub exchange service is deployed.
-- [ ] Decide what to do with dirty marketplace files on `hub.aitbc` (also 2 commits behind).
+- [x] Replayed scenario 06: `exchange-island orderbook`, `rates`, and `orders` work; `buy`/`sell`/`cancel` need the validator keystore.
+- [x] Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `hub.aitbc` to a clean working tree.
 - [x] Update the release change log on `aitbc3` (shop-chain fork recovery section in v0.24.0).
 
 ## Agent B (localhost / documentation / support)
@@ -60,7 +61,7 @@
 - [x] Extend `docs/scenarios/34_hub_customer_node_e2e.md` with paid-job + escrow + GPU offer steps (commit `b18468450`).
 - [x] Replay scenario 34 live on hub + shop (2026-08-20) and record results in `LIVE_VALIDATION_SUMMARY.md`.
 - [x] Patch scenario 34 exchange paths and JWT import (commit `e8966aba1` on gitea `main`).
-- [ ] Keep `AGENTS.md`, `TASKLIST.md`, and `LIVE_VALIDATION_SUMMARY.md` accurate as the workspace evolves.
+- [x] Keep `AGENTS.md`, `TASKLIST.md`, and `LIVE_VALIDATION_SUMMARY.md` accurate as the workspace evolves.
 - [ ] Provide diffs / verification for Agent A when requested.
 - [ ] Do not commit or push release work from the IDE host — only from `aitbc3` or `hub.aitbc`.
 
