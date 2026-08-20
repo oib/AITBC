@@ -57,5 +57,5 @@
 ## Shared / unresolved decisions
 
 - [x] Which agent owns the final end-to-end live validation (paid AI job + escrow + on-chain balance confirmation)?  → **Agent A** ran and confirmed the live flow.
-- Should `AGENTS.md` / `TASKLIST.md` be copied into the canonical repo (`aitbc3:/opt/aitbc`) and pushed to gitea?
+- [x] Should `AGENTS.md` / `TASKLIST.md` be copied into the canonical repo (`aitbc3:/opt/aitbc`) and pushed to gitea?  → **Done** (commit `1074d22f9`); GitHub `main` still cannot be force-pushed.
 - Who runs `git filter-repo` to remove the old `.gitea_token.sh` from gitea history, and when?  → **Done** from `aitbc3` (commit `662cf2394` / new main). GitHub `main` still protected.
