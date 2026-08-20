@@ -88,6 +88,29 @@ class TestLoadIslandCredentials:
                 with pytest.raises(PermissionError, match="overly permissive"):
                     load_island_credentials()
 
+    def test_load_island_credentials_root_may_read_service_owned_file(self):
+        """Root operators on shop nodes can load aitbc-owned 0600 credentials."""
+        from aitbc_cli.utils.island_credentials import load_island_credentials
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            credentials_path = Path(tmpdir) / "island_credentials.json"
+            credentials_data = {
+                "island_id": "island123",
+                "island_name": "Test Island",
+                "island_chain_id": "ait-devnet",
+                "credentials": {"rpc_endpoint": "http://localhost:8202"},
+            }
+            with open(credentials_path, "w") as f:
+                json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
+
+            with (
+                patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)),
+                patch("os.geteuid", return_value=0),
+            ):
+                result = load_island_credentials()
+                assert result["island_id"] == "island123"
+
 
 class TestGetRpcEndpoint:
     """Test get_rpc_endpoint function"""

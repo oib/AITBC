@@ -104,6 +104,22 @@ class BlockImportMixin(SyncBase):
                     duration = time.perf_counter() - start
                     metrics_registry.observe("sync_import_duration_seconds", duration)
                     return result
+                # Peer is one height ahead but the parent is not our tip: a fork
+                # where the peer is *ahead* of us. `_resolve_fork` only runs when
+                # height <= our_height, so this used to fall through to
+                # "Unhandled import case" and stall catch-up forever (V23-90).
+                metrics_registry.increment("sync_divergence_rejected_total")
+                our_hash = our_head.hash if our_head else ""
+                return ImportResult(
+                    accepted=False,
+                    height=height,
+                    block_hash=block_hash,
+                    reason=(
+                        f"Divergent chain: next block parent {parent_hash[:16]}... "
+                        f"is not our head {our_hash[:16]}... at height {our_height}"
+                    ),
+                    diverged=True,
+                )
             if height <= our_height:
                 existing_at_height = session.exec(
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)

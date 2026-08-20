@@ -36,10 +36,14 @@ def load_island_credentials() -> dict[str, Any]:
         )
 
     file_stat = credentials_path.stat()
-    if file_stat.st_uid != os.geteuid():
-        raise PermissionError(f"Island credentials file {CREDENTIALS_PATH} must be owned by the current user")
     if file_stat.st_mode & 0o777 > 0o600:
         raise PermissionError(f"Island credentials file {CREDENTIALS_PATH} has overly permissive mode; set it to 0o600")
+    # Root (euid 0) is the operator login on shop nodes; the credentials file is
+    # owned by the `aitbc` service user at mode 0600. Refusing that pair made
+    # `aitbc market offer` unusable both as root and as aitbc (the latter then
+    # dies on root-owned /etc/aitbc/blockchain-secrets.env).
+    if file_stat.st_uid != os.geteuid() and os.geteuid() != 0:
+        raise PermissionError(f"Island credentials file {CREDENTIALS_PATH} must be owned by the current user")
 
     with open(credentials_path) as f:
         credentials: dict[str, Any] = json.load(f)
