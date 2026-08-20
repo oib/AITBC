@@ -36,6 +36,8 @@ A node operator uses the CLI to check agent status, pool-hub status, mining stat
 - How to run `aitbc pool-hub status` without 404 from blockchain node (A7)
 - How to run `aitbc mining status` hitting the correct endpoint (A8)
 - How to run `aitbc edge gpu list-gpus` connecting to port 8111 (A3)
+- How to run `aitbc simulate blockchain --seed 123` and get deterministic, repeatable output
+- How the `aitbc messaging send` fallback generates a deterministic `message_id` and timestamp
 
 ---
 
@@ -136,6 +138,50 @@ aitbc edge status
 
 This connects to the coordinator-api (`agent_coordinator_url`) to fetch edge status. On a shop node without the agent-coordinator running locally, it will get a connection error — this is expected behavior.
 
+### Step 6: Verify Deterministic Blockchain Simulation
+
+The `aitbc simulate blockchain` command supports `--seed` for fully deterministic, repeatable output. It no longer depends on wall-clock time or the global `random` state.
+
+```bash
+# Generate two blocks, one transaction each, with delay 0 and a fixed seed
+aitbc simulate blockchain --blocks 2 --transactions 1 --delay 0 --seed 123 --output json
+```
+
+**Why this matters:**
+
+- Without `--seed`, the command uses live `random` and `time.sleep()` and may produce different output each run.
+- With `--seed 123`, block hashes, transaction IDs, addresses, amounts, and timestamps are derived from the seeded RNG.
+- Re-running the same command produces **identical** output, which is useful for tests, CI, and documentation examples.
+
+**Check determinism:**
+
+```bash
+aitbc simulate blockchain --blocks 2 --transactions 1 --delay 0 --seed 123 --output json > /tmp/sim1.json
+aitbc simulate blockchain --blocks 2 --transactions 1 --delay 0 --seed 123 --output json > /tmp/sim2.json
+diff /tmp/sim1.json /tmp/sim2.json && echo "DETERMINISTIC"
+```
+
+### Step 7: Verify Deterministic Simulated Fallback Output
+
+When a CLI command cannot reach a remote service, it may fall back to a simulated response. The fallback values are now derived from the command inputs rather than hard-coded placeholders.
+
+```bash
+aitbc messaging send --to alice "hello" --coordinator-url http://127.0.0.1:1
+```
+
+**Expected output (coordinator unreachable, simulated):**
+
+```text
+Message Sent (Simulated)
+status       simulated
+recipient    alice
+message      hello
+message_id   msg_8f28dfad6b09c39f
+timestamp    2026-01-01T00:00:00+00:00
+```
+
+Run the same command twice. Both runs will show the same `message_id` and `timestamp` because the fallback is deterministic.
+
 ---
 
 ## Code Examples
@@ -180,6 +226,8 @@ After completing this scenario, you should be able to:
 - Run `aitbc pool-hub status` and get a response (not 404)
 - Run `aitbc mining status` and hit the correct endpoint (401, not 404)
 - Run `aitbc edge gpu list-gpus` and connect to port 8111 (not 8103)
+- Run `aitbc simulate blockchain --seed 123` and verify the output is identical across two runs
+- Run `aitbc messaging send` against an unreachable endpoint and verify the simulated `message_id` is stable
 
 ---
 
@@ -197,6 +245,16 @@ aitbc mining status 2>&1 | grep "8202/rpc/mining/status"
 
 # A3: edge gpu should connect to 8111
 aitbc edge gpu list-gpus 2>&1 | grep "8111"
+
+# Deterministic simulation: two runs with the same seed should be identical
+aitbc simulate blockchain --blocks 2 --transactions 1 --delay 0 --seed 123 --output json > /tmp/sim1.json
+aitbc simulate blockchain --blocks 2 --transactions 1 --delay 0 --seed 123 --output json > /tmp/sim2.json
+diff /tmp/sim1.json /tmp/sim2.json && echo "SIMULATION DETERMINISTIC"
+
+# Deterministic fallback: same recipient/message yields the same message_id
+aitbc messaging send --to alice "hello" --coordinator-url http://127.0.0.1:1 > /tmp/msg1.txt
+aitbc messaging send --to alice "hello" --coordinator-url http://127.0.0.1:1 > /tmp/msg2.txt
+diff /tmp/msg1.txt /tmp/msg2.txt && echo "FALLBACK DETERMINISTIC"
 ```
 
 ---
@@ -219,4 +277,4 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 ---
 
 *Last updated: 2026-08-20*
-*Version: 1.2*
+*Version: 1.3*
