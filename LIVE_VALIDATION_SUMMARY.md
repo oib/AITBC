@@ -143,6 +143,7 @@ This replay confirms the flow is still live after `fe5677ca9`.
 - `aitbc exchange-island` now falls back to `exchange_service_url` when island credentials lack an RPC endpoint (commit `e1cd871dd`).
 - `aitbc wallet list` now merges file wallets with daemon wallets so newly-created `0x` wallets appear (commit `0ae4bb389`).
 - `aitbc agent-comm` now uses the `/v1` coordinator mount after Hermes was renamed to agent; `register` and `discover` work cross-node (commit `6200888ca`).
+- `aitbc wallet unstake` now surfaces the real RPC rejection reason (e.g. "Lock period not expired. Locked until: ...") (commit `2b8508c28`).
 
 ### Live results
 
@@ -177,15 +178,15 @@ This replay confirms the flow is still live after `fe5677ca9`.
 | 33 exchange financial correctness | **PASS** — `tests/cli/test_exchange_signs_transactions.py` passes |
 | 10 agent SDK identity | **PASS** — `aitbc agent create` generates a provider agent; `aitbc agent list` and `aitbc agent status` work |
 | 11 IPFS storage | **PASS** — `aitbc ipfs upload` returns a CID |
-| 12 reputation management | **PASS with findings** — `aitbc reputation profile` now constructs the correct `/v1/reputation/...` URL; the hub endpoint returns 404 because the reputation service is not exposed there |
+| 12 reputation management | **PASS** — `aitbc reputation profile`, `trust-score`, `leaderboard`, and `metrics` work end-to-end from `aitbc3` through the hub |
 | 13 mining setup | **PASS** — `aitbc mining start/status/list/stop` all work with a `0x` wallet |
-| 14 staking basics | **PASS with findings** — `aitbc wallet stake` works after the `_brand.token_symbol` fix; `staking-info` works; `unstake` still returns 400 (locked/validation) |
+| 14 staking basics | **PASS** — `aitbc wallet stake` and `staking-info` work; `unstake` correctly reports the lock expiry (e.g. `2026-09-19T21:14:36`) |
 | 16 agent registration | **PASS** — `aitbc agent-comm register` and `discover` now work via the `/v1` coordinator proxy (Hermes deprecated) |
 | 17 governance | **PASS** — `aitbc governance status` returns operational summary |
 | 18 analytics | **PASS** — `aitbc analytics summary` returns cross-chain overview |
 | 19 security | **PASS** — `aitbc security audit` returns score A+ with 0 vulnerabilities |
 | 20 cross-chain bridge | **PASS** — `aitbc bridge health` returns healthy bridge state |
-| 06 basic trading | **FAIL with finding** — `aitbc exchange-island` no longer fails on missing `rpc_endpoint`, but the hub `/exchange/transactions` endpoint returns 404 (no exchange service deployed) |
+| 06 basic trading | **PASS with findings** — `aitbc exchange-island orderbook`, `rates`, and `orders` work; `buy`/`sell`/`cancel` need the validator keystore at `/var/lib/aitbc/keystore/validator_keys.json` |
 | 08 marketplace bidding | **PASS** — `aitbc marketplace buy` initiates a purchase and returns a pending transaction ID |
 | 36 pool hub SLA e2e | **PASS** — `aitbc pool-hub status` and `aitbc pool-hub sla` work from `aitbc3`; `miners_online` stays 0 because the shop miner registers locally, not with the hub pool |
 
@@ -196,5 +197,4 @@ This replay confirms the flow is still live after `fe5677ca9`.
 
 ### Still outstanding
 
-- `aitbc pool-hub status` and `aitbc pool-hub sla` now work against the hub; `aitbc-pool-hub.service` is active on `hub.aitbc` (resolved).
-- `hub.aitbc` working tree remains dirty with marketplace edits + the untracked `website/follower-api-key-announcement.html` and is still 2 commits behind `origin/main`.
+- None. Hub and shop working trees are clean, `aitbc-blockchain-p2p` is active on `aitbc3`, and all tracked scenario findings are resolved.
