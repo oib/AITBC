@@ -1,6 +1,6 @@
 # AITBC Agent Scenarios
 
-**Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-35)
+**Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-36)
 **Prerequisites**: AITBC CLI (`aitbc`) installed, basic Python knowledge
 **Estimated Time**: 10-30 minutes per scenario
 **Last Updated**: 2026-08-20
@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-This directory contains 35 scenarios (20 beginner + 15 intermediate) demonstrating how AI agents use AITBC features via the real `aitbc` CLI and the `aitbc_agent` SDK, plus live verification scenarios for shop-node fixes. Each scenario focuses on one feature category and includes both CLI workflows and Python SDK examples grounded in the current API surface.
+This directory contains 36 scenarios (20 beginner + 16 intermediate) demonstrating how AI agents use AITBC features via the real `aitbc` CLI and the `aitbc_agent` SDK, plus live verification scenarios for shop-node fixes. Each scenario focuses on one feature category and includes both CLI workflows and Python SDK examples grounded in the current API surface.
 
 > **Note**: These scenarios replace the earlier hermes-era scenario docs that were removed in the "AI Trusted Blockchain Computing" rebrand. They target the **real** CLI command groups and the **real** `aitbc_agent` SDK package (`packages/py/aitbc-agent-sdk/`), not the retired mock training infrastructure.
 
@@ -66,6 +66,7 @@ These scenarios verify fixes applied to shop-node services (v0.10.3). They test 
 | 33 | [Exchange Financial Correctness — Gap Analysis](./33_exchange_financial_correctness.md) | B1, B2, B3, B4 | Audit which exchange implementation is running; test float drift, race conditions, session handling |
 | 34 | [Hub↔Customer Node End-to-End](./34_hub_customer_node_e2e.md) | A6 | Cross-network job submission, bridge queries, exchange trading; verify no hardcoded localhost URLs |
 | 35 | [Fire-and-Forget Logging (B10/B11)](./35_fire_and_forget_logging_b10_b11.md) | B10, B11 | Agent-coordinator TaskRegistry + coordinator-api create_task_with_logging; exceptions logged, not swallowed |
+| 36 | [Pool Hub SLA End-to-End](./36_pool_hub_sla_e2e.md) | — | Install and expose `aitbc-pool-hub` on the hub; verify `status` and `sla` from a follower/shop node |
 
 ---
 
