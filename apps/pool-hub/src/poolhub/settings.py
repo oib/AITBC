@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 from aitbc.config.hub import hub_agent_url
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
@@ -44,7 +45,10 @@ class Settings(ServiceSettings):
     database: DatabaseConfig = Field(
         default_factory=lambda: DatabaseConfig(
             adapter="postgresql",
-            url="postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc",
+            url=os.environ.get(
+                "POOLHUB_POSTGRES_DSN",
+                "postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc",
+            ),
             pool_size=10,
         )
     )
