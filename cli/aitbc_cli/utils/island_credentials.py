@@ -61,7 +61,7 @@ def get_rpc_endpoint() -> str:
     """
     Get the RPC endpoint from island credentials.
 
-    Falls back to the configured exchange service URL when the island
+    Falls back to the hub blockchain RPC base (/rpc) when the island
     credentials file does not yet contain an explicit RPC endpoint.
     """
     credentials = load_island_credentials()
@@ -70,10 +70,13 @@ def get_rpc_endpoint() -> str:
     if not rpc_endpoint:
         from ..config import get_config
 
-        fallback = getattr(get_config(), "exchange_service_url", "")
-        if fallback:
-            return fallback.rstrip("/")
-        raise ValueError("RPC endpoint not found in island credentials")
+        fallback = getattr(get_config(), "blockchain_rpc_url", "")
+        if not fallback:
+            raise ValueError("RPC endpoint not found in island credentials")
+        fallback = fallback.rstrip("/")
+        if not fallback.endswith("/rpc"):
+            fallback = fallback + "/rpc"
+        return fallback
 
     return rpc_endpoint  # type: ignore[no-any-return]
 
