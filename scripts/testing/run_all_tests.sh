@@ -137,15 +137,15 @@ run_cli_tests() {
         fi
     }
 
-    run_cli_test "chain:list:aitbc" aitbc chain list --node-endpoint http://127.0.0.1:8203
-    run_cli_test "chain:list:aitbc1" aitbc chain list --node-endpoint http://127.0.0.1:8203
-    run_cli_test "analytics:summary:aitbc" aitbc analytics summary --node-endpoint http://127.0.0.1:8203
-    run_cli_test "analytics:summary:aitbc1" aitbc analytics summary --node-endpoint http://127.0.0.1:8203
-    run_cli_test "marketplace:list:aitbc" aitbc marketplace list --marketplace-url http://127.0.0.1:8203
-    run_cli_test "marketplace:list:aitbc1" aitbc marketplace list --marketplace-url http://127.0.0.1:8203
-    run_cli_test "agent_comm:list:aitbc" aitbc agent_comm list --node-endpoint http://127.0.0.1:8203
-    run_cli_test "agent_comm:list:aitbc1" aitbc agent_comm list --node-endpoint http://127.0.0.1:8203
-    run_cli_test "deploy:overview:aitbc" aitbc deploy overview --format table
+    run_cli_test "chain:list:aitbc" aitbc chain list --node-url http://127.0.0.1:8202
+    run_cli_test "chain:list:aitbc1" aitbc chain list --node-url https://hub.aitbc.bubuit.net/rpc
+    run_cli_test "analytics:summary:aitbc" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
+    run_cli_test "analytics:summary:aitbc1" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
+    run_cli_test "marketplace:list:aitbc" aitbc market list
+    run_cli_test "marketplace:list:aitbc1" aitbc market list --service-type ollama
+    run_cli_test "system:check:blockchain-node" aitbc system check --service blockchain-node
+    run_cli_test "system:check:gpu" aitbc system check --service gpu
+    run_cli_test "system:check:marketplace" aitbc system check --service marketplace
 
     echo ""
     echo "CLI Test Results: $passed/$total passed"
