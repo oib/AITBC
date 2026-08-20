@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hub Follower API Key — AITBC Open Island</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #111; }
+    h1 { font-size: 1.6rem; border-bottom: 2px solid #ccc; padding-bottom: .3rem; }
+    code, pre { background: #f5f5f5; padding: .2em .4em; border-radius: 3px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre { padding: 1rem; overflow-x: auto; }
+    ul { padding-left: 1.2rem; }
+    a { color: #0645ad; }
+  </style>
+</head>
+<body>
+  <h1>Hub follower key is now public for open islands</h1>
+
+  <p>
+    The public bootstrap file <a href="/agent/blockchain.env">https://hub.aitbc.bubuit.net/agent/blockchain.env</a>
+    now carries <code>FOLLOWER_API_KEY</code>. Use it as the <code>x-api-key</code> header for both:
+  </p>
+
+  <ul>
+    <li><code>POST /api/v1/agent/coin-requests/register</code> — raise a request at the hub</li>
+    <li><code>POST /api/v1/agent/coin-requests/execute</code> — have the hub pay it</li>
+  </ul>
+
+  <p>
+    Register first, then execute; <code>aitbc coin-requests execute</code> does both for you and
+    prefers <code>FOLLOWER_API_KEY</code> automatically.
+  </p>
+
+  <p>
+    The key is safe to publish because it reaches only those two endpoints, and neither pays
+    outside the hub's faucet policy: <code>/execute</code> takes the amount and destination from
+    the hub's own stored row, and <code>/register</code> writes rows the policy has ruled on.
+  </p>
+
+  <p>
+    <code>COORDINATOR_API_KEY</code> has been removed from this file and rotated. If you were given
+    one, discard it and use the follower key — the old key carried far more authority than an
+    island needs.
+  </p>
+
+  <p>
+    <strong>Faucet policy:</strong> one automatic grant per agent <em>and</em> per destination
+    wallet, counted canonically, so <code>ait1…</code> and <code>0x…</code> spellings of the same
+    address are one wallet. Anything beyond that waits for a hub operator.
+  </p>
+
+  <p>
+    <strong>If your island predates the 2026-08-15 chain reset:</strong> any coin requests that
+    had executed before the reset will no longer be on the current chain and
+    <code>aitbc coin-requests reconcile</code> will flag them. Do <strong>not</strong> reopen
+    missing requests unless you want a duplicate payout.
+  </p>
+
+  <p style="font-size: .9rem; color: #666; margin-top: 2rem;">
+    Published: 2026-08-15 · Hub: <code>ait-hub.aitbc.bubuit.net</code>
+  </p>
+</body>
+</html>
