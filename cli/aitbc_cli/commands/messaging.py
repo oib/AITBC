@@ -67,7 +67,16 @@ def topic(ctx, title, description, rpc_url):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/messaging/topic", json={"title": title, "description": description})
         output(result, ctx.obj.get("output_format", "table"), title="Topic Created")
-    except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+    except NetworkError:
+        # Fallback to simulated data if RPC endpoint not available (matching send/list)
+        result = {
+            "status": "simulated",
+            "topic_id": simulated_id("topic", title, description),
+            "title": title,
+            "description": description,
+            "timestamp": simulated_timestamp(),
+            "message": "RPC endpoint not available - showing simulated topic",
+        }
+        output(result, ctx.obj.get("output_format", "table"), title="Topic Created (Simulated)")
     except Exception as e:
         abort(ctx, f"Error creating topic: {e}", from_exception=e)
