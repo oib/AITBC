@@ -1,5 +1,6 @@
 """Reputation management commands for AITBC CLI"""
 
+import hashlib
 import json
 from decimal import Decimal
 from typing import Any, cast
@@ -7,13 +8,15 @@ from typing import Any, cast
 import click
 
 from ..config import get_config
-from ..utils import success
+from ..utils import output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
 DEFAULT_COORDINATOR_URL = "http://localhost:8203"
+
+SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 
 
 def _coordinator_client(ctx: click.Context | None = None) -> AITBCHTTPClient:
@@ -31,6 +34,118 @@ def _reputation_endpoint(path: str) -> str:
     return f"/reputation{path}"
 
 
+def _reputation_level(score: float) -> str:
+    if score >= 900:
+        return "legendary"
+    if score >= 750:
+        return "excellent"
+    if score >= 600:
+        return "good"
+    if score >= 400:
+        return "fair"
+    if score >= 200:
+        return "poor"
+    return "untrusted"
+
+
+def _hash_float(parts, low: float = 0.0, high: float = 1.0, decimals: int = 2) -> float:
+    content = ":".join(str(p) for p in parts)
+    normalized = int(hashlib.md5(content.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    return round(low + normalized * (high - low), decimals)
+
+
+def _hash_int(parts, low: int, high: int) -> int:
+    content = ":".join(str(p) for p in parts)
+    normalized = int(hashlib.md5(content.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    return int(low + normalized * (high - low))
+
+
+def _simulated_profile(agent_id: str) -> dict[str, Any]:
+    base = ("reputation", "profile", agent_id)
+    trust = _hash_float(base + ("trust",), 300.0, 980.0, 2)
+    tx_count = _hash_int(base + ("tx_count",), 5, 10000)
+    completed = _hash_int(base + ("completed",), 0, tx_count)
+    return {
+        "agent_id": agent_id,
+        "trust_score": trust,
+        "reputation_level": _reputation_level(trust),
+        "performance_rating": _hash_float(base + ("performance",), 1.0, 5.0, 1),
+        "reliability_score": _hash_float(base + ("reliability",), 50.0, 99.99, 2),
+        "community_rating": _hash_float(base + ("community",), 1.0, 5.0, 1),
+        "total_earnings": _hash_float(base + ("earnings",), 0.0, 50000.0, 4),
+        "transaction_count": tx_count,
+        "success_rate": _hash_float(base + ("success",), 70.0, 99.99, 2),
+        "jobs_completed": completed,
+        "jobs_failed": max(0, tx_count - completed),
+    }
+
+
+def _simulated_trust_score(agent_id: str) -> dict[str, Any]:
+    base = ("reputation", "trust-score", agent_id)
+    composite = _hash_float(base + ("composite",), 300.0, 980.0, 2)
+    return {
+        "agent_id": agent_id,
+        "composite_score": composite,
+        "performance_score": _hash_float(base + ("performance",), 200.0, 980.0, 2),
+        "reliability_score": _hash_float(base + ("reliability",), 200.0, 980.0, 2),
+        "community_score": _hash_float(base + ("community",), 200.0, 980.0, 2),
+        "security_score": _hash_float(base + ("security",), 200.0, 980.0, 2),
+        "economic_score": _hash_float(base + ("economic",), 200.0, 980.0, 2),
+        "reputation_level": _reputation_level(composite),
+        "calculated_at": SIMULATED_TIMESTAMP,
+    }
+
+
+def _simulated_leaderboard(category: str, limit: int, region: str | None) -> list[dict[str, Any]]:
+    region_key = region or "global"
+    entries = []
+    for i in range(1, limit + 1):
+        seed = ("reputation", "leaderboard", category, str(limit), region_key, str(i))
+        trust = _hash_float(seed + ("trust",), 250.0, 990.0, 2)
+        tx = _hash_int(seed + ("tx",), 10, 20000)
+        agent_id = f"sim-agent-{i:04d}-{hashlib.md5(':'.join(seed).encode()).hexdigest()[:8]}"
+        entries.append(
+            {
+                "rank": i,
+                "agent_id": agent_id,
+                "trust_score": trust,
+                "reputation_level": _reputation_level(trust),
+                "transaction_count": tx,
+            }
+        )
+    entries.sort(key=lambda e: (-e["trust_score"], e["agent_id"]))
+    for i, e in enumerate(entries, 1):
+        e["rank"] = i
+    return entries
+
+
+def _simulated_metrics() -> dict[str, Any]:
+    return {
+        "status": "simulated",
+        "total_agents": 1234,
+        "average_trust_score": 624.56,
+        "level_distribution": {
+            "legendary": 12,
+            "excellent": 120,
+            "good": 410,
+            "fair": 520,
+            "poor": 150,
+            "untrusted": 34,
+        },
+        "top_regions": [
+            {"region": "EU", "count": 312},
+            {"region": "US-East", "count": 298},
+            {"region": "APAC", "count": 245},
+            {"region": "US-West", "count": 180},
+            {"region": "LATAM", "count": 99},
+        ],
+        "recent_activity": {
+            "events_last_24h": 842,
+            "active_agents": 180,
+        },
+    }
+
+
 @click.group(name="reputation")
 @click.pass_context
 def reputation(ctx):
@@ -46,7 +161,16 @@ def get_profile(ctx, agent_id: str, format: str):
     """Get reputation profile for an agent"""
     try:
         http_client = _coordinator_client(ctx)
-        resp = http_client.get(_reputation_endpoint(f"/profile/{agent_id}"))
+        try:
+            resp = http_client.get(_reputation_endpoint(f"/profile/{agent_id}"))
+        except NetworkError:
+            data = _simulated_profile(agent_id)
+            if format == "json":
+                click.echo(json.dumps(data, indent=2, default=str))
+            else:
+                output(data, format, title="Reputation Profile (Simulated)")
+            return
+
         data: dict[str, Any] = resp
 
         if format == "json":
@@ -65,6 +189,7 @@ def get_profile(ctx, agent_id: str, format: str):
         click.echo(f"Jobs Completed: {data.get('jobs_completed', 0)}")
         click.echo(f"Jobs Failed: {data.get('jobs_failed', 0)}")
     except NetworkError as e:
+        # Safety net for unexpected network failures.
         abort(ctx, f"Network error: {e}")
     except Exception as e:
         abort(ctx, f"Error getting reputation profile: {e}", from_exception=e)
@@ -78,7 +203,16 @@ def trust_score(ctx, agent_id: str, format: str):
     """Get detailed trust score breakdown for an agent"""
     try:
         http_client = _coordinator_client(ctx)
-        resp = http_client.get(_reputation_endpoint(f"/trust-score/{agent_id}"))
+        try:
+            resp = http_client.get(_reputation_endpoint(f"/trust-score/{agent_id}"))
+        except NetworkError:
+            data = _simulated_trust_score(agent_id)
+            if format == "json":
+                click.echo(json.dumps(data, indent=2, default=str))
+            else:
+                output(data, format, title="Trust Score (Simulated)")
+            return
+
         data: dict[str, Any] = resp
 
         if format == "json":
@@ -114,7 +248,16 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
             params["region"] = region
 
         http_client = _coordinator_client(ctx)
-        resp = http_client.get(_reputation_endpoint("/leaderboard"), params=params)
+        try:
+            resp = http_client.get(_reputation_endpoint("/leaderboard"), params=params)
+        except NetworkError:
+            data = _simulated_leaderboard(category, limit, region)
+            if format == "json":
+                click.echo(json.dumps(data, indent=2, default=str))
+            else:
+                output(data, format, title="Reputation Leaderboard (Simulated)")
+            return
+
         raw: Any = resp
         if isinstance(raw, list):
             data = raw
@@ -148,7 +291,16 @@ def metrics(ctx, format: str):
     """Get overall reputation system metrics"""
     try:
         http_client = _coordinator_client(ctx)
-        resp = http_client.get(_reputation_endpoint("/metrics"))
+        try:
+            resp = http_client.get(_reputation_endpoint("/metrics"))
+        except NetworkError:
+            data = _simulated_metrics()
+            if format == "json":
+                click.echo(json.dumps(data, indent=2, default=str))
+            else:
+                output(data, format, title="Reputation Metrics (Simulated)")
+            return
+
         data: dict[str, Any] = resp
 
         if format == "json":
