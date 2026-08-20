@@ -150,3 +150,5 @@ def market():
 # Import submodules to register all commands
 from . import escrow, exchange, jobs, offers, ratings
 from .escrow import _escrow_create, _get_blockchain_rpc_url
+
+market.add_command(escrow.escrow)

@@ -24,7 +24,7 @@ from ..utils.wallet import decrypt_private_key
 
 logger = get_logger(__name__)
 
-DEFAULT_RPC_URL = "http://localhost:8202"
+DEFAULT_RPC_URL = "http://127.0.0.1:8202"
 # The chain settles in integer compute-seconds (3600 = 1 AIT), so the default fee is
 # expressed in those units too: 36 seconds = 0.01 AIT.
 DEFAULT_FEE_SECONDS = 36
@@ -44,10 +44,12 @@ def _send_transaction_impl(
     amount: Decimal,
     fee: Decimal,
     password: str,
-    keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
-    rpc_url: str = DEFAULT_RPC_URL,
+    keystore_dir: Path | None = None,
+    rpc_url: str | None = None,
 ) -> str | None:
     """Send a secp256k1-signed transaction from one wallet to another."""
+    keystore_dir = keystore_dir or DEFAULT_KEYSTORE_DIR
+    rpc_url = rpc_url or DEFAULT_RPC_URL
 
     # Validate recipient address
     try:

@@ -43,7 +43,7 @@ class CLIConfig(BaseAITBCConfig):
         description="Exchange Service URL. Hub-only locally; empty means resolve from HUB_DISCOVERY_URL / HUB_EXCHANGE_URL.",
     )
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
-    marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
+    marketplace_service_url: str = Field(default="http://127.0.0.1:8102", description="Marketplace Service URL")
     coordinator_api_url: str = Field(default="", description="Coordinator API URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
@@ -55,11 +55,14 @@ class CLIConfig(BaseAITBCConfig):
     edge_api_port: int = Field(default=8111, description="Edge API port")
     wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL (alias for compatibility)")
-    blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
+    blockchain_rpc_url: str = Field(default="http://127.0.0.1:8202", description="Blockchain RPC URL")
     explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
 
     # Chain configuration
-    chain_id: str = Field(default="", description="Default chain ID for multichain operations (from CHAIN_ID env var)")
+    chain_id: str = Field(
+        default="ait-hub.aitbc.bubuit.net",
+        description="Default chain ID for multichain operations (overridden by CHAIN_ID env var or --chain-id)",
+    )
     # The wallet holding the genesis allocation — the account AIT transfers are sent *from*.
     # This is not the block proposer: the proposer is a signing identity and holds no funds
     # (see docs/getting-started/node/blockchain-setup.md). Matches the meaning

@@ -34,6 +34,8 @@ from .exceptions import (
     RetryError,
     ValidationError,
 )
+from .network import AITBCHTTPClient
+
 from .middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -92,6 +94,7 @@ __all__ = [
     "RequestValidationMiddleware",
     "RetryError",
     "ValidationError",
+    "AITBCHTTPClient",
     "__version__",
     "configure_logging",
     "ensure_dir",

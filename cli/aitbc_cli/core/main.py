@@ -165,7 +165,7 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     # Handle chain_id with auto-detection
     from aitbc_cli.utils.chain_id import get_chain_id
 
-    default_rpc_url = url.replace("/api", "") if url else "http://localhost:8202"
+    default_rpc_url = url.replace("/api", "") if url else "http://127.0.0.1:8202"
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
 
 
@@ -177,6 +177,7 @@ cli.add_command(restart)
 cli.add_command(market, name="market")
 cli.add_command(marketplace, name="marketplace")  # Keep old marketplace for compatibility
 cli.add_command(chain, name="blockchain")
+cli.add_command(chain, name="chain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
 cli.add_command(ai)  # AI job submission and inspection
 cli.add_command(analytics)  # Re-enabled - core.analytics exists

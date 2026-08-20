@@ -168,3 +168,29 @@ def escrow_status(ctx, job_id: str):
     except Exception as e:
         error(f"Error checking escrow status: {e}")
         raise click.Abort() from e
+
+
+@escrow.command(name="create")
+@click.argument("job_id")
+@click.argument("buyer")
+@click.argument("provider")
+@click.argument("amount", required=False)
+@click.pass_context
+def escrow_create_cmd(ctx, job_id, buyer, provider, amount):
+    """Create an on-chain escrow for a job"""
+    try:
+        from decimal import Decimal as _Decimal
+        from ...utils.money import wallet_amount
+
+        config = get_config()
+        amt = _Decimal(wallet_amount(amount)) if amount is not None else None
+        contract_id = _escrow_create(job_id, buyer, provider, amt, config)
+        if contract_id:
+            output(
+                {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider},
+                ctx.obj.get("output_format", "table"),
+            )
+        else:
+            error("Failed to create escrow")
+    except Exception as e:
+        error(f"Error creating escrow: {e}")
