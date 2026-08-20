@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO_DIR = "/opt/aitbc"
 LOG_FILE = "/var/log/aitbc/qa-cycle.log"
-TOKEN_FILE = "/opt/aitbc/.gitea_token.sh"
+TOKEN_FILE = os.path.expanduser("~/.gitea_token")
 
 
 def build_pytest_env(package_root: Path):
@@ -42,12 +42,20 @@ def build_pytest_env(package_root: Path):
 
 
 def get_token():
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE) as f:
+    # Prefer environment variable, then user home token file. Never read a repo file.
+    token = os.getenv("GITEA_TOKEN", "")
+    if token:
+        return token
+    token_path = os.path.expanduser("~/.gitea_token")
+    if os.path.exists(token_path):
+        with open(token_path) as f:
             for line in f:
                 if line.strip().startswith("GITEA_TOKEN="):
                     return line.strip().split("=", 1)[1].strip()
-    return os.getenv("GITEA_TOKEN", "")
+                token = line.strip()
+                if token:
+                    return token
+    return ""
 
 
 GITEA_TOKEN = get_token()
