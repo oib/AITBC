@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from ..custom_types import Constraints, JobState
 
 _brand = get_active_brand()
+brand_symbol = getattr(_brand, "token_symbol", _brand)
 
 
 # Payment schemas
@@ -21,9 +22,9 @@ class JobPaymentCreate(BaseModel):
 
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
     amount: Decimal = Field(
-        ..., gt=Decimal("0"), le=Decimal("1000000"), description=f"Payment amount in {_brand.token_symbol}"
+        ..., gt=Decimal("0"), le=Decimal("1000000"), description=f"Payment amount in {brand_symbol}"
     )
-    currency: str = Field(default=_brand.token_symbol, description="Payment currency")
+    currency: str = Field(default=brand_symbol, description="Payment currency")
     payment_method: str = Field(default="aitbc_token", description="Payment method")
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
     buyer_address: str | None = Field(default=None, description="Customer wallet address for escrow")
@@ -284,7 +285,7 @@ class JobCreate(BaseModel):
     constraints: Constraints = Field(default_factory=Constraints)
     ttl_seconds: int = 900
     payment_amount: Decimal | None = None  # Amount to pay for the job
-    payment_currency: str = _brand.token_symbol  # Jobs paid with network tokens
+    payment_currency: str = brand_symbol  # Jobs paid with network tokens
     buyer_address: str | None = None  # Customer wallet address for escrow
     provider_address: str | None = None  # Provider wallet address for escrow
 
