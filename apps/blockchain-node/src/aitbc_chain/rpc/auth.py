@@ -4,6 +4,7 @@ Authentication utilities for blockchain RPC endpoints.
 
 import os
 
+from aitbc.crypto.signature_recovery import canonical_address
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -33,6 +34,11 @@ def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCr
     """
     wallet_address = request.headers.get("X-Wallet-Address")
     if wallet_address:
+        try:
+            wallet_address = canonical_address(wallet_address)
+        except Exception:
+            _logger.warning("Invalid wallet address format in X-Wallet-Address header: %s", wallet_address)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid wallet address format")
         if not wallet_address.startswith("0x") or len(wallet_address) != 42:
             _logger.warning("Invalid wallet address format in X-Wallet-Address header: %s", wallet_address)
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid wallet address format")

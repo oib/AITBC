@@ -604,11 +604,9 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
 
     from eth_utils import keccak
 
-    # The node verifier signs over {from, to, amount, fee, nonce, payload, type}
-    # with sort_keys=True, separators=(",", ":"). chain_id is excluded (B6 gap).
-    signed_fields = {
-        k: transaction[k] for k in ("from", "to", "amount", "fee", "nonce", "payload", "type") if k in transaction
-    }
+    # Sign over all transaction fields except the signature (chain_id included
+    # for cross-chain replay protection; matches the node verifier exactly).
+    signed_fields = {k: v for k, v in transaction.items() if k != "signature"}
     message = json.dumps(signed_fields, sort_keys=True, separators=(",", ":")).encode()
     signature = private_key.sign_msg_hash(keccak(message))
     transaction["signature"] = signature.to_bytes().hex()
