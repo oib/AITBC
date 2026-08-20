@@ -7,6 +7,7 @@ from __future__ import annotations
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import hashlib
+import json
 import os
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -15,6 +16,9 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from aitbc.network import SharedHttpClient
+from aitbc.crypto.crypto import sign_transaction_hash
+from aitbc.crypto.signature_recovery import canonical_address
+from eth_utils import keccak
 
 from ..contracts.escrow import get_escrow_manager
 from ..database import session_scope
@@ -50,6 +54,34 @@ async def _get_account_nonce(address: str) -> int:
     return 0
 
 
+_GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
+
+
+def _compute_tx_signing_hash(tx: dict[str, Any]) -> str:
+    """Return the keccak hash the RPC verifies for a transaction signature."""
+    has_amount = "amount" in tx
+    tx_for_sign = {k: v for k, v in tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
+    canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
+    return "0x" + keccak(canonical).hex()
+
+
+async def _create_account_if_missing(address: str, chain_id: str) -> bool:
+    """Ensure ``address`` has an on-chain account; create it if missing."""
+    try:
+        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{address}")
+        if r.status_code == 200:
+            return True
+        r = await SharedHttpClient.post(
+            f"{_HUB_RPC_URL}/register-account",
+            json={"address": canonical_address(address), "chain_id": chain_id},
+            timeout=5.0,
+        )
+        return r.status_code in (200, 201)
+    except Exception as e:
+        _logger.warning("ESCROW_RELEASE: account creation check failed for %s: %s", address, e)
+    return False
+
+
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     amount_seconds = int(amount * 3600)
@@ -57,13 +89,26 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
     if amount_int <= 0:
         return None
     try:
-        sender = await _resolve_chain_account(buyer) or _NODE_WALLET
-        recipient = await _resolve_chain_account(provider) or _NODE_WALLET
-        if not sender or not recipient:
-            _logger.warning(
-                "ESCROW_RELEASE TX skipped: could not resolve sender/recipient (buyer=%s, provider=%s)", buyer, provider
-            )
+        if not _GENESIS_WALLET_PRIVATE_KEY:
+            _logger.warning("ESCROW_RELEASE TX skipped: GENESIS_WALLET_PRIVATE_KEY not configured")
             return None
+
+        sender = await _resolve_chain_account(buyer) or _NODE_WALLET
+        if not sender:
+            _logger.warning("ESCROW_RELEASE TX skipped: could not resolve sender (buyer=%s)", buyer)
+            return None
+
+        # The provider account must exist before a TRANSFER-style transaction can be applied.
+        if not await _create_account_if_missing(provider, _CHAIN_ID):
+            _logger.warning("ESCROW_RELEASE TX skipped: could not create provider account (provider=%s)", provider)
+            return None
+
+        # Re-resolve after creation; use canonical ait1 form for the state layer.
+        recipient = await _resolve_chain_account(provider) or _NODE_WALLET
+        if not recipient:
+            _logger.warning("ESCROW_RELEASE TX skipped: could not resolve recipient (provider=%s)", provider)
+            return None
+
         nonce = await _get_account_nonce(sender)
         tx = {
             "from": sender,
@@ -82,14 +127,18 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
                 "released_at": datetime.now(UTC).isoformat(),
             },
         }
-        tx_hash = "0x" + hashlib.sha256(f"{sender}{recipient}{amount_int}{nonce}{job_id}".encode()).hexdigest()
-        tx["hash"] = tx_hash
+        # Sign with the genesis wallet private key (the buyer in the test flow).
+        signing_hash = _compute_tx_signing_hash(tx)
+        tx["signature"] = sign_transaction_hash(signing_hash, _GENESIS_WALLET_PRIVATE_KEY)
+
         resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
         if resp.status_code in (200, 201):
+            result = resp.json()
+            actual_tx_hash = result.get("transaction_hash")
             _logger.info(
-                "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s", tx_hash, amount_int, sender, recipient
+                "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s", actual_tx_hash, amount_int, sender, recipient
             )
-            return tx_hash
+            return actual_tx_hash
         else:
             _logger.warning("ESCROW_RELEASE TX failed %s: %s", resp.status_code, resp.text[:200])
     except Exception as e:

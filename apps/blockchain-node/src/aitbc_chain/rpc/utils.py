@@ -93,7 +93,7 @@ def get_poa_proposer(chain_id: str | None = None) -> Any:
 
 def get_chain_id(chain_id: str | None = None) -> str:
     """Get chain_id from parameter or use default from settings"""
-    if chain_id is None:
+    if not chain_id:
         return settings.chain_id or "ait-mainnet"
     return chain_id
 
