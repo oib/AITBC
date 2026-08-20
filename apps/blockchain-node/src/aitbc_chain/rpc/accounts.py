@@ -19,6 +19,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
+from aitbc.crypto.signature_recovery import canonical_address
 
 _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 _cache = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
@@ -30,6 +31,9 @@ _logger = get_logger(__name__)
 async def get_account(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
+    canonical = canonical_address(address)
+    body = canonical.removeprefix("0x")
+    address = f"ait1{body}" if canonical.startswith("0x") and len(body) == 40 else address
     cache_key = f"account_balance:{chain_id}:{address.lower()}"
     cached = _cache.get(cache_key)
     if cached is not None:
@@ -62,6 +66,9 @@ async def get_account_details(request: Request, address: str, chain_id: str | No
         Account details or 404 if not found
     """
     chain_id = get_chain_id(chain_id)
+    canonical = canonical_address(address)
+    body = canonical.removeprefix("0x")
+    address = f"ait1{body}" if canonical.startswith("0x") and len(body) == 40 else canonical
     address = address.lower().strip()
     cache_key = f"account_details:{chain_id}:{address}"
     cached = _cache.get(cache_key)

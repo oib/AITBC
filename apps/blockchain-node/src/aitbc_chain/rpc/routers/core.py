@@ -227,9 +227,10 @@ async def query_transactions_route(
     order_id: str | None = None,
     limit: int | None = 100,
     chain_id: str | None = None,
+    address: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
-    return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id)  # type: ignore[no-any-return]
+    return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id, address)  # type: ignore[no-any-return]
 
 
 @router.get("/transaction/{tx_hash}", summary="Get one transaction by hash")

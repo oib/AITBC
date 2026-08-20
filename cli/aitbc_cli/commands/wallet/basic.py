@@ -11,6 +11,7 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
+from ...utils.crypto_utils import bech32_to_hex
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.money import wallet_amount as _wallet_amount
 from aitbc.utils import ait_to_seconds, format_ait
@@ -363,7 +364,8 @@ def transactions(ctx, name: str | None, limit: int):
         # Get transactions from blockchain RPC
         config = get_config()
         rpc_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=30)
-        transactions = rpc_client.get(f"/transactions?address={address}&limit={limit}")
+        hex_address = bech32_to_hex(address)
+        transactions = rpc_client.get(f"/rpc/transactions?address={hex_address}&limit={limit}")
 
         if isinstance(transactions, dict):
             transactions = transactions.get("transactions", [])
