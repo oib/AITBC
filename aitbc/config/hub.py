@@ -35,26 +35,42 @@ def _read_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-def hub_discovery_host() -> str | None:
-    """The hub's DNS name, or None if nothing in the environment named one.
+def _raw_env_value(*keys: str) -> str | None:
+    """First explicit process env value, then the same key from env files."""
+    files = None
+    for k in keys:
+        v = os.getenv(k)
+        if v:
+            return v
+        if files is None:
+            files = {k2: v2 for path in _env_files() for k2, v2 in _read_env_file(path).items()}
+        if k in files:
+            return files[k]
+    return None
 
-    Precedence: process env ``HUB_DISCOVERY_URL``, then ``node.env``, then
-    ``blockchain.env``. A URL is reduced to its host so callers can append a
-    path without doubling schemes.
-    """
-    raw = os.getenv("HUB_DISCOVERY_URL")
-    if not raw:
-        files = {k: v for path in _env_files() for k, v in _read_env_file(path).items()}
-        raw = files.get("HUB_DISCOVERY_URL")
+
+def _host_from(raw: str | None) -> str | None:
+    """Reduce a URL or bare hostname to a DNS host, stripping scheme and path."""
     if not raw:
         return None
     host = raw.strip()
     for prefix in ("https://", "http://"):
         if host.startswith(prefix):
-            host = host[len(prefix) :]
+            host = host[len(prefix):]
             break
     return host.split("/", 1)[0].rstrip("/") or None
 
+
+def hub_discovery_host() -> str | None:
+    """The hub's DNS name, or None if nothing in the environment named one.
+
+    Precedence: process env ``HUB_DISCOVERY_URL`` falls back to ``HUB_P2P_HOST``
+    and ``HUB_RPC_URL`` (already configured on follower/shop nodes).  The first
+    source found is reduced to a host so callers can append paths without
+    doubling schemes.
+    """
+    raw = _raw_env_value("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_RPC_URL")
+    return _host_from(raw)
 
 def hub_service_url(path: str) -> str | None:
     """``https://<hub>/<path>`` when a hub host is configured, else None."""
