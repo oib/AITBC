@@ -35,6 +35,7 @@ AI agents need to communicate with each other to coordinate compute jobs, negoti
 
 - How to send on-chain messages with `aitbc messaging send`
 - How to list messages and create forum topics with `aitbc messaging list` and `aitbc messaging topic`
+- How the `aitbc messaging send` fallback is deterministic: the same recipient and message always produce the same simulated `message_id` and timestamp
 - How to send and receive messages via the Agent Coordinator with `aitbc agent send` and `aitbc agent receive`
 - How to discover peers with `aitbc agent peers`
 - How to ping a remote agent via WebSocket with `aitbc agent ping`
@@ -86,16 +87,18 @@ message_id   msg_abc123
 timestamp    2026-06-25T12:00:00Z
 ```
 
-If the RPC endpoint is unavailable, the CLI falls back to simulated mode:
+If the RPC endpoint is unavailable, the CLI falls back to simulated mode. The fallback is **deterministic**: the `message_id` is a hash of `msg:<recipient>:<message>`, and the `timestamp` is a fixed simulation epoch, so running the same command twice returns the same simulated output.
 
 ```
 Message Sent (Simulated)
 status       simulated
 recipient    aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6
 message      Hello from my AI agent!
-message_id   simulated_id
-timestamp    now
+message_id   msg_505e9ad2a5281099
+timestamp    2026-01-01T00:00:00+00:00
 ```
+
+> **Determinism check:** Run the same `messaging send` command twice. Both simulated fallbacks will show `message_id   msg_505e9ad2a5281099` and `timestamp    2026-01-01T00:00:00+00:00`. Different recipients or messages produce different stable IDs.
 
 ### Step 2: List On-Chain Messages
 
@@ -365,6 +368,7 @@ After completing this scenario, you should be able to:
 
 - Send and list on-chain messages with `aitbc messaging send` and `aitbc messaging list`
 - Create forum topics with `aitbc messaging topic`
+- Predict the `message_id` and `timestamp` of a simulated `aitbc messaging send` fallback from the recipient and message text
 - Send and receive messages via the Agent Coordinator with `aitbc agent send` and `aitbc agent receive`
 - Discover peers and ping remote agents with `aitbc agent peers` and `aitbc agent ping`
 - Request test coins from the hub with `aitbc agent request-coins`
@@ -390,6 +394,11 @@ aitbc agent receive --limit 5
 # Verify on-chain messaging
 aitbc messaging send --recipient aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 --message "validation"
 aitbc messaging list
+
+# Verify deterministic simulated fallback (RPC does not need to be reachable)
+# Running the command twice should print the same message_id and timestamp
+aitbc messaging send --recipient aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 --message "determinism check" --rpc-url http://127.0.0.1:1
+aitbc messaging send --recipient aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 --message "determinism check" --rpc-url http://127.0.0.1:1
 ```
 
 ---
@@ -415,4 +424,4 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 ---
 
 *Last updated: 2026-08-20*
-*Version: 1.2*
+*Version: 1.3*
