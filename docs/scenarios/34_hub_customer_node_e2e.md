@@ -4,7 +4,7 @@
 **Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md)
 **Estimated Time**: 25 minutes
 **Last Updated**: 2026-08-20
-**Version**: 1.3
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -180,10 +180,10 @@ On the **hub node**:
 
 ```bash
 # Settlement hooks should use settings.blockchain_rpc_url (A6 fix)
-grep "blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/app/settlement/hooks.py
+grep "blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/coordinator_api/settlement/hooks.py
 
 # Governance service should use env var with localhost fallback
-grep "BLOCKCHAIN_RPC_URL\|blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/app/contexts/governance/services/governance_service.py
+grep "BLOCKCHAIN_RPC_URL\|blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/governance/services/governance_service.py
 ```
 
 **Expected output:**
@@ -207,8 +207,8 @@ On the **customer node** (or via SSH tunnel):
 ```bash
 # Generate a JWT token on the hub (or use a customer-node token if auth is federated)
 # For testing, generate on the hub and copy the token:
-HUB_TOKEN=$(ssh hub.aitbc.bubuit.net 'cd /opt/aitbc && JWT_SECRET=$(grep JWT_SECRET /etc/aitbc/aitbc-coordinator-api.env | cut -d= -f2) PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from coordinator_api.auth.jwt_auth import create_access_token
+HUB_TOKEN=$(ssh hub.aitbc.bubuit.net 'cd /opt/aitbc && JWT_SECRET=$(grep JWT_SECRET /etc/aitbc/aitbc-coordinator-api.env | cut -d= -f2) ./venv/bin/python -c "
+from aitbc.auth import create_access_token
 print(create_access_token(\"customer-node-user\", \"client\", {\"wallet_address\": \"0xCustomer1\"}))
 "')
 
@@ -263,11 +263,12 @@ On the **customer node**:
 
 ```bash
 # Query the hub's exchange orderbook
-curl -s http://hub.aitbc.bubuit.net:8106/v1/exchange/orderbook | python3 -m json.tool | head -20
+curl -s http://hub.aitbc.bubuit.net:8106/api/orders/orderbook | python3 -m json.tool | head -20
 
 # Place a buy order on the hub's exchange
-curl -s -X POST http://hub.aitbc.bubuit.net:8106/v1/exchange/orders \
+curl -s -X POST http://hub.aitbc.bubuit.net:8106/api/orders \
   -H "Content-Type: application/json" \
+  -H "X-Api-Key: <exchange-api-key>" \
   -d '{"order_type":"BUY","amount":1,"price":1.0,"user_address":"0xCustomer1"}'
 ```
 
@@ -275,10 +276,10 @@ curl -s -X POST http://hub.aitbc.bubuit.net:8106/v1/exchange/orders \
 
 ```json
 {
-  "buy_orders": [...],
-  "sell_orders": [...]
+  "buys": [{"id": 21, "order_type": "BUY", "amount": "1", "price": "1.0", "status": "open"}],
+  "sells": []
 }
-{"success": true, "order": {"id": ..., "order_type": "BUY", ...}}
+{"id": 21, "order_type": "BUY", "amount": "1", "price": "1.0", "status": "open", "user_address": "0xCustomer1"}
 ```
 
 **Interpretation:** The customer node successfully queried and traded on the hub's exchange.
@@ -455,7 +456,7 @@ for port in 8202 8203 8106 8107 8108; do
 done
 
 # On the hub node: verify A6 fix is deployed (no hardcoded localhost)
-grep -r "localhost:8202" /opt/aitbc/apps/coordinator-api/src/app/settlement/ \
+grep -r "localhost:8202" /opt/aitbc/apps/coordinator-api/src/coordinator_api/settlement/ \
   /opt/aitbc/apps/coordinator-api/src/app/contexts/governance/services/governance_service.py \
   | grep -v "BLOCKCHAIN_RPC_URL\|blockchain_rpc_url\|#\|docstring\|comment" \
   | grep -v ".pyc"
