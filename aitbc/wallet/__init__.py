@@ -1,0 +1,1 @@
+"""AITBC wallet package."""

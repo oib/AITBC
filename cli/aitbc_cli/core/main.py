@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""
+AITBC CLI - Fixed version with modular command groups
+
+Canonical invocation: `aitbc` (installed via /opt/aitbc/venv/bin/aitbc)
+"""
+
+import sys
+from pathlib import Path
+
+# Make the repository root discoverable so that the core ``aitbc`` package
+# can be imported by the CLI utilities. The CLI package itself lives under
+# ``cli/aitbc_cli`` and is still found through the editable installation.
+REPO_ROOT = str(Path(__file__).resolve().parents[3])
+if REPO_ROOT not in sys.path:
+    sys.path.append(REPO_ROOT)
+
+import click
+from aitbc_cli.utils.http_client import get_logger
+from aitbc_cli.commands.account import account
+from aitbc_cli.commands.agent_sdk import agent
+from aitbc_cli.commands.agent_wallet import agent_wallet
+from aitbc_cli.commands.ai import ai
+from aitbc_cli.commands.bond import bond
+from aitbc_cli.commands.bootstrap import bootstrap
+from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
+from aitbc_cli.commands.bridge import bridge
+from aitbc_cli.commands.chain import chain
+from aitbc_cli.commands.cluster import cluster
+from aitbc_cli.commands.coin_requests import coin_requests
+from aitbc_cli.commands.compliance import compliance
+from aitbc_cli.commands.deploy import deploy
+from aitbc_cli.commands.confidential import confidential
+from aitbc_cli.commands.config import config as config_cmd
+from aitbc_cli.commands.contract import contract
+from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
+from aitbc_cli.commands.developer import developer
+from aitbc_cli.commands.grant import grant
+from aitbc_cli.commands.economics import economics
+from aitbc_cli.commands.edge import edge
+from aitbc_cli.commands.explorer import explorer
+
+from aitbc_cli.commands.agent_comm import agent_comm
+from aitbc_cli.commands.node import node
+from aitbc_cli.commands.exchange import exchange
+from aitbc_cli.commands.exchange_island import exchange_island
+from aitbc_cli.commands.genesis import genesis
+from aitbc_cli.commands.governance import governance
+from aitbc_cli.commands.plugin import plugin
+
+# Import island-specific commands
+from aitbc_cli.commands.gpu_marketplace import gpu
+from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
+from aitbc_cli.commands.agent import messaging as agent_msg
+from aitbc_cli.commands.market import market
+from aitbc_cli.commands.marketplace_cmd import marketplace
+from aitbc_cli.commands.messaging import messaging
+from aitbc_cli.commands.mining import mining
+
+from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency
+from aitbc_cli.commands.network import network
+from aitbc_cli.commands.operations import operations
+from aitbc_cli.commands.performance import performance
+from aitbc_cli.commands.platform import platform
+from aitbc_cli.commands.pool_hub import pool_hub
+from aitbc_cli.commands.reinvest import reinvest
+from aitbc_cli.commands.reputation import reputation
+from aitbc_cli.commands.resource import resource
+from aitbc_cli.commands.script import script
+from aitbc_cli.commands.security import security
+from aitbc_cli.commands.simulate import simulate
+from aitbc_cli.commands.sync import sync
+from aitbc_cli.commands.trade import trade
+
+# Import modular command groups
+from aitbc_cli.commands.system import system
+from aitbc_cli.commands.control import start, stop, restart
+from aitbc_cli.commands.tee import tee
+
+# Import new modular commands
+from aitbc_cli.commands.transactions import transactions
+from aitbc_cli.commands.update import update
+from aitbc_cli.commands.wallet import wallet
+from aitbc_cli.commands.workflow import workflow
+
+# Force CLI version for user-facing output
+__version__ = "0.10.18"
+
+logger = get_logger(__name__)
+
+
+@click.command(name="list")
+@click.pass_context
+def list_wallets(ctx):
+    """Legacy wallet list alias"""
+    # Forward to the wallet group's list subcommand so global flags in ctx.obj are preserved.
+    ctx.invoke(
+        wallet,
+        wallet_name=None,
+        wallet_path=None,
+        use_daemon=True,
+        chain_id=ctx.obj.get("chain_id"),
+    )
+    list_cmd = wallet.get_command(ctx, "list")
+    if list_cmd is None:
+        from ..utils import error
+
+        error("wallet list subcommand not found")
+        return
+    return ctx.invoke(list_cmd)
+
+
+@click.command()
+def version():
+    """Show version information"""
+    click.echo(f"aitbc, version {__version__}")
+    click.echo("System Architecture Support: ✅")
+    click.echo("FHS Compliance: ✅")
+    click.echo("New Features: ✅")
+
+
+@click.group()
+@click.version_option(version=__version__, prog_name="aitbc")
+@click.option("--url", default=None, help="Coordinator API URL (overrides config)")
+@click.option("--api-key", default=None, help="API key for authentication")
+@click.option("--chain-id", default=None, help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+@click.option("--output", default="table", type=click.Choice(["table", "json", "yaml", "csv"]), help="Output format")
+@click.option("--verbose", "-v", count=True, help="Increase verbosity (can be used multiple times)")
+@click.option("--debug", is_flag=True, help="Enable debug mode")
+@click.pass_context
+def cli(ctx, url, api_key, chain_id, output, verbose, debug):
+    """AITBC CLI - Command Line Interface for AITBC Network
+
+    Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
+    services.
+
+    SYSTEM ARCHITECTURE COMMANDS:
+    system          System management commands
+    system architect    System architecture analysis
+    system audit         Audit system compliance
+    system check         Check service configuration
+
+    Examples:
+    aitbc system architect
+    aitbc system audit
+    aitbc system check --service marketplace
+    """
+    from aitbc_cli.config import get_config
+
+    ctx.ensure_object(dict)
+    ctx.obj["url"] = url
+    ctx.obj["api_key"] = api_key
+    ctx.obj["output"] = output
+    ctx.obj["output_format"] = output
+    ctx.obj["verbose"] = verbose
+    ctx.obj["debug"] = debug
+
+    # Load the configuration object once and share it with all subcommands.
+    # Commands that need fresh data (e.g., after a config set) can call
+    # get_config() directly.
+    ctx.obj["config"] = get_config()
+
+    # Handle chain_id with auto-detection
+    from aitbc_cli.utils.chain_id import get_chain_id
+
+    default_rpc_url = url.replace("/api", "") if url else "http://127.0.0.1:8202"
+    ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
+
+
+# Add commands to CLI
+cli.add_command(system)
+cli.add_command(start)
+cli.add_command(stop)
+cli.add_command(restart)
+cli.add_command(market, name="market")
+cli.add_command(marketplace, name="marketplace")  # Keep old marketplace for compatibility
+cli.add_command(chain, name="blockchain")
+cli.add_command(chain, name="chain")
+cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
+cli.add_command(ai)  # AI job submission and inspection
+cli.add_command(analytics)  # Re-enabled - core.analytics exists
+cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
+cli.add_command(reputation)  # Reputation management
+cli.add_command(governance)  # Governance operations
+cli.add_command(developer)  # Developer registry
+cli.add_command(grant)  # DAO grant proposals
+cli.add_command(monitor)  # Re-enabled - no core dependency
+cli.add_command(node)
+cli.add_command(agent_comm)  # Cross-chain agent communication (distinct from `agent` SDK group)
+cli.add_command(exchange)
+cli.add_command(config_cmd, name="config")
+cli.add_command(list_wallets)
+cli.add_command(version)
+cli.add_command(gpu)
+cli.add_command(gpu_onchain)
+cli.add_command(exchange_island)
+cli.add_command(wallet)
+cli.add_command(genesis)
+
+# Add new modular commands
+cli.add_command(transactions)
+cli.add_command(update)
+cli.add_command(mining)
+cli.add_command(agent_msg, name="agent-msg")
+cli.add_command(workflow)
+cli.add_command(resource)
+cli.add_command(operations)
+cli.add_command(simulate)
+cli.add_command(edge)
+cli.add_command(sync)
+cli.add_command(account)
+cli.add_command(messaging)
+cli.add_command(network)
+cli.add_command(performance)
+cli.add_command(platform)
+cli.add_command(pool_hub)
+cli.add_command(plugin)
+cli.add_command(bridge)
+cli.add_command(deploy)
+cli.add_command(contract)
+cli.add_command(script)
+cli.add_command(economics)
+cli.add_command(bond)
+cli.add_command(bootstrap)
+cli.add_command(reinvest)
+cli.add_command(tee)
+cli.add_command(confidential)
+cli.add_command(cluster)
+cli.add_command(security)
+cli.add_command(compliance)
+cli.add_command(coin_requests)
+cli.add_command(explorer)
+cli.add_command(trade)
+cli.add_command(agent_wallet, name="agent-wallet")
+
+
+def main(argv=None):
+    """Entry point for console scripts and compatibility wrappers."""
+    from aitbc_cli.utils.error_handling import CLIError
+
+    try:
+        return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
+    except CLIError as e:
+        # Error already printed by abort(); just exit with the proper code
+        logger.debug("CLI error: %s", e, exc_info=True)
+        return e.exit_code
+    except click.Abort:
+        # Legacy bare click.Abort() — error message already printed, no traceback
+        logger.debug("CLI aborted", exc_info=True)
+        return 1
+    except click.exceptions.NoArgsIsHelpError as e:
+        # Show help message and exit cleanly
+        click.echo(str(e))
+        return 0
+    except click.exceptions.UsageError as e:
+        # Print friendly usage error (e.g. missing required option) and exit 2
+        e.show()
+        return e.exit_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
