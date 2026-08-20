@@ -103,7 +103,7 @@ def stake(ctx, amount: Decimal, duration: int):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
-        success(f"Staked {amount} {_brand.token_symbol} for {duration} days")
+        success(f"Staked {amount} AITBC for {duration} days")
         output(
             {
                 "wallet": wallet_name,
