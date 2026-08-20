@@ -31,6 +31,18 @@ After the merges and restart on the hub node:
 - `aitbc pool-hub status` and `aitbc pool-hub sla` return live data instead of simulated.
 - `poolhub_miners_online` is exported on `/metrics` for Prometheus.
 
+## Hub↔shop paid AI jobs and marketplace offers
+
+This batch of fixes completes the live two-node flow between `hub.aitbc` (customer) and `aitbc3` (shop/miner):
+
+- `ESCROW_RELEASE` transactions are now signed with the genesis wallet key before being submitted to `POST /rpc/transactions/marketplace`, so paid AI jobs settle on-chain.
+- The blockchain RPC `/rpc/transactions` query and `get_chain_id()` now default an empty or missing `chain_id` to the node-configured `chain_id`.
+- `GPU_MARKETPLACE` offer transactions with `amount=0` are accepted without a secp256k1 signature, while value-carrying transactions still require a valid signature.
+- The `aitbc market offer` command now posts to the correct `/v1/marketplace/offer` endpoint (the old `/v1/marketplace/software-services` path did not exist).
+- `qa-cycle.py` no longer reads `GITEA_TOKEN` from a repo file; it uses the `GITEA_TOKEN` environment variable or `~/.gitea_token`.
+- Legacy `http://127.0.0.1:18000` and `18001` references were removed from test scripts, completion, and example comments.
+- `scripts/testing/run_all_tests.sh` was updated to use current, valid CLI options and now passes 9/9 CLI smoke tests.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
@@ -287,3 +299,12 @@ After the merges and restart on the hub node:
 * ab818d521 docs(scenarios): update suite status to 0 skipped
 * e9cf37d3d docs(scenarios): add deterministic CLI simulation and fallback examples
 * 22f93ebb4 test(verification): harden converted verification integration tests
+* a2c77c53d docs(release): append commit list since v0.23.0 to v0.24.0 change log
+* f614dedc0 Expose missing CLI commands, add safe-local defaults, tests and docs.
+* eec9f22ac fix(cli, blockchain-rpc): normalize AIT addresses and fix /rpc/transactions path
+* b5b16a7ff fix(blockchain-rpc): sign escrow release and fix transaction query chain default
+* 0881916df fix(blockchain-rpc): allow unsigned GPU_MARKETPLACE offer transactions
+* 5455f5c6b fix(cli): use correct marketplace service endpoint for software offer registration
+* 49b749cc0 chore(qa-cycle): read GITEA_TOKEN from env or ~/.gitea_token, never a repo file
+* 22ba759f7 chore: remove legacy port 18000/18001 references from tests and scripts
+* 636db678e test: fix stale CLI commands in run_all_tests.sh
