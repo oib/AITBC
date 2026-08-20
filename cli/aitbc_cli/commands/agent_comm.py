@@ -22,7 +22,9 @@ def _fmt(ctx: click.Context, command_format: str) -> str:
 def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
     """Build an HTTP client for the agent-coordinator endpoints."""
     config = ctx.obj["config"]
-    base_url = config.agent_coordinator_url or "http://localhost:8107"
+    # Hermes was deprecated and renamed to the agent-coordinator public /v1 mount.
+    # The agent-coordinator app exposes /agents/... via nginx location /v1/.
+    base_url = config.coordinator_api_url or config.agent_coordinator_url or "http://localhost:8107"
     api_key = ctx.obj.get("api_key") or config.api_key
     headers: dict[str, str] = {}
     if api_key:
