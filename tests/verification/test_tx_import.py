@@ -1,51 +1,29 @@
 #!/usr/bin/env python3
-"""
-Test transaction import specifically
-"""
+"""Test importing a block with a single transaction on the local node."""
 
-import hashlib
+from __future__ import annotations
+
 import json
 
 import requests
 
-from aitbc.network import AITBCHTTPClient
-
-BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
-CHAIN_ID = "ait-mainnet"
-
-
-def compute_block_hash(height, parent_hash, timestamp):
-    """Compute block hash using the same algorithm as PoA proposer"""
-    payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
-    return "0x" + hashlib.sha256(payload).hexdigest()
+from .conftest import DEFAULT_CHAIN_ID, DEFAULT_RPC_URL, make_signed_block
 
 
 def test_transaction_import():
-    """Test importing a block with a single transaction"""
+    """Build and import a block containing one signed transaction."""
+    base = DEFAULT_RPC_URL
+    chain_id = DEFAULT_CHAIN_ID
 
-    print("Testing Transaction Import")
-    print("=" * 40)
-
-    # Get current head
-    client = AITBCHTTPClient()
-    head = client.get(f"{BASE_URL}/head")
+    head = requests.get(f"{base}/head", timeout=10).json()
     print(f"Current head: height={head['height']}")
 
-    # Create a new block with one transaction
     height = head["height"] + 1
-    parent_hash = head["hash"]
-    timestamp = "2026-01-29T10:20:00"
-    block_hash = compute_block_hash(height, parent_hash, timestamp)
-
-    test_block = {
-        "height": height,
-        "hash": block_hash,
-        "parent_hash": parent_hash,
-        "proposer": "test-proposer",
-        "timestamp": timestamp,
-        "tx_count": 1,
-        "chain_id": CHAIN_ID,
-        "transactions": [
+    block = make_signed_block(
+        chain_id=chain_id,
+        height=height,
+        parent_hash=head["hash"],
+        transactions=[
             {
                 "tx_hash": "0xtx123456789",
                 "sender": "0xsender123",
@@ -53,35 +31,16 @@ def test_transaction_import():
                 "payload": {"to": "0xreceiver456", "amount": 1000000},
             }
         ],
-    }
+    )
 
     print("\nTest block data:")
-    print(json.dumps(test_block, indent=2))
+    print(json.dumps(block, indent=2))
 
-    # Import the block
-    response = requests.post(f"{BASE_URL}/importBlock", json=test_block)
+    response = requests.post(f"{base}/importBlock", json=block, timeout=10)
 
     print("\nImport response:")
     print(f"  Status: {response.status_code}")
-    print(f"  Body: {response.json()}")
-
-    # Check logs
-    print("\nChecking recent logs...")
-    import subprocess
-
-    result = subprocess.run(
-        [
-            "ssh",
-            "aitbc-cascade",
-            "journalctl -u blockchain-node --since '30 seconds ago' | grep 'Importing transaction' | tail -1",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.stdout:
-        print(f"Log: {result.stdout.strip()}")
-    else:
-        print("No transaction import logs found")
+    print(f"  Body: {response.text}")
 
 
 if __name__ == "__main__":

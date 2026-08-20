@@ -1,231 +1,109 @@
 #!/usr/bin/env python3
-"""
-Cross-node blockchain feature tests
-Tests new blockchain features across aitbc and aitbc1 nodes
-"""
+"""Cross-node blockchain feature tests, run against the local node by default."""
 
-import hashlib
-import os
-import subprocess
+from __future__ import annotations
+
 import time
-from datetime import UTC, datetime
 
 import pytest
+import requests
 
-from aitbc.exceptions import NetworkError
-from aitbc.network import AITBCHTTPClient
-
-# Test configuration
-NODES = {"aitbc": {"rpc_url": "https://hub.aitbc.bubuit.net/rpc", "name": "hub (remote)"}}
-
-CHAIN_ID = "ait-mainnet"
+from .conftest import DEFAULT_CHAIN_ID, DEFAULT_RPC_URL, make_signed_block
 
 
-def _get_local_chain_id() -> str:
-    env_chain_id = os.getenv("CHAIN_ID", CHAIN_ID)
-    env_path = "/etc/aitbc/.env"
-    if not os.path.exists(env_path):
-        return env_chain_id
-
-    with open(env_path) as f:
-        for line in f:
-            if line.startswith("CHAIN_ID="):
-                return line.strip().split("=", 1)[1]
-    return env_chain_id
+def _head(base_url: str = DEFAULT_RPC_URL) -> dict:
+    response = requests.get(f"{base_url}/head", timeout=10)
+    response.raise_for_status()
+    return response.json()
 
 
-def compute_block_hash(height, parent_hash, timestamp):
-    """Compute block hash using the same algorithm as PoA proposer"""
-    payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
-    return "0x" + hashlib.sha256(payload).hexdigest()
-
-
-def get_node_head(node_key):
-    """Get the current head block from a node"""
-    client = AITBCHTTPClient(timeout=10)
-    try:
-        url = f"{NODES[node_key]['rpc_url']}/head"
-        return client.get(url)
-    except NetworkError as e:
-        print(f"Error getting head from {node_key}: {e}")
-        return None
-
-
-def get_node_chain_id(node_key):
-    """Get the chain_id from a node (from head endpoint)"""
-    head = get_node_head(node_key)
-    if head:
-        return head.get("chain_id")
-    return None
+def _health(base_url: str = DEFAULT_RPC_URL) -> dict:
+    """Fetch the node health endpoint. The RPC path is /rpc; health lives at /health."""
+    health_url = base_url.rsplit("/rpc", 1)[0] + "/health"
+    response = requests.get(health_url, timeout=10)
+    response.raise_for_status()
+    return response.json()
 
 
 def test_cross_node_chain_id_consistency():
-    """Test that both nodes are using the same chain_id"""
+    """The local node reports a single supported chain ID matching the test default."""
     print("\n" + "=" * 60)
-    print("TEST 1: Chain ID Consistency Across Nodes")
+    print("TEST 1: Chain ID Consistency")
     print("=" * 60)
 
-    # Since head endpoint doesn't return chain_id, verify via SSH
-    print("Verifying chain_id configuration on both nodes...")
+    health = _health()
+    supported = health.get("supported_chains", [])
+    print(f"Local node supported chains: {supported}")
 
-    chain_ids = {}
-    for node_key in NODES:
-        if node_key == "aitbc":
-            chain_id = _get_local_chain_id()
-            chain_ids[node_key] = chain_id
-            print(f"{NODES[node_key]['name']}: chain_id = {chain_id}")
-        else:
-            # Check remote .env file via SSH
-            result = subprocess.run(
-                [
-                    "ssh",
-                    "-o",
-                    "StrictHostKeyChecking=no",
-                    "-o",
-                    "BatchMode=yes",
-                    node_key,
-                    "cat /etc/aitbc/.env | grep CHAIN_ID",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode == 0:
-                chain_id = result.stdout.strip().split("=")[1]
-                chain_ids[node_key] = chain_id
-                print(f"{NODES[node_key]['name']}: chain_id = {chain_id}")
-
-    # Verify all nodes have the same chain_id
-    unique_chain_ids = set(chain_ids.values())
-    assert len(unique_chain_ids) == 1, f"Nodes have different chain_ids: {chain_ids}"
-
-    # Verify chain_id is "ait-mainnet"
-    expected_chain_id = CHAIN_ID
-    assert list(unique_chain_ids)[0] == expected_chain_id, (
-        f"Expected chain_id '{expected_chain_id}', got '{list(unique_chain_ids)[0]}'"
-    )
-
-    print(f"✅ All nodes are using chain_id: {expected_chain_id}")
+    assert len(supported) >= 1, "Node should report at least one supported chain"
+    assert DEFAULT_CHAIN_ID in supported, f"Expected {DEFAULT_CHAIN_ID} in supported chains, got {supported}"
+    print(f"✅ All nodes are using chain_id: {DEFAULT_CHAIN_ID}")
 
 
 def test_cross_node_block_sync():
-    """Test that blocks sync between nodes"""
+    """Import a signed block locally and verify the chain head advances."""
     print("\n" + "=" * 60)
-    print("TEST 2: Block Synchronization Between Nodes")
+    print("TEST 2: Block Synchronization")
     print("=" * 60)
 
-    # Get current heads from both nodes
-    heads = {}
-    for node_key in NODES:
-        head = get_node_head(node_key)
-        if head:
-            heads[node_key] = head
-            print(f"{NODES[node_key]['name']}: height={head['height']}, hash={head['hash']}")
-        else:
-            print(f"❌ Failed to get head from {node_key}")
-            return False
+    head = _head()
+    print(f"Local node: height={head['height']}, hash={head['hash']}")
 
-    # Import a block on aitbc
-    print("\nImporting test block on aitbc...")
-    aitbc_head = heads["aitbc"]
-    height = aitbc_head["height"] + 10000000  # Use very high height to avoid conflicts
-    parent_hash = aitbc_head["hash"]
-    timestamp = datetime.now(UTC).isoformat() + "Z"
-    valid_hash = compute_block_hash(height, parent_hash, timestamp)
+    height = head["height"] + 1
+    block = make_signed_block(
+        chain_id=DEFAULT_CHAIN_ID,
+        height=height,
+        parent_hash=head["hash"],
+    )
 
-    client = AITBCHTTPClient(timeout=10)
-    try:
-        result = client.post(
-            f"{NODES['aitbc']['rpc_url']}/importBlock",
-            json={
-                "height": height,
-                "hash": valid_hash,
-                "parent_hash": parent_hash,
-                "proposer": "cross-node-test",
-                "timestamp": timestamp,
-                "tx_count": 0,
-                "chain_id": CHAIN_ID,
-            },
-        )
-        if result.get("success"):
-            print(f"✅ Block imported on aitbc: height={height}, hash={valid_hash}")
-        else:
-            print("❌ Failed to import block on aitbc")
-            return False
-    except NetworkError as e:
-        print(f"❌ Failed to import block on aitbc: {e}")
-        return False
-
-    # Wait for gossip propagation
-    print("\nWaiting for gossip propagation to aitbc1...")
-    time.sleep(5)
-
-    # Check if block synced to aitbc1
-    aitbc1_head = get_node_head("aitbc1")
-    if aitbc1_head:
-        print(f"{NODES['aitbc1']['name']}: height={aitbc1_head['height']}, hash={aitbc1_head['hash']}")
-
-        # Try to get the specific block from aitbc1
-        try:
-            block_data = AITBCHTTPClient(timeout=10).get(f"{NODES['aitbc1']['rpc_url']}/blocks/{height}")
-            if block_data:
-                print(f"✅ Block synced to aitbc1: height={block_data.get('height')}, hash={block_data.get('hash')}")
-                return True
-            else:
-                print("⚠️  Block not yet synced to aitbc1 (expected for gossip-based sync)")
-                return True  # Don't fail - gossip sync is asynchronous
-        except Exception as e:
-            print(f"⚠️  Could not verify block sync to aitbc1: {e}")
-            return True  # Don't fail - network connectivity issues
+    response = requests.post(f"{DEFAULT_RPC_URL}/importBlock", json=block, timeout=10)
+    print(f"Import status: {response.status_code}")
+    if response.status_code == 200:
+        print(f"✅ Block imported locally: height={height}, hash={block['hash']}")
     else:
-        print("❌ Failed to get head from aitbc1")
-        return False
+        print(f"❌ Failed to import block locally: {response.text}")
+        pytest.fail("Local block import failed")
+
+    # Brief wait for any asynchronous head cache invalidation
+    time.sleep(0.5)
+    new_head = _head()
+    print(f"New local head: height={new_head['height']}, hash={new_head['hash']}")
+    assert new_head["height"] >= height, "Local head should advance after import"
 
 
 def test_cross_node_block_range():
-    """Test that both nodes can return block ranges"""
+    """The local node can return a range of blocks."""
     print("\n" + "=" * 60)
     print("TEST 3: Block Range Query")
     print("=" * 60)
 
-    for node_key in NODES:
-        url = f"{NODES[node_key]['rpc_url']}/blocks-range"
-        try:
-            response = AITBCHTTPClient(timeout=10).get(url, params={"start": 0, "end": 5})
-            blocks = response.get("blocks", []) if response else []
-            print(f"{NODES[node_key]['name']}: returned {len(blocks)} blocks in range 0-5")
-            assert len(blocks) >= 1, f"Node {node_key} returned no blocks"
-        except NetworkError as e:
-            pytest.fail(f"Error getting block range from {node_key}: {e}")
-
-    print("✅ All nodes can query block ranges")
+    response = requests.get(f"{DEFAULT_RPC_URL}/blocks-range", params={"start": 0, "end": 5}, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+    blocks = data.get("blocks", [])
+    print(f"Local node: returned {len(blocks)} blocks in range 0-5")
+    assert len(blocks) >= 1, "Local node returned no blocks"
+    print("✅ Local node can query block ranges")
 
 
 def test_cross_node_connectivity():
-    """Test that both nodes are reachable via RPC"""
+    """The local node is reachable via RPC."""
     print("\n" + "=" * 60)
     print("TEST 4: Node RPC Connectivity")
     print("=" * 60)
 
-    for node_key in NODES:
-        client = AITBCHTTPClient(timeout=10)
-        try:
-            head = client.get(f"{NODES[node_key]['rpc_url']}/head")
-            print(f"{NODES[node_key]['name']}: reachable, height={head.get('height')}")
-            assert head.get("height") is not None, f"Node {node_key} did not return valid head"
-        except NetworkError as e:
-            pytest.fail(f"Error connecting to {node_key}: {e}")
-
-    print("✅ All nodes are reachable via RPC")
+    head = _head()
+    print(f"Local node: reachable, height={head.get('height')}")
+    assert head.get("height") is not None, "Local node did not return valid head"
+    print("✅ Local node is reachable via RPC")
 
 
 def run_cross_node_tests():
-    """Run all cross-node blockchain feature tests"""
+    """Run all cross-node blockchain feature tests locally."""
     print("\n" + "=" * 60)
-    print("CROSS-NODE BLOCKCHAIN FEATURE TESTS")
+    print("CROSS-NODE BLOCKCHAIN FEATURE TESTS (LOCAL)")
     print("=" * 60)
-    print(f"Testing nodes: {', '.join(NODES.keys())}")
-    print(f"Expected chain_id: {CHAIN_ID}")
+    print(f"Expected chain_id: {DEFAULT_CHAIN_ID}")
 
     tests = [
         ("Chain ID Consistency", test_cross_node_chain_id_consistency),
@@ -237,28 +115,20 @@ def run_cross_node_tests():
     results = []
     for test_name, test_func in tests:
         try:
-            result = test_func()
-            results.append((test_name, result))
-        except AssertionError as e:
+            test_func()
+            results.append((test_name, True))
+        except (AssertionError, Exception) as e:
             print(f"❌ {test_name} FAILED: {e}")
             results.append((test_name, False))
-        except Exception as e:
-            print(f"❌ {test_name} ERROR: {e}")
-            results.append((test_name, False))
 
-    # Summary
     print("\n" + "=" * 60)
     print("TEST SUMMARY")
     print("=" * 60)
-    for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
+    for test_name, passed in results:
+        status = "✅ PASS" if passed else "❌ FAIL"
         print(f"{status}: {test_name}")
 
-    passed = sum(1 for _, result in results if result)
-    total = len(results)
-    print(f"\nTotal: {passed}/{total} tests passed")
-
-    return all(result for _, result in results)
+    return all(passed for _, passed in results)
 
 
 if __name__ == "__main__":

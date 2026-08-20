@@ -1,79 +1,53 @@
 #!/usr/bin/env python3
-"""
-Simple test for block import endpoint without transactions
-"""
+"""Simple integration test for local block import without transactions."""
 
-import hashlib
+from __future__ import annotations
 
 import requests
 
-from aitbc.network import AITBCHTTPClient
-
-BASE_URL = "https://hub.aitbc.bubuit.net/rpc"
-CHAIN_ID = "ait-mainnet"
-
-
-def compute_block_hash(height, parent_hash, timestamp):
-    """Compute block hash using the same algorithm as PoA proposer"""
-    payload = f"{CHAIN_ID}|{height}|{parent_hash}|{timestamp}".encode()
-    return "0x" + hashlib.sha256(payload).hexdigest()
+from .conftest import DEFAULT_CHAIN_ID, DEFAULT_RPC_URL, make_signed_block
 
 
 def test_simple_block_import():
-    """Test importing a simple block without transactions"""
+    """Import a simple, signed block on the local node and verify it can be fetched."""
+    base = DEFAULT_RPC_URL
+    chain_id = DEFAULT_CHAIN_ID
 
-    print("Testing Simple Block Import")
-    print("=" * 40)
-
-    # Get current head
-    client = AITBCHTTPClient()
-    head = client.get(f"{BASE_URL}/head")
+    head = requests.get(f"{base}/head", timeout=10).json()
     print(f"Current head: height={head['height']}, hash={head['hash']}")
 
-    # Create a new block
     height = head["height"] + 1
-    parent_hash = head["hash"]
-    timestamp = "2026-01-29T10:20:00"
-    block_hash = compute_block_hash(height, parent_hash, timestamp)
+    block = make_signed_block(
+        chain_id=chain_id,
+        height=height,
+        parent_hash=head["hash"],
+    )
 
     print("\nCreating test block:")
-    print(f"  height: {height}")
-    print(f"  parent_hash: {parent_hash}")
-    print(f"  hash: {block_hash}")
+    print(f"  height: {block['height']}")
+    print(f"  parent_hash: {block['parent_hash']}")
+    print(f"  hash: {block['hash']}")
 
-    # Import the block
-    response = requests.post(
-        f"{BASE_URL}/importBlock",
-        json={
-            "height": height,
-            "hash": block_hash,
-            "parent_hash": parent_hash,
-            "proposer": "test-proposer",
-            "timestamp": timestamp,
-            "tx_count": 0,
-            "chain_id": CHAIN_ID,
-        },
-    )
+    response = requests.post(f"{base}/importBlock", json=block, timeout=10)
 
     print("\nImport response:")
     print(f"  Status: {response.status_code}")
-    print(f"  Body: {response.json()}")
+    print(f"  Body: {response.text}")
 
     if response.status_code == 200:
         print("\n✅ Block imported successfully!")
 
-        # Verify the block was imported
-        response = requests.get(f"{BASE_URL}/blocks/{height}")
-        if response.status_code == 200:
-            imported = response.json()
+        verify = requests.get(f"{base}/blocks/{height}", timeout=10)
+        if verify.status_code == 200:
+            imported = verify.json()
             print("\n✅ Verified imported block:")
             print(f"  height: {imported['height']}")
             print(f"  hash: {imported['hash']}")
-            print(f"  proposer: {imported['proposer']}")
+            print(f"  proposer: {imported.get('proposer')}")
         else:
-            print(f"\n❌ Could not retrieve imported block: {response.status_code}")
+            print(f"\n⚠️ Could not retrieve imported block: {verify.status_code}")
     else:
-        print(f"\n❌ Import failed: {response.status_code}")
+        print(f"\n⚠️ Import failed: {response.status_code}")
 
 
 if __name__ == "__main__":
