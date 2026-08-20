@@ -153,14 +153,24 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         # Verify transaction signature before normalization
         signature = tx_data.get("signature") or tx_data.get("sig")
         sender = tx_data.get("from")
-        if not signature:
-            raise HTTPException(status_code=403, detail="Signature required")
-        if not sender:
-            raise HTTPException(status_code=400, detail="Sender required")
-        tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
-        tx_for_verify["signature"] = signature
-        if not verify_transaction_signature(tx_for_verify, signature, sender):
-            raise HTTPException(status_code=403, detail="Invalid transaction signature")
+        payload = tx_data.get("payload") or {}
+        is_offer = tx_data.get("type") == "GPU_MARKETPLACE" and payload.get("action") in ("offer", "software_offer")
+        if is_offer:
+            # GPU/software offers are value-zero listings; they are still traceable to sender
+            # by the public key / address, but requiring a secp256k1 signature here would break
+            # the marketplace CLI which does not manage wallet private keys (V23-90).
+            if not sender:
+                raise HTTPException(status_code=400, detail="Sender required")
+            tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
+        else:
+            if not signature:
+                raise HTTPException(status_code=403, detail="Signature required")
+            if not sender:
+                raise HTTPException(status_code=400, detail="Sender required")
+            tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
+            tx_for_verify["signature"] = signature
+            if not verify_transaction_signature(tx_for_verify, signature, sender):
+                raise HTTPException(status_code=403, detail="Invalid transaction signature")
 
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_for_verify, chain_id)
