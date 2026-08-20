@@ -6,6 +6,7 @@ from aitbc.utils import format_ait
 
 from ..utils import output
 from ..utils.error_handling import abort
+from ..utils.crypto_utils import bech32_to_hex
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -27,8 +28,9 @@ def get(ctx, address, rpc_url, chain_id):
         if chain_id:
             params["chain_id"] = chain_id
 
+        hex_address = bech32_to_hex(address)
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        account_data = http_client.get(f"/rpc/account/{address}", params=params)
+        account_data = http_client.get(f"/rpc/account/{hex_address}", params=params)
 
         # balance is in compute-seconds; expose the human-readable AIT string too.
         if "balance" in account_data:

@@ -191,6 +191,7 @@ async def query_transactions(
     order_id: str | None = None,
     limit: int | None = 100,
     chain_id: str | None = None,
+    address: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     chain_id_arg = chain_id if chain_id else ""
@@ -200,6 +201,10 @@ async def query_transactions(
 
     with session_scope() as session:
         query = select(Transaction).where(Transaction.chain_id == resolved_chain_id)
+        if address:
+            from ..base_models import address_spellings
+            spellings = address_spellings(address)
+            query = query.where((Transaction.sender.in_(spellings)) | (Transaction.recipient.in_(spellings)))
 
         _logger.info(f"Query: {query}")
 
