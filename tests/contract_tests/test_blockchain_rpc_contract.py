@@ -143,8 +143,8 @@ class TestBlockchainRPCContracts:
         - Balance should be non-negative integer
         """
         try:
-            # Use a sample address
-            sample_address = "0x" + "a" * 40
+            # Use a sample address in the canonical ``ait1`` spelling returned by the node.
+            sample_address = "ait1" + "a" * 40
             response = client.get(f"{rpc_url}/rpc/account/{sample_address}")
 
             # Contract: Should return 200 or 404
@@ -154,6 +154,7 @@ class TestBlockchainRPCContracts:
                 data = response.json()
 
                 # Contract: Should contain account fields
+                # The node normalises chain account addresses to the canonical ``ait1`` spelling.
                 assert "address" in data, "Missing address field"
                 assert data["address"] == sample_address, "Address should match request"
 
