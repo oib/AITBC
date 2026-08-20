@@ -27,8 +27,8 @@ def _coordinator_client(ctx: click.Context | None = None) -> AITBCHTTPClient:
 
 
 def _reputation_endpoint(path: str) -> str:
-    """Build a /v1/reputation/* endpoint path."""
-    return f"/v1/reputation{path}"
+    """Build a /reputation/* endpoint path under the /v1 base."""
+    return f"/reputation{path}"
 
 
 @click.group(name="reputation")
