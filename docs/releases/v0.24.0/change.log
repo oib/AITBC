@@ -23,6 +23,15 @@ The Pool Hub SLA/billing query builder now emits the `is_not` operator correctly
 
 `aitbc-exchange` (8106) and `aitbc-agent-coordinator` (8107) are hub-only. V23-92 already stopped coin-request notifications from defaulting to `localhost:8107`. The same default was still sitting in CLI config, pool-hub miner registration, and `health_check.sh`, so a shop node would report those units as down. Off-hub URLs now come from `HUB_DISCOVERY_URL` / `HUB_AGENT_URL` / `HUB_EXCHANGE_URL` in `/etc/aitbc/{blockchain,node}.env` (no baked-in hostname). `health_check.sh` now resolves the node role the same way `setup.sh` does and probes only that role's units and HTTP ports.
 
+## Shop-chain fork recovery and live scenario follow-ups
+
+Replay of Scenario 34 on 2026-08-20 found the shop node (`aitbc3`) forked from the hub at height 6815 (local proposer `0x19e7e376…` vs hub genesis). Bulk sync then logged `Unhandled import case` on every next-height import because the parent was not the shop tip.
+
+- `import_block` now reports that case as `diverged=True` (`Divergent chain: next block parent … is not our head …`) instead of falling through.
+- Shop was reset with `scripts/ops/reset-follower-to-genesis.sh` (DB backups left on disk) and pull-synced back to hub height.
+- `aitbc market offer` as root can load `aitbc`-owned `island_credentials.json` (mode 0600). Importing the CLI as a non-root service user no longer crashes on unreadable `/etc/aitbc/blockchain-secrets.env`.
+- Scenario 34 JWT generation uses `aitbc.auth.create_access_token`; exchange examples use `/api/orders/orderbook` and `POST /api/orders` with `X-Api-Key`.
+
 ## Live verification
 
 After the merges and restart on the hub node:
