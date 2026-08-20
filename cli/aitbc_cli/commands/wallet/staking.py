@@ -178,8 +178,14 @@ def unstake(ctx, stake_id: str):
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        error(f"Error unstaking tokens: {e}")
-        raise click.Abort() from e
+        detail = str(e)
+        if hasattr(e, "__cause__") and e.__cause__ is not None and hasattr(e.__cause__, "response"):
+            try:
+                detail = e.__cause__.response.text or detail
+            except Exception:
+                pass
+        error(f"Unstake failed: {detail}")
+        raise click.Abort()
 
 
 @wallet.command(name="staking-info")
