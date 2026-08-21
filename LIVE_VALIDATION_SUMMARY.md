@@ -733,3 +733,15 @@ Live observed balance: `89505`.
   `Stake` record.
 - `reinvest_status`, `reinvest_stake_id` and `reinvest_amount` are attached to
   the job receipt and visible in the CLI result.
+
+- 2026-08-22: Hub-wide pool hub miner registry validation:
+  - `aitbc-pool-hub.service` runs on `hub.aitbc` and exposes `/pool-hub`.
+  - `aitbc-miner` on `aitbc3` registers at `/v1/miners/register` and heartbeats
+    at `/v1/miners/heartbeat`.
+  - `aitbc pool-hub status` on `hub.aitbc` reports `miners_online: 1`.
+  - `aitbc pool-hub status` on `aitbc3` resolves the hub from `HUB_DISCOVERY_URL`
+    and also reports `miners_online: 1`.
+  - `aitbc pool-hub sla` on both nodes reports `status: healthy`.
+  - Scenario 36 updated to describe the hub-wide pool-hub architecture.
+  - `tests/cli/test_commands_pool_hub.py` aligned with the follower/hub URL
+    resolution logic and now passes.
