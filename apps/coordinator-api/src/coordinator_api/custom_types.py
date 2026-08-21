@@ -24,3 +24,4 @@ class Constraints(BaseModel):
     models: list[str] | None = None
     region: str | None = None
     max_price: Decimal | None = None
+    min_reputation: float | None = None
