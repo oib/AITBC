@@ -879,3 +879,19 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - ops(hub): enable ZK verification in aitbc-coordinator-api
   - Add Environment=COORDINATOR_ENABLE_ZK_VERIFICATION=true override and
     restart the service.
+
+- feat(coordinator,cli): performance bond eligibility and high-value job matching
+  - New /v1/marketplace/providers/{id}/bonds endpoints (create, status, lock,
+    release, slash, eligibility, get-by-id).
+  - Add bond_required/min_bond_amount to job Constraints.
+  - Add --bond-required and --min-bond-amount to aitbc ai submit.
+  - Rewrite aitbc bond CLI with create, status, top-up, lock, release, slash.
+  - JobService gates high-value/forced jobs to miners with active/locked bonds.
+
+- docs(scenarios): add scenario 48 for performance-bond high-value jobs
+  - New scenario documents aitbc bond create/status and aitbc ai submit
+    --bond-required end-to-end.
+  - Append live validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- fix(auth): add performance-bond routes to coordinator security matrix.
+- fix(coordinator): add missing os import in jobs.py.
