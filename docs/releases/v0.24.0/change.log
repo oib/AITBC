@@ -834,3 +834,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - TEE attestation failures now correctly update job.state to FAILED, set the error message, and refund the escrowed payment.
 * 47585f03a fix(cli,agent-coordinator): peers and messaging route order
 * 05d0c7e91 docs(scenarios): align agent-msg receive output with live validation
+* 86286b420 feat(tee): auto-generate TEE quote for high-value and explicit TEE jobs
+- High-value jobs (payment >= COORDINATOR_TEE_HIGH_VALUE_THRESHOLD, default 10 AIT) now trigger automatic TEE quote generation and verification before escrow release.
+- Explicit --tee-attestation-required jobs also have their TEE quote auto-generated and verified if the miner does not provide one.
+- Mirrors the existing P2.1 ZK high-value gating.
