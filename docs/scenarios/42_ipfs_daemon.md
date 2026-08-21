@@ -37,13 +37,15 @@ content from each other.
    cat /tmp/ipfs_out.txt
    ```
 
-5. Cross-node retrieval (optional):
-   - On another AITBC node, peer the daemon to the first node:
+5. Cross-node retrieval:
+   - On the second node, run:
      ```bash
-     ipfs swarm connect <relay-or-direct-address-of-first-node>
+     aitbc ipfs download <CID> --output /tmp/ipfs_out_remote.txt
+     cat /tmp/ipfs_out_remote.txt
      ```
-   - Run `aitbc ipfs download <CID>` on the second node.
-   - The content should be retrieved over the IPFS swarm.
+   - The content should be retrieved over the IPFS swarm/DHT.
+   - Both nodes can be left unpeered; the public DHT resolves the CID as long
+     as the originating daemon is online.
 
 6. List pinned content:
    ```bash
@@ -58,3 +60,17 @@ content from each other.
   and prints a warning.
 - The old filesystem stub stored content under `/var/lib/aitbc/ipfs` with
   synthetic `Qm...` CIDs; the daemon now returns real IPFS CIDs.
+
+
+## Validation
+
+- `aitbc ipfs upload` returns a real CID (e.g. `QmSoASxb8aNVGk3pNWpZvXEZTQKxjGeu9bvpYHuo5bP1VJ`).
+- `aitbc ipfs download <CID>` writes the original bytes back.
+- `aitbc ipfs list` shows the pinned CID as `recursive`.
+- Cross-node `aitbc ipfs download <CID>` on the other node succeeds and the
+  content matches.
+
+## Files
+
+- `cli/aitbc_cli/commands/ipfs.py` — uses the Kubo HTTP API with filesystem fallback.
+- `apps/ipfs/aitbc-ipfs.service` — systemd unit for the Kubo daemon.
