@@ -154,3 +154,29 @@ fixed by code changes alone.
 ## Task tracking
 
 `AGENTS.md` is for workspace rules and conventions only. Open tasks, assignments and current state belong in `TASKLIST.md` in the same directory.
+
+## Operator user and CLI wallet hardening
+
+The `aitbc` CLI should be run as the `aitbc` service/operator user, not as `root`.
+Live setup:
+
+- `aitbc` user home: `/home/aitbc`
+- CLI config and credentials: `/home/aitbc/.aitbc/`
+- File wallets: `/home/aitbc/.aitbc/wallets/`
+- Wallet daemon wallets: `/var/lib/aitbc/wallets/`
+- Island credentials: `/var/lib/aitbc/island_credentials.json`
+
+Run the CLI:
+
+```bash
+sudo -u aitbc aitbc <command>
+```
+
+The wallet directory is mode `0700` and wallet files are `0600`. `root` wallet
+files have been removed from `/root/.aitbc/wallets`; a note is left in
+`/root/.aitbc/WALLETS_MOVED.txt` to prevent accidental root CLI wallet creation.
+
+If the `aitbc` user home must be created or moved on a new node, use the
+procedure in `docs/ops/operator-user-setup.md` (create `/home/aitbc`, `usermod -d
+/home/aitbc aitbc`, copy `/root/.aitbc` contents, set ownership and permissions,
+restart aitbc services).
