@@ -480,13 +480,11 @@ async def execute_governance_proposal(
             "chain_id": chain_id,
         }
 
-        tx_hash = compute_tx_hash(tx_data)
-        tx_data["tx_hash"] = tx_hash
         signature = sign_transaction_data(tx_data, executor_key)
         tx_data["signature"] = signature
 
         mempool = get_mempool()
-        mempool.add(tx_data, chain_id=chain_id)
+        tx_hash = mempool.add(tx_data, chain_id=chain_id)
 
         _logger.info(
             "Governance proposal %s queued for on-chain execution by %s (tx %s)",
