@@ -736,3 +736,19 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Falls back to the filesystem stub when the daemon is not reachable.
   - Cross-node `aitbc ipfs download` validated over the IPFS swarm.
   - Scenario docs: `docs/scenarios/42_ipfs_daemon.md`.
+
+- P2.7: compliance, plugins, and white-label expansion.
+  - Removed stale `aitbc_agent_core` stub in repo root; CLI now uses the real
+    `packages/py/aitbc-agent-core` package.
+  - Added `aitbc brand` command to show active brand settings.
+  - Added `aitbc plugin list` and `aitbc plugin load` for brand plugin discovery.
+  - Added `whitelabel_demo.py` sample brand plugin under `plugins/`.
+  - Added `--compliance-framework` and `--classification` to `aitbc ai submit`.
+  - Compliance hook rejects jobs whose classification is not allowed by the
+    selected policy template.
+  - Lazily evaluated `get_active_brand()` in `wallet/staking.py` to avoid startup
+    crashes when `AITBC_ACTIVE_PLUGIN` is set.
+  - Scenario docs: `docs/scenarios/43_compliance_plugins_white_label.md`.
+- Wired coordinator reputation into dispatch: `JobService` now loads `AgentReputation.trust_score` (0-1000, normalized to 0-1) when choosing the best miner, and `miner.py` records successful/failed job completions into the reputation service.
+- `aitbc market list` now enriches offers with the canonical coordinator `trust_score` when the provider is a known agent, and the default sort prefers live trust score over marketplace avg_rating.
+
