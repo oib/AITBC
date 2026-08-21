@@ -221,26 +221,6 @@ async def get_message_history(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/{agent_id}")
-@rate_limit(rate=200, per=60)
-async def get_messages_for_agent_compatibility(request: Request, agent_id: str) -> dict[str, Any]:
-    """Get messages for agent - AgentDaemon compatibility route"""
-    return await get_messages_for_agent(request, agent_id)
-
-
-async def get_messages_for_agent(request: Request, agent_id: str) -> dict[str, Any]:
-    try:
-        if not state.message_storage:
-            return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
-        messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
-        return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
-    except Exception as e:
-        logger.error("Error getting messages for agent %s: %s", agent_id, e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
 @router.get("/discover")
 @rate_limit(rate=200, per=60)
 async def discover_agents(
@@ -700,6 +680,26 @@ async def get_all_peers(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error retrieving all peer connections: %s", e)
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/{agent_id}")
+@rate_limit(rate=200, per=60)
+async def get_messages_for_agent_compatibility(request: Request, agent_id: str) -> dict[str, Any]:
+    """Get messages for agent - AgentDaemon compatibility route"""
+    return await get_messages_for_agent(request, agent_id)
+
+
+async def get_messages_for_agent(request: Request, agent_id: str) -> dict[str, Any]:
+    try:
+        if not state.message_storage:
+            return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
+        messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
+        return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
+    except Exception as e:
+        logger.error("Error getting messages for agent %s: %s", agent_id, e)
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
