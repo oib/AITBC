@@ -17,9 +17,9 @@ logger = get_logger(__name__)
 
 
 def _auth_headers(ctx) -> dict[str, str] | None:
-    """Return Authorization header if the CLI was invoked with --api-key."""
+    """Return Authorization header if the CLI was invoked with a JWT."""
     token = ctx.obj.get("api_key")
-    if token:
+    if token and _looks_like_jwt(token):
         return {"Authorization": f"Bearer {token}"}
     return None
 
