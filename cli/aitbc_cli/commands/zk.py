@@ -1,65 +1,68 @@
-"""Zero-knowledge proof commands for AITBC CLI."""
-
+"""Zero-knowledge proof commands for the AITBC CLI."""
 from __future__ import annotations
 
+import base64
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import click
 
 from ..config import get_config
-from ..utils import output, success
+from ..utils import output
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
-logger = get_logger(__name__)
+
+def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
+    """Return the coordinator base URL without a trailing /v1 path."""
+    config = get_config()
+    url = (
+        coordinator_url
+        or ctx.obj.get("url")
+        or config.coordinator_api_url
+        or os.getenv("COORDINATOR_API_URL", "")
+    )
+    if not url:
+        return ""
+    url = url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url
 
 
 def _auth_headers(ctx) -> dict[str, str] | None:
-    """Return Authorization header from --api-key or the stored credential."""
+    """Return Authorization header from --api-key."""
     token = ctx.obj.get("api_key")
-    if not token:
-        from ..auth import AuthManager
-        token = AuthManager().get_credential("client")
-    if token and _looks_like_jwt(token):
+    if token:
         return {"Authorization": f"Bearer {token}"}
     return None
 
 
-def _looks_like_jwt(token: str) -> bool:
-    """A JWT is three base64url segments separated by dots."""
-    return token.startswith("ey") and token.count(".") == 2
-
-
-def _coordinator_client(ctx, coordinator_url: str | None) -> AITBCHTTPClient:
-    """Build an HTTP client for the coordinator API."""
-    config = get_config()
-    coord_url = coordinator_url or config.coordinator_api_url
-    if not coord_url:
-        abort(ctx, "Coordinator URL not configured")
-
-    # Public nginx mounts the coordinator under /v1; the app itself also prefixes
-    # all routes with /v1.  Strip a trailing /v1 from the configured URL so the
-    # endpoints below can use the canonical /v1/... paths without doubling.
-    coord_url = coord_url.rstrip("/")
-    if coord_url.endswith("/v1"):
-        coord_url = coord_url[:-3]
-
-    token = ctx.obj.get("api_key")
-    headers: dict[str, str] | None = _auth_headers(ctx)
-    if token and not _looks_like_jwt(token):
-        # Miner API keys authenticate through the X-Api-Key header.
-        if headers is None:
-            headers = {}
-        headers["X-Api-Key"] = token
-
-    return AITBCHTTPClient(base_url=coord_url, timeout=60, headers=headers)
+def _load_json_or_file(value: str) -> Any:
+    """Load JSON from a string or from a file path."""
+    value = value.strip()
+    if value.startswith("{") or value.startswith("["):
+        return json.loads(value)
+    if value.startswith("@"):
+        path = Path(value[1:])
+    else:
+        path = Path(value)
+    if path.is_file():
+        return json.loads(path.read_text())
+    # Fallback to base64-decoded JSON (some quote fields are base64 blobs).
+    try:
+        decoded = base64.b64decode(value)
+        return json.loads(decoded)
+    except (ValueError, json.JSONDecodeError):
+        pass
+    raise ValueError(f"Could not parse JSON from {value}")
 
 
 @click.group()
 def zk():
-    """Zero-knowledge proof commands"""
+    """Zero-knowledge proof commands."""
     pass
 
 
@@ -67,27 +70,17 @@ def zk():
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def health(ctx, coordinator_url, format):
-    """Check ZK proof service health"""
+def circuits(ctx, coordinator_url: str | None, format: str):
+    """List available ZK circuits and verification status."""
+    config = get_config()
     try:
-        client = _coordinator_client(ctx, coordinator_url)
-        result = client.get("/v1/zk/health")
-        output(result, ctx.obj.get("output_format", format), title="ZK Health")
-    except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
-        abort(ctx, f"Error checking ZK health: {e}", from_exception=e)
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
 
-
-@zk.command()
-@click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-@click.pass_context
-def circuits(ctx, coordinator_url, format):
-    """List available ZK circuits"""
-    try:
-        client = _coordinator_client(ctx, coordinator_url)
-        result = client.get("/v1/zk/info")
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get("/v1/zk/info")
         output(result, ctx.obj.get("output_format", format), title="ZK Circuits")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -96,49 +89,81 @@ def circuits(ctx, coordinator_url, format):
 
 
 @zk.command()
-@click.option("--proof-id", help="Coordinator proof/job identifier to verify")
-@click.option("--job-id", "proof_id", hidden=True, help="Alias for --proof-id")
-@click.option("--proof-file", type=click.Path(exists=True), help="JSON file with proof and public_signals")
+@click.option("--job-id", help="Job ID whose receipt proof should be re-verified")
+@click.option("--proof", help="Proof JSON, @file, or base64 string")
+@click.option("--public-signals", help="Public signals JSON, @file, or base64 string")
+@click.option("--circuit", default="receipt_public", help="Circuit name to verify against")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def verify(ctx, proof_id, proof_file, coordinator_url, format):
-    """Verify a ZK proof by job/proof id or from a proof file"""
+def verify(
+    ctx,
+    job_id: str | None,
+    proof: str | None,
+    public_signals: str | None,
+    circuit: str,
+    coordinator_url: str | None,
+    format: str,
+):
+    """Verify a ZK proof against the coordinator."""
+    config = get_config()
     try:
-        client = _coordinator_client(ctx, coordinator_url)
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
 
-        if proof_file:
-            path = Path(proof_file)
-            data = json.loads(path.read_text())
-            proof = data.get("proof") or data
-            public_signals = data.get("public_signals", [])
-            circuit_name = data.get("circuit_name") or data.get("circuit")
-        elif proof_id:
-            # Ask the coordinator to verify the stored receipt proof for the job.
-            result = client.post("/v1/zk/receipt/verify", json={"job_id": proof_id})
-            output(result, ctx.obj.get("output_format", format), title=f"ZK Verification: {proof_id}")
-            return
+        if not job_id and not (proof and public_signals):
+            abort(ctx, "Either --job-id or both --proof and --public-signals are required")
+
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=60, headers=headers)
+
+        if job_id:
+            receipt = http_client.get(f"/v1/jobs/{job_id}/result")
+            if not receipt:
+                abort(ctx, f"No receipt found for job {job_id}")
+            proof_data = receipt.get("receipt", {}).get("zk_proof")
+            if not proof_data:
+                abort(ctx, f"No ZK proof in receipt for job {job_id}")
+            proof = proof_data.get("proof")
+            public_signals = proof_data.get("public_signals")
+            circuit = proof_data.get("circuit", circuit)
         else:
-            abort(ctx, "Either --proof-id/--job-id or --proof-file is required")
+            proof = _load_json_or_file(proof)
+            public_signals = _load_json_or_file(public_signals)
 
-        if not proof:
-            abort(ctx, "No proof data found")
-        if not public_signals:
-            abort(ctx, "No public signals found")
-
-        verify_payload = {
-            "proof": proof,
-            "public_signals": public_signals,
-            "circuit_name": circuit_name,
-        }
-        result = client.post("/v1/zk/verify", json=verify_payload)
-
-        success(f"ZK proof verification result for {proof_id or proof_file}")
-        output(result, ctx.obj.get("output_format", format), title="ZK Verification")
-
+        result = http_client.post(
+            "/v1/zk/verify",
+            json={
+                "proof": proof,
+                "public_signals": public_signals,
+                "circuit_name": circuit,
+            },
+        )
+        output(result, ctx.obj.get("output_format", format), title="ZK Proof Verification")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except json.JSONDecodeError as e:
-        abort(ctx, f"Invalid JSON in proof file: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error verifying ZK proof: {e}", from_exception=e)
+
+
+@zk.command()
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def health(ctx, coordinator_url: str | None, format: str):
+    """Check ZK proof service health."""
+    config = get_config()
+    try:
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
+
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.get("/v1/zk/health")
+        output(result, ctx.obj.get("output_format", format), title="ZK Service Health")
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error checking ZK health: {e}", from_exception=e)
