@@ -703,3 +703,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Removed `/root/.aitbc/wallets` and left a note pointing operators to run `sudo -u aitbc aitbc <command>`.
 - Documented the operator user / wallet locations in `AGENTS.md`.
 
+- `cli/aitbc_cli/commands/wallet/basic.py`: `aitbc wallet balance <name>` now falls back to a local file wallet when the wallet daemon returns 404, so file-only wallets (e.g. `customer-wallet`, `shop-wallet`) can be queried.
+
