@@ -4,6 +4,7 @@ Marketplace offer commands: list, cancel, status, match, providers, offer
 
 import hashlib
 import json
+import re
 import socket
 from datetime import datetime
 from decimal import Decimal
@@ -22,6 +23,14 @@ from . import get_chain_id, get_island_id, get_next_nonce, get_wallet_address, m
 from .escrow import _get_blockchain_rpc_url
 
 
+def _is_wallet_address(value: str | None) -> bool:
+    """Return True if value looks like a wallet address, not an agent/miner id."""
+    if not value:
+        return False
+    value = str(value).strip()
+    return value.startswith("0x") or (value.startswith("aitbc1") and len(value) > 12)
+
+
 def _to_decimal(value: Any) -> Decimal:
     """Convert an offer price to Decimal for stable sorting."""
     if value is None:
@@ -38,35 +47,64 @@ def _is_active(status: Any) -> bool:
     return str(status).lower() in ("active", "available", "open")
 
 
-def _reputation_key(offer: dict[str, Any]) -> tuple[float, int, Decimal, bool, int]:
-    """Sort by reputation desc, then price asc, then availability desc."""
+def _reputation_for_offer(http_client: AITBCHTTPClient, coordinator_url: str, offer: dict[str, Any]) -> None:
+    """Enrich an offer with coordinator trust score, if available."""
+    agent_id = offer.get("provider_address") or offer.get("node_id") or ""
+    if not agent_id or _is_wallet_address(agent_id):
+        return
+    for candidate in (agent_id, offer.get("node_id", "")):
+        if not candidate or _is_wallet_address(candidate):
+            continue
+        try:
+            profile = http_client.get(f"{coordinator_url}/reputation/profile/{candidate}")
+            if profile and "error" not in profile:
+                offer["trust_score"] = float(profile.get("trust_score", 0) or 0)
+                offer["reputation_level"] = profile.get("reputation_level", "")
+                offer["jobs_completed"] = int(profile.get("jobs_completed", 0) or 0)
+                return
+        except (NetworkError, Exception) as e:
+            logger.debug("No reputation profile for %s: %s", candidate, e)
+
+
+def _reputation_score(offer: dict[str, Any]) -> tuple[float, float, int, int]:
+    """Return normalized reputation and supporting count.
+
+    Prefer canonical coordinator trust score (0-1000) when available; otherwise
+    fall back to marketplace avg_rating (0-5) and rating_count.
+    """
+    trust_score = offer.get("trust_score")
+    if trust_score is not None:
+        return (float(trust_score) / 1000.0, 1.0, int(offer.get("jobs_completed", 0) or 0), 0)
     avg_rating = float(offer.get("avg_rating", 0) or 0)
     rating_count = int(offer.get("rating_count", 0) or 0)
+    return (avg_rating / 5.0, 0.0, rating_count, 0)
+
+
+def _reputation_key(offer: dict[str, Any]) -> tuple[float, float, float, int, Decimal, bool, int]:
+    """Sort by reputation desc, then price asc, then availability desc."""
+    reputation, has_trust, count, _ = _reputation_score(offer)
     price = _to_decimal(offer.get("price", 0))
     available = _is_active(offer.get("status"))
     capacity = int(offer.get("capacity", 0) or 0)
-    # Negate for descending; available is True first.
-    return (-avg_rating, -rating_count, price, not available, -capacity)
+    return (-reputation, -has_trust, -count, price, not available, -capacity)
 
 
-def _price_key(offer: dict[str, Any]) -> tuple[Decimal, float, int, bool, int]:
+def _price_key(offer: dict[str, Any]) -> tuple[Decimal, float, float, float, bool, int]:
     """Sort by price asc, then reputation desc, availability desc."""
     price = _to_decimal(offer.get("price", 0))
-    avg_rating = float(offer.get("avg_rating", 0) or 0)
-    rating_count = int(offer.get("rating_count", 0) or 0)
+    reputation, has_trust, count, _ = _reputation_score(offer)
     available = _is_active(offer.get("status"))
     capacity = int(offer.get("capacity", 0) or 0)
-    return (price, -avg_rating, -rating_count, not available, -capacity)
+    return (price, -reputation, -has_trust, -count, not available, -capacity)
 
 
-def _availability_key(offer: dict[str, Any]) -> tuple[bool, float, int, int, Decimal]:
+def _availability_key(offer: dict[str, Any]) -> tuple[bool, int, float, float, float, Decimal]:
     """Sort by availability (active first), then capacity desc, reputation, price."""
     available = _is_active(offer.get("status"))
     capacity = int(offer.get("capacity", 0) or 0)
-    avg_rating = float(offer.get("avg_rating", 0) or 0)
-    rating_count = int(offer.get("rating_count", 0) or 0)
+    reputation, has_trust, count, _ = _reputation_score(offer)
     price = _to_decimal(offer.get("price", 0))
-    return (not available, -capacity, -avg_rating, -rating_count, price)
+    return (not available, -capacity, -reputation, -has_trust, -count, price)
 
 
 def _sort_offers(offers: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
@@ -125,9 +163,12 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                     offers = [o for o in offers if o.get("service_type") == service_type]
 
                 if offers:
-                    # Sort deterministically. The "reputation" sort uses the
-                    # marketplace avg_rating and rating_count; if a separate
-                    # trust score is configured it could be merged here.
+                    # Enrich offers with canonical coordinator reputation data.
+                    coordinator_url = config.coordinator_api_url or hub_url
+                    for offer in offers:
+                        _reputation_for_offer(http_client, coordinator_url, offer)
+
+                    # Sort deterministically by live reputation (trust score > avg rating).
                     offers = _sort_offers(offers, sort)
 
                     # Format output for marketplace offers
@@ -148,7 +189,7 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                                 if len(offer.get("public_endpoint", "")) > 30
                                 else offer.get("public_endpoint", "N/A"),
                                 "Status": offer.get("status", "unknown"),
-                                "Rating": f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
+                                "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust" if offer.get("trust_score") is not None else f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
                             }
                         )
 
