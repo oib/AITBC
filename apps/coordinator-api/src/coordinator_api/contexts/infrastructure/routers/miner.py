@@ -280,6 +280,19 @@ async def submit_result(
             )
         if success:
             job.payment_status = "released"
+            # P2.4: surface reinvestment stake id on the receipt for CLI visibility.
+            if receipt is not None and job.payment_id:
+                try:
+                    from aitbc_shared import JobPayment
+                    payment = session.get(JobPayment, job.payment_id)
+                    if payment and payment.meta_data:
+                        reinvest_stake_id = payment.meta_data.get("reinvest_stake_id")
+                        if reinvest_stake_id:
+                            receipt["reinvest_status"] = "staked"
+                            receipt["reinvest_stake_id"] = reinvest_stake_id
+                            job.receipt = receipt
+                except Exception as e:
+                    logger.warning("Could not attach reinvestment info to receipt: %s", e)
             session.commit()
             logger.info("Auto-released payment %s for completed job %s", job.payment_id, job.id)
         else:
