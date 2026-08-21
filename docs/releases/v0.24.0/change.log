@@ -467,3 +467,18 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
   reputation, and price.
 - Added `tests/cli/test_market_offers.py` covering the sorting keys.
 - Updated scenario 34 to demonstrate `--sort`.
+
+## P1.2 — Customer and shop dashboards
+
+- Added `aitbc dashboard customer` and `aitbc dashboard shop`.
+- Customer dashboard queries `/v1/jobs` and the wallet daemon, summarising
+  job states, payment statuses, recent jobs, and wallet balances.
+- Shop dashboard queries monitoring metrics, miner jobs/earnings, GPU
+  discovery, marketplace offers, and wallet balances.
+- `cli/aitbc_cli/core/main.py` now registers the `dashboard` command group.
+- Added `tests/cli/test_dashboard.py` covering customer and shop flows.
+- Updated scenario 34 with `dashboard customer` and `dashboard shop` steps.
+
+Also fixed `aitbc ai` (P1.5 follow-up): all AI commands now normalise the
+configured `coordinator_api_url` so `/v1` is not doubled when the hub URL
+already ends in `/v1`.
