@@ -242,6 +242,7 @@ async def submit_result(
             if tee_status != "verified":
                 job.error = f"TEE attestation required before escrow release (status: {tee_status})"
                 job.state = JobState.failed
+                session.add(job)
                 session.commit()
                 logger.error(
                     "Escrow release blocked for job %s: TEE status %s", job.id, tee_status
@@ -264,6 +265,7 @@ async def submit_result(
                         job.payment_id,
                         job.id,
                     )
+                session.add(job)
                 session.commit()
                 success = False
             elif _zk_required_for(job):
