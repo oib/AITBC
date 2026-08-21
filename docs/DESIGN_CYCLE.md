@@ -61,7 +61,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 |------|----------|-------|-----|
 | 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`. Exchange `buy` needs validator keystore. No production faucet. | Customer onboarding |
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. Reputation not used in matching. | UX + matching quality |
-| 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc --api-key $JWT ai submit …` works; JWT is minted from `aitbc.auth.create_access_token` / env secret, not a CLI login | Auth UX |
+| 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc auth login` stores a coordinator JWT; `aitbc ai submit` falls back to it. `--api-key` still accepted. | Auth UX |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `STATUS.md` now distinguishes payment escrow from bridge HTLC gating | Config honesty |
 | 4. Match to miner | Stake + reputation + capacity | Shop miner heartbeats to **local** coordinator; hub pool `miners_online` stays 0 | Hub-wide miner registry |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama inference live. Whisper/FFmpeg services exist, not in the default shop loop | Optional services |
@@ -189,7 +189,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 | # | Wish | Why |
 |---|------|-----|
-| P0.1 | `aitbc auth login` (or `aitbc config set-secret jwt`) so jobs do not require ad-hoc Python JWT | Auth is the last non-CLI step in scenario 34/25 |
+| P0.1 | `aitbc auth login` so jobs do not require ad-hoc Python JWT | Shipped as CLI wallet-signed login against `/v1/login` (Phase 2) |
 | P0.2 | Shop miner registers with **hub** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Completes hub-visible capacity |
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Removes single-key settlement |
 | P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Config/docs lie today |
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phase 1 P0.4 config honesty in progress)*
+*Last updated: 2026-08-21 (Phase 1 shipped, Phase 2 aitbc auth login shipped)*

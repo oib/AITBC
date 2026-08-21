@@ -51,15 +51,15 @@ An AI agent needs to run an inference or training workload on the the network. I
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - A wallet with AIT balance (created in Scenario 01)
-- A valid JWT for the coordinator API (`--api-key` or `AITBC_API_KEY`)
 - Coordinator API reachable at `http://localhost:8203` (override with `--coordinator-url`)
+- Either `aitbc auth login` with a wallet, or a valid JWT passed with `--api-key`
 
 ### Setup Required
 
 - Configure the coordinator URL: `aitbc config set coordinator_api_url http://localhost:8203`
 - Ensure the coordinator-api service is running
 - Have a wallet name and (optionally) a password file ready
-- Have a valid JWT token for `Authorization: Bearer` requests
+- Run `aitbc auth login --wallet <wallet> [--password <password>]` to store a coordinator JWT (or set `--api-key` explicitly)
 
 ---
 

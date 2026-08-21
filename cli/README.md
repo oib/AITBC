@@ -14,6 +14,7 @@ aitbc --help
 | Group | Description | Key subcommands |
 |-------|-------------|-----------------|
 | `account` | Account information and management | `get`, `list` |
+| `auth` | Authentication and session management | `login`, `logout`, `status` |
 | `agent` | Agent SDK management commands | `cancel`, `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `job`, `jobs`, `list`, `register`, `register-identity`, `status`, `submit`, `subscribe`, `verify-identity`, `workflow` |
 | `agent-comm` | Cross-chain agent communication commands | `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status` |
 | `agent-msg` | Agent messaging commands (ping, send, receive, peers, request-coins). | `peers`, `ping`, `receive`, `request-coins`, `send` |
