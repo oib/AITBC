@@ -813,3 +813,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - CLI `aitbc operations governance proposal` now accepts `--params` for the execution payload.
 - Documented island credential ownership (`aitbc:aitbc`, mode 0600) in `docs/ops/aitbc-cli-live-setup.md`.
 * 1de9b1d2c fix(cli/sdk): align messaging routes with deployed endpoints
+
+* eb1b607ab feat(coordinator-auth): wallet-based /v1/auth/nonce and /v1/login for CLI auth
+* 3a6f2df21 fix(cli): include payment_id in ai refund request body
+- `aitbc auth login --wallet <name>` now works end-to-end: it signs a coordinator-issued nonce and stores a client JWT for authenticated CLI commands.
+- Added coordinator `/v1/auth/nonce` and `/v1/login` endpoints that verify wallet signatures and issue `client` JWTs.
+- `aitbc ai refund --job-id <id>` now sends the required `payment_id` in the refund body and successfully refunds failed jobs.
