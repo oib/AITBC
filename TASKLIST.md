@@ -40,6 +40,11 @@ Latest pushed commits:
 
 ## Current state
 
+- P2.3 on-chain performance bonds is live on `aitbc3` and `hub.aitbc`.
+  - `aitbc bond create`, `aitbc bond status`, `aitbc bond release` work end-to-end.
+  - `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` are handled in state transitions.
+  - Marketplace offers require an active bond when `MARKET_BOND_MIN_AMOUNT` > 0.
+
 - Live nodes: shop `aitbc3` is on gitea `main` at `0983db5fb` (*fix(sync): treat unknown parent as chain divergence*). Hub working tree still dirty and 2 commits behind `origin/main`.
 - Scenario 34 was replayed 2026-08-20 from this session:
   - unpaid job `1363fff0bc4b48c6903bc46f54fe0a7a` completed on `aitbc-miner-1`
@@ -110,3 +115,13 @@ Latest pushed commits:
 - [x] Should workspace notes live in the canonical repo? → yes, already pushed earlier.
 - [x] Who fixes shop chain sync / missing P2P on aitbc3? → fork reset done this session; P2P unit still missing (HTTPS pull is how the shop syncs).
 - [x] Who updates scenario 34 exchange + JWT snippets on gitea `main`? → commit `e8966aba1`.
+
+## P2.3 — On-chain performance bonds and slashing
+
+- [x] Add Bond table and bond escrow/burn accounts
+- [x] BOND_LOCK / BOND_RELEASE / BOND_SLASH state transitions
+- [x] /rpc/bond query routes
+- [x] Wire aitbc bond CLI to real blockchain endpoints
+- [x] Marketplace offer bond eligibility enforcement
+- [x] Unit tests and scenario docs
+- [x] Live validation on aitbc3 / hub.aitbc
