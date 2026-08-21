@@ -237,3 +237,10 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
 - Miner completed the job; coordinator generated and verified a `receipt_public` Groth16 proof.
 - Escrow released only after `zk_status: verified`.
 - `aitbc ai status` shows `zk_status: verified` and `zk_proof_id`.
+
+- Validated 10-AIT high-value job: `aitbc ai submit --payment 10 --zk-proof-required`
+  produced `zk_status: verified` and `payment_status: released`.
+- Validated low-value job at 0.01 AIT: `zk_status: not_required`, payment released
+  without a ZK proof when below `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`.
+- Fixed offset-naive/offset-aware datetime comparison in `JobService` that caused
+  500 errors for jobs stored in SQLite.
