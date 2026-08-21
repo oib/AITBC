@@ -47,6 +47,7 @@ class ConnectionManager:
         self.agent_topics: dict[str, set[str]] = {}
         self.message_handlers: dict[str, list[Callable[[dict[str, Any], ConnectionManager, WebSocket], Any]]] = {}
         self.agent_inboxes: dict[str, list[dict[str, Any]]] = {}
+        self.message_storage: Any | None = None
 
     async def connect(self, websocket: WebSocket, agent_id: str) -> None:
         """Accept a WebSocket connection from an agent."""
@@ -71,6 +72,21 @@ class ConnectionManager:
                 "message": "WebSocket listener active - handlers will be triggered in real-time",
             }
         )
+        await self._load_subscriptions(agent_id)
+
+    async def _load_subscriptions(self, agent_id: str) -> None:
+        """Restore persisted topic subscriptions when an agent connects."""
+        if not self.message_storage:
+            return
+        try:
+            subscriptions = await self.message_storage.get_subscriptions(agent_id)
+            for sub in subscriptions:
+                topic = sub.get("topic")
+                if topic:
+                    await self.subscribe(agent_id, topic)
+                    logger.info("Restored subscription %s for %s", topic, agent_id)
+        except Exception as e:
+            logger.warning("Could not load subscriptions for %s: %s", agent_id, e)
 
     async def disconnect(self, agent_id: str) -> None:
         """Remove agent connection and close the underlying WebSocket."""
