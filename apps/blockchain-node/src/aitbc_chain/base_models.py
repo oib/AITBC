@@ -261,7 +261,9 @@ class Escrow(ChainBase, table=True):
     amount: int  # in compute-seconds (1 AIT = 3600)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
+    refunded_at: datetime | None = None
     job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
+    refund_tx_hash: str | None = None  # TX hash of escrow refund
 
 
 class CrossChainTransfer(ChainBase, table=True):

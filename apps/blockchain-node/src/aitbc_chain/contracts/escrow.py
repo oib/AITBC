@@ -14,6 +14,11 @@ from aitbc.aitbc_logging import get_logger
 logger = get_logger(__name__)
 
 
+async def _aitbc_chain_session_scope():
+    from ..database import session_scope
+    return session_scope
+
+
 def log_info(message: str) -> None:
     """Simple logging function"""
     logger.info(message)
@@ -162,6 +167,104 @@ class EscrowManager:
             if contract.job_id == job_id:
                 return False
         return True
+
+    async def load_from_db(self) -> None:
+        """Load active escrow records from the chain DB into memory."""
+        try:
+            from ..database import session_scope
+            from ..base_models import Escrow as EscrowRecord
+        except Exception as e:
+            logger.warning("Could not import DB for escrow loading: %s", e)
+            return
+        try:
+            from sqlmodel import select
+            with session_scope() as session:
+                records = session.exec(
+                    select(EscrowRecord).where(
+                        EscrowRecord.released_at == None, EscrowRecord.refunded_at == None
+                    )
+                ).all()
+                for record in records:
+                    contract_id = self._generate_contract_id(record.buyer, record.provider, record.job_id)
+                    if contract_id in self.escrow_contracts:
+                        continue
+                    amount = Decimal(str(record.amount)) / Decimal("3600")
+                    contract = EscrowContract(
+                        contract_id=contract_id,
+                        job_id=record.job_id,
+                        client_address=record.buyer,
+                        agent_address=record.provider,
+                        amount=amount,
+                        fee_rate=self.default_fee_rate,
+                        created_at=record.created_at.timestamp(),
+                        expires_at=record.created_at.timestamp() + self.max_contract_duration,
+                        state=EscrowState.FUNDED,
+                        milestones=[
+                            {"milestone_id": "milestone_1", "description": "Complete job", "amount": amount, "completed": False}
+                        ],
+                        current_milestone=0,
+                        dispute_reason=None,
+                        dispute_evidence=[],
+                        resolution=None,
+                        released_amount=Decimal("0"),
+                        refunded_amount=Decimal("0"),
+                    )
+                    self.escrow_contracts[contract_id] = contract
+                    self.active_contracts.add(contract_id)
+                    logger.info("Loaded escrow contract %s for job %s from DB", contract_id, record.job_id)
+        except Exception as e:
+            logger.warning("Failed to load escrow contracts from DB: %s", e)
+
+    async def get_or_load_contract(self, job_id: str) -> EscrowContract | None:
+        """Find a contract by job_id, loading from DB if not in memory."""
+        for contract in self.escrow_contracts.values():
+            if contract.job_id == job_id:
+                return contract
+        try:
+            from ..database import session_scope
+            from ..base_models import Escrow as EscrowRecord
+        except Exception as e:
+            logger.warning("Could not import DB for escrow lookup: %s", e)
+            return None
+        try:
+            with session_scope() as session:
+                record = session.get(EscrowRecord, job_id)
+                if not record:
+                    return None
+                contract_id = self._generate_contract_id(record.buyer, record.provider, record.job_id)
+                amount = Decimal(str(record.amount)) / Decimal("3600")
+                state = EscrowState.FUNDED
+                if record.released_at:
+                    state = EscrowState.RELEASED
+                elif record.refunded_at:
+                    state = EscrowState.REFUNDED
+                contract = EscrowContract(
+                    contract_id=contract_id,
+                    job_id=record.job_id,
+                    client_address=record.buyer,
+                    agent_address=record.provider,
+                    amount=amount,
+                    fee_rate=self.default_fee_rate,
+                    created_at=record.created_at.timestamp(),
+                    expires_at=record.created_at.timestamp() + self.max_contract_duration,
+                    state=state,
+                    milestones=[
+                        {"milestone_id": "milestone_1", "description": "Complete job", "amount": amount, "completed": state == EscrowState.RELEASED}
+                    ],
+                    current_milestone=0,
+                    dispute_reason=None,
+                    dispute_evidence=[],
+                    resolution=None,
+                    released_amount=Decimal(str(record.released_at is not None and amount or 0)),
+                    refunded_amount=Decimal(str(record.refunded_at is not None and amount or 0)),
+                )
+                self.escrow_contracts[contract_id] = contract
+                if state not in {EscrowState.RELEASED, EscrowState.REFUNDED}:
+                    self.active_contracts.add(contract_id)
+                return contract
+        except Exception as e:
+            logger.warning("Failed to load escrow contract for job %s: %s", job_id, e)
+        return None
 
     async def _validate_milestones(
         self, milestones: list[dict[str, Any]], total_amount: Decimal
