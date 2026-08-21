@@ -122,7 +122,7 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 
 ---
 
-*Last updated: 2026-08-21 (Phase 1 in progress)*
+*Last updated: 2026-08-21 (P2.5 default shop offers completed)*
 *Version: 1.5*
 
 ### Advanced Scenarios (Product-Feature End-to-End)
@@ -132,7 +132,7 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 37 | [ZK Proof for High-Value Jobs](./37_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai` |
 || 38 | TEE Attestation for Confidential Jobs | Confidential jobs require and verify a TEE attestation | `aitbc ai`, `aitbc tee` |
 || 39 | [Automatic Reinvestment from Released Escrow](./40_auto_reinvestment.md) | Auto-stake provider earnings on escrow release | `aitbc ai` |
-|| 40 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs | `aitbc ai` |
+|| 40 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via marketplace offers | `aitbc market` |
 || 41 | [Real IPFS Daemon behind `aitbc ipfs`](./42_ipfs_daemon.md) | Use Kubo for real CIDs and cross-node retrieval | `aitbc ipfs` |
 || 42 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
 || 43 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
@@ -141,3 +141,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
 || 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
 || 49 | [Auto-Reinvest from Released Escrow](./49_auto_reinvest_escrow.md) | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
+| 50 | [Default Whisper, FFmpeg, and Ollama Shop Offers](./50_default_shop_offers.md) | Shop auto-publishes default software offers and customers run jobs with `aitbc market` | `aitbc market` |
