@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 10 Agent SDK Identity
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > IPFS Storage
 
 ## Scenario Overview
 
-This scenario demonstrates how an AI agent stores and retrieves data on IPFS using the `aitbc_agent` SDK. Agents routinely produce outputs — trained model weights, inference results, datasets, logs — that are too large or too widely shared to pass inline over the messaging layer. IPFS gives every artifact a content-addressed CID that other agents can retrieve deterministically, and the data-oracle layer lets an agent announce a CID for sale so peers can purchase access.
+This scenario demonstrates how to store and retrieve content-addressed artifacts with the real `aitbc ipfs` group, then announce a CID for sale with `aitbc oracle`. The live implementation is a **filesystem-backed** IPFS-compatible surface (`/var/lib/aitbc/ipfs`), not a separate IPFS daemon. The `aitbc_agent` SDK wraps the same CLI.
 
 ### Use Case
 
@@ -33,10 +33,9 @@ A training agent finishes a fine-tuning run and wants to (1) persist the resulti
 
 ### What You'll Learn
 
-- Store bytes to IPFS via `Agent.store_ipfs(...)` and get back a CID
-- Retrieve bytes by CID via `Agent.retrieve_ipfs(...)`, optionally writing to disk
-- Use the async variants `store_ipfs_async` / `retrieve_ipfs_async`
-- Announce a CID for sale via `Agent.announce_data_availability(...)` and retrieve purchased data via `Agent.retrieve_data(...)`
+- Upload, list, pin, and download files with `aitbc ipfs`
+- Announce a CID for sale with `aitbc oracle store` and inspect listings with `aitbc oracle listings`
+- Optionally wrap the same commands through the `aitbc_agent` SDK
 
 ---
 
@@ -50,100 +49,55 @@ A training agent finishes a fine-tuning run and wants to (1) persist the resulti
 ### Tools Required
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
-- The `aitbc_agent` SDK installed (`pip install aitbc-agent-sdk`, import `aitbc_agent`)
-- A reachable IPFS gateway / node backing the CLI `ipfs` subcommands
+- Write access to `/var/lib/aitbc/ipfs` (created automatically on first `aitbc ipfs` invocation when the process can write there)
+- Optional: `aitbc_agent` SDK (`pip install aitbc-agent-sdk`) for the SDK extras below
 
 ### Setup Required
 
-- Complete Scenario 10 so you have an `Agent` instance with a valid identity
-- Confirm the agent SDK import works: `python -c "from aitbc_agent import Agent, AgentIdentity, AgentCapabilities; print('ok')"`
+- Confirm the CLI group exists: `aitbc ipfs --help`
+- Confirm the oracle group exists: `aitbc oracle --help`
 
 ---
 
 ## Step-by-Step Workflow
 
-The IPFS surface is exposed through the agent SDK rather than a top-level `aitbc` command group. The `Agent` class delegates to `IPFSOperations` (in `packages/py/aitbc-agent-sdk/src/aitbc_agent/ipfs.py`) and `DataOracleOperations` (in `.../data_oracle.py`), which wrap the real `aitbc ipfs` and `aitbc oracle` CLI subcommands.
+The operator path is `aitbc ipfs` / `aitbc oracle`. The SDK examples below call the same commands.
 
-### Step 1: Store agent output to IPFS
+### Step 1: Upload a file and get a CID
 
-After producing an artifact (e.g. serialized model weights), store the raw bytes and pin them so the CID stays available.
-
-```python
-from aitbc_agent import Agent, AgentIdentity, AgentCapabilities
-
-# identity/capabilities built in Scenario 10
-agent = Agent.create(
-    name="training-agent",
-    agent_type="training",
-    capabilities={"compute_type": "training", "gpu_memory": 24576},
-)
-
-model_bytes = b"\x89HDF5...model-weights-payload..."
-cid = agent.store_ipfs(model_bytes, pin=True, name="finetune-run-042.weights")
-print(cid)
+```bash
+echo 'finetune-run-042 weights payload' > /tmp/finetune-run-042.weights
+aitbc ipfs upload --file /tmp/finetune-run-042.weights --name finetune-run-042.weights --pin
 ```
 
-**Expected output:**
+**Expected output:** JSON including a `cid` that starts with `Qm` (SHA-256 digest of the bytes, not a real IPFS multihash from a daemon).
 
-```
-QmXzZf7p9k3... (a CID string)
-```
+### Step 2: List and pin
 
-`store_ipfs(data, pin=True, name=None) -> str` writes the bytes to a temp file and invokes `ipfs upload --file <tmp> --pin [--name <name>]`, returning the `cid` from the result.
-
-### Step 2: Retrieve data by CID
-
-Pull the artifact back by its CID. Without an output path the bytes are returned directly; with an output path they are written to disk and read back.
-
-```python
-# Return bytes directly
-retrieved = agent.retrieve_ipfs(cid)
-assert retrieved == model_bytes
-
-# Or write to disk
-agent.retrieve_ipfs(cid, output_path="/tmp/finetune-run-042.weights")
+```bash
+aitbc ipfs list
+aitbc ipfs pin "$CID"
 ```
 
-`retrieve_ipfs(cid, output_path=None) -> bytes` runs `ipfs download <cid> [--output <path>]`.
+**Expected output:** the uploaded item appears in the local index; pin reports success.
 
-### Step 3: List and pin existing content
+### Step 3: Download by CID
 
-The underlying `IPFSOperations` object (`agent.ipfs_ops`) also exposes `list_ipfs()` and `pin_ipfs(cid)`:
-
-```python
-items = agent.ipfs_ops.list_ipfs()        # ipfs list
-print(len(items), "items pinned")
-
-agent.ipfs_ops.pin_ipfs(cid)              # ipfs pin <cid>  -> True
+```bash
+aitbc ipfs download "$CID" --output /tmp/finetune-run-042.restored
+cmp /tmp/finetune-run-042.weights /tmp/finetune-run-042.restored && echo ROUNDTRIP_OK
 ```
 
-### Step 4: Announce the artifact for sale on the data oracle
+### Step 4: Announce the CID on the data oracle
 
-Once the CID is pinned, announce it as purchasable data. `announce_data_availability(cid, price, description="") -> str` runs `oracle store --cid <cid> --price <price> [--description <desc>]` and returns an announcement ID.
+`aitbc oracle store` refuses CIDs that are not already in `/var/lib/aitbc/ipfs`.
 
-```python
-announcement_id = agent.announce_data_availability(
-    cid,
-    price=15.0,
-    description="Fine-tuned model weights, run 042, accuracy 0.94",
-)
-print(announcement_id)
+```bash
+aitbc oracle store --cid "$CID" --price 15.0 --description "Fine-tuned model weights, run 042"
+aitbc oracle listings
 ```
 
-**Expected output:**
-
-```
-ann_8f3a... (an announcement id, falling back to the cid)
-```
-
-### Step 5: Retrieve purchased data by CID
-
-A buyer agent retrieves the announced data through the data-oracle path. `retrieve_data(cid) -> bytes` resolves the CID via IPFS:
-
-```python
-payload = agent.retrieve_data(cid)
-print(len(payload), "bytes retrieved")
-```
+**Expected output:** an `announcement_id` like `ann_…` and a listings payload that includes the CID at price `15.0`.
 
 ---
 
@@ -218,42 +172,21 @@ asyncio.run(main())
 
 After completing this scenario, you should be able to:
 
-- Store arbitrary bytes to IPFS through the agent SDK and receive a content-addressed CID
-- Retrieve stored bytes by CID, either into memory or onto disk
-- Use the async IPFS variants inside an event loop
-- Announce a CID as purchasable data on the AITBC data oracle and retrieve it via the oracle path
+- Upload, list, pin, and download artifacts with `aitbc ipfs`
+- Announce a CID for sale with `aitbc oracle store` and list announcements with `aitbc oracle listings`
+- Optionally drive the same surface from the `aitbc_agent` SDK
 
 ---
 
 ## Validation
 
-Confirm the round trip succeeded by re-reading the stored CID and checking the announcement exists:
-
-```python
-# Re-retrieve and compare
-assert agent.retrieve_ipfs(cid) == model_bytes
-
-# List pinned items; the new CID should appear
-items = agent.ipfs_ops.list_ipfs()
-assert any(i.get("cid") == cid for i in items)
-```
-
 ```bash
-# Sanity check the SDK import path used throughout
-python -c "from aitbc_agent import Agent, AgentIdentity, AgentCapabilities; print('import ok')"
+aitbc ipfs list
+aitbc oracle listings
+cmp /tmp/finetune-run-042.weights /tmp/finetune-run-042.restored && echo ROUNDTRIP_OK
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 
@@ -263,5 +196,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

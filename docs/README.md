@@ -27,7 +27,8 @@ This is the documentation hub for AITBC. For the project overview and welcome pa
 - [mining/](mining/) — mining and GPU provider docs
 - [reference/](reference/) — service ports, glossary, quick lookup
 - [releases/](releases/) — release notes and current [STATUS.md](releases/STATUS.md)
-- [scenarios/](scenarios/) — end-to-end usage scenarios
+- [scenarios/](scenarios/) — end-to-end usage scenarios (`aitbc` CLI plays)
+- [DESIGN_CYCLE.md](DESIGN_CYCLE.md) — current software loop, gaps, and wish list
 
 ## Status
 
