@@ -223,3 +223,17 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
 - `aitbc3` `aitbc pool-hub status` reports `miners_online: 1`.
 - `docs/DESIGN_CYCLE.md` P0.1–P0.7 now marked shipped.
 - Continuation: P1 plan `/home/oib/.devin/plans/plan-2fc831ac3ccbc701.md`.
+
+## 2026-08-21 — P2.1 ZK Proofs for High-Value Jobs
+
+- Deployed `receipt_public` circuit to `apps/zk-circuits` and the in-package copy.
+- Installed node_modules (`npm install`) on hub.aitbc.
+- Set coordinator env:
+  - `COORDINATOR_ENABLE_ZK_VERIFICATION=true`
+  - `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`
+  - `COORDINATOR_ZK_REQUIRE=true`
+- Added `MemoryDenyWriteExecute=no` systemd override for `aitbc-coordinator-api` because Node/V8 requires executable memory pages for snarkjs.
+- Submitted a 0.01 AIT ZK-required AI job via `aitbc ai submit --payment 0.01 --zk-proof-required`.
+- Miner completed the job; coordinator generated and verified a `receipt_public` Groth16 proof.
+- Escrow released only after `zk_status: verified`.
+- `aitbc ai status` shows `zk_status: verified` and `zk_proof_id`.
