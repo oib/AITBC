@@ -189,6 +189,7 @@ async def get_blocks_range(
                 "timestamp": b.timestamp.isoformat(),
                 "tx_count": b.tx_count,
                 "state_root": b.state_root,
+                "block_metadata": b.block_metadata,
                 # This is the endpoint peer sync pulls from, and the receiving
                 # validator authenticates the proposer from `signature`. Omitting it
                 # here meant no follower could ever verify a block it fetched: it
