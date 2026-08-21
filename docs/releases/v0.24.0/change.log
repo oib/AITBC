@@ -557,3 +557,18 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Extended `bridge_security_status` to report `require_merkle_proof`,
   `verification_mode`, and `trusted_custodian`.
 - Ran bridge unit/security tests successfully.
+
+## P1.4 — MultiValidatorPoA soak
+
+- Added `apps/blockchain-node/tests/consensus/test_multi_validator_poa_soak.py`
+  with 1000+ round soak tests covering:
+  - round-robin proposer distribution,
+  - dynamic validator additions and removals,
+  - network partition tolerance,
+  - 100 consecutive PBFT consensus attempts.
+- Ran the full `apps/blockchain-node/tests/consensus/` suite successfully
+  (50 tests passing).
+- Updated `docs/blockchain/4_consensus.md`, `docs/DESIGN_CYCLE.md`, and
+  `docs/releases/STATUS.md` to be explicit that the live network remains
+  single-validator PoA by default (`multi_validator_consensus_enabled=False`)
+  and that MultiValidatorPoA/PBFT is opt-in.
