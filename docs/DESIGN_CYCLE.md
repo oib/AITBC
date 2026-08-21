@@ -110,7 +110,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 
 | Piece | State |
 |-------|--------|
-| Multi-validator PoA / PBFT | Code present, `multi_validator_consensus_enabled` default false |
+| Multi-validator PoA / PBFT | Code present, default false; soak test added (1000 rounds + partition/PBFT). Single-proposer mode still active. |
 | Bridge merkle proofs / multi-sig | Implemented, production defaults false |
 | ZK circuits (`apps/zk-circuits`) | Ceremony keys exist; not in job verification |
 | TEE / confidential | CLI `aitbc tee`, `aitbc confidential` — not in job pipeline |
@@ -204,7 +204,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Closes step 8 |
 | P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Mock web UI is not a product |
 | P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | STATUS.md vs production |
-| P1.4 | Soak MultiValidatorPoA; drop single-proposer | Hub is still one validator |
+| P1.4 | Soak MultiValidatorPoA; drop single-proposer | Soak test added; single-proposer `PoAProposer` still active by default because `multi_validator_consensus_enabled` is `False` |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Scenario 34 GPU offer workaround |
 | P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Group 17 is command-shaped, not cycle-shaped |
