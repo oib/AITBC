@@ -528,3 +528,100 @@ Job `6f0f890035fb46be9950cacacbd32288`:
   below the default 10 AIT high-value threshold.
 - The receipt contains the full `zk_proof` object and `zk_status: verified`.
 - `aitbc ai status` surfaces `zk_status` and `zk_proof_id` (the circuit hash).
+
+
+---
+
+# Performance bonds for high-value jobs — live validation
+
+**Date:** 2026-08-21  
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
+**Gitea `main`:** `b21d418df` — *fix(auth): add performance-bond routes to security matrix*  
+**Scenario:** `docs/scenarios/48_performance_bonds_high_value.md`
+
+## What was validated
+
+A provider performance bond was created through the canonical `aitbc` CLI. A high-value AI job that requires a bond was submitted and only assigned to the bonded miner. The job completed and escrow was released.
+
+### CLI workflow
+
+```bash
+aitbc --api-key "$CLIENT_JWT" bond create aitbc-miner-1 --amount 10 --required-amount 10
+aitbc --api-key "$CLIENT_JWT" bond status aitbc-miner-1
+```
+
+Bond status:
+
+```json
+{
+  "provider_id": "aitbc-miner-1",
+  "eligible": true,
+  "status": "active",
+  "amount": "10.00000000",
+  "required_amount": "10.00000000",
+  "bond_id": "bond-aitbc-miner-1"
+}
+```
+
+### Bond-required job
+
+```bash
+aitbc --api-key "$CLIENT_JWT" ai submit \
+  --prompt "Bonded high-value job validation" \
+  --payment 5 \
+  --bond-required \
+  --wallet genesis \
+  --buyer-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --coordinator-url http://127.0.0.1:8203 \
+  --wait --timeout 240
+```
+
+Result:
+
+```json
+{
+  "job_id": "c6260a28ac824a0b905f115510151ef1",
+  "state": "COMPLETED",
+  "payment_status": "released",
+  "escrow_tx_hash": "0xdf8debd40cecb97bc67d9ca01ebf3a091407d93c490b755dfe70b97e24236a9b",
+  "receipt": {
+    "metadata": {
+      "job_constraints": {
+        "bond_required": true,
+        "min_bond_amount": null,
+        ...
+      }
+    }
+  },
+  "status": {
+    "assigned_miner_id": "aitbc-miner-1",
+    "payment_status": "released"
+  }
+}
+```
+
+### High-value threshold job
+
+A payment of 10 AIT automatically triggered bond, ZK, and TEE gates:
+
+```bash
+aitbc --api-key "$CLIENT_JWT" ai submit \
+  --prompt "Automatic high-value bond and ZK validation" \
+  --payment 10 \
+  --wallet genesis \
+  --buyer-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --coordinator-url http://127.0.0.1:8203 \
+  --wait --timeout 300
+```
+
+Result: `COMPLETED`, `payment_status: released`, `zk_status: verified`, `tee_status: verified`.
+
+## Key observations
+
+- `aitbc bond create/status` is wired to `/v1/marketplace/providers/{id}/bonds` and `/eligibility`.
+- `aitbc ai submit --bond-required` passes `bond_required: true` and optionally `min_bond_amount`.
+- The coordinator checks `is_provider_eligible` before assigning a job that requires a bond.
+- The default `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD` is 10 AIT.
+- A payment at or above the threshold also triggers the existing ZK and TEE gates.
