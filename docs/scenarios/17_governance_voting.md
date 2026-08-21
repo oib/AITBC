@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 16 Agent Registration](./16_agent_registration.md)
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -25,7 +25,12 @@ breadcrumb: Home > Scenarios > Governance Voting
 
 ## Scenario Overview
 
-This scenario demonstrates how to create governance proposals, cast votes, and execute passed proposals on the AITBC blockchain. The governance subgroup lives under the `operations` command group and communicates with the blockchain RPC at `http://localhost:8202`.
+This scenario demonstrates two real CLI surfaces:
+
+- `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `list`, `get`, `status`, `execute`).
+- `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed proposal/vote path.
+
+Live two-node validation so far has proven `aitbc governance status`. Treat propose/vote/execute as command-shaped plays against a running governance service; they are not yet a closed on-chain parameter-change cycle (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) P1.7).
 
 ### Use Case
 
@@ -33,10 +38,10 @@ A network participant wants to propose a parameter change (e.g., adjusting the b
 
 ### What You'll Learn
 
-- How to create a governance proposal with `aitbc operations governance proposal`
-- How to cast a vote (for / against / abstain) with `aitbc operations governance vote`
-- How to retrieve proposal details and execute a passed proposal
-- How to stake tokens and delegate voting power for enhanced governance participation
+- How to inspect the live governance service with `aitbc governance status`
+- How to propose and vote through `aitbc governance` (service) and `aitbc operations governance` (RPC)
+- How to stake and delegate voting power
+- How to execute a passed proposal
 
 ---
 
@@ -61,7 +66,16 @@ A network participant wants to propose a parameter change (e.g., adjusting the b
 
 ## Step-by-Step Workflow
 
-### Step 1: Create a Governance Proposal
+### Step 0: Check the governance service
+
+```bash
+aitbc governance status
+aitbc governance list
+```
+
+**Expected output:** an operational summary from port 8105 (live on the hub). An empty proposal list is fine.
+
+### Step 1: Create a Governance Proposal (RPC path)
 
 Create a new proposal on the blockchain. The `proposal` subcommand requires a proposal ID, title, description, and a wallet name for signing. The category defaults to `general` and the voting period defaults to 7 days.
 
@@ -335,11 +349,10 @@ if wait_for_proposal_pass("prop-002"):
 
 After completing this scenario, you should be able to:
 
-- Create governance proposals using `aitbc operations governance proposal`
-- Cast votes with `aitbc operations governance vote`
-- Retrieve and monitor proposal status with `aitbc operations governance get-proposal`
-- Stake tokens and delegate voting power for greater governance influence
-- Execute passed proposals with `aitbc operations governance execute`
+- Inspect the live governance service with `aitbc governance status` / `list`
+- Create proposals and cast votes with `aitbc operations governance` (RPC) or `aitbc governance propose` / `vote` (service)
+- Stake tokens and delegate voting power
+- Execute a passed proposal
 
 ---
 
@@ -348,27 +361,12 @@ After completing this scenario, you should be able to:
 Verify that the governance workflow completed successfully:
 
 ```bash
-# Check the proposal status after voting
+aitbc governance status
+aitbc governance list
 aitbc operations governance get-proposal prop-001
-
-# Verify voting power was updated
-aitbc operations governance voting-power 0xabc123def456...
-
-# Confirm execution result
-aitbc operations governance get-proposal prop-001 --format json
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 
@@ -378,5 +376,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

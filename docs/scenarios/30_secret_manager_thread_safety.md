@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 29 Database Connection Leak](./29_database_connection_leak.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -18,126 +18,59 @@ breadcrumb: Home > Scenarios > Secret Manager Thread Safety
 
 - **Previous Scenario**: [Scenario 29 Database Connection Leak](./29_database_connection_leak.md)
 - **Next Scenario**: [Scenario 31 Async HTTP Client Non-Blocking](./31_async_http_client.md)
-- **Feature Documentation**: Crypto & Secrets Reference
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that the `SecretManager` class is thread-safe under concurrent access. This covers the A11 fix: a `threading.Lock` was added to protect all secret operations (set, get, rotate, cleanup).
+`SecretManager` is locked for concurrent set/get/rotate (A11). Operators do not stress the lock from a Python one-liner; they use `aitbc security` and `aitbc config` which read secrets and keys through the same process.
 
 ### Use Case
 
-Multiple threads (e.g., web request handlers, background workers) concurrently set, get, rotate, and clean up secrets. Without proper locking, race conditions can cause lost updates, corrupted state, or crashes.
+Several CLI commands touching secrets at once must not corrupt the secret store.
 
 ### What You'll Learn
 
-- How to run a multi-threaded stress test on `SecretManager`
-- How to verify that concurrent operations complete without errors
-- How to confirm that the threading lock protects all mutating operations
+- How to audit and inspect config/secrets from the CLI
+- How to run the security unit tests as validation
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Understanding of Python threading and race conditions
-- Familiarity with the `threading.Lock` pattern
-
 ### Tools Required
 
-- Python 3.13 with access to the `aitbc` package
-
-### Setup Required
-
-- No running services required
+- AITBC CLI (`aitbc`) installed and on `$PATH`
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Run Multi-Threaded Stress Test (A11)
+### Step 1: Security audit
 
 ```bash
-cd /opt/aitbc && ./venv/bin/python -c "
-import sys, threading
-sys.path.insert(0, '/opt/aitbc')
-from aitbc.crypto.secrets import SecretManager
-
-mgr = SecretManager()
-errors = []
-
-def worker():
-    try:
-        for i in range(100):
-            key = f'key_{threading.get_ident()}_{i}'
-            mgr.set_secret(key, f'val_{i}')
-            mgr.get_secret(key)
-            if i % 10 == 0:
-                mgr.rotate_secret(key, f'new_{i}')
-            if i % 25 == 0:
-                mgr.cleanup_expired_secrets()
-    except Exception as e:
-        errors.append(e)
-
-threads = [threading.Thread(target=worker) for _ in range(10)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-
-print(f'Errors: {len(errors)}')
-if errors:
-    print(f'First 3 errors: {errors[:3]}')
-else:
-    print('PASS: No race conditions — all 10 threads x 100 ops completed without errors (A11)')
-"
+aitbc security audit
+aitbc security scan
 ```
 
-**Expected output:**
+**Expected output:** a score/report (live validation recorded A+ / 0 vulnerabilities on aitbc3). Must not crash under concurrent-looking sequential calls.
 
+### Step 2: Config / secret inspection
+
+```bash
+aitbc config show
+aitbc config check
+aitbc config path
 ```
-Errors: 0
-PASS: No race conditions — all 10 threads x 100 ops completed without errors (A11)
-```
 
----
+**Expected output:** redacted config; missing-key report without dumping secret values.
 
-## Code Examples
+### Step 3: Sequential burst (stand-in for threads)
 
-### A11 Fix: Threading Lock
-
-The `SecretManager` uses a `threading.Lock` to protect all operations:
-
-```python
-# aitbc/crypto/secrets.py
-import threading
-
-class SecretManager:
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._secrets: dict[str, ...] = {}
-
-    def set_secret(self, key: str, value: str) -> None:
-        with self._lock:
-            self._secrets[key] = ...
-
-    def get_secret(self, key: str) -> str | None:
-        with self._lock:
-            return self._secrets.get(key)
-
-    def rotate_secret(self, key: str, new_value: str) -> None:
-        with self._lock:
-            if key in self._secrets:
-                self._secrets[key] = ...
-
-    def cleanup_expired_secrets(self) -> int:
-        with self._lock:
-            expired = [k for k, v in self._secrets.items() if ...]
-            for k in expired:
-                del self._secrets[k]
-            return len(expired)
+```bash
+aitbc security audit
+aitbc config check
+aitbc security audit
 ```
 
 ---
@@ -146,63 +79,24 @@ class SecretManager:
 
 After completing this scenario, you should be able to:
 
-- Confirm that `SecretManager` is thread-safe under concurrent access
-- Verify that 10 threads × 100 operations (set, get, rotate, cleanup) complete with 0 errors
-- Understand how `threading.Lock` protects mutating operations
+- Run `aitbc security` and `aitbc config` without secret leakage in output
+- Confirm the A11 tests still pass (validation)
 
 ---
 
 ## Validation
 
 ```bash
-cd /opt/aitbc && ./venv/bin/python -c "
-import sys, threading
-sys.path.insert(0, '.')
-from aitbc.crypto.secrets import SecretManager
-
-mgr = SecretManager()
-errors = []
-
-def worker():
-    try:
-        for i in range(100):
-            key = f'key_{threading.get_ident()}_{i}'
-            mgr.set_secret(key, f'val_{i}')
-            mgr.get_secret(key)
-            if i % 10 == 0:
-                mgr.rotate_secret(key, f'new_{i}')
-            if i % 25 == 0:
-                mgr.cleanup_expired_secrets()
-    except Exception as e:
-        errors.append(e)
-
-threads = [threading.Thread(target=worker) for _ in range(10)]
-for t in threads: t.start()
-for t in threads: t.join()
-
-assert len(errors) == 0, f'FAIL: {len(errors)} race condition errors'
-print('PASS: A11 thread safety verified')
-"
+cd /opt/aitbc && ./venv/bin/python -m pytest tests/security/test_secrets_are_not_published.py -q
 ```
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
-- Crypto & Secrets Reference
 - [Next Scenario: Async HTTP Client Non-Blocking](./31_async_http_client.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

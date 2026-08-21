@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 27 CLI Commands](./27_cli_commands.md)
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -18,219 +18,73 @@ breadcrumb: Home > Scenarios > HTTP Client Resource Cleanup
 
 - **Previous Scenario**: [Scenario 27 CLI Commands](./27_cli_commands.md)
 - **Next Scenario**: [Scenario 29 Database Connection Leak](./29_database_connection_leak.md)
-- **Feature Documentation**: HTTP Client Reference
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that HTTP clients in the AITBC codebase properly close their underlying `httpx.AsyncClient` connections and emit `__del__` warnings when not properly closed. This covers the A12 (edge clients), A13 (CLI HTTP client), and A14 (bridge/trading clients) fixes.
+HTTP clients (`AITBCHTTPClient`, `BridgeClient`, edge RPC clients) must close their `httpx` sessions. Unclosed clients emit a `__del__` warning (A12/A13/A14). Operators exercise those clients by running ordinary CLI commands that open and close them.
 
 ### Use Case
 
-When HTTP clients are created but not properly closed (e.g., not used as a context manager), file descriptors and TCP connections leak. The fixes add `__del__` methods that warn about unclosed clients and `close()` methods that set the client to `None` after closing.
+After a burst of CLI calls, the edge process FD count stays flat and CLI commands complete without leaking sockets.
 
 ### What You'll Learn
 
-- How to verify that `__del__` warnings are emitted for unclosed HTTP clients
-- How to confirm that context managers properly close clients (no warning)
-- How to check file descriptor stability under load on the live edge service
+- Which CLI commands open the HTTP clients under test
+- How to notice an `AITBCHTTPClient was not properly closed` warning
+- How to confirm FD stability (validation)
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Understanding of Python context managers and `__del__` methods
-- Familiarity with `httpx.AsyncClient` lifecycle
-
 ### Tools Required
 
-- Python 3.13 with access to `aitbc` and `aitbc_edge` packages
-- `curl` (for load testing)
+- AITBC CLI (`aitbc`) installed and on `$PATH`
 
 ### Setup Required
 
-- A running edge service on port 8111
+- Edge / GPU / bridge RPC reachable for the live probes
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Test BridgeClient **del** Warning (A14)
+### Step 1: CLI HTTP client (A13)
 
 ```bash
-cd /opt/aitbc && ./venv/bin/python -c "
-import sys, warnings, asyncio, gc
-sys.path.insert(0, '/opt/aitbc')
-from aitbc.bridge.client import BridgeClient
-
-# Test 1: Create client, force client creation, don't close
-print('Test 1: BridgeClient without close...')
-with warnings.catch_warnings(record=True) as w:
-    warnings.simplefilter('always')
-    async def test_noclose():
-        client = BridgeClient()
-        client._ensure_client()  # Force httpx.AsyncClient creation
-        return client
-    client = asyncio.run(test_noclose())
-    del client
-    gc.collect()
-    if any('not properly closed' in str(x.message) for x in w):
-        print('PASS: __del__ warning emitted for unclosed BridgeClient')
-    else:
-        print('FAIL: no __del__ warning')
-
-# Test 2: Use with context manager — should NOT warn
-print()
-print('Test 2: BridgeClient with context manager...')
-with warnings.catch_warnings(record=True) as w:
-    warnings.simplefilter('always')
-    async def test():
-        async with BridgeClient() as client:
-            client._ensure_client()
-    asyncio.run(test())
-    gc.collect()
-    if not any('not properly closed' in str(x.message) for x in w):
-        print('PASS: no warning when using context manager')
-    else:
-        print(f'FAIL: unexpected warning')
-"
+aitbc agent list
+aitbc explorer chain-head
 ```
 
-**Expected output:**
+**Expected output:** a normal table/JSON payload. A `UserWarning: AITBCHTTPClient was not properly closed` may still appear from helpers that do not use a context manager — that warning **is** the A13 safety net, not a failure of the play.
 
-```
-Test 1: BridgeClient without close...
-PASS: __del__ warning emitted for unclosed BridgeClient
-
-Test 2: BridgeClient with context manager...
-PASS: no warning when using context manager
-```
-
-### Step 2: Test Edge BlockchainRPCClient (A12)
+### Step 2: Bridge client (A14)
 
 ```bash
-cd /opt/aitbc && PYTHONPATH=apps/edge/src:/opt/aitbc ./venv/bin/python -c "
-import sys, warnings, asyncio, gc
-
-# Test 1: Create without closing
-print('Test 1: BlockchainRPCClient without close...')
-with warnings.catch_warnings(record=True) as w:
-    warnings.simplefilter('always')
-    from aitbc_edge.clients.blockchain_rpc import BlockchainRPCClient
-    client = BlockchainRPCClient()
-    del client
-    gc.collect()
-    if any('not properly closed' in str(x.message) for x in w):
-        print('PASS: __del__ warning emitted')
-    else:
-        print('FAIL: no __del__ warning')
-
-# Test 2: Use with context manager
-print()
-print('Test 2: BlockchainRPCClient with context manager...')
-with warnings.catch_warnings(record=True) as w:
-    warnings.simplefilter('always')
-    async def test():
-        async with BlockchainRPCClient() as client:
-            pass
-    asyncio.run(test())
-    gc.collect()
-    if not any('not properly closed' in str(x.message) for x in w):
-        print('PASS: no warning when using context manager')
-    else:
-        print(f'FAIL: unexpected warning')
-"
+aitbc bridge health
+aitbc bridge pending
 ```
 
-**Expected output:**
+**Expected output:** health/pending payloads. These go through `BridgeClient` as an async context manager (no warning on the happy path).
 
-```
-Test 1: BlockchainRPCClient without close...
-PASS: __del__ warning emitted
-
-Test 2: BlockchainRPCClient with context manager...
-PASS: no warning when using context manager
-```
-
-### Step 3: Verify CLI HTTP Client **del** Warning (A13)
-
-Run any CLI command and check for the `AITBCHTTPClient was not properly closed` warning:
+### Step 3: Edge / GPU clients (A12)
 
 ```bash
-aitbc agent list 2>&1 | grep "not properly closed"
+aitbc gpu list-gpus
+aitbc edge status
 ```
 
-**Expected output:**
+**Expected output:** GPU list from 8101; edge status from the configured coordinator URL.
 
-```
-/opt/aitbc/cli/aitbc_cli/utils/chain_id.py:90: UserWarning: AITBCHTTPClient was not properly closed
-```
-
-(This warning comes from the `__del__` safety net in the CLI's HTTP client utility.)
-
-### Step 4: Verify FD Stability Under Load (Live Service)
+### Step 4: Repeat under load (CLI, not curl)
 
 ```bash
-EDGE_PID=$(pgrep -f "aitbc_edge" | head -1)
-echo "FDs before: $(ls /proc/$EDGE_PID/fd 2>/dev/null | wc -l)"
-
-# Send 200 requests
-for i in $(seq 1 200); do curl -sf http://localhost:8111/health > /dev/null 2>&1; done
-
-echo "FDs after 200 requests: $(ls /proc/$EDGE_PID/fd 2>/dev/null | wc -l)"
+for i in $(seq 1 20); do aitbc gpu list-gpus >/dev/null; done
 ```
 
-**Expected output:**
-
-```
-FDs before: 16
-FDs after 200 requests: 16
-```
-
-(FD count should remain stable — no leak.)
-
----
-
-## Code Examples
-
-### **del** Safety Net (A12/A13/A14)
-
-All HTTP clients now have a `__del__` method that warns if the client wasn't properly closed:
-
-```python
-# aitbc/bridge/client.py (A14)
-def __del__(self) -> None:
-    if hasattr(self, "_client") and self._client is not None:
-        import warnings
-        warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)
-
-# apps/edge/src/aitbc_edge/clients/blockchain_rpc.py (A12)
-def __del__(self):
-    if hasattr(self, "client") and self.client is not None:
-        import warnings
-        warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)
-```
-
-### close() Must Set Client to None
-
-The `close()` method must set `self.client = None` after closing, otherwise `__del__` will warn even after proper cleanup:
-
-```python
-# CORRECT — close() sets client to None
-async def close(self) -> None:
-    if self.client:
-        await self.client.aclose()
-        self.client = None  # prevents false __del__ warning
-
-# INCORRECT — close() doesn't clear the reference
-async def close(self) -> None:
-    if self.client:
-        await self.client.aclose()
-        # missing: self.client = None — __del__ will still warn!
-```
+**Expected output:** 20 successful invocations. FD check is validation below.
 
 ---
 
@@ -238,59 +92,30 @@ async def close(self) -> None:
 
 After completing this scenario, you should be able to:
 
-- Confirm that `__del__` warnings are emitted for unclosed HTTP clients
-- Verify that context managers properly close clients (no warning)
-- Check that the live edge service maintains stable FD counts under load
-- Identify the `close()` must set `client = None` pattern to prevent false warnings
+- Exercise CLI, bridge, and GPU HTTP clients from `aitbc`
+- Recognize `__del__` warnings as a safety net
+- Confirm the edge process does not leak FDs after a CLI burst
 
 ---
 
 ## Validation
 
 ```bash
-# BridgeClient __del__ warning
-cd /opt/aitbc && ./venv/bin/python -c "
-import sys, warnings, asyncio, gc
-sys.path.insert(0, '.')
-from aitbc.bridge.client import BridgeClient
-with warnings.catch_warnings(record=True) as w:
-    warnings.simplefilter('always')
-    async def t():
-        c = BridgeClient()
-        c._ensure_client()
-        return c
-    c = asyncio.run(t())
-    del c; gc.collect()
-    assert any('not properly closed' in str(x.message) for x in w)
-    print('PASS: A14 __del__ warning')
-"
+cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit/test_http_pool.py -q
 
-# FD stability
 EDGE_PID=$(pgrep -f "aitbc_edge" | head -1)
-BEFORE=$(ls /proc/$EDGE_PID/fd | wc -l)
-for i in $(seq 1 100); do curl -sf http://localhost:8111/health > /dev/null 2>&1; done
-AFTER=$(ls /proc/$EDGE_PID/fd | wc -l)
-echo "FDs: $BEFORE -> $AFTER (should be equal)"
+if [ -n "$EDGE_PID" ]; then
+  echo "FDs: $(ls /proc/$EDGE_PID/fd 2>/dev/null | wc -l)"
+fi
 ```
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
-- HTTP Client Reference
 - [Next Scenario: Database Connection Leak](./29_database_connection_leak.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*
