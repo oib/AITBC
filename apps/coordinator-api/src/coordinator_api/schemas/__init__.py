@@ -291,6 +291,7 @@ class JobCreate(BaseModel):
 
 
 class JobView(BaseModel):
+    # v0.24.0: include payload and result so dashboards can show model and output
     job_id: str
     state: JobState
     assigned_miner_id: str | None = None
@@ -300,6 +301,8 @@ class JobView(BaseModel):
     payment_id: str | None = None
     payment_status: str | None = None
     zk_status: str | None = None
+    payload: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None
     zk_proof_id: str | None = None
 
 
