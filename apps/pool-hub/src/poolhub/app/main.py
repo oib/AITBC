@@ -11,6 +11,7 @@ from ..services.billing_integration import BillingIntegrationScheduler
 from ..services.sla_collector import SLACollectorScheduler
 from ..settings import settings
 from .routers import health_router, match_router, metrics_router
+from .routers.miners import router as miners_router
 from .routers.parameters import router as parameters_router
 from .routers.services import router as services_router
 from .routers.sla import router as sla_router
@@ -72,6 +73,7 @@ app.include_router(match_router, prefix="/v1")
 app.include_router(health_router)
 app.include_router(metrics_router)
 app.include_router(services_router, prefix="/v1")
+app.include_router(miners_router, prefix="/v1")
 app.include_router(ui_router)
 app.include_router(validation_router, prefix="/v1")
 app.include_router(sla_router, prefix="/v1")
