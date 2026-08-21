@@ -122,9 +122,8 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
         return None
     try:
         with session_scope() as session:
-            address = provider.lower().strip()
-            if not address.startswith("0x"):
-                address = "0x" + address
+            canonical = canonical_address(provider)
+            address = canonical if canonical else provider.lower().strip()
             account = session.get(Account, (chain_id, address))
             if not account:
                 _logger.warning("AUTO_STAKE: no account for %s, creating with zero balance", address)
