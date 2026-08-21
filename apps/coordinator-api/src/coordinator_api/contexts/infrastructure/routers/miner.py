@@ -290,7 +290,7 @@ async def submit_result(
                         if reinvest_stake_id:
                             receipt["reinvest_status"] = "staked"
                             receipt["reinvest_stake_id"] = reinvest_stake_id
-                            job.receipt = receipt
+                            job.receipt = dict(receipt)
                 except Exception as e:
                     logger.warning("Could not attach reinvestment info to receipt: %s", e)
             session.commit()
