@@ -14,11 +14,41 @@ DEFAULT_POOL_HUB_URL = "http://localhost:8210"
 
 
 def _default_pool_hub_url() -> str:
-    """Default to the local pool-hub (8210); allow overrides via env."""
+    """Resolve the pool-hub URL.
+
+    The pool-hub service runs on the hub (port 8210).  On shop/follower nodes
+    we use the public hub path, discovered from HUB_RPC_URL/HUB_DISCOVERY_URL.
+    The NODE_ROLE environment variable (set in /etc/aitbc/node.env) lets a hub
+    node keep using localhost.
+    """
     explicit = os.getenv("POOL_HUB_URL") or os.getenv("HUB_POOL_HUB_URL")
     if explicit:
         return explicit.rstrip("/")
+
+    node_role = os.getenv("NODE_ROLE", "")
+    if node_role == "hub" or os.path.exists("/etc/aitbc/node.env") and _is_hub_node():
+        return DEFAULT_POOL_HUB_URL
+
+    try:
+        from aitbc.config.hub import hub_discovery_host
+        host = hub_discovery_host()
+        if host:
+            return f"http://{host}/pool-hub"
+    except Exception:
+        pass
+
     return DEFAULT_POOL_HUB_URL
+
+
+def _is_hub_node() -> bool:
+    try:
+        with open("/etc/aitbc/node.env") as f:
+            for line in f:
+                if line.startswith("NODE_ROLE=") and line.strip().split("=", 1)[1].lower() == "hub":
+                    return True
+    except Exception:
+        pass
+    return False
 
 
 @click.group()
