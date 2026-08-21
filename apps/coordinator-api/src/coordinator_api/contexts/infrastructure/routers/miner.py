@@ -1,5 +1,6 @@
-from decimal import Decimal
+import os
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -10,13 +11,72 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import MinerDep
-from ....schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
+from ....schemas import AssignedJob, JobFailSubmit, JobResult, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest, Receipt
 from ....services import JobService, MinerService
 from ...infrastructure.services.receipts import ReceiptService
+from ...zk_applications.services.zk_proofs import zk_proof_service
 from ....storage import get_session
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
+
+# P2.1: high-value jobs require a ZK receipt proof before escrow release.
+# -1 disables the threshold, 0 always requires a proof, default 10 AIT.
+_ZK_THRESHOLD_AIT = float(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
+_ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
+
+
+def _zk_required_for(job: Any) -> bool:
+    """Return True if this job's payment triggers the ZK-proof gate."""
+    if _ZK_THRESHOLD_AIT < 0:
+        return False
+    if job.constraints and job.constraints.get("zk_proof_required"):
+        return True
+    payment_amount = float(job.payment_amount or 0)
+    return _ZK_THRESHOLD_AIT == 0 or payment_amount >= _ZK_THRESHOLD_AIT
+
+
+async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Generate and attach a receipt_public Groth16 proof when required."""
+    if not receipt:
+        return receipt
+    if not _zk_required_for(job):
+        receipt["zk_status"] = "not_required"
+        return receipt
+    if not zk_proof_service.is_enabled():
+        logger.warning("ZK proof required for job %s but ZK service is not enabled", job.id)
+        receipt["zk_status"] = "service_unavailable"
+        return receipt
+    try:
+        receipt_model = Receipt(
+            receiptId=receipt.get("receipt_id", ""),
+            miner=receipt.get("provider", ""),
+            coordinator=receipt.get("coordinator", ""),
+            issuedAt=datetime.fromtimestamp(receipt.get("completed_at", 0), tz=UTC),
+            status=receipt.get("status", "completed"),
+            payload=receipt,
+        )
+        job_result = JobResult(result=result or {})
+        proof = await zk_proof_service.generate_receipt_proof(receipt_model, job_result)
+        if not proof:
+            logger.error("Failed to generate ZK proof for job %s", job.id)
+            receipt["zk_status"] = "generation_failed"
+            return receipt
+        # Inline verification so the receipt only stores a verified proof.
+        verify_result = await zk_proof_service.verify_proof(
+            proof["proof"], proof["public_signals"], circuit_name=proof.get("circuit", "receipt_public")
+        )
+        if not verify_result.get("verified"):
+            logger.error("ZK proof did not verify for job %s: %s", job.id, verify_result.get("error"))
+            receipt["zk_status"] = f"verification_failed: {verify_result.get('error', 'unknown')}"
+            return receipt
+        receipt["zk_proof"] = proof
+        receipt["zk_status"] = "verified"
+        logger.info("ZK receipt proof generated and verified for job %s", job.id)
+    except Exception as e:
+        logger.error("Error generating ZK proof for job %s: %s", job.id, e)
+        receipt["zk_status"] = f"error: {e}"
+    return receipt
 
 
 @router.post("/miners/register", summary="Register or update miner")
@@ -88,6 +148,7 @@ async def submit_result(
         duration_ms = int((now - requested_at).total_seconds() * 1000)
         metrics["duration_ms"] = duration_ms
     receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
+    receipt = await _attach_zk_proof(receipt, job, req.result)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     session.add(job)
@@ -99,9 +160,24 @@ async def submit_result(
         # V23-46: release_payment(client_id, job_id, payment_id, reason). This is the
         # miner router, so user["sub"] is the miner -- the owning client is job.client_id,
         # which is what _require_owned_job checks against.
-        success = await payment_service.release_payment(
-            job.client_id, job.id, job.payment_id, reason="Job completed successfully"
-        )
+        # P2.1: high-value jobs only release when a verified ZK proof is present.
+        if _zk_required_for(job):
+            zk_status = (receipt or {}).get("zk_status")
+            if zk_status != "verified":
+                job.error = f"ZK proof required before escrow release (status: {zk_status})"
+                session.commit()
+                logger.error(
+                    "Escrow release blocked for job %s: ZK status %s", job.id, zk_status
+                )
+                success = False
+            else:
+                success = await payment_service.release_payment(
+                    job.client_id, job.id, job.payment_id, reason="Job completed successfully"
+                )
+        else:
+            success = await payment_service.release_payment(
+                job.client_id, job.id, job.payment_id, reason="Job completed successfully"
+            )
         if success:
             job.payment_status = "released"
             session.commit()

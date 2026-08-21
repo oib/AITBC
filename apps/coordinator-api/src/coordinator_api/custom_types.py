@@ -5,7 +5,7 @@ Shared types and enums for the AITBC Coordinator API
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class JobState(StrEnum):
@@ -24,4 +24,5 @@ class Constraints(BaseModel):
     models: list[str] | None = None
     region: str | None = None
     max_price: Decimal | None = None
+    zk_proof_required: bool = Field(default=False, description="Require a ZK receipt proof for this job")
     min_reputation: float | None = None

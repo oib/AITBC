@@ -299,6 +299,8 @@ class JobView(BaseModel):
     error: str | None = None
     payment_id: str | None = None
     payment_status: str | None = None
+    zk_status: str | None = None
+    zk_proof_id: str | None = None
 
 
 class JobResult(BaseModel):
