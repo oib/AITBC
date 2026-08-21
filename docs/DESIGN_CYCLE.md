@@ -195,7 +195,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Config/docs lie today |
 | P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
 | P0.6 | One on-ramp play: `aitbc wallet fund` against `/rpc/faucet` with bech32/0x support | Shipped: CLI path to the live faucet (Phase 4) |
-| P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Operators pick the wrong group |
+| P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Shipped: updated group docstrings, `cli/README.md` disambiguation, help-output tests (Phase 5) |
 
 ### P1 — make the loop trustless and operable
 
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phases 1–4 shipped)*
+*Last updated: 2026-08-21 (Phases 1–5 shipped)*
