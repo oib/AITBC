@@ -329,7 +329,8 @@ def build_tee_quote(job):
         from aitbc.tee import QuoteGenerator
 
         enclave_id = constraints.get("tee_enclave_id") or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
-        quote = QuoteGenerator(enclave_id).generate(measurement=enclave_id)
+        job_id = job.get("job_id", "unknown-job")
+        quote = QuoteGenerator(enclave_id).generate(quote_id=job_id, measurement=enclave_id)
         return base64.b64encode(quote.quote_blob).decode("ascii")
     except Exception as e:
         logger.warning("Failed to generate TEE quote for job %s: %s", job.get("job_id"), e)
