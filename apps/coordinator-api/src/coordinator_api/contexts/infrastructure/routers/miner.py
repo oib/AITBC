@@ -242,7 +242,7 @@ async def list_miner_jobs(
             filters["job_type"] = job_type
         if job_status:
             try:
-                filters["state"] = JobState(job_status.upper())
+                filters["state"] = JobState(job_status.upper()).value
             except ValueError:
                 pass
         jobs = service.list_jobs(assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
@@ -276,7 +276,7 @@ async def get_miner_earnings(
         job_service = JobService(session)
         completed_jobs = job_service.list_jobs(
             assigned_miner_id=miner_id,
-            state=JobState.COMPLETED,
+            state=JobState.COMPLETED.value,
             limit=10000,
             offset=0,
         )
