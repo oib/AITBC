@@ -243,14 +243,10 @@ class PaymentService:
         try:
             client = AITBCHTTPClient(timeout=30.0)
             try:
+                # V23-47: refund is an escrow contract operation, not a wallet endpoint.
                 refund_data = client.post(
-                    f"{self.wallet_base_url}/api/v1/refund",
-                    json={
-                        "payment_id": payment_id,
-                        "address": payment.refund_address,
-                        "amount": str(payment.amount),
-                        "reason": reason,
-                    },
+                    f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
+                    json={"reason": reason},
                 )
                 payment.status = "refunded"
                 payment.refunded_at = datetime.now(UTC)
