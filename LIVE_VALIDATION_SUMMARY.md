@@ -372,10 +372,15 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
 
 - 2026-08-21: P2.7 compliance / plugins / white-label validation:
   - `aitbc brand show` returns default AITBC brand.
+  - `aitbc brand list` returns available plugin names.
   - `AITBC_BRAND_NAME=EnvCo aitbc brand show` returns the overridden name.
   - `aitbc plugin list` returns `hermes`, `openclaw`, `whitelabel_demo`.
   - `aitbc plugin load whitelabel_demo` returns DemoHub brand and roles.
-  - `AITBC_ACTIVE_PLUGIN=whitelabel_demo aitbc brand show` returns DemoHub brand.
+  - `aitbc plugin create --name mybrand --output /tmp/plugins` writes a loadable
+    `mybrand.py`; `plugin load mybrand` and `AITBC_ACTIVE_PLUGIN=mybrand` work.
+  - `aitbc compliance check --framework hipaa --classification public` returns `allowed: false`.
+  - `aitbc compliance check --framework hipaa --classification phi` returns `allowed: true`.
+  - `aitbc compliance classify public` returns `sensitive: false`; `classify phi` returns `sensitive: true`.
   - `aitbc ai submit --compliance-framework hipaa --classification public` is rejected.
   - `aitbc ai submit --compliance-framework hipaa --classification phi` passes
     the compliance hook and attaches `data_classification: phi` to the job constraints.

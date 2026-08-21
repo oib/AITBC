@@ -9,57 +9,85 @@ from pathlib import Path
 
 import click
 
+from aitbc_agent_core.branding import BrandSettings
 from aitbc_agent_core.plugins import PluginManager
 
 from ..utils import output, success
 
 
+def _default_roles() -> dict[str, str]:
+    return {
+        "Provider": f"{name}-provider" if "name" in locals() else "provider",
+        "Consumer": f"{name}-consumer" if "name" in locals() else "consumer",
+        "Validator": f"{name}-validator" if "name" in locals() else "validator",
+        "Arbiter": f"{name}-arbiter" if "name" in locals() else "arbiter",
+    }
+
+
 @click.group()
 def plugin():
-    """Scaffold and manage AITBC plugins."""
+    """Scaffold and manage AITBC white-label brand plugins."""
     pass
 
 
 @plugin.command("create")
-@click.option("--type", "plugin_type", required=True, help="Plugin type")
+@click.option("--type", "plugin_type", default="brand", help="Plugin type (metadata only)")
 @click.option("--name", required=True, help="Plugin name")
 @click.option("--output", "output_dir", default=".", help="Output directory")
 @click.pass_context
 def create_plugin(ctx, plugin_type: str, name: str, output_dir: str):
-    """Create a plugin manifest and skeleton."""
-    target = Path(output_dir) / name
-    target.mkdir(parents=True, exist_ok=True)
+    """Create a brand plugin skeleton that PluginManager can load.
+
+    Writes a single <name>.py file into <output_dir> with the brand, roles, and
+    identity_method that the white-label loader expects. A plugin-manifest.json
+    is also written for documentation but is not required by the loader.
+    """
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    plugin_file = out_dir / f"{name}.py"
+    plugin_file.write_text(
+        f'''"""{name} white-label brand plugin for AITBC."""
+
+from aitbc_agent_core.branding import BrandSettings
+
+brand = BrandSettings(
+    name="{name.title()}",
+    token_symbol="{name.upper()[:4]}",
+    token_name="{name.title()} Token",
+    network_name="{name.title()} Network",
+    dao_name="{name.title()} DAO",
+    wallet_name="{name.title()} Wallet",
+    explorer_name="{name.title()} Explorer",
+)
+
+roles = {{
+    "Provider": "{name}-provider",
+    "Consumer": "{name}-consumer",
+    "Validator": "{name}-validator",
+    "Arbiter": "{name}-arbiter",
+}}
+
+identity_method = "did:{name}"
+''',
+        encoding="utf-8",
+    )
 
     manifest = {
         "name": name,
         "version": "0.1.0",
         "type": plugin_type,
-        "entry_point": f"{name}.plugin:register",
-        "hooks": ["onResourceDiscovery", "onNegotiationStart", "onProofGeneration", "onVerificationSuccess"],
+        "entry_point": f"{name}.py",
+        "hooks": ["onBrandDiscovery", "onNegotiationStart", "onProofGeneration", "onVerificationSuccess"],
         "config": {},
     }
-    manifest_path = target / "plugin-manifest.json"
-
+    manifest_path = out_dir / f"{name}-manifest.json"
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
-    plugin_file = target / "plugin.py"
-    plugin_file.write_text(
-        f"""\"\"\"{name} plugin for AITBC.\"\"\"
-
-from aitbc_core.plugins.manifest import PluginHookRegistry
-
-
-def register(registry: PluginHookRegistry, config: dict) -> None:
-    \"\"\"Register plugin hooks.\"\"\"
-    registry.register("onResourceDiscovery", lambda ctx: ctx)
-""",
-        encoding="utf-8",
-    )
-
-    if ctx.obj["output"] == "table":
-        success(f"Plugin '{name}' created at {target}")
-    output({"plugin_path": str(target), "manifest": manifest}, ctx.obj["output"])
+    if ctx.obj.get("output") == "table":
+        success(f"Plugin '{name}' created at {plugin_file}")
+    output({"plugin_path": str(plugin_file), "manifest_path": str(manifest_path), "manifest": manifest}, ctx.obj.get("output", "table"))
 
 
 @plugin.command("list")
