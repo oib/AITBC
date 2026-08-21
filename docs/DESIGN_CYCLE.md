@@ -190,7 +190,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | # | Wish | Why |
 |---|------|-----|
 | P0.1 | `aitbc auth login` so jobs do not require ad-hoc Python JWT | Shipped as CLI wallet-signed login against `/v1/login` (Phase 2) |
-| P0.2 | Shop miner registers with **hub** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Completes hub-visible capacity |
+| P0.2 | Shop miner registers with **shop** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Shipped: `/v1/miners/register` and `/v1/miners/heartbeat` in pool-hub; production miner registers and heartbeats (Phase 7) |
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Removes single-key settlement |
 | P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Config/docs lie today |
 | P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phases 1–6 shipped)*
+*Last updated: 2026-08-21 (Phases 1–7 shipped)*
