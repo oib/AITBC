@@ -12,8 +12,25 @@ from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
+from ....contexts.marketplace.domain.provider_bond import is_provider_eligible
 
 logger = get_logger(__name__)
+
+# P2.3: high-value jobs require an active/locked provider performance bond.
+_BOND_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_BOND_HIGH_VALUE_THRESHOLD", "10"))
+_BOND_REQUIRE = os.getenv("COORDINATOR_BOND_REQUIRE", "false").lower() == "true"
+
+
+def _bond_required_for(job: Job) -> bool:
+    """Return True if the job requires a performance bond check."""
+    constraints = Constraints(**job.constraints) if isinstance(job.constraints, dict) else Constraints()
+    if constraints.bond_required:
+        return True
+    if _BOND_REQUIRE:
+        return True
+    if job.payment_amount is not None and _BOND_THRESHOLD_AIT >= 0:
+        return job.payment_amount >= _BOND_THRESHOLD_AIT
+    return False
 
 
 
@@ -223,6 +240,15 @@ class JobService:
         if constraints.min_reputation is not None:
             if self._get_miner_reputation(miner) < constraints.min_reputation:
                 return False
+
+        if _bond_required_for(job):
+            eligible = is_provider_eligible(self.session, miner.id)
+            if not eligible:
+                logger.info(
+                    "Job %s requires a performance bond; miner %s is not eligible", job.id, miner.id
+                )
+                return False
+
         return True
 
     def _get_miner_reputation(self, miner: Miner) -> float:
