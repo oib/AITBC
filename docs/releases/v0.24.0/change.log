@@ -658,3 +658,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - `docs/ops/aitbc-cli-live-setup.md`: new guide covering coordinator URL, JWT generation, client/shop commands, and governance live setup.
 - `docs/scenarios/34_hub_customer_node_e2e.md`, `docs/scenarios/07_ai_job_submission.md`, `docs/scenarios/17_governance_voting.md`: cross-reference the live setup guide and use the correct `http://hub.aitbc.bubuit.net/c/v1` coordinator URL.
+
+- fix(payments): `PaymentService.refund_payment` now calls the blockchain
+  escrow `/rpc/escrow/{job_id}/refund` endpoint instead of the non-existent
+  wallet `/api/v1/refund` endpoint.
