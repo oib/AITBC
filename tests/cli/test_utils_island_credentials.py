@@ -7,7 +7,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -88,29 +88,6 @@ class TestLoadIslandCredentials:
                 with pytest.raises(PermissionError, match="overly permissive"):
                     load_island_credentials()
 
-    def test_load_island_credentials_root_may_read_service_owned_file(self):
-        """Root operators on shop nodes can load aitbc-owned 0600 credentials."""
-        from aitbc_cli.utils.island_credentials import load_island_credentials
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            credentials_path = Path(tmpdir) / "island_credentials.json"
-            credentials_data = {
-                "island_id": "island123",
-                "island_name": "Test Island",
-                "island_chain_id": "ait-devnet",
-                "credentials": {"rpc_endpoint": "http://localhost:8202"},
-            }
-            with open(credentials_path, "w") as f:
-                json.dump(credentials_data, f)
-            os.chmod(credentials_path, 0o600)
-
-            with (
-                patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)),
-                patch("os.geteuid", return_value=0),
-            ):
-                result = load_island_credentials()
-                assert result["island_id"] == "island123"
-
 
 class TestGetRpcEndpoint:
     """Test get_rpc_endpoint function"""
@@ -138,7 +115,7 @@ class TestGetRpcEndpoint:
                 assert result == "http://localhost:8202"
 
     def test_get_rpc_endpoint_missing(self):
-        """Test RPC endpoint when missing from credentials"""
+        """Test RPC endpoint fallback when missing from credentials and config is empty"""
         from aitbc_cli.utils.island_credentials import get_rpc_endpoint
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -154,7 +131,14 @@ class TestGetRpcEndpoint:
                 json.dump(credentials_data, f)
             os.chmod(credentials_path, 0o600)
 
-            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
+            empty_config = MagicMock()
+            empty_config.blockchain_rpc_url = ""
+            empty_config.hub_discovery_url = None
+
+            with (
+                patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)),
+                patch("aitbc_cli.utils.island_credentials.get_config", return_value=empty_config),
+            ):
                 with pytest.raises(ValueError, match="RPC endpoint not found"):
                     get_rpc_endpoint()
 

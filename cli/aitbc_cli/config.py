@@ -22,12 +22,11 @@ BLOCKCHAIN_RPC_PORT = 8202
 class CLIConfig(BaseAITBCConfig):
     """CLI-specific configuration inheriting from shared BaseAITBCConfig"""
 
+    # The default env_file list is empty; get_config() passes a runtime-filtered
+    # list so the CLI does not crash when a root-only secrets file such as
+    # /etc/aitbc/blockchain-secrets.env is unreadable for the current user.
     model_config = SettingsConfigDict(
-        env_file=[
-            str(Path("/etc/aitbc/blockchain.env")),
-            str(Path("/etc/aitbc/blockchain-secrets.env")),
-            str(Path("/etc/aitbc/node.env")),
-        ],
+        env_file=[],
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -125,10 +124,23 @@ class CLIConfig(BaseAITBCConfig):
         return self.coordinator_api_url
 
 
+def _cli_env_files() -> list[str]:
+    """Return the env files the CLI may read, skipping unreadable ones."""
+    candidates = [
+        "/etc/aitbc/blockchain.env",
+        "/etc/aitbc/blockchain-secrets.env",
+        "/etc/aitbc/node.env",
+    ]
+    return [p for p in candidates if os.access(p, os.R_OK)]
+
+
 def _parse_env_file(env_path: Path) -> dict[str, str]:
     """Parse a simple KEY=VALUE env file, ignoring comments and blank lines."""
     values: dict[str, str] = {}
-    if not env_path.exists():
+    try:
+        if not env_path.exists():
+            return values
+    except (PermissionError, OSError):
         return values
     with open(env_path) as f:
         for line in f:
@@ -198,13 +210,19 @@ def _load_config_file(config_path: Path) -> dict[str, Any]:
 def get_config(config_file: str | None = None) -> CLIConfig:
     """Load CLI configuration from shared config system"""
     # Determine the config file to load. If not explicitly provided, look for
-    # the repository/working-directory .aitbc.yaml.
+    # the repository/working-directory .aitbc.yaml. An unreadable CWD (e.g. root
+    # home) must not crash the CLI when it runs as another user.
     if config_file:
         config_path = Path(config_file)
     else:
         config_path = Path.cwd() / ".aitbc.yaml"
 
-    if config_path.exists():
+    try:
+        config_file_found = config_path.exists()
+    except (PermissionError, OSError):
+        config_file_found = False
+
+    if config_file_found:
         config_data = _load_config_file(config_path)
 
         # Override with config file values
@@ -215,7 +233,8 @@ def get_config(config_file: str | None = None) -> CLIConfig:
             wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8108"),
             api_key=api_key,
             timeout=config_data.get("timeout", 30),
+            _env_file=_cli_env_files(),
         )
 
     # Use shared config system with environment variables
-    return CLIConfig()
+    return CLIConfig(_env_file=_cli_env_files())

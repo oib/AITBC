@@ -180,7 +180,7 @@ Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab
 
 ### Step 9: GPU marketplace offer from the shop
 
-On `aitbc3` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
+On `aitbc3` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; the CLI skips root-only env files such as `blockchain-secrets.env` instead of crashing — do not chown root-only secrets as a workaround):
 
 ```bash
 aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0

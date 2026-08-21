@@ -72,6 +72,23 @@ for service_file in $SERVICE_FILES; do
 done
 
 echo ""
+echo ""
+echo "Fixing runtime file ownership..."
+
+# Island credentials belong to the aitbc runtime user.
+if [ -f "/var/lib/aitbc/island_credentials.json" ]; then
+    chown aitbc:aitbc "/var/lib/aitbc/island_credentials.json" 2>/dev/null || true
+    chmod 0600 "/var/lib/aitbc/island_credentials.json"
+    echo "  Island credentials: aitbc:aitbc 0600"
+fi
+
+# /var/lib/aitbc must remain writable by aitbc for api_keys.json.lock.
+chown root:aitbc /var/lib/aitbc 2>/dev/null || true
+chmod 2775 /var/lib/aitbc 2>/dev/null || true
+
+# Root-only secrets (e.g. /etc/aitbc/blockchain-secrets.env) are left root:600.
+# The CLI now skips env files it cannot read instead of aborting.
+
 echo "Summary:"
 echo "  Updated: $CHANGES service files"
 echo "  Skipped: $SKIPPED service files (already using aitbc)"
