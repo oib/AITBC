@@ -1,4 +1,4 @@
-"""Global chain marketplace commands for AITBC CLI"""
+"""Global on-chain marketplace commands for AITBC CLI."""
 
 import asyncio
 import builtins
@@ -30,7 +30,7 @@ def _marketplace_client() -> AITBCHTTPClient:
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def marketplace(ctx, chain_id: str | None):
-    """Global chain marketplace commands"""
+    """Global chain marketplace commands (cross-chain offers, bridge, on-chain listings)."""
     ctx.ensure_object(dict)
 
     # Handle chain_id with auto-detection
