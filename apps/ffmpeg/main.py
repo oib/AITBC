@@ -148,7 +148,33 @@ async def process_video(
     try:
         t_start = time.time()
 
-        # Build FFmpeg command with GPU acceleration
+        # Map requested codec to an FFmpeg encoder name.
+        # `codec` from the CLI is a short label like "h264" or "hevc"; the actual
+        # encoder depends on the accelerator (nvenc for NVIDIA cuda, vaapi for AMD/Intel, etc.).
+        codec_key = codec.lower()
+        if _hw_accel == "cuda":
+            encoder = f"{codec_key}_nvenc"
+        elif _hw_accel == "vaapi":
+            encoder = f"{codec_key}_vaapi"
+        elif _hw_accel == "qsv":
+            encoder = f"{codec_key}_qsv"
+        elif codec_key == "h264":
+            encoder = "libx264"
+        elif codec_key == "hevc":
+            encoder = "libx265"
+        else:
+            encoder = codec_key
+
+        # Ensure bitrate has a valid unit (k/M) and compute the VBV buffer size.
+        bitrate_value = bitrate.strip()
+        if not bitrate_value[-1].isalpha():
+            bitrate_value = f"{bitrate_value}M"
+        # bufsize: use the numeric value, defaulting to the same unit as the rate.
+        numeric = "".join(c for c in bitrate_value if c.isdigit() or c == ".")
+        unit = bitrate_value[-1].lower() if bitrate_value[-1].isalpha() else "m"
+        bufsize = f"{numeric}{unit}"
+
+        # Build FFmpeg command. Hardware-accelerated decode + encode when possible.
         cmd = [
             "ffmpeg",
             "-hwaccel",
@@ -156,15 +182,15 @@ async def process_video(
             "-i",
             input_path,
             "-c:v",
-            f"{_hw_accel}_{codec}",
+            encoder,
             "-preset",
-            "p6",  # Slow preset for quality
+            "p6" if "_nvenc" in encoder else "medium",
             "-b:v",
-            bitrate,
+            bitrate_value,
             "-maxrate",
-            bitrate,
+            bitrate_value,
             "-bufsize",
-            f"{bitrate}M",
+            bufsize,
         ]
 
         # Add resolution scaling if specified
