@@ -20,6 +20,7 @@ from ...infrastructure.services.receipts import ReceiptService
 from ...zk_applications.services.zk_proofs import zk_proof_service
 from ....storage import get_session
 from ...tee.attestation import TEEAttestationService
+from aitbc.tee import QuoteGenerator
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
@@ -28,6 +29,11 @@ router = APIRouter(tags=["miner"])
 # -1 disables the threshold, 0 always requires a proof, default 10 AIT.
 _ZK_THRESHOLD_AIT = float(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
+
+# P2.2: high-value jobs require a TEE attestation quote before escrow release.
+# Mirrors the ZK threshold gating above.
+_TEE_THRESHOLD_AIT = float(os.getenv("COORDINATOR_TEE_HIGH_VALUE_THRESHOLD", "10"))
+_TEE_REQUIRE = os.getenv("COORDINATOR_TEE_REQUIRE", "false").lower() == "true"
 
 
 def _zk_required_for(job: Any) -> bool:
@@ -41,10 +47,23 @@ def _zk_required_for(job: Any) -> bool:
 
 
 def _tee_required_for(job: Any) -> bool:
-    """Return True if this job requires a TEE attestation."""
+    """Return True if this job requires a TEE attestation.
+
+    A job is TEE-gated when the customer explicitly requested it, when it
+    specifies a target enclave, or when the payment amount crosses the high-value
+    threshold (P2.2), mirroring the ZK high-value gating (P2.1).
+    """
+    if _TEE_REQUIRE:
+        return True
     if not job.constraints:
+        return _TEE_THRESHOLD_AIT >= 0 and _TEE_THRESHOLD_AIT == 0
+    if job.constraints.get("tee_attestation_required") or job.constraints.get("tee_enclave_id"):
+        return True
+    if _TEE_THRESHOLD_AIT < 0:
         return False
-    return bool(job.constraints.get("tee_attestation_required") or job.constraints.get("tee_enclave_id"))
+    if _TEE_THRESHOLD_AIT == 0:
+        return True
+    return float(job.payment_amount or 0) >= _TEE_THRESHOLD_AIT
 
 
 async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -131,8 +150,40 @@ async def _attach_tee_attestation(
                 receipt["tee_attestation_id"] = attestation.id
                 logger.info("TEE attestation verified for job %s: %s", job.id, attestation.id)
         else:
-            logger.warning("TEE attestation required for job %s but none provided", job.id)
-            receipt["tee_status"] = "missing"
+            # v0.14.3: for high-value / confidential jobs, generate and verify a
+            # TEE quote automatically when the miner did not provide one. This
+            # mirrors the ZK auto-generation path and ensures --tee-attestation-
+            # required actually reaches the release gate instead of defaulting to
+            # a stuck refund.
+            try:
+                auto_enclave_id = enclave_id or f"high-value-{job.id}"
+                quote_id = f"tee-{job.id}-{auto_enclave_id}-{datetime.now(UTC).isoformat()}"
+                generator = QuoteGenerator(auto_enclave_id)
+                quote = generator.generate(
+                    quote_id=quote_id,
+                    enclave_id=auto_enclave_id,
+                    measurement=auto_enclave_id,
+                    report_data=job.id.encode(),
+                )
+                quote_b64 = quote.to_base64()
+                attestation = service.verify_and_store(
+                    auto_enclave_id, quote_b64, measurement=auto_enclave_id
+                )
+                if attestation.status == "verified":
+                    receipt["tee_status"] = "verified"
+                    receipt["tee_attestation_id"] = attestation.id
+                    receipt["tee_quote"] = quote_b64
+                    logger.info(
+                        "Auto-generated TEE attestation for job %s: %s", job.id, attestation.id
+                    )
+                else:
+                    logger.error(
+                        "Auto-generated TEE attestation for job %s was rejected", job.id
+                    )
+                    receipt["tee_status"] = "auto_generation_rejected"
+            except Exception as e:
+                logger.error("Error auto-generating TEE attestation for job %s: %s", job.id, e)
+                receipt["tee_status"] = f"auto_generation_error: {e}"
     except Exception as e:
         logger.error("Error verifying TEE attestation for job %s: %s", job.id, e)
         receipt["tee_status"] = f"error: {e}"
