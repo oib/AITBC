@@ -289,5 +289,34 @@ class TestImports:
             assert hasattr(aitbc_agent, name), f"Missing export: {name}"
 
 
+class TestAgentMessaging:
+    """SDK message send uses the Agent Coordinator /api/v1/agent/messages/send route."""
+
+    def test_send_message_uses_coordinator_endpoint(self):
+        """send_message posts to the correct coordinator route with a signed payload."""
+        agent = Agent.create(name="test", agent_type="general", capabilities={"compute_type": "inference"})
+        agent.http_client.post = AsyncMock(return_value=Mock(status_code=200))
+
+        payload = {"text": "hello"}
+        result = asyncio.run(agent.send_message("agent-2", "direct", payload))
+
+        assert result is True
+        agent.http_client.post.assert_called_once()
+        call_args = agent.http_client.post.call_args
+        assert call_args.args[0] == "/api/v1/agent/messages/send"
+
+        body = call_args.kwargs["json"]
+        assert body["sender"] == agent.identity.id
+        assert body["recipient"] == "agent-2"
+        assert body["message_type"] == "direct"
+        assert body["encrypt"] is False
+        assert body["priority"] == "normal"
+        assert body["ttl"] == 300
+        assert body["content"]["payload"] == payload
+        assert "signature" in body["content"]
+        assert body["content"]["from"] == agent.identity.id
+        assert body["content"]["to"] == "agent-2"
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
