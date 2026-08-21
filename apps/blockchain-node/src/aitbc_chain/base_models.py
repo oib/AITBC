@@ -258,7 +258,7 @@ class Escrow(ChainBase, table=True):
     # `foreign.key`, silently dropping the constraint (V23-64).
     buyer: str = Field(sa_column=Column(AccountAddress(), ForeignKey("account.address")))
     provider: str = Field(sa_column=Column(AccountAddress(), ForeignKey("account.address")))
-    amount: int  # in compute-seconds (1 AIT = 3600)
+    amount: int  # in AIT (release/refund multiply by 3600 for compute-seconds)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
     refunded_at: datetime | None = None
