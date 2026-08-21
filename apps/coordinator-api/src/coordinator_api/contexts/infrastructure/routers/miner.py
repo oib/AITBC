@@ -276,7 +276,7 @@ async def get_miner_earnings(
         job_service = JobService(session)
         completed_jobs = job_service.list_jobs(
             assigned_miner_id=miner_id,
-            state=JobState.COMPLETED.value,
+            state="COMPLETED",
             limit=10000,
             offset=0,
         )
