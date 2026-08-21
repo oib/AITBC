@@ -1,364 +1,116 @@
-# AITBC System Flow: From CLI Prompt to Response
+# AITBC System Flow: From CLI Prompt to On-Chain Settlement
 
-> **Important:** This document describes the designed system flow and port assignments. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Authoritative port configuration** is in [Service Ports Reference](../reference/SERVICE_PORTS.md). This document describes the current CLI-driven flow on the live hub/shop island, not the historical `aitbc-cli.sh` wrapper.
 
-This document illustrates the complete flow of a job submission through the CLI client, detailing each system component, message, RPC call, and port involved.
+The canonical customer path on AITBC v0.10.18 is:
 
-## Overview Diagram
-
-> **Note:** Port assignments in the diagram below represent designed configuration. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
-
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   CLI       │     │   Client     │     │Coordinator  │     │  Blockchain │     │   Miner     │     │   Ollama    │
-│  Wrapper    │────▶│   Python     │────▶│   Service   │────▶│    Node     │────▶│  Daemon     │────▶│   Server    │
-│(aitbc-cli.sh)│     │  (client.py) │     │  (port 8203) │     │ (RPC:8202) │     │ (port 8005) │     │ (port 11434)│
-└─────────────┘     └──────────────┘     └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+```text
+aitbc wallet create → aitbc wallet fund → aitbc auth login
+     → aitbc ai submit --wait
+     → coordinator (8203) → blockchain (8202) → miner (8107)
+     → GPU service (8101) → Ollama (11434)
+     → result → coordinator → ESCROW_RELEASE on blockchain
+     → aitbc ai results, aitbc wallet transactions
 ```
 
-## Detailed Flow Sequence
+## Overview
 
-### 1. CLI Wrapper Execution
+```
+┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────┐   ┌──────────┐
+│ Customer │ → │  aitbc   │ → │ Coordinator  │ ↔ │ Blockchain   │ ← │  Shop    │ → │  Ollama  │
+│  wallet  │   │   CLI    │   │   8203       │   │   8202       │   │  miner   │   │  11434   │
+└──────────┘   └──────────┘   └──────────────┘   └──────────────┘   └──────────┘   └──────────┘
+                                                                  ↑
+                                                           GPU service 8101
+                                                           marketplace 8102
+                                                           pool-hub    8210
+```
 
-**User Command:**
+Public customer access to hub services is through nginx (`https://hub.aitbc.bubuit.net/...`) because the coordinator, exchange, and wallet daemon bind `127.0.0.1` by default.
+
+## Step-by-step flow
+
+### 1. Acquire AIT and authenticate
 
 ```bash
-./scripts/aitbc-cli.sh submit inference --prompt "What is machine learning?" --model llama3.2:latest
+aitbc wallet create customer-wallet
+aitbc wallet fund customer-wallet --amount-ait 10.0
+aitbc auth login --wallet customer-wallet --private-key-file ~/.aitbc/wallets/customer-wallet.key
 ```
 
-**Internal Process:**
+`aitbc auth login` performs a wallet-signed nonce challenge against `POST /v1/auth/nonce` and `POST /v1/login` on the coordinator, then stores the returned JWT in the CLI credential store (`~/.aitbc/credentials.json`).
 
-1. Bash script (`aitbc-cli.sh`) parses arguments
-2. Sets environment variables:
-   - `AITBC_URL=http://127.0.0.1:8203`
-   - `CLIENT_KEY=${CLIENT_API_KEY}`
-3. Calls Python client: `python3 cli/client.py --url $AITBC_URL --api-key $CLIENT_KEY submit inference --prompt "..."`
-
-### 2. Python Client Processing
-
-**File:** `/cli/client.py`
-
-**Steps:**
-
-1. Parse command-line arguments
-2. Prepare job submission payload:
-
-   ```json
-   {
-     "type": "inference",
-     "prompt": "What is machine learning?",
-     "model": "llama3.2:latest",
-     "client_key": "${CLIENT_API_KEY}",
-     "timestamp": "2025-01-29T14:50:00Z"
-   }
-   ```
-
-### 3. Coordinator API Call
-
-**HTTP Request:**
-
-```http
-POST /v1/jobs
-Host: 127.0.0.1:8203
-Content-Type: application/json
-X-Api-Key: ${CLIENT_API_KEY}
-
-{
-  "type": "inference",
-  "prompt": "What is machine learning?",
-  "model": "llama3.2:latest"
-}
-```
-
-**Coordinator Service (Port 8203):**
-
-1. Receives HTTP request
-2. Validates API key and job parameters
-3. Generates unique job ID: `job_123456`
-4. Creates job record in database
-5. Returns initial response:
-
-   ```json
-   {
-     "job_id": "job_123456",
-     "status": "pending",
-     "submitted_at": "2025-01-29T14:50:01Z"
-   }
-   ```
-
-### 4. Blockchain Transaction
-
-**Coordinator → Blockchain Node (RPC Port 26657):**
-
-1. Coordinator creates blockchain transaction:
-
-   ```json
-   {
-     "type": "submit_job",
-     "job_id": "job_123456",
-     "client": "${CLIENT_API_KEY}",
-     "payload_hash": "abc123...",
-     "reward": "100aitbc"
-   }
-   ```
-
-2. RPC Call to blockchain node:
-
-   ```bash
-   curl -X POST http://127.0.0.1:26657 \
-     -d '{
-       "jsonrpc": "2.0",
-       "method": "broadcast_tx_sync",
-       "params": {"tx": "base64_encoded_transaction"}
-     }'
-   ```
-
-3. Blockchain validates and includes transaction in next block
-4. Transaction hash returned: `0xdef456...`
-
-### 5. Job Queue and Miner Assignment
-
-**Coordinator Internal Processing:**
-
-1. Job added to pending queue (Redis/Database)
-2. Miner selection algorithm runs:
-   - Check available miners
-   - Select based on stake, reputation, capacity
-3. Selected miner: `${MINER_API_KEY}`
-
-**Coordinator → Miner Daemon (Port 8005):**
-
-```http
-POST /v1/jobs/assign
-Host: 127.0.0.1:8005
-Content-Type: application/json
-X-Api-Key: ${ADMIN_API_KEY}
-
-{
-  "job_id": "job_123456",
-  "job_data": {
-    "type": "inference",
-    "prompt": "What is machine learning?",
-    "model": "llama3.2:latest"
-  },
-  "reward": "100aitbc"
-}
-```
-
-### 6. Miner Processing
-
-**Miner Daemon (Port 8005):**
-
-1. Receives job assignment
-2. Updates job status to `running`
-3. Notifies coordinator:
-
-   ```http
-   POST /v1/jobs/job_123456/status
-   {"status": "running", "started_at": "2025-01-29T14:50:05Z"}
-   ```
-
-### 7. Ollama Inference Request
-
-**Miner → Ollama Server (Port 11434):**
-
-```http
-POST /api/generate
-Host: 127.0.0.1:11434
-Content-Type: application/json
-
-{
-  "model": "llama3.2:latest",
-  "prompt": "What is machine learning?",
-  "stream": false,
-  "options": {
-    "temperature": 0.7,
-    "num_predict": 500
-  }
-}
-```
-
-**Ollama Processing:**
-
-1. Loads model into GPU memory
-2. Processes prompt through neural network
-3. Generates response text
-4. Returns result:
-
-   ```json
-   {
-     "model": "llama3.2:latest",
-     "response": "Machine learning is a subset of artificial intelligence...",
-     "done": true,
-     "total_duration": 12500000000,
-     "prompt_eval_count": 15,
-     "eval_count": 150
-   }
-   ```
-
-### 8. Result Submission to Coordinator
-
-**Miner → Coordinator (Port 8203):**
-
-```http
-POST /v1/jobs/job_123456/complete
-Host: 127.0.0.1:8203
-Content-Type: application/json
-X-Miner-Key: ${MINER_API_KEY}
-
-{
-  "job_id": "job_123456",
-  "result": "Machine learning is a subset of artificial intelligence...",
-  "metrics": {
-    "compute_time": 12.5,
-    "tokens_generated": 150,
-    "gpu_utilization": 0.85
-  },
-  "proof": {
-    "hash": "hash_of_result",
-    "signature": "miner_signature"
-  }
-}
-```
-
-### 9. Receipt Generation
-
-**Coordinator Processing:**
-
-1. Verifies miner's proof
-2. Calculates payment: `12.5 seconds × 0.02 AITBC/second = 0.25 AITBC`
-3. Creates receipt:
-
-   ```json
-   {
-     "receipt_id": "receipt_789",
-     "job_id": "job_123456",
-     "client": "${CLIENT_API_KEY}",
-     "miner": "${MINER_API_KEY}",
-     "amount_paid": "0.25aitbc",
-     "result_hash": "hash_of_result",
-     "block_height": 12345,
-     "timestamp": "2025-01-29T14:50:18Z"
-   }
-   ```
-
-### 10. Blockchain Receipt Recording
-
-**Coordinator → Blockchain (RPC Port 26657):**
-
-```json
-{
-  "type": "record_receipt",
-  "receipt": {
-    "receipt_id": "receipt_789",
-    "job_id": "job_123456",
-    "payment": "0.25aitbc"
-  }
-}
-```
-
-### 11. Client Polling for Result
-
-**CLI Client Status Check:**
+### 2. Discover compute
 
 ```bash
-./scripts/aitbc-cli.sh status job_123456
+aitbc market list --service-type ollama
+aitbc gpu list-gpus
 ```
 
-**HTTP Request:**
+A shop publishes a GPU software offer with:
 
-```http
-GET /v1/jobs/job_123456
-Host: 127.0.0.1:8203
-X-Api-Key: ${CLIENT_API_KEY}
+```bash
+aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
 ```
 
-**Response:**
+This writes a `GPU_MARKETPLACE` transaction and makes the offer discoverable from the hub.
 
-```json
-{
-  "job_id": "job_123456",
-  "status": "completed",
-  "result": "Machine learning is a subset of artificial intelligence...",
-  "receipt_id": "receipt_789",
-  "completed_at": "2025-01-29T14:50:18Z"
-}
+### 3. Submit a paid job
+
+```bash
+aitbc ai submit --prompt "What is machine learning?" --model llama3.2:3b \
+  --payment 1.0 --wallet customer-wallet --provider-address <provider> --wait
 ```
 
-### 12. Final Output to User
+The CLI posts to `POST /v1/jobs` on the coordinator with the JWT from `aitbc auth login`. The coordinator creates an escrow contract and queues the job.
 
-**CLI displays:**
+### 4. Match and execute
 
-```
-Job ID: job_123456
-Status: completed
-Result: Machine learning is a subset of artificial intelligence...
-Receipt: receipt_789
-Completed in: 17 seconds
-Cost: 0.25 AITBC
-```
+The coordinator assigns the job to a registered shop miner. The miner:
 
-## System Components Summary
+1. Polls `/v1/miners/poll` on the coordinator (port 8107, agent-coordinator).
+2. Calls the local GPU service (port 8101) to select a device.
+3. Runs inference against the local Ollama server (port 11434).
+4. Returns the result and a receipt to the coordinator.
 
-| Component | Port | Protocol | Responsibility |
-|-----------|------|----------|----------------|
-| CLI Wrapper | N/A | Bash | User interface, argument parsing |
-| Client Python | N/A | Python | HTTP client, job formatting |
-| Coordinator | 8203 | HTTP/REST | Job management, API gateway |
-| Blockchain Node | 8202 | JSON-RPC | Transaction processing, consensus |
-| Miner Daemon | 8005 | HTTP/REST | Job execution, GPU management |
-| Ollama Server | 11434 | HTTP/REST | AI model inference |
+### 5. Escrow release and settlement
 
-## Message Flow Timeline
+When the coordinator verifies the result, it calls the blockchain node's `POST /escrow/create` and then triggers `ESCROW_RELEASE`. The blockchain node submits a `ESCROW_RELEASE` transaction to `POST /transactions/marketplace` on the hub, signed by the configured settlement key (Phase 8 decouples this from the genesis key).
 
-```
-0s: User submits CLI command
-└─> 0.1s: Python client called
-   └─> 0.2s: HTTP POST to Coordinator (port 8203)
-      └─> 0.3s: Coordinator validates and creates job
-         └─> 0.4s: RPC to Blockchain (port 8202)
-            └─> 0.5s: Transaction in mempool
-               └─> 1.0s: Job queued for miner
-                  └─> 2.0s: Miner assigned (port 8005)
-                     └─> 2.1s: Miner accepts job
-                        └─> 2.2s: Ollama request (port 11434)
-                           └─> 14.7s: Inference complete (12.5s processing)
-                              └─> 14.8s: Result to Coordinator
-                                 └─> 15.0s: Receipt generated
-                                    └─> 15.1s: Receipt on Blockchain
-                                       └─> 17.0s: Client polls and gets result
+The provider receives compute-seconds (1 AIT = 3600 compute-seconds, minus the fee). A 1.0 AIT job currently pays ~0.975 AIT to the provider.
+
+### 6. Inspect results
+
+```bash
+aitbc ai status <job_id>
+aitbc ai results <job_id>
+aitbc wallet transactions <provider-wallet>
+aitbc explorer chain-head
 ```
 
-## Error Handling Paths
+## Components and ports
 
-1. **Invalid Prompt**:
-   - Coordinator returns 400 error
-   - CLI displays error message
+| Component | Port | CLI group | Responsibility |
+|-----------|------|-----------|----------------|
+| aitbc CLI | — | — | User interface and credential store |
+| Blockchain node RPC | 8202 | `aitbc chain`, `aitbc explorer`, `aitbc transactions` | Blocks, accounts, transactions, `/escrow/*` |
+| Coordinator API | 8203 | `aitbc ai`, `aitbc auth` | Job submission, JWT auth, result collection |
+| Agent-coordinator | 8107 | `aitbc agent-comm` | Miner polling and assignment |
+| Wallet daemon | 8108 | `aitbc wallet`, `aitbc account` | Wallet operations and balance |
+| GPU service | 8101 | `aitbc gpu` | Local GPU discovery and resource management |
+| Marketplace | 8102 | `aitbc market`, `aitbc marketplace` | `market` = GPU/software offers; `marketplace` = chain listings |
+| Exchange | 8106 | `aitbc exchange-island` | Simple on-island exchange |
+| Pool hub | 8210 | `aitbc pool-hub` | Miner capacity, SLA, billing |
+| Ollama | 11434 | — | AI model inference |
 
-2. **Miner Unavailable**:
-   - Job stays in queue
-   - Timeout after 60 seconds
-   - Job marked as failed
+## Notes
 
-3. **Ollama Error**:
-   - Miner reports failure to Coordinator
-   - Job marked as failed
-   - No payment deducted
+- The `X-Api-Key` / `--api-key` header is still accepted, but `aitbc auth login` is the preferred customer path.
+- The old `aitbc-cli.sh` wrapper and Tendermint RPC port `26657` references in this directory are historical.
+- See [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) for the current gap analysis and P0 wish list.
 
-4. **Network Issues**:
-   - Client retries with exponential backoff
-   - Maximum 3 retries before giving up
+## Monitoring
 
-## Security Considerations
-
-1. **API Keys**: Each request authenticated with X-Api-Key header
-2. **Proof of Work**: Miner provides cryptographic proof of computation
-3. **Payment Escrow**: Tokens held in smart contract until completion
-4. **Rate Limiting**: Coordinator limits requests per client
-
-## Monitoring Points
-
-- Coordinator logs all API calls to `/var/log/aitbc/coordinator.log`
-- Miner logs GPU utilization to `/var/log/aitbc/miner.log`
-- Blockchain logs all transactions to `/var/log/aitbc/node.log`
-- Prometheus metrics available at `http://localhost:8203/metrics`
+- Coordinator logs: `journalctl -u aitbc-coordinator-api`
+- Miner logs: `journalctl -u aitbc-miner`
+- Blockchain logs: `journalctl -u aitbc-blockchain-node`
