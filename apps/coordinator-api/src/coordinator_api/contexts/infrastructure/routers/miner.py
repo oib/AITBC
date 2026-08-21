@@ -49,15 +49,22 @@ def _zk_required_for(job: Any) -> bool:
 def _tee_required_for(job: Any) -> bool:
     """Return True if this job requires a TEE attestation.
 
-    A job is TEE-gated when the customer explicitly requested it, when it
-    specifies a target enclave, or when the payment amount crosses the high-value
-    threshold (P2.2), mirroring the ZK high-value gating (P2.1).
+    A job is TEE-gated when the customer explicitly requested it, when it is
+    marked confidential, when it specifies a target enclave or required
+    measurement, or when the payment amount crosses the high-value threshold
+    (P2.2), mirroring the ZK high-value gating (P2.1).
     """
     if _TEE_REQUIRE:
         return True
     if not job.constraints:
         return _TEE_THRESHOLD_AIT >= 0 and _TEE_THRESHOLD_AIT == 0
-    if job.constraints.get("tee_attestation_required") or job.constraints.get("tee_enclave_id"):
+    c = job.constraints or {}
+    if (
+        c.get("tee_attestation_required")
+        or c.get("tee_enclave_id")
+        or c.get("confidential")
+        or c.get("required_enclave_measurement")
+    ):
         return True
     if _TEE_THRESHOLD_AIT < 0:
         return False
@@ -123,7 +130,9 @@ async def _attach_tee_attestation(
         return receipt
 
     service = TEEAttestationService(session)
-    enclave_id = (job.constraints or {}).get("tee_enclave_id") or ""
+    c = job.constraints or {}
+    enclave_id = c.get("tee_enclave_id") or c.get("required_enclave_measurement") or ""
+    expected_measurement = c.get("required_enclave_measurement") or enclave_id
 
     try:
         if req.tee_attestation_id:
@@ -134,12 +143,14 @@ async def _attach_tee_attestation(
                 receipt["tee_status"] = "attestation_not_verified"
             elif enclave_id and attestation.enclave_id != enclave_id:
                 receipt["tee_status"] = "enclave_mismatch"
+            elif expected_measurement and attestation.measurement != expected_measurement:
+                receipt["tee_status"] = "measurement_mismatch"
             else:
                 receipt["tee_status"] = "verified"
                 receipt["tee_attestation_id"] = attestation.id
         elif req.tee_quote:
             attestation = service.verify_and_store(
-                enclave_id or "unknown", req.tee_quote, measurement=enclave_id or ""
+                enclave_id or "unknown", req.tee_quote, measurement=expected_measurement or ""
             )
             if attestation.status != "verified":
                 receipt["tee_status"] = "attestation_rejected"
