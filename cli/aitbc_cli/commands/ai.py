@@ -384,6 +384,42 @@ def status(ctx, job_id, coordinator_url, format):
         abort(ctx, f"Error getting job status: {e}", from_exception=e)
 
 
+@ai.command()
+@click.option("--job-id", required=True, help="Job ID to refund")
+@click.option("--reason", default="buyer_requested", help="Reason for refund")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.pass_context
+def refund(ctx, job_id, reason, coordinator_url):
+    """Refund an escrowed payment for a failed or cancelled job."""
+    config = get_config()
+
+    try:
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
+
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+
+        # Lookup payment_id for this job.
+        job = http_client.get(f"/v1/jobs/{job_id}")
+        payment_id = job.get("payment_id")
+        if not payment_id:
+            abort(ctx, f"Job {job_id} has no payment to refund")
+
+        result = http_client.post(
+            f"/v1/payments/{payment_id}/refund",
+            json={"job_id": job_id, "reason": reason},
+        )
+        success(f"Payment {payment_id} for job {job_id} refunded")
+        output(result, ctx.obj.get("output_format", "table"))
+
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error refunding job: {e}", from_exception=e)
+
+
 @ai.group()
 def service():
     """AI service management"""

@@ -351,12 +351,26 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     contract_id = _find_contract_id(mgr, job_id)
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
+    contract = mgr.escrow_contracts.get(contract_id)
+    if contract and contract.state in ["released", "refunded", "expired"]:
+        raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
     reason = (body or {}).get("reason", "buyer_requested")
     success, message = await mgr.refund_contract(contract_id, reason)
     if not success:
         raise HTTPException(status_code=400, detail=message)
-    _logger.info("Escrow refunded: contract_id=%s job_id=%s", contract_id, job_id)
-    return {"success": True, "contract_id": contract_id, "job_id": job_id, "message": message}
+    refunded_at = datetime.now(UTC)
+    refund_tx_hash = f"0x{hashlib.sha256(f'{job_id}:{refunded_at.isoformat()}'.encode()).hexdigest()}"
+    try:
+        with session_scope() as session:
+            record = session.get(Escrow, job_id)
+            if record:
+                record.refunded_at = refunded_at
+                record.refund_tx_hash = refund_tx_hash
+                session.commit()
+    except Exception as e:
+        _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
+    _logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, refund_tx_hash)
+    return {"success": True, "contract_id": contract_id, "job_id": job_id, "message": message, "refund_tx_hash": refund_tx_hash}
 
 
 @router.get("/escrow/{job_id}", summary="Get escrow state")
@@ -403,8 +417,15 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
 
 
 def _find_contract_id(mgr: Any, job_id: str) -> str | None:
-    """Find contract_id by job_id in EscrowManager."""
+    """Find contract_id by job_id, loading from DB if missing."""
     for cid, contract in mgr.escrow_contracts.items():
         if contract.job_id == job_id:
             return str(cid)
+    # Load from DB on demand before giving up.
+    try:
+        contract = mgr.get_or_load_contract(job_id)
+        if contract:
+            return str(contract.contract_id)
+    except Exception as e:
+        _logger.warning("Failed to load contract for job %s: %s", job_id, e)
     return None
