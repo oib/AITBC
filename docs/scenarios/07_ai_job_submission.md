@@ -4,7 +4,7 @@
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 06 Basic Trading
 **Estimated Time**: 20 minutes
 **Last Updated**: 2026-08-21
-**Version**: 1.2
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -53,14 +53,14 @@ An AI agent needs to run an inference or training workload on the the network. I
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - A wallet with AIT balance (created in Scenario 01)
 - Coordinator API reachable at `http://localhost:8203` (override with `--coordinator-url`)
-- Either `aitbc auth login` with a wallet, or a valid JWT passed with `--api-key`
+- A valid JWT passed with `--api-key` (generate with `python3 -c "from aitbc.auth import create_access_token; ..."`)
 
 ### Setup Required
 
 - Configure the coordinator URL: `aitbc config set coordinator_api_url http://localhost:8203`
 - Ensure the coordinator-api service is running
 - Have a wallet name and (optionally) a password file ready
-- Run `aitbc auth login --wallet <wallet> [--password <password>]` to store a coordinator JWT (or set `--api-key` explicitly)
+- Set `AITBC_API_KEY` or pass `--api-key` explicitly with a client JWT
 
 ---
 
@@ -96,12 +96,24 @@ aitbc --api-key "$COORDINATOR_TOKEN" ai submit \
 
 ```json
 {
-  "job_id": "job_7f8e9d0c1b2a3c4d",
-  "job_type": "inference",
-  "prompt": "Summarize the latest AITBC block headers",
-  "payment": 5.0,
-  "wallet": "agent-wallet",
-  "status": "pending"
+  "job_id": "<job-id>",
+  "state": "QUEUED",
+  "payment_id": "<payment-id>",
+  "payment_status": "escrowed"
+}
+```
+
+With `--wait`, the output is emitted once the job reaches a terminal state. For a paid job that completes and releases escrow, the JSON includes:
+
+```json
+{
+  "job_id": "<job-id>",
+  "state": "COMPLETED",
+  "payment_id": "<payment-id>",
+  "payment_status": "released",
+  "escrow_tx_hash": "<ESCROW_RELEASE-tx-hash>",
+  "result": { "output": "..." },
+  "receipt": { "receipt_id": "..." }
 }
 ```
 
@@ -142,12 +154,10 @@ aitbc ai status --job-id job_7f8e9d0c1b2a3c4d --format json
 
 ```json
 {
-  "job_id": "job_7f8e9d0c1b2a3c4d",
-  "status": "running",
-  "job_type": "inference",
-  "provider_id": "provider_abc123",
-  "started_at": "2026-06-25T14:35:12Z",
-  "estimated_completion": "2026-06-25T14:37:00Z"
+  "job_id": "<job-id>",
+  "state": "RUNNING",
+  "assigned_miner_id": "aitbc-miner-1",
+  "payment_status": "escrowed"
 }
 ```
 
@@ -163,14 +173,16 @@ aitbc ai results --job-id job_7f8e9d0c1b2a3c4d --format json
 
 ```json
 {
-  "job_id": "job_7f8e9d0c1b2a3c4d",
-  "status": "completed",
-  "output": {
-    "summary": "Block 12345: 42 transactions, 1 exchange order matched..."
+  "job_id": "<job-id>",
+  "state": "COMPLETED",
+  "result": {
+    "output": "The latest AITBC block contains 42 transactions..."
   },
-  "execution_time": 108.4,
-  "cost": 5.0,
-  "quality_score": 0.92
+  "receipt": {
+    "receipt_id": "<receipt-id>",
+    "amount": "4.97500000",
+    "currency": "AITBC"
+  }
 }
 ```
 
@@ -321,23 +333,24 @@ After completing this scenario, you should be able to:
 Confirm the job lifecycle end-to-end:
 
 ```bash
-# Submit a job, authenticate with stored token, and wait for completion
-aitbc ai submit \
+# Submit a job, wait for completion, and print the escrow tx hash
+aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --wallet agent-wallet \
   --type inference \
   --prompt "hello" \
   --payment 1.0 \
+  --provider-address <provider-address> \
   --wait \
   --timeout 120
 
 # Or submit without waiting and poll manually
-aitbc ai status --job-id <job_id>
+aitbc --api-key "$CLIENT_JWT" ai status --job-id <job_id>
 
 # Fetch the result payload
-aitbc ai results --job-id <job_id>
+aitbc --api-key "$CLIENT_JWT" ai results --job-id <job_id>
 
 # Confirm the job appears in the list
-aitbc ai jobs --status completed --limit 5
+aitbc --api-key "$CLIENT_JWT" ai jobs --status completed --limit 5
 ```
 
 ---

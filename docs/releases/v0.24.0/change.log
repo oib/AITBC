@@ -438,3 +438,11 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - Documented the actual job payload shape for `POST /v1/jobs`, the pull-based miner poll, the `ESCROW_RELEASE` path, and the JWT/`--api-key` authentication model.
 - Added honest trust-boundary notes for bridge, consensus, dispatch, and escrow signing.
 - Linked to `docs/reference/SERVICE_PORTS.md`, `docs/DESIGN_CYCLE.md`, and scenario 34.
+
+## P1.5 — `aitbc ai submit --wait` polls until release and prints the escrow tx
+
+- Enhanced the `--wait` polling path in `cli/aitbc_cli/commands/ai.py`.
+- After a paid job reaches `COMPLETED`, continue polling until `payment_status` flips to `released`.
+- Fetch the payment view (`GET /v1/jobs/{job_id}/payment`) and include `escrow_tx_hash` in the final output.
+- Added keyboard-interrupt handling that attempts to cancel the job before aborting.
+- Updated scenarios 07 and 34 to use `--wait` and document the JSON fields returned.
