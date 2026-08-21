@@ -8,6 +8,7 @@ daemon. Cross-node retrieval requires the real daemon and the IPFS network.
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import tempfile
 from datetime import UTC, datetime
@@ -19,7 +20,7 @@ import requests
 
 IPFS_DIR = Path("/var/lib/aitbc/ipfs")
 IPFS_DIR.mkdir(parents=True, exist_ok=True)
-IPFS_API = "http://127.0.0.1:5001"
+IPFS_API = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5001")
 TIMEOUT = 120
 
 
