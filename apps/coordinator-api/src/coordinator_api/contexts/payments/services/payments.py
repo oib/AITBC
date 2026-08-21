@@ -64,12 +64,18 @@ class PaymentService:
         """Create a new payment for a job with ACID compliance"""
         self._require_owned_job(job_id, client_id)
         try:
+            meta = {}
+            if payment_data.provider_address:
+                meta["provider_address"] = payment_data.provider_address
+            if payment_data.auto_reinvest_pct is not None:
+                meta["auto_reinvest_pct"] = str(payment_data.auto_reinvest_pct)
             payment = JobPayment(
                 job_id=job_id,
                 amount=payment_data.amount,
                 currency=payment_data.currency,
                 payment_method=payment_data.payment_method,
                 expires_at=datetime.now(UTC) + timedelta(seconds=payment_data.escrow_timeout_seconds),
+                meta_data=meta if meta else None,
             )
             self.session.add(payment)
             if payment_data.payment_method == "aitbc_token":
@@ -208,14 +214,27 @@ class PaymentService:
         try:
             client = AITBCHTTPClient(timeout=30.0)
             try:
+                release_body = {"reason": reason or "Job completed successfully"}
+                meta = payment.meta_data or {}
+                provider_address = meta.get("provider_address")
+                auto_reinvest_pct = meta.get("auto_reinvest_pct")
+                if provider_address and auto_reinvest_pct:
+                    release_body["provider_address"] = provider_address
+                    release_body["auto_reinvest_pct"] = auto_reinvest_pct
+                    release_body["auto_reinvest_address"] = provider_address
                 release_data = client.post(
                     f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
-                    json={"reason": reason or "Job completed successfully"},
+                    json=release_body,
                 )
                 payment.status = "released"
                 payment.released_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
                 payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
+                reinvest_stake_id = release_data.get("reinvest_stake_id")
+                if reinvest_stake_id:
+                    meta = payment.meta_data or {}
+                    meta["reinvest_stake_id"] = reinvest_stake_id
+                    payment.meta_data = meta
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )
