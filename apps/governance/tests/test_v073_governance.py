@@ -28,7 +28,7 @@ class TestGovernanceSettings:
         from governance_service.config import Settings
 
         settings = Settings()
-        assert settings.blockchain_rpc_url == "http://localhost:8202"
+        assert settings.blockchain_rpc_url == "http://127.0.0.1:8202"
         assert settings.default_chain_id == "ait-hub"
         assert settings.voting_period_blocks == 7200
         assert settings.quorum_percent == 30.0
@@ -130,20 +130,20 @@ class TestBlockchainClient:
     def test_client_init(self):
         from governance_service.clients.blockchain import BlockchainClient
 
-        client = BlockchainClient(rpc_url="http://localhost:8202")
-        assert client.rpc_url == "http://localhost:8202"
+        client = BlockchainClient(rpc_url="http://127.0.0.1:8202")
+        assert client.rpc_url == "http://127.0.0.1:8202"
 
     def test_client_init_strips_trailing_slash(self):
         from governance_service.clients.blockchain import BlockchainClient
 
-        client = BlockchainClient(rpc_url="http://localhost:8202/")
-        assert client.rpc_url == "http://localhost:8202"
+        client = BlockchainClient(rpc_url="http://127.0.0.1:8202/")
+        assert client.rpc_url == "http://127.0.0.1:8202"
 
     @pytest.mark.asyncio
     async def test_get_balance_success(self):
         from governance_service.clients.blockchain import BlockchainClient
 
-        client = BlockchainClient(rpc_url="http://localhost:8202")
+        client = BlockchainClient(rpc_url="http://127.0.0.1:8202")
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"address": "0xabc", "balance": 5000, "nonce": 3}
@@ -163,7 +163,7 @@ class TestBlockchainClient:
     async def test_get_balance_not_found(self):
         from governance_service.clients.blockchain import BlockchainClient
 
-        client = BlockchainClient(rpc_url="http://localhost:8202")
+        client = BlockchainClient(rpc_url="http://127.0.0.1:8202")
         mock_response = MagicMock()
         mock_response.status_code = 404
 
@@ -181,7 +181,7 @@ class TestBlockchainClient:
     async def test_get_block_height(self):
         from governance_service.clients.blockchain import BlockchainClient
 
-        client = BlockchainClient(rpc_url="http://localhost:8202")
+        client = BlockchainClient(rpc_url="http://127.0.0.1:8202")
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"height": 12345}
@@ -201,7 +201,7 @@ class TestBlockchainClient:
     async def test_submit_transaction_missing_chain_id(self):
         from governance_service.clients.blockchain import BlockchainClient
 
-        client = BlockchainClient(rpc_url="http://localhost:8202")
+        client = BlockchainClient(rpc_url="http://127.0.0.1:8202")
         with pytest.raises(ValueError, match="chain_id"):
             await client.submit_transaction({"from": "0xabc", "to": "0xdef"})
 
@@ -369,7 +369,7 @@ class TestOnChainSubmission:
         assert "voting_period_blocks" in data
         assert "quorum_percent" in data
         assert "timelock_blocks" in data
-        assert data["blockchain_rpc_url"] == "http://localhost:8202"
+        assert data["blockchain_rpc_url"] == "http://127.0.0.1:8202"
         assert "8006" not in data["blockchain_rpc_url"]
 
     def test_execute_proposal_endpoint_accepts_executor_address(self):
