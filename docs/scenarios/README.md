@@ -71,6 +71,7 @@ These were originally v0.10.3 shop-node bug tickets (A3–A14, B5–B15). They a
 | 34 | [Hub↔Customer Node End-to-End](./34_hub_customer_node_e2e.md) | A6 | `aitbc config`, `aitbc ai`, `aitbc wallet`, `aitbc market`, `aitbc bridge`, `aitbc exchange-island` |
 | 35 | [Fire-and-Forget Logging (B10/B11)](./35_fire_and_forget_logging_b10_b11.md) | B10, B11 | `aitbc system`, `aitbc agent-comm` |
 | 36 | [Pool Hub SLA End-to-End](./36_pool_hub_sla_e2e.md) | — | `aitbc pool-hub`, `aitbc mining` |
+| 37 | [On-Chain Performance Bonds](./37_performance_bonds.md) | P2.3 | `aitbc bond`, `aitbc market` |
 
 ---
 
