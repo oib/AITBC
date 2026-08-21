@@ -153,3 +153,7 @@ Latest pushed commits:
 - [x] Marketplace offer bond eligibility enforcement
 - [x] Unit tests and scenario docs
 - [x] Live validation on aitbc3 / hub.aitbc
+
+- [x] Fix `escrow_enabled` default/config drift in `STATUS.md` and `apps/blockchain-node/src/aitbc_chain/config.py`.
+  - `escrow_enabled` now defaults to `True`; B4/HTLC integration complete.
+  - `STATUS.md` no longer lists `False` for the flag; bridge-scope note updated.

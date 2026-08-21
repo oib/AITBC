@@ -564,12 +564,12 @@ class ChainSettings(BaseSettings):
     consensus_byzantine_threshold: int = 3  # slash count before deactivation
 
     # Cross-chain settlement (v0.9.0). Atomic settlement uses HTLCs to
-    # ensure either both chains settle or both refund. Enabled for homebrew
-    # testing — no external security audit will be performed (poor homebrew
-    # project). Settlement RPC endpoints and CrossChainSettlementService
-    # are now active.
-    # v0.10.16: fail-closed by default; enable only after explicit security review.
-    escrow_enabled: bool = False
+    # ensure either both chains settle or both refund. Settlement RPC
+    # endpoints and CrossChainSettlementService are now active; B4 (HTLC
+    # contract integration) is complete. Enabled by default for the homebrew
+    # network — operators can still disable explicitly if they run a private
+    # deployment before a security review.
+    escrow_enabled: bool = True
     escrow_atomic_settlement: bool = True  # use HTLC (vs manual admin refund)
     escrow_timeout_default: int = 3600  # 1 hour default timeout
     escrow_timeout_large: int = 86400  # 24 hours for large trades
