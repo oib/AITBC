@@ -100,7 +100,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
 
         response_text = resp_data.get("response", "")
         tokens_used = resp_data.get("eval_count", len(response_text.split()) * 2)
-        actual_cost = (tokens_used / 1000) * price
+        actual_cost = (Decimal(tokens_used) / 1000) * price
 
         info(f"Done in {elapsed:.2f}s — {tokens_used} tokens — actual cost: {actual_cost:.4f} AIT")
         click.echo(f"\n{response_text}\n")
