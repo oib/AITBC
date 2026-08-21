@@ -290,7 +290,7 @@ class ReputationService:
             "job_id": job_id,
             "success": success,
             "response_time": response_time,
-            "earnings": earnings,
+            "earnings": str(earnings),
             "total_jobs": total_jobs,
             "success_rate": reputation.success_rate,
         }
