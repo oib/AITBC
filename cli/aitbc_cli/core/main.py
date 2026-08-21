@@ -21,8 +21,6 @@ from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.agent_wallet import agent_wallet
 from aitbc_cli.commands.ai import ai
-from aitbc_cli.commands.zk import zk
-from aitbc_cli.commands.auth import auth
 from aitbc_cli.commands.bond import bond
 from aitbc_cli.commands.bootstrap import bootstrap
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
@@ -50,6 +48,7 @@ from aitbc_cli.commands.exchange import exchange
 from aitbc_cli.commands.exchange_island import exchange_island
 from aitbc_cli.commands.genesis import genesis
 from aitbc_cli.commands.governance import governance
+from aitbc_cli.commands.brand import brand
 from aitbc_cli.commands.plugin import plugin
 
 # Import island-specific commands
@@ -69,7 +68,6 @@ from aitbc_cli.commands.platform import platform
 from aitbc_cli.commands.pool_hub import pool_hub
 from aitbc_cli.commands.reinvest import reinvest
 from aitbc_cli.commands.reputation import reputation
-from aitbc_cli.commands.dashboard import dashboard
 from aitbc_cli.commands.resource import resource
 from aitbc_cli.commands.script import script
 from aitbc_cli.commands.security import security
@@ -139,13 +137,6 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
     services.
 
-    Groups:
-    market           GPU and software offers published by shop miners
-    marketplace      Global on-chain marketplace (cross-chain, bridge, listings)
-    ai               AI job submission and inspection
-    wallet           Wallet and account management
-    sync             Blockchain synchronization and divergence checks
-
     SYSTEM ARCHITECTURE COMMANDS:
     system          System management commands
     system architect    System architecture analysis
@@ -190,12 +181,9 @@ cli.add_command(chain, name="blockchain")
 cli.add_command(chain, name="chain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
 cli.add_command(ai)  # AI job submission and inspection
-cli.add_command(zk)  # Zero-knowledge proof commands
-cli.add_command(auth)  # Authentication and session management
 cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 cli.add_command(reputation)  # Reputation management
-cli.add_command(dashboard, name="dashboard")  # Customer and shop dashboards
 cli.add_command(governance)  # Governance operations
 cli.add_command(developer)  # Developer registry
 cli.add_command(grant)  # DAO grant proposals
@@ -232,6 +220,7 @@ cli.add_command(performance)
 cli.add_command(platform)
 cli.add_command(pool_hub)
 cli.add_command(plugin)
+cli.add_command(brand)
 cli.add_command(bridge)
 cli.add_command(deploy)
 cli.add_command(contract)
