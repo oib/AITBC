@@ -8,6 +8,7 @@ import os
 import re
 import socket
 from datetime import datetime
+from typing import Any
 
 import click
 
@@ -61,43 +62,73 @@ def get_chain_id() -> str:
 
 def get_island_id() -> str:
     """Get island ID from island credentials or blockchain config for hub nodes"""
+    env_island = os.getenv("ISLAND_ID")
+    if env_island:
+        return env_island
     try:
         island_id = load_island_credentials().get("island_id")
         if island_id:
             return str(island_id)
     except FileNotFoundError:
-        # Hub nodes use blockchain config
-        node_role = os.getenv("NODE_ROLE", "")
-        if node_role == "hub":
-            return os.getenv("ISLAND_ID", "ait-hub")
-        error("Island credentials required for island ID")
-        raise click.Abort() from None
-    error("Island ID not found in credentials")
-    raise click.Abort() from None
+        pass
+    # Hub / shop / follower nodes all publish to the hub island by default.
+    return os.getenv("ISLAND_ID", "ait-hub")
+
+
+def _wallet_address(wallet: dict[str, Any]) -> str | None:
+    metadata = wallet.get("metadata", {})
+    return metadata.get("address") or metadata.get("original_address")
+
+
+def _account_balance(address: str, chain_id: str) -> int:
+    """Query the hub for the canonical account balance of an address."""
+    try:
+        config = get_config()
+        hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        client = AITBCHTTPClient(base_url=f"http://{hub}", timeout=5)
+        data = client.get(f"/rpc/accounts/{address}", params={"chain_id": chain_id})
+        return int(data.get("balance", 0))
+    except Exception as e:
+        logger.debug("Could not get balance for %s: %s", address, e)
+        return 0
 
 
 def get_wallet_address() -> str:
-    """Get address from wallet service - use my-agent-wallet which exists on blockchain"""
+    """Get a funded provider address from the wallet service.
+
+    P2.5: marketplace offers require a sender with enough balance to pay the
+    listing fee (36 compute-seconds) and, historically, picked my-agent-wallet
+    even when it had a zero balance. We now prefer a wallet that can actually
+    afford the transaction.
+    """
+    env_address = os.getenv("SHOP_WALLET_ADDRESS")
+    if env_address:
+        return env_address
+
     # Try wallet service API first
+    wallets: list[dict[str, Any]] = []
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5)
-        wallets = http_client.get("/v1/wallets")
-        if wallets and wallets.get("items"):
-            # Use my-agent-wallet which exists on the blockchain
-            for wallet in wallets["items"]:
-                if wallet.get("wallet_id") == "my-agent-wallet":
-                    metadata = wallet.get("metadata", {})
-                    address = metadata.get("address") or metadata.get("original_address")
-                    if address:
-                        return str(address)
-            # Fallback to first wallet if my-agent-wallet not found
-            genesis_wallet = wallets["items"][0]
-            metadata = genesis_wallet.get("metadata", {})
-            address = metadata.get("address") or metadata.get("original_address")
-            if address:
-                return str(address)
+        response = http_client.get("/v1/wallets")
+        wallets = response.get("items", []) if response else []
     except Exception as e:
         logger.warning("Failed to get wallet from service: %s", e)
+
+    if wallets:
+        chain_id = get_chain_id()
+        # Pick the first wallet that can pay the minimum listing fee.
+        for wallet in wallets:
+            address = _wallet_address(wallet)
+            if address and _account_balance(address, chain_id) >= 36:
+                return str(address)
+        # Fall back to a hard-coded shop wallet or the first wallet.
+        for wallet in wallets:
+            address = _wallet_address(wallet)
+            if address:
+                return str(address)
+
+    # Fallback to local wallet file
+    wallet_path = "/root/.aitbc/wallets/genesis.json"
 
     # Fallback to local wallet file
     wallet_path = "/root/.aitbc/wallets/genesis.json"
