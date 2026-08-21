@@ -1,0 +1,32 @@
+[Unit]
+Description=AITBC IPFS Daemon (Kubo)
+After=network.target
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+Environment="IPFS_PATH=/var/lib/aitbc/ipfs-daemon"
+Environment="HOME=/var/lib/aitbc/ipfs-daemon"
+Environment="GOLOG_LOG_LEVEL=info"
+ExecStart=/usr/local/bin/ipfs daemon --enable-gc
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-ipfs
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -284,3 +284,10 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
   - `aitbc-whisper` and `aitbc-ffmpeg` services running; marketplace offers
     `07f10063c4384b04a590ecf528316645` (whisper) and `e762581945554dfe8711f5b017eda812` (ffmpeg)
     registered on hub marketplace service.
+
+- 2026-08-21: P2.6 real IPFS daemon validation:
+  - `aitbc ipfs upload --file /tmp/ipfs_test.txt` on aitbc3 -> CID `QmVsGhgoQHZgB581xEhCVH1L5wmXYAhNspjuW8eRL4DtPL`.
+  - `aitbc ipfs download <CID>` on aitbc3 returned the original content.
+  - Hub daemon peered to aitbc3 via `ipfs swarm connect`; hub `aitbc ipfs download <CID>`
+    fetched the file cross-node over IPFS.
+  - Both nodes run `aitbc-ipfs.service` with Kubo v0.43.0.
