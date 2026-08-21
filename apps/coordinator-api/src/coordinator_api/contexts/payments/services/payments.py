@@ -218,9 +218,13 @@ class PaymentService:
                 meta = payment.meta_data or {}
                 provider_address = meta.get("provider_address")
                 auto_reinvest_pct = meta.get("auto_reinvest_pct")
+                # P2.4: if the payment was created before constraints stored reinvest, fall
+                # back to the job's constraints.
+                if auto_reinvest_pct is None and job and job.constraints:
+                    auto_reinvest_pct = job.constraints.get("auto_reinvest_pct")
                 if provider_address and auto_reinvest_pct:
                     release_body["provider_address"] = provider_address
-                    release_body["auto_reinvest_pct"] = auto_reinvest_pct
+                    release_body["auto_reinvest_pct"] = str(auto_reinvest_pct)
                     release_body["auto_reinvest_address"] = provider_address
                 release_data = client.post(
                     f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
@@ -231,9 +235,14 @@ class PaymentService:
                 payment.updated_at = datetime.now(UTC)
                 payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
                 reinvest_stake_id = release_data.get("reinvest_stake_id")
-                if reinvest_stake_id:
+                reinvest_amount = release_data.get("reinvest_amount")
+                if reinvest_stake_id or reinvest_amount:
                     meta = dict(payment.meta_data or {})
-                    meta["reinvest_stake_id"] = str(reinvest_stake_id)
+                    if reinvest_stake_id:
+                        meta["reinvest_stake_id"] = str(reinvest_stake_id)
+                    if reinvest_amount:
+                        meta["reinvest_amount"] = str(reinvest_amount)
+                    meta["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
                     payment.meta_data = meta
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
