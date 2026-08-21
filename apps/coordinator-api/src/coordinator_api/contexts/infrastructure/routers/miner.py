@@ -387,10 +387,14 @@ async def submit_result(
                     payment = session.get(JobPayment, job.payment_id)
                     if payment and payment.meta_data:
                         reinvest_stake_id = payment.meta_data.get("reinvest_stake_id")
-                        if reinvest_stake_id:
+                        reinvest_amount = payment.meta_data.get("reinvest_amount")
+                        if reinvest_stake_id or reinvest_amount:
                             receipt_with_reinvest = dict(receipt)
-                            receipt_with_reinvest["reinvest_status"] = "staked"
-                            receipt_with_reinvest["reinvest_stake_id"] = reinvest_stake_id
+                            receipt_with_reinvest["reinvest_status"] = payment.meta_data.get("reinvest_status", "staked")
+                            if reinvest_stake_id:
+                                receipt_with_reinvest["reinvest_stake_id"] = reinvest_stake_id
+                            if reinvest_amount:
+                                receipt_with_reinvest["reinvest_amount"] = reinvest_amount
                             job.receipt = receipt_with_reinvest
                 except Exception as e:
                     logger.warning("Could not attach reinvestment info to receipt: %s", e)
