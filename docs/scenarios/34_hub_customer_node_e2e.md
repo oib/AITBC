@@ -48,7 +48,7 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 ### Tools Required
 
 - `aitbc` on both hub and shop
-- A funded customer wallet and a way to log in (`aitbc auth login`) or an existing JWT for `--api-key`
+- A funded customer wallet and a JWT for `--api-key` (generate with `python3 -c "from aitbc.auth import create_access_token; ..."`)
 
 ### Setup Required
 
@@ -109,11 +109,18 @@ aitbc exchange-island rates
 aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --prompt "Cross-node unpaid job" \
   --coordinator-url http://127.0.0.1:8203
-aitbc --api-key "$CLIENT_JWT" ai status --job-id "$JOB_ID"
-aitbc --api-key "$CLIENT_JWT" ai jobs --limit 5
 ```
 
-**Expected output:** `QUEUED` then `COMPLETED` on `aitbc-miner-1` with `payment_status` none/skipped.
+For a blocking end-to-end view, use `--wait`:
+
+```bash
+aitbc --api-key "$CLIENT_JWT" --output json ai submit \
+  --prompt "Cross-node unpaid job" \
+  --coordinator-url http://127.0.0.1:8203 \
+  --wait
+```
+
+**Expected output:** `QUEUED` then `COMPLETED` on `aitbc-miner-1` with `payment_status` none/skipped. With `--wait`, the JSON also contains `state`, `result`, and `receipt`.
 
 ### Step 6: Bridge validation from CLI
 
@@ -146,19 +153,18 @@ aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --wallet genesis \
   --buyer-address <customer-ait1-or-aitbc1> \
   --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
-  --coordinator-url http://127.0.0.1:8203
+  --coordinator-url http://127.0.0.1:8203 \
+  --wait
 ```
 
-**Expected output:** `payment_status: escrowed`, a `payment_id`.
+**Expected output:** `state: COMPLETED`, `payment_status: released`, and `escrow_tx_hash` containing the on-chain `ESCROW_RELEASE` transaction hash.
 
-Wait, then:
+If you prefer to poll manually, omit `--wait` and then run:
 
 ```bash
 aitbc --api-key "$CLIENT_JWT" --output json ai status --job-id "$JOB_ID"
 aitbc --api-key "$CLIENT_JWT" ai results --job-id "$JOB_ID"
 ```
-
-**Expected output:** `COMPLETED`, `payment_status: released`.
 
 On the shop (or any CLI that talks to the hub wallet/RPC):
 
@@ -212,10 +218,10 @@ journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed ||
 Authenticate the CLI customer (hub):
 
 ```bash
-aitbc auth login --wallet customer-wallet --password <password>
-# or with a raw key in a CI context:
-# aitbc auth login --wallet-address 0xCustomer1 --private-key-file /run/secrets/customer.key
+python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '<customer-address>'}))"
 ```
+
+Store the returned JWT in `AITBC_API_KEY` or pass it as `--api-key` in every command.
 
 ---
 
@@ -228,4 +234,4 @@ aitbc auth login --wallet customer-wallet --password <password>
 ---
 
 *Last updated: 2026-08-21*
-*Version: 1.4*
+*Version: 1.5*
