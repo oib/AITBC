@@ -1,85 +1,129 @@
-"""
-Sync Commands Tests
-Tests for sync CLI commands
-
-Converted from skipped stubs to functional tests using the shared CLI mock
-fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
-"""
+"""Tests for the aitbc sync command group."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
+from click.testing import CliRunner
+
+
+@pytest.fixture
+def runner():
+    return CliRunner()
 
 
 class TestSyncCommands:
-    """Test sync command group"""
+    """Test sync command group."""
 
     def test_sync_group_exists(self):
-        """Test that sync command group exists"""
         from aitbc_cli.commands.sync import sync
 
         assert sync is not None
-        assert hasattr(sync, "name")
-
-    def test_sync_group_name(self):
-        """Test sync group name"""
-        from aitbc_cli.commands.sync import sync
-
         assert sync.name == "sync"
-
-    def test_sync_group_has_bulk_subcommand(self):
-        """The ``bulk`` subcommand is registered on the sync group."""
-        from aitbc_cli.commands.sync import sync
-
+        assert "status" in sync.commands
         assert "bulk" in sync.commands
 
-    @patch("subprocess.run")
-    def test_sync_bulk_command(self, mock_run, runner):
-        """``sync bulk`` invokes the sync_cli.py script via subprocess."""
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_run.return_value = mock_result
+    @patch("aitbc_cli.commands.sync.AITBCHTTPClient")
+    def test_sync_status_shows_divergence(self, mock_http_class, runner):
+        mock_client = mock_http_class.return_value
+        mock_client.get.side_effect = [
+            # local head
+            {"height": 100, "hash": "0xlocalhash", "timestamp": "2026-08-21T00:00:00", "tx_count": 5},
+            # network info
+            {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"], "chain_id": "ait"},
+            # sync config (missing/old endpoint)
+            {"error": "not found"},
+            # hub head
+            {"height": 110, "hash": "0xhubhash", "timestamp": "2026-08-21T00:01:00", "tx_count": 10},
+            # hub network info
+            {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"]},
+        ]
 
         from aitbc_cli.commands.sync import sync
 
         result = runner.invoke(
             sync,
-            ["bulk", "--source", "http://leader:8202", "--import-url", "http://local:8202"],
+            ["status", "--node-url", "http://localhost:8202", "--hub-url", "http://hub:8202"],
         )
 
         assert result.exit_code == 0, result.output
-        mock_run.assert_called_once()
-        cmd = mock_run.call_args[0][0]
-        assert "sync_cli.py" in cmd[1]
+        assert "Hub height" in result.output
+        assert "10" in result.output
+        assert "BEHIND_BY_10" in result.output
 
-    @patch("subprocess.run")
-    def test_sync_bulk_command_with_batch_size(self, mock_run, runner):
-        """``sync bulk --batch-size`` forwards the batch size to sync_cli.py."""
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_run.return_value = mock_result
+    @patch("aitbc_cli.commands.sync.AITBCHTTPClient")
+    def test_sync_status_hash_mismatch(self, mock_http_class, runner):
+        mock_client = mock_http_class.return_value
+        mock_client.get.side_effect = [
+            {"height": 110, "hash": "0xlocalhash", "timestamp": "2026-08-21T00:00:00", "tx_count": 5},
+            {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"], "chain_id": "ait"},
+            {"error": "not found"},
+            {"height": 110, "hash": "0xhubhash", "timestamp": "2026-08-21T00:01:00", "tx_count": 10},
+            {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"]},
+        ]
 
         from aitbc_cli.commands.sync import sync
 
-        result = runner.invoke(sync, ["bulk", "--batch-size", "200"])
+        result = runner.invoke(
+            sync,
+            ["status", "--node-url", "http://localhost:8202", "--hub-url", "http://hub:8202"],
+        )
 
         assert result.exit_code == 0, result.output
-        cmd = mock_run.call_args[0][0]
-        assert "200" in cmd
+        assert "HASH_MISMATCH" in result.output
 
-    @patch("subprocess.run")
-    def test_sync_bulk_command_failure(self, mock_run, runner):
-        """``sync bulk`` aborts when sync_cli.py returns non-zero."""
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_run.return_value = mock_result
+    @patch("aitbc_cli.commands.sync.AITBCHTTPClient")
+    def test_sync_status_alert_exits_nonzero(self, mock_http_class, runner):
+        mock_client = mock_http_class.return_value
+        mock_client.get.side_effect = [
+            {"height": 100, "hash": "0xlocalhash", "timestamp": "2026-08-21T00:00:00", "tx_count": 5},
+            {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"], "chain_id": "ait"},
+            {"error": "not found"},
+            {"height": 110, "hash": "0xhubhash", "timestamp": "2026-08-21T00:01:00", "tx_count": 10},
+            {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"]},
+        ]
 
         from aitbc_cli.commands.sync import sync
 
-        result = runner.invoke(sync, ["bulk"])
+        result = runner.invoke(
+            sync,
+            [
+                "status",
+                "--node-url",
+                "http://localhost:8202",
+                "--hub-url",
+                "http://hub:8202",
+                "--alert",
+            ],
+        )
 
-        assert result.exit_code != 0
+        assert result.exit_code == 1
+        assert "BEHIND_BY_10" in result.output
 
+    @patch("aitbc_cli.commands.sync.AITBCHTTPClient")
+    def test_sync_status_hub_unreachable(self, mock_http_class, runner):
+        from aitbc_cli.utils.http_client import NetworkError
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        mock_client = mock_http_class.return_value
+
+        def side_effect(path, **kwargs):
+            if path == "/rpc/head" and "hub" in str(kwargs.get("params")):
+                # This path is not reached with the same mock because both clients share it.
+                raise NetworkError("hub down")
+            if "/rpc/head" in path:
+                return {"height": 100, "hash": "0xlocalhash", "timestamp": "2026-08-21T00:00:00", "tx_count": 5}
+            if "/rpc/network-info" in path:
+                return {"p2p_endpoint": "0.0.0.0:8200", "supported_chains": ["ait"], "chain_id": "ait"}
+            if "/rpc/sync/config" in path:
+                return {"error": "not found"}
+            return {}
+
+        mock_client.get.side_effect = side_effect
+
+        from aitbc_cli.commands.sync import sync
+
+        result = runner.invoke(
+            sync,
+            ["status", "--node-url", "http://localhost:8202", "--hub-url", "http://hub:8202"],
+        )
+
+        assert result.exit_code == 0, result.output
