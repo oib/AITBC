@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from ..config import get_config
 from .http_client import get_logger
 
 logger = get_logger(__name__)
@@ -68,8 +69,6 @@ def get_rpc_endpoint() -> str:
     rpc_endpoint = credentials.get("credentials", {}).get("rpc_endpoint")
 
     if not rpc_endpoint:
-        from ..config import get_config
-
         fallback = getattr(get_config(), "blockchain_rpc_url", "")
         if not fallback:
             raise ValueError("RPC endpoint not found in island credentials")
