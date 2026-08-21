@@ -110,6 +110,14 @@ class JobService:
             now = datetime.now()
             statement = select(Job).where(Job.state == "QUEUED").order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
             jobs = self.session.scalars(statement).all()
+
+            # Load the pool of online miners once per dispatch decision so we can
+            # route high-reputation jobs to the best available provider.
+            online_miners = list(
+                self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all()
+            )
+            current_reputation = self._get_miner_reputation(miner)
+
             for job in jobs:
                 try:
                     job = self._ensure_not_expired(job)
@@ -118,6 +126,10 @@ class JobService:
                     if job.expires_at and job.expires_at <= now:
                         continue
                     if not self._satisfies_constraints(job, miner):
+                        continue
+                    if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation):
+                        # A better-suited, higher-reputation miner is online and
+                        # has capacity. Leave this job for them to pick up.
                         continue
                     job.state = "RUNNING"
                     job.assigned_miner_id = miner.id
@@ -180,7 +192,56 @@ class JobService:
                 return False
             if price_value > Decimal(str(constraints.max_price)):
                 return False
+        if constraints.min_reputation is not None:
+            if self._get_miner_reputation(miner) < constraints.min_reputation:
+                return False
         return True
+
+    def _get_miner_reputation(self, miner: Miner) -> float:
+        """Return the reputation score for a miner.
+
+        The score can be reported by the miner (via heartbeat/registration
+        metadata) or derived from its historical job completion ratio.  A neutral
+        starting value of 0.5 is used for miners with no track record so that
+        first-time providers are neither favoured nor penalised.
+        """
+        for source in (miner.extra_metadata or {}, miner.capabilities or {}):
+            reported = source.get("reputation_score")
+            if reported is not None:
+                try:
+                    return float(reported)
+                except (TypeError, ValueError):
+                    pass
+
+        total = (miner.jobs_completed or 0) + (miner.jobs_failed or 0)
+        if total == 0:
+            return 0.5
+        return miner.jobs_completed / total
+
+    def _has_higher_reputation_miner(
+        self,
+        job: Job,
+        online_miners: list[Miner],
+        current_miner: Miner,
+        current_reputation: float,
+    ) -> bool:
+        """Check whether a higher-reputation, capable miner is available for a job."""
+        constraints = Constraints(**job.constraints) if job.constraints else Constraints()
+        for other in online_miners:
+            if other.id == current_miner.id:
+                continue
+            if other.status != "ONLINE":
+                continue
+            if other.concurrency and other.inflight >= other.concurrency:
+                continue
+            if not self._satisfies_constraints(job, other):
+                continue
+            if constraints.min_reputation is not None:
+                if self._get_miner_reputation(other) < constraints.min_reputation:
+                    continue
+            if self._get_miner_reputation(other) > current_reputation:
+                return True
+        return False
 
     def execute_job(self, job_id: str, result: dict[str, Any]) -> Job:
         """
