@@ -4,6 +4,8 @@
 **Scope**: Cross-chain bridge attack surfaces across v0.7.0–v0.9.0, including proof verification, validator set management, Merkle proofs, finality, HTLC settlement, and fund movement.
 **Related**: [Bridge Security Audit](../releases/AUDIT.md) | [General Threat Model](../security/threat-model.md) | [Release Status](../releases/STATUS.md)
 
+> **Important — default operational model:** The bridge is deployed as a **trusted-custodian bridge** by default. `bridge_release_enabled`, `bridge_multisig_enabled`, and `bridge_require_merkle_proof` all default to `False`. The cryptographic verification layers listed below (multi-sig, Merkle proofs, block-header validation) are implemented and regression-tested, but they are only enforced when an operator explicitly enables the corresponding flags and supplies a validator set and source-chain block headers.
+
 ---
 
 ## 1. Bridge Components
@@ -17,7 +19,7 @@
 | Multi-sig aggregation | `aitbc/bridge/multisig.py` | Threshold signature collection + verification |
 | Merkle proof verification | `state/merkle_patricia_trie.py:verify_proof` | Trie inclusion proof for lock events |
 | Finality tracking | `BridgeBlockHeader.confirmation_count` + `_check_finality_for_transfer` | Confirmation counting, large-transfer finality gate |
-| Release fence | `bridge_release_enabled` config | Gates confirm/release path (default: True) |
+| Release fence | `bridge_release_enabled` config | Gates confirm/release path (default: `False` — trusted-custodian mode) |
 | HTLC settlement | `cross_chain/settlement.py` + `contracts/htlc_contract.py` | Fund locking, secret reveal, timelock enforcement, refund |
 | Bridge enhanced (coordinator) | `coordinator-api/.../bridge_enhanced.py` | HTLC swap initiation, wallet adapter calls |
 
@@ -26,11 +28,11 @@
 ```
 Layer 1:  Signature verification (v0.7.0) — secp256k1 signature on every lock/unlock/confirm
 Layer 2:  Block anchoring (v0.7.0) — proofs reference a specific block height + hash
-Layer 3:  Multi-sig threshold (v0.7.1) — M-of-N validators must sign proofs
-Layer 4:  Block header signatures (v0.7.1) — proposers sign block headers
+Layer 3:  Multi-sig threshold (v0.7.1) — M-of-N validators must sign proofs (gated by `bridge_multisig_enabled`)
+Layer 4:  Block header signatures (v0.7.1) — proposers sign block headers (gated by `bridge_block_signature_required`)
 Layer 5:  Validator set registry (v0.7.1) — only registered validators can sign
-Layer 6:  Release fence (v0.5.16) — bridge_release_enabled gates the release path
-Layer 7:  Merkle proof verification (v0.7.2) ✅ — proofs tied to verified on-chain state trie
+Layer 6:  Release fence (v0.5.16) — bridge_release_enabled gates the release path (default `False`)
+Layer 7:  Merkle proof verification (v0.7.2) ✅ — proofs tied to verified on-chain state trie (gated by `bridge_require_merkle_proof`)
 Layer 8:  Finality checks (v0.7.2) ✅ — large transfers require full finality (6+ confirmations)
 Layer 9:  Validator set freshness (v0.7.2) ✅ — epoch grace period prevents stale-set attacks
 Layer 10: Proposer validator-set membership (v0.7.2 audit fix) ✅ — recovered signer checked against registered set
@@ -49,7 +51,7 @@ Layer 13: Proof chain (v0.9.0 B3) ✅ — tamper-evident proof chain (lock → v
 
 **Residual risk**: A colluding validator majority (≥M validators) who also control block production can still forge proofs with valid Merkle inclusion. Mitigation: multi-validator consensus (v0.7.5) distributes block production.
 
-**Status**: ✅ Mitigated. Bug #3 (proposer signature not checked against validator set) fixed in audit. Bug #4 (Merkle proof silently skipped) fixed with enforcement flag.
+**Status**: ✅ Mitigated when the cryptographic flags are enabled. With default settings (`bridge_release_enabled=False`, `bridge_multisig_enabled=False`, `bridge_require_merkle_proof=False`) the bridge relies on the operator's release authorization and is effectively a trusted custodian. Bug #3 (proposer signature not checked against validator set) fixed in audit. Bug #4 (Merkle proof silently skipped) fixed with enforcement flag.
 
 ### 3.2 Signature Replay (Cross-Chain / Cross-Transfer)
 
