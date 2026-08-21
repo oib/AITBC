@@ -103,6 +103,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/services*": AuthLevel.ANY,
     "/v1/disputes*": AuthLevel.ANY,
     "/v1/zk*": AuthLevel.ANY,
+    "/v1/tee*": AuthLevel.ANY,
     "/v1/fhe*": AuthLevel.ANY,
     "/v1/ml-zk*": AuthLevel.ANY,
     "/v1/confidential*": AuthLevel.ANY,
