@@ -149,6 +149,14 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `aitbc pool-hub status` defaults to `http://localhost:8210` and correctly reports `miners_online` for the pool hub it queries.
 - Scenario 36 (`pool_hub_sla_e2e.md`) updated to show `miners_online: 1` on the shop.
 
+## P0 Phase 8 — Non-genesis settlement key for ESCROW_RELEASE (2026-08-21)
+
+- `ESCROW_RELEASE` transactions are no longer signed exclusively by `GENESIS_WALLET_PRIVATE_KEY`.
+- New environment variables: `ESCROW_RELEASE_PRIVATE_KEY` and `ESCROW_RELEASE_ADDRESS`.
+- The settlement address is derived from the release key or taken from `ESCROW_RELEASE_ADDRESS`; it becomes the `from` address of the on-chain release transaction.
+- Fallback to `GENESIS_WALLET_PRIVATE_KEY` is preserved for existing deployments.
+- Added unit tests in `apps/blockchain-node/tests/test_escrow_routes.py`.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]

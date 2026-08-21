@@ -53,6 +53,7 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 ### Setup Required
 
 - Hub: coordinator, wallet, exchange, explorer
+- Hub blockchain RPC: `ESCROW_RELEASE_PRIVATE_KEY` and `ESCROW_RELEASE_ADDRESS` in `/etc/aitbc/node.env` (or `/etc/aitbc/blockchain.env`), or fallback to `GENESIS_WALLET_PRIVATE_KEY`
 - Shop: miner, GPU, Ollama `llama3.2:3b`, funded provider wallet (e.g. `test-wallet-3`)
 - Buyer: genesis or another funded wallet
 
@@ -133,6 +134,8 @@ aitbc exchange-island orders --status open
 **Expected output:** book/orders. Do not POST `/v1/exchange/orders`.
 
 ### Step 8: Paid job + escrow + on-chain settlement
+
+The release transaction is signed by the key in `ESCROW_RELEASE_PRIVATE_KEY` (set in `/etc/aitbc/node.env` on the hub). If the variable is not configured, the node falls back to `GENESIS_WALLET_PRIVATE_KEY`. The settlement address is derived from the release key unless `ESCROW_RELEASE_ADDRESS` is set explicitly.
 
 On the hub:
 
