@@ -610,3 +610,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - OpenAPI drift guard `files:` pattern for `aitbc_agent_core/`.
   - Regenerated `docs/api/*.json` so the drift guard passes.
 - Full suite passing: ~3700 tests.
+
+## P2.3 marketplace bond eligibility
+
+- `submit_marketplace_transaction` in `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`
+  now checks for an active bond before accepting `offer`/`software_offer`
+  GPU_MARKETPLACE transactions. The threshold is controlled by
+  `MARKET_BOND_MIN_AMOUNT` (compute-seconds); a value of 0 disables the check.
+- Bond check uses the active bond table and expires matured bonds.
