@@ -838,3 +838,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - High-value jobs (payment >= COORDINATOR_TEE_HIGH_VALUE_THRESHOLD, default 10 AIT) now trigger automatic TEE quote generation and verification before escrow release.
 - Explicit --tee-attestation-required jobs also have their TEE quote auto-generated and verified if the miner does not provide one.
 - Mirrors the existing P2.1 ZK high-value gating.
+* 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
+- Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by `aitbc tee attest`.
+- The quote is placed at the top level of the `/v1/miners/{job_id}/result` payload so the coordinators can verify it before escrow release.
+* 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
+- Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by aitbc tee attest.
+- The quote is placed at the top level of the /v1/miners/{job_id}/result payload so the coordinator TEE attestation service can verify it before escrow release.
