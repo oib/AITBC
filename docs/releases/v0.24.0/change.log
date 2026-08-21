@@ -422,3 +422,19 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 * 49b749cc0 chore(qa-cycle): read GITEA_TOKEN from env or ~/.gitea_token, never a repo file
 * 22ba759f7 chore: remove legacy port 18000/18001 references from tests and scripts
 * 636db678e test: fix stale CLI commands in run_all_tests.sh
+
+## P1.8 — Honest architecture rewrite of 1_system-flow.md
+
+- Rewrote  to describe the current CLI-driven flow.
+- Removed stale references to , , Tendermint port , and legacy port  miner daemon.
+- Documented the actual job payload shape for , the pull-based miner poll, the  path, and the JWT/ authentication model.
+- Added honest trust-boundary notes for bridge, consensus, dispatch, and escrow signing.
+- Linked to , , and scenario 34.
+
+## P1.8 — Honest architecture rewrite of 1_system-flow.md
+
+- Rewrote `docs/architecture/1_system-flow.md` to describe the current CLI-driven flow.
+- Removed stale references to `aitbc-cli.sh`, `cli/client.py`, Tendermint port `26657`, and legacy port `8005` miner daemon.
+- Documented the actual job payload shape for `POST /v1/jobs`, the pull-based miner poll, the `ESCROW_RELEASE` path, and the JWT/`--api-key` authentication model.
+- Added honest trust-boundary notes for bridge, consensus, dispatch, and escrow signing.
+- Linked to `docs/reference/SERVICE_PORTS.md`, `docs/DESIGN_CYCLE.md`, and scenario 34.
