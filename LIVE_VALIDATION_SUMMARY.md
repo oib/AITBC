@@ -745,3 +745,8 @@ Live observed balance: `89505`.
   - Scenario 36 updated to describe the hub-wide pool-hub architecture.
   - `tests/cli/test_commands_pool_hub.py` aligned with the follower/hub URL
     resolution logic and now passes.
+- 2026-08-22: Escrow default/config drift fix:
+  - `apps/blockchain-node/src/aitbc_chain/config.py` now sets `escrow_enabled=True`.
+  - `docs/releases/STATUS.md` updated to list `escrow_enabled` default `True`.
+  - `docs/DESIGN_CYCLE.md` step 3 gap marked `Done`.
+  - Scope note clarifies job-payment escrow is live and cross-chain bridge HTLC is gated by this flag.
