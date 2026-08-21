@@ -232,9 +232,9 @@ class PaymentService:
                 payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
                 reinvest_stake_id = release_data.get("reinvest_stake_id")
                 if reinvest_stake_id:
-                    meta = payment.meta_data or {}
+                    meta = dict(payment.meta_data or {})
                     meta["reinvest_stake_id"] = reinvest_stake_id
-                    payment.meta_data = dict(meta)
+                    payment.meta_data = meta
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )
