@@ -244,3 +244,11 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
   without a ZK proof when below `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`.
 - Fixed offset-naive/offset-aware datetime comparison in `JobService` that caused
   500 errors for jobs stored in SQLite.
+
+- Added `aitbc zk` CLI group:
+  - `aitbc zk health`
+  - `aitbc zk circuits`
+  - `aitbc zk verify --proof-id d13ed25c3c074a28b7c33056f7b2eca3`
+  - `aitbc zk verify --job-id 21e4d780645242c1bc6fc384f8fdc827`
+  - `aitbc zk verify --proof-file /tmp/proof.json`
+- Added `POST /v1/zk/receipt/verify` coordinator endpoint.
