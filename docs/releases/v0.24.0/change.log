@@ -97,6 +97,14 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - Patched scenario 34 exchange paths and JWT import (`e8966aba1` on gitea `main`).
 - Simulated fallbacks made deterministic for `aitbc reputation` and `aitbc exchange-island` (`d6958ed00`).
 
+## P0 Phase 1 — Documentation and config honesty (2026-08-21)
+
+- docs/releases/STATUS.md now distinguishes payment escrow (live) from bridge HTLC gating.
+- docs/architecture/1_system-flow.md rewritten to describe the current CLI-driven flow.
+- docs/architecture/active_apps.md updated to v0.10.18 and notes deprecated/parked entries.
+- docs/scenarios/27_cli_commands.md adds command-family clarity step (market vs marketplace, governance vs operations governance).
+- docs/scenarios/README.md and docs/README.md cross-link releases/STATUS.md and note the P0 pass.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]

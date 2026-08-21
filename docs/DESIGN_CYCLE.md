@@ -62,7 +62,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`. Exchange `buy` needs validator keystore. No production faucet. | Customer onboarding |
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. Reputation not used in matching. | UX + matching quality |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc --api-key $JWT ai submit …` works; JWT is minted from `aitbc.auth.create_access_token` / env secret, not a CLI login | Auth UX |
-| 3. Escrow | On by default, HTLC-audited | Live paid jobs **do** escrow and release. `STATUS.md` still lists `escrow_enabled=False` as a default — docs/config drift | Config honesty |
+| 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `STATUS.md` now distinguishes payment escrow from bridge HTLC gating | Config honesty |
 | 4. Match to miner | Stake + reputation + capacity | Shop miner heartbeats to **local** coordinator; hub pool `miners_online` stays 0 | Hub-wide miner registry |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama inference live. Whisper/FFmpeg services exist, not in the default shop loop | Optional services |
 | 6. Verify result | ZK / TEE attestation | Result is trusted coordinator receipt. ZK circuits exist, not wired. TEE CLI exists, not wired | Verifiable compute |
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21*
+*Last updated: 2026-08-21 (Phase 1 P0.4 config honesty in progress)*
