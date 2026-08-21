@@ -278,3 +278,22 @@ def test_tee_task_runner_requires_running_enclave() -> None:
     runner = TEETaskRunner()
     with pytest.raises(TEEError):
         runner.run(task, lambda inp: {})
+
+
+def test_quote_serialization_and_signature() -> None:
+    generator = QuoteGenerator("enc-1")
+    quote = generator.generate(quote_id="q1", enclave_id="enc-1", measurement="measurement-1")
+    assert quote.verify_signature() is True
+    quote_b64 = quote.to_base64()
+    restored = AttestationQuote.from_base64(quote_b64)
+    assert restored.verify_signature() is True
+    assert restored.enclave_id == "enc-1"
+    assert restored.measurement == "measurement-1"
+    assert AttestationVerifier({"measurement-1"}, require_signature=True).verify(restored)
+
+
+def test_quote_verifier_rejects_tampered_measurement() -> None:
+    generator = QuoteGenerator("enc-1")
+    quote = generator.generate(quote_id="q1", enclave_id="enc-1", measurement="measurement-1")
+    quote.measurement = "measurement-2"
+    assert AttestationVerifier({"measurement-2"}, require_signature=True).verify(quote) is False
