@@ -727,3 +727,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `aitbc-whisper` and `aitbc-ffmpeg` services started with executable memory enabled.
   - Default marketplace offers for Whisper and FFmpeg created in marketplace service.
   - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md`.
+- Validated end-to-end ZK receipt verification: submitted `aitbc ai submit --wallet default --payment 1.0 --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f --model llama3.2:3b --prompt "What is the capital of France?" --zk-proof-required --wait`; the completed receipt shows `zk_status: verified` and `aitbc zk verify --proof-id f714b502099b4813931d8594b9b57650` returns `verified: true, computation_correct: true, privacy_preserved: true`.
+
