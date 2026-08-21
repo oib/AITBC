@@ -36,15 +36,22 @@ def _coordinator_client(ctx, coordinator_url: str | None) -> AITBCHTTPClient:
     if not coord_url:
         abort(ctx, "Coordinator URL not configured")
 
-    token = ctx.obj.get("api_key")
-    headers = _auth_headers(ctx)
-    client_kwargs: dict[str, Any] = {"base_url": coord_url, "timeout": 60, "headers": headers}
-    if token and not _looks_like_jwt(token):
-        # Miner API keys go through the X-Api-Key header, not Bearer.
-        client_kwargs["api_key"] = token
-        client_kwargs["headers"] = None
+    # Public nginx mounts the coordinator under /v1; the app itself also prefixes
+    # all routes with /v1.  Strip a trailing /v1 from the configured URL so the
+    # endpoints below can use the canonical /v1/... paths without doubling.
+    coord_url = coord_url.rstrip("/")
+    if coord_url.endswith("/v1"):
+        coord_url = coord_url[:-3]
 
-    return AITBCHTTPClient(**client_kwargs)
+    token = ctx.obj.get("api_key")
+    headers: dict[str, str] | None = _auth_headers(ctx)
+    if token and not _looks_like_jwt(token):
+        # Miner API keys authenticate through the X-Api-Key header.
+        if headers is None:
+            headers = {}
+        headers["X-Api-Key"] = token
+
+    return AITBCHTTPClient(base_url=coord_url, timeout=60, headers=headers)
 
 
 @click.group()
