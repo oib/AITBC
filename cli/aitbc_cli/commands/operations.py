@@ -532,11 +532,12 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
 @click.option("--title", required=True, help="Proposal title")
 @click.option("--description", required=True, help="Proposal description")
 @click.option("--category", default="general", help="Proposal category")
+@click.option("--params", default=None, help='JSON execution payload, e.g. {"action":"parameter_change","parameter":"block_time_seconds","value":"10"}')
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def proposal(ctx, proposal_id: str, title: str, description: str, category: str, wallet: str, voting_days: int, format: str):
+def proposal(ctx, proposal_id: str, title: str, description: str, category: str, params: str | None, wallet: str, voting_days: int, format: str):
     """Create a governance proposal on blockchain"""
     config = get_config()
 
@@ -574,6 +575,15 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
         voting_starts = datetime.now(UTC).isoformat()
         voting_ends = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
 
+        # Build execution payload from --params if provided
+        execution_payload = {}
+        if params:
+            try:
+                execution_payload = json.loads(params)
+            except json.JSONDecodeError:
+                error("Invalid JSON in --params")
+                return
+
         # Submit proposal to blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         proposal_data = {
@@ -582,6 +592,7 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
             "title": title,
             "description": description,
             "category": category,
+            "execution_payload": execution_payload,
             "voting_starts": voting_starts,
             "voting_ends": voting_ends,
             "chain_id": chain_id,
