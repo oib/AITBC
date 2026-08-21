@@ -134,3 +134,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 39 | [Automatic Reinvestment from Released Escrow](./40_auto_reinvestment.md) | Auto-stake provider earnings on escrow release | `aitbc ai` |
 || 40 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs | `aitbc ai` |
 || 41 | [Real IPFS Daemon behind `aitbc ipfs`](./42_ipfs_daemon.md) | Use Kubo for real CIDs and cross-node retrieval | `aitbc ipfs` |
+|| 42 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
