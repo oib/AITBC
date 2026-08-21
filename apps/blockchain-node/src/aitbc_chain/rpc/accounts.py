@@ -110,11 +110,11 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
     address = account_data.get("address")
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
-    address = address.lower().strip()
+    address = canonical_address(address)
     if not address.startswith("0x"):
         address = "0x" + address
-    if not all(c in "0123456789abcdef" for c in address[2:]):
-        raise HTTPException(status_code=400, detail="address must be a valid hex string")
+    if not all(c in "0123456789abcdef" for c in address[2:]) or len(address) != 42:
+        raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
     with session_scope(chain_id) as session:
         existing_account = session.get(Account, (chain_id, address))
         if existing_account:
@@ -163,11 +163,11 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
     amount = faucet_data.get("amount", 3600000000)
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
-    address = address.lower().strip()
+    address = canonical_address(address)
     if not address.startswith("0x"):
         address = "0x" + address
-    if not all(c in "0123456789abcdef" for c in address[2:]):
-        raise HTTPException(status_code=400, detail="address must be a valid hex string")
+    if not all(c in "0123456789abcdef" for c in address[2:]) or len(address) != 42:
+        raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
     if amount > 36000000000:
         amount = 36000000000
     with session_scope(chain_id) as session:
