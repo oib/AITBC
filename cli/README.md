@@ -47,8 +47,8 @@ aitbc --help
 | `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `list`, `pin`, `upload` |
 | `list` | Legacy wallet list alias |  |
-| `market` | Blockchain marketplace commands for GPU trading | `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcode`, `transcribe` |
-| `marketplace` | Global chain marketplace commands | `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions` |
+| `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcode`, `transcribe` |
+| `marketplace` | Global on-chain marketplace (cross-chain listings, bridge, economy) | `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions` |
 | `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks` |
@@ -78,3 +78,12 @@ aitbc --help
 | `version` | Show version information |  |
 | `wallet` | Manage your wallets and transactions | `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake` |
 | `workflow` | Workflow management commands | `list`, `run`, `status`, `stop` |
+
+## Market vs Marketplace
+
+Two groups sound similar but serve different layers:
+
+- `aitbc market` — GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.
+- `aitbc marketplace` — Global on-chain marketplace for cross-chain listings, bridge operations, and chain-wide economy. It is backed by the marketplace service and may bridge to other islands.
+
+Use `aitbc market` for AI jobs and local GPU offers; use `aitbc marketplace` for chain-wide trading and bridge listings.
