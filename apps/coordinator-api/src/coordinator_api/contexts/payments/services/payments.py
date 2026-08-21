@@ -261,16 +261,48 @@ class PaymentService:
             return False
         try:
             client = AITBCHTTPClient(timeout=30.0)
+            # Check whether the on-chain escrow is already in a final state.
+            escrow_state = None
+            try:
+                escrow_info = client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
+                if isinstance(escrow_info, dict):
+                    escrow_state = escrow_info.get("state")
+                    refund_tx_hash = escrow_info.get("refund_tx_hash")
+            except Exception as e:
+                logger.warning("Could not fetch escrow state for %s: %s", job_id, e)
+
+            if escrow_state == "refunded":
+                payment.status = "refunded"
+                payment.refunded_at = datetime.now(UTC)
+                payment.updated_at = datetime.now(UTC)
+                payment.refund_transaction_hash = refund_tx_hash
+                escrow = (
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
+                )
+                if escrow:
+                    escrow.is_refunded = True
+                    escrow.refunded_at = datetime.now(UTC)
+                self.session.commit()
+                logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
+                return True
+
+            if escrow_state in {"released", "expired"}:
+                logger.error("Escrow for job %s is in %s state, cannot refund", job_id, escrow_state)
+                return False
+
             try:
                 # V23-47: refund is an escrow contract operation, not a wallet endpoint.
                 refund_data = client.post(
                     f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
                     json={"reason": reason},
                 )
+                if not refund_data or not refund_data.get("success"):
+                    logger.error("Blockchain escrow refund failed for %s: %s", job_id, refund_data)
+                    return False
                 payment.status = "refunded"
                 payment.refunded_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
-                payment.refund_transaction_hash = refund_data.get("transaction_hash")
+                payment.refund_transaction_hash = refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash")
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )
