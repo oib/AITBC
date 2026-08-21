@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 05 Island Creation
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -25,18 +25,17 @@ breadcrumb: Home > Scenarios > Basic Trading
 
 ## Scenario Overview
 
-This scenario demonstrates how an AI agent trades AIT coin against BTC and ETH on the island exchange. All exchange orders are submitted as blockchain transactions to the island RPC endpoint and matched against the on-chain order book.
+This scenario demonstrates how to trade AIT against **ETH** on the island exchange via `aitbc exchange-island`. The live CLI pair set is `AIT/ETH` only (`SUPPORTED_PAIRS`). `buy` / `sell` / `cancel` need `/var/lib/aitbc/keystore/validator_keys.json`; `rates`, `orderbook`, and `orders` do not.
 
 ### Use Case
 
-An AI agent holds BTC or ETH and wants to acquire AIT to pay for compute jobs, or holds AIT and wants to sell it for BTC/ETH. The agent places limit orders with an optional max/min price, inspects the order book, checks current rates, lists its own open orders, and cancels orders that are no longer needed.
+A customer wants to inspect the AIT/ETH book and, if the validator keystore is present, place a limit buy or sell.
 
 ### What You'll Learn
 
-- How to place a buy order for AIT with BTC or ETH
-- How to place a sell order for AIT with a minimum price floor
-- How to read the order book and current exchange rates for `AIT/BTC` and `AIT/ETH`
-- How to list and cancel your own exchange orders
+- How to read `aitbc exchange-island rates` / `orderbook AIT/ETH` / `orders`
+- How to place a buy (`ETH`) or sell with a min price when the keystore exists
+- How to cancel an open order
 
 ---
 
@@ -67,7 +66,7 @@ An AI agent holds BTC or ETH and wants to acquire AIT to pay for compute jobs, o
 
 ### Step 1: View current exchange rates
 
-Before placing an order, check the best bid/ask and mid price for both supported pairs (`AIT/BTC`, `AIT/ETH`).
+Before placing an order, check the best bid/ask for `AIT/ETH`.
 
 ```bash
 # Rates are computed from open exchange orders on your island
@@ -80,7 +79,6 @@ aitbc exchange-island rates
 Exchange Rates
 ==============
 Pair        Best Bid       Best Ask       Mid Price      Buy Orders  Sell Orders
-AIT/BTC     0.00001234     0.00001256     0.00001245     7           5
 AIT/ETH     0.00023456     0.00023510     0.00023483     4           6
 ```
 
@@ -90,36 +88,34 @@ Drill into one pair to see the asks (sell orders, sorted ascending by `min_price
 
 ```bash
 # --limit controls the order book depth (default 20)
-aitbc exchange-island orderbook AIT/BTC --limit 10
+aitbc exchange-island orderbook AIT/ETH --limit 10
 ```
 
 **Expected output:**
 
 ```
-Sell Orders (Asks) - AIT/BTC
+Sell Orders (Asks) - AIT/ETH
 ============================
 Price          Amount         Total              User            Order
-0.00001256     50.0000 AIT    0.00062800 BTC     a1b2c3d4e5f6... exchange_sell_...
-0.00001270     120.0000 AIT   0.00152400 BTC     f7e8d9c0b1a2... exchange_sell_...
+0.00023510     50.0000 AIT    0.01175500 ETH     a1b2c3d4e5f6... exchange_sell_...
 
-Buy Orders (Bids) - AIT/BTC
+Buy Orders (Bids) - AIT/ETH
 ===========================
 Price          Amount         Total              User            Order
-0.00001234     80.0000 AIT    0.00098720 BTC     1a2b3c4d5e6f... exchange_buy_...
-0.00001210     200.0000 AIT   0.00242000 BTC     7f8e9d0c1b2a... exchange_buy_...
+0.00023456     80.0000 AIT    0.01876480 ETH     1a2b3c4d5e6f... exchange_buy_...
 
-Spread: 0.00000022 (0.0018%)
-Best Bid: 0.00001234 BTC/AIT
-Best Ask: 0.00001256 BTC/AIT
+Spread: 0.00000054
+Best Bid: 0.00023456 ETH/AIT
+Best Ask: 0.00023510 ETH/AIT
 ```
 
 ### Step 3: Place a buy order
 
-Buy AIT using BTC. The `quote_currency` argument must be `BTC` or `ETH`. Use `--max-price` to set a limit; omit it for a market order.
+Buy AIT using ETH. The `quote_currency` argument must be `ETH`. Use `--max-price` to set a limit; omit it for a market order. Aborts if the validator keystore is missing.
 
 ```bash
-# Buy 100 AIT with BTC, willing to pay at most 0.00001260 BTC per AIT
-aitbc exchange-island buy 100 BTC --max-price 0.00001260
+# Buy 100 AIT with ETH, willing to pay at most 0.00023510 ETH per AIT
+aitbc exchange-island buy 100 ETH --max-price 0.00023510
 ```
 
 **Expected output:**
@@ -127,14 +123,14 @@ aitbc exchange-island buy 100 BTC --max-price 0.00001260
 ```
 Buy order created successfully!
 Order ID: exchange_buy_20260625143012_a1b2c3d4
-Buying 100 AIT with BTC
-Max price: 0.00001260 BTC/AIT
+Buying 100 AIT with ETH
+Max price: 0.00023510 ETH/AIT
 
 Order ID    exchange_buy_20260625143012_a1b2c3d4
-Pair        AIT/BTC
+Pair        AIT/ETH
 Side        BUY
 Amount      100 AIT
-Max Price   0.00001260 BTC/AIT
+Max Price   0.00023510 ETH/AIT
 Status      open
 User        a1b2c3d4e5f67890...
 Island      island_abc123def456...
@@ -184,7 +180,7 @@ aitbc exchange-island orders --pair AIT/ETH --user a1b2c3d4e5f67890...
 ```
 Exchange Orders (island_abc123def456...)
 Order ID                Pair      Side   Amount        Price          Status    User
-exchange_buy_20260...   AIT/BTC   BUY    100.0000 AIT  0.00001260     open      a1b2c3d4...
+exchange_buy_20260...   AIT/ETH   BUY    100.0000 AIT  0.00023510     open      a1b2c3d4...
 exchange_sell_20260...  AIT/ETH   SELL   50.0000 AIT   0.00023400     open      a1b2c3d4...
 ```
 
@@ -219,11 +215,11 @@ def run(cmd: list[str]) -> str:
     return subprocess.run(["aitbc", *cmd], capture_output=True, text=True, check=True).stdout
 
 # 1. Inspect the order book (JSON output for parsing)
-book = run(["exchange-island", "orderbook", "AIT/BTC", "--limit", "5"])
+book = run(["exchange-island", "orderbook", "AIT/ETH", "--limit", "5"])
 print(book)
 
-# 2. Place a limit buy: 100 AIT with BTC at max 0.00001260
-run(["exchange-island", "buy", "100", "BTC", "--max-price", "0.00001260"])
+# 2. Place a limit buy: 100 AIT with ETH at max 0.00023510
+run(["exchange-island", "buy", "100", "ETH", "--max-price", "0.00023510"])
 
 # 3. Confirm the order is open
 orders = run(["exchange-island", "orders", "--status", "open"])
@@ -254,9 +250,8 @@ for line in listing.splitlines():
 
 After completing this scenario, you should be able to:
 
-- Place buy and sell limit orders for AIT against BTC and ETH on your island
-- Read the order book and compute the spread for a trading pair
-- Query current exchange rates across both supported pairs
+- Read the AIT/ETH order book and rates through `aitbc exchange-island`
+- Place buy/sell orders when the validator keystore exists
 - List and cancel your own exchange orders
 
 ---
@@ -270,7 +265,6 @@ Verify your orders are recorded on-chain by re-listing them and confirming the o
 aitbc exchange-island orders --status open
 
 # The order book should show your bid/ask
-aitbc exchange-island orderbook AIT/BTC
 aitbc exchange-island orderbook AIT/ETH
 
 # Rates should reflect the updated book
@@ -278,16 +272,6 @@ aitbc exchange-island rates
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 
@@ -297,5 +281,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

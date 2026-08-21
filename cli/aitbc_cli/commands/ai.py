@@ -32,6 +32,7 @@ def ai():
 @click.option("--prompt", help="Job prompt")
 @click.option("--model", help="Ollama model to use")
 @click.option("--payment", type=float, help="Payment amount")
+@click.option("--currency", default=None, help="Payment currency (default: AITBC)")
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
 @click.option("--password", help="Wallet password")
@@ -48,6 +49,7 @@ def submit(
     prompt,
     model,
     payment,
+    currency,
     buyer_address,
     provider_address,
     password,
@@ -91,7 +93,7 @@ def submit(
 
         if payment:
             job_data["payment_amount"] = payment
-            job_data["payment_currency"] = "AITBC"
+            job_data["payment_currency"] = currency or "AITBC"
             job_data["buyer_address"] = buyer_address or os.environ.get("CUSTOMER_WALLET_ADDRESS")
             job_data["provider_address"] = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
 

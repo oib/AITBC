@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 25 Job Submission with Payment Failure](./25_job_payment_failure.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -18,137 +18,65 @@ breadcrumb: Home > Scenarios > GPU Marketplace N+1 Query Fix
 
 - **Previous Scenario**: [Scenario 25 Job Submission with Payment Failure](./25_job_payment_failure.md)
 - **Next Scenario**: [Scenario 27 CLI Commands](./27_cli_commands.md)
-- **Feature Documentation**: GPU Marketplace
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that the GPU marketplace orders list endpoint uses a batch query to fetch all referenced GPUs in a single `WHERE id IN (...)` query, instead of issuing a separate `session.get()` per booking (N+1 query pattern). This covers the B14 fix.
+Listing marketplace orders used to `session.get()` each GPU (N+1). B14 batch-fetches with `WHERE id IN (...)`. Operators hit that code by listing GPU hardware and marketplace offers through `aitbc gpu` and `aitbc market`.
 
 ### Use Case
 
-When listing GPU bookings/orders, each booking references a GPU. The old code fetched each GPU individually (`session.get(GPURegistry, b.gpu_id)` inside a loop), causing N+1 queries. With many bookings, this creates significant database load. The fix batch-fetches all GPUs in one query.
+A shop with many GPU bookings must list offers/orders without one SQL round-trip per row.
 
 ### What You'll Learn
 
-- How to verify that the `list_orders` endpoint uses batch-fetching
-- How to inspect the running code to confirm the N+1 fix is deployed
-- How to call the orders endpoint and verify it returns results
+- How to list local GPUs with `aitbc gpu list-gpus`
+- How to list live software offers with `aitbc market list`
+- How to confirm the batch-fetch is still in source (validation)
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Understanding of the N+1 query problem in ORM-based applications
-- Familiarity with SQLAlchemy/SQLModel query patterns
-
 ### Tools Required
 
-- `curl` (HTTP requests)
-- Python 3.13 with access to the coordinator-api source
+- AITBC CLI (`aitbc`) installed and on `$PATH`
 
 ### Setup Required
 
-- A running coordinator-api service on port 8203
+- Shop GPU service (8101) and hub marketplace reachable via CLI config
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Call the Orders Endpoint
+### Step 1: Local GPU inventory
 
 ```bash
-curl -s http://localhost:8203/v1/marketplace/orders
+aitbc gpu discover
+aitbc gpu list-gpus
 ```
 
-**Expected output:**
+**Expected output:** nvidia-smi-backed discovery and the registered GPU list. No island credentials required.
 
-```json
-[]
-```
-
-(An empty list is expected if no bookings exist. The endpoint should return 200 regardless.)
-
-### Step 2: Verify the N+1 Fix Is Deployed in Running Code
+### Step 2: Marketplace offers (the list path customers actually use)
 
 ```bash
-cd /opt/aitbc && PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-import inspect
-from coordinator_api.contexts.marketplace.routers.marketplace_gpu import list_orders
-source = inspect.getsource(list_orders)
-if 'gpu_map' in source and 'in(' in source:
-    print('PASS: B14 fix deployed — batch-fetch with WHERE IN is present in list_orders()')
-else:
-    print('FAIL: N+1 query pattern still present')
-"
+aitbc market list
+aitbc market list --service-type ollama
 ```
 
-**Expected output:**
+**Expected output:** offer rows (or an empty table). This is the live shop→hub offer path, not `curl /v1/marketplace/orders`.
 
-```
-PASS: B14 fix deployed — batch-fetch with WHERE IN is present in list_orders()
-```
-
-### Step 3: List Available GPUs (Sanity Check)
+### Step 3: Optional — publish an offer if the list is empty
 
 ```bash
-curl -s http://localhost:8203/v1/marketplace/gpu/list | python3 -c "
-import sys, json
-gpus = json.load(sys.stdin)
-print(f'GPUs available: {len(gpus)}')
-for gpu in gpus[:3]:
-    print(f'  {gpu[\"id\"]}: {gpu[\"model\"]} — {gpu[\"status\"]}')
-"
+aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
+aitbc market list --service-type ollama
 ```
 
-**Expected output:**
-
-```
-GPUs available: 6
-  gpu_c15daa9a: Unknown GPU — available
-  gpu_552339f0: Unknown GPU — available
-  gpu_3a98e8c1: Unknown GPU — available
-```
-
----
-
-## Code Examples
-
-### B14 Fix: Batch-Fetch GPUs
-
-```python
-# apps/coordinator-api/src/app/contexts/marketplace/routers/marketplace_gpu.py
-@router.get("/marketplace/orders")
-async def list_orders(session: Session, ...) -> list[dict]:
-    bookings = session.execute(stmt).scalars().all()
-
-    # B14 fix: batch-fetch all referenced GPUs in a single query
-    gpu_ids = {b.gpu_id for b in bookings if b.gpu_id}
-    gpu_map: dict[str, GPURegistry] = {}
-    if gpu_ids:
-        gpus = session.execute(
-            select(GPURegistry).where(col(GPURegistry.id).in_(gpu_ids))
-        ).scalars().all()
-        gpu_map = {g.id: g for g in gpus}
-
-    orders = []
-    for b in bookings:
-        gpu = gpu_map.get(b.gpu_id)  # O(1) lookup, no DB query
-        orders.append({...})
-    return orders
-```
-
-### Old (Buggy) Code — N+1 Pattern
-
-```python
-# BEFORE B14 fix — one DB query per booking
-for b in bookings:
-    gpu = session.get(GPURegistry, b.gpu_id)  # N queries!
-    orders.append({...})
-```
+**Expected output:** a `GPU_MARKETPLACE` submission, then the offer visible in `list`. File-ownership issues with island credentials are documented in scenario 34.
 
 ---
 
@@ -156,47 +84,33 @@ for b in bookings:
 
 After completing this scenario, you should be able to:
 
-- Confirm that the `list_orders` endpoint uses a batch query (`WHERE id IN (...)`)
-- Verify that the N+1 query pattern has been replaced with a single batch-fetch
-- Call the orders endpoint and verify it returns results (or empty list)
+- Inventory GPUs and marketplace offers entirely through `aitbc`
+- Distinguish `aitbc gpu` (local hardware) from `aitbc market` (software+GPU bundles)
 
 ---
 
 ## Validation
 
+Confirm B14 is still in the coordinator source (not the operator play):
+
 ```bash
-# Verify batch-fetch in running code
 cd /opt/aitbc && PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
 import inspect
 from coordinator_api.contexts.marketplace.routers.marketplace_gpu import list_orders
 source = inspect.getsource(list_orders)
-assert 'gpu_map' in source, 'FAIL: no batch-fetch'
-assert '.in_(' in source or 'in_(' in source, 'FAIL: no WHERE IN'
+assert 'gpu_map' in source
+assert '.in_(' in source or 'in_(' in source
 print('PASS: B14 N+1 fix verified')
 "
-
-# Endpoint should return 200
-curl -sf http://localhost:8203/v1/marketplace/orders > /dev/null && echo "Orders endpoint OK"
 ```
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
-- GPU Marketplace
 - [Next Scenario: CLI Commands](./27_cli_commands.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

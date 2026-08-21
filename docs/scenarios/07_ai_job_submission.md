@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 06 Basic Trading
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.2
 
 ## Navigation Path
 
@@ -76,6 +76,7 @@ aitbc --api-key "$COORDINATOR_TOKEN" ai submit \
   --type inference \
   --prompt "Summarize the latest AITBC block headers" \
   --payment 5.0 \
+  --currency AITBC \
   --coordinator-url http://localhost:8203 \
   --format json
 ```

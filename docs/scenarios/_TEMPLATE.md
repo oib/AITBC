@@ -3,7 +3,7 @@
 **Level**: Beginner
 **Prerequisites**: [List prerequisites, e.g. "Scenario 01 Wallet Basics"]
 **Estimated Time**: [X minutes]
-**Last Updated**: 2026-06-25
+**Last Updated**: 2026-08-21
 **Version**: 1.0
 
 ## Navigation Path
@@ -59,6 +59,8 @@ breadcrumb: Home > Scenarios > [Scenario Name]
 ---
 
 ## Step-by-Step Workflow
+
+Every operator step uses the `aitbc` CLI. Curl, `journalctl`, and `pytest` belong only under **Validation**.
 
 ### Step 1: [Step Title]
 
@@ -126,5 +128,5 @@ After completing this scenario, you should be able to:
 
 ---
 
-*Last updated: 2026-06-25*
+*Last updated: 2026-08-21*
 *Version: 1.0*

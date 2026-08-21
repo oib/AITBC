@@ -1,9 +1,9 @@
 # Hub↔Customer Node End-to-End
 
 **Level**: Intermediate
-**Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md)
+**Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md), [Scenario 07 AI Job Submission](./07_ai_job_submission.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-20
+**Last Updated**: 2026-08-21
 **Version**: 1.4
 
 ## Navigation Path
@@ -18,327 +18,146 @@ breadcrumb: Home > Scenarios > Hub↔Customer Node End-to-End
 
 - **Previous Scenario**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md)
 - **Next Scenario**: [Scenario 35 Fire-and-Forget Logging (B10/B11)](./35_fire_and_forget_logging_b10_b11.md)
+- **Closed cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
 - **Feature Documentation**: [Service Ports Reference](../reference/SERVICE_PORTS.md)
-- **Release Notes**: [v0.10.3 Change Log](../releases/v0.10.3/change.log)
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that a **customer node** (a separate machine or separate CLI profile) can reach the **hub node** across the network and exercise the full product path: job submission, bridge operations, exchange trading, and agent coordination. It covers the **A6** fix (coordinator-api no longer hardcodes `localhost:8202` for blockchain RPC — it uses `settings.blockchain_rpc_url`), ensuring the hub's internal services work correctly when the blockchain node is reachable via a configured URL rather than a hardcoded localhost address.
+This is the product path: a customer CLI on the hub (or a follower pointed at the hub) pays a shop miner for an Ollama job; escrow releases on-chain; the shop republishes a GPU software offer.
+
+Hub RPC/coordinator/exchange often bind `127.0.0.1`. Public access is nginx (`https://hub.aitbc.bubuit.net/…`) or an SSH tunnel — not raw LAN `:8202`. The CLI should use configured hub URLs (`HUB_DISCOVERY_URL` / `HUB_P2P_HOST` / `HUB_RPC_URL`), not hardcoded localhost (A6).
 
 ### Use Case
 
-A customer node operator on a separate machine wants to submit AI jobs to the hub's coordinator-api, trade on the hub's exchange, and bridge tokens cross-chain via the hub's blockchain-node RPC. The hub's coordinator-api must correctly route internal blockchain queries (settlement, governance) to the blockchain node using the configured URL, not a hardcoded `localhost:8202`.
+Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the live two-node island.
 
 ### What You'll Learn
 
-- How to configure the AITBC CLI on a customer node to point at a remote hub
-- How to verify the hub's coordinator-api uses `settings.blockchain_rpc_url` (A6) instead of hardcoded `localhost`
-- How to submit a job from the customer node to the hub's coordinator-api
-- How to query the hub's bridge RPC from the customer node
-- How to trade on the hub's exchange from the customer node
-- How to verify end-to-end connectivity across the hub↔customer topology
+- How to point `aitbc` at the hub
+- How to submit unpaid and paid jobs with `aitbc ai`
+- How to check escrow with `aitbc wallet` / `aitbc account`
+- How to publish and list GPU offers with `aitbc market`
+- How to health-check the bridge and exchange from the CLI
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Familiarity with the AITBC service architecture (hub vs customer node)
-- Understanding of network-accessible service ports
-- Basic familiarity with the AITBC CLI command groups
-
 ### Tools Required
 
-- AITBC CLI (`aitbc`) installed on both hub and customer node
-- `curl` (HTTP requests)
-- `journalctl` (hub-side log inspection)
+- `aitbc` on both hub and shop
+- A client JWT (`from aitbc.auth import create_access_token` — **not** `coordinator_api.auth.jwt_auth`)
 
 ### Setup Required
 
-- **Hub node**: all AITBC services running, network-accessible IP (e.g., `192.168.100.10` or `hub.aitbc.bubuit.net`)
-- **Customer node**: AITBC CLI installed, network access to hub's ports (8202, 8203, 8106, 8107, 8108)
-- Hub's blockchain RPC (8202), coordinator-api (8203), exchange (8106), agent-coordinator (8107) must be reachable from the customer node
+- Hub: coordinator, wallet, exchange, explorer
+- Shop: miner, GPU, Ollama `llama3.2:3b`, funded provider wallet (e.g. `test-wallet-3`)
+- Buyer: genesis or another funded wallet
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Identify the Hub's Network Address
+### Step 1: Identify the hub
 
-On the **hub node**:
-
-```bash
-HUB_IP=$(hostname -I | awk '{print $1}')
-HUB_HOST=$(hostname)
-echo "Hub IP: $HUB_IP"
-echo "Hub hostname: $HUB_HOST"
-```
-
-**Expected output:**
-
-```
-Hub IP: 192.168.100.10
-Hub hostname: hub.aitbc.bubuit.net
-```
-
-### Step 2: Verify Hub Services Listen on Network-Accessible Interfaces
-
-On the **hub node**:
+On the hub:
 
 ```bash
-# Check which interfaces the key services bind to
-ss -ltnp | grep -E '8202|8203|8106|8107|8108'
+hostname
+aitbc version
+aitbc explorer chain-head
 ```
 
-**Expected output:**
+**Expected output (live):** hostname `hub.aitbc.bubuit.net`, CLI `0.10.18`, a chain height that the shop will match.
 
-```
-LISTEN 0  256  127.0.0.1:8202  ...   # blockchain RPC (localhost only — see note)
-LISTEN 0  256  127.0.0.1:8203  ...   # coordinator-api (localhost only — see note)
-LISTEN 0  5    127.0.0.1:8106  ...   # exchange (localhost only — see note)
-LISTEN 0  2048 127.0.0.1:8107  ...   # agent-coordinator (localhost only)
-LISTEN 0  2048 0.0.0.0:8108    ...   # wallet (all interfaces)
-```
+### Step 2: Know the bind / public path
 
-> **⚠️ Note**: If services bind to `127.0.0.1` only, the customer node cannot reach them directly. You have two options:
->
-> 1. **SSH tunnel** (recommended for testing): `ssh -L 8202:localhost:8202 -L 8203:localhost:8203 -L 8106:localhost:8106 -L 8107:localhost:8107 user@hub.aitbc.bubuit.net`
-> 2. **Rebind services** to `0.0.0.0` (production: ensure firewall rules restrict access)
+Hub `8202/8203/8106/8107` are typically `127.0.0.1`. Options:
 
-### Step 3: Configure the Customer Node CLI to Point at the Hub
+1. Run customer CLI **on the hub** (this play).
+2. SSH tunnel: `ssh -L 8202:localhost:8202 -L 8203:localhost:8203 -L 8106:localhost:8106 user@hub.aitbc.bubuit.net`
+3. nginx public URLs for marketplace / miner callbacks.
 
-On the **customer node**:
+Do not assume shop can `curl` hub LAN ports.
+
+### Step 3: Configure the customer CLI
 
 ```bash
-# Set environment variables to override CLI defaults
-export BLOCKCHAIN_RPC_URL="http://hub.aitbc.bubuit.net:8202"
-export AGENT_COORDINATOR_URL="http://hub.aitbc.bubuit.net:8107"
-export EXCHANGE_SERVICE_URL="http://hub.aitbc.bubuit.net:8106/api/v1"
-export WALLET_URL="http://hub.aitbc.bubuit.net:8108"
-
-# Or write to /etc/aitbc/node.env on the customer node
-cat > /etc/aitbc/node.env <<'EOF'
-BLOCKCHAIN_RPC_URL=http://hub.aitbc.bubuit.net:8202
-AGENT_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8107
-EXCHANGE_SERVICE_URL=http://hub.aitbc.bubuit.net:8106/api/v1
-WALLET_URL=http://hub.aitbc.bubuit.net:8108
-EOF
-
-# Verify the CLI picks up the overrides
-aitbc config show 2>/dev/null || python3 -c "
-from cli.aitbc_cli.config import get_config
-c = get_config()
-print(f'blockchain_rpc_url: {c.blockchain_rpc_url}')
-print(f'agent_coordinator_url: {c.agent_coordinator_url}')
-print(f'exchange_service_url: {c.exchange_service_url}')
-print(f'wallet_url: {c.wallet_url}')
-"
+aitbc config show
+aitbc config set coordinator_api_url http://127.0.0.1:8203
 ```
 
-**Expected output:**
+On a follower, set hub discovery in `/etc/aitbc/node.env` (`HUB_DISCOVERY_URL`, `HUB_RPC_URL`, `HUB_P2P_HOST`). `aitbc config set` currently knows `coordinator_api_url`, `agent_coordinator_url`, `api_key`, `timeout` — other URLs come from those env files.
 
-```
-blockchain_rpc_url: http://hub.aitbc.bubuit.net:8202
-agent_coordinator_url: http://hub.aitbc.bubuit.net:8107
-exchange_service_url: http://hub.aitbc.bubuit.net:8106/api/v1
-wallet_url: http://hub.aitbc.bubuit.net:8108
-```
-
-### Step 4: Verify Cross-Network Connectivity
-
-On the **customer node**:
+### Step 4: Connectivity through CLI (not a port loop)
 
 ```bash
-# Test each hub service endpoint
-for port in 8202 8203 8106 8107 8108; do
-  printf "Port %s: " "$port"
-  curl -s --max-time 5 "http://hub.aitbc.bubuit.net:$port/health" 2>/dev/null | head -c 80
-  echo
-done
+aitbc explorer chain-head
+aitbc bridge health
+aitbc wallet list
+aitbc exchange-island rates
 ```
 
-**Expected output:**
+**Expected output:** chain head, bridge healthy, wallets listed, exchange rates or a labeled simulated fallback.
 
-```
-Port 8202: {"success":true,"status":"healthy","bridge_initialized":true,...
-Port 8203: {"status":"ok","env":"development","python_version":"3.13.5"}
-Port 8106: {"status": "ok", "timestamp": "2026-07-05T..."}
-Port 8107: {"status":"ok"}  (or similar)
-Port 8108: {"status":"ok"}  (or similar)
-```
-
-> If any port returns `Connection refused`, the hub service is bound to `127.0.0.1` only — use the SSH tunnel from Step 2.
-
-### Step 5: Verify A6 — Hub's Coordinator-API Uses Configured RPC URL
-
-The A6 fix ensures the hub's coordinator-api uses `settings.blockchain_rpc_url` instead of hardcoded `localhost:8202` for settlement and governance queries. Verify the fix is in the deployed code:
-
-On the **hub node**:
+### Step 5: Unpaid job
 
 ```bash
-# Settlement hooks should use settings.blockchain_rpc_url (A6 fix)
-grep "blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/coordinator_api/settlement/hooks.py
-
-# Governance service should use env var with localhost fallback
-grep "BLOCKCHAIN_RPC_URL\|blockchain_rpc_url" /opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/governance/services/governance_service.py
+aitbc --api-key "$CLIENT_JWT" --output json ai submit \
+  --prompt "Cross-node unpaid job" \
+  --coordinator-url http://127.0.0.1:8203
+aitbc --api-key "$CLIENT_JWT" ai status --job-id "$JOB_ID"
+aitbc --api-key "$CLIENT_JWT" ai jobs --limit 5
 ```
 
-**Expected output:**
+**Expected output:** `QUEUED` then `COMPLETED` on `aitbc-miner-1` with `payment_status` none/skipped.
 
-```
-response = httpx.get(f"{settings.blockchain_rpc_url}/rpc/chain")
-blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-```
-
-**Interpretation:**
-
-- `settlement/hooks.py` uses `settings.blockchain_rpc_url` (A6 fixed ✅)
-- `governance_service.py` uses `os.getenv("BLOCKCHAIN_RPC_URL", ...)` (A6 fixed ✅ — no hardcoded localhost)
-
-> **Before A6**: Both files had `url = "http://localhost:8202"` hardcoded, which would break if the blockchain node ran on a different host.
-
-### Step 6: Submit a Job from the Customer Node to the Hub
-
-On the **customer node** (or via SSH tunnel):
+### Step 6: Bridge validation from CLI
 
 ```bash
-# Generate a JWT token on the hub (or use a customer-node token if auth is federated)
-# For testing, generate on the hub and copy the token:
-HUB_TOKEN=$(ssh hub.aitbc.bubuit.net 'cd /opt/aitbc && JWT_SECRET=$(grep JWT_SECRET /etc/aitbc/aitbc-coordinator-api.env | cut -d= -f2) ./venv/bin/python -c "
-from aitbc.auth import create_access_token
-print(create_access_token(\"customer-node-user\", \"client\", {\"wallet_address\": \"0xCustomer1\"}))
-"')
-
-# Submit a job to the hub's coordinator-api
-curl -s -w "\nHTTP %{http_code}" -X POST http://hub.aitbc.bubuit.net:8203/v1/jobs \
-  -H "Authorization: Bearer $HUB_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"payload":{"task":"cross-node-test","image":"hello"}}'
+aitbc bridge health
+aitbc bridge lock --target-chain "" --sender 0xabc --recipient 0xdef --amount 10 --signature 0x123
 ```
 
-**Expected output:**
+**Expected output:** health OK; lock aborted / 422 (empty chain). Same B13 check as scenario 22.
 
-```json
-{"job_id":"...","state":"QUEUED","assigned_miner_id":null,"payment_status":"none"}
-HTTP 201
-```
-
-**Interpretation:** The customer node successfully submitted a job to the hub's coordinator-api. The hub's coordinator-api can reach its own blockchain node via `settings.blockchain_rpc_url` for any settlement/governance queries triggered by this job.
-
-### Step 7: Query the Hub's Bridge RPC from the Customer Node
-
-On the **customer node**:
+### Step 7: Exchange from CLI
 
 ```bash
-# Check bridge health on the hub
-curl -s http://hub.aitbc.bubuit.net:8202/rpc/bridge/health | python3 -m json.tool
-
-# Test bridge input validation (B13) from the customer node
-curl -s -w "\nHTTP %{http_code}" -X POST http://hub.aitbc.bubuit.net:8202/rpc/bridge/lock \
-  -H "Content-Type: application/json" \
-  -d '{"target_chain":"","sender":"0xabc","recipient":"0xdef","amount":10,"signature":"0x123"}'
+aitbc exchange-island orderbook AIT/ETH --limit 10
+aitbc exchange-island orders --status open
 ```
 
-**Expected output:**
+**Expected output:** book/orders. Do not POST `/v1/exchange/orders`.
 
-```json
-{
-  "success": true,
-  "status": "healthy",
-  "bridge_initialized": true,
-  ...
-}
-{"detail":[{"type":"string_too_short","loc":["body","target_chain"],...}]}
-HTTP 422
-```
+### Step 8: Paid job + escrow + on-chain settlement
 
-**Interpretation:** The customer node can reach the hub's bridge RPC, and the B13 input validation (from Scenario 22) works across the network.
-
-### Step 8: Trade on the Hub's Exchange from the Customer Node
-
-On the **customer node**:
+On the hub:
 
 ```bash
-# Query the hub's exchange orderbook
-curl -s http://hub.aitbc.bubuit.net:8106/api/orders/orderbook | python3 -m json.tool | head -20
-
-# Place a buy order on the hub's exchange
-curl -s -X POST http://hub.aitbc.bubuit.net:8106/api/orders \
-  -H "Content-Type: application/json" \
-  -H "X-Api-Key: <exchange-api-key>" \
-  -d '{"order_type":"BUY","amount":1,"price":1.0,"user_address":"0xCustomer1"}'
-```
-
-**Expected output:**
-
-```json
-{
-  "buys": [{"id": 21, "order_type": "BUY", "amount": "1", "price": "1.0", "status": "open"}],
-  "sells": []
-}
-{"id": 21, "order_type": "BUY", "amount": "1", "price": "1.0", "status": "open", "user_address": "0xCustomer1"}
-```
-
-**Interpretation:** The customer node successfully queried and traded on the hub's exchange.
-
-### Step 9: Verify Hub-Side Logs Show the Cross-Node Requests
-
-On the **hub node**:
-
-```bash
-# Check coordinator-api logs for the customer node's job submission
-journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep -iE "job|submit|customer"
-
-# Check blockchain-node logs for bridge queries from the customer node
-journalctl -u aitbc-blockchain-rpc --since "5 min ago" --no-pager | grep -iE "bridge|lock"
-
-# Check exchange logs for the customer node's trade
-journalctl -u aitbc-exchange --since "5 min ago" --no-pager | grep -iE "order|BUY"
-```
-
-### Step 10: Submit a Paid AI Job with Escrow and On-Chain Settlement
-
-On the **customer/hub node** (`hub.aitbc`), run a paid job to a provider on the shop node (`aitbc3`). The example provider address is `aitbc1a54b82312beb65d0e90c21717ea372396991fa36` (`test-wallet-3` on the shop node); use a valid client JWT for `--api-key`.
-
-```bash
-aitbc --api-key "$CLIENT_JWT" ai submit \
+aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --prompt "Cross-node paid job test" \
   --payment 1.0 \
   --wallet genesis \
-  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36
+  --buyer-address <customer-ait1-or-aitbc1> \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --coordinator-url http://127.0.0.1:8203
 ```
 
-**Expected output:**
+**Expected output:** `payment_status: escrowed`, a `payment_id`.
 
-```json
-{
-  "job_id": "...",
-  "state": "QUEUED",
-  "payment_id": "...",
-  "payment_status": "escrowed"
-}
-```
-
-Wait for the shop node to execute the job and the coordinator to release the escrow:
+Wait, then:
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai status --job-id <job_id>
+aitbc --api-key "$CLIENT_JWT" --output json ai status --job-id "$JOB_ID"
+aitbc --api-key "$CLIENT_JWT" ai results --job-id "$JOB_ID"
 ```
 
-**Expected output:**
+**Expected output:** `COMPLETED`, `payment_status: released`.
 
-```json
-{
-  "job_id": "...",
-  "state": "COMPLETED",
-  "payment_status": "released"
-}
-```
-
-Verify the provider's on-chain balance and transaction history from the customer node:
+On the shop (or any CLI that talks to the hub wallet/RPC):
 
 ```bash
 aitbc wallet balance test-wallet-3
@@ -346,86 +165,25 @@ aitbc wallet transactions test-wallet-3
 aitbc account get --address aitbc1a54b82312beb65d0e90c21717ea372396991fa36
 ```
 
-**Expected output:**
+**Expected output:** provider balance includes the 0.9750 AIT release (1.0 minus fee); an `ESCROW_RELEASE` tx; `account get` shows compute-seconds (3510 per 0.975 AIT).
 
-- `aitbc wallet balance test-wallet-3` shows `0.9750 AIT` (payment minus fee).
-- `aitbc wallet transactions test-wallet-3` lists one confirmed `ESCROW_RELEASE` transaction from the genesis address.
-- `aitbc account get` returns the account with a balance of `3510` compute-seconds (0.975 AIT).
+Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab9b7…` in hub block **7548**, `test-wallet-3` **1.9500 AIT** after two releases.
 
-**Interpretation:** The coordinator creates an escrow contract, the shop executes the job, the coordinator releases the payment, and the blockchain RPC signs and settles the `ESCROW_RELEASE` transaction on-chain.
+### Step 9: GPU marketplace offer from the shop
 
-### Step 11: Publish a GPU Marketplace Offer from the Shop Node
-
-On the **shop node** (`aitbc3`), list a software offer backed by the local GPU and Ollama service:
+On `aitbc3` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
 
 ```bash
 aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
 ```
 
-**Expected output:**
-
-```json
-{
-  "success": true,
-  "transaction_hash": "...",
-  "message": "Marketplace transaction submitted to mempool"
-}
-```
-
-Then, on the **customer/hub node**, verify the offer is discoverable:
+On the hub/customer:
 
 ```bash
 aitbc market list --service-type ollama
 ```
 
-**Expected output:**
-
-- The list includes an offer with `Model: llama3.2:3b`, `Service Type: ollama`, `Price: 0.00100000 per_1k_tokens`, and `Node ID: aitbc3`.
-
-**Interpretation:** The shop node can publish GPU-backed software offers to the hub's marketplace; the offer is stored both as an on-chain `GPU_MARKETPLACE` transaction and in the hub's marketplace service.
-
-
----
-
-## Code Examples
-
-### A6 Fix: Settlement Hooks Use Configured URL
-
-```python
-# apps/coordinator-api/src/app/settlement/hooks.py — A6 fix
-async def _get_current_chain_id(self) -> int:
-    try:
-        import httpx
-        # Before A6: url = "http://localhost:8202/rpc/chain"
-        response = httpx.get(f"{settings.blockchain_rpc_url}/rpc/chain")
-        if response.status_code == 200:
-            return response.json().get("chain_id", 1)
-    except Exception as e:
-        logger.warning("Failed to get chain ID: %s", e)
-```
-
-### A6 Fix: Governance Service Uses Env Var
-
-```python
-# apps/coordinator-api/src/app/contexts/governance/services/governance_service.py — A6 fix
-# Before A6: url = "http://localhost:8202"
-blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{address}")
-```
-
-### CLI Config: Customer Node Override via Env Vars
-
-```python
-# cli/aitbc_cli/config.py — pydantic_settings reads env vars automatically
-class CLIConfig(BaseAITBCConfig):
-    model_config = SettingsConfigDict(
-        env_file=["/etc/aitbc/blockchain.env", "/etc/aitbc/node.env"],
-        case_sensitive=False,
-    )
-    blockchain_rpc_url: str = Field(default="http://localhost:8202")
-    agent_coordinator_url: str = Field(default="http://localhost:8107")
-    # Setting BLOCKCHAIN_RPC_URL env var overrides the default
-```
+**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash.
 
 ---
 
@@ -433,61 +191,36 @@ class CLIConfig(BaseAITBCConfig):
 
 After completing this scenario, you should be able to:
 
-- Configure the AITBC CLI on a customer node to point at a remote hub
-- Verify cross-network connectivity to all hub services
-- Confirm the hub's coordinator-api uses `settings.blockchain_rpc_url` (A6) instead of hardcoded localhost
-- Submit a job from the customer node to the hub's coordinator-api
-- Query the hub's bridge RPC and exchange from the customer node
-- Submit a paid AI job with escrow and confirm on-chain payment settlement
-- Query provider wallet balance and transaction history for the released payment
-- Publish a GPU-backed marketplace offer from the shop node and discover it from the hub
-- Verify hub-side logs show the cross-node requests
+- Run the inner loop with `aitbc` only (config, ai, wallet, account, market, bridge, exchange-island)
+- See `ESCROW_RELEASE` in the provider wallet
+- List the shop GPU offer from the hub
+- Explain why raw hub LAN ports time out
 
 ---
 
 ## Validation
 
 ```bash
-# On the customer node: verify all hub endpoints are reachable
-for port in 8202 8203 8106 8107 8108; do
-  curl -sf --max-time 5 "http://hub.aitbc.bubuit.net:$port/health" > /dev/null \
-    && echo "Port $port: PASS" \
-    || echo "Port $port: FAIL"
-done
+# Logs only — not the play
+journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c job_id || true
+journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed || true
+```
 
-# On the hub node: verify A6 fix is deployed (no hardcoded localhost)
-grep -r "localhost:8202" /opt/aitbc/apps/coordinator-api/src/coordinator_api/settlement/ \
-  /opt/aitbc/apps/coordinator-api/src/app/contexts/governance/services/governance_service.py \
-  | grep -v "BLOCKCHAIN_RPC_URL\|blockchain_rpc_url\|#\|docstring\|comment" \
-  | grep -v ".pyc"
-# Expected: no output (all hardcoded URLs removed by A6)
+JWT snippet (hub):
 
-# On the hub node: verify the customer node's job was received
-journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c "job_id"
-# Expected: 1+ (at least one job submitted)
+```bash
+python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '0xCustomer1'}))"
 ```
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- Paid AI jobs with escrow now settle on-chain via signed `ESCROW_RELEASE` marketplace transactions.
-- `aitbc market offer` correctly registers GPU-backed offers with the hub marketplace.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
+- [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
 - [Service Ports Reference](../reference/SERVICE_PORTS.md)
-- [v0.10.3 Change Log](../releases/v0.10.3/change.log)
 - [Next Scenario: Fire-and-Forget Logging (B10/B11)](./35_fire_and_forget_logging_b10_b11.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.4*
