@@ -705,3 +705,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - `cli/aitbc_cli/commands/wallet/basic.py`: `aitbc wallet balance <name>` now falls back to a local file wallet when the wallet daemon returns 404, so file-only wallets (e.g. `customer-wallet`, `shop-wallet`) can be queried.
 
+
+- P2.4: automatic reinvestment from released escrow.
+  - `aitbc ai submit --auto-reinvest-pct <pct>` creates an auto-stake order.
+  - On escrow release the blockchain node stakes `pct%` of the payment for the provider.
+  - Job status shows `reinvest_status: staked` and `reinvest_stake_id`.
+  - Scenario docs: `docs/scenarios/40_auto_reinvestment.md`.
