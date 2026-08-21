@@ -82,6 +82,8 @@ from aitbc_cli.commands.tee import tee
 
 # Import new modular commands
 from aitbc_cli.commands.zk import zk
+from aitbc_cli.commands.auth import auth
+from aitbc_cli.commands.dashboard import dashboard
 from aitbc_cli.commands.transactions import transactions
 from aitbc_cli.commands.update import update
 from aitbc_cli.commands.wallet import wallet
@@ -205,6 +207,8 @@ cli.add_command(genesis)
 
 # Add new modular commands
 cli.add_command(zk)
+cli.add_command(auth)
+cli.add_command(dashboard)
 cli.add_command(transactions)
 cli.add_command(update)
 cli.add_command(mining)
