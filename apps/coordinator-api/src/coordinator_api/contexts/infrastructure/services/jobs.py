@@ -11,6 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
+from ...reputation.domain.reputation import AgentReputation
 
 logger = get_logger(__name__)
 
@@ -228,9 +229,10 @@ class JobService:
         """Return the reputation score for a miner.
 
         The score can be reported by the miner (via heartbeat/registration
-        metadata) or derived from its historical job completion ratio.  A neutral
-        starting value of 0.5 is used for miners with no track record so that
-        first-time providers are neither favoured nor penalised.
+        metadata), derived from the agent reputation service, or computed from
+        its historical job completion ratio.  A neutral starting value of 0.5 is
+        used for miners with no track record so that first-time providers are
+        neither favoured nor penalised.
         """
         for source in (miner.extra_metadata or {}, miner.capabilities or {}):
             reported = source.get("reputation_score")
@@ -239,6 +241,17 @@ class JobService:
                     return float(reported)
                 except (TypeError, ValueError):
                     pass
+
+        # Prefer the canonical reputation service profile when available.
+        try:
+            reputation = self.session.execute(
+                select(AgentReputation).where(AgentReputation.agent_id == miner.id)
+            ).scalars().first()
+            if reputation and reputation.trust_score is not None:
+                # trust_score is on a 0-1000 scale; normalize to 0-1.
+                return max(0.0, min(1.0, reputation.trust_score / 1000.0))
+        except Exception:
+            logger.debug("Could not load reputation profile for %s", miner.id, exc_info=True)
 
         total = (miner.jobs_completed or 0) + (miner.jobs_failed or 0)
         if total == 0:

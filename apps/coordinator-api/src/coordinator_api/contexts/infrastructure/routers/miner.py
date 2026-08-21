@@ -13,6 +13,7 @@ from aitbc.rate_limiting import rate_limit
 from ....auth import MinerDep
 from ....schemas import AssignedJob, JobFailSubmit, JobResult, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest, Receipt
 from ....services import JobService, MinerService
+from ....contexts.reputation.services.reputation_service import ReputationService
 from ...infrastructure.services.receipts import ReceiptService
 from ...zk_applications.services.zk_proofs import zk_proof_service
 from ....storage import get_session
@@ -489,6 +490,20 @@ async def fail_job(
     try:
         job_service = JobService(session)
         job_service.fail_job(job_id, fail_req.error_message)
+
+        # Record the failure in the reputation service.
+        try:
+            reputation_service = ReputationService(session)
+            await reputation_service.record_job_completion(
+                agent_id=miner_id,
+                job_id=job_id,
+                success=False,
+                response_time=0.0,
+                earnings=Decimal("0"),
+            )
+        except Exception as rep_err:
+            logger.warning("Failed to record reputation for failed job %s: %s", job_id, rep_err)
+
         return {"job_id": job_id, "status": "failed"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
@@ -528,6 +543,28 @@ async def complete_job(
         job_service = JobService(session)
         result = {"output": complete_req.output, "receipt": complete_req.receipt or {}}
         job = job_service.execute_job(job_id, result)
+
+        # Record completion in the reputation service so dispatch can use it.
+        receipt = complete_req.receipt or {}
+        output = complete_req.output or {}
+        response_time = 0.0
+        if "execution_time" in output:
+            response_time = float(output["execution_time"]) * 1000.0
+        elif receipt.get("started_at") and receipt.get("completed_at"):
+            response_time = (float(receipt["completed_at"]) - float(receipt["started_at"])) * 1000.0
+        earnings = Decimal(str(receipt.get("price", "0")))
+        try:
+            reputation_service = ReputationService(session)
+            await reputation_service.record_job_completion(
+                agent_id=miner_id,
+                job_id=job_id,
+                success=True,
+                response_time=response_time,
+                earnings=earnings,
+            )
+        except Exception as rep_err:
+            logger.warning("Failed to record reputation for job %s: %s", job_id, rep_err)
+
         logger.info(
             "Job %s completed by miner %s",
             job_id,
