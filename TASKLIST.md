@@ -11,7 +11,7 @@
     (invalid page in block 4 of relation base/16399/2610).
 - [ ] P1.1 Phase B — reputation-aware job dispatch
 - [x] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
-- [ ] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
+- [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
 
 Latest pushed commits:
 - 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
@@ -30,7 +30,7 @@ Latest pushed commits:
     ().
 - [ ] P1.1 Phase B — reputation-aware job dispatch
 - [x] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
-- [ ] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
+- [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
 
 Latest pushed commits:
 - 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
