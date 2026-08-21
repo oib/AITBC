@@ -11,7 +11,9 @@ from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
-from ...agent_coordination.domain.agent import AIAgentWorkflow  # noqa: F401
+# The agent_id is intentionally a free-form identifier (miner id, agent workflow id,
+# or any other provider key). It is not a foreign key because live job completion
+# creates reputation profiles for miners that are not registered as AI agent workflows.
 
 if TYPE_CHECKING:
     from aitbc_shared.models import ReputationDTO
@@ -44,7 +46,7 @@ class AgentReputation(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"rep_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True, foreign_key="ai_agent_workflows.id")
+    agent_id: str = Field(index=True)
 
     # Core reputation metrics
     trust_score: float = Field(default=500.0, ge=0, le=1000)  # 0-1000 scale
