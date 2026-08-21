@@ -766,3 +766,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - Registered missing CLI commands `aitbc auth` and `aitbc dashboard` in `core/main.py`.
 
+- Fixed `aitbc auth login` URL normalization: strip trailing `/v1` from configured `coordinator_api_url` to avoid `/v1/v1/auth/nonce`.
+
