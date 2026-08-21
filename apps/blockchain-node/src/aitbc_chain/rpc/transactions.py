@@ -2,6 +2,8 @@
 Transaction-related RPC endpoints.
 """
 
+import os
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, Request, status
@@ -10,6 +12,7 @@ from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
+from ..base_models import Bond, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Transaction
@@ -140,6 +143,33 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
+def _market_bond_min_amount() -> int:
+    return int(os.getenv("MARKET_BOND_MIN_AMOUNT", "0"))
+
+
+def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> bool:
+    if min_amount <= 0:
+        return True
+    now = datetime.now(UTC)
+    bond = session.exec(
+        select(Bond).where(
+            Bond.chain_id == chain_id,
+            Bond.provider == _to_ait_address(provider),
+            Bond.status == "active",
+            Bond.amount >= min_amount,
+        )
+    ).first()
+    if not bond:
+        return False
+    if bond.locked_until:
+        locked_until = bond.locked_until
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=UTC)
+        if now > locked_until:
+            return False
+    return True
+
+
 @rate_limit(rate=50, per=60)
 async def submit_marketplace_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a marketplace transaction"""
@@ -161,6 +191,14 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
             # the marketplace CLI which does not manage wallet private keys (V23-90).
             if not sender:
                 raise HTTPException(status_code=400, detail="Sender required")
+            min_bond = _market_bond_min_amount()
+            if min_bond > 0:
+                with session_scope(chain_id) as session:
+                    if not _has_active_bond(session, chain_id, sender, min_bond):
+                        raise HTTPException(
+                            status_code=403,
+                            detail=f"Active bond of at least {min_bond} compute-seconds required to list",
+                        )
             tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
         else:
             if not signature:
