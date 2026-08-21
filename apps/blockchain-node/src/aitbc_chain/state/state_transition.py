@@ -154,16 +154,16 @@ class StateTransition:
                 tx_type = "TRANSFER"
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
-        if tx_type == "MESSAGE" and value != 0:
-            return (False, f"MESSAGE transactions must have value=0, got {value}")
-        if tx_type == "MESSAGE":
+        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"} and value != 0:
+            return (False, f"{tx_type} transactions must have value=0, got {value}")
+        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
             total_cost = fee
         else:
             total_cost = value + fee
         if sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
-        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM"}:
+        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE"}:
             recipient_account = session.get(Account, (chain_id, recipient_addr))
             if not recipient_account:
                 return (False, f"Recipient account not found: {recipient_addr}")
@@ -225,7 +225,7 @@ class StateTransition:
         _MAX_INT64 = 2**63 - 1
         if value < 0 or fee < 0 or value > _MAX_INT64 or fee > _MAX_INT64:
             raise ValueError(f"Transaction value/fee out of range: value={value}, fee={fee}")
-        if tx_type == "MESSAGE":
+        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
             total_cost = fee
         else:
             total_cost = value + fee
@@ -248,6 +248,8 @@ class StateTransition:
         session.flush()
         if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
             self._handle_bond_transaction(session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value)
+        if tx_type == "GOVERNANCE_EXECUTE":
+            self._handle_governance_execute(session, chain_id, tx_data, tx_hash)
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             receipt = session.exec(
@@ -279,6 +281,96 @@ class StateTransition:
             tx_type,
         )
         return (True, "Transaction applied successfully")
+
+    def _handle_governance_execute(
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+    ) -> None:
+        """Apply a GOVERNANCE_EXECUTE transaction payload to chain parameters.
+
+        The transaction payload must contain:
+        - proposal_id: the on-chain governance proposal being executed
+        - execution_payload: the payload stored in the proposal (or an override)
+
+        For a parameter_change action, the execution payload should contain:
+        - parameter: the parameter name
+        - value: the new string value
+        """
+        from ..base_models import ChainParameter, GovernanceProposal
+
+        payload = tx_data.get("payload", {}) or {}
+        if isinstance(payload, str):
+            try:
+                import json
+
+                payload = json.loads(payload)
+            except Exception:
+                logger.warning("GOVERNANCE_EXECUTE payload is not valid JSON: %s", payload)
+                return
+
+        proposal_id = payload.get("proposal_id") or tx_data.get("proposal_id")
+        execution_payload = payload.get("execution_payload", {}) or {}
+        action = execution_payload.get("action", "parameter_change")
+
+        if not proposal_id:
+            logger.warning("GOVERNANCE_EXECUTE tx %s missing proposal_id", tx_hash)
+            return
+
+        # Record execution on the on-chain proposal record, if present
+        proposal = session.exec(
+            select(GovernanceProposal).where(
+                GovernanceProposal.chain_id == chain_id,
+                GovernanceProposal.proposal_id == proposal_id,
+            )
+        ).first()
+        if proposal:
+            proposal.status = "executed"
+            proposal.executed_at = datetime.now(UTC)
+            proposal.execution_tx_hash = tx_hash
+            session.add(proposal)
+
+        if action == "parameter_change":
+            parameter = execution_payload.get("parameter")
+            value = execution_payload.get("value")
+            if not parameter:
+                logger.warning(
+                    "GOVERNANCE_EXECUTE tx %s parameter_change missing parameter name", tx_hash
+                )
+                return
+            existing = session.exec(
+                select(ChainParameter).where(
+                    ChainParameter.chain_id == chain_id,
+                    ChainParameter.parameter == parameter,
+                )
+            ).first()
+            if existing:
+                existing.value = str(value)
+                existing.proposal_id = proposal_id
+                existing.updated_at = datetime.now(UTC)
+            else:
+                session.add(
+                    ChainParameter(
+                        chain_id=chain_id,
+                        parameter=parameter,
+                        value=str(value),
+                        proposal_id=proposal_id,
+                    )
+                )
+            logger.info(
+                "Chain parameter %s updated to %s by proposal %s (tx %s)",
+                parameter,
+                value,
+                proposal_id,
+                tx_hash,
+            )
+        elif action == "set_governance_address":
+            # Reserved for adding/removing governance signing addresses
+            logger.info("GOVERNANCE_EXECUTE set_governance_address not implemented: %s", execution_payload)
+        else:
+            logger.info("GOVERNANCE_EXECUTE unknown action %s: %s", action, execution_payload)
 
     def _handle_bond_transaction(
         self,

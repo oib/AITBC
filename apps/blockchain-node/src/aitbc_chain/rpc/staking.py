@@ -10,10 +10,13 @@ from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
+from ..base_models import _to_ait_address
+from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
+from ..mempool import compute_tx_hash, get_mempool
 from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
-from .utils import get_chain_id, validate_chain_id, verify_request_signature
+from .utils import get_chain_id, sign_transaction_data, validate_chain_id, verify_request_signature
 
 _logger = get_logger(__name__)
 
@@ -426,8 +429,24 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
 async def execute_governance_proposal(
     request: Request, proposal_id: str, executor_address: str = "", chain_id: str | None = None
 ) -> dict[str, Any]:
-    """Execute a passed governance proposal on the blockchain"""
+    """Execute a passed governance proposal on the blockchain.
+
+    Creates and signs a ``GOVERNANCE_EXECUTE`` transaction from the chain's
+    configured genesis/governance key, submits it to the mempool, and returns
+    the transaction hash. The next block will then apply the proposal's
+    ``execution_payload`` to the on-chain ``chain_parameter`` table and mark the
+    proposal as executed.
+    """
     chain_id = get_chain_id(chain_id)
+
+    executor_key = getattr(settings, "genesis_private_key", None) or getattr(settings, "proposer_key", None)
+    if not executor_key:
+        raise HTTPException(status_code=403, detail="No governance executor key configured on this node")
+
+    executor_address = executor_address or getattr(settings, "genesis_address", None) or getattr(settings, "proposer_id", None) or ""
+    if not executor_address:
+        raise HTTPException(status_code=403, detail="No governance executor address configured on this node")
+
     with session_scope() as session:
         proposal = session.exec(
             select(GovernanceProposal).where(
@@ -438,18 +457,119 @@ async def execute_governance_proposal(
             raise HTTPException(status_code=404, detail=f"Proposal not found: {proposal_id}")
         if proposal.status in ("executed", "cancelled"):
             raise HTTPException(status_code=400, detail=f"Proposal already executed or cancelled: {proposal_id}")
+        if proposal.status != "succeeded":
+            raise HTTPException(status_code=400, detail=f"Proposal {proposal_id} has status {proposal.status}; cannot execute")
 
-        proposal.status = "executed"
-        proposal.executed_at = datetime.now(UTC)
-        session.add(proposal)
-        session.commit()
-        _logger.info("Governance proposal executed: %s by %s", proposal_id, executor_address)
+        sender_account = session.get(Account, (chain_id, _to_ait_address(executor_address)))
+        if not sender_account:
+            raise HTTPException(status_code=400, detail=f"Executor account not found: {executor_address}")
+
+        execution_payload = proposal.execution_payload or {}
+        tx_data = {
+            "from": executor_address,
+            "to": executor_address,
+            "amount": 0,
+            "fee": 0,
+            "nonce": sender_account.nonce,
+            "payload": {
+                "proposal_id": proposal_id,
+                "executor": executor_address,
+                "execution_payload": execution_payload,
+            },
+            "type": "GOVERNANCE_EXECUTE",
+            "chain_id": chain_id,
+        }
+
+        tx_hash = compute_tx_hash(tx_data)
+        tx_data["tx_hash"] = tx_hash
+        signature = sign_transaction_data(tx_data, executor_key)
+        tx_data["signature"] = signature
+
+        mempool = get_mempool()
+        mempool.add(tx_data, chain_id=chain_id)
+
+        _logger.info(
+            "Governance proposal %s queued for on-chain execution by %s (tx %s)",
+            proposal_id,
+            executor_address,
+            tx_hash,
+        )
+
         return {
             "success": True,
             "proposal_id": proposal.proposal_id,
-            "status": proposal.status,
-            "executed_at": proposal.executed_at.isoformat(),
-            "transaction_hash": f"0xexec{proposal.id:08x}" if proposal.id else "0xexec",
+            "status": "queued_for_execution",
+            "executor_address": executor_address,
+            "transaction_hash": tx_hash,
+            "chain_id": chain_id,
+        }
+
+
+    executor_key = getattr(settings, "genesis_private_key", None) or getattr(settings, "proposer_key", None)
+    if not executor_key:
+        raise HTTPException(status_code=403, detail="No governance executor key configured on this node")
+
+    executor_address = executor_address or getattr(settings, "genesis_address", None) or getattr(settings, "proposer_id", None) or ""
+    if not executor_address:
+        raise HTTPException(status_code=403, detail="No governance executor address configured on this node")
+
+    with session_scope() as session:
+        proposal = session.exec(
+            select(GovernanceProposal).where(
+                GovernanceProposal.chain_id == chain_id, GovernanceProposal.proposal_id == proposal_id
+            )
+        ).first()
+        if not proposal:
+            raise HTTPException(status_code=404, detail=f"Proposal not found: {proposal_id}")
+        if proposal.status in ("executed", "cancelled"):
+            raise HTTPException(status_code=400, detail=f"Proposal already executed or cancelled: {proposal_id}")
+        if proposal.status != "succeeded":
+            raise HTTPException(status_code=400, detail=f"Proposal {proposal_id} has status {proposal.status}; cannot execute")
+
+        sender_account = session.get(Account, (chain_id, _to_ait_address(executor_address)))
+        if not sender_account:
+            raise HTTPException(status_code=400, detail=f"Executor account not found: {executor_address}")
+
+        execution_payload = proposal.execution_payload or {}
+        tx_data = {
+            "from": executor_address,
+            "to": executor_address,
+            "amount": 0,
+            "fee": 0,
+            "nonce": sender_account.nonce,
+            "payload": {
+                "proposal_id": proposal_id,
+                "executor": executor_address,
+                "execution_payload": execution_payload,
+            },
+            "type": "GOVERNANCE_EXECUTE",
+            "chain_id": chain_id,
+        }
+
+        from ..mempool import compute_tx_hash, get_mempool
+        from ..rpc.utils import sign_transaction_data
+
+        tx_hash = compute_tx_hash(tx_data)
+        tx_data["tx_hash"] = tx_hash
+        signature = sign_transaction_data(tx_data, executor_key)
+        tx_data["signature"] = signature
+
+        mempool = get_mempool()
+        mempool.add(tx_data, chain_id=chain_id)
+
+        _logger.info(
+            "Governance proposal %s queued for on-chain execution by %s (tx %s)",
+            proposal_id,
+            executor_address,
+            tx_hash,
+        )
+
+        return {
+            "success": True,
+            "proposal_id": proposal.proposal_id,
+            "status": "queued_for_execution",
+            "executor_address": executor_address,
+            "transaction_hash": tx_hash,
             "chain_id": chain_id,
         }
 

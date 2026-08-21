@@ -421,6 +421,7 @@ class GovernanceProposal(ChainBase, table=True):
     voting_starts: datetime
     voting_ends: datetime
     executed_at: datetime | None = None
+    execution_tx_hash: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -439,6 +440,22 @@ class GovernanceVote(ChainBase, table=True):
     voting_power: int = Field(default=0)
     reason: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ChainParameter(ChainBase, table=True):
+    """On-chain parameter set by a governance proposal execution."""
+
+    __tablename__ = "chain_parameter"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "parameter", name="uix_chain_parameter"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    parameter: str = Field(index=True)
+    value: str
+    proposal_id: str | None = Field(default=None, index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ConsensusState(ChainBase, table=True):

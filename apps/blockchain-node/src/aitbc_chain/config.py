@@ -113,6 +113,11 @@ class ChainSettings(BaseSettings):
     proposer_id: str = ""
     proposer_key: str | None = None
 
+    # Genesis key used for governance execution, fee subsidies, and other
+    # chain-level operations. Preferably loaded from node.env / secrets.
+    genesis_private_key: str | None = None
+    genesis_address: str | None = None
+
     mint_per_unit: int = 0  # No new minting after genesis for production
     coordinator_ratio: float = 0.05
 
