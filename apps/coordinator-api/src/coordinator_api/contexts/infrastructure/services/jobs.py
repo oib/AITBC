@@ -15,6 +15,16 @@ from ..domain import Job, JobReceipt, Miner
 logger = get_logger(__name__)
 
 
+
+def _to_utc(dt: datetime | None) -> datetime | None:
+    """Make a datetime timezone-aware for comparison; SQLite returns naive datetimes."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
 class JobService:
     def __init__(self, session: Session):
         self.session = session
@@ -128,7 +138,9 @@ class JobService:
                     job = self._ensure_not_expired(job)
                     if job.state != "QUEUED":
                         continue
-                    if job.expires_at and job.expires_at <= now:
+                    if job.expires_at:
+                        expires_at = _to_utc(job.expires_at)
+                        if expires_at and expires_at <= now:
                         continue
                     if not self._satisfies_constraints(job, miner):
                         continue
@@ -152,7 +164,8 @@ class JobService:
             raise
 
     def _ensure_not_expired(self, job: Job) -> Job:
-        if job.state in {"QUEUED", "RUNNING"} and job.expires_at and (job.expires_at <= datetime.now(UTC)):
+        expires_at = _to_utc(job.expires_at)
+        if job.state in {"QUEUED", "RUNNING"} and expires_at and (expires_at <= datetime.now(UTC)):
             job.state = "EXPIRED"
             job.error = "job expired"
             self.session.add(job)
@@ -265,6 +278,8 @@ class JobService:
             job.result = result.get("output")
             job.receipt = result.get("receipt")
             job.completed_at = datetime.now(UTC)
+            if job.requested_at:
+                job.requested_at = _to_utc(job.requested_at)
             self.session.add(job)
             self.session.commit()
             self.session.refresh(job)
