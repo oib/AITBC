@@ -211,13 +211,15 @@ def receive(
 
 
 @messaging.command()
+@click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context
-def peers(ctx):
+def peers(ctx, coordinator_url: str | None):
     """List Agent Coordinator peers"""
     config = get_config()
+    base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
         peers_data = http_client.get("/api/v1/agent/messages/discover")
         success("Agent Coordinator Peers:")
         output(peers_data, ctx.obj.get("output_format", "table"))
