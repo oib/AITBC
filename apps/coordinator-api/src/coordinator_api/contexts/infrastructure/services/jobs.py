@@ -108,6 +108,8 @@ class JobService:
             expires_at=job.expires_at,
             error=job.error,
             payment_id=job.payment_id,
+            payload=job.payload,
+            result=job.result,
             payment_status=job.payment_status,
             zk_status=receipt.get("zk_status"),
             zk_proof_id=zk_proof.get("circuit_hash"),
