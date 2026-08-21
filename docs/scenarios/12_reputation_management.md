@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 11 IPFS Storage
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.2
 
 ## Navigation Path
 
@@ -297,6 +297,32 @@ asyncio.run(agent.get_reputation())   # should return a dict with overall_score
 
 ---
 
+## Storage truth
+
+The live coordinator stores `agent_reputation` in its service database. On the
+live two-node deployment this is currently an SQLite database at
+`/var/lib/aitbc/data/coordinator.db`. The coordinator's `DatabaseConfig` uses
+SQLite by default and ignores a stale ``DATABASE_URL`` unless
+``DATABASE_ADAPTER`` is also set (e.g. ``DATABASE_ADAPTER=postgresql``).
+
+`AgentReputation.agent_id` is **not** a foreign key to `ai_agent_workflows`.
+The live miner id (e.g. ``aitbc-miner-1``) is stored directly in
+`agent_id`. This allows reputation profiles to be created for miners that are
+not registered as AI agent workflows.
+
+### PostgreSQL path (optional)
+
+To move reputation to PostgreSQL:
+
+1. Set `DATABASE_ADAPTER=postgresql` and a matching `DATABASE_URL`.
+2. Ensure the target PostgreSQL database is empty or has the SQLModel tables.
+3. Restart the coordinator.
+4. Re-run the live job flow; reputation profiles will be created on first
+   completed job.
+
+Migration of existing SQLite reputation data is not yet automated; do it with
+`pg_dump`/`sqlite3` or a small script if you need historical scores.
+
 ## Megaplan Status
 
 This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
@@ -315,5 +341,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
+*Last updated: 2026-08-21*
 *Version: 1.2*
