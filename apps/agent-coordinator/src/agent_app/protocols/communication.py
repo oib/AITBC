@@ -12,6 +12,8 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from ..websocket import get_connection_manager
+
 logger = get_logger(__name__)
 
 
@@ -93,17 +95,14 @@ class CommunicationProtocol:
         self.message_handlers[message_type].append(handler)
 
     async def send_message(self, message: AgentMessage) -> bool:
-        """Send a message to another agent"""
+        """Send a message to another agent or broadcast to all connected agents."""
         try:
-            if message.receiver_id and message.receiver_id in self.active_connections:
-                await self._send_to_agent(message)
-                return True
-            elif message.message_type == MessageType.BROADCAST:
-                await self._broadcast_message(message)
-                return True
-            else:
-                logger.warning("Cannot send message to %s: not connected", message.receiver_id)
-                return False
+            if message.message_type == MessageType.BROADCAST and not message.receiver_id:
+                return await self._broadcast_message(message)
+            if message.receiver_id:
+                return await self._send_to_agent(message)
+            logger.warning("Cannot send message without receiver_id")
+            return False
         except Exception as e:
             logger.error("Error sending message: %s", e)
             return False
@@ -128,13 +127,38 @@ class CommunicationProtocol:
         age = (datetime.now(UTC) - message.timestamp).total_seconds()
         return age > message.ttl
 
-    async def _send_to_agent(self, message: AgentMessage) -> Any:
-        """Send message to specific agent"""
-        raise NotImplementedError("Subclasses must implement _send_to_agent")
+    async def _send_to_agent(self, message: AgentMessage) -> bool:
+        """Send message to a specific agent via the WebSocket ConnectionManager.
 
-    async def _broadcast_message(self, message: AgentMessage) -> Any:
-        """Broadcast message to all connected agents"""
-        raise NotImplementedError("Subclasses must implement _broadcast_message")
+        If the recipient is not currently connected, the message is queued in
+        the connection manager's in-memory inbox for delivery on reconnect.
+        """
+        if not message.receiver_id:
+            logger.warning("Cannot send message without receiver_id")
+            return False
+        try:
+            connection_manager = get_connection_manager()
+            message_data = message.to_dict()
+            delivered = await connection_manager.send_personal_message(message_data, message.receiver_id)
+            if not delivered:
+                if message.receiver_id not in connection_manager.agent_inboxes:
+                    connection_manager.agent_inboxes[message.receiver_id] = []
+                connection_manager.agent_inboxes[message.receiver_id].append(message_data)
+                logger.info("Queued message for offline agent %s", message.receiver_id)
+            return True
+        except Exception as e:
+            logger.error("Error sending message to %s: %s", message.receiver_id, e)
+            return False
+
+    async def _broadcast_message(self, message: AgentMessage) -> bool:
+        """Broadcast message to all connected agents via the WebSocket ConnectionManager."""
+        try:
+            connection_manager = get_connection_manager()
+            await connection_manager.broadcast(message.to_dict())
+            return True
+        except Exception as e:
+            logger.error("Error broadcasting message: %s", e)
+            return False
 
 
 class HierarchicalProtocol(CommunicationProtocol):
