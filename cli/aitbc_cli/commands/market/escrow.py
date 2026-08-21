@@ -159,7 +159,7 @@ def escrow_refund(ctx, job_id: str, reason: str):
             output(coordinator_result, ctx.obj.get("output_format", "table"))
             return
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or hub.aitbc.bubuit.net}"
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
