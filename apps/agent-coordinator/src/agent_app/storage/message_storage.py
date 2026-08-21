@@ -40,10 +40,10 @@ class MessageStorage:
             raise RuntimeError("Redis not connected")
         try:
             await self.redis.hset(f"message:{message_id}", mapping=message_data)  # type: ignore[arg-type]
-            sender_id = message_data.get("sender")
+            sender_id = message_data.get("sender") or message_data.get("sender_id")
             if sender_id:
                 await self.redis.sadd(f"messages:sender:{sender_id}", message_id)
-            receiver_id = message_data.get("recipient")
+            receiver_id = message_data.get("recipient") or message_data.get("receiver_id")
             if receiver_id:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
             timestamp_str = message_data.get("timestamp", datetime.now(UTC).isoformat())

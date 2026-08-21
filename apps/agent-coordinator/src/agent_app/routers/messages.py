@@ -13,6 +13,7 @@ from ..encryption import get_encryptor
 from ..models import BroadcastRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
+from ..websocket import get_connection_manager
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/messages", tags=["agent-messaging"])
@@ -41,7 +42,7 @@ class SubscribeRequest(BaseModel):
 @router.post("/send")
 @rate_limit(rate=50, per=60)
 async def send_encrypted_message(request: Request, req: SendMessageRequest) -> dict[str, Any]:
-    """Send encrypted message to agent"""
+    """Send encrypted message to agent, trying WebSocket first then Redis."""
     try:
         encryptor = get_encryptor()
         message_content = {
@@ -67,18 +68,38 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
                 "priority": req.priority,
                 "timestamp": datetime.now(UTC).isoformat(),
             }
+
+        # Ensure encrypted payloads also carry the index/forwarding keys
+        # used by the WebSocket layer and MessageStorage.
+        message_data.setdefault("sender", req.sender)
+        message_data.setdefault("recipient", req.recipient)
+        message_data.setdefault("message_type", req.message_type)
+        message_data.setdefault("priority", req.priority)
+
+        # Try real-time WebSocket delivery first; fall back to Redis storage.
+        ws_delivered = False
+        if req.recipient:
+            try:
+                connection_manager = get_connection_manager()
+                ws_delivered = await connection_manager.send_personal_message(message_data, req.recipient)
+            except Exception as e:
+                logger.warning("Could not deliver message to %s over WebSocket: %s", req.recipient, e)
+
+        message_id = "in-memory"
         if state.message_storage:
             import uuid
 
             message_id = f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
             redis_message_data = {k: str(v) if not isinstance(v, str) else v for k, v in message_data.items()}
             await state.message_storage.store_message(message_id, redis_message_data)
+
         return {
             "status": "success",
-            "message_id": message_id if state.message_storage else "in-memory",
+            "message_id": message_id,
             "sender": req.sender,
             "recipient": req.recipient,
             "encrypted": req.encrypt,
+            "ws_delivered": ws_delivered,
             "sent_at": datetime.now(UTC).isoformat(),
         }
     except HTTPException:
