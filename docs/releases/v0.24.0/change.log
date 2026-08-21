@@ -770,3 +770,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - Updated scenario 34 (`docs/scenarios/34_hub_customer_node_e2e.md`) to v1.5, covering `aitbc auth login`, `aitbc dashboard`, `aitbc zk verify`, `aitbc reputation`, and trust-aware `aitbc market list`.
 
+- `DatabaseConfig` now supports `DATABASE_URL`/`DATABASE_ADAPTER` for PostgreSQL without switching live SQLite deployments that only set `DATABASE_URL`.
+- Removed the `AgentReputation.agent_id` foreign key to `ai_agent_workflows.id` so reputation profiles can be created for miners and other non-workflow agents.
+
