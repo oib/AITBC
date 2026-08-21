@@ -587,3 +587,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `aitbc bond release` signs a `BOND_RELEASE` transaction.
 - Bond query router is mounted under `/rpc/bond`.
 - Live validation: bond locked on chain, queryable by ID.
+
+## P2.3 live validation — lock and release on chain
+
+- Created `BOND_LOCK` tx and queried it: bond is active and queryable.
+- Released the same bond with `BOND_RELEASE` after a 0-day lock and verified
+  status=\`released\`, amount=0, and released_tx_hash recorded.
+- Account balance recovered the locked collateral after the release.
+- CLI now fetches the real provider nonce before signing each bond transaction.
