@@ -79,6 +79,13 @@ except ImportError as e:
     _import_failed("Staking sub-router", e)
 
 try:
+    from .routers.bond import router as bond_router
+
+    router.include_router(bond_router)
+except ImportError as e:
+    _import_failed("Bond sub-router", e)
+
+try:
     from .routers.consensus import router as consensus_router
 
     router.include_router(consensus_router)
