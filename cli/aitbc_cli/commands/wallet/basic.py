@@ -312,21 +312,40 @@ def info(ctx):
 @click.argument("name", required=False)
 @click.pass_context
 def balance(ctx, name: str | None):
-    """Check wallet balance from wallet service"""
+    """Check wallet balance from wallet service or file wallet"""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
+    client = get_wallet_client()
     try:
-        client = get_wallet_client()
         balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
-        # The wallet daemon already returns balance (compute-seconds) and balance_ait (formatted).
-        # Keep both fields exactly as returned so raw JSON is useful.
-        output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
-    except Exception as e:
-        error(f"Error getting wallet balance: {e}")
-        raise click.Abort() from e
+    except Exception:
+        # Fall back to local file wallet if the daemon does not know this wallet.
+        wallet_dir = ctx.obj.get("wallet_dir") or (Path.home() / ".aitbc" / "wallets")
+        wallet_path = wallet_dir / f"{wallet_name}.json"
+        if not wallet_path.exists():
+            error(f"Wallet '{wallet_name}' not found in daemon or {wallet_path}")
+            raise click.Abort()
+
+        try:
+            with open(wallet_path) as f:
+                wallet_data = json.load(f)
+        except Exception as e:
+            error(f"Failed to read file wallet '{wallet_name}': {e}")
+            raise click.Abort() from e
+
+        balance = wallet_data.get("balance", 0)
+        balance_data = {
+            "wallet_id": wallet_name,
+            "address": wallet_data.get("address"),
+            "balance": balance,
+            "balance_ait": format_ait(balance),
+            "chain_id": ctx.obj.get("chain_id", "ait-hub.aitbc.bubuit.net"),
+        }
+
+    output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
 
 
 @wallet.command()
