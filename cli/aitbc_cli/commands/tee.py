@@ -10,19 +10,39 @@ import click
 from aitbc.tee import AttestationQuote, Enclave, EnclaveConfig, QuoteGenerator
 from aitbc.tee.verification import DualVerificationPolicy, VerificationMode, verify_with_policy
 
+from typing import Any
+
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
-def _api_client() -> AITBCHTTPClient | None:
+def _looks_like_jwt(token: str) -> bool:
+    """A JWT is three base64url segments separated by dots."""
+    return token.startswith("ey") and token.count(".") == 2
+
+
+def _api_client(ctx) -> AITBCHTTPClient | None:
     """Return a client for the coordinator API if a URL is configured."""
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return None
-    return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
+
+    url = url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+
+    token = ctx.obj.get("api_key") if ctx and hasattr(ctx, "obj") else (config.api_key or "")
+    headers: dict[str, str] | None = None
+    client_kwargs: dict[str, Any] = {"base_url": url, "timeout": config.timeout, "headers": headers}
+    if token and _looks_like_jwt(token):
+        client_kwargs["headers"] = {"Authorization": f"Bearer {token}"}
+    elif token:
+        client_kwargs["api_key"] = token
+
+    return AITBCHTTPClient(**client_kwargs)
 
 
 @click.group()
@@ -40,7 +60,7 @@ def attest(ctx, enclave_id: str, measurement: str):
     try:
         generator = QuoteGenerator(enclave_id)
         quote = generator.generate(measurement=measurement)
-        client = _api_client()
+        client = _api_client(ctx)
         if client is None:
             result = {
                 "enclave_id": quote.enclave_id,
