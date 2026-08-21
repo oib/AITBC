@@ -2,6 +2,23 @@
 
 ## 2. Bridge / Cross-Chain
 
+### Operational security model
+
+The bridge code includes multi-signature verification, Merkle-proof inclusion verification, and block-header/finality validation. In the **default** production configuration these checks are **not enforced on the release path** because:
+
+- `bridge_release_enabled` defaults to `False`
+- `bridge_multisig_enabled` defaults to `False`
+- `bridge_require_merkle_proof` defaults to `False`
+
+Therefore the live bridge currently operates as a **trusted-custodian bridge**: the node operator that runs the bridge service can release funds once a `confirm` request is accepted. To move to a trust-minimized bridge, an operator must:
+
+1. Register a bridge validator set (`POST /bridge/validators/register`).
+2. Store source-chain block headers (`POST /bridge/block-headers`).
+3. Enable `bridge_multisig_enabled=True` and `bridge_require_merkle_proof=True`.
+4. Only then set `bridge_release_enabled=True`.
+
+The security-audit fixes for Bugs #3 and #4 (proposer-set membership and Merkle-proof enforcement) are implemented and regression-tested, but they are only active when the corresponding flags are enabled.
+
 ### Bridge Operations
 
 | Feature | Description | Documentation | Status | Release |
@@ -21,7 +38,7 @@
 |---------|-------------|---------------|--------|---------|
 | Register Validator | Register a bridge validator | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
 | Get Validator Set | Get validator set for a chain | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
-| Multi-Sig Verification | Multi-signature verification for transfers | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
+| Multi-Sig Verification | Multi-signature verification for transfers (opt-in; `bridge_multisig_enabled` default `False`) | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
 | Time-Locks | Time-locked transfers with refund windows | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
 | Bridge Security Status | Bridge security status check | [docs/releases/v0.7.1/change.log](releases/v0.7.1/change.log) | ✅ | v0.7.1 |
 | Bridge Threat Model | Threat modeling for bridge security | [docs/architecture/bridge-threat-model.md](../architecture/bridge-threat-model.md) | ✅ | v0.7.1 |
@@ -32,7 +49,7 @@
 |---------|-------------|---------------|--------|---------|
 | Store Block Header | Store a remote chain block header | [docs/releases/v0.7.2/change.log](releases/v0.7.2/change.log) | ✅ | v0.7.2 |
 | Get Block Header | Get a block header with finality status | [docs/releases/v0.7.2/change.log](releases/v0.7.2/change.log) | ✅ | v0.7.2 |
-| Merkle Proof Verification | In-process Merkle proof verification | [docs/releases/v0.7.2/change.log](releases/v0.7.2/change.log) | ✅ | v0.7.2 |
+| Merkle Proof Verification | In-process Merkle proof verification (opt-in; `bridge_require_merkle_proof` default `False`) | [docs/releases/v0.7.2/change.log](releases/v0.7.2/change.log) | ✅ | v0.7.2 |
 | Bridge Oracle Status | Bridge oracle/verification status | [docs/releases/v0.7.2/change.log](releases/v0.7.2/change.log) | ✅ | v0.7.2 |
 
 ### Atomic Settlement

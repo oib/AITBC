@@ -77,7 +77,7 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 
 | Flag | Default | Production Recommendation |
 |------|---------|--------------------------|
-| `bridge_release_enabled` | `True` | Keep enabled (verification now hardened) |
+| `bridge_release_enabled` | `False` | **Trusted-custodian mode by default** — operator release path. Set to `True` only after a multi-sig validator set and Merkle proof ingestion are operational. |
 | `bridge_multisig_enabled` | `False` | Enable for multi-validator networks |
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
@@ -85,3 +85,5 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 | `multi_validator_consensus_enabled` | `False` | Enable after soak test passes |
 
 > **Known drift:** `escrow_enabled` in this table historically described the bridge HTLC path. Paid jobs create and release escrow today (see `docs/DESIGN_CYCLE.md` and scenario 34). The flag remains `False` as the safe default for cross-chain bridge HTLC until `bridge_require_merkle_proof=True`, `bridge_multisig_enabled=True`, and `multi_validator_consensus_enabled=True` are also enabled and audited.
+>
+> **Bridge security defaults:** `bridge_release_enabled=False` means the live bridge still operates as a trusted custodian. Merkle-proof and multi-sig verification are implemented and covered by regression tests, but they are **disabled by default** and must be explicitly enabled for a trust-minimized configuration.
