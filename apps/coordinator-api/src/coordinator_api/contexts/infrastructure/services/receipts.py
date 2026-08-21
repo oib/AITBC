@@ -126,8 +126,8 @@ class ReceiptService:
             "unit_type": unit_type,
             "unit_price": max(0.0, unit_price),
             "price": price,
-            "started_at": int(job.requested_at.timestamp()) if job.requested_at else int(datetime.now(UTC).timestamp()),
             "completed_at": int(datetime.now(UTC).timestamp()),
+            "started_at": int(datetime.now(UTC).timestamp() - max(0.0, units)) if job.requested_at else int(datetime.now(UTC).timestamp()),
             "metadata": {
                 "job_payload": job.payload,
                 "job_constraints": job.constraints,
