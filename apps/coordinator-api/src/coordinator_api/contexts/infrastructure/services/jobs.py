@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -22,7 +22,7 @@ class JobService:
 
     def create_job(self, client_id: str, req: JobCreate) -> Job:
         ttl = max(req.ttl_seconds, 1)
-        now = datetime.now()
+        now = datetime.now(UTC)
         job = Job(
             client_id=client_id,
             state="QUEUED",
@@ -112,7 +112,7 @@ class JobService:
 
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
-            now = datetime.now()
+            now = datetime.now(UTC)
             statement = select(Job).where(Job.state == "QUEUED").order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
             jobs = self.session.scalars(statement).all()
 
@@ -152,7 +152,7 @@ class JobService:
             raise
 
     def _ensure_not_expired(self, job: Job) -> Job:
-        if job.state in {"QUEUED", "RUNNING"} and job.expires_at and (job.expires_at <= datetime.now()):
+        if job.state in {"QUEUED", "RUNNING"} and job.expires_at and (job.expires_at <= datetime.now(UTC)):
             job.state = "EXPIRED"
             job.error = "job expired"
             self.session.add(job)
@@ -264,7 +264,7 @@ class JobService:
             job.state = "COMPLETED"
             job.result = result.get("output")
             job.receipt = result.get("receipt")
-            job.completed_at = datetime.now()
+            job.completed_at = datetime.now(UTC)
             self.session.add(job)
             self.session.commit()
             self.session.refresh(job)

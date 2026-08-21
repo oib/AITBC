@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
@@ -21,8 +21,8 @@ class Job(SQLModel, table=True):
     constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
     ttl_seconds: int = Field(default=900)
-    requested_at: datetime = Field(default_factory=datetime.now)
-    expires_at: datetime = Field(default_factory=datetime.now)
+    requested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     assigned_miner_id: str | None = Field(default=None, index=True)
 

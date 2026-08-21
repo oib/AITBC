@@ -58,8 +58,13 @@ class ReceiptService:
         )
         if units is None:
             duration_ms = _coerce_float(metrics.get("duration_ms"))
+            if duration_ms is None:
+                duration_ms = _coerce_float(result_payload.get("duration_ms"))
+            if duration_ms is not None and duration_ms < 0:
+                logger.warning("Ignoring negative duration_ms %s for job %s", duration_ms, job.id)
+                duration_ms = None
             if duration_ms is not None:
-                units = duration_ms / 1000.0
+                units = max(0.0, duration_ms / 1000.0)
             else:
                 duration_seconds = _coerce_float(
                     _first_present(
@@ -71,7 +76,7 @@ class ReceiptService:
                         ]
                     )
                 )
-                units = duration_seconds
+                units = max(0.0, duration_seconds) if duration_seconds is not None else None
         if units is None:
             units = 0.0
 
@@ -99,8 +104,17 @@ class ReceiptService:
             )
         )
         if price is None:
-            price = round(units * unit_price, 6)
+            price = round(max(0.0, units) * max(0.0, unit_price), 6)
         status_value = job.state.value if hasattr(job.state, "value") else job.state
+        # Keep the signed receipt values positive and consistent.
+        units = max(0.0, units)
+        price = max(0.0, price)
+        if result_metrics:
+            result_metrics = dict(result_metrics)
+            result_metrics["duration_ms"] = int(units * 1000)
+            if result_metrics.get("duration_ms") and result_metrics["duration_ms"] < 0:
+                result_metrics["duration_ms"] = int(units * 1000)
+
         payload = {
             "version": "1.0",
             "receipt_id": token_hex(16),
@@ -110,7 +124,7 @@ class ReceiptService:
             "status": status_value,
             "units": units,
             "unit_type": unit_type,
-            "unit_price": unit_price,
+            "unit_price": max(0.0, unit_price),
             "price": price,
             "started_at": int(job.requested_at.timestamp()) if job.requested_at else int(datetime.now(UTC).timestamp()),
             "completed_at": int(datetime.now(UTC).timestamp()),

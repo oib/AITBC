@@ -5,6 +5,7 @@ Governance service for managing governance operations
 import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+import logging
 from typing import Any
 
 from sqlalchemy import text
@@ -26,6 +27,8 @@ from ..domain.governance import (
     Vote,
     VoteType,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -219,6 +222,27 @@ class GovernanceService:
                     e,
                 )
 
+        # V23-18 off-chain fallback: when on-chain submission is disabled, we still need a
+        # block height to enforce the execution timelock. Query the chain directly and record
+        # voting_ends_block so the timelock can be measured from the end of voting.
+        if proposal.block_height is None and not settings.enable_onchain_submission:
+            try:
+                proposal.block_height = await self._blockchain.get_block_height(proposal.chain_id)
+                voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
+                proposal.voting_ends_block = proposal.block_height + voting_period
+                logger.info(
+                    "Recorded off-chain block height for proposal %s: height=%s, voting_ends_block=%s",
+                    proposal.proposal_id,
+                    proposal.block_height,
+                    proposal.voting_ends_block,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not record off-chain block height for proposal %s: %s",
+                    proposal.proposal_id,
+                    e,
+                )
+
         self.session.add(proposal)
         await self.session.commit()
         await self.session.refresh(proposal)
@@ -362,6 +386,26 @@ class GovernanceService:
         decisive_votes = yes + no
         approval_rate = (yes / decisive_votes) if decisive_votes > 0 else Decimal("0")
         threshold_met = approval_rate >= Decimal(str(proposal.passing_threshold))
+
+        # V23-18: off-chain proposals may not have voting_ends_block set yet if the
+        # creation-time block height query failed. Try once more at close time so the
+        # execution timelock has an anchor. Failure here is logged but does not prevent
+        # closing; execute_proposal will still refuse to run without the block.
+        if proposal.voting_ends_block is None:
+            try:
+                proposal.voting_ends_block = await self._blockchain.get_block_height(proposal.chain_id)
+                await self.session.commit()
+                logger.info(
+                    "Recorded voting_ends_block at close for proposal %s: %s",
+                    proposal.proposal_id,
+                    proposal.voting_ends_block,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not record voting_ends_block at close for proposal %s: %s",
+                    proposal.proposal_id,
+                    e,
+                )
 
         if quorum_met and threshold_met:
             return await self.update_proposal_status(proposal_id, ProposalStatus.SUCCEEDED)
