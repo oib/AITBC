@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import binascii
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -10,6 +9,8 @@ from uuid import uuid4
 
 from sqlalchemy import JSON, Column, text
 from sqlmodel import Field, Session, SQLModel, select
+
+from aitbc.tee.attestation import AttestationQuote, AttestationVerifier
 
 
 class TEEAttestationStatus(StrEnum):
@@ -42,7 +43,7 @@ class TEEAttestation(SQLModel, table=True):
     status: str = Field(default=TEEAttestationStatus.PENDING.value, max_length=20, index=True)
     meta: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
+        sa_column=Column(JSON, nullable=False, server_default=text("' {}")),
     )
     verified_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
@@ -61,7 +62,7 @@ class EnclaveIdentity(SQLModel, table=True):
     status: str = Field(default=EnclaveStatus.PENDING.value, max_length=20, index=True)
     meta: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
+        sa_column=Column(JSON, nullable=False, server_default=text("' {}")),
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
@@ -70,28 +71,44 @@ class EnclaveIdentity(SQLModel, table=True):
 class TEEAttestationService:
     """Service that records and verifies remote attestation quotes.
 
-    ponytail: This is a skeleton verifier. Real TEE verification needs a
-    platform-specific quote library (SGX/V2/TDX) and a policy engine.
+    v0.14.3: Quotes are now parsed as self-contained signed documents and
+    verified with the public key embedded in the quote. Unparseable or
+    unsigned quotes are rejected, enforcing a real quote path before escrow
+    release. A real deployment still needs a platform-specific quote library
+    (SGX/TDX/SEV), but the policy and signature checks are real.
     """
 
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def _validate_quote(self, quote: str) -> bool:
-        """Return True for a well-formed base64-encoded quote."""
+    def _validate_quote(self, quote_b64: str, expected_measurement: str, expected_enclave_id: str) -> bool:
+        """Return True for a valid, signed, non-expired quote.
+
+        Expects ``quote_b64`` to be the base64-encoded JSON representation of
+        an ``AttestationQuote``. Legacy raw quote blobs fail closed.
+        """
         try:
-            decoded = base64.b64decode(quote, validate=True)
-        except (binascii.Error, ValueError):
+            quote = AttestationQuote.from_base64(quote_b64)
+        except (binascii.Error, ValueError, KeyError, TypeError):
             return False
-        return len(decoded) >= 32
+
+        if expected_enclave_id and quote.enclave_id != expected_enclave_id:
+            return False
+
+        # The quote must be cryptographically signed and match the expected
+        # measurement. Failing either means it is not a real quote path.
+        expected = expected_measurement or expected_enclave_id
+        verifier = AttestationVerifier(require_signature=True)
+        return verifier.verify(quote, expected_measurement=expected or None)
 
     def verify_and_store(self, enclave_id: str, quote: str, measurement: str = "") -> TEEAttestation:
         """Verify a quote and persist the result."""
-        is_valid = self._validate_quote(quote)
+        expected_measurement = measurement or enclave_id
+        is_valid = self._validate_quote(quote, expected_measurement, enclave_id)
         attestation = TEEAttestation(
             enclave_id=enclave_id,
             quote=quote,
-            measurement=measurement,
+            measurement=expected_measurement,
             status=TEEAttestationStatus.VERIFIED.value if is_valid else TEEAttestationStatus.REJECTED.value,
             verified_at=datetime.now(UTC) if is_valid else None,
         )
