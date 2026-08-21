@@ -12,6 +12,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ....auth import MinerDep
 from ....schemas import AssignedJob, JobFailSubmit, JobResult, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest, Receipt
+from ...infrastructure.domain import Job
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
 from ...infrastructure.services.receipts import ReceiptService
@@ -240,10 +241,17 @@ async def submit_result(
         if _tee_required_for(job):
             tee_status = (receipt or {}).get("tee_status")
             if tee_status != "verified":
-                job.error = f"TEE attestation required before escrow release (status: {tee_status})"
-                job.state = JobState.failed
-                session.add(job)
+                # Refresh the job record inside this transaction so the
+                # failure state is guaranteed to be flushed to the database.
+                fresh_job = session.get(Job, job_id)
+                if fresh_job is None:
+                    fresh_job = job
+                fresh_job.error = f"TEE attestation required before escrow release (status: {tee_status})"
+                fresh_job.state = JobState.failed
+                session.add(fresh_job)
+                session.flush()
                 session.commit()
+                job = fresh_job
                 logger.error(
                     "Escrow release blocked for job %s: TEE status %s", job.id, tee_status
                 )
@@ -265,7 +273,15 @@ async def submit_result(
                         job.payment_id,
                         job.id,
                     )
-                session.add(job)
+                fresh_job = session.get(Job, job_id)
+                if fresh_job is None:
+                    fresh_job = job
+                if refunded:
+                    fresh_job.payment_status = "refunded"
+                fresh_job.error = fresh_job.error or job.error
+                fresh_job.state = job.state
+                session.add(fresh_job)
+                session.flush()
                 session.commit()
                 success = False
             elif _zk_required_for(job):
