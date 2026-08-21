@@ -291,3 +291,13 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
   - Hub daemon peered to aitbc3 via `ipfs swarm connect`; hub `aitbc ipfs download <CID>`
     fetched the file cross-node over IPFS.
   - Both nodes run `aitbc-ipfs.service` with Kubo v0.43.0.
+
+- 2026-08-21: P2.7 compliance / plugins / white-label validation:
+  - `aitbc brand show` returns default AITBC brand.
+  - `AITBC_BRAND_NAME=EnvCo aitbc brand show` returns the overridden name.
+  - `aitbc plugin list` returns `hermes`, `openclaw`, `whitelabel_demo`.
+  - `aitbc plugin load whitelabel_demo` returns DemoHub brand and roles.
+  - `AITBC_ACTIVE_PLUGIN=whitelabel_demo aitbc brand show` returns DemoHub brand.
+  - `aitbc ai submit --compliance-framework hipaa --classification public` is rejected.
+  - `aitbc ai submit --compliance-framework hipaa --classification phi` passes
+    the compliance hook and attaches `data_classification: phi` to the job constraints.
