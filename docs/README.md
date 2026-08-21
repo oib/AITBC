@@ -1,7 +1,7 @@
 # AITBC Documentation
 
-**Last Updated**: 2026-08-13
-**Version**: 8.0 (post-boilerplate cleanup)
+**Last Updated**: 2026-08-21
+**Version**: 8.1 (P0 documentation/config honesty pass)
 
 This is the documentation hub for AITBC. For the project overview and welcome page, see the root [README.md](../README.md).
 

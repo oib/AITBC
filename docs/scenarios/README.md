@@ -99,6 +99,7 @@ These were originally v0.10.3 shop-node bug tickets (A3–A14, B5–B15). They a
 ## See Also
 
 - [Closed design cycle & wish list](../DESIGN_CYCLE.md)
+- [Release status and configuration drift](../releases/STATUS.md)
 - [Agent SDK Documentation](../agent-sdk/README.md)
 - [CLI README](../../cli/README.md)
 - [Service Ports](../reference/SERVICE_PORTS.md)
@@ -119,5 +120,5 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 
 ---
 
-*Last updated: 2026-08-21*
+*Last updated: 2026-08-21 (Phase 1 in progress)*
 *Version: 1.5*

@@ -1,6 +1,6 @@
 # Active AITBC Applications
 
-This document lists all active AITBC applications as of v0.5.0.
+This document lists AITBC applications and their status as of v0.10.18. Some entries still reflect v0.5.0-era dates; the status fields are the current source of truth.
 
 ## Core Services
 
@@ -240,6 +240,13 @@ All active applications have recent git activity (within the last 6 months) and 
 
 ## Version Information
 
-- **Current Version**: 0.5.0 (as per pyproject.toml)
-- **Last Updated**: 2026-06-19
-- **Documentation Version**: v0.5.0
+- **Current Version**: 0.10.18 (as per `aitbc --version`)
+- **Last Updated**: 2026-08-21
+- **Documentation Version**: v0.10.18
+
+### Deprecated / parked entries
+
+- `apps/agent-management` — deprecated; agent SDK and lifecycle moved to `aitbc agent` and `packages/py/aitbc-agent-sdk/`. The service file is no longer deployed on the live nodes.
+- `apps/ai-engine` — under development; not part of the default Ollama shop loop.
+- `apps/zk-circuits` — experimental; circuits exist but are not wired into job verification.
+- `apps/archive/peertube-transcoder` — archived.

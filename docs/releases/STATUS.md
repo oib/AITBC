@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-07-24
+**Last updated:** 2026-08-21
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -81,5 +81,7 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 | `bridge_multisig_enabled` | `False` | Enable for multi-validator networks |
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
-| `escrow_enabled` | `False` | Keep disabled until B4 complete |
+| `escrow_enabled` | `False` | Two meanings: (1) paid job escrow and release is **live** in the blockchain node; (2) bridge HTLC settlement is still gated by this flag. Do not disable the job payment path. |
 | `multi_validator_consensus_enabled` | `False` | Enable after soak test passes |
+
+> **Known drift:** `escrow_enabled` in this table historically described the bridge HTLC path. Paid jobs create and release escrow today (see `docs/DESIGN_CYCLE.md` and scenario 34). The flag remains `False` as the safe default for cross-chain bridge HTLC until `bridge_require_merkle_proof=True`, `bridge_multisig_enabled=True`, and `multi_validator_consensus_enabled=True` are also enabled and audited.
