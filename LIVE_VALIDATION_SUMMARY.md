@@ -252,3 +252,11 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
   - `aitbc zk verify --job-id 21e4d780645242c1bc6fc384f8fdc827`
   - `aitbc zk verify --proof-file /tmp/proof.json`
 - Added `POST /v1/zk/receipt/verify` coordinator endpoint.
+
+- 2026-08-21: fresh high-value ZK end-to-end run with
+  `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10` and `COORDINATOR_ZK_REQUIRE=true`:
+  - `aitbc ai submit --payment 10 --zk-proof-required`
+  - Job `305d1dd786604d38a0dd004ebac426ad` completed, `zk_status: verified`,
+    `payment_status: released`, `zk_proof_id` set.
+  - `aitbc zk verify --proof-id 305d1dd786604d38a0dd004ebac426ad` returned
+    `verified: true`.
