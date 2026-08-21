@@ -245,7 +245,7 @@ async def list_miner_jobs(
                 filters["state"] = JobState(job_status.upper())
             except ValueError:
                 pass
-        jobs = service.list_jobs(client_id=miner_id, limit=limit, offset=offset, **filters)
+        jobs = service.list_jobs(assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
         return {
             "jobs": [service.to_view(job) for job in jobs],
             "total": len(jobs),
@@ -270,23 +270,55 @@ async def get_miner_earnings(
 ) -> dict[str, Any]:
     """Get earnings for a specific miner"""
     try:
-        earnings_data = {
+        from decimal import Decimal
+        from ...infrastructure.services.jobs import JobService
+
+        job_service = JobService(session)
+        completed_jobs = job_service.list_jobs(
+            assigned_miner_id=miner_id,
+            state=JobState.COMPLETED,
+            limit=10000,
+            offset=0,
+        )
+
+        total_earnings = Decimal("0")
+        pending_earnings = Decimal("0")
+        paid_earnings = Decimal("0")
+        history: list[dict[str, Any]] = []
+
+        for job in completed_jobs:
+            amount = job.payment_amount or Decimal("0")
+            token = job.payment_token or "AITBC"
+            if job.payment_status == "released":
+                paid_earnings += amount
+                total_earnings += amount
+            elif job.payment_status == "escrowed":
+                pending_earnings += amount
+            history.append({
+                "job_id": job.id,
+                "amount": str(amount),
+                "currency": token,
+                "payment_status": job.payment_status or "unknown",
+            })
+
+        return {
             "miner_id": miner_id,
-            "total_earnings": 0.0,
-            "pending_earnings": 0.0,
-            "completed_jobs": 0,
+            "total_earnings": float(total_earnings),
+            "pending_earnings": float(pending_earnings),
+            "paid_earnings": float(paid_earnings),
+            "completed_jobs": len(completed_jobs),
             "currency": "AITBC",
             "from_time": from_time,
             "to_time": to_time,
-            "earnings_history": [],
+            "earnings_history": history[:20],
         }
-        return earnings_data
     except Exception as e:
         logger.error("Error getting miner earnings: %s", e)
         return {
             "miner_id": miner_id,
             "total_earnings": 0.0,
             "pending_earnings": 0.0,
+            "paid_earnings": 0.0,
             "completed_jobs": 0,
             "currency": "AITBC",
             "error": str(e),

@@ -282,7 +282,13 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                     "Job ID": job.get("job_id", job.get("id", "N/A")),
                     "State": job.get("state", "N/A"),
                     "Payment": job.get("payment_status", "N/A"),
-                    "Created": str(job.get("created_at", "N/A"))[:19],
+                    "Model": (
+                        (job.get("result") or {}).get("model")
+                        or (job.get("payload") or {}).get("model")
+                        or ((job.get("result") or {}).get("result") or {}).get("model")
+                        or "N/A"
+                    ),
+                    "Created": str(job.get("requested_at") or job.get("created_at"))[:19],
                 }
                 for job in (miner_jobs if isinstance(miner_jobs, list) else [])
             ],
