@@ -625,3 +625,97 @@ Result: `COMPLETED`, `payment_status: released`, `zk_status: verified`, `tee_sta
 - The coordinator checks `is_provider_eligible` before assigning a job that requires a bond.
 - The default `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD` is 10 AIT.
 - A payment at or above the threshold also triggers the existing ZK and TEE gates.
+
+
+---
+
+# Auto-reinvest from released escrow — live validation
+
+**Date:** 2026-08-21  
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
+**Gitea `main`:** `21e4748fc` — *feat(coordinator,blockchain): trigger auto-reinvest on escrow release*  
+**Scenario:** `docs/scenarios/49_auto_reinvest_escrow.md`
+
+## What was validated
+
+A paid AI job submitted with `--auto-reinvest-pct 50` completed, escrow was
+released, and an on-chain stake was created automatically from the released
+earnings.
+
+### CLI workflow
+
+```bash
+aitbc --api-key "$CLIENT_JWT" ai submit \
+  --prompt "Auto reinvest validation" \
+  --payment 5 \
+  --auto-reinvest-pct 50 \
+  --wallet genesis \
+  --buyer-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --coordinator-url http://127.0.0.1:8203 \
+  --wait --timeout 240
+```
+
+Result:
+
+```json
+{
+  "job_id": "84de66093d0647f7b4a4d35bbda44bd0",
+  "state": "COMPLETED",
+  "payment_status": "released",
+  "escrow_tx_hash": "0xef05c4bf6351d8ec480eca9dcef21528034907eff980823eb920d3b9d65bf8f7",
+  "receipt": {
+    "reinvest_status": "staked",
+    "reinvest_stake_id": "8",
+    "reinvest_amount": "2.43750000",
+    "metadata": {
+      "job_constraints": {
+        "auto_reinvest_pct": "50.0"
+      }
+    }
+  },
+  "status": {
+    "reinvest_status": "staked",
+    "reinvest_stake_id": "8",
+    "auto_reinvest_pct": "50.0"
+  }
+}
+```
+
+### On-chain stake record
+
+```bash
+sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
+  "SELECT id,address,amount,locked_until,status FROM stake WHERE id=8;"
+```
+
+Output:
+
+```text
+8|0xa54b82312beb65d0e90c21717ea372396991fa36|8775|2026-09-20 21:16:41.185874|active
+```
+
+`8775` compute-seconds equals `2.4375 AIT * 3600`.
+
+### Provider balance accounting
+
+Provider `ait1a54b82312beb65d0e90c21717ea372396991fa36` balance before job:
+`80730` compute-seconds. After the 5 AIT job with 2.5 % platform fee and 50 %
+reinvest:
+
+- Released escrow value: `5 * 3600 - 180` fee = `17550` compute-seconds
+- Auto-stake amount: `2.4375 * 3600` = `8775` compute-seconds
+- Final provider balance: `80730 + 17550 - 8775 = 89505` compute-seconds
+
+Live observed balance: `89505`.
+
+## Key observations
+
+- `aitbc ai submit --auto-reinvest-pct` reaches the coordinator and is stored in
+  `payment.meta_data`.
+- `PaymentService.release_payment` passes `auto_reinvest_pct` and
+  `auto_reinvest_address` to the blockchain escrow release endpoint.
+- The blockchain `_auto_stake` canonicalizes the provider address and creates a
+  `Stake` record.
+- `reinvest_status`, `reinvest_stake_id` and `reinvest_amount` are attached to
+  the job receipt and visible in the CLI result.
