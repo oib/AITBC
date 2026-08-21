@@ -20,7 +20,7 @@ from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
 from eth_utils import keccak
 
-from ..contracts.escrow import get_escrow_manager
+from ..contracts.escrow import EscrowState, get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Escrow, Stake
@@ -352,7 +352,20 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
     contract = mgr.escrow_contracts.get(contract_id)
-    if contract and contract.state in ["released", "refunded", "expired"]:
+    if contract and contract.state in {EscrowState.RELEASED, EscrowState.REFUNDED, EscrowState.EXPIRED}:
+        if contract.state == EscrowState.REFUNDED:
+            try:
+                with session_scope() as session:
+                    record = session.get(Escrow, job_id)
+                    return {
+                        "success": True,
+                        "contract_id": contract_id,
+                        "job_id": job_id,
+                        "message": "Escrow already refunded",
+                        "refund_tx_hash": record.refund_tx_hash if record else None,
+                    }
+            except Exception as e:
+                _logger.warning("Failed to read refund_tx_hash for already-refunded job %s: %s", job_id, e)
         raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
     reason = (body or {}).get("reason", "buyer_requested")
     success, message = await mgr.refund_contract(contract_id, reason)

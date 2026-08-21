@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import click
 
+from ...auth import AuthManager
 from ...config import get_config
 from ...utils import error, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger
@@ -104,16 +105,60 @@ def escrow_release(ctx, job_id: str):
         raise click.Abort() from e
 
 
+
+
+def _coordinator_base_url(ctx) -> str:
+    """Return coordinator base URL with any trailing /v1 stripped."""
+    url = ctx.obj.get("url")
+    if not url:
+        url = get_config().coordinator_api_url or "http://localhost:8203"
+    url = url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url
+
+
+def _client_token(ctx) -> str | None:
+    """Return API key from --api-key, then the stored client credential."""
+    token = ctx.obj.get("api_key")
+    if not token:
+        token = AuthManager().get_credential("client")
+    return token
+
+
+def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
+    """Ask the coordinator to refund the payment (which also refunds the on-chain escrow)."""
+    token = _client_token(ctx)
+    if not token:
+        return None
+    base_url = _coordinator_base_url(ctx)
+    try:
+        client = AITBCHTTPClient(base_url=base_url, timeout=30, headers={"Authorization": f"Bearer {token}"})
+        job = client.get(f"/v1/jobs/{job_id}")
+        payment_id = job.get("payment_id") if isinstance(job, dict) else None
+        if not payment_id:
+            return None
+        return client.post(f"/v1/payments/{payment_id}/refund", json={"job_id": job_id, "reason": reason})
+    except Exception:
+        logger.debug("Coordinator refund request failed", exc_info=True)
+        return None
+
+
 @escrow.command(name="refund")
 @click.argument("job_id")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.pass_context
 def escrow_refund(ctx, job_id: str, reason: str):
-    """Refund escrow back to the buyer"""
+    """Refund escrow back to the buyer (coordinator first, then blockchain fallback)."""
     try:
         config = get_config()
+        coordinator_result = _coordinator_refund(ctx, job_id, reason)
+        if coordinator_result:
+            success(f"Coordinator refund accepted for job {job_id}")
+            output(coordinator_result, ctx.obj.get("output_format", "table"))
+            return
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"http://{config.hub_discovery_url or hub.aitbc.bubuit.net}"
         result = None
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
@@ -136,7 +181,6 @@ def escrow_refund(ctx, job_id: str, reason: str):
     except Exception as e:
         error(f"Error refunding escrow: {e}")
         raise click.Abort() from e
-
 
 @escrow.command(name="status")
 @click.argument("job_id")
