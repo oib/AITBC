@@ -419,6 +419,8 @@ class ChainSettings(BaseSettings):
     bridge_batch_size: int = 10  # Max transfers per batch operation
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
+    bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
+    bridge_max_lock_amount: int = 0  # Maximum amount that can be locked in a single transfer (0 = unlimited)
 
     # Bridge multi-sig configuration (v0.7.1). Security layer for the
     # cross-chain bridge: M-of-N validators must sign each proof before

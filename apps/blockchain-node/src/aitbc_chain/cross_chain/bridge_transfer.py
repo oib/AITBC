@@ -34,6 +34,13 @@ class BridgeTransferMixin(BridgeBase):
 
         Step 1: Lock funds on source chain
         """
+        if source_chain == target_chain:
+            raise ValueError("Source and target chain must be different")
+
+        max_amount = getattr(settings, "bridge_max_lock_amount", 0)
+        if max_amount and amount > max_amount:
+            raise ValueError(f"Amount {amount} exceeds bridge max lock amount {max_amount}")
+
         transfer_id = self._generate_transfer_id(source_chain, target_chain, sender, recipient, amount, int(time.time()))
         with self._session_factory() as session:
             sender_account = session.get(Account, (source_chain, sender))
@@ -219,6 +226,16 @@ class BridgeTransferMixin(BridgeBase):
                 raise ValueError(f"Transfer cannot be refunded in status '{record.status}'")
             if record.sender != sender:
                 raise ValueError("Only the original sender can refund this transfer")
+
+            refund_delay = getattr(settings, "bridge_refund_delay_seconds", 0)
+            if refund_delay:
+                lock_time = record.lock_time or record.created_at
+                elapsed = (datetime.now(UTC) - lock_time).total_seconds()
+                if elapsed < refund_delay:
+                    raise ValueError(
+                        f"Refund not allowed yet: {elapsed:.0f}s since lock, "
+                        f"minimum delay is {refund_delay}s"
+                    )
 
             # Return the locked amount to the sender (fee was already deducted at lock time)
             sender_account = session.get(Account, (record.source_chain, record.sender))

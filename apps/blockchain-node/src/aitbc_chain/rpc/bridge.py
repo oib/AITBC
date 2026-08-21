@@ -324,6 +324,8 @@ async def bridge_health(request: Request) -> dict[str, Any]:
             "bridge_timeout": getattr(settings, "bridge_timeout", 300),
             "bridge_batch_size": getattr(settings, "bridge_batch_size", 10),
             "bridge_monitor_interval": getattr(settings, "bridge_monitor_interval", 60),
+            "bridge_refund_delay_seconds": getattr(settings, "bridge_refund_delay_seconds", 0),
+            "bridge_max_lock_amount": getattr(settings, "bridge_max_lock_amount", 0),
         }
     except HTTPException:
         raise
