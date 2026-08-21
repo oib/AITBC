@@ -68,6 +68,7 @@ from aitbc_cli.commands.platform import platform
 from aitbc_cli.commands.pool_hub import pool_hub
 from aitbc_cli.commands.reinvest import reinvest
 from aitbc_cli.commands.reputation import reputation
+from aitbc_cli.commands.dashboard import dashboard
 from aitbc_cli.commands.resource import resource
 from aitbc_cli.commands.script import script
 from aitbc_cli.commands.security import security
@@ -192,6 +193,7 @@ cli.add_command(auth)  # Authentication and session management
 cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 cli.add_command(reputation)  # Reputation management
+cli.add_command(dashboard, name="dashboard")  # Customer and shop dashboards
 cli.add_command(governance)  # Governance operations
 cli.add_command(developer)  # Developer registry
 cli.add_command(grant)  # DAO grant proposals

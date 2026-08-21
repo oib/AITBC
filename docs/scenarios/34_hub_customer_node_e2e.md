@@ -48,12 +48,11 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 ### Tools Required
 
 - `aitbc` on both hub and shop
-- A funded customer wallet and a JWT for `--api-key` (generate with `python3 -c "from aitbc.auth import create_access_token; ..."`)
+- A client JWT (`from aitbc.auth import create_access_token` — **not** `coordinator_api.auth.jwt_auth`)
 
 ### Setup Required
 
 - Hub: coordinator, wallet, exchange, explorer
-- Hub blockchain RPC: `ESCROW_RELEASE_PRIVATE_KEY` and `ESCROW_RELEASE_ADDRESS` in `/etc/aitbc/node.env` (or `/etc/aitbc/blockchain.env`), or fallback to `GENESIS_WALLET_PRIVATE_KEY`
 - Shop: miner, GPU, Ollama `llama3.2:3b`, funded provider wallet (e.g. `test-wallet-3`)
 - Buyer: genesis or another funded wallet
 
@@ -109,18 +108,11 @@ aitbc exchange-island rates
 aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --prompt "Cross-node unpaid job" \
   --coordinator-url http://127.0.0.1:8203
+aitbc --api-key "$CLIENT_JWT" ai status --job-id "$JOB_ID"
+aitbc --api-key "$CLIENT_JWT" ai jobs --limit 5
 ```
 
-For a blocking end-to-end view, use `--wait`:
-
-```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai submit \
-  --prompt "Cross-node unpaid job" \
-  --coordinator-url http://127.0.0.1:8203 \
-  --wait
-```
-
-**Expected output:** `QUEUED` then `COMPLETED` on `aitbc-miner-1` with `payment_status` none/skipped. With `--wait`, the JSON also contains `state`, `result`, and `receipt`.
+**Expected output:** `QUEUED` then `COMPLETED` on `aitbc-miner-1` with `payment_status` none/skipped.
 
 ### Step 6: Bridge validation from CLI
 
@@ -142,8 +134,6 @@ aitbc exchange-island orders --status open
 
 ### Step 8: Paid job + escrow + on-chain settlement
 
-The release transaction is signed by the key in `ESCROW_RELEASE_PRIVATE_KEY` (set in `/etc/aitbc/node.env` on the hub). If the variable is not configured, the node falls back to `GENESIS_WALLET_PRIVATE_KEY`. The settlement address is derived from the release key unless `ESCROW_RELEASE_ADDRESS` is set explicitly.
-
 On the hub:
 
 ```bash
@@ -153,18 +143,19 @@ aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --wallet genesis \
   --buyer-address <customer-ait1-or-aitbc1> \
   --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
-  --coordinator-url http://127.0.0.1:8203 \
-  --wait
+  --coordinator-url http://127.0.0.1:8203
 ```
 
-**Expected output:** `state: COMPLETED`, `payment_status: released`, and `escrow_tx_hash` containing the on-chain `ESCROW_RELEASE` transaction hash.
+**Expected output:** `payment_status: escrowed`, a `payment_id`.
 
-If you prefer to poll manually, omit `--wait` and then run:
+Wait, then:
 
 ```bash
 aitbc --api-key "$CLIENT_JWT" --output json ai status --job-id "$JOB_ID"
 aitbc --api-key "$CLIENT_JWT" ai results --job-id "$JOB_ID"
 ```
+
+**Expected output:** `COMPLETED`, `payment_status: released`.
 
 On the shop (or any CLI that talks to the hub wallet/RPC):
 
@@ -180,7 +171,7 @@ Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab
 
 ### Step 9: GPU marketplace offer from the shop
 
-On `aitbc3` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; the CLI skips root-only env files such as `blockchain-secrets.env` instead of crashing — do not chown root-only secrets as a workaround):
+On `aitbc3` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
 
 ```bash
 aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
@@ -190,11 +181,25 @@ On the hub/customer:
 
 ```bash
 aitbc market list --service-type ollama
-aitbc market list --service-type ollama --sort reputation
-aitbc market list --service-type ollama --sort price
 ```
 
-**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash. The `--sort` option orders by `reputation` (avg_rating desc, then price asc, then capacity), `price` (asc), or `availability` (active first, then capacity).
+**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash.
+
+### Step 10: Dashboard validation
+
+Customer view (hub or any CLI with a client token):
+
+```bash
+aitbc --api-key "$CLIENT_JWT" dashboard customer
+```
+
+Shop view (on `aitbc3` as `aitbc`):
+
+```bash
+aitbc dashboard shop --miner-id aitbc3
+```
+
+**Expected output:** customer summary shows jobs, payment statuses and wallet balances; shop summary shows marketplace offers, wallet addresses, and network job/miner counts. Some live hub endpoints (`/v1/monitoring/metrics`, `/v1/miners/{id}/jobs`) may 404 until the coordinator-api has reloaded the current code; the dashboard degrades to the data it can reach (marketplace, wallets, GPUs).
 
 ---
 
@@ -217,13 +222,11 @@ journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c jo
 journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed || true
 ```
 
-Authenticate the CLI customer (hub):
+JWT snippet (hub):
 
 ```bash
-python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '<customer-address>'}))"
+python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '0xCustomer1'}))"
 ```
-
-Store the returned JWT in `AITBC_API_KEY` or pass it as `--api-key` in every command.
 
 ---
 
@@ -236,4 +239,4 @@ Store the returned JWT in `AITBC_API_KEY` or pass it as `--api-key` in every com
 ---
 
 *Last updated: 2026-08-21*
-*Version: 1.5*
+*Version: 1.4*
