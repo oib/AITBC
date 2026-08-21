@@ -27,7 +27,7 @@ breadcrumb: Home > Scenarios > Governance Voting
 
 This scenario demonstrates two real CLI surfaces:
 
-- `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `list`, `get`, `status`, `execute`).
+- `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `close`, `execute`, `list`, `get`, `status`).
 - `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed proposal/vote path.
 
 Live two-node validation so far has proven `aitbc governance status`. Treat propose/vote/execute as command-shaped plays against a running governance service; they are not yet a closed on-chain parameter-change cycle (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) P1.7).
@@ -225,7 +225,27 @@ Amount              1000
 Status              delegated
 ```
 
-### Step 7: Execute a Passed Proposal
+### Step 7: Close the Proposal and Tally Votes
+
+After the voting period ends (or quorum and approval are reached early), close the proposal so it transitions to `succeeded` or `defeated`:
+
+```bash
+aitbc governance close prop-001
+```
+
+**Expected output:**
+
+```
+Proposal closed: prop-001
+
+Proposal ID         prop-001
+Status              succeeded
+Yes Votes           1000
+No Votes            500
+Abstain Votes       100
+```
+
+### Step 8: Execute a Passed Proposal
 
 Once the voting period ends and the proposal passes, execute it to enact the changes.
 

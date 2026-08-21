@@ -263,6 +263,49 @@ class GovernanceService:
         await self.session.refresh(vote)
         return vote
 
+    async def close_proposal(self, proposal_id: str) -> Proposal:
+        """Close an active proposal and tally the result.
+
+        A proposal succeeds when the total participation is at least the
+        configured quorum and the approval rate (yes / (yes + no)) meets or
+        exceeds the passing threshold. Abstain votes count toward quorum but
+        not toward the approval rate.
+
+        If the voting period has ended and the quorum/approval was not met,
+        the proposal is marked ``defeated``. If the voting period is still open
+        and neither condition is met, closing raises ``ValueError``.
+        """
+        proposal = await self.get_proposal(proposal_id)
+        if not proposal:
+            raise ValueError(f"Proposal not found: {proposal_id}")
+        if proposal.status != ProposalStatus.ACTIVE:
+            raise ValueError(f"Proposal must be active to close; current status: {proposal.status}")
+
+        now = datetime.now(UTC)
+        voting_ended = now >= proposal.voting_ends
+
+        yes = proposal.yes_votes
+        no = proposal.no_votes
+        abstain = proposal.votes_abstain
+        total_votes = yes + no + abstain
+
+        quorum_met = total_votes >= proposal.quorum_required
+        decisive_votes = yes + no
+        approval_rate = (yes / decisive_votes) if decisive_votes > 0 else Decimal("0")
+        threshold_met = approval_rate >= Decimal(str(proposal.passing_threshold))
+
+        if quorum_met and threshold_met:
+            return await self.update_proposal_status(proposal_id, ProposalStatus.SUCCEEDED)
+
+        if not voting_ended:
+            raise ValueError(
+                f"Voting still open and quorum/approval not yet met: "
+                f"{total_votes} / {proposal.quorum_required} votes, "
+                f"{approval_rate:.2%} approval (threshold {proposal.passing_threshold:.0%})"
+            )
+
+        return await self.update_proposal_status(proposal_id, ProposalStatus.DEFEATED)
+
     async def get_treasury(self) -> DaoTreasury | None:
         """Get DAO treasury"""
         stmt = select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")

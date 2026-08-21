@@ -421,6 +421,30 @@ async def delegate_voting_power(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.post("/v1/governance/proposals/{proposal_id}/close")
+async def close_proposal_endpoint(
+    proposal_id: str,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
+):
+    """Close an active proposal and tally the result."""
+    try:
+        proposal = await svc.close_proposal(proposal_id)
+        return {
+            "proposal_id": proposal_id,
+            "status": proposal.status,
+            "yes_votes": float(proposal.yes_votes),
+            "no_votes": float(proposal.no_votes),
+            "abstain_votes": float(proposal.votes_abstain),
+            "quorum_required": float(proposal.quorum_required),
+            "passing_threshold": proposal.passing_threshold,
+        }
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Proposal close error: %s", e)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.post("/v1/governance/proposals/{proposal_id}/execute")
 async def execute_proposal_v2(
     proposal_id: str,
