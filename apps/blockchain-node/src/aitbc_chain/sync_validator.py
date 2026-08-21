@@ -7,7 +7,7 @@ from typing import Any
 
 from .metrics import metrics_registry
 
-from ..config import settings
+from .config import settings
 
 
 @dataclass
