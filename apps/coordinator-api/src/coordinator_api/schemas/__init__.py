@@ -29,6 +29,7 @@ class JobPaymentCreate(BaseModel):
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
     buyer_address: str | None = Field(default=None, description="Customer wallet address for escrow")
     provider_address: str | None = Field(default=None, description="Provider wallet address for escrow")
+    auto_reinvest_pct: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake")
 
     @field_validator("job_id")
     @classmethod
@@ -306,6 +307,9 @@ class JobView(BaseModel):
     zk_proof_id: str | None = None
     tee_status: str | None = None
     tee_attestation_id: str | None = None
+    auto_reinvest_pct: Decimal | None = None
+    reinvest_status: str | None = None
+    reinvest_stake_id: str | None = None
 
 
 class JobResult(BaseModel):
