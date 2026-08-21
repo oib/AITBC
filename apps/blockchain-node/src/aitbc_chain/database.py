@@ -3,8 +3,11 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from eth_utils import keccak
 
 from sqlalchemy import Column, ColumnDefault, Engine, event, inspect, literal, text
 from sqlalchemy.orm import sessionmaker
@@ -16,7 +19,21 @@ from aitbc.database.pooling import create_pooled_engine
 
 # Import all models to ensure they are registered on chain_metadata. Every table this
 # package owns has to be imported here, or `create_all` below silently skips it.
-from .base_models import Account, Block, Escrow, Receipt, SmartContract, Transaction  # noqa: F401
+from .base_models import (  # noqa: F401
+    Account,
+    Block,
+    Bond,
+    Escrow,
+    Receipt,
+    SmartContract,
+    Transaction,
+    Stake,
+    AgentIdentity,
+    GovernanceProposal,
+    GovernanceVote,
+    _to_ait_address,
+    canonical_address,
+)
 from .config import settings
 from .mempool import MempoolEntry  # noqa: F401
 from .metadata import chain_metadata
@@ -323,6 +340,34 @@ def _migrate_existing_columns(engine: Engine) -> None:
                 conn.execute(text(f"ALTER TABLE {quote(table_name)} ADD COLUMN {quote(col.name)} {coltype}{default}"))
 
 
+def _bond_escrow_address() -> str:
+    """Return the canonical bond escrow address."""
+    env = os.getenv("BOND_ESCROW_ADDRESS", "")
+    if env:
+        return canonical_address(env)
+    return "0x" + keccak(b"aitbc.bond.escrow").hex()[:40]
+
+
+def _bond_burn_address() -> str:
+    """Return the canonical bond burn address."""
+    env = os.getenv("BOND_BURN_ADDRESS", "")
+    if env:
+        return canonical_address(env)
+    return "0x" + keccak(b"aitbc.bond.burn").hex()[:40]
+
+
+def ensure_bond_accounts(session: Session, chain_id: str) -> None:
+    """Create zero-balance bond escrow and burn accounts if missing."""
+    from .base_models import Account
+
+    for address in (_bond_escrow_address(), _bond_burn_address()):
+        ait_addr = _to_ait_address(address)
+        if not session.get(Account, (chain_id, ait_addr)):
+            session.add(Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0, updated_at=datetime.now(UTC)))
+            logger.info("Created bond account %s for chain %s", ait_addr, chain_id)
+    session.commit()
+
+
 def init_db(chain_id: str = "") -> None:
     """Initialize database with file-based encryption
 
@@ -351,6 +396,10 @@ def init_db(chain_id: str = "") -> None:
 
     # Add missing columns to existing tables (create_all only creates new tables)
     _migrate_existing_columns(engine)
+
+    # Ensure bond escrow and burn accounts exist for this chain.
+    with session_scope(resolved_chain_id) as session:
+        ensure_bond_accounts(session, resolved_chain_id)
 
 
 def shutdown_db(chain_id: str = "") -> None:
