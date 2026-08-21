@@ -399,19 +399,23 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     "refunded_amount": str(contract.refunded_amount),
                     "created_at": db_record.created_at.isoformat() if db_record else None,
                     "released_at": db_record.released_at.isoformat() if db_record and db_record.released_at else None,
+                    "refunded_at": db_record.refunded_at.isoformat() if db_record and db_record.refunded_at else None,
+                    "refund_tx_hash": db_record.refund_tx_hash if db_record else None,
                 }
     if db_record:
         return {
             "job_id": job_id,
             "contract_id": None,
-            "state": "released" if db_record.released_at else "funded",
+            "state": "refunded" if db_record.refunded_at else ("released" if db_record.released_at else "funded"),
             "buyer": db_record.buyer,
             "provider": db_record.provider,
             "amount": str(db_record.amount),
             "released_amount": str(db_record.amount) if db_record.released_at else "0",
-            "refunded_amount": "0",
+            "refunded_amount": str(db_record.amount) if db_record.refunded_at else "0",
             "created_at": db_record.created_at.isoformat(),
             "released_at": db_record.released_at.isoformat() if db_record.released_at else None,
+            "refunded_at": db_record.refunded_at.isoformat() if db_record.refunded_at else None,
+            "refund_tx_hash": db_record.refund_tx_hash,
         }
     raise HTTPException(status_code=404, detail=f"No escrow found for job_id={job_id}") from None
 
