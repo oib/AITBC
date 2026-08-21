@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 22 Bridge RPC Input Validation](./22_bridge_rpc_validation.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -18,123 +18,68 @@ breadcrumb: Home > Scenarios > Mempool Eviction Order
 
 - **Previous Scenario**: [Scenario 22 Bridge RPC Input Validation](./22_bridge_rpc_validation.md)
 - **Next Scenario**: [Scenario 24 Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
-- **Feature Documentation**: Blockchain Node Architecture
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that the mempool evicts the **oldest** low-fee transaction first when at capacity, not the newest. This covers the B15 fix: the eviction tie-breaker was changed from `(fee, -received_at)` (evict newest) to `(fee, received_at)` (evict oldest).
+When the mempool is full, the **oldest** low-fee transaction is evicted first (B15: tie-break `(fee, received_at)`, not `(fee, -received_at)`). Operators exercise the mempool through `aitbc transactions pending` / `send`. Deterministic fee ordering can also be inspected with `aitbc simulate blockchain`.
 
 ### Use Case
 
-When the mempool is full and a new transaction arrives, the system must evict the oldest low-fee transaction to make room. The old behavior evicted the newest low-fee transaction, which was unfair to users who submitted early and could cause transaction starvation.
+A burst of cheap transactions must not starve an earlier cheap transaction by evicting the newest instead of the oldest.
 
 ### What You'll Learn
 
-- How the mempool eviction logic works
-- How to test eviction order with a small mempool
-- How to verify that the oldest low-fee transaction is evicted first
+- How to list the live mempool with `aitbc transactions pending`
+- How to submit and inspect transactions with `aitbc transactions send` / `status`
+- How the in-process eviction unit test confirms oldest-first (validation)
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Understanding of mempool concepts (pending transactions, fees, eviction)
-- Basic Python familiarity
-
 ### Tools Required
 
-- Python 3.13 with access to the `aitbc_chain` package
+- AITBC CLI (`aitbc`) installed and on `$PATH`
+- A funded wallet (Scenario 01 / 02) if you send live transactions
 
 ### Setup Required
 
-- AITBC blockchain-node source code at `/opt/aitbc/apps/blockchain-node/src`
+- Blockchain RPC reachable via CLI config (`blockchain_rpc_url`)
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Create a Small Mempool for Testing
+### Step 1: Inspect the live mempool
 
-```python
-import sys
-sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-from aitbc_chain.mempool import InMemoryMempool, PendingTransaction
-
-# Create a small mempool (max_size=5)
-mp = InMemoryMempool(max_size=5, chain_id='test')
-chain_txs = mp._get_chain_transactions('test')
+```bash
+aitbc transactions pending
 ```
 
-### Step 2: Add Low-Fee Transactions at Different Times
+**Expected output:** pending txs (possibly empty) from the configured hub/local RPC — not a hardcoded `localhost:8202` on a follower (fixed in `5886697ac`).
 
-Add 3 low-fee transactions with increasing `received_at` timestamps, then fill to capacity with high-fee transactions:
+### Step 2: Submit two transactions with different fees
 
-```python
-# Add 3 low-fee transactions at different times
-for name, ts in [('tx_oldest', 100.0), ('tx_middle', 200.0), ('tx_newest', 300.0)]:
-    tx = PendingTransaction(tx_hash=name, fee=1, received_at=ts, content={'hash': name})
-    chain_txs[name] = tx
-    print(f'  {name}: received_at={ts}')
+Use a test wallet that can sign. Prefer tiny amounts on a non-production wallet.
 
-# Add 2 more to fill to capacity (5)
-for name in ['tx_fill1', 'tx_fill2']:
-    tx = PendingTransaction(tx_hash=name, fee=100, received_at=400.0, content={'hash': name})
-    chain_txs[name] = tx
-print(f'Mempool now at capacity: {len(chain_txs)} txs')
+```bash
+aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 1
+aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 2
+aitbc transactions pending
+aitbc transactions status <tx-hash>
 ```
 
-### Step 3: Trigger Eviction and Check Which Transaction Was Evicted
+**Expected output:** both hashes appear; higher fee is not evicted in favor of a newer low fee. Exact eviction is only visible when the mempool is at `max_size`.
 
-```python
-print('Triggering eviction...')
-mp._evict_lowest_fee('test')
+### Step 3: Deterministic fee simulation (no chain required)
 
-remaining = set(chain_txs.keys())
-print(f'Remaining txs: {remaining}')
-
-if 'tx_oldest' not in remaining:
-    print('PASS: tx_oldest (received_at=100.0) was evicted — oldest low-fee tx evicted first (B15 fix)')
-elif 'tx_newest' not in remaining:
-    print('FAIL: tx_newest was evicted — this is the OLD buggy behavior (evicted newest)')
+```bash
+aitbc simulate blockchain --blocks 2 --transactions 3 --delay 0 --seed 123 --output json
 ```
 
-**Expected output:**
-
-```
-  tx_oldest: received_at=100.0
-  tx_middle: received_at=200.0
-  tx_newest: received_at=300.0
-Mempool now at capacity: 5 txs
-Triggering eviction...
-Remaining txs: {'tx_fill2', 'tx_middle', 'tx_fill1', 'tx_newest'}
-PASS: tx_oldest (received_at=100.0) was evicted — oldest low-fee tx evicted first (B15 fix)
-```
-
----
-
-## Code Examples
-
-### Eviction Logic (B15 Fix)
-
-The fix changed the tie-breaker from `-received_at` (newest first) to `received_at` (oldest first):
-
-```python
-# apps/blockchain-node/src/aitbc_chain/mempool.py
-def _evict_lowest_fee(self, chain_id: str) -> None:
-    """Evict the lowest-fee transaction to make room."""
-    chain_transactions = self._get_chain_transactions(chain_id)
-    if not chain_transactions:
-        return
-    # B15 fix: use (fee, received_at) ascending — evict oldest low-fee tx
-    # OLD (buggy): min(..., key=lambda t: (t.fee, -t.received_at)) — evicted newest
-    lowest = min(chain_transactions.values(), key=lambda t: (t.fee, t.received_at))
-    del chain_transactions[lowest.tx_hash]
-    metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-```
+**Expected output:** identical JSON on a second run with the same seed. This does not evict, but it is the CLI-safe way to reason about fee fields without Python snippets as the play.
 
 ---
 
@@ -142,54 +87,42 @@ def _evict_lowest_fee(self, chain_id: str) -> None:
 
 After completing this scenario, you should be able to:
 
-- Understand how mempool eviction prioritizes transactions by fee and age
-- Verify that the oldest low-fee transaction is evicted first (not the newest)
-- Reproduce the eviction scenario with a controlled test mempool
+- List and inspect the mempool through `aitbc transactions`
+- Send transactions whose fees you can compare
+- Reproduce deterministic fee-bearing simulated blocks
 
 ---
 
 ## Validation
+
+The B15 unit check (not the operator play):
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -c "
 import sys
 sys.path.insert(0, 'apps/blockchain-node/src')
 from aitbc_chain.mempool import InMemoryMempool, PendingTransaction
-
 mp = InMemoryMempool(max_size=5, chain_id='test')
 chain_txs = mp._get_chain_transactions('test')
-
 for name, ts in [('tx_oldest', 100.0), ('tx_middle', 200.0), ('tx_newest', 300.0)]:
     chain_txs[name] = PendingTransaction(tx_hash=name, fee=1, received_at=ts, content={'hash': name})
 for name in ['tx_fill1', 'tx_fill2']:
     chain_txs[name] = PendingTransaction(tx_hash=name, fee=100, received_at=400.0, content={'hash': name})
-
 mp._evict_lowest_fee('test')
 remaining = set(chain_txs.keys())
-assert 'tx_oldest' not in remaining, 'FAIL: oldest was not evicted'
-assert 'tx_newest' in remaining, 'FAIL: newest was evicted (old bug)'
+assert 'tx_oldest' not in remaining
+assert 'tx_newest' in remaining
 print('PASS: B15 eviction order verified')
 "
 ```
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
-- Blockchain Node Architecture
 - [Next Scenario: Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

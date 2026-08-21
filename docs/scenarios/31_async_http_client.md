@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 30 Secret Manager Thread Safety](./30_secret_manager_thread_safety.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -18,132 +18,65 @@ breadcrumb: Home > Scenarios > Async HTTP Client Non-Blocking
 
 - **Previous Scenario**: [Scenario 30 Secret Manager Thread Safety](./30_secret_manager_thread_safety.md)
 - **Next Scenario**: [Scenario 32 Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md)
-- **Feature Documentation**: HTTP Client Reference
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that `AsyncAITBCHTTPClient` uses `httpx.AsyncClient` for truly non-blocking async HTTP requests, not wrapping synchronous `requests` calls with `run_in_executor`. This covers the B5 fix.
+Async services use `httpx.AsyncClient` (B5), not `requests` wrapped in `run_in_executor`. Operators exercise the async RPC path with `aitbc bridge` and `aitbc explorer`.
 
 ### Use Case
 
-Async services (e.g., edge, blockchain-node) need to make HTTP requests without blocking the event loop. The old code used `requests` (synchronous) wrapped in `run_in_executor`, which consumed thread pool resources. The fix uses `httpx.AsyncClient` natively.
+Bridge health and explorer queries must not block the event loop on the node; the CLI is the client of that stack.
 
 ### What You'll Learn
 
-- How to verify that `AsyncAITBCHTTPClient` uses `httpx.AsyncClient`
-- How to make a real async request and confirm it doesn't block
-- How to check that no `run_in_executor` calls are present
+- How to issue overlapping CLI reads against async RPC
+- How to confirm the unit tests for the HTTP pool (validation)
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Understanding of async/await and the event loop
-- Familiarity with `httpx.AsyncClient` vs `requests`
-
 ### Tools Required
 
-- Python 3.13 with access to the `aitbc` package
-- A running blockchain-node RPC service on port 8202
+- AITBC CLI (`aitbc`) installed and on `$PATH`
 
 ### Setup Required
 
-- Blockchain-node RPC running for the live request test
+- Blockchain RPC and explorer reachable
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Verify httpx.AsyncClient Usage (B5)
+### Step 1: Async bridge client
 
 ```bash
-cd /opt/aitbc && grep -n "httpx.AsyncClient\|run_in_executor" aitbc/network/client.py | head -10
+aitbc bridge health
+aitbc bridge pending
+aitbc bridge security-status
 ```
 
-**Expected output:**
+**Expected output:** three RPC reads complete without hanging the shell.
 
-```
-8:import httpx
-412:            async with httpx.AsyncClient(timeout=self.timeout) as client:
-469:            async with httpx.AsyncClient(timeout=self.timeout) as client:
-525:            async with httpx.AsyncClient(timeout=self.timeout) as client:
-576:            async with httpx.AsyncClient(timeout=self.timeout) as client:
-```
-
-(No `run_in_executor` lines — all 4 HTTP methods use `httpx.AsyncClient`.)
-
-### Step 2: Make a Real Async Request
+### Step 2: Explorer (overlapping reads)
 
 ```bash
-cd /opt/aitbc && ./venv/bin/python -c "
-import asyncio, sys, time
-sys.path.insert(0, '/opt/aitbc')
-from aitbc.network.client import AsyncAITBCHTTPClient
-
-async def test():
-    client = AsyncAITBCHTTPClient(base_url='http://localhost:8202')
-    start = time.monotonic()
-    result = await client.get('/rpc/bridge/health')
-    elapsed = time.monotonic() - start
-    print(f'Result: {result}')
-    print(f'Elapsed: {elapsed:.3f}s')
-    if result.get('status') == 'healthy':
-        print('PASS: AsyncAITBCHTTPClient made a truly async request via httpx.AsyncClient')
-    else:
-        print(f'FAIL: unexpected result: {result}')
-    await client.close()
-
-asyncio.run(test())
-"
+aitbc explorer chain-head
+aitbc explorer network-stats
+aitbc explorer latest-blocks
 ```
 
-**Expected output:**
+### Step 3: Fire several reads back-to-back
 
-```
-Result: {'success': True, 'status': 'healthy', 'bridge_initialized': True, ...}
-Elapsed: 0.079s
-PASS: AsyncAITBCHTTPClient made a truly async request via httpx.AsyncClient
-```
-
----
-
-## Code Examples
-
-### B5 Fix: httpx.AsyncClient in All Async Methods
-
-```python
-# aitbc/network/client.py
-import httpx
-
-class AsyncAITBCHTTPClient:
-    async def get(self, path: str, ...) -> dict:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.get(f"{self.base_url}{path}", ...)
-            return resp.json()
-
-    async def post(self, path: str, ...) -> dict:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.post(f"{self.base_url}{path}", ...)
-            return resp.json()
-
-    # put() and delete() follow the same pattern
+```bash
+aitbc bridge health &
+aitbc explorer chain-head &
+wait
 ```
 
-### Old (Buggy) Code — run_in_executor
-
-```python
-# BEFORE B5 fix — blocking requests wrapped in executor
-import requests
-
-async def get(self, path: str, ...) -> dict:
-    loop = asyncio.get_event_loop()
-    resp = await loop.run_in_executor(None, lambda: requests.get(...))
-    return resp.json()
-```
+**Expected output:** both complete. This is not a load test; it just shows the CLI does not serialize on a stuck thread-pool `requests` call.
 
 ---
 
@@ -151,58 +84,24 @@ async def get(self, path: str, ...) -> dict:
 
 After completing this scenario, you should be able to:
 
-- Confirm that `AsyncAITBCHTTPClient` uses `httpx.AsyncClient` (not `requests` + `run_in_executor`)
-- Make a real async HTTP request and verify it completes quickly
-- Verify that all 4 HTTP methods (get, post, put, delete) are truly async
+- Use `aitbc bridge` and `aitbc explorer` as the async HTTP clients they wrap
+- Confirm B5 tests still pass (validation)
 
 ---
 
 ## Validation
 
 ```bash
-# Verify no run_in_executor in async client
-cd /opt/aitbc && grep -c "run_in_executor" aitbc/network/client.py
-# Expected: 0
-
-# Verify httpx.AsyncClient present
-grep -c "httpx.AsyncClient" aitbc/network/client.py
-# Expected: 4 (one per HTTP method)
-
-# Live async request
-./venv/bin/python -c "
-import asyncio, sys
-sys.path.insert(0, '.')
-from aitbc.network.client import AsyncAITBCHTTPClient
-
-async def test():
-    client = AsyncAITBCHTTPClient(base_url='http://localhost:8202')
-    result = await client.get('/rpc/bridge/health')
-    await client.close()
-    assert result.get('status') == 'healthy'
-    print('PASS: B5 async HTTP client verified')
-
-asyncio.run(test())
-"
+cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit/test_http_pool.py -q
 ```
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
-- HTTP Client Reference
 - [Next Scenario: Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*
