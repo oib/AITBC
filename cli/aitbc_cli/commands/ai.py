@@ -6,6 +6,12 @@ from typing import Any
 
 import click
 
+from aitbc.compliance.policies import (
+    ComplianceFramework,
+    load_policy_template,
+    normalize_classification,
+)
+
 from ..config import get_config
 from ..utils import output, success
 from ..utils.error_handling import abort
@@ -169,6 +175,8 @@ def ai():
 @click.option("--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment")
 @click.option("--input", "input_url", help="Input URL or path for transcribe/reencode jobs")
 @click.option("--output-format", default=None, help="Output format for reencode jobs (e.g. mp4, mp3)")
+@click.option("--classification", default=None, help="Data classification label (e.g. public, pii, phi)")
+@click.option("--compliance-framework", default=None, envvar="AITBC_COMPLIANCE_FRAMEWORK", help="Compliance framework to enforce")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
 @click.option("--chain-id", help="Chain ID")
@@ -196,6 +204,8 @@ def submit(
     auto_reinvest_pct,
     input_url,
     output_format,
+    classification,
+    compliance_framework,
     password,
     password_file,
     chain_id,
@@ -253,6 +263,18 @@ def submit(
             "constraints": {},
             "ttl_seconds": 900,
         }
+
+        # Compliance hook
+        if compliance_framework:
+            framework = compliance_framework
+            policy = load_policy_template(framework)
+            if classification:
+                label = normalize_classification(classification)
+                if not policy.allows_classification(label):
+                    abort(ctx, f"Classification '{label.value}' is not allowed by framework '{framework}'")
+                job_data["constraints"]["data_classification"] = label.value
+            else:
+                abort(ctx, f"--classification is required when --compliance-framework is set ({framework})")
 
         if min_reputation is not None:
             job_data["constraints"]["min_reputation"] = min_reputation

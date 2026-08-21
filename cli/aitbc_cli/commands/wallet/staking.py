@@ -8,8 +8,6 @@ from typing import Any
 
 import click
 
-from aitbc_agent_core import get_active_brand
-
 from aitbc.utils.units import ait_to_seconds, seconds_to_ait
 
 from ...config import get_config
@@ -19,7 +17,15 @@ from ...utils.http_client import AITBCHTTPClient
 from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 
-_brand = get_active_brand()
+
+def _brand_token_symbol() -> str:
+    """Return the active brand token symbol, falling back to the default."""
+    try:
+        from aitbc_agent_core import get_active_brand
+
+        return get_active_brand().token_symbol
+    except Exception:
+        return "AITBC"
 
 
 def _get_rpc_url(ctx: click.Context) -> str:
@@ -92,7 +98,7 @@ def stake(ctx, amount: Decimal, duration: int):
         return
 
     stake_data = {
-        "address": hex_address.lower().strip(),
+        "address": hex_address,
         "amount": amount_seconds,
         "lock_days": duration,
         "chain_id": chain_id,
@@ -103,7 +109,7 @@ def stake(ctx, amount: Decimal, duration: int):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
-        success(f"Staked {amount} AITBC for {duration} days")
+        success(f"Staked {amount} {_brand_token_symbol()} for {duration} days")
         output(
             {
                 "wallet": wallet_name,
@@ -155,7 +161,7 @@ def unstake(ctx, stake_id: str):
         return
 
     unstake_data = {
-        "address": hex_address.lower().strip(),
+        "address": hex_address,
         "stake_id": stake_id_int,
         "chain_id": chain_id,
         "signature": signature,
@@ -178,14 +184,8 @@ def unstake(ctx, stake_id: str):
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        detail = str(e)
-        if hasattr(e, "__cause__") and e.__cause__ is not None and hasattr(e.__cause__, "response"):
-            try:
-                detail = e.__cause__.response.text or detail
-            except Exception:
-                pass
-        error(f"Unstake failed: {detail}")
-        raise click.Abort()
+        error(f"Error unstaking tokens: {e}")
+        raise click.Abort() from e
 
 
 @wallet.command(name="staking-info")
