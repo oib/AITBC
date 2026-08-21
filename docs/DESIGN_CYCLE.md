@@ -205,7 +205,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Mock web UI is not a product |
 | P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | STATUS.md vs production |
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Hub is still one validator |
-| P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Operators still glue `status` in a loop |
+| P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Scenario 34 GPU offer workaround |
 | P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Group 17 is command-shaped, not cycle-shaped |
 | P1.8 | Honest architecture rewrite of `1_system-flow.md` (CLI → coordinator 8203 → miner → Ollama 11434 → escrow) | Stale docs train the next agent wrong |
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phases 1–5 shipped)*
+*Last updated: 2026-08-21 (Phases 1–6 shipped)*

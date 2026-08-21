@@ -1,6 +1,7 @@
 """AI job submission and inspection commands for AITBC CLI"""
 
 import os
+import time
 
 import click
 
@@ -10,6 +11,8 @@ from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+_TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELED", "EXPIRED"}
 
 
 def _auth_headers(ctx) -> dict[str, str] | None:
@@ -44,6 +47,9 @@ def ai():
 @click.option("--chain-id", help="Chain ID")
 @click.option("--rpc-url", help="RPC URL")
 @click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--wait", is_flag=True, help="Wait for the job to reach a terminal state")
+@click.option("--timeout", type=float, default=300, help="Maximum seconds to wait for a terminal state (default: 300)")
+@click.option("--poll-interval", type=float, default=5, help="Seconds between status polls (default: 5)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def submit(
@@ -61,6 +67,9 @@ def submit(
     chain_id,
     rpc_url,
     coordinator_url,
+    wait,
+    timeout,
+    poll_interval,
     format,
 ):
     """Submit an AI job"""
@@ -106,8 +115,58 @@ def submit(
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post("/v1/jobs", json=job_data)
 
-        success(f"Job submitted: {result.get('job_id')}")
-        output(result, ctx.obj.get("output_format", format))
+        job_id = result.get("job_id")
+        success(f"Job submitted: {job_id}")
+
+        if not wait:
+            output(result, ctx.obj.get("output_format", format))
+            return
+
+        # Poll until the job reaches a terminal state or timeout
+        click.echo(f"Waiting for job {job_id} (timeout: {timeout}s, poll: {poll_interval}s)")
+        started = time.time()
+        status = result
+        state = status.get("state", "QUEUED")
+        while state not in _TERMINAL_STATES:
+            if time.time() - started >= timeout:
+                abort(ctx, f"Timed out waiting for job {job_id}; last state: {state}")
+                return
+            time.sleep(poll_interval)
+            try:
+                status = http_client.get(f"/v1/jobs/{job_id}")
+            except NetworkError as e:
+                abort(ctx, f"Network error while waiting for job {job_id}: {e}", from_exception=e)
+                return
+            state = status.get("state", state)
+
+        if state == "COMPLETED":
+            try:
+                result_data = http_client.get(f"/v1/jobs/{job_id}/result")
+            except NetworkError as e:
+                result_data = None
+                logger.warning("Could not fetch result for %s: %s", job_id, e)
+            output(
+                {
+                    "job_id": job_id,
+                    "state": state,
+                    "status": status,
+                    "result": result_data,
+                    "payment_status": status.get("payment_status"),
+                    "receipt": (result_data or {}).get("receipt"),
+                },
+                ctx.obj.get("output_format", format),
+                title=f"Job completed: {job_id}",
+            )
+        else:
+            output(
+                {
+                    "job_id": job_id,
+                    "state": state,
+                    "status": status,
+                },
+                ctx.obj.get("output_format", format),
+                title=f"Job finished with {state}",
+            )
 
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
