@@ -72,3 +72,41 @@ def test_plugin_load_demo(tmp_path, runner, monkeypatch):
     data = _parse_json_output(result.output)
     assert data["name"] == "demo"
     assert data["brand"]["name"] == "Demo"
+
+def test_plugin_create_writes_loadable_plugin(tmp_path, runner, monkeypatch):
+    """``aitbc plugin create`` writes a .py plugin that PluginManager can load."""
+    plugins_dir = tmp_path / "plugins"
+    plugins_dir.mkdir()
+    result = runner.invoke(plugin, ["create", "--name", "newbrand", "--output", str(plugins_dir)])
+    assert result.exit_code == 0, result.output
+    data = _parse_json_output(result.output)
+    assert (plugins_dir / "newbrand.py").exists()
+
+    monkeypatch.setenv("AITBC_PLUGINS_DIR", str(plugins_dir))
+    result = runner.invoke(plugin, ["load", "newbrand"])
+    assert result.exit_code == 0, result.output
+    data = _parse_json_output(result.output)
+    assert data["name"] == "newbrand"
+    assert data["brand"]["token_symbol"] == "NEWB"
+
+
+def test_brand_show_uses_active_plugin(tmp_path, runner, monkeypatch):
+    """AITBC_ACTIVE_PLUGIN makes ``aitbc brand show`` load that plugin's brand."""
+    plugins_dir = tmp_path / "plugins"
+    plugins_dir.mkdir()
+    (plugins_dir / "custom.py").write_text(
+        "from aitbc_agent_core.branding import BrandSettings\n"
+        "brand = BrandSettings(name='CustomBrand', token_symbol='CUST', token_name='Custom Token', "
+        "network_name='Custom Net', dao_name='Custom DAO', wallet_name='Custom Wallet', "
+        "explorer_name='Custom Explorer')\n"
+        "roles = {}\n"
+        "identity_method = 'did:custom'\n"
+    )
+    monkeypatch.setenv("AITBC_PLUGINS_DIR", str(plugins_dir))
+    monkeypatch.setenv("AITBC_ACTIVE_PLUGIN", "custom")
+    result = runner.invoke(brand, ["show"])
+    assert result.exit_code == 0, result.output
+    data = _parse_json_output(result.output)
+    assert data["name"] == "CustomBrand"
+    assert data["source"] == "custom"
+
