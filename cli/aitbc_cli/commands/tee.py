@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import base64
 import os
 
 import click
@@ -115,15 +116,44 @@ def launch(ctx, enclave_id: str, image: str):
         abort(ctx, f"Error launching enclave {enclave_id}: {e}", from_exception=e)
 
 
+def _resolve_quote_from_cli(ctx, quote: str, attestation_id: str, job_id: str) -> str:
+    """Return a base64 quote from --quote, --attestation-id, or --job-id."""
+    if quote:
+        return quote
+    client = _api_client(ctx)
+    if client is None:
+        abort(ctx, "Coordinator API URL not configured")
+    if attestation_id:
+        att = client.get(f"/v1/tee/attestations/{attestation_id}")
+        return att.get("quote", "")
+    if job_id:
+        job = client.get(f"/v1/jobs/{job_id}")
+        att_id = (job or {}).get("tee_attestation_id")
+        if not att_id:
+            abort(ctx, f"Job {job_id} has no tee_attestation_id")
+        att = client.get(f"/v1/tee/attestations/{att_id}")
+        return att.get("quote", "")
+    return ""
+
+
 @tee.command()
-@click.option("--quote", required=True, help="Base64-encoded attestation quote")
+@click.option("--quote", default="", help="Base64-encoded attestation quote")
+@click.option("--attestation-id", default="", help="Stored TEE attestation ID to verify")
+@click.option("--job-id", default="", help="Job whose tee_attestation_id will be verified")
 @click.option("--measurement", default="", help="Expected measurement to verify against")
 @click.option("--zk-proof", default="", help="Optional ZK proof identifier for dual verification")
 @click.option("--mode", type=click.Choice(["zk_only", "tee_only", "both"]), default="tee_only", help="Verification mode")
 @click.pass_context
-def verify(ctx, quote: str, measurement: str, zk_proof: str, mode: str):
-    """Verify a signed TEE attestation quote, optionally with a ZK proof."""
+def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, zk_proof: str, mode: str):
+    """Verify a signed TEE attestation quote from a job, attestation ID, or raw quote."""
     try:
+        if not (quote or attestation_id or job_id):
+            abort(ctx, "Provide --quote, --attestation-id, or --job-id")
+
+        quote = _resolve_quote_from_cli(ctx, quote, attestation_id, job_id)
+        if not quote:
+            abort(ctx, "Could not resolve TEE quote")
+
         att_quote = AttestationQuote.from_base64(quote)
 
         # v0.14.3: TEE-only verification must be a real quote path, so the
@@ -153,7 +183,55 @@ def verify(ctx, quote: str, measurement: str, zk_proof: str, mode: str):
             "enclave_id": att_quote.enclave_id,
             "quote_id": att_quote.quote_id,
             "quote_size": len(att_quote.quote_blob),
+            "source_attestation_id": attestation_id if attestation_id else None,
+            "source_job_id": job_id if job_id else None,
         }
         output(result, ctx.obj.get("output_format", "table"), title="TEE Quote Verification")
     except Exception as e:
         abort(ctx, f"Error verifying quote: {e}", from_exception=e)
+
+
+@tee.command()
+@click.argument("enclave-id")
+@click.option("--public-key", help="Public key for the enclave (auto-generated if omitted)")
+@click.option("--agent-id", default="", help="Agent / miner ID that owns the enclave")
+@click.pass_context
+def register(ctx, enclave_id: str, public_key: str, agent_id: str):
+    """Register a TEE enclave identity with the coordinator."""
+    try:
+        client = _api_client(ctx)
+        if client is None:
+            abort(ctx, "Coordinator API URL not configured")
+        if not public_key:
+            public_key = base64.b64encode(os.urandom(32)).decode("ascii")
+        result = client.post(
+            "/v1/tee/enclaves",
+            json={
+                "enclave_id": enclave_id,
+                "public_key": public_key,
+                "agent_id": agent_id,
+                "status": "active",
+            },
+        )
+        output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Registration")
+    except NetworkError as e:
+        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error registering enclave {enclave_id}: {e}", from_exception=e)
+
+
+@tee.command()
+@click.argument("enclave-id")
+@click.pass_context
+def status(ctx, enclave_id: str):
+    """Get the registered status of a TEE enclave."""
+    try:
+        client = _api_client(ctx)
+        if client is None:
+            abort(ctx, "Coordinator API URL not configured")
+        result = client.get(f"/v1/tee/enclaves/{enclave_id}")
+        output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Status")
+    except NetworkError as e:
+        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching enclave {enclave_id}: {e}", from_exception=e)

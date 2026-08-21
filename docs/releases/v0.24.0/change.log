@@ -844,3 +844,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 * 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
 - Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by aitbc tee attest.
 - The quote is placed at the top level of the /v1/miners/{job_id}/result payload so the coordinator TEE attestation service can verify it before escrow release.
+
+- feat(cli,coordinator-api): TEE attestation CLI (register, status) and confidential job flags
+  - Add `aitbc tee register` and `aitbc tee status` wired to /v1/tee/enclaves.
+  - Add `--confidential` and `--enclave-measurement` to `aitbc ai submit`.
+  - Extend `Constraints` with `confidential` and `required_enclave_measurement`.
+  - Add CLI unit tests in `cli/tests/test_tee.py` and `cli/tests/test_ai_tee_submit.py`.

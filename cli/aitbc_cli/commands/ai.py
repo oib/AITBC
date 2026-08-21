@@ -7,7 +7,6 @@ from typing import Any
 import click
 
 from aitbc.compliance.policies import (
-    ComplianceFramework,
     load_policy_template,
     normalize_classification,
 )
@@ -169,14 +168,26 @@ def ai():
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
 @click.option("--min-reputation", type=float, help="Minimum provider reputation score (0-1) required for this job")
-@click.option("--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release")
-@click.option("--tee-attestation-required/--no-tee-attestation-required", default=False, help="Require a TEE attestation before escrow release")
+@click.option(
+    "--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release"
+)
+@click.option(
+    "--tee-attestation-required/--no-tee-attestation-required",
+    default=False,
+    help="Require a TEE attestation before escrow release",
+)
 @click.option("--tee-enclave-id", default=None, help="Required TEE enclave identity")
-@click.option("--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment")
+@click.option("--confidential", is_flag=True, help="Mark this job as confidential (requires a TEE attestation)")
+@click.option("--enclave-measurement", default=None, help="Required enclave measurement for a confidential job")
+@click.option(
+    "--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment"
+)
 @click.option("--input", "input_url", help="Input URL or path for transcribe/reencode jobs")
 @click.option("--output-format", default=None, help="Output format for reencode jobs (e.g. mp4, mp3)")
 @click.option("--classification", default=None, help="Data classification label (e.g. public, pii, phi)")
-@click.option("--compliance-framework", default=None, envvar="AITBC_COMPLIANCE_FRAMEWORK", help="Compliance framework to enforce")
+@click.option(
+    "--compliance-framework", default=None, envvar="AITBC_COMPLIANCE_FRAMEWORK", help="Compliance framework to enforce"
+)
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
 @click.option("--chain-id", help="Chain ID")
@@ -201,6 +212,8 @@ def submit(
     zk_proof_required,
     tee_attestation_required,
     tee_enclave_id,
+    confidential,
+    enclave_measurement,
     auto_reinvest_pct,
     input_url,
     output_format,
@@ -286,6 +299,12 @@ def submit(
             job_data["constraints"]["tee_attestation_required"] = True
         if tee_enclave_id:
             job_data["constraints"]["tee_enclave_id"] = tee_enclave_id
+        if confidential:
+            job_data["constraints"]["confidential"] = True
+            job_data["constraints"]["tee_attestation_required"] = True
+        if enclave_measurement:
+            job_data["constraints"]["required_enclave_measurement"] = enclave_measurement
+            job_data["constraints"]["tee_enclave_id"] = enclave_measurement
 
         if auto_reinvest_pct is not None:
             job_data["constraints"]["auto_reinvest_pct"] = auto_reinvest_pct
@@ -333,7 +352,7 @@ def submit(
 @click.pass_context
 def jobs(ctx, limit, status, coordinator_url, format):
     """List AI jobs"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -362,7 +381,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
 @click.pass_context
 def status(ctx, job_id, coordinator_url, format):
     """Show AI job status"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -391,7 +410,7 @@ def status(ctx, job_id, coordinator_url, format):
 @click.pass_context
 def refund(ctx, job_id, reason, coordinator_url):
     """Refund an escrowed payment for a failed or cancelled job."""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -432,7 +451,7 @@ def service():
 @click.pass_context
 def list(ctx, coordinator_url, format):
     """List available AI services"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -458,7 +477,7 @@ def list(ctx, coordinator_url, format):
 @click.pass_context
 def service_status(ctx, name, coordinator_url, format):
     """Check AI service status"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -487,7 +506,7 @@ def service_status(ctx, name, coordinator_url, format):
 @click.pass_context
 def test(ctx, name, coordinator_url, format):
     """Test AI service endpoint"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -517,7 +536,7 @@ def test(ctx, name, coordinator_url, format):
 @click.pass_context
 def results(ctx, job_id, coordinator_url, format):
     """Show AI job results"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -549,7 +568,7 @@ def results(ctx, job_id, coordinator_url, format):
 @click.pass_context
 def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format):
     """Cancel AI job"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -583,7 +602,7 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
 @click.pass_context
 def stats(ctx, coordinator_url, format):
     """AI service statistics"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -608,7 +627,7 @@ def stats(ctx, coordinator_url, format):
 @click.pass_context
 def distribution_stats(ctx, coordinator_url, format):
     """Task distribution statistics from agent coordinator"""
-    config = get_config()
+    get_config()
 
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
