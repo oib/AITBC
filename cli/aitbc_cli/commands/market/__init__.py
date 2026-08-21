@@ -1,5 +1,5 @@
 """
-Blockchain marketplace commands for GPU trading
+Market commands for GPU/software offers published by shop miners.
 """
 
 import hashlib
@@ -143,7 +143,7 @@ def get_next_nonce() -> int:
 
 @click.group()
 def market():
-    """Blockchain marketplace commands for GPU trading"""
+    """GPU and software marketplace offers (miner-published, coordinator-backed)."""
     pass
 
 
