@@ -141,7 +141,7 @@ class JobService:
                     if job.expires_at:
                         expires_at = _to_utc(job.expires_at)
                         if expires_at and expires_at <= now:
-                        continue
+                            continue
                     if not self._satisfies_constraints(job, miner):
                         continue
                     if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation):
