@@ -235,24 +235,90 @@ async def discover_agents(
 @router.post("/subscribe")
 @rate_limit(rate=50, per=60)
 async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> dict[str, Any]:
-    """Subscribe agent to topic"""
+    """Subscribe agent to topic and persist the subscription."""
     try:
-        if state.message_storage:
-            {
-                "agent_id": req.agent_id,
-                "topic": req.topic,
-                "filter": req.filter,
-                "subscribed_at": datetime.now(UTC).isoformat(),
-            }
-            logger.info("Agent %s subscribed to topic %s", req.agent_id, req.topic)
+        if not state.message_storage:
+            raise HTTPException(status_code=503, detail="Message storage not available")
+        success = await state.message_storage.add_subscription(req.agent_id, req.topic, req.filter)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to persist subscription")
+
+        # If the agent is currently connected, also activate the subscription in memory.
+        try:
+            connection_manager = get_connection_manager()
+            if req.agent_id in connection_manager.active_connections:
+                await connection_manager.subscribe(req.agent_id, req.topic)
+        except Exception as e:
+            logger.warning("Could not activate online subscription for %s: %s", req.agent_id, e)
+
         return {
             "status": "success",
             "agent_id": req.agent_id,
             "topic": req.topic,
             "subscribed_at": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error subscribing to topic: %s", e)
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/unsubscribe")
+@rate_limit(rate=50, per=60)
+async def unsubscribe_from_topic(request: Request, req: SubscribeRequest) -> dict[str, Any]:
+    """Unsubscribe agent from topic and remove the persisted subscription."""
+    try:
+        if not state.message_storage:
+            raise HTTPException(status_code=503, detail="Message storage not available")
+        success = await state.message_storage.remove_subscription(req.agent_id, req.topic)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to remove subscription")
+
+        # If the agent is currently connected, also deactivate the subscription in memory.
+        try:
+            connection_manager = get_connection_manager()
+            if req.agent_id in connection_manager.active_connections:
+                await connection_manager.unsubscribe(req.agent_id, req.topic)
+        except Exception as e:
+            logger.warning("Could not deactivate online subscription for %s: %s", req.agent_id, e)
+
+        return {
+            "status": "success",
+            "agent_id": req.agent_id,
+            "topic": req.topic,
+            "unsubscribed_at": datetime.now(UTC).isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error unsubscribing from topic: %s", e)
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/subscriptions/{agent_id}")
+@rate_limit(rate=200, per=60)
+async def get_agent_subscriptions(request: Request, agent_id: str) -> dict[str, Any]:
+    """Get persisted topic subscriptions for an agent."""
+    try:
+        if not state.message_storage:
+            raise HTTPException(status_code=503, detail="Message storage not available")
+        subscriptions = await state.message_storage.get_subscriptions(agent_id)
+        return {
+            "status": "success",
+            "agent_id": agent_id,
+            "subscriptions": subscriptions,
+            "count": len(subscriptions),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error retrieving subscriptions for %s: %s", agent_id, e)
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e

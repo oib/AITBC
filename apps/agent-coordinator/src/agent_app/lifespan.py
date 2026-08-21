@@ -69,6 +69,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     state.peer_storage = PeerStorage(redis_url=redis_url)
     await state.message_storage.start()
     await state.peer_storage.start()
+
+    # Wire the WebSocket connection manager to the persisted message storage
+    # so it can restore topic subscriptions on agent reconnect.
+    from ..websocket import get_connection_manager
+
+    connection_manager = get_connection_manager()
+    connection_manager.message_storage = state.message_storage
+
     _task_registry.create_task(state.task_distributor.start_distribution, name="task_distribution")
     _task_registry.create_task(state.message_processor.start_processing, name="message_processing")
 
