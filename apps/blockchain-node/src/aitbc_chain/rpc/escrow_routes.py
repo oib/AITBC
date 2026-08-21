@@ -278,7 +278,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
     job_tx_hash = request.get("job_tx_hash")
-    contract_id = _find_contract_id(mgr, job_id)
+    contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
     contract = mgr.escrow_contracts.get(contract_id)
@@ -348,7 +348,7 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
-    contract_id = _find_contract_id(mgr, job_id)
+    contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
     contract = mgr.escrow_contracts.get(contract_id)
@@ -384,7 +384,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
     except Exception as e:
         _logger.warning("Failed to query Escrow DB: %s", e)
     if mgr is not None:
-        contract_id = _find_contract_id(mgr, job_id)
+        contract_id = await _find_contract_id(mgr, job_id)
         if contract_id:
             contract = mgr.escrow_contracts.get(contract_id)
             if contract:
@@ -420,14 +420,14 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
     raise HTTPException(status_code=404, detail=f"No escrow found for job_id={job_id}") from None
 
 
-def _find_contract_id(mgr: Any, job_id: str) -> str | None:
+async def _find_contract_id(mgr: Any, job_id: str) -> str | None:
     """Find contract_id by job_id, loading from DB if missing."""
     for cid, contract in mgr.escrow_contracts.items():
         if contract.job_id == job_id:
             return str(cid)
     # Load from DB on demand before giving up.
     try:
-        contract = mgr.get_or_load_contract(job_id)
+        contract = await mgr.get_or_load_contract(job_id)
         if contract:
             return str(contract.contract_id)
     except Exception as e:
