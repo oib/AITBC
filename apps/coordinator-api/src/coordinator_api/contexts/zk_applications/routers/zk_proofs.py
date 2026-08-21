@@ -12,12 +12,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from aitbc.rate_limiting import rate_limit
 
 from ..services.zk_proofs import zk_proof_service
+from coordinator_api.contexts.infrastructure.domain import Job
+from coordinator_api.storage import get_session
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 
@@ -152,6 +155,57 @@ async def get_circuit_info(request: Request) -> dict[str, Any]:
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
+
+
+class VerifyJobReceiptRequest(BaseModel):
+    """Request to verify the stored ZK receipt proof for a completed job."""
+
+    job_id: str
+
+
+@router.post("/receipt/verify", response_model=VerificationResponse, summary="Verify a job receipt's stored ZK proof")
+@rate_limit(rate=50, per=60)
+async def verify_job_receipt(
+    request: Request,
+    req: VerifyJobReceiptRequest,
+    session: Session = Depends(get_session),
+) -> VerificationResponse:
+    """Verify the ZK receipt proof that was attached to a completed job."""
+    try:
+        job = session.get(Job, req.job_id)
+        if not job or not job.receipt:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job or receipt not found",
+            )
+
+        receipt = job.receipt if isinstance(job.receipt, dict) else {}
+        zk_proof = receipt.get("zk_proof")
+        if not zk_proof:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No ZK proof stored for this job",
+            )
+
+        zk_service = zk_proof_service
+        result = await zk_service.verify_proof(
+            proof=zk_proof["proof"],
+            public_signals=zk_proof["public_signals"],
+            circuit_name=zk_proof.get("circuit") or zk_proof.get("circuit_name"),
+        )
+
+        return VerificationResponse(
+            verified=result["verified"],
+            computation_correct=result.get("computation_correct", False),
+            privacy_preserved=result.get("privacy_preserved", False),
+            reason=result.get("reason", result.get("error", "Unknown")),
+            commitment=result.get("commitment", "unknown"),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.getLogger(__name__).exception("Unhandled exception")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
