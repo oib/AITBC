@@ -101,13 +101,24 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
                 continue
             state_counts[job.get("state", "UNKNOWN")] += 1
             payment_counts[job.get("payment_status", "unknown")] += 1
+            payload = job.get("payload") or {}
+            result = job.get("result") or {}
+            model = (
+                result.get("model")
+                or payload.get("model")
+                or (result.get("result") or {}).get("model")
+                or (result.get("receipt") or {}).get("model")
+                or "N/A"
+            )
+            requested_at = job.get("requested_at") or job.get("created_at")
+            created = str(requested_at)[:19] if requested_at else "N/A"
             recent_jobs.append(
                 {
                     "Job ID": job.get("job_id", job.get("id", "N/A")),
                     "State": job.get("state", "N/A"),
                     "Payment": job.get("payment_status", "N/A"),
-                    "Model": job.get("model", job.get("payload", {}).get("model", "N/A")),
-                    "Created": str(job.get("created_at", "N/A"))[:19],
+                    "Model": model,
+                    "Created": created,
                 }
             )
 
