@@ -804,3 +804,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 * 55359ceba feat(agent-coordinator): REST message send tries WebSocket first
 * 3c72e13e0 feat(agent-coordinator): make POST /messages/subscribe real
 * 0225bc91c feat(agent-coordinator): wire protocol send/broadcast to ConnectionManager
+
+* 0a35f4ae3 feat(governance): execute governance proposals on-chain with GOVERNANCE_EXECUTE tx and chain_parameter table
+* b3d692d61 fix(governance): use mempool-computed transaction hash for execution
+* e0b0bee2d fix(sync): include block_metadata in blocks-range so followers can validate multi-validator attestations
+- Governance proposals can now be executed on-chain: `aitbc operations governance execute` submits a signed `GOVERNANCE_EXECUTE` transaction to the mempool, and the next block applies the `execution_payload` (currently `parameter_change`) to the on-chain `chain_parameter` table.
+- Added `ChainParameter` model and `genesis_private_key`/`genesis_address` settings.
+- CLI `aitbc operations governance proposal` now accepts `--params` for the execution payload.
+- Documented island credential ownership (`aitbc:aitbc`, mode 0600) in `docs/ops/aitbc-cli-live-setup.md`.
