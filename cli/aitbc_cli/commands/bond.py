@@ -31,14 +31,7 @@ def _api_client() -> AITBCHTTPClient | None:
     return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
 
 
-def _rpc_client() -> AITBCHTTPClient:
-    """Return a client for the blockchain RPC."""
-    config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", None) or os.getenv("HUB_RPC_URL") or os.getenv("BLOCKCHAIN_RPC_URL") or "http://localhost:8202"
-    rpc_url = rpc_url.rstrip("/")
-    if not rpc_url.endswith("/rpc"):
-        rpc_url = f"{rpc_url}/rpc"
-    return AITBCHTTPClient(base_url=rpc_url, timeout=30)
+
 
 
 def _chain_id() -> str:
@@ -46,8 +39,31 @@ def _chain_id() -> str:
     from ..utils.chain_id import get_chain_id
 
     config = get_config()
-    rpc_url = getattr(config, "blockchain_rpc_url", None) or os.getenv("HUB_RPC_URL") or os.getenv("BLOCKCHAIN_RPC_URL") or "http://localhost:8202"
+    rpc_url = _rpc_url_base()
     return get_chain_id(rpc_url, override=None, timeout=5)
+
+
+def _rpc_url_base() -> str:
+    """Return the raw blockchain RPC URL without the /rpc suffix."""
+    config = get_config()
+    return getattr(config, "blockchain_rpc_url", None) or os.getenv("HUB_RPC_URL") or os.getenv("BLOCKCHAIN_RPC_URL") or "http://localhost:8202"
+
+
+def _rpc_client() -> AITBCHTTPClient:
+    """Return a client for the blockchain RPC."""
+    rpc_url = _rpc_url_base().rstrip("/")
+    if not rpc_url.endswith("/rpc"):
+        rpc_url = f"{rpc_url}/rpc"
+    return AITBCHTTPClient(base_url=rpc_url, timeout=30)
+
+
+def _get_nonce(address: str) -> int:
+    client = _rpc_client()
+    try:
+        data = client.get(f"/account/{address}")
+        return data.get("nonce", 0)
+    except Exception:
+        return 0
 
 
 def _find_wallet_path(wallet_name: str) -> Path | None:
@@ -136,7 +152,7 @@ def create(ctx, amount: Decimal, wallet_name: str, lock_days: int, bond_id: str)
         "amount": amount_seconds,
         "value": amount_seconds,
         "fee": max(36, amount_seconds // 100),
-        "nonce": 0,
+        "nonce": _get_nonce(provider_hex),
         "type": "BOND_LOCK",
         "chain_id": chain_id,
         "payload": {
@@ -210,7 +226,7 @@ def release(ctx, bond_id: str, wallet_name: str):
         "amount": 0,
         "value": 0,
         "fee": 36,
-        "nonce": 0,
+        "nonce": _get_nonce(provider_hex),
         "type": "BOND_RELEASE",
         "chain_id": chain_id,
         "payload": {
