@@ -456,3 +456,14 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `scripts/deployment/setup.sh` and `scripts/deployment/unify_service_users.sh` now (re)own `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` 0600.
 - Updated scenario 34 to reflect that the CLI skips root-only env files.
 - Fixed `tests/cli/test_utils_island_credentials.py` to mock the fallback path.
+
+## P1.1 Phase A — Reputation-aware sorting for `aitbc market list`
+
+- Added `--sort {reputation,price,availability,default}` to `aitbc market list`.
+- `reputation` (and the default) sorts by `avg_rating` desc, `rating_count` desc,
+  then `price` asc, then availability/capacity.
+- `price` sorts by price ascending, with reputation as tie-breaker.
+- `availability` sorts active/available/open offers first, then by capacity,
+  reputation, and price.
+- Added `tests/cli/test_market_offers.py` covering the sorting keys.
+- Updated scenario 34 to demonstrate `--sort`.
