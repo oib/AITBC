@@ -6,6 +6,7 @@ import asyncio as _asyncio
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import click
 import websockets
@@ -20,10 +21,13 @@ logger = get_logger(__name__)
 WALLET_DIR = Path.home() / ".aitbc" / "wallets"
 
 
-def _build_ws_url(base_url: str, sender: str) -> str:
-    """Build WebSocket endpoint URL from HTTP base URL and sender agent ID."""
+def _build_ws_url(base_url: str, sender: str, token: str | None = None) -> str:
+    """Build WebSocket endpoint URL from HTTP base URL, sender agent ID, and optional token."""
     ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
-    return f"{ws_url}/api/v1/agent/messages/stream?agent_id={sender}"
+    url = f"{ws_url}/api/v1/agent/messages/stream?agent_id={sender}"
+    if token:
+        url += f"&token={token}"
+    return url
 
 
 async def _consume_connection_frame(ws, timeout: int, ws_endpoint: str) -> bool:
@@ -119,27 +123,47 @@ def _resolve_agent_id(from_agent: str | None) -> str | None:
 @click.argument("message")
 @click.option("--from-agent", "from_agent", help="Sender agent ID (default: $AGENT_ID)")
 @click.option("--to-agent", required=True, help="Target agent ID")
-@click.option("--priority", default="normal", help="Message priority")
+@click.option("--priority", default="normal", show_default=True, help="Message priority")
+@click.option("--message-id", help="Client-provided message ID for idempotent sends")
+@click.option("--message-type", default="direct", show_default=True, help="Message type")
+@click.option("--ttl", type=int, default=300, show_default=True, help="Time to live in seconds")
+@click.option("--encrypt/--no-encrypt", default=True, show_default=True, help="Encrypt the message")
+@click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context
-def send(ctx, message: str, from_agent: str | None, to_agent: str, priority: str):
-    """Send a message via the Agent Coordinator"""
+def send(
+    ctx,
+    message: str,
+    from_agent: str | None,
+    to_agent: str,
+    priority: str,
+    message_id: str | None,
+    message_type: str,
+    ttl: int,
+    encrypt: bool,
+    coordinator_url: str | None,
+):
+    """Send a message via the Agent Coordinator."""
     config = get_config()
     sender = _resolve_agent_id(from_agent)
     if not sender:
         error("--from-agent is required when AGENT_ID is not set")
         return
 
+    base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
+
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        message_data = {
+        http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        message_data: dict[str, Any] = {
             "sender": sender,
             "recipient": to_agent,
             "content": {"message": message},
-            "message_type": "direct",
-            "encrypt": False,
+            "message_type": message_type,
+            "encrypt": encrypt,
             "priority": priority,
-            "ttl": 300,
+            "ttl": ttl,
         }
+        if message_id:
+            message_data["message_id"] = message_id
 
         result = http_client.post("/api/v1/agent/messages/send", json=message_data)
         success("Message sent via Agent Coordinator")
@@ -152,21 +176,32 @@ def send(ctx, message: str, from_agent: str | None, to_agent: str, priority: str
 
 @messaging.command()
 @click.option("--from-agent", "from_agent", help="Agent ID whose inbox to read (default: $AGENT_ID)")
-@click.option("--limit", type=int, default=20, help="Number of messages to return")
+@click.option("--limit", type=int, default=20, show_default=True, help="Number of messages to return")
+@click.option("--unread-only", is_flag=True, help="Only return unread messages")
+@click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context
-def receive(ctx, from_agent: str | None, limit: int):
-    """Receive messages from the Agent Coordinator"""
+def receive(
+    ctx,
+    from_agent: str | None,
+    limit: int,
+    unread_only: bool,
+    coordinator_url: str | None,
+):
+    """Receive messages from the Agent Coordinator inbox."""
     config = get_config()
     agent_id = _resolve_agent_id(from_agent)
     if not agent_id:
         error("--from-agent is required when AGENT_ID is not set")
         return
 
+    base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
+
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        messages_data = http_client.get(
-            "/api/v1/agent/messages/inbox", params={"agent_id": agent_id, "limit": limit}
-        )
+        http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        params: dict[str, Any] = {"agent_id": agent_id, "limit": limit}
+        if unread_only:
+            params["unread_only"] = "true"
+        messages_data = http_client.get("/api/v1/agent/messages/inbox", params=params)
         success("Messages:")
         output(messages_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
@@ -217,7 +252,8 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
     """
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
-    ws_endpoint = _build_ws_url(base_url, sender)
+    api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
+    ws_endpoint = _build_ws_url(base_url, sender, token=api_key)
 
     async def _ping() -> None:
         success(f"Connecting to {ws_endpoint}")
@@ -299,7 +335,8 @@ def request_coins(ctx, wallet: str | None, amount: int, sender: str, coordinator
 
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
-    ws_endpoint = _build_ws_url(base_url, sender)
+    api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
+    ws_endpoint = _build_ws_url(base_url, sender, token=api_key)
 
     async def _request() -> None:
         success(f"Connecting to {ws_endpoint}")
