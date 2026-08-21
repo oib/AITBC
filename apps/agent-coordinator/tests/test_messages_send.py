@@ -24,9 +24,11 @@ def messaging_app():
 
 @pytest.fixture
 def fake_storage():
-    """A MessageStorage whose store_message always succeeds."""
+    """A MessageStorage whose store_message, get_message, and update_message_status succeed."""
     storage = MagicMock()
     storage.store_message = AsyncMock(return_value=True)
+    storage.get_message = AsyncMock(return_value=None)
+    storage.update_message_status = AsyncMock(return_value=True)
     return storage
 
 
