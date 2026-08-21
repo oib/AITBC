@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -16,6 +17,7 @@ from ..domain.governance import (
     DaoTreasury,
     Delegation,
     GovernanceProfile,
+    GovernanceRole,
     GovernanceToken,
     Proposal,
     ProposalExecutionLog,
@@ -24,6 +26,24 @@ from ..domain.governance import (
     Vote,
     VoteType,
 )
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    """Parse an ISO string or datetime into a timezone-aware datetime."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        # Pydantic-style ISO parsing
+        try:
+            from dateutil import parser
+            return parser.isoparse(value)
+        except ImportError:
+            # Fallback using the standard library
+            value = value.replace("Z", "+00:00")
+            return datetime.fromisoformat(value)
+    raise ValueError(f"Cannot parse datetime from {type(value)}")
 
 
 class GovernanceService:
@@ -94,6 +114,27 @@ class GovernanceService:
         v0.7.4: Emergency proposals get an accelerated timelock (4h vs 24h),
         shorter voting period (2h vs 4h), and higher quorum (80% vs 30%).
         """
+        for key in ("voting_starts", "voting_ends", "created_at", "executed_at", "snapshot_timestamp", "execution_timestamp"):
+            if key in proposal_data and proposal_data[key] is not None:
+                proposal_data[key] = _parse_datetime(proposal_data[key])
+
+        # Auto-create a governance profile for the proposer if one does not
+        # already exist. The CLI passes the node/agent ID as the proposer, and
+        # the profile table is otherwise empty on a fresh database.
+        proposer_id = proposal_data.get("proposer_id") or "anonymous"
+        existing_profile = await self.get_profile(proposer_id)
+        if not existing_profile:
+            await self.session.execute(
+                text(
+                    """INSERT INTO governance_profiles
+                    (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
+                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, NOW(), NULL)
+                    ON CONFLICT (profile_id) DO NOTHING"""
+                ),
+                {"profile_id": proposer_id, "user_id": proposer_id},
+            )
+            await self.session.commit()
+
         proposal = Proposal(**proposal_data)
         # Ensure chain_id is set
         if not proposal.chain_id:
@@ -127,6 +168,10 @@ class GovernanceService:
                 "emergency_timelock_blocks": settings.emergency_timelock_blocks,
                 "normal_timelock_blocks": settings.timelock_blocks,
             }
+
+        # Proposals are immediately active so they can be voted on and closed.
+        if proposal.status == ProposalStatus.DRAFT:
+            proposal.status = ProposalStatus.ACTIVE
 
         if settings.enable_onchain_submission and settings.proposer_private_key:
             try:
@@ -201,6 +246,30 @@ class GovernanceService:
         The on-chain balance at the current block serves as the voting power
         snapshot.
         """
+        for key in ("created_at",):
+            if key in vote_data and vote_data[key] is not None:
+                vote_data[key] = _parse_datetime(vote_data[key])
+
+        # Normalise numeric fields to Decimal so the SQLAlchemy/PostgreSQL path
+        # does not mix float and Decimal.
+        for key in ("voting_power", "voting_power_used", "power_at_snapshot", "delegated_power_at_snapshot", "vote_weight"):
+            if key in vote_data and vote_data[key] is not None:
+                vote_data[key] = Decimal(str(vote_data[key]))
+
+        voter_id = vote_data.get("voter_id") or "anonymous"
+        existing_profile = await self.get_profile(voter_id)
+        if not existing_profile:
+            await self.session.execute(
+                text(
+                    """INSERT INTO governance_profiles
+                    (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
+                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, NOW(), NULL)
+                    ON CONFLICT (profile_id) DO NOTHING"""
+                ),
+                {"profile_id": voter_id, "user_id": voter_id},
+            )
+            await self.session.commit()
+
         vote = Vote(**vote_data)
         # Ensure chain_id is set
         if not vote.chain_id:
