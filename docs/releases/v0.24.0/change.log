@@ -895,3 +895,15 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - fix(auth): add performance-bond routes to coordinator security matrix.
 - fix(coordinator): add missing os import in jobs.py.
+
+- feat(coordinator,blockchain): trigger auto-reinvest on escrow release
+  - aitbc ai submit --auto-reinvest-pct wires the percentage through job
+    constraints, payment meta_data, and the escrow release call.
+  - _auto_stake uses canonical provider addresses to create an on-chain Stake.
+  - The receipt now exposes reinvest_status, reinvest_stake_id and
+    reinvest_amount.
+
+- docs(scenarios): add scenario 49 for auto-reinvest from released escrow
+  - Documents the end-to-end flow, expected receipt fields, and on-chain stake
+    verification query.
+
