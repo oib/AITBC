@@ -8,14 +8,16 @@ to ensure they only occur through validated transactions.
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from eth_utils import keccak
 from sqlalchemy import text
 from sqlmodel import Session, select
 
 from ..logger import get_logger
-from ..base_models import _to_ait_address
+from ..base_models import Bond, _to_ait_address
+from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_transaction_signature
 from .gpu_resources import GPUAllocation, GPURegistration
@@ -28,6 +30,50 @@ try:
 except Exception:
     _cache = None
 logger = get_logger(__name__)
+
+_BOND_ESCROW_ADDRESS = os.getenv("BOND_ESCROW_ADDRESS", "")
+if _BOND_ESCROW_ADDRESS:
+    _BOND_ESCROW_ADDRESS = canonical_address(_BOND_ESCROW_ADDRESS)
+else:
+    _BOND_ESCROW_ADDRESS = "0x" + keccak(b"aitbc.bond.escrow").hex()[:40]
+
+_BOND_BURN_ADDRESS = os.getenv("BOND_BURN_ADDRESS", "")
+if _BOND_BURN_ADDRESS:
+    _BOND_BURN_ADDRESS = canonical_address(_BOND_BURN_ADDRESS)
+else:
+    _BOND_BURN_ADDRESS = "0x" + keccak(b"aitbc.bond.burn").hex()[:40]
+
+def _bond_slash_authority() -> str | None:
+    addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "")
+    if addr:
+        return canonical_address(addr)
+    return None
+
+
+def _bond_escrow_ait() -> str:
+    return _to_ait_address(_BOND_ESCROW_ADDRESS)
+
+
+def _bond_burn_ait() -> str:
+    return _to_ait_address(_BOND_BURN_ADDRESS)
+
+
+def _is_bond_escrow(address: str) -> bool:
+    return canonical_address(address) == _BOND_ESCROW_ADDRESS
+
+
+def _is_bond_burn(address: str) -> bool:
+    return canonical_address(address) == _BOND_BURN_ADDRESS
+
+
+def _ensure_account(session: Session, chain_id: str, address: str) -> Account:
+    ait_addr = _to_ait_address(address)
+    account = session.get(Account, (chain_id, ait_addr))
+    if not account:
+        account = Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0)
+        session.add(account)
+        session.flush()
+    return account
 
 
 class StateTransition:
@@ -200,6 +246,8 @@ class StateTransition:
                 {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
             )
         session.flush()
+        if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
+            self._handle_bond_transaction(session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value)
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             receipt = session.exec(
@@ -231,6 +279,154 @@ class StateTransition:
             tx_type,
         )
         return (True, "Transaction applied successfully")
+
+    def _handle_bond_transaction(
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+        tx_type: str,
+        sender_addr: str,
+        recipient_addr: str,
+        value: int,
+    ) -> None:
+        """Record bond state alongside the on-chain value transfer.
+
+        Design:
+        - BOND_LOCK is a normal transfer provider -> bond escrow. We record the bond.
+        - BOND_RELEASE is provider-signed, value=0; we move the bond from escrow to provider.
+        - BOND_SLASH is slash-authority-signed, value=0; we move the bond from escrow to burn.
+        """
+        payload = tx_data.get("payload", {}) or {}
+        bond_id = payload.get("bond_id")
+        if not bond_id:
+            logger.warning("%s transaction %s missing bond_id in payload", tx_type, tx_hash)
+            return
+        provider = payload.get("provider")
+        if not provider:
+            logger.warning("%s transaction %s missing provider in payload", tx_type, tx_hash)
+            return
+
+        now = datetime.now(UTC)
+        if tx_type == "BOND_LOCK":
+            if not _is_bond_escrow(recipient_addr):
+                logger.warning("BOND_LOCK %s does not target the bond escrow address", tx_hash)
+                return
+            if value <= 0:
+                return
+            lock_days = int(payload.get("lock_days", 30))
+            locked_until = now + timedelta(days=lock_days)
+            # Reuse an existing active bond with the same id if it exists (top-up).
+            existing = session.exec(
+                select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)
+            ).first()
+            if existing:
+                existing.amount += value
+                existing.locked_until = locked_until
+                existing.updated_at = now
+                logger.info("Bond topped up: %s amount=%s locked_until=%s", bond_id, existing.amount, locked_until)
+            else:
+                bond = Bond(
+                    chain_id=chain_id,
+                    bond_id=bond_id,
+                    provider=_to_ait_address(provider),
+                    amount=value,
+                    locked_until=locked_until,
+                    status="active",
+                    created_tx_hash=tx_hash,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(bond)
+                logger.info("Bond locked: %s provider=%s amount=%s locked_until=%s", bond_id, provider, value, locked_until)
+        elif tx_type == "BOND_RELEASE":
+            if sender_addr != _to_ait_address(provider):
+                logger.warning("BOND_RELEASE %s not signed by the bond provider", tx_hash)
+                return
+            if recipient_addr != sender_addr:
+                logger.warning("BOND_RELEASE %s recipient must be the provider", tx_hash)
+                return
+            if value != 0:
+                logger.warning("BOND_RELEASE %s must have value=0", tx_hash)
+                return
+            bond = session.exec(
+                select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
+            ).first()
+            if not bond:
+                logger.warning("BOND_RELEASE %s references unknown or inactive bond %s", tx_hash, bond_id)
+                return
+            if bond.locked_until:
+                locked_until = bond.locked_until
+                if locked_until.tzinfo is None:
+                    locked_until = locked_until.replace(tzinfo=UTC)
+                if now < locked_until:
+                    logger.warning("BOND_RELEASE %s attempted before lock period expires for %s", tx_hash, bond_id)
+                    return
+            release_amount = bond.amount
+            if release_amount <= 0:
+                return
+            escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
+            sender = session.get(Account, (chain_id, sender_addr))
+            if escrow and sender:
+                session.refresh(escrow)
+                session.refresh(sender)
+                if escrow.balance < release_amount:
+                    logger.warning("BOND_RELEASE %s escrow balance %s < %s", tx_hash, escrow.balance, release_amount)
+                    return
+                escrow.balance -= release_amount
+                sender.balance += release_amount
+                logger.info("BOND_RELEASE %s moved %s from escrow to %s", tx_hash, release_amount, sender_addr)
+            bond.amount = 0
+            bond.released_tx_hash = tx_hash
+            bond.status = "released"
+            bond.updated_at = now
+            logger.info("Bond released: %s amount=%s", bond_id, release_amount)
+        elif tx_type == "BOND_SLASH":
+            slash_authority = _bond_slash_authority()
+            if not slash_authority:
+                logger.warning("BOND_SLASH %s rejected: no BOND_SLASH_AUTHORITY_ADDRESS configured", tx_hash)
+                return
+            if sender_addr != _to_ait_address(slash_authority):
+                logger.warning("BOND_SLASH %s not signed by the configured slash authority", tx_hash)
+                return
+            if not _is_bond_burn(recipient_addr):
+                logger.warning("BOND_SLASH %s does not burn to the bond burn address", tx_hash)
+                return
+            if value != 0:
+                logger.warning("BOND_SLASH %s must have value=0", tx_hash)
+                return
+            slash_amount = int(payload.get("amount", 0))
+            if slash_amount <= 0:
+                logger.warning("BOND_SLASH %s missing positive amount in payload", tx_hash)
+                return
+            bond = session.exec(
+                select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
+            ).first()
+            if not bond:
+                logger.warning("BOND_SLASH %s references unknown or inactive bond %s", tx_hash, bond_id)
+                return
+            if slash_amount > bond.amount:
+                slash_amount = bond.amount
+            if slash_amount <= 0:
+                return
+            escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
+            burn = _ensure_account(session, chain_id, _BOND_BURN_ADDRESS)
+            if escrow and burn:
+                session.refresh(escrow)
+                session.refresh(burn)
+                if escrow.balance < slash_amount:
+                    logger.warning("BOND_SLASH %s escrow balance %s < %s", tx_hash, escrow.balance, slash_amount)
+                    return
+                escrow.balance -= slash_amount
+                burn.balance += slash_amount
+                logger.info("BOND_SLASH %s moved %s from escrow to burn", tx_hash, slash_amount)
+            bond.amount -= slash_amount
+            bond.slashed_tx_hash = tx_hash
+            bond.status = "slashed" if bond.amount <= 0 else "active"
+            bond.updated_at = now
+            logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
+            logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
 
     def validate_state_transition(
         self, session: Session, chain_id: str, old_accounts: dict[str, Account], new_accounts: dict[str, Account]

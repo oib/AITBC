@@ -349,6 +349,26 @@ class Stake(ChainBase, table=True):
     status: str = Field(default="active", index=True)  # active, withdrawn, slashed
 
 
+class Bond(ChainBase, table=True):
+    """On-chain performance bond record."""
+
+    __tablename__ = "bond"
+    __table_args__ = (UniqueConstraint("chain_id", "bond_id", name="uix_bond_chain_bond_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    bond_id: str = Field(index=True)
+    provider: str = Field(index=True)
+    amount: int = Field(default=0)  # remaining locked amount in compute-seconds
+    locked_until: datetime | None = None
+    status: str = Field(default="active", index=True)  # active, released, slashed
+    created_tx_hash: str | None = None
+    released_tx_hash: str | None = None
+    slashed_tx_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class AgentIdentity(ChainBase, table=True):
     """On-chain agent identity record for verification"""
 
