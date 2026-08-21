@@ -268,3 +268,10 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
     - Job `22b6bf7a547447b2bdc641f80ec9e7ea` completed, `tee_status: verified`, `payment_status: released`, `tee_attestation_id: ta_7f0f7c5df3`.
   - Combined high-value + confidential job: `aitbc ai submit --payment 10 --zk-proof-required --tee-attestation-required --tee-enclave-id aitbc-miner-tee`
     - Job `558739dad6a04a779806f6b773432eb5` completed, `zk_status: verified`, `tee_status: verified`, `payment_status: released`.
+
+- 2026-08-21: P2.4 automatic reinvestment live validation:
+  - `aitbc ai submit --payment 5 --auto-reinvest-pct 25 --prompt ...`
+  - Job `3402122a0c484042bf829430f4cc0a6d` completed, `payment_status: released`,
+    `reinvest_status: staked`, `reinvest_stake_id: 7`.
+  - On-chain stake `7` with amount `4387` (1.21875 AIT * 3600 = 4387 compute-seconds)
+    confirmed at `GET /rpc/staking/0xEB29516824E95AdFFeEdfc914941F0fbEd0bB1a4`.
