@@ -18,17 +18,22 @@ import json
 
 import click
 
+from ..config import get_config
 from ..utils import error, output
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 GOVERNANCE_SERVICE_URL = "http://localhost:8105"
 
 
-def _get_client(url: str | None = None) -> AITBCHTTPClient:
+def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the governance service."""
     import os
 
     base_url: str = url or os.getenv("GOVERNANCE_SERVICE_URL") or GOVERNANCE_SERVICE_URL
+    if ctx is not None and not url:
+        config = ctx.obj.get("config") or get_config()
+        if getattr(config, "governance_service_url", ""):
+            base_url = config.governance_service_url
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
@@ -74,7 +79,7 @@ def propose(
         voting_starts = datetime.now(UTC).isoformat()
         voting_ends = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
 
-        client = _get_client()
+        client = _get_client(ctx)
         proposal_data = {
             "title": title,
             "description": description,
@@ -119,7 +124,7 @@ def vote(
 ):
     """Cast a vote on a governance proposal"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         vote_data = {
             "proposal_id": proposal_id,
             "voter_id": voter_id,
@@ -145,7 +150,7 @@ def vote(
 def list(ctx, status: str | None, category: str | None, proposer_id: str | None, format: str):
     """List governance proposals"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         params: dict[str, str] = {}
         if status:
             params["status"] = status
@@ -169,7 +174,7 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
 def execute(ctx, proposal_id: str, executor_address: str, format: str):
     """Execute a passed proposal (after timelock expires)"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         params: dict[str, str] = {}
         if executor_address:
             params["executor_address"] = executor_address
@@ -182,12 +187,28 @@ def execute(ctx, proposal_id: str, executor_address: str, format: str):
 
 
 @governance.command()
+@click.argument("proposal_id")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def close(ctx, proposal_id: str, format: str):
+    """Close an active proposal and tally the result"""
+    try:
+        client = _get_client(ctx)
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/close")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error closing proposal: {e}")
+
+
+@governance.command()
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def status(ctx, format: str):
     """Get governance service status and configuration"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         result = client.get("/v1/governance/status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
@@ -203,7 +224,7 @@ def status(ctx, format: str):
 def get(ctx, proposal_id: str, format: str):
     """Get a specific governance proposal by ID"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         result = client.get(f"/v1/governance/proposals/{proposal_id}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
@@ -229,7 +250,7 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
         if not chains:
             error("--target-chains must specify at least one chain ID")
             return
-        client = _get_client()
+        client = _get_client(ctx)
         result = client.post(
             f"/v1/governance/proposals/{proposal_id}/propagate",
             json={"target_chains": chains},
@@ -248,7 +269,7 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
 def aggregate_votes(ctx, proposal_id: str, format: str):
     """Aggregate votes for a proposal from all chains (v0.7.4)"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
@@ -264,7 +285,7 @@ def aggregate_votes(ctx, proposal_id: str, format: str):
 def execute_cross_chain(ctx, proposal_id: str, format: str):
     """Execute a proposal on all chains after approval (v0.7.4)"""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
