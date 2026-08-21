@@ -99,14 +99,29 @@ class TestGetRpcEndpoint:
         assert result == "http://localhost:8202"
 
     @patch("aitbc_cli.utils.island_credentials.load_island_credentials")
-    def test_get_rpc_endpoint_missing(self, mock_load):
-        """Test getting RPC endpoint when missing"""
+    @patch("aitbc_cli.utils.island_credentials.get_config")
+    def test_get_rpc_endpoint_missing(self, mock_get_config, mock_load):
+        """Test getting RPC endpoint when missing and no fallback configured"""
         mock_load.return_value = {"credentials": {}}
+        mock_cfg = mock_get_config.return_value
+        mock_cfg.blockchain_rpc_url = ""
 
         with pytest.raises(ValueError) as exc_info:
             get_rpc_endpoint()
 
         assert "RPC endpoint not found" in str(exc_info.value)
+
+    @patch("aitbc_cli.utils.island_credentials.load_island_credentials")
+    @patch("aitbc_cli.utils.island_credentials.get_config")
+    def test_get_rpc_endpoint_fallback(self, mock_get_config, mock_load):
+        """Test that a missing RPC endpoint falls back to the configured blockchain RPC"""
+        mock_load.return_value = {"credentials": {}}
+        mock_cfg = mock_get_config.return_value
+        mock_cfg.blockchain_rpc_url = "http://127.0.0.1:8202"
+
+        result = get_rpc_endpoint()
+
+        assert result == "http://127.0.0.1:8202/rpc"
 
 
 class TestGetChainId:
