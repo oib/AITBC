@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-36 operator plays of **the AITBC software as it actually runs** on the public island (`hub.aitbc` ↔ shop `aitbc3`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
+45 operator plays of **the AITBC software as it actually runs** on the public island (`hub.aitbc` ↔ shop `aitbc3`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
 
 The closed economic loop these plays sit on (tokens → job → GPU → escrow → reputation) is documented in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md). Features that are CLI shells or roadmap items are **not** given scenarios until they join that loop.
 
@@ -136,3 +136,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 41 | [Real IPFS Daemon behind `aitbc ipfs`](./42_ipfs_daemon.md) | Use Kubo for real CIDs and cross-node retrieval | `aitbc ipfs` |
 || 42 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
 || 43 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
+|| 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
