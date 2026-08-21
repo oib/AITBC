@@ -198,3 +198,28 @@ This replay confirms the flow is still live after `fe5677ca9`.
 ### Still outstanding
 
 - None. Hub and shop working trees are clean, `aitbc-blockchain-p2p` is active on `aitbc3`, and all tracked scenario findings are resolved.
+
+---
+
+## 2026-08-21 — P0 close-out re-validation
+
+**Gitea `main` baseline:** `1fe9d2d0d` — non-genesis `ESCROW_RELEASE` settlement key
+
+Re-run from `hub.aitbc`:
+
+```bash
+aitbc auth login --wallet default --coordinator-url http://localhost:8203
+aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1.0 \
+  --buyer-address 0x35daba990a37177398e0e0c1670baa316a032417 \
+  --provider-address 0x06F8bB05B167fa4E32F4AC61FA7cb02663205f35 \
+  --wait --timeout 180 --poll-interval 5 --coordinator-url http://localhost:8203
+```
+
+- Job `b384b0c0ca2b45e898861d547210810b` queued, assigned to `aitbc-miner-1`, completed.
+- Payment `1.0 AIT` was escrowed and auto-released on completion.
+- Escrow release transaction `0x04f642df2b8258e2f5411ef6c4b34b9fb2287e6f082114b29a91d626e744d74f` was signed by the non-genesis settlement address `0x477737bd028eeb38350c58e62f7a766ac061ce2e`.
+- Settlement account nonce: `2`, balance: `998.0300 AIT`.
+- Provider balance: `1502.9350 AIT`.
+- `aitbc3` `aitbc pool-hub status` reports `miners_online: 1`.
+- `docs/DESIGN_CYCLE.md` P0.1–P0.7 now marked shipped.
+- Continuation: P1 plan `/home/oib/.devin/plans/plan-2fc831ac3ccbc701.md`.
