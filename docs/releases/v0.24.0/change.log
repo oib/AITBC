@@ -126,6 +126,14 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `faucet_request` and `create_account` in `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py` use `canonical_address` so the node accepts the same address formats the CLI does.
 - Scenario 07 documents `aitbc wallet fund` as the on-ramp step.
 
+## P0 Phase 5 — market vs marketplace help and aliases (2026-08-21)
+
+- Clarified the difference between `aitbc market` and `aitbc marketplace`:
+  - `aitbc market` is for GPU and software offers published by shop miners.
+  - `aitbc marketplace` is for the global on-chain marketplace (cross-chain, bridge, economy).
+- Updated group docstrings, `cli/README.md`, and the top-level `aitbc --help` description.
+- Added `tests/cli/test_market_marketplace.py` to ensure the group help strings remain distinct.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]

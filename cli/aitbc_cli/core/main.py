@@ -137,6 +137,13 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
     services.
 
+    Groups:
+    market           GPU and software offers published by shop miners
+    marketplace      Global on-chain marketplace (cross-chain, bridge, listings)
+    ai               AI job submission and inspection
+    wallet           Wallet and account management
+    sync             Blockchain synchronization and divergence checks
+
     SYSTEM ARCHITECTURE COMMANDS:
     system          System management commands
     system architect    System architecture analysis
