@@ -432,3 +432,99 @@ Result:
 - The receipt’s `job_constraints` include `confidential: true` and the requested `required_enclave_measurement`.
 - Escrow was released on-chain after the coordinator verified the auto-generated TEE attestation.
 
+
+
+---
+
+# ZK proof for high-value jobs — live validation
+
+**Date:** 2026-08-21  
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
+**Gitea `main`:** `dd6a446e7` — *feat(cli): add aitbc zk command group*  
+**Scenario:** `docs/scenarios/47_zk_high_value_jobs.md`
+
+## What was validated
+
+A ZK-proof-gated AI inference job was submitted through the canonical `aitbc` CLI. The coordinator generated a Groth16 receipt proof, verified it, and released escrow only after `zk_status: verified` was recorded.
+
+### Coordinator environment
+
+Added `/etc/systemd/system/aitbc-coordinator-api.service.d/zk.conf`:
+
+```ini
+[Service]
+Environment="COORDINATOR_ENABLE_ZK_VERIFICATION=true"
+```
+
+Restarted `aitbc-coordinator-api.service`.
+
+### CLI workflow
+
+```bash
+aitbc --api-key "$CLIENT_JWT" zk health
+aitbc --api-key "$CLIENT_JWT" zk circuits
+
+aitbc --api-key "$CLIENT_JWT" ai submit \
+  --prompt "ZK high-value job validation" \
+  --payment 5 \
+  --zk-proof-required \
+  --wallet genesis \
+  --buyer-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --coordinator-url http://127.0.0.1:8203 \
+  --wait --timeout 240
+
+aitbc --api-key "$CLIENT_JWT" zk verify \
+  --job-id 6f0f890035fb46be9950cacacbd32288 \
+  --coordinator-url http://127.0.0.1:8203
+```
+
+### Result
+
+Job `6f0f890035fb46be9950cacacbd32288`:
+
+```json
+{
+  "job_id": "6f0f890035fb46be9950cacacbd32288",
+  "state": "COMPLETED",
+  "payment_status": "released",
+  "escrow_tx_hash": "0x0c52a27e150578b53c6fc39f91801ab47f4975ef34a3ad45ec3ceb7866607ca9",
+  "result": {
+    "status": "completed",
+    "zk_status": "verified",
+    "tee_status": "not_required",
+    "zk_proof": {
+      "proof": { ... },
+      "public_signals": ["5157032056236827201771028128265681883767077060594906061409975286648462337841"],
+      "receipt": [ ... ],
+      "circuit": "receipt_public",
+      "circuit_hash": "9c780c45716ee8e2925ae7d922fffbc21cfc4546486d5f8ff217dcdff96376dc"
+    }
+  },
+  "status": {
+    "zk_status": "verified",
+    "zk_proof_id": "9c780c45716ee8e2925ae7d922fffbc21cfc4546486d5f8ff217dcdff96376dc"
+  }
+}
+```
+
+`aitbc zk verify --job-id` returned:
+
+```json
+{
+  "verified": true,
+  "computation_correct": true,
+  "privacy_preserved": true
+}
+```
+
+## Key observations
+
+- `COORDINATOR_ENABLE_ZK_VERIFICATION=true` is required for the coordinator to actually
+  verify the generated proof and release escrow.
+- The `aitbc zk` CLI surface (`health`, `circuits`, `verify`) is wired to the live
+  `/v1/zk/*` endpoints.
+- `aitbc ai submit --zk-proof-required` forces a ZK proof even when the payment is
+  below the default 10 AIT high-value threshold.
+- The receipt contains the full `zk_proof` object and `zk_status: verified`.
+- `aitbc ai status` surfaces `zk_status` and `zk_proof_id` (the circuit hash).
