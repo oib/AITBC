@@ -134,6 +134,14 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - Updated group docstrings, `cli/README.md`, and the top-level `aitbc --help` description.
 - Added `tests/cli/test_market_marketplace.py` to ensure the group help strings remain distinct.
 
+## P0/P1 Phase 6 — aitbc ai submit --wait (2026-08-21)
+
+- `aitbc ai submit --wait` polls `/v1/jobs/{job_id}` until the job reaches a terminal state (`COMPLETED`, `FAILED`, `CANCELED`, `EXPIRED`).
+- New options: `--timeout` (default 300s) and `--poll-interval` (default 5s).
+- After completion, the CLI fetches and prints `/v1/jobs/{job_id}/result`, including any `receipt` with an escrow release hash.
+- `aitbc auth login` now accepts plaintext `private_key` strings in wallet files without requiring a password.
+- Scenario 07 updated to use `aitbc ai submit --wait`.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
