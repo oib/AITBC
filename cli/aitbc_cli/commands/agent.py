@@ -110,20 +110,36 @@ def messaging():
     pass
 
 
+def _resolve_agent_id(from_agent: str | None) -> str | None:
+    """Return an explicit --from value or fall back to AGENT_ID."""
+    return from_agent or os.getenv("AGENT_ID")
+
+
 @messaging.command()
 @click.argument("message")
-@click.option("--to-agent", help="Target agent ID")
+@click.option("--from-agent", "from_agent", help="Sender agent ID (default: $AGENT_ID)")
+@click.option("--to-agent", required=True, help="Target agent ID")
 @click.option("--priority", default="normal", help="Message priority")
 @click.pass_context
-def send(ctx, message: str, to_agent: str | None, priority: str):
+def send(ctx, message: str, from_agent: str | None, to_agent: str, priority: str):
     """Send a message via the Agent Coordinator"""
     config = get_config()
+    sender = _resolve_agent_id(from_agent)
+    if not sender:
+        error("--from-agent is required when AGENT_ID is not set")
+        return
 
     try:
         http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        message_data = {"message": message, "priority": priority}
-        if to_agent:
-            message_data["to_agent"] = to_agent
+        message_data = {
+            "sender": sender,
+            "recipient": to_agent,
+            "content": {"message": message},
+            "message_type": "direct",
+            "encrypt": False,
+            "priority": priority,
+            "ttl": 300,
+        }
 
         result = http_client.post("/api/v1/agent/messages/send", json=message_data)
         success("Message sent via Agent Coordinator")
@@ -135,15 +151,22 @@ def send(ctx, message: str, to_agent: str | None, priority: str):
 
 
 @messaging.command()
+@click.option("--from-agent", "from_agent", help="Agent ID whose inbox to read (default: $AGENT_ID)")
 @click.option("--limit", type=int, default=20, help="Number of messages to return")
 @click.pass_context
-def receive(ctx, limit: int):
+def receive(ctx, from_agent: str | None, limit: int):
     """Receive messages from the Agent Coordinator"""
     config = get_config()
+    agent_id = _resolve_agent_id(from_agent)
+    if not agent_id:
+        error("--from-agent is required when AGENT_ID is not set")
+        return
 
     try:
         http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        messages_data = http_client.get("/api/v1/agent/messages", params={"limit": limit})
+        messages_data = http_client.get(
+            "/api/v1/agent/messages/inbox", params={"agent_id": agent_id, "limit": limit}
+        )
         success("Messages:")
         output(messages_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:

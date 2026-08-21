@@ -326,9 +326,21 @@ class Agent:
         signature = self.identity.sign_message(message)
         message["signature"] = signature
 
+        # Build the canonical Agent Coordinator send body. The signed message
+        # is preserved inside the `content` field so the recipient can verify it.
+        body = {
+            "sender": self.identity.id,
+            "recipient": recipient_id,
+            "content": message,
+            "message_type": message_type,
+            "encrypt": False,
+            "priority": "normal",
+            "ttl": 300,
+        }
+
         # Send through AITBC agent messaging protocol
         try:
-            response = await self.http_client.post("/v1/agents/messages", json=message)
+            response = await self.http_client.post("/api/v1/agent/messages/send", json=body)
 
             if response.status_code == 200:
                 logger.info("Message sent to %s: %s", recipient_id, message_type)
