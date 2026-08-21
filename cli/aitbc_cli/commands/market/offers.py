@@ -55,6 +55,8 @@ def _reputation_for_offer(http_client: AITBCHTTPClient, coordinator_url: str, of
     for candidate in (agent_id, offer.get("node_id", "")):
         if not candidate or _is_wallet_address(candidate):
             continue
+        if candidate in ("aitbc3", "aitbc3-provider") or "-provider" in candidate:
+            continue
         try:
             profile = http_client.get(f"{coordinator_url}/reputation/profile/{candidate}")
             if profile and "error" not in profile:
