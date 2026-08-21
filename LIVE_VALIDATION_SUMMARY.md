@@ -301,3 +301,12 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
   - `aitbc ai submit --compliance-framework hipaa --classification public` is rejected.
   - `aitbc ai submit --compliance-framework hipaa --classification phi` passes
     the compliance hook and attaches `data_classification: phi` to the job constraints.
+
+- 2026-08-21: Scenario 37 ZK high-value job validation:
+  - `aitbc ai submit --payment 15 --type inference --prompt "test" --zk-proof-required`
+    -> job `324860acec664b5eac8fad85cc2cd873` completed.
+  - `aitbc ai status --job-id 324860acec664b5eac8fad85cc2cd873` returned:
+    - `state`: `COMPLETED`
+    - `payment_status`: `released`
+    - `zk_status`: `verified`
+    - `zk_proof_id`: `9c780c45716ee8e2925ae7d922fffbc21cfc4546486d5f8ff217dcdff96376dc`
