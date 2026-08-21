@@ -769,14 +769,19 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Scenario docs: `docs/scenarios/42_ipfs_daemon.md`.
 
 - P2.7: compliance, plugins, and white-label expansion.
-  - Removed stale `aitbc_agent_core` stub in repo root; CLI now uses the real
-    `packages/py/aitbc-agent-core` package.
-  - Added `aitbc brand` command to show active brand settings.
-  - Added `aitbc plugin list` and `aitbc plugin load` for brand plugin discovery.
-  - Added `whitelabel_demo.py` sample brand plugin under `plugins/`.
-  - Added `--compliance-framework` and `--classification` to `aitbc ai submit`.
-  - Compliance hook rejects jobs whose classification is not allowed by the
-    selected policy template.
+  - `aitbc brand` and `aitbc brand list` show active brand settings and available
+    plugins.
+  - `aitbc plugin list` and `aitbc plugin load` discover and load Python brand
+    plugins from a configured directory.
+  - `aitbc plugin create` now writes a `.py` file with `brand`, `roles`, and
+    `identity_method` that `PluginManager` can load immediately, plus an optional
+    manifest for documentation.
+  - `aitbc compliance check` and `aitbc compliance classify` expose the policy
+    engine without requiring a job submission.
+  - `aitbc ai submit --compliance-framework <fw> --classification <label>`
+    validates the label against the selected framework before submitting and
+    attaches `data_classification` to the job constraints.
+  - `whitelabel_demo.py` sample brand plugin under `plugins/`.
   - Lazily evaluated `get_active_brand()` in `wallet/staking.py` to avoid startup
     crashes when `AITBC_ACTIVE_PLUGIN` is set.
   - Scenario docs: `docs/scenarios/43_compliance_plugins_white_label.md`.

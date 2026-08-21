@@ -97,6 +97,10 @@ Latest pushed commits:
 - [x] Update the release change log on `aitbc3` (shop-chain fork recovery section in v0.24.0).
 - [x] P2.5 default Whisper/FFmpeg/Ollama shop offers implemented and validated.
 - [x] P2.6 real IPFS daemon behind `aitbc ipfs` implemented and validated.
+- [x] P2.7 compliance, plugins, and white-label expansion implemented and validated.
+  - `aitbc brand`, `aitbc plugin list/load/create`, and `aitbc compliance check/classify` work.
+  - `aitbc ai submit --compliance-framework` validates classification before submission.
+  - Scenario 43 and release changelog/live summary updated.
   - `aitbc ipfs upload/download/pin/list` use the local Kubo HTTP API with filesystem fallback.
   - Cross-node download validated between `aitbc3` and `hub.aitbc`.
   - Scenario 42 updated and release changelog/live summary updated.
