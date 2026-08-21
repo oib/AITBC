@@ -251,7 +251,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
 
         elapsed = (datetime.now() - t_start).total_seconds()
         actual_duration_minutes = resp_data.get("duration_minutes", duration_minutes)
-        actual_cost = actual_duration_minutes * price if price_unit == "per_audio_min" else price
+        actual_cost = Decimal(str(actual_duration_minutes)) * price if price_unit == "per_audio_min" else price
         result_hash = resp_data.get("result_hash", "")
 
         info(
@@ -406,7 +406,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
         elapsed = (datetime.now() - t_start).total_seconds()
 
         actual_minutes = transcode_result.get("duration_seconds", estimated_minutes * 60) / 60
-        actual_cost = actual_minutes * price if price_unit == "per_video_min" else price
+        actual_cost = Decimal(str(actual_minutes)) * price if price_unit == "per_video_min" else price
         result_hash = transcode_result.get("result_hash", "")
 
         info(f"Done in {elapsed:.1f}s — {actual_minutes:.2f} min video — actual cost: {actual_cost:.4f} AIT")
@@ -568,7 +568,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
 
         elapsed = (datetime.now() - t_start).total_seconds()
         actual_hours = resp_data.get("processing_time_hours", estimated_hours)
-        actual_cost = actual_hours * price if price_unit == "per_processing_hour" else price
+        actual_cost = Decimal(str(actual_hours)) * price if price_unit == "per_processing_hour" else price
         result_hash = resp_data.get("result_hash", "")
 
         info(f"Done in {elapsed:.1f}s — {actual_hours:.4f} hours processing — actual cost: {actual_cost:.4f} AIT")
