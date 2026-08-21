@@ -328,18 +328,25 @@ def send_pool_hub_heartbeat():
 
 
 def build_tee_quote(job):
-    """Generate a simulated TEE attestation quote when the job requires one."""
+    """Generate a signed TEE attestation quote when the job requires one.
+
+    Produces the same base64 JSON envelope that ``aitbc tee attest`` returns,
+    so the coordinator can parse it with ``AttestationQuote.from_base64()`` and
+    verify the signature before escrow release.
+    """
     constraints = job.get("constraints") or {}
     if not (constraints.get("tee_attestation_required") or constraints.get("tee_enclave_id")):
         return None
     try:
-        import base64
         from aitbc.tee import QuoteGenerator
 
         enclave_id = constraints.get("tee_enclave_id") or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
         job_id = job.get("job_id", "unknown-job")
-        quote = QuoteGenerator(enclave_id).generate(quote_id=job_id, measurement=enclave_id)
-        return base64.b64encode(quote.quote_blob).decode("ascii")
+        quote_id = f"tee-{job_id}-{enclave_id}-{datetime.now(UTC).isoformat()}"
+        quote = QuoteGenerator(enclave_id).generate(
+            quote_id=quote_id, enclave_id=enclave_id, measurement=enclave_id, report_data=job_id.encode()
+        )
+        return quote.to_base64()
     except Exception as e:
         logger.warning("Failed to generate TEE quote for job %s: %s", job.get("job_id"), e)
         return None
@@ -390,15 +397,18 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
         raise Exception(f"FFmpeg re-encode error: {e}") from e
 
 
-def _submit_success(job_id, output, execution_time, extra=None):
+def _submit_success(job_id, output, execution_time, extra=None, tee_quote=None):
     gpu_after = get_gpu_info()
+    # Pop tee_quote from extra if it was placed there by older callers.
+    extra = extra or {}
+    tee_quote = tee_quote or extra.pop("tee_quote", None)
     result = {
         "result": {
             "status": "completed",
             "output": output,
             "execution_time": execution_time,
             "gpu_used": bool(gpu_after),
-            **(extra or {}),
+            **extra,
         },
         "metrics": {
             "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
@@ -407,6 +417,8 @@ def _submit_success(job_id, output, execution_time, extra=None):
             "duration_ms": int(execution_time * 1000),
         },
     }
+    if tee_quote:
+        result["tee_quote"] = tee_quote
     submit_result(job_id, result)
     logger.info("Job %s completed in %ss", job_id, execution_time)
 
@@ -463,9 +475,8 @@ def _execute_inference(job, available_models):
         tee_quote = build_tee_quote(job)
         extra = {"model": model, "tokens_processed": result.get("eval_count", 0)}
         if tee_quote:
-            extra["tee_quote"] = tee_quote
             logger.info("Attaching TEE quote for job %s", job_id)
-        _submit_success(job_id, output, execution_time, extra)
+        _submit_success(job_id, output, execution_time, extra, tee_quote=tee_quote)
         return True
     logger.error("Ollama error")
     _submit_failure(job_id, "Ollama error")
@@ -487,7 +498,10 @@ def _execute_transcribe(job):
         _download_media(url, input_path)
         text = _run_whisper(input_path, model)
     execution_time = time.time() - start_time
-    _submit_success(job_id, text, execution_time, {"model": model, "transcription": text})
+    tee_quote = build_tee_quote(job)
+    if tee_quote:
+        logger.info("Attaching TEE quote for job %s", job_id)
+    _submit_success(job_id, text, execution_time, {"model": model, "transcription": text}, tee_quote=tee_quote)
     return True
 
 
@@ -507,7 +521,10 @@ def _execute_reencode(job):
         output_path = os.path.join(tmp, f"output.{output_format}")
         summary = _run_ffmpeg(input_path, output_path, output_format)
     execution_time = time.time() - start_time
-    _submit_success(job_id, summary["stderr"], execution_time, summary)
+    tee_quote = build_tee_quote(job)
+    if tee_quote:
+        logger.info("Attaching TEE quote for job %s", job_id)
+    _submit_success(job_id, summary["stderr"], execution_time, summary, tee_quote=tee_quote)
     return True
 
 
