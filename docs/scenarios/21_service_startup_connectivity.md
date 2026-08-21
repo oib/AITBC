@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 20 Cross-Chain Transfer](./20_cross_chain_transfer.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -19,23 +19,23 @@ breadcrumb: Home > Scenarios > Service Startup & Connectivity
 - **Previous Scenario**: [Scenario 20 Cross-Chain Transfer](./20_cross_chain_transfer.md)
 - **Next Scenario**: [Scenario 22 Bridge RPC Input Validation](./22_bridge_rpc_validation.md)
 - **Feature Documentation**: [Service Ports Reference](../reference/SERVICE_PORTS.md)
+- **Closed cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
 
 ---
 
 ## Scenario Overview
 
-This scenario verifies that all shop-node services start correctly and connect to their upstream dependencies using the right ports. It covers the A3 fix (default port corrections: miner coordinator URL 8011->8107, edge agent-coordinator URL 8010->8107) and the B9 fix (edge registration errors are logged, not silently swallowed).
+A shop-node operator confirms that the role's systemd units are up, the miner is heartbeating, the edge GPU inventory is reachable, and the bridge RPC is healthy. This play covers the old A3 (port corrections) and B9 (edge registration errors are logged) fixes, expressed as `aitbc` commands.
 
 ### Use Case
 
-A node operator restarts a shop node after an upgrade and needs to confirm that the miner is sending heartbeats to the coordinator API, the edge service registered on the blockchain, and all health endpoints respond.
+After an upgrade, restart the shop role and prove the inner loop services answer the CLI.
 
 ### What You'll Learn
 
-- How to verify service startup via `systemctl` and `journalctl`
-- How to check that the miner connects to the coordinator API on port 8203
-- How to confirm the edge service registers on the blockchain via the bridge RPC
-- How to verify health endpoints for edge (`8111`) and bridge (`8202`)
+- How to start and inspect role services with `aitbc start` / `aitbc system`
+- How to confirm mining, GPU, and bridge from the CLI
+- How to read miner/edge logs only as validation
 
 ---
 
@@ -43,125 +43,56 @@ A node operator restarts a shop node after an upgrade and needs to confirm that 
 
 ### Knowledge Required
 
-- Basic familiarity with systemd service management
-- Understanding of the AITBC service architecture (miner, edge, blockchain-node, coordinator-api)
+- Hub vs shop vs follower roles (`docs/getting-started/setup-service-selection.md`)
 
 ### Tools Required
 
-- `systemctl`, `journalctl` (system service management)
-- `curl` (HTTP requests)
+- AITBC CLI (`aitbc`) installed and on `$PATH`
 
 ### Setup Required
 
-- A running AITBC shop node with all services deployed
-- Services: `aitbc-miner`, `aitbc-edge`, `aitbc-blockchain-rpc`, `aitbc-coordinator-api`, `aitbc-blockchain-node`
+- A shop node (`aitbc3`) with miner, edge, blockchain RPC, and coordinator deployed
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Check All Services Are Running
+### Step 1: Start (or dry-run) shop services
 
 ```bash
-systemctl is-active aitbc-miner aitbc-edge aitbc-blockchain-rpc aitbc-coordinator-api aitbc-blockchain-node
+aitbc start --role shop --dry-run
+aitbc start --role shop
+aitbc system check
+aitbc system status
 ```
 
-**Expected output:**
+**Expected output:** `aitbc start --dry-run` lists the systemd units for the shop role. After start, `system check` reports service files present. `system status` may fail on a shop node if it still probes the hub-only agent-coordinator URL — that is expected; do not treat it as a shop outage.
 
-```
-active
-active
-active
-active
-active
-```
-
-### Step 2: Verify Miner Heartbeats (A3)
-
-The miner should send heartbeats to the coordinator API. Check the env override and the logs:
+### Step 2: Mining heartbeat path
 
 ```bash
-# Check the coordinator URL the miner uses
-systemctl cat aitbc-miner | grep COORDINATOR_URL
-
-# Check recent heartbeat logs
-journalctl -u aitbc-miner -n 10 --no-pager | grep "Heartbeat sent"
+aitbc mining status
+aitbc mining list
 ```
 
-**Expected output:**
+**Expected output:** status hits `/rpc/mining/status` on the configured blockchain RPC (8202). A 401 means the endpoint exists and wants wallet auth — that is success for connectivity. `list` shows configured miners if any.
 
-```
-Environment="COORDINATOR_URL=http://localhost:8203"
-Jul 05 14:27:26 aitbc3 aitbc-miner[999]: [INFO] [production_miner] Heartbeat sent (GPU: 19%)
-Jul 05 14:27:42 aitbc3 aitbc-miner[999]: [INFO] [production_miner] Heartbeat sent (GPU: 41%)
-```
-
-### Step 3: Verify Edge Registration on Blockchain (B9)
-
-The edge service should register itself on the blockchain on startup. If registration fails, the error must be logged (not silently swallowed):
+### Step 3: Edge / GPU inventory
 
 ```bash
-# Restart edge to trigger registration
-systemctl restart aitbc-edge
-sleep 3
-
-# Check registration log
-journalctl -u aitbc-edge --since "10 sec ago" --no-pager | grep -E "register|blockchain"
+aitbc gpu list-gpus
+aitbc edge status
 ```
 
-**Expected output:**
+**Expected output:** `gpu list-gpus` talks to the GPU service (8101) and does **not** require island credentials. `edge status` talks to the agent-coordinator URL; on a shop node that URL should resolve to the **hub**, not localhost:8107.
 
-```
-Jul 05 14:28:13 aitbc3 python[50134]: [INFO] [httpx] HTTP Request: POST http://localhost:8202/rpc/edge/register "HTTP/1.1 200 OK"
-Jul 05 14:28:13 aitbc3 python[50134]: [INFO] [aitbc_edge.main] Edge node registered on blockchain: edge-aitbc3
-```
-
-If the blockchain RPC is unavailable, you should see a WARNING (not a silent failure):
-
-```
-Jul 05 11:37:28 aitbc3 python[2207]: [WARNING] [aitbc_edge.main] Failed to register edge node on blockchain: All connection attempts failed
-```
-
-### Step 4: Verify Health Endpoints
+### Step 4: Bridge health
 
 ```bash
-# Edge health
-curl -s http://localhost:8111/health
-
-# Bridge health
-curl -s http://localhost:8202/rpc/bridge/health
+aitbc bridge health
 ```
 
-**Expected output:**
-
-```json
-{"status":"healthy","service":"edge-api","version":"0.1.0"}
-
-{"success":true,"status":"healthy","bridge_initialized":true,"pending_transfer_count":0,...}
-```
-
----
-
-## Code Examples
-
-### Verifying the Edge Config Default (A3)
-
-The edge config default for `agent_coordinator_url` was corrected from `8010` to `8107`:
-
-```python
-# apps/edge/src/aitbc_edge/config.py
-class EdgeSettings(BaseSettings):
-    agent_coordinator_url: str = "http://localhost:8107"  # was 8010 before A3
-```
-
-### Verifying the Miner Config Default (A3)
-
-The miner config default for `COORDINATOR_URL` was corrected from `8011` to `8107`:
-
-```python
-# apps/miner/production_miner.py
-COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")  # was 8011 before A3
-```
+**Expected output:** `success: true`, `bridge_initialized: true` (or an honest RPC error if 8202 is down). Do not curl `/rpc/bridge/health` as the play.
 
 ---
 
@@ -169,41 +100,26 @@ COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")  # 
 
 After completing this scenario, you should be able to:
 
-- Confirm all shop-node services start and report active status
-- Verify the miner sends heartbeats to the correct coordinator URL
-- Confirm the edge service registers on the blockchain (or logs a warning on failure)
-- Check health endpoints for edge and bridge services
+- Start shop-role units with `aitbc start --role shop`
+- Confirm mining, GPU, and bridge from `aitbc` without raw HTTP
+- Know that hub-only URLs on a shop node come from `HUB_DISCOVERY_URL` / `HUB_P2P_HOST`, not localhost
 
 ---
 
 ## Validation
 
 ```bash
-# All services active
-systemctl is-active aitbc-miner aitbc-edge aitbc-blockchain-rpc aitbc-coordinator-api
+# systemd (validation only)
+systemctl is-active aitbc-miner aitbc-edge aitbc-blockchain-rpc aitbc-coordinator-api aitbc-blockchain-node
 
-# Miner heartbeats flowing
-journalctl -u aitbc-miner -n 5 --no-pager | grep "Heartbeat sent"
+# miner heartbeats (validation only)
+journalctl -u aitbc-miner -n 10 --no-pager | grep -i heartbeat || true
 
-# Edge registered
-journalctl -u aitbc-edge -n 20 --no-pager | grep "registered on blockchain"
-
-# Health endpoints
-curl -sf http://localhost:8111/health && echo " edge OK"
-curl -sf http://localhost:8202/rpc/bridge/health && echo " bridge OK"
+# edge registration logged, not swallowed (B9)
+journalctl -u aitbc-edge -n 30 --no-pager | grep -iE "register|blockchain" || true
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 
@@ -212,5 +128,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 21 Service Startup & Connectivity](./21_service_startup_connectivity.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-08-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -24,153 +24,95 @@ breadcrumb: Home > Scenarios > Bridge RPC Input Validation
 
 ## Scenario Overview
 
-This scenario verifies that all bridge RPC endpoints reject invalid input with HTTP 422 (Pydantic validation errors) instead of accepting malformed requests or returning generic 400 errors. This covers the B13 fix: Pydantic request models were added to all 7 bridge RPC endpoints.
+Bridge lock/confirm requests with empty chains, zero amounts, or missing signatures must fail closed. The blockchain RPC returns HTTP 422 (Pydantic). Drive those checks through `aitbc bridge`, which posts to `/rpc/bridge/*` via `BridgeClient`.
+
+This is the B13 fix, as an operator play.
 
 ### Use Case
 
-A node operator or external client sends invalid bridge requests (zero amounts, empty strings, missing required fields). The bridge RPC must reject these with structured 422 responses so clients can display meaningful error messages.
+An operator or customer CLI must not be able to submit a malformed lock. Structured errors should come back through the CLI, not a silent 200.
 
 ### What You'll Learn
 
-- How to test bridge RPC input validation with `curl`
-- What HTTP 422 Pydantic validation responses look like
-- How to verify that all required fields are enforced (amount > 0, non-empty strings, required signatures)
+- How to check bridge health with `aitbc bridge health`
+- How `aitbc bridge lock` / `confirm` reject invalid input
+- How pending/status queries work when the RPC is up
 
 ---
 
 ## Prerequisites
 
-### Knowledge Required
-
-- Basic familiarity with the bridge RPC API
-- Understanding of HTTP status codes (200, 400, 422)
-
 ### Tools Required
 
-- `curl` (HTTP requests)
+- AITBC CLI (`aitbc`) installed and on `$PATH`
 
 ### Setup Required
 
-- A running blockchain-node RPC service on port 8202
+- Blockchain RPC reachable (default `http://localhost:8202/rpc`, which maps to `/rpc/bridge/...`)
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Test Zero Amount Rejection on /rpc/bridge/lock
+The CLI default `--rpc-url` is `http://localhost:8202/rpc`. Override it when talking to a remote hub RPC.
 
-The `amount` field must be greater than 0:
-
-```bash
-curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/lock \
-  -H "Content-Type: application/json" \
-  -d '{"target_chain":"chain2","sender":"0xabc","recipient":"0xdef","amount":0,"signature":"0x123"}'
-```
-
-**Expected output:**
-
-```
-{"detail":[{"type":"greater_than","loc":["body","amount"],"msg":"Input should be greater than 0","input":0,"ctx":{"gt":0}}]}
-HTTP 422
-```
-
-### Step 2: Test Empty String Rejection on /rpc/bridge/lock
-
-The `target_chain` field must have at least 1 character:
+### Step 1: Health
 
 ```bash
-curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/lock \
-  -H "Content-Type: application/json" \
-  -d '{"target_chain":"","sender":"0xabc","recipient":"0xdef","amount":10,"signature":"0x123"}'
+aitbc bridge health
 ```
 
-**Expected output:**
+**Expected output:** `success: true`, `status: healthy`, `bridge_initialized: true`.
 
-```
-{"detail":[{"type":"string_too_short","loc":["body","target_chain"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}
-HTTP 422
-```
-
-### Step 3: Test Missing Required Field on /rpc/bridge/lock
-
-The `signature` field is required:
+### Step 2: Reject a zero-amount lock
 
 ```bash
-curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/lock \
-  -H "Content-Type: application/json" \
-  -d '{"target_chain":"chain2","sender":"0xabc","recipient":"0xdef","amount":10}'
+aitbc bridge lock \
+  --target-chain chain2 \
+  --sender 0xabc \
+  --recipient 0xdef \
+  --amount 0 \
+  --signature 0x123
 ```
 
-**Expected output:**
+**Expected output:** CLI abort. Underlying RPC is HTTP 422 (`amount` must be greater than 0).
 
-```
-{"detail":[{"type":"missing","loc":["body","signature"],"msg":"Field required","input":{"target_chain":"chain2","sender":"0xabc","recipient":"0xdef","amount":10}}]}
-HTTP 422
-```
-
-### Step 4: Test Empty transfer_id on /rpc/bridge/confirm
+### Step 3: Reject an empty target chain
 
 ```bash
-curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/confirm \
-  -H "Content-Type: application/json" \
-  -d '{"transfer_id":"","proof":"test","signature":"0x123"}'
+aitbc bridge lock \
+  --target-chain "" \
+  --sender 0xabc \
+  --recipient 0xdef \
+  --amount 10 \
+  --signature 0x123
 ```
 
-**Expected output:**
+**Expected output:** CLI abort / Click usage error or HTTP 422 `string_too_short` on `target_chain`.
 
-```
-{"detail":[{"type":"string_too_short","loc":["body","transfer_id"],"msg":"String should have at least 1 character","input":"","ctx":{"min_length":1}}]}
-HTTP 422
-```
+### Step 4: Reject confirm with an empty transfer id
 
-### Step 5: Test Missing proof on /rpc/bridge/confirm
+`aitbc bridge confirm` requires `--transfer-id`, `--confirmer`, `--signature`, and a `--proof-file`. An empty transfer id or empty proof file must fail:
 
 ```bash
-curl -s -w "\nHTTP %{http_code}" -X POST http://localhost:8202/rpc/bridge/confirm \
-  -H "Content-Type: application/json" \
-  -d '{"transfer_id":"tx1","signature":"0x123"}'
+printf '%s\n' '{}' > /tmp/empty-bridge-proof.json
+aitbc bridge confirm \
+  --transfer-id "" \
+  --confirmer 0xabc \
+  --signature 0x123 \
+  --proof-file /tmp/empty-bridge-proof.json
 ```
 
-**Expected output:**
+**Expected output:** CLI abort (empty `--transfer-id` and/or 422 from the RPC).
 
-```
-{"detail":[{"type":"missing","loc":["body","proof"],"msg":"Field required","input":{"transfer_id":"tx1","signature":"0x123"}}]}
-HTTP 422
-```
-
-### Step 6: Verify Valid Requests Still Work
+### Step 5: List pending transfers (valid read path)
 
 ```bash
-curl -s http://localhost:8202/rpc/bridge/health
+aitbc bridge pending
+aitbc bridge security-status
 ```
 
-**Expected output:**
-
-```json
-{"success":true,"status":"healthy","bridge_initialized":true,...}
-```
-
----
-
-## Code Examples
-
-### Pydantic Request Models (B13)
-
-The bridge router now uses Pydantic models for all endpoints:
-
-```python
-# apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py
-class BridgeLockRequest(BaseModel):
-    target_chain: str = Field(..., min_length=1, description="Target chain ID")
-    sender: str = Field(..., min_length=1, description="Sender address")
-    recipient: str = Field(..., min_length=1, description="Recipient address")
-    amount: int = Field(..., gt=0, description="Amount to bridge (positive integer)")
-    signature: str = Field(..., min_length=1, description="Sender signature authorizing the lock")
-
-@router.post("/lock")
-async def bridge_lock_route(request: Request, lock_data: BridgeLockRequest) -> dict[str, Any]:
-    return await bridge_lock(request, lock_data.model_dump(exclude_none=True))
-```
+**Expected output:** a (possibly empty) pending list and a security-status payload. Multi-sig may report disabled — that matches current production defaults (see DESIGN_CYCLE.md).
 
 ---
 
@@ -178,35 +120,22 @@ async def bridge_lock_route(request: Request, lock_data: BridgeLockRequest) -> d
 
 After completing this scenario, you should be able to:
 
-- Confirm that all bridge RPC endpoints reject invalid input with HTTP 422
-- Verify that Pydantic validation errors include field location, error type, and message
-- Confirm that valid requests still succeed (no false positives)
+- Confirm bridge health through `aitbc bridge health`
+- Prove malformed lock/confirm attempts fail closed
+- Inspect pending transfers without crafting raw HTTP
 
 ---
 
 ## Validation
 
-```bash
-# All 5 validation tests should return 422
-for test in "zero_amount" "empty_chain" "missing_sig" "empty_txid" "missing_proof"; do
-  echo "Testing $test..."
-done
+If you need to see the raw 422 body (not the play):
 
-# Valid health check should return 200
-curl -sf http://localhost:8202/rpc/bridge/health > /dev/null && echo "Bridge healthy"
+```bash
+# validation only — the play is aitbc bridge lock
+aitbc bridge health --rpc-url http://127.0.0.1:8202/rpc
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 
@@ -215,5 +144,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-08-21*
+*Version: 1.3*

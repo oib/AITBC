@@ -98,7 +98,42 @@ class TestAICommands:
         assert posted_body["payload"]["type"] == "inference"
         assert posted_body["payload"]["prompt"] == "Hello world"
         assert posted_body["payment_amount"] == 5.0
+        assert posted_body["payment_currency"] == "AITBC"
         assert "job_test_123" in result.output
+
+    @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.ai.get_config")
+    def test_ai_submit_custom_currency(self, mock_get_config, mock_http_class, runner, mock_config):
+        """``ai submit --currency`` overrides the default payment currency."""
+        mock_get_config.return_value = mock_config
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {
+            "job_id": "job_skipped_pay",
+            "status": "queued",
+            "payment_status": "skipped",
+        }
+
+        from aitbc_cli.commands.ai import ai
+
+        result = runner.invoke(
+            ai,
+            [
+                "submit",
+                "--prompt",
+                "payment failure probe",
+                "--payment",
+                "1.0",
+                "--currency",
+                "INVALID_CURRENCY",
+                "--coordinator-url",
+                "http://coordinator:8006",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        posted_body = mock_client.post.call_args.kwargs.get("json")
+        assert posted_body["payment_amount"] == 1.0
+        assert posted_body["payment_currency"] == "INVALID_CURRENCY"
 
     @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
     @patch("aitbc_cli.commands.ai.get_config")
