@@ -182,6 +182,12 @@ def ai():
 @click.option(
     "--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment"
 )
+@click.option(
+    "--bond-required/--no-bond-required",
+    default=False,
+    help="Require the provider to have an active performance bond",
+)
+@click.option("--min-bond-amount", type=float, default=None, help="Minimum bond amount required for provider eligibility")
 @click.option("--input", "input_url", help="Input URL or path for transcribe/reencode jobs")
 @click.option("--output-format", default=None, help="Output format for reencode jobs (e.g. mp4, mp3)")
 @click.option("--classification", default=None, help="Data classification label (e.g. public, pii, phi)")
@@ -215,6 +221,8 @@ def submit(
     confidential,
     enclave_measurement,
     auto_reinvest_pct,
+    bond_required,
+    min_bond_amount,
     input_url,
     output_format,
     classification,
@@ -308,6 +316,11 @@ def submit(
 
         if auto_reinvest_pct is not None:
             job_data["constraints"]["auto_reinvest_pct"] = auto_reinvest_pct
+
+        if bond_required:
+            job_data["constraints"]["bond_required"] = True
+        if min_bond_amount is not None:
+            job_data["constraints"]["min_bond_amount"] = min_bond_amount
 
         if payment:
             job_data["payment_amount"] = payment
