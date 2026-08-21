@@ -16,6 +16,8 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 
 from aitbc.aitbc_logging import get_logger
 
+from . import public_keys
+
 logger = get_logger(__name__)
 
 
@@ -119,32 +121,37 @@ class MessageEncryptor:
         key_id = f"{agent_id}_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
         key_pair = AgentKeyPair(agent_id=agent_id, public_key=public_key, private_key=private_key_bytes, key_id=key_id)
         self.key_pairs[agent_id] = key_pair
+        public_keys.register_public_key(agent_id, public_key, key_id)
         self._save_key_pair(key_pair)
         logger.info("Generated key pair for agent %s", agent_id)
         return key_pair
 
     def get_public_key(self, agent_id: str) -> bytes | None:
-        """Get public key for an agent"""
+        """Get public key for an agent.
+
+        First checks locally known key pairs, then the runtime public key
+        registry that is populated by the key exchange HTTP endpoints.
+        """
         if agent_id in self.key_pairs:
             return self.key_pairs[agent_id].public_key
-        return None
+        return public_keys.get_public_key(agent_id)
 
     def register_public_key(self, agent_id: str, public_key: bytes) -> bool:
         """Register a public key for an agent (from other agents)"""
         key_id = f"{agent_id}_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
         key_pair = AgentKeyPair(agent_id=agent_id, public_key=public_key, private_key=None, key_id=key_id)
         self.key_pairs[agent_id] = key_pair
-        self._save_key_pair(key_pair)
+        public_keys.register_public_key(agent_id, public_key, key_id)
         logger.info("Registered public key for agent %s", agent_id)
         return True
 
     def encrypt_message(self, message: dict[str, Any], sender_id: str, recipient_id: str) -> EncryptedMessage | None:
         """Encrypt a message for a recipient"""
         try:
-            if recipient_id not in self.key_pairs:
+            recipient_public_key = self.get_public_key(recipient_id)
+            if not recipient_public_key:
                 logger.error("No public key for recipient %s", recipient_id)
                 return None
-            recipient_public_key = self.key_pairs[recipient_id].public_key
             message_json = json.dumps(message).encode("utf-8")
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -205,9 +212,10 @@ class MessageEncryptor:
 
             aesgcm = AESGCM(session_key)
             message_json = aesgcm.decrypt(encrypted_msg.nonce, encrypted_msg.ciphertext, None)
-            if encrypted_msg.sender_id in self.key_pairs:
+            sender_public_key_bytes = self.get_public_key(encrypted_msg.sender_id)
+            if sender_public_key_bytes:
                 sender_public_key = serialization.load_pem_public_key(
-                    self.key_pairs[encrypted_msg.sender_id].public_key, backend=default_backend()
+                    sender_public_key_bytes, backend=default_backend()
                 )
                 try:
                     if not isinstance(sender_public_key, RSAPublicKey):
@@ -232,11 +240,12 @@ class MessageEncryptor:
     def verify_signature(self, encrypted_msg: EncryptedMessage, sender_id: str) -> bool:
         """Verify message signature without decrypting"""
         try:
-            if sender_id not in self.key_pairs:
+            sender_public_key_bytes = self.get_public_key(sender_id)
+            if not sender_public_key_bytes:
                 logger.error("No public key for sender %s", sender_id)
                 return False
             sender_public_key = serialization.load_pem_public_key(
-                self.key_pairs[sender_id].public_key, backend=default_backend()
+                sender_public_key_bytes, backend=default_backend()
             )
             if not isinstance(sender_public_key, RSAPublicKey):
                 raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
