@@ -679,3 +679,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   `verify` subcommands; supports `--proof-id`, `--job-id`, and `--proof-file`.
 - feat(coordinator): add `POST /v1/zk/receipt/verify` to verify the stored
   ZK receipt proof for a completed job.
+
+- `apps/exchange/simple_exchange/handlers/bridge.py` and `handlers/__init__.py`: add `GET /cross-chain/rates` with indicative ETH/AITBC rates and a trusted-custodian status note.
+- `cli/aitbc_cli/commands/dashboard.py`, `apps/coordinator-api/.../routers/miner.py`, `apps/coordinator-api/.../services/jobs.py`: shop dashboard now lists assigned jobs and computes live earnings from completed, released payments.
+- MultiValidatorPoA: consensus unit tests pass; production activation remains gated behind a multi-node soak and security review (`multi_validator_consensus_enabled=false` on live nodes).
+
