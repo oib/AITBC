@@ -664,3 +664,14 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   wallet `/api/v1/refund` endpoint.
 - fix(jobs): normalize SQLite naive datetimes to UTC-aware before expiry checks;
   prevents 500 errors from offset-naive vs offset-aware comparisons.
+
+### Additional live playback fixes
+
+- `apps/governance/src/governance_service/services/governance_service.py`:
+  - Resolve proposal/vote `chain_id` to the configured `default_chain_id` so off-chain block-height and voting-power queries target the correct chain database.
+  - Calculate off-chain vote weight from staked governance tokens when `enable_onchain_submission` is `false`.
+- `cli/aitbc_cli/commands/governance.py`: pass `executor_address` as a URL query string for `aitbc governance execute`.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`: normalize naive SQLite datetimes to UTC-aware before comparison.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py`: derive `started_at` from `completed_at - units` so the receipt duration is internally consistent.
+- `cli/aitbc_cli/commands/dashboard.py`, `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`, `apps/coordinator-api/src/coordinator_api/schemas/__init__.py`: show `Model` and `Created` columns in the customer dashboard by including `payload`/`result` in `JobView`.
+
