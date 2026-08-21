@@ -379,10 +379,7 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
                 await state.message_storage.store_message(message.id, message_data)
                 recipients.append(agent.agent_id)
             if state.communication_manager:
-                try:
-                    await state.communication_manager.send_message("broadcast", message)
-                except Exception:
-                    pass
+                await state.communication_manager.send_message("broadcast", message)
         return {
             "status": "success",
             "message": f"Broadcast sent to {len(recipients)} agents",

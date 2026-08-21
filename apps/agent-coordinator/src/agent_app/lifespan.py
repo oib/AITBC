@@ -64,6 +64,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     state.load_balancer.set_strategy(LoadBalancingStrategy.LEAST_CONNECTIONS)
     state.task_distributor = TaskDistributor(state.load_balancer)
     state.communication_manager = CommunicationManager("agent-coordinator")
+    from .protocols.communication import create_protocol
+
+    state.communication_manager.add_protocol("broadcast", create_protocol("broadcast", "agent-coordinator"))
     state.message_processor = MessageProcessor("agent-coordinator")
     state.message_storage = MessageStorage(redis_url=redis_url)
     state.peer_storage = PeerStorage(redis_url=redis_url)
