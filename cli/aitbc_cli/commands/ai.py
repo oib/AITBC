@@ -167,6 +167,8 @@ def ai():
 @click.option("--tee-attestation-required/--no-tee-attestation-required", default=False, help="Require a TEE attestation before escrow release")
 @click.option("--tee-enclave-id", default=None, help="Required TEE enclave identity")
 @click.option("--auto-reinvest-pct", type=float, default=None, help="Percentage of released payment to auto-stake as reinvestment")
+@click.option("--input", "input_url", help="Input URL or path for transcribe/reencode jobs")
+@click.option("--output-format", default=None, help="Output format for reencode jobs (e.g. mp4, mp3)")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
 @click.option("--chain-id", help="Chain ID")
@@ -192,6 +194,8 @@ def submit(
     tee_attestation_required,
     tee_enclave_id,
     auto_reinvest_pct,
+    input_url,
+    output_format,
     password,
     password_file,
     chain_id,
@@ -220,13 +224,29 @@ def submit(
                 _ = f.read().strip()
 
         # Prepare job data in the JobCreate shape expected by coordinator-api
+        job_type = job_type or "inference"
         payload = {
-            "type": job_type or "inference",
-            "prompt": prompt or "",
+            "type": job_type,
         }
 
-        if model:
-            payload["model"] = model
+        if job_type == "inference":
+            payload["prompt"] = prompt or ""
+            if model:
+                payload["model"] = model
+        elif job_type in ("transcribe", "reencode"):
+            if input_url:
+                payload["url"] = input_url
+            if model:
+                payload["model"] = model
+            if output_format:
+                payload["output_format"] = output_format
+            if prompt:
+                payload["prompt"] = prompt
+        else:
+            if prompt:
+                payload["prompt"] = prompt
+            if model:
+                payload["model"] = model
 
         job_data = {
             "payload": payload,
