@@ -799,3 +799,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 * 91049b566 fix(cli): quote default hub hostname in market escrow refund
 * 381cf5b17 fix(escrow): deterministic contract_id for loaded escrows
 * df6dd0274 test(escrow,payments): regression tests for refund path
+- MultiValidatorPoA wired into live aitbc-blockchain-node: proposers rotate round-robin, blocks carry proposer signature plus validator attestations in block_metadata, and sync validates attestation threshold.
+- fix(sync): persist block_metadata when importing blocks so followers retain attestations.
+
