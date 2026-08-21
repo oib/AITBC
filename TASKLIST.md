@@ -1,3 +1,41 @@
+## P1 implementation (current session)
+
+- [x] P1.8 — honest rewrite of docs/architecture/1_system-flow.md
+- [x] P1.5 — aitbc ai submit --wait (plus base-URL /v1 normalisation)
+- [x] P1.6 — island credential/secrets ownership for aitbc user
+- [x] P1.1 Phase A — reputation sort in aitbc market list
+- [x] P1.2 — customer and shop dashboard CLI commands
+- [x] P1.7 — governance close proposal; propose → vote → close → execute lifecycle
+  - Code, CLI and tests committed.
+  - Live propose/close/execute blocked on aitbc3 by governance DB corruption
+    (invalid page in block 4 of relation base/16399/2610).
+- [ ] P1.1 Phase B — reputation-aware job dispatch
+- [ ] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
+- [ ] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
+
+Latest pushed commits:
+- 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
+- 5bfbcd7c9 feat(governance,cli): close proposal lifecycle for propose → vote → close → execute
+
+## P1 implementation (current session)
+
+- [x] P1.8 — honest rewrite of docs/architecture/1_system-flow.md
+- [x] P1.5 — aitbc ai submit --wait (plus base-URL /v1 normalisation)
+- [x] P1.6 — island credential/secrets ownership for aitbc user
+- [x] P1.1 Phase A — reputation sort in aitbc market list
+- [x] P1.2 — customer and shop dashboard CLI commands
+- [x] P1.7 — governance close proposal; propose → vote → close → execute lifecycle
+  - Code, CLI and tests committed.
+  - Live propose/close/execute blocked on aitbc3 by governance DB corruption
+    ().
+- [ ] P1.1 Phase B — reputation-aware job dispatch
+- [ ] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
+- [ ] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
+
+Latest pushed commits:
+- 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
+- 5bfbcd7c9 feat(governance,cli): close proposal lifecycle for propose → vote → close → execute
+
 # Open task list for AITBC agents
 
 ## Current state
