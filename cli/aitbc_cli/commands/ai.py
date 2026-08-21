@@ -409,7 +409,7 @@ def refund(ctx, job_id, reason, coordinator_url):
 
         result = http_client.post(
             f"/v1/payments/{payment_id}/refund",
-            json={"job_id": job_id, "reason": reason},
+            json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
         )
         success(f"Payment {payment_id} for job {job_id} refunded")
         output(result, ctx.obj.get("output_format", "table"))
