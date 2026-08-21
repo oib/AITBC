@@ -175,10 +175,10 @@ def execute(ctx, proposal_id: str, executor_address: str, format: str):
     """Execute a passed proposal (after timelock expires)"""
     try:
         client = _get_client(ctx)
-        params: dict[str, str] = {}
+        query = ""
         if executor_address:
-            params["executor_address"] = executor_address
-        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute", params=params)
+            query = f"?executor_address={executor_address}"
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
