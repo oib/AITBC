@@ -227,6 +227,7 @@ async def submit_result(
     job.completed_at = datetime.now(UTC)
     session.add(job)
     session.commit()
+    success = True
     if job.payment_id and job.payment_status == "escrowed":
         from ...payments.services.payments import PaymentService
 
@@ -240,10 +241,30 @@ async def submit_result(
             tee_status = (receipt or {}).get("tee_status")
             if tee_status != "verified":
                 job.error = f"TEE attestation required before escrow release (status: {tee_status})"
+                job.state = JobState.failed
                 session.commit()
                 logger.error(
                     "Escrow release blocked for job %s: TEE status %s", job.id, tee_status
                 )
+                # v0.14.3: TEE failure now triggers an automatic refund so the
+                # customer is not left with an escrowed stuck job.
+                refunded = await payment_service.refund_payment(
+                    job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}"
+                )
+                if refunded:
+                    job.payment_status = "refunded"
+                    logger.info(
+                        "Refunded payment %s for job %s after TEE attestation failure",
+                        job.payment_id,
+                        job.id,
+                    )
+                else:
+                    logger.error(
+                        "Failed to refund payment %s for job %s after TEE attestation failure",
+                        job.payment_id,
+                        job.id,
+                    )
+                session.commit()
                 success = False
             elif _zk_required_for(job):
                 zk_status = (receipt or {}).get("zk_status")
@@ -300,7 +321,7 @@ async def submit_result(
         else:
             logger.error("Failed to auto-release payment %s for job %s", job.payment_id, job.id)
     miner_service.release(
-        user["sub"], success=True, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
+        user["sub"], success=success, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
     )
 
     # Record job completion in the reputation service.
