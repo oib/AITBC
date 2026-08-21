@@ -761,3 +761,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Live-validated on hub: payment 15 AIT inference job `324860acec664b5eac8fad85cc2cd873`
     completed with `zk_status`: `verified` and `zk_proof_id` set.
   - Linked from `docs/scenarios/README.md`.
+- Registered `aitbc zk` CLI command (it existed but was not loaded in `core/main.py`).
+- Validated scenario 37: `aitbc ai submit --payment 15 --zk-proof-required` produces a verified `zk_proof` in the receipt, releases escrow, and `aitbc zk verify --job-id` confirms `verified: true`.
+
