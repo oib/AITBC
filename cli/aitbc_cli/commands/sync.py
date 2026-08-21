@@ -1,7 +1,9 @@
 """Sync commands for AITBC CLI"""
 
+import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -80,6 +82,7 @@ def _format_status_table(
     total_accounts,
     p2p_endpoint,
     supported_chains,
+    hub_status=None,
 ):
     """Format sync status into an aligned text table via click.echo."""
     truncated_hash = f"{block_hash[:16]}..." if block_hash else "N/A"
@@ -96,6 +99,12 @@ def _format_status_table(
         ("Supported chains", chains_str),
     ]
 
+    if hub_status:
+        rows.append(("Hub height", str(hub_status.get("height", "N/A"))))
+        rows.append(("Hub hash", f"{str(hub_status.get('hash', ''))[:16]}..." if hub_status.get("hash") else "N/A"))
+        rows.append(("Height gap", str(hub_status.get("gap", "N/A"))))
+        rows.append(("Divergence", hub_status.get("divergence", "unknown")))
+
     label_width = max(len(label) for label, _ in rows)
     click.echo("Sync Status")
     click.echo("-" * 40)
@@ -106,11 +115,12 @@ def _format_status_table(
 @sync.command()
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--chain-id", default=None, help="Chain ID to check (defaults to node's configured chain)")
+@click.option("--hub-url", default=None, help="Hub RPC URL to compare against (defaults to HUB_RPC_URL or node-url)")
+@click.option("--gap-threshold", type=int, default=5, help="Height gap considered a divergence (default: 5)")
+@click.option("--alert", is_flag=True, help="Exit non-zero on divergence or unreachable hub")
 @click.pass_context
-def status(ctx, node_url, chain_id):
+def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
     """Show synchronization status (current block, peer count, sync progress)."""
-    from typing import Any
-
     client = AITBCHTTPClient(base_url=node_url)
     try:
         # Query current chain head
@@ -147,6 +157,41 @@ def status(ctx, node_url, chain_id):
     p2p_endpoint = network_info.get("p2p_endpoint")
     supported_chains = network_info.get("supported_chains") or []
 
+    # Compare with hub if a hub URL is available
+    hub_status: dict[str, Any] = {}
+    if not hub_url:
+        hub_url = os.environ.get("HUB_RPC_URL")
+    if hub_url:
+        hub_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+        try:
+            hub_head = hub_client.get("/rpc/head", params=head_params)
+            hub_info = hub_client.get("/rpc/network-info")
+        except NetworkError:
+            hub_status = {
+                "height": "N/A",
+                "hash": "",
+                "gap": "N/A",
+                "divergence": "HUB_UNREACHABLE",
+            }
+        else:
+            hub_client.close()
+            hub_height = hub_head.get("height") if isinstance(hub_head, dict) else None
+            hub_hash = hub_head.get("hash") or hub_head.get("last_block_hash") if isinstance(hub_head, dict) else None
+            gap = (hub_height - height) if (hub_height is not None and height is not None) else None
+            divergence = "none"
+            if gap is not None and gap > gap_threshold:
+                divergence = f"BEHIND_BY_{gap}"
+            elif gap is not None and gap < 0:
+                divergence = f"AHEAD_BY_{-gap}"
+            elif hub_height is not None and height == hub_height and hub_hash and block_hash and hub_hash != block_hash:
+                divergence = "HASH_MISMATCH"
+            hub_status = {
+                "height": hub_height if hub_height is not None else "N/A",
+                "hash": hub_hash or "",
+                "gap": gap if gap is not None else "N/A",
+                "divergence": divergence,
+            }
+
     _format_status_table(
         resolved_chain_id,
         height,
@@ -156,7 +201,12 @@ def status(ctx, node_url, chain_id):
         total_accounts,
         p2p_endpoint,
         supported_chains,
+        hub_status,
     )
+
+    divergence = hub_status.get("divergence", "none")
+    if alert and divergence not in ("none", "N/A", "HUB_UNREACHABLE"):
+        ctx.exit(1)
 
     # Show v0.6.2 sync optimization status if available
     if sync_config:

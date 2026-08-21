@@ -112,6 +112,13 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `aitbc ai submit` falls back to the stored coordinator JWT when `--api-key` is not supplied.
 - Scenarios 07 and 34 replace the Python `from aitbc.auth import create_access_token` snippet with `aitbc auth login`.
 
+## P0 Phase 3 — sync status divergence alerts (2026-08-21)
+
+- `aitbc sync status` now accepts `--hub-url` and compares the local chain head against the hub head.
+- New output fields: Hub height, Hub hash, Height gap, Divergence.
+- `--alert` exits non-zero when the height gap exceeds `--gap-threshold` (default 5) or the hub hash at the same height differs.
+- `HUB_UNREACHABLE` is reported separately from `BEHIND_BY_N` / `HASH_MISMATCH` so operators do not get false positives when the hub RPC is not reachable.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
