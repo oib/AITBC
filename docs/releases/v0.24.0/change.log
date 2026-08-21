@@ -446,3 +446,13 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - Fetch the payment view (`GET /v1/jobs/{job_id}/payment`) and include `escrow_tx_hash` in the final output.
 - Added keyboard-interrupt handling that attempts to cancel the job before aborting.
 - Updated scenarios 07 and 34 to use `--wait` and document the JSON fields returned.
+
+## P1.6 — Island credential and secrets ownership for the `aitbc` user
+
+- `cli/aitbc_cli/commands/node.py` now `chown aitbc:aitbc 0600`s `/var/lib/aitbc/island_credentials.json` after it is written.
+- `cli/aitbc_cli/config.py` only loads env files that are readable by the current user, so the CLI does not crash when `blockchain-secrets.env` (or other root-only files) are `0600`.
+- `get_config()` also tolerates an unreadable current-working-directory `.aitbc.yaml`.
+- `cli/aitbc_cli/utils/island_credentials.py` imports `get_config` at module level so callers can use the existing RPC fallback and tests can mock it.
+- `scripts/deployment/setup.sh` and `scripts/deployment/unify_service_users.sh` now (re)own `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` 0600.
+- Updated scenario 34 to reflect that the CLI skips root-only env files.
+- Fixed `tests/cli/test_utils_island_credentials.py` to mock the fallback path.

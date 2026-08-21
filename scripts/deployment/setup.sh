@@ -381,6 +381,15 @@ setup_runtime_directories() {
     # and trading simultaneously, since APIKeyManager() is instantiated at module scope.
     # The setgid bit keeps new entries in the aitbc group so this cannot drift back.
     chmod 2775 /var/lib/aitbc
+
+    # If island credentials already exist (or are created later by node join),
+    # keep them owned by the runtime aitbc user. The file is the node's identity
+    # and must remain 0600; root can still read it when needed.
+    if [ -f "/var/lib/aitbc/island_credentials.json" ]; then
+        chown aitbc:aitbc /var/lib/aitbc/island_credentials.json 2>/dev/null || true
+        chmod 0600 /var/lib/aitbc/island_credentials.json
+    fi
+
     chmod 700 /var/lib/aitbc/keystore  # Secure keystore
     chmod 700 /var/lib/aitbc/keystore/config
     chmod 700 /var/lib/aitbc/keystore/passwords
@@ -507,6 +516,12 @@ setup_service_users() {
     # it here or every aitbc.auth importer restart-loops on api_keys.json.lock.
     chown root:aitbc /var/lib/aitbc 2>/dev/null || true
     chmod 2775 /var/lib/aitbc
+
+    # Island credentials must be owned by the runtime user, mode 0600.
+    if [ -f "/var/lib/aitbc/island_credentials.json" ]; then
+        chown aitbc:aitbc /var/lib/aitbc/island_credentials.json 2>/dev/null || true
+        chmod 0600 /var/lib/aitbc/island_credentials.json
+    fi
 
     # Verify the thing that actually breaks, rather than trusting the chmod above.
     # error() exits, so the explanation goes out as warnings first.

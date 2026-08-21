@@ -6,7 +6,9 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import socket
+import stat
 from datetime import datetime
 
 import click
@@ -525,6 +527,16 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f, indent=2)
+
+            # Ensure the runtime user can read its own island credentials.
+            try:
+                shutil.chown(credentials_path, user="aitbc", group="aitbc")
+            except (LookupError, OSError) as e:
+                logger.warning("Could not chown %s to aitbc:aitbc: %s", credentials_path, e)
+            try:
+                os.chmod(credentials_path, stat.S_IRUSR | stat.S_IWUSR)
+            except OSError as e:
+                logger.warning("Could not chmod %s: %s", credentials_path, e)
 
             # Display join info
             join_info = {
