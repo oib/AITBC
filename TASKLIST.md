@@ -7,7 +7,7 @@
 - [x] P1.2 — customer and shop dashboard CLI commands
 - [x] P1.7 — governance close proposal; propose → vote → close → execute lifecycle
   - Code, CLI and tests committed.
-  - Live propose/close/execute blocked on aitbc3 by governance DB corruption
+  - Live propose -> vote -> close -> execute validated on aitbc3 after dropping and recreating the governance DB.
     (invalid page in block 4 of relation base/16399/2610).
 - [ ] P1.1 Phase B — reputation-aware job dispatch
 - [ ] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
@@ -26,7 +26,7 @@ Latest pushed commits:
 - [x] P1.2 — customer and shop dashboard CLI commands
 - [x] P1.7 — governance close proposal; propose → vote → close → execute lifecycle
   - Code, CLI and tests committed.
-  - Live propose/close/execute blocked on aitbc3 by governance DB corruption
+  - Live propose -> vote -> close -> execute validated on aitbc3 after dropping and recreating the governance DB.
     ().
 - [ ] P1.1 Phase B — reputation-aware job dispatch
 - [ ] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
