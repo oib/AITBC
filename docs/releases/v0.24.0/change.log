@@ -684,3 +684,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `cli/aitbc_cli/commands/dashboard.py`, `apps/coordinator-api/.../routers/miner.py`, `apps/coordinator-api/.../services/jobs.py`: shop dashboard now lists assigned jobs and computes live earnings from completed, released payments.
 - MultiValidatorPoA: consensus unit tests pass; production activation remains gated behind a multi-node soak and security review (`multi_validator_consensus_enabled=false` on live nodes).
 
+- MultiValidatorPoA: `apps/blockchain-node/tests/consensus/test_multi_validator_poa_soak.py` passes; production toggle remains `multi_validator_consensus_enabled=false` until a live multi-node soak is scheduled.
+
