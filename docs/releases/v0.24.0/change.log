@@ -773,3 +773,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `DatabaseConfig` now supports `DATABASE_URL`/`DATABASE_ADAPTER` for PostgreSQL without switching live SQLite deployments that only set `DATABASE_URL`.
 - Removed the `AgentReputation.agent_id` foreign key to `ai_agent_workflows.id` so reputation profiles can be created for miners and other non-workflow agents.
 
+- Hardened cross-chain bridge: reject same-chain locks, enforce `bridge_max_lock_amount`, and add a configurable `bridge_refund_delay_seconds` to prevent instant refunds.
+
