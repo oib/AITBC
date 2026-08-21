@@ -635,3 +635,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `aitbc ai submit --zk-proof-required` lets buyers force the ZK gate.
 - `JobView` exposes `zk_status` and `zk_proof_id`.
 - `docs/scenarios/38_zk_high_value_jobs.md` added.
+- Operational note: the `aitbc-coordinator-api` systemd unit needs
+  `MemoryDenyWriteExecute=no` so the Node.js subprocesses used by snarkjs
+  can allocate executable memory pages.
