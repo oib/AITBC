@@ -682,7 +682,7 @@ def offer(
         success("Software offer listed on marketplace!")
         output(tx_result, ctx.obj.get("output_format", "table"))
 
-        # Auto-register in marketplace service so agents can discover it
+        # Auto-register in hub marketplace service so agents can discover it.
         _health_urls = {
             "ollama": "http://localhost:11434/api/tags",
             "whisper": "http://localhost:8110/health",
@@ -690,7 +690,10 @@ def offer(
             "ffmpeg": "http://localhost:8230/health",
         }
         try:
-            plugin_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
+            # P2.5: register the offer with the same marketplace service that `market list`
+            # queries, otherwise the offer is visible only on the local node.
+            marketplace_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
+            plugin_client = AITBCHTTPClient(base_url=marketplace_url, timeout=10)
             plugin_client.post(
                 "/v1/marketplace/offer",
                 json={
