@@ -801,4 +801,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 * df6dd0274 test(escrow,payments): regression tests for refund path
 - MultiValidatorPoA wired into live aitbc-blockchain-node: proposers rotate round-robin, blocks carry proposer signature plus validator attestations in block_metadata, and sync validates attestation threshold.
 - fix(sync): persist block_metadata when importing blocks so followers retain attestations.
-
+* 55359ceba feat(agent-coordinator): REST message send tries WebSocket first
