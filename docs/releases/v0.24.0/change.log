@@ -157,6 +157,21 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - Fallback to `GENESIS_WALLET_PRIVATE_KEY` is preserved for existing deployments.
 - Added unit tests in `apps/blockchain-node/tests/test_escrow_routes.py`.
 
+## Escrow refund end-to-end (2026-08-21)
+
+A stuck failed TEE job (`febb20dde26342238196a3a99b57423e`) was refunded through the canonical `aitbc` CLI:
+
+- `aitbc market escrow refund <job_id>` now tries the coordinator payment refund first when a client token is available, then falls back to the on-chain `/rpc/escrow/{job_id}/refund` path.
+- `aitbc ai refund <job_id>` is the canonical full-cycle refund command: it updates the coordinator `JobPayment`/`job.payment_status` and the on-chain escrow in one call.
+- The blockchain RPC `EscrowManager` now loads active escrow contracts from the chain DB on startup and can lazy-load any persisted contract by `job_id`.
+- The blockchain `/escrow/{job_id}` endpoint exposes `refunded_at` and `refund_tx_hash` so the coordinator can record the on-chain refund hash.
+- `PaymentService.refund_payment` is idempotent: if the on-chain escrow is already `refunded`, the coordinator DB is updated without resubmitting a transaction.
+- Loaded escrows use a deterministic `contract_id` derived from buyer/provider/job_id, so release/refund lookups stay stable across node restarts.
+
+Live validation on `hub.aitbc`:
+- `aitbc market escrow refund febb20dde26342238196a3a99b57423e` returned `success`, `contract_id=escrow_ba963aba0d3dd882`, and `refund_tx_hash=0x71df...7e7e8`.
+- Coordinator `job.payment_status` and `JobPayment.status` are now `refunded` with the same `refund_transaction_hash`.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
@@ -774,4 +789,12 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Removed the `AgentReputation.agent_id` foreign key to `ai_agent_workflows.id` so reputation profiles can be created for miners and other non-workflow agents.
 
 - Hardened cross-chain bridge: reject same-chain locks, enforce `bridge_max_lock_amount`, and add a configurable `bridge_refund_delay_seconds` to prevent instant refunds.
-
+* 838616dae fix(escrow,cli): load escrow contracts from DB and add aitbc ai refund command
+* a9edec4df fix(payments): make PaymentService.refund_payment idempotent and preserve refund_tx_hash
+* 3510a2313 fix(escrow): expose refund_tx_hash and refunded_at in /escrow/{job_id}
+* b0ed7463d fix(escrow): await async get_or_load_contract in _find_contract_id
+* 9d0b03ce6 fix(escrow): treat Escrow.amount as AIT, not compute-seconds
+* 5e5f2fda9 feat(cli,blockchain): market escrow refund tries coordinator, blockchain route is idempotent
+* 43c61d67f fix(cli): import Any in market escrow module
+* 91049b566 fix(cli): quote default hub hostname in market escrow refund
+* 381cf5b17 fix(escrow): deterministic contract_id for loaded escrows
