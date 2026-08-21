@@ -197,7 +197,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         if miner_id:
             jobs_resp = _safe_post(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
             if jobs_resp:
-                miner_jobs = jobs_resp.get("items", []) if isinstance(jobs_resp, dict) else jobs_resp
+                miner_jobs = jobs_resp.get("jobs", jobs_resp.get("items", [])) if isinstance(jobs_resp, dict) else jobs_resp
             earnings_resp = _safe_post(coord_client, f"/v1/miners/{miner_id}/earnings")
             if earnings_resp:
                 miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}
