@@ -178,7 +178,7 @@ def execute(ctx, proposal_id: str, executor_address: str, format: str):
         params: dict[str, str] = {}
         if executor_address:
             params["executor_address"] = executor_address
-        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute", json=params)
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
