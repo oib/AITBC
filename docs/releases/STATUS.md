@@ -81,9 +81,9 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 | `bridge_multisig_enabled` | `False` | Enable for multi-validator networks |
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
-| `escrow_enabled` | `False` | Two meanings: (1) paid job escrow and release is **live** in the blockchain node; (2) bridge HTLC settlement is still gated by this flag. Do not disable the job payment path. |
+| `escrow_enabled` | `True` | **Keep enabled** — B4 HTLC contract integration is complete; paid job escrow/create/release is live; cross-chain bridge settlement is active. |
 | `multi_validator_consensus_enabled` | `False` | Soak test added (1000 rounds + partition/PBFT). Enable only after configuring a validator set and per-validator signing keys; the live `PoAProposer` still uses the single `PROPOSER_ID` while this flag is `False`. |
 
-> **Known drift:** `escrow_enabled` in this table historically described the bridge HTLC path. Paid jobs create and release escrow today (see `docs/DESIGN_CYCLE.md` and scenario 34). The flag remains `False` as the safe default for cross-chain bridge HTLC until `bridge_require_merkle_proof=True`, `bridge_multisig_enabled=True`, and `multi_validator_consensus_enabled=True` are also enabled and audited.
+> **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. Cross-chain bridge HTLC settlement is also gated by this flag; operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
 >
 > **Bridge security defaults:** `bridge_release_enabled=False` means the live bridge still operates as a trusted custodian. Merkle-proof and multi-sig verification are implemented and covered by regression tests, but they are **disabled by default** and must be explicitly enabled for a trust-minimized configuration.
