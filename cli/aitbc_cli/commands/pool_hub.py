@@ -14,16 +14,11 @@ DEFAULT_POOL_HUB_URL = "http://localhost:8210"
 
 
 def _default_pool_hub_url() -> str:
-    """Local 8210 on the hub; otherwise the hub's public pool-hub URL."""
-    if os.getenv("NODE_ROLE", "").strip().lower() == "hub":
-        return DEFAULT_POOL_HUB_URL
-    explicit = os.getenv("HUB_POOL_HUB_URL") or os.getenv("POOL_HUB_URL")
+    """Default to the local pool-hub (8210); allow overrides via env."""
+    explicit = os.getenv("POOL_HUB_URL") or os.getenv("HUB_POOL_HUB_URL")
     if explicit:
         return explicit.rstrip("/")
-    from aitbc.config.hub import hub_service_url
-
-    resolved = hub_service_url("pool-hub")
-    return resolved or DEFAULT_POOL_HUB_URL
+    return DEFAULT_POOL_HUB_URL
 
 
 @click.group()

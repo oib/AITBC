@@ -24,16 +24,16 @@ breadcrumb: Home > Scenarios > Pool Hub SLA End-to-End
 
 ## Scenario Overview
 
-The pool hub runs on the hub (8210, nginx `/pool-hub/`). Shop/follower CLIs resolve it via `HUB_DISCOVERY_URL` / `HUB_P2P_HOST` and run `aitbc pool-hub status` / `sla`. `miners_online` stays 0 until a miner registers with the **hub** pool — the shop miner currently heartbeats the **local** coordinator.
+The pool hub runs on the **shop** node (port 8210). The `aitbc-miner` service registers with the local pool hub and sends heartbeats. `aitbc pool-hub status` reports how many miners are online in that pool hub. On the shop the CLI defaults to `http://localhost:8210`; from the hub or another node you can pass `--pool-hub-url http://aitbc3:8210` or set `POOL_HUB_URL`.
 
 ### Use Case
 
-A shop operator confirms SLA metrics from the follower without hardcoding a hub URL.
+A shop operator confirms that the local miner is visible to the pool hub and that SLA/billing data can be collected.
 
 ### What You'll Learn
 
-- How to query pool-hub from hub and shop with the same CLI
-- Why `miners_online` can be 0 on a healthy shop miner
+- How to query pool-hub from the shop and from a remote node
+- Why `miners_online` on the shop should be at least 1 when `aitbc-miner` is running
 - How to start mining from the CLI as an optional follow-up
 
 ---
@@ -46,51 +46,60 @@ A shop operator confirms SLA metrics from the follower without hardcoding a hub 
 
 ### Setup Required
 
-On the hub:
+On the shop (e.g. `aitbc3`):
 
-- `aitbc-pool-hub.service` enabled
+- `aitbc-pool-hub.service` enabled and running
 - `/etc/aitbc/aitbc-pool-hub.env` with Postgres/Redis/shared secret
-- nginx `location /pool-hub/`
+- `aitbc-miner.service` running and registered with the local pool hub
 
-On the shop:
+On the hub or a follower:
 
-- `HUB_DISCOVERY_URL` or `HUB_P2P_HOST` / `HUB_RPC_URL` in `/etc/aitbc/{blockchain,node}.env`
+- `aitbc` CLI installed
+- (optional) `HUB_POOL_HUB_URL` or `POOL_HUB_URL` env var to reach the shop pool hub
 
 ---
 
 ## Step-by-Step Workflow
 
-### Step 1: Hub-side CLI
+### Step 1: Shop-side CLI
 
-On the hub:
+On `aitbc3`:
 
 ```bash
 aitbc pool-hub status
+```
+
+**Expected output:**
+
+```json
+{"status": "ok", "db": true, "redis": true, "miners_online": 1}
+```
+
+The `miners_online` count is `1` (or more) when `aitbc-miner` has successfully registered with the local pool hub.
+
+```bash
 aitbc pool-hub sla
 ```
 
 **Expected output:**
 
 ```json
-{"status": "ok", "db": true, "redis": true, "miners_online": 0}
-```
-
-```json
 {"status": "healthy", "active_violations": 0, "recent_metrics_count": 0, "timestamp": "..."}
 ```
 
-### Step 2: Shop/follower CLI (same commands)
+### Step 2: Hub-side or remote CLI
 
-On `aitbc3`:
+From the hub, point at the shop pool hub:
 
 ```bash
-aitbc pool-hub status
-aitbc pool-hub sla
+aitbc pool-hub status --pool-hub-url http://aitbc3:8210
 ```
 
-**Expected output:** the same JSON. The CLI must not talk to localhost:8210 on the shop.
+**Expected output:** the same JSON with `miners_online: 1` if the shop miner is online.
 
 ### Step 3: Optional — start a miner
+
+If the miner is not running:
 
 ```bash
 aitbc mining start --wallet <miner-wallet>
@@ -98,7 +107,7 @@ aitbc mining status
 aitbc pool-hub status
 ```
 
-**Expected output:** mining status live on the shop. `miners_online` becomes 1 **only if** that miner registers with the hub pool. Today it often stays 0; that is a product gap (DESIGN_CYCLE P0.2), not a CLI failure.
+**Expected output:** mining status live on the shop. `miners_online` becomes 1 as soon as the production miner registers with the pool hub.
 
 ---
 
@@ -106,9 +115,9 @@ aitbc pool-hub status
 
 After completing this scenario, you should be able to:
 
-- Run `aitbc pool-hub status` and `sla` from hub and shop
-- Interpret `miners_online: 0` correctly
-- Start mining from `aitbc mining start`
+- Run `aitbc pool-hub status` and `sla` from the shop and see `miners_online: 1`
+- Query a remote pool hub with `--pool-hub-url`
+- Start mining from `aitbc mining start` and verify pool-hub visibility
 
 ---
 
