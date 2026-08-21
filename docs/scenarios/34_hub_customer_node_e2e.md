@@ -4,7 +4,7 @@
 **Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md), [Scenario 07 AI Job Submission](./07_ai_job_submission.md)
 **Estimated Time**: 25 minutes
 **Last Updated**: 2026-08-21
-**Version**: 1.4
+**Version**: 1.5
 
 ## Navigation Path
 
@@ -35,10 +35,13 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 
 ### What You'll Learn
 
-- How to point `aitbc` at the hub
+- How to point `aitbc` at the hub and log in with `aitbc auth login`
 - How to submit unpaid and paid jobs with `aitbc ai`
+- How to submit high-value jobs that receive a verified ZK receipt proof
 - How to check escrow with `aitbc wallet` / `aitbc account`
-- How to publish and list GPU offers with `aitbc market`
+- How to publish and list GPU offers with `aitbc market`, including live trust scores
+- How to view reputation with `aitbc reputation`
+- How to use `aitbc dashboard customer` and `aitbc dashboard shop`
 - How to health-check the bridge and exchange from the CLI
 
 ---
@@ -48,7 +51,8 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 ### Tools Required
 
 - `aitbc` on both hub and shop
-- A client JWT (`from aitbc.auth import create_access_token` — **not** `coordinator_api.auth.jwt_auth`)
+- A funded wallet for the customer and a funded provider wallet on the shop
+- `aitbc auth login` to obtain a client JWT (or a pre-created client token for scripts)
 
 ### Setup Required
 
@@ -89,9 +93,18 @@ aitbc config show
 aitbc config set coordinator_api_url http://hub.aitbc.bubuit.net/c/v1
 ```
 
-You also need a client JWT. See [CLI Live Setup](../ops/aitbc-cli-live-setup.md) for the URL/JWT instructions used in the live deployment.
-
 On a follower, set hub discovery in `/etc/aitbc/node.env` (`HUB_DISCOVERY_URL`, `HUB_RPC_URL`, `HUB_P2P_HOST`). `aitbc config set` currently knows `coordinator_api_url`, `agent_coordinator_url`, `api_key`, `timeout` — other URLs come from those env files.
+
+Log in to obtain a client JWT:
+
+```bash
+aitbc auth login --wallet default
+aitbc auth status
+```
+
+**Expected output:** `Logged in as 0x...`, `client` credential stored in `~/.aitbc/credentials.json`.
+
+For scripted use you can still pass `--api-key "$CLIENT_JWT"`, but `aitbc auth login` is the documented path for operators.
 
 ### Step 4: Connectivity through CLI (not a port loop)
 
@@ -107,11 +120,9 @@ aitbc exchange-island rates
 ### Step 5: Unpaid job
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai submit \
-  --prompt "Cross-node unpaid job" \
-  --coordinator-url http://127.0.0.1:8203
-aitbc --api-key "$CLIENT_JWT" ai status --job-id "$JOB_ID"
-aitbc --api-key "$CLIENT_JWT" ai jobs --limit 5
+aitbc ai submit --prompt "Cross-node unpaid job" --wait --timeout 120
+aitbc ai status --job-id "$JOB_ID"
+aitbc ai jobs --limit 5
 ```
 
 **Expected output:** `QUEUED` then `COMPLETED` on `aitbc-miner-1` with `payment_status` none/skipped.
@@ -139,25 +150,22 @@ aitbc exchange-island orders --status open
 On the hub:
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai submit \
-  --prompt "Cross-node paid job test" \
+aitbc ai submit --prompt "Cross-node paid job test" \
   --payment 1.0 \
-  --wallet genesis \
+  --wallet default \
   --buyer-address <customer-ait1-or-aitbc1> \
   --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
-  --coordinator-url http://127.0.0.1:8203
+  --wait --timeout 180
 ```
 
-**Expected output:** `payment_status: escrowed`, a `payment_id`.
+**Expected output:** `payment_status: escrowed`, then `COMPLETED` with `payment_status: released`.
 
-Wait, then:
+Poll or inspect:
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai status --job-id "$JOB_ID"
-aitbc --api-key "$CLIENT_JWT" ai results --job-id "$JOB_ID"
+aitbc ai status --job-id "$JOB_ID"
+aitbc ai results --job-id "$JOB_ID"
 ```
-
-**Expected output:** `COMPLETED`, `payment_status: released`.
 
 On the shop (or any CLI that talks to the hub wallet/RPC):
 
@@ -185,23 +193,64 @@ On the hub/customer:
 aitbc market list --service-type ollama
 ```
 
-**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash.
+**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash. Offers published by registered agents show a live trust score (e.g. `Rating: 0.68 trust`) instead of the local review count.
 
 ### Step 10: Dashboard validation
 
-Customer view (hub or any CLI with a client token):
+Customer view (after `aitbc auth login --wallet default` on the hub):
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" dashboard customer
+aitbc dashboard customer
 ```
 
 Shop view (on `aitbc3` as `aitbc`):
 
 ```bash
-aitbc dashboard shop --miner-id aitbc3
+aitbc dashboard shop
 ```
 
-**Expected output:** customer summary shows jobs, payment statuses and wallet balances; shop summary shows marketplace offers, wallet addresses, and network job/miner counts. Some live hub endpoints (`/v1/monitoring/metrics`, `/v1/miners/{id}/jobs`) may 404 until the coordinator-api has reloaded the current code; the dashboard degrades to the data it can reach (marketplace, wallets, GPUs).
+**Expected output:** customer summary shows jobs, payment statuses and wallet balances; shop summary shows marketplace offers, wallet addresses, and network job/miner counts. The dashboard uses the stored client/miner JWT; the customer view needs `role: client` and the shop view needs `role: miner`.
+
+### Step 11: High-value ZK receipt proof
+
+With `COORDINATOR_ENABLE_ZK_VERIFICATION=true` and `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`, a paid job above the threshold receives a verified ZK receipt proof before escrow release. You can also force a proof with `--zk-proof-required`.
+
+On the hub:
+
+```bash
+aitbc ai submit --prompt "High-value ZK test" \
+  --payment 15 \
+  --wallet default \
+  --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f \
+  --model llama3.2:3b \
+  --zk-proof-required \
+  --wait --timeout 300
+```
+
+**Expected output:** `state: COMPLETED`, `payment_status: released`, `zk_status: verified`, `zk_proof_id: <circuit-hash>`.
+
+Verify the stored proof:
+
+```bash
+aitbc zk verify --job-id "$JOB_ID"
+```
+
+**Expected output:** `verified: true`, `computation_correct: true`, `privacy_preserved: true`.
+
+See [Scenario 37: ZK Proof for High-Value Jobs](./37_zk_high_value_jobs.md) for full details.
+
+### Step 12: Reputation and trust-aware market ranking
+
+After jobs complete, the coordinator updates the provider's reputation score:
+
+```bash
+aitbc reputation leaderboard
+aitbc reputation trust-score --agent-id aitbc-miner-1
+```
+
+**Expected output:** `aitbc-miner-1` at the top with `trust_score` > 500 and level `advanced` or higher.
+
+`aitbc market list` sorts by this live trust score when available, and the `Rating` column shows e.g. `0.68 trust` for agent offers instead of the local review count. Local service offers still display their `avg_rating`.
 
 ---
 
@@ -209,9 +258,12 @@ aitbc dashboard shop --miner-id aitbc3
 
 After completing this scenario, you should be able to:
 
-- Run the inner loop with `aitbc` only (config, ai, wallet, account, market, bridge, exchange-island)
+- Log in with `aitbc auth login` and use stored credentials for customer and shop views
+- Run the inner loop with `aitbc` only (config, auth, ai, zk, wallet, account, market, reputation, dashboard, bridge, exchange-island)
 - See `ESCROW_RELEASE` in the provider wallet
-- List the shop GPU offer from the hub
+- List the shop GPU offer from the hub and see live trust scores
+- Submit high-value jobs that generate and verify a ZK receipt proof
+- Inspect provider reputation with `aitbc reputation`
 - Explain why raw hub LAN ports time out
 
 ---
@@ -224,10 +276,11 @@ journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c jo
 journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed || true
 ```
 
-JWT snippet (hub):
+Auth and ZK validation:
 
 ```bash
-python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '0xCustomer1'}))"
+aitbc auth status
+aitbc zk verify --job-id "$ZK_JOB_ID"
 ```
 
 ---
