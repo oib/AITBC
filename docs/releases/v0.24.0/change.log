@@ -764,3 +764,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Registered `aitbc zk` CLI command (it existed but was not loaded in `core/main.py`).
 - Validated scenario 37: `aitbc ai submit --payment 15 --zk-proof-required` produces a verified `zk_proof` in the receipt, releases escrow, and `aitbc zk verify --job-id` confirms `verified: true`.
 
+- Registered missing CLI commands `aitbc auth` and `aitbc dashboard` in `core/main.py`.
+
