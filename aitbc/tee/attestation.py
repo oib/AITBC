@@ -4,14 +4,21 @@ Real quote handling requires platform-specific libraries (Intel SGX/V2, TDX,
 AMD SEV, etc.). The Ed25519 signing layer here is a simulator-friendly
 stand-in for a quote signed inside the enclave and verified by the platform
 attestation service.
+
+v0.14.3: Quotes are now self-contained signed documents that can be
+serialized to/from base64 JSON, transmitted to the coordinator, and verified
+with a public key carried in the quote itself. This enforces a real quote
+path before escrow release.
 """
 
 from __future__ import annotations
 
-import hashlib
+import base64
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+import hashlib
+import json
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -89,13 +96,85 @@ class AttestationQuote:
         except InvalidSignature:
             return False
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-serializable dict."""
+        return {
+            "quote_id": self.quote_id,
+            "enclave_id": self.enclave_id,
+            "quote_blob": base64.b64encode(self.quote_blob).decode("ascii"),
+            "measurement": self.measurement,
+            "timestamp": self.timestamp.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "status": self.status.value,
+            "signature": base64.b64encode(self.signature).decode("ascii") if self.signature else "",
+            "public_key": base64.b64encode(self.public_key).decode("ascii") if self.public_key else "",
+            "meta": self.meta,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> AttestationQuote:
+        """Deserialize from a JSON-serializable dict."""
+
+        def _parse_dt(value: str | datetime) -> datetime:
+            if isinstance(value, datetime):
+                return value
+            parsed = datetime.fromisoformat(value)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+        def _b64_bytes(value: str) -> bytes:
+            if not value:
+                return b""
+            return base64.b64decode(value)
+
+        return cls(
+            quote_id=data.get("quote_id", ""),
+            enclave_id=data.get("enclave_id", ""),
+            quote_blob=_b64_bytes(data.get("quote_blob", "")),
+            measurement=data.get("measurement", ""),
+            timestamp=_parse_dt(data["timestamp"]),
+            expires_at=_parse_dt(data["expires_at"]),
+            status=AttestationStatus(data.get("status", "valid")),
+            signature=_b64_bytes(data.get("signature", "")),
+            public_key=_b64_bytes(data.get("public_key", "")),
+            meta=data.get("meta", {}),
+        )
+
+    def to_json(self) -> str:
+        """Serialize to a JSON string."""
+        return json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":"))
+
+    @classmethod
+    def from_json(cls, text: str) -> AttestationQuote:
+        """Deserialize from a JSON string."""
+        return cls.from_dict(json.loads(text))
+
+    def to_base64(self) -> str:
+        """Serialize to a base64-encoded JSON string."""
+        return base64.b64encode(self.to_json().encode()).decode("ascii")
+
+    @classmethod
+    def from_base64(cls, text: str) -> AttestationQuote:
+        """Deserialize from a base64-encoded JSON string."""
+        return cls.from_json(base64.b64decode(text).decode("utf-8"))
+
 
 class QuoteGenerator:
     """Generate local attestation quotes for an enclave."""
 
-    def __init__(self, enclave_id: str = "", signing_key: bytes = b"") -> None:
+    def __init__(self, enclave_id: str = "", signing_key: bytes | None = None) -> None:
         self.enclave_id = enclave_id
         self.signing_key = signing_key
+
+    def _resolve_signing_key(self, enclave_id: str) -> bytes:
+        """Return the Ed25519 signing key material for this enclave.
+
+        If the caller supplied a key, use it. Otherwise derive a deterministic
+        key from the enclave ID. In production the enclave itself holds the
+        private key; this derivation is a simulator-friendly stand-in.
+        """
+        if self.signing_key is not None:
+            return self.signing_key
+        return (enclave_id or self.enclave_id or "default").encode()
 
     def generate(
         self,
@@ -104,7 +183,7 @@ class QuoteGenerator:
         measurement: str = "",
         report_data: bytes = b"",
     ) -> AttestationQuote:
-        """Return a quote, optionally signed by the enclave.
+        """Return a signed quote for the given enclave and measurement.
 
         Supports both ``generate(quote_id, enclave_id, measurement)`` and
         ``generate(report_data=..., measurement=...)`` call patterns.
@@ -123,8 +202,10 @@ class QuoteGenerator:
             measurement=measurement,
             status=AttestationStatus.VALID,
         )
-        if self.signing_key:
-            quote.sign(self.signing_key)
+        # v0.14.3: always sign unless explicitly disabled with an empty key.
+        signing_key = self._resolve_signing_key(target_enclave)
+        if signing_key:
+            quote.sign(signing_key)
         return quote
 
 
