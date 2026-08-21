@@ -120,6 +120,14 @@ class PoAProposer:
         self._task: asyncio.Task[None] | None = None
         self._last_proposer_id: str | None = None
         self._last_block_timestamp: datetime | None = None
+        self._multi_validator = None
+        self._validator_keys: dict[str, str] = {}
+        if getattr(settings, "multi_validator_consensus_enabled", False):
+            from .multi_validator_poa import get_consensus
+
+            self._multi_validator = get_consensus(self._config.chain_id)
+            self._load_validator_set()
+            self._load_validator_keys()
 
     def _fetch_chain_head(self) -> Block | None:
         """Fetch the current chain head block from the database."""
@@ -127,6 +135,101 @@ class PoAProposer:
             return session.exec(
                 select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
             ).first()
+
+    def _load_validator_set(self) -> None:
+        """Load the validator set from settings into MultiValidatorPoA."""
+        if not self._multi_validator or not settings.validator_set:
+            return
+        try:
+            import json
+            from decimal import Decimal
+
+            from .multi_validator_poa import ValidatorRole
+
+            validators = json.loads(settings.validator_set)
+            for v in validators:
+                address = v.get("address")
+                stake = v.get("stake", "1000")
+                if address:
+                    self._multi_validator.add_validator(address, Decimal(str(stake)))
+                    # Promote to active validator so it is eligible for proposer selection
+                    self._multi_validator.validators[address].role = ValidatorRole.VALIDATOR
+            self._multi_validator.save_state()
+            self._logger.info(
+                "Loaded %s validators into MultiValidatorPoA for chain %s",
+                len(validators),
+                self._config.chain_id,
+            )
+        except Exception as e:
+            self._logger.warning("Failed to load validator set: %s", e)
+
+    def _load_validator_keys(self) -> None:
+        """Load the local validator keys from settings."""
+        if not settings.validator_keys:
+            return
+        try:
+            import json
+
+            self._validator_keys = json.loads(settings.validator_keys)
+            self._logger.info(
+                "Loaded %s local validator keys for chain %s",
+                len(self._validator_keys),
+                self._config.chain_id,
+            )
+        except Exception as e:
+            self._logger.warning("Failed to load validator keys: %s", e)
+
+    def _select_proposer(self, block_height: int) -> str | None:
+        """Select the proposer for a block height.
+
+        When multi-validator consensus is enabled, use MultiValidatorPoA
+        round-robin selection from the active validator set. Otherwise fall
+        back to the single proposer_id from ProposerConfig.
+        """
+        if self._multi_validator:
+            proposer = self._multi_validator.select_proposer(block_height)
+            if proposer:
+                return proposer
+            self._logger.warning("MultiValidatorPoA returned no proposer for height %s", block_height)
+        return self._config.proposer_id
+
+    def _sign_block_hash_for(self, proposer: str, block_hash: str) -> str:
+        """Sign a block hash with the private key of the given proposer."""
+        private_key = self._validator_keys.get(proposer) or getattr(settings, "proposer_key", None)
+        if not private_key:
+            self._logger.debug("No private key for proposer %s; block signature omitted", proposer)
+            return ""
+        try:
+            from eth_keys import keys
+
+            pk_hex = private_key.removeprefix("0x")
+            pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+            msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
+            sig = pk.sign_msg_hash(msg_hash)
+            return sig.to_hex()
+        except Exception as e:
+            self._logger.warning("Failed to sign block hash for %s: %s", proposer, e)
+            return ""
+
+    def _collect_attestations(self, block_hash: str, proposer: str) -> list[dict[str, str]]:
+        """Collect signatures from all local validators except the proposer."""
+        attestations: list[dict[str, str]] = []
+        if not self._validator_keys:
+            return attestations
+        for address, private_key in self._validator_keys.items():
+            if address == proposer:
+                continue
+            try:
+                from eth_keys import keys
+
+                pk_hex = private_key.removeprefix("0x")
+                pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+                msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
+                sig = pk.sign_msg_hash(msg_hash)
+                attestations.append({"validator": address, "signature": sig.to_hex()})
+            except Exception as e:
+                self._logger.warning("Failed to collect attestation from %s: %s", address, e)
+        return attestations
 
     async def start(self) -> None:
         if self._task is not None:
@@ -431,20 +534,48 @@ class PoAProposer:
             # excluded all other accounts. Since the trie is not persisted across
             # blocks, a full recompute is the only correct option.
             state_root = _compute_state_root(session, self._config.chain_id)
+            # v0.7.5: Select the proposer for this block. In multi-validator
+            # consensus the proposer is chosen by MultiValidatorPoA; otherwise the
+            # configured proposer_id is used.
+            proposer = self._select_proposer(next_height)
+            if not proposer:
+                self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
+                return False
+
+            # If the selected proposer is not a key we control, skip the block.
+            if self._multi_validator and proposer not in self._validator_keys:
+                self._logger.info(
+                    "[PROPOSE] Selected proposer %s is not a local key, skipping proposal at height %s",
+                    proposer,
+                    next_height,
+                )
+                return False
+
             # v0.7.1: Sign the block hash with the proposer's private key.
             # The signature proves the proposer authored this block and is
             # used by bridge proof verification to tie proofs to signed blocks.
-            block_signature = self._sign_block_hash(block_hash)
+            block_signature = self._sign_block_hash_for(proposer, block_hash)
+
+            # v0.7.5: collect attestations from other local validators and store
+            # them in block_metadata as JSON. The proposer signature remains the
+            # canonical block signature.
+            block_metadata: str | None = None
+            if self._multi_validator:
+                attestations = self._collect_attestations(block_hash, proposer)
+                if attestations:
+                    block_metadata = json.dumps({"attestations": attestations})
+
             block = Block(
                 chain_id=self._config.chain_id,
                 height=next_height,
                 hash=block_hash,
                 parent_hash=parent_hash,
-                proposer=self._config.proposer_id,
+                proposer=proposer,
                 timestamp=timestamp,
                 tx_count=len(processed_txs),
                 state_root=state_root,
                 signature=block_signature,
+                block_metadata=block_metadata,
             )
             session.add(block)
             session.commit()
@@ -458,11 +589,11 @@ class PoAProposer:
             if interval_seconds is not None and interval_seconds >= 0:
                 metrics_registry.observe("block_interval_seconds", interval_seconds)
                 metrics_registry.set_gauge("poa_last_block_interval_seconds", float(interval_seconds))
-            proposer_suffix = _sanitize_metric_suffix(self._config.proposer_id)
+            proposer_suffix = _sanitize_metric_suffix(proposer)
             metrics_registry.increment(f"poa_blocks_proposed_total_{proposer_suffix}")
-            if self._last_proposer_id is not None and self._last_proposer_id != self._config.proposer_id:
+            if self._last_proposer_id is not None and self._last_proposer_id != proposer:
                 metrics_registry.increment("poa_proposer_switches_total")
-            self._last_proposer_id = self._config.proposer_id
+            self._last_proposer_id = proposer
             self._last_block_timestamp = timestamp
             self._logger.info("Proposed block", extra={"height": block.height, "hash": block.hash, "proposer": block.proposer})
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
@@ -486,6 +617,7 @@ class PoAProposer:
                             "tx_count": block.tx_count,
                             "state_root": block.state_root,
                             "signature": block.signature,
+                            "block_metadata": block.block_metadata,
                             "transactions": tx_list,
                         },
                     )

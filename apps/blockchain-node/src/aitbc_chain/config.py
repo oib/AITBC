@@ -538,6 +538,16 @@ class ChainSettings(BaseSettings):
     # testing via RPC endpoints.
     # v0.10.16: fail-closed by default; enable only after explicit security review.
     multi_validator_consensus_enabled: bool = False
+    # Validator set: JSON list of {"address": "...", "stake": "1000"} objects.
+    # Used by MultiValidatorPoA to select proposers and validate attestations.
+    validator_set: str = ""
+    # Validator keys controlled by this node: JSON mapping address -> private key.
+    # May be set in blockchain-secrets.env. The mapping is used to sign blocks and
+    # produce attestations. Keep this value out of the repository.
+    validator_keys: str = ""
+    # Minimum number of attestations required in block_metadata for a multi-validator
+    # block to be accepted during sync (in addition to the proposer signature).
+    multi_validator_min_attestations: int = 0
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
     # set this to False explicitly.
     pbft_require_signatures: bool = True
