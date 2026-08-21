@@ -43,6 +43,7 @@ async def submit_job(
                 payment_method="aitbc_token",
                 buyer_address=req.buyer_address,
                 provider_address=req.provider_address,
+                auto_reinvest_pct=req.constraints.auto_reinvest_pct if req.constraints else None,
             )
             # V23-46: create_payment(client_id, job_id, payment_data). Passing (job.id,
             # payment_create) made client_id=job.id, job_id=payment_create, and left
