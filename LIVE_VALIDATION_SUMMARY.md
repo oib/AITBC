@@ -260,3 +260,11 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
     `payment_status: released`, `zk_proof_id` set.
   - `aitbc zk verify --proof-id 305d1dd786604d38a0dd004ebac426ad` returned
     `verified: true`.
+
+- 2026-08-21: P2.2 TEE attestation live validation:
+  - `aitbc --api-key <miner> tee attest aitbc-miner-tee --measurement ...` works.
+  - `aitbc --api-key <miner> tee verify --quote <b64> --measurement ...` works.
+  - Confidential job: `aitbc ai submit --payment 5 --tee-attestation-required --tee-enclave-id aitbc-miner-tee --prompt ...`
+    - Job `22b6bf7a547447b2bdc641f80ec9e7ea` completed, `tee_status: verified`, `payment_status: released`, `tee_attestation_id: ta_7f0f7c5df3`.
+  - Combined high-value + confidential job: `aitbc ai submit --payment 10 --zk-proof-required --tee-attestation-required --tee-enclave-id aitbc-miner-tee`
+    - Job `558739dad6a04a779806f6b773432eb5` completed, `zk_status: verified`, `tee_status: verified`, `payment_status: released`.
