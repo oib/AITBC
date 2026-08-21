@@ -67,6 +67,67 @@ ARCH_MAP = {
     "1060": "pascal",
 }
 
+# Default software service offers the shop publishes on startup and refreshes
+# periodically. These match the canonical `aitbc market offer` command.
+DEFAULT_SOFTWARE_OFFERS = [
+    {
+        "service_type": "whisper",
+        "model": "base",
+        "price": "0.02",
+        "unit": "per_audio_min",
+        "description": "Default Whisper base transcription",
+    },
+    {
+        "service_type": "ffmpeg",
+        "model": "h264-transcode",
+        "price": "0.005",
+        "unit": "per_processing_hour",
+        "description": "Default FFmpeg h264 transcoding",
+    },
+    {
+        "service_type": "ollama",
+        "model": "llama3.2:3b",
+        "price": "0.001",
+        "unit": "per_1k_tokens",
+        "description": "Default Ollama llama3.2:3b inference",
+    },
+]
+OFFER_PUBLISH_INTERVAL = 300
+AITBC_CLI = "/opt/aitbc/venv/bin/aitbc"
+
+
+def publish_default_offers(ollama_models: list[str]) -> None:
+    """Publish default Whisper, FFmpeg and Ollama software offers.
+
+    This is the shop-side equivalent of running `aitbc market offer` for each
+    supported default service. It is idempotent: the marketplace service
+    updates an existing offer with the same (service_type, model) key.
+    """
+    for offer in DEFAULT_SOFTWARE_OFFERS:
+        if offer["service_type"] == "ollama" and offer["model"] not in ollama_models:
+            logger.info("Skipping default offer for Ollama model %s (not available)", offer["model"])
+            continue
+        cmd = [
+            AITBC_CLI,
+            "market",
+            "offer",
+            offer["service_type"],
+            offer["model"],
+            offer["price"],
+            "--unit",
+            offer["unit"],
+            "--description",
+            offer["description"],
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
+            else:
+                logger.warning("Default offer %s/%s failed: %s", offer["service_type"], offer["model"], result.stderr[:200])
+        except Exception as e:
+            logger.warning("Error publishing default offer %s/%s: %s", offer["service_type"], offer["model"], e)
+
 
 def classify_architecture(name: str) -> str:
     upper = name.upper()
@@ -603,9 +664,14 @@ async def main():
     if not pool_hub_registered:
         logger.warning("Pool hub registration failed; continuing without pool-hub visibility")
 
+    # Publish default Whisper/FFmpeg/Ollama software offers on startup so the
+    # shop is discoverable through `aitbc market list` immediately.
+    await asyncio.to_thread(publish_default_offers, models)
+
     last_heartbeat = 0.0
     last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
+    last_offer_publish = 0.0
     try:
         while True:
             current_time = time.time()
@@ -615,6 +681,9 @@ async def main():
             if current_time - last_pool_hub_heartbeat >= HEARTBEAT_INTERVAL:
                 send_pool_hub_heartbeat()
                 last_pool_hub_heartbeat = current_time
+            if current_time - last_offer_publish >= OFFER_PUBLISH_INTERVAL:
+                await asyncio.to_thread(publish_default_offers, models)
+                last_offer_publish = current_time
             if current_time - last_poll >= 3:
                 job = poll_for_jobs()
                 if job:
