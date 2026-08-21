@@ -735,13 +735,27 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Disabled `aitbc-pool-hub.service` on `aitbc3` (shop/follower) and pointed the shop miner at the hub pool-hub.
 
 
-- P2.5: Whisper and FFmpeg default shop offers.
-  - `aitbc ai submit --type transcribe --input <url> --model <whisper-model>` runs Whisper.
-  - `aitbc ai submit --type reencode --input <url> --output-format <fmt>` runs FFmpeg.
-  - `production_miner.py` advertises `transcribe` and `reencode` in `supported_tasks`.
-  - `aitbc-whisper` and `aitbc-ffmpeg` services started with executable memory enabled.
-  - Default marketplace offers for Whisper and FFmpeg created in marketplace service.
-  - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md`.
+- P2.5: Whisper, FFmpeg, and Ollama default shop offers.
+  - `aitbc-miner` publishes default `whisper/base`, `ffmpeg/h264-transcode`, and
+    `ollama/llama3.2:3b` software offers on startup and every 5 minutes by running
+    the canonical `aitbc market offer` command.
+  - `aitbc market offer` now works from shop nodes: it picks a wallet with a
+    non-zero on-chain balance, falls back to the hub island (`ait-hub`), and
+    registers the offer with the hub marketplace service.
+  - Software-only marketplace listings no longer require a prior on-chain bond
+    (hardware GPU bundles still do when `MARKET_BOND_MIN_AMOUNT` is set).
+  - `aitbc market list` shows the default offers from the shop.
+  - `aitbc market transcribe`, `aitbc market process`, and `aitbc market run`
+    execute Whisper, FFmpeg, and Ollama jobs against the shop's public endpoints
+    and release escrow on completion.
+  - `apps/ffmpeg/main.py` maps consumer codec names (h264/hevc) to the correct
+    FFmpeg encoders (`h264_nvenc`, etc.) and fixes bitrate/bufsize formatting.
+  - `cli/aitbc_cli/commands/market/jobs.py` coerces `Decimal` costs to `float`
+    before JSON and uses the offer's public endpoint for Ollama inference.
+  - `examples/nginx/nginx-aitbc.conf.example` and `scripts/setup/install-nginx-node.sh`
+    include `ffmpeg` and `whisper` upstream/location blocks on the correct ports.
+  - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md` and
+    `docs/scenarios/50_default_shop_offers.md`.
 - Validated end-to-end ZK receipt verification: submitted `aitbc ai submit --wallet default --payment 1.0 --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f --model llama3.2:3b --prompt "What is the capital of France?" --zk-proof-required --wait`; the completed receipt shows `zk_status: verified` and `aitbc zk verify --proof-id f714b502099b4813931d8594b9b57650` returns `verified: true, computation_correct: true, privacy_preserved: true`.
 
 
