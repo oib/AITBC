@@ -4,11 +4,15 @@ Real GPU Miner Client for AITBC - runs on host with actual GPU
 
 import asyncio
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import urllib.request
 
 from datetime import UTC, datetime
+from typing import Any
 
 import requests
 
@@ -107,7 +111,7 @@ def build_gpu_capabilities() -> dict:
         "price": 0.01,
         "region": "localhost",
         "platform": "CUDA" if gpu_info else "CPU",
-        "supported_tasks": ["inference", "training", "stable-diffusion", "llama"],
+        "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "transcribe", "reencode"],
         "max_concurrent_jobs": 1,
     }
 
@@ -337,71 +341,170 @@ def build_tee_quote(job):
         return None
 
 
+def _download_media(url: str, dest: str) -> None:
+    """Download an audio/video file from a URL to a local path."""
+    try:
+        urllib.request.urlretrieve(url, dest)
+    except Exception as e:
+        raise Exception(f"Failed to download media from {url}: {e}") from e
+
+
+def _run_whisper(audio_path: str, model: str = "base") -> str:
+    """Transcribe an audio file with OpenAI Whisper and return the text."""
+    try:
+        import whisper
+
+        w = whisper.load_model(model)
+        result = w.transcribe(audio_path, fp16=False)
+        return result.get("text", "").strip()
+    except Exception as e:
+        raise Exception(f"Whisper transcription failed: {e}") from e
+
+
+def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = None) -> dict[str, Any]:
+    """Re-encode a media file with FFmpeg. Returns summary metadata."""
+    fmt = output_format or os.path.splitext(output_path)[1].lstrip(".") or "mp4"
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", input_path, f"-f", fmt, output_path],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+        size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
+        return {
+            "output_format": fmt,
+            "output_path": output_path,
+            "output_size_bytes": size,
+            "stdout": result.stdout,
+            "stderr": result.stderr[-500:] if result.stderr else "",
+        }
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"FFmpeg re-encode failed: {e.stderr}") from e
+    except Exception as e:
+        raise Exception(f"FFmpeg re-encode error: {e}") from e
+
+
+def _submit_success(job_id, output, execution_time, extra=None):
+    gpu_after = get_gpu_info()
+    result = {
+        "result": {
+            "status": "completed",
+            "output": output,
+            "execution_time": execution_time,
+            "gpu_used": bool(gpu_after),
+            **(extra or {}),
+        },
+        "metrics": {
+            "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
+            "memory_used": gpu_after["memory_used"] if gpu_after else 0,
+            "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048),
+            "duration_ms": int(execution_time * 1000),
+        },
+    }
+    submit_result(job_id, result)
+    logger.info("Job %s completed in %ss", job_id, execution_time)
+
+
+def _submit_failure(job_id, error_message):
+    logger.error("Job execution error: %s", error_message)
+    submit_result(job_id, {"result": {"status": "failed", "error": error_message}})
+
+
 def execute_job(job, available_models):
     """Execute a job using real GPU resources"""
     job_id = job.get("job_id")
     payload = job.get("payload", {})
     logger.info("Executing job %s: %s", job_id, payload)
+    job_type = payload.get("type")
+    if job_type is None and "model" in payload and ("prompt" in payload):
+        job_type = "inference"
+
     try:
-        job_type = payload.get("type")
-        if job_type is None and "model" in payload and ("prompt" in payload):
-            job_type = "inference"
         if job_type == "inference":
-            prompt = payload.get("prompt", "")
-            model = payload.get("model", "llama3.2:latest")
-            if model not in available_models:
-                if available_models:
-                    model = available_models[0]
-                    logger.info("Using available model: %s", model)
-                else:
-                    raise Exception("No models available in Ollama")
-            logger.info("Running inference on GPU with model: %s", model)
-            start_time = time.time()
-            ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=60)
-            ollama_response = ollama_client.post("/api/generate", json={"model": model, "prompt": prompt, "stream": False})
-            if ollama_response:
-                result = ollama_response
-                output = result.get("response", "")
-                execution_time = time.time() - start_time
-                gpu_after = get_gpu_info()
-                tee_quote = build_tee_quote(job)
-                submit_payload = {
-                    "result": {
-                        "status": "completed",
-                        "output": output,
-                        "model": model,
-                        "tokens_processed": result.get("eval_count", 0),
-                        "execution_time": execution_time,
-                        "gpu_used": True,
-                    },
-                    "metrics": {
-                        "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
-                        "memory_used": gpu_after["memory_used"] if gpu_after else 0,
-                        "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048),
-                        "duration_ms": int(execution_time * 1000),
-                    },
-                }
-                if tee_quote:
-                    submit_payload["tee_quote"] = tee_quote
-                    logger.info("Attaching TEE quote for job %s", job_id)
-                submit_result(
-                    job_id,
-                    submit_payload,
-                )
-                logger.info("Job %s completed in %ss", job_id, execution_time)
-                return True
-            else:
-                logger.error("Ollama error")
-                submit_result(job_id, {"result": {"status": "failed", "error": "Ollama error"}})
-                return False
-        else:
-            logger.error("Unsupported job type: %s", payload.get("type"))
-            submit_result(job_id, {"result": {"status": "failed", "error": f"Unsupported job type: {payload.get('type')}"}})
-            return False
+            return _execute_inference(job, available_models)
+        if job_type == "transcribe":
+            return _execute_transcribe(job)
+        if job_type == "reencode":
+            return _execute_reencode(job)
+        logger.error("Unsupported job type: %s", job_type)
+        _submit_failure(job_id, f"Unsupported job type: {job_type}")
+        return False
     except Exception as e:
         logger.error("Job execution error: %s", e)
-        submit_result(job_id, {"result": {"status": "failed", "error": str(e)}})
+        _submit_failure(job_id, str(e))
         return False
+
+
+def _execute_inference(job, available_models):
+    job_id = job.get("job_id")
+    payload = job.get("payload", {})
+    prompt = payload.get("prompt", "")
+    model = payload.get("model", "llama3.2:latest")
+    if model not in available_models:
+        if available_models:
+            model = available_models[0]
+            logger.info("Using available model: %s", model)
+        else:
+            raise Exception("No models available in Ollama")
+    logger.info("Running inference on GPU with model: %s", model)
+    start_time = time.time()
+    ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=60)
+    ollama_response = ollama_client.post("/api/generate", json={"model": model, "prompt": prompt, "stream": False})
+    if ollama_response:
+        result = ollama_response
+        output = result.get("response", "")
+        execution_time = time.time() - start_time
+        tee_quote = build_tee_quote(job)
+        extra = {"model": model, "tokens_processed": result.get("eval_count", 0)}
+        if tee_quote:
+            extra["tee_quote"] = tee_quote
+            logger.info("Attaching TEE quote for job %s", job_id)
+        _submit_success(job_id, output, execution_time, extra)
+        return True
+    logger.error("Ollama error")
+    _submit_failure(job_id, "Ollama error")
+    return False
+
+
+def _execute_transcribe(job):
+    job_id = job.get("job_id")
+    payload = job.get("payload", {})
+    url = payload.get("url") or payload.get("input")
+    if not url:
+        raise Exception("Transcribe job requires 'url' or 'input' in payload")
+    model = payload.get("model", "base")
+    logger.info("Running transcription with model: %s", model)
+    start_time = time.time()
+    with tempfile.TemporaryDirectory() as tmp:
+        ext = os.path.splitext(url.split("?")[0])[1] or ".wav"
+        input_path = os.path.join(tmp, f"input{ext}")
+        _download_media(url, input_path)
+        text = _run_whisper(input_path, model)
+    execution_time = time.time() - start_time
+    _submit_success(job_id, text, execution_time, {"model": model, "transcription": text})
+    return True
+
+
+def _execute_reencode(job):
+    job_id = job.get("job_id")
+    payload = job.get("payload", {})
+    url = payload.get("url") or payload.get("input")
+    if not url:
+        raise Exception("Re-encode job requires 'url' or 'input' in payload")
+    output_format = payload.get("output_format") or payload.get("format") or "mp4"
+    logger.info("Running re-encode to format: %s", output_format)
+    start_time = time.time()
+    with tempfile.TemporaryDirectory() as tmp:
+        input_ext = os.path.splitext(url.split("?")[0])[1] or ".bin"
+        input_path = os.path.join(tmp, f"input{input_ext}")
+        _download_media(url, input_path)
+        output_path = os.path.join(tmp, f"output.{output_format}")
+        summary = _run_ffmpeg(input_path, output_path, output_format)
+    execution_time = time.time() - start_time
+    _submit_success(job_id, summary["stderr"], execution_time, summary)
+    return True
 
 
 def submit_result(job_id, result):
