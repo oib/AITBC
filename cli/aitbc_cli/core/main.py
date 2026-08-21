@@ -21,6 +21,7 @@ from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.agent_wallet import agent_wallet
 from aitbc_cli.commands.ai import ai
+from aitbc_cli.commands.auth import auth
 from aitbc_cli.commands.bond import bond
 from aitbc_cli.commands.bootstrap import bootstrap
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
@@ -180,6 +181,7 @@ cli.add_command(chain, name="blockchain")
 cli.add_command(chain, name="chain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
 cli.add_command(ai)  # AI job submission and inspection
+cli.add_command(auth)  # Authentication and session management
 cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 cli.add_command(reputation)  # Reputation management
