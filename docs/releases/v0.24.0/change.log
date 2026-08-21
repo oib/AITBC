@@ -832,3 +832,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 * 981634d3e feat(cli,scenarios): add agent-msg scenario, tests, and CLI polish
 * c0cd93187 fix(tee): use explicit SQL update to persist TEE failure state
 - TEE attestation failures now correctly update job.state to FAILED, set the error message, and refund the escrowed payment.
+* 47585f03a fix(cli,agent-coordinator): peers and messaging route order
