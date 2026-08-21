@@ -111,7 +111,7 @@ def _get_settlement_address() -> str | None:
         return None
 
 
-async def _auto_stake(provider: str, amount: Decimal, chain_id: str) -> str | None:
+async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
     """Stake a portion of released escrow for the provider without requiring a signature.
 
     This is a protocol-level reinvestment triggered from the escrow release path.
@@ -316,9 +316,12 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         try:
             pct = Decimal(str(auto_reinvest_pct))
             if 0 < pct <= 100:
-                reinvest_amount = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
-                if reinvest_amount > 0:
-                    reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount, _CHAIN_ID)
+                reinvest_amount_ait = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
+                if reinvest_amount_ait > 0:
+                    reinvest_amount_seconds = int(reinvest_amount_ait * 3600)
+                    if reinvest_amount_seconds > 0:
+                        reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_seconds, _CHAIN_ID)
+                        reinvest_amount = reinvest_amount_ait
                     _logger.info(
                         "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
                         job_id, reinvest_stake_id, reinvest_amount, pct
