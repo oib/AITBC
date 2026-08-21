@@ -275,3 +275,12 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
     `reinvest_status: staked`, `reinvest_stake_id: 7`.
   - On-chain stake `7` with amount `4387` (1.21875 AIT * 3600 = 4387 compute-seconds)
     confirmed at `GET /rpc/staking/0xEB29516824E95AdFFeEdfc914941F0fbEd0bB1a4`.
+
+- 2026-08-21: P2.5 Whisper/FFmpeg live validation:
+  - `aitbc ai submit --payment 3 --type transcribe --input https://github.com/openai/whisper/raw/main/tests/jfk.flac --model base`
+    -> job `8db185c4099c452181b7bff36c9becdb` completed, output JFK speech text.
+  - `aitbc ai submit --payment 3 --type reencode --input <same> --output-format mp3`
+    -> job `7d53b98c32e542f2bedd36a4abd38827` completed, output 173KiB MP3.
+  - `aitbc-whisper` and `aitbc-ffmpeg` services running; marketplace offers
+    `07f10063c4384b04a590ecf528316645` (whisper) and `e762581945554dfe8711f5b017eda812` (ffmpeg)
+    registered on hub marketplace service.
