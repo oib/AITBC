@@ -1,6 +1,6 @@
 # AITBC closed design cycle — current state, gaps, wish list
 
-**Date:** 2026-08-21
+**Date:** 2026-08-22
 **Scope:** live two-node network (`hub.aitbc` hub/customer + `aitbc3` shop/miner) on gitea `main`
 **CLI:** `aitbc` 0.10.18 (`aitbc_cli.core.main:main`)
 **Unit system:** 1 AIT = 3600 compute-seconds
@@ -47,7 +47,7 @@ Proven on the two live nodes (see `LIVE_VALIDATION_SUMMARY.md` and scenario 34):
 5. **GPU marketplace offers.** `aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0` writes a `GPU_MARKETPLACE` tx and a hub listing. `aitbc market list --service-type ollama` sees it.
 6. **Local GPU inventory.** `aitbc gpu list-gpus` / `aitbc gpu discover` against `aitbc-gpu` (8101).
 7. **Explorer / monitoring.** `aitbc explorer chain-head`, `aitbc explorer network-stats`.
-8. **Pool hub.** `aitbc pool-hub status` / `sla` from shop via hub discovery (miners_online stays 0 unless the shop miner registers with the **hub** pool, not only locally).
+8. **Pool hub.** `aitbc pool-hub status` / `sla` work from hub and shop; the shop miner registers and heartbeats with the **hub** pool hub, so `miners_online` is now `1` (or more).
 9. **Bridge health + input validation.** `aitbc bridge health`; malformed `lock`/`confirm` return HTTP 422.
 10. **Most beginner CLI groups** (`wallet`, `transactions`, `ai`, `mining`, `reputation`, `agent`, `agent-comm`, `ipfs`, `security`, `analytics`, `governance status`, `exchange-island` orderbook/rates) return live or honest-simulated data.
 
@@ -62,8 +62,8 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. Reputation not used in matching. | UX + matching quality |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc auth login` stores a coordinator JWT; `aitbc ai submit` falls back to it. `--api-key` still accepted. | Auth UX |
-| 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` now defaults to `True` and `STATUS.md` reflects that B4/HTLC integration is complete | Done |
-| 4. Match to miner | Stake + reputation + capacity | Shop miner heartbeats to **local** coordinator; hub pool `miners_online` stays 0 | Hub-wide miner registry |
+| 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
+| 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama inference live. Whisper/FFmpeg services exist, not in the default shop loop | Optional services |
 | 6. Verify result | ZK / TEE attestation | Result is trusted coordinator receipt. ZK circuits exist, not wired. TEE CLI exists, not wired | Verifiable compute |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, genesis-signed. Fee ~2.5% | Operator-key coupling (genesis signs release) |
@@ -161,7 +161,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 2. Reputation is queryable but does not rank miners or offers.
 3. No automatic provider reinvestment or performance bonds (CLI shells only).
 4. Fee market is fixed; dynamic pricing was deprecated in v0.5.0.
-5. Hub pool does not see shop miners (`miners_online: 0`).
+5. ~~Hub pool does not see shop miners (`miners_online: 0`).~~ Fixed — shop miner heartbeats to hub pool hub.
 6. Result verification is “coordinator says COMPLETED”, not ZK/TEE.
 
 ### Operations / trust
@@ -176,7 +176,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 ### Docs / CLI honesty
 
 13. Architecture system-flow still shows `aitbc-cli.sh` and Tendermint 26657.
-14. `STATUS.md` escrow/bridge defaults disagree with the live paid-job path.
+14. ~~`STATUS.md` escrow/bridge defaults disagree with the live paid-job path.~~ Fixed — `escrow_enabled` default is `True` in `config.py` and `STATUS.md`.
 15. Dual command groups confuse operators (`market`/`marketplace`, `governance`/`operations governance`).
 16. Many CLI groups simulate when the service is hub-only; scenarios must label **live vs simulated**.
 17. Intermediate 21–35 were written as bug tickets (A3, B12…) not operator plays.
@@ -190,9 +190,9 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | # | Wish | Why |
 |---|------|-----|
 | P0.1 | `aitbc auth login` so jobs do not require ad-hoc Python JWT | Shipped as CLI wallet-signed login against `/v1/login` (Phase 2) |
-| P0.2 | Shop miner registers with **shop** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Shipped: `/v1/miners/register` and `/v1/miners/heartbeat` in pool-hub; production miner registers and heartbeats (Phase 7) |
+| P0.2 | Shop/follower miner registers with the **hub** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Shipped: `/v1/miners/register` and `/v1/miners/heartbeat` in pool-hub; production miner registers and heartbeats to the hub (Phase 7) |
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Shipped: `ESCROW_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_ADDRESS` env vars; derived key signs the on-chain release tx, falling back to `GENESIS_WALLET_PRIVATE_KEY` (Phase 8) |
-| P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Shipped: scenario 34 documents nginx/SSH-tunnel as the public path and warns against raw `:8202`; escrow release is on by default and uses `ESCROW_RELEASE_PRIVATE_KEY` (Phases 1, 8) |
+| P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Shipped: `escrow_enabled` defaults to `True` in `apps/blockchain-node/src/aitbc_chain/config.py`; `STATUS.md` updated. Scenario 34 documents nginx/SSH-tunnel as the public path and warns against raw `:8202`; escrow release is live (Phases 1, 8) |
 | P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
 | P0.6 | One on-ramp play: `aitbc wallet fund` against `/rpc/faucet` with bech32/0x support | Shipped: CLI path to the live faucet (Phase 4) |
 | P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Shipped: updated group docstrings, `cli/README.md` disambiguation, help-output tests (Phase 5) |
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phases 1–8 shipped)*
+*Last updated: 2026-08-22 (Phases 1–8 shipped; pool-hub and escrow drift fixed)*
