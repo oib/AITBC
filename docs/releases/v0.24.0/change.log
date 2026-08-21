@@ -693,3 +693,13 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Miner result path generates/verifies TEE quotes and blocks escrow release
     until `tee_status: verified`.
   - `aitbc tee attest`, `verify`, `launch` work against live coordinator.
+
+## Operator user and CLI wallet hardening
+
+- Created `/home/aitbc` as the `aitbc` operator home on `aitbc3` and `hub.aitbc`.
+- Migrated CLI wallets from `/root/.aitbc/wallets` to `/home/aitbc/.aitbc/wallets`.
+- Set wallet directory `0700` and wallet files `0600`.
+- Updated `aitbc` user home to `/home/aitbc` (with a service restart on both nodes).
+- Removed `/root/.aitbc/wallets` and left a note pointing operators to run `sudo -u aitbc aitbc <command>`.
+- Documented the operator user / wallet locations in `AGENTS.md`.
+
