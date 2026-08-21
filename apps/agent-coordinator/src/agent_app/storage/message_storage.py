@@ -159,6 +159,73 @@ class MessageStorage:
             logger.error("Error deleting message %s: %s", message_id, e)
             return False
 
+    async def add_subscription(
+        self, agent_id: str, topic: str, filter: dict[str, Any] | None = None
+    ) -> bool:
+        """Persist a topic subscription for an agent."""
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
+        try:
+            await self.redis.hset(
+                f"subscription:{agent_id}:{topic}",
+                mapping={
+                    "agent_id": agent_id,
+                    "topic": topic,
+                    "filter": json.dumps(filter or {}),
+                    "subscribed_at": datetime.now(UTC).isoformat(),
+                },
+            )
+            await self.redis.sadd(f"subscriptions:agent:{agent_id}", topic)
+            await self.redis.sadd(f"subscriptions:topic:{topic}", agent_id)
+            logger.debug("Stored subscription %s:%s", agent_id, topic)
+            return True
+        except Exception as e:
+            logger.error("Error storing subscription %s:%s: %s", agent_id, topic, e)
+            return False
+
+    async def remove_subscription(self, agent_id: str, topic: str) -> bool:
+        """Remove a topic subscription for an agent."""
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
+        try:
+            await self.redis.srem(f"subscriptions:agent:{agent_id}", topic)
+            await self.redis.srem(f"subscriptions:topic:{topic}", agent_id)
+            await self.redis.delete(f"subscription:{agent_id}:{topic}")
+            logger.debug("Removed subscription %s:%s", agent_id, topic)
+            return True
+        except Exception as e:
+            logger.error("Error removing subscription %s:%s: %s", agent_id, topic, e)
+            return False
+
+    async def get_subscriptions(self, agent_id: str) -> list[dict[str, Any]]:
+        """Get all persisted topic subscriptions for an agent."""
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
+        try:
+            topics = await self.redis.smembers(f"subscriptions:agent:{agent_id}")
+            subscriptions = []
+            for topic in topics:
+                sub: dict[str, Any] = await self.redis.hgetall(f"subscription:{agent_id}:{topic}")
+                if sub:
+                    if "filter" in sub:
+                        sub["filter"] = json.loads(sub["filter"])
+                    subscriptions.append(sub)
+            return subscriptions
+        except Exception as e:
+            logger.error("Error retrieving subscriptions for %s: %s", agent_id, e)
+            return []
+
+    async def get_topic_subscribers(self, topic: str) -> list[str]:
+        """Get all agents subscribed to a topic."""
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
+        try:
+            raw = await self.redis.smembers(f"subscriptions:topic:{topic}")
+            return [str(m) for m in raw]
+        except Exception as e:
+            logger.error("Error retrieving subscribers for topic %s: %s", topic, e)
+            return []
+
 
 class PeerStorage:
     """Redis-based peer storage for persisting peer connections across restarts"""
