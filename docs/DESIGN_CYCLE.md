@@ -192,7 +192,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P0.1 | `aitbc auth login` so jobs do not require ad-hoc Python JWT | Shipped as CLI wallet-signed login against `/v1/login` (Phase 2) |
 | P0.2 | Shop miner registers with **shop** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Shipped: `/v1/miners/register` and `/v1/miners/heartbeat` in pool-hub; production miner registers and heartbeats (Phase 7) |
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Shipped: `ESCROW_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_ADDRESS` env vars; derived key signs the on-chain release tx, falling back to `GENESIS_WALLET_PRIVATE_KEY` (Phase 8) |
-| P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Config/docs lie today |
+| P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Shipped: scenario 34 documents nginx/SSH-tunnel as the public path and warns against raw `:8202`; escrow release is on by default and uses `ESCROW_RELEASE_PRIVATE_KEY` (Phases 1, 8) |
 | P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
 | P0.6 | One on-ramp play: `aitbc wallet fund` against `/rpc/faucet` with bech32/0x support | Shipped: CLI path to the live faucet (Phase 4) |
 | P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Shipped: updated group docstrings, `cli/README.md` disambiguation, help-output tests (Phase 5) |
