@@ -855,3 +855,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - _tee_required_for now treats confidential jobs and jobs with required_enclave_measurement as TEE-gated.
 - The coordinator checks the quote measurement against required_enclave_measurement and the enclave_id against tee_enclave_id.
 - production_miner.py falls back to required_enclave_measurement to generate the quote when tee_enclave_id is not set.
+
+- docs(scenarios): add scenario 46 for confidential TEE jobs and update README
+  - New scenario documents aitbc tee register/status, aitbc tee attest, and
+    aitbc ai submit --confidential --enclave-measurement end-to-end.
+  - Live validation on hub.aitbc/aitbc3 produced a released escrow with
+    tee_status: verified and confidential: true in the job constraints.
+  - Append validation summary to LIVE_VALIDATION_SUMMARY.md.
