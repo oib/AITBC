@@ -55,11 +55,20 @@ class TestPoolHubCommands:
         monkeypatch.setenv("NODE_ROLE", "hub")
         assert _default_pool_hub_url() == "http://localhost:8210"
 
-    def test_default_pool_hub_url_uses_localhost_on_follower(self, monkeypatch):
+    def test_default_pool_hub_url_uses_hub_url_on_follower(self, monkeypatch):
         from aitbc_cli.commands.pool_hub import _default_pool_hub_url
 
         monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
         monkeypatch.delenv("POOL_HUB_URL", raising=False)
+        monkeypatch.setenv("HUB_DISCOVERY_URL", "https://hub.example.net")
+        assert _default_pool_hub_url() == "http://hub.example.net/pool-hub"
+
+    def test_default_pool_hub_url_falls_back_to_localhost_without_hub_config(self, monkeypatch):
+        from aitbc_cli.commands.pool_hub import _default_pool_hub_url
+
+        monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("POOL_HUB_URL", raising=False)
+        monkeypatch.setattr("aitbc.config.hub.hub_discovery_host", lambda: None)
         assert _default_pool_hub_url() == "http://localhost:8210"
 
     def test_default_pool_hub_url_uses_explicit_env(self, monkeypatch):
