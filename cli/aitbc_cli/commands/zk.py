@@ -111,15 +111,10 @@ def verify(ctx, proof_id, proof_file, coordinator_url, format):
             public_signals = data.get("public_signals", [])
             circuit_name = data.get("circuit_name") or data.get("circuit")
         elif proof_id:
-            # Fetch the job result; the receipt contains the stored ZK proof.
-            result = client.get(f"/v1/jobs/{proof_id}/result")
-            receipt = result.get("receipt") or {}
-            zk_proof = receipt.get("zk_proof")
-            if not zk_proof:
-                abort(ctx, f"No ZK proof found for job {proof_id}")
-            proof = zk_proof.get("proof")
-            public_signals = zk_proof.get("public_signals", [])
-            circuit_name = zk_proof.get("circuit") or "receipt_public"
+            # Ask the coordinator to verify the stored receipt proof for the job.
+            result = client.post("/v1/zk/receipt/verify", json={"job_id": proof_id})
+            output(result, ctx.obj.get("output_format", format), title=f"ZK Verification: {proof_id}")
+            return
         else:
             abort(ctx, "Either --proof-id/--job-id or --proof-file is required")
 
