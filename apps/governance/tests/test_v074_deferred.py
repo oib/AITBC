@@ -106,7 +106,7 @@ class TestCrossChainGovernance:
         from governance_service.config import settings
 
         assert settings.default_chain_id == "ait-hub"
-        assert settings.blockchain_rpc_url == "http://localhost:8202"
+        assert settings.blockchain_rpc_url == "http://127.0.0.1:8202"
 
 
 # ============================================================================
@@ -204,7 +204,7 @@ class TestBridgeClientAdapter:
         """Test that BridgeClientAdapter can be imported."""
         module = _load_bridge_adapter()
 
-        adapter = module.BridgeClientAdapter(rpc_url="http://localhost:8202")
+        adapter = module.BridgeClientAdapter(rpc_url="http://127.0.0.1:8202")
         assert adapter is not None
 
     def test_adapter_init_with_defaults(self):

@@ -29493,6 +29493,17 @@
               }
             ],
             "title": "Max Price"
+          },
+          "min_reputation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Reputation"
           }
         },
         "type": "object",
@@ -29569,6 +29580,17 @@
               }
             ],
             "title": "Max Price"
+          },
+          "min_reputation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Reputation"
           }
         },
         "type": "object",
@@ -31646,13 +31668,13 @@
               }
             ],
             "title": "Amount",
-            "description": "Payment amount in AITBC"
+            "description": "Payment amount in aitbc"
           },
           "currency": {
             "type": "string",
             "title": "Currency",
             "description": "Payment currency",
-            "default": "AITBC"
+            "default": "aitbc"
           },
           "payment_method": {
             "type": "string",
@@ -36934,7 +36956,7 @@
           "payment_currency": {
             "type": "string",
             "title": "Payment Currency",
-            "default": "AITBC"
+            "default": "aitbc"
           },
           "buyer_address": {
             "anyOf": [

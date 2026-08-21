@@ -210,7 +210,7 @@ class StubSession:
         self._proposal = proposal
         self.added: list = []
 
-    async def execute(self, stmt):
+    async def execute(self, stmt, params=None):
         return _Result([self._proposal])
 
     def add(self, record):
