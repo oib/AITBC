@@ -79,14 +79,16 @@ aitbc agent-msg peers --coordinator-url http://127.0.0.1:8107
 ```
 Agent Coordinator Peers:
 {
-  "agents": [
-    {"agent_id": "hub-coordinator", ...},
-    ...
-  ],
-  "count": 1,
+  "agents": [],
+  "count": 0,
+  "query": {
+    "limit": 50
+  },
   "timestamp": "2026-08-21T..."
 }
 ```
+
+If agents have registered, `agents` contains their records and `count` is the number of matches.
 
 If the coordinator is running, the command returns `status: success`. If no agents have registered, the list may be empty but the call still succeeds.
 
@@ -191,7 +193,7 @@ Messages:
     {
       "sender": "scenario-sender",
       "recipient": "hub-coordinator",
-      "content": "{\"text\": \"Scenario validation message\"}",
+      "content": "{\"message\": \"Scenario validation message\"}",
       "message_type": "direct",
       "encrypted": "False",
       "status": "pending",
