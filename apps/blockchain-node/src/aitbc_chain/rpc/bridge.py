@@ -582,15 +582,27 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
                 epochs = session.exec(_select(BridgeValidator.epoch)).all()
                 current_epoch = max(epochs) if epochs else 0
 
+        multisig_enabled = getattr(settings, "bridge_multisig_enabled", False)
+        require_merkle = getattr(settings, "bridge_require_merkle_proof", False)
+        release_enabled = getattr(settings, "bridge_release_enabled", False)
+        verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
+
+        # The bridge is a trusted custodian unless both the release path is
+        # explicitly unfenced and cryptographic proof requirements are enabled.
+        trusted_custodian = not (release_enabled and require_merkle and multisig_enabled)
+
         return {
             "success": True,
-            "multisig_enabled": getattr(settings, "bridge_multisig_enabled", False),
+            "multisig_enabled": multisig_enabled,
             "threshold": getattr(settings, "bridge_multisig_threshold", 3),
             "validators_configured": getattr(settings, "bridge_multisig_validators", 5),
             "validator_count": validator_count,
             "current_epoch": current_epoch,
             "block_signature_required": getattr(settings, "bridge_block_signature_required", True),
-            "release_enabled": getattr(settings, "bridge_release_enabled", False),
+            "release_enabled": release_enabled,
+            "require_merkle_proof": require_merkle,
+            "verification_mode": verification_mode,
+            "trusted_custodian": trusted_custodian,
             "bridge_initialized": bridge_initialized,
             "validator_set_grace_period": getattr(settings, "bridge_validator_set_grace_period", 7200),
         }
