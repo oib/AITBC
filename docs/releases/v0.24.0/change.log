@@ -821,3 +821,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `aitbc ai refund --job-id <id>` now sends the required `payment_id` in the refund body and successfully refunds failed jobs.
 * 93a20cf91 feat(agent-coordinator): add key exchange endpoints and public-key registry
 * a0a8acbc7 feat(agent-coordinator): add delivery guarantees, idempotency, and SQLite fallback
+* ad2583e6d fix(agent-coordinator): correct relative import for WebSocket connection manager
