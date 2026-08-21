@@ -117,7 +117,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db()
     from .contracts.escrow import create_escrow_manager
 
-    create_escrow_manager()
+    escrow_manager = create_escrow_manager()
+    await escrow_manager.load_from_db()
     init_mempool(
         backend=settings.mempool_backend,
         db_url=settings.mempool_db_url,
