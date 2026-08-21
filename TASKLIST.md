@@ -96,6 +96,10 @@ Latest pushed commits:
 - [x] Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `hub.aitbc` to a clean working tree.
 - [x] Update the release change log on `aitbc3` (shop-chain fork recovery section in v0.24.0).
 - [x] P2.5 default Whisper/FFmpeg/Ollama shop offers implemented and validated.
+- [x] P2.6 real IPFS daemon behind `aitbc ipfs` implemented and validated.
+  - `aitbc ipfs upload/download/pin/list` use the local Kubo HTTP API with filesystem fallback.
+  - Cross-node download validated between `aitbc3` and `hub.aitbc`.
+  - Scenario 42 updated and release changelog/live summary updated.
   - `aitbc-miner` auto-publishes default offers on startup.
   - `aitbc market transcribe/process/run` work and release escrow.
   - Scenario 50 and release changelog updated.
