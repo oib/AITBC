@@ -822,3 +822,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 * 93a20cf91 feat(agent-coordinator): add key exchange endpoints and public-key registry
 * a0a8acbc7 feat(agent-coordinator): add delivery guarantees, idempotency, and SQLite fallback
 * ad2583e6d fix(agent-coordinator): correct relative import for WebSocket connection manager
+
+* 4830d69cc feat(tee): enforce signed quote path and auto-refund on TEE attestation failure
+* fb4988f3b fix(tee): use session.get/fresh job and flush to persist TEE failure
+* c9246c9e6 test(tee): add signed quote serialization and tampering tests
+- `aitbc tee attest` and `aitbc tee verify` now use self-contained Ed25519-signed quotes with base64 JSON serialization.
+- `TEEAttestationService` verifies the embedded signature and measurement before marking a quote as verified.
+- TEE attestation failures during job completion now trigger an automatic escrow refund instead of leaving the job stuck.
