@@ -3,6 +3,7 @@ Smart Contract Escrow System
 Handles automated payment holding and release for AI job marketplace
 """
 
+import hashlib
 import time
 from dataclasses import dataclass
 from decimal import Decimal
@@ -185,7 +186,7 @@ class EscrowManager:
                     )
                 ).all()
                 for record in records:
-                    contract_id = self._generate_contract_id(record.buyer, record.provider, record.job_id)
+                    contract_id = "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
                     if contract_id in self.escrow_contracts:
                         continue
                     amount = Decimal(str(record.amount))
@@ -231,7 +232,7 @@ class EscrowManager:
                 record = session.get(EscrowRecord, job_id)
                 if not record:
                     return None
-                contract_id = self._generate_contract_id(record.buyer, record.provider, record.job_id)
+                contract_id = "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
                 amount = Decimal(str(record.amount))
                 state = EscrowState.FUNDED
                 if record.released_at:
