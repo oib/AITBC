@@ -360,10 +360,14 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
     11434) services are running and exposed through nginx.
 
 - 2026-08-21: P2.6 real IPFS daemon validation:
-  - `aitbc ipfs upload --file /tmp/ipfs_test.txt` on aitbc3 -> CID `QmVsGhgoQHZgB581xEhCVH1L5wmXYAhNspjuW8eRL4DtPL`.
+  - `aitbc ipfs upload --file /tmp/ipfs_test.txt` on aitbc3 -> CID
+    `Qmeo8hBWCpxjg4dhUWx4JhTV6savog5sv7AuGEhk4TsNYM`.
   - `aitbc ipfs download <CID>` on aitbc3 returned the original content.
-  - Hub daemon peered to aitbc3 via `ipfs swarm connect`; hub `aitbc ipfs download <CID>`
-    fetched the file cross-node over IPFS.
+  - `aitbc ipfs upload --file /tmp/test_hub_ipfs.txt` on hub.aitbc -> CID
+    `QmUnuUB9Mz4LCvCdQ5GKvDcHwGK67sHGFMrMH3N1QSGij3`.
+  - `aitbc ipfs download <CID>` on aitbc3 fetched the file cross-node over IPFS.
+  - `aitbc ipfs download` on hub.aitbc fetched the aitbc3 CID cross-node.
+  - `aitbc ipfs list` on both nodes shows the pinned CIDs.
   - Both nodes run `aitbc-ipfs.service` with Kubo v0.43.0.
 
 - 2026-08-21: P2.7 compliance / plugins / white-label validation:
