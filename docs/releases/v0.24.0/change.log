@@ -105,6 +105,13 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - docs/scenarios/27_cli_commands.md adds command-family clarity step (market vs marketplace, governance vs operations governance).
 - docs/scenarios/README.md and docs/README.md cross-link releases/STATUS.md and note the P0 pass.
 
+## P0 Phase 2 — aitbc auth login (2026-08-21)
+
+- New CLI group `aitbc auth` with `login`, `logout`, and `status`.
+- `aitbc auth login` performs a wallet-signed nonce challenge against the coordinator `/v1/auth/nonce` and `/v1/login` endpoints and stores the returned JWT in the CLI credential store.
+- `aitbc ai submit` falls back to the stored coordinator JWT when `--api-key` is not supplied.
+- Scenarios 07 and 34 replace the Python `from aitbc.auth import create_access_token` snippet with `aitbc auth login`.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]

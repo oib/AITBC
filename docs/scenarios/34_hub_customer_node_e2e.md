@@ -48,7 +48,7 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 ### Tools Required
 
 - `aitbc` on both hub and shop
-- A client JWT (`from aitbc.auth import create_access_token` — **not** `coordinator_api.auth.jwt_auth`)
+- A funded customer wallet and a way to log in (`aitbc auth login`) or an existing JWT for `--api-key`
 
 ### Setup Required
 
@@ -206,10 +206,12 @@ journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c jo
 journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed || true
 ```
 
-JWT snippet (hub):
+Authenticate the CLI customer (hub):
 
 ```bash
-python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '0xCustomer1'}))"
+aitbc auth login --wallet customer-wallet --password <password>
+# or with a raw key in a CI context:
+# aitbc auth login --wallet-address 0xCustomer1 --private-key-file /run/secrets/customer.key
 ```
 
 ---
