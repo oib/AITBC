@@ -31,9 +31,10 @@ logger = get_logger(__name__)
 # (AI_ENGINE_ALLOW_SIMULATION, EDGE_ALLOW_SIMULATED_SYNC), so that is what this uses.
 ENABLE_ZK_VERIFICATION = os.getenv("COORDINATOR_ENABLE_ZK_VERIFICATION", "false").lower() == "true"
 
-# The circuit that proves receipts. Named, because _generate_proof used to take whichever
-# circuit sorted first in available_circuits (V23-26a).
-RECEIPT_CIRCUIT = "receipt_simple"
+# The circuit that proves receipts. P2.1 uses `receipt_public`, whose `receiptHash` is a
+# public signal and can be checked against the on-chain job result before escrow release.
+# It falls back to the previous `receipt_simple` only if `receipt_public` is unavailable.
+RECEIPT_CIRCUIT = os.getenv("COORDINATOR_RECEIPT_CIRCUIT", "receipt_public")
 
 # Node resolves `require()` against the directory of the script being executed, not against
 # the process cwd. Every snarkjs call below writes its script to a tempfile under /tmp, so
@@ -226,6 +227,11 @@ class ZKProofService:
         configured = os.getenv("COORDINATOR_ZK_CIRCUITS_DIR")
         self.circuits_dir = circuits_dir or (Path(configured) if configured else Path(__file__).parent.parent / "zk-circuits")
         self.circuits = {
+            "receipt_public": {
+                "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_public"),
+                "wasm_path": self.circuits_dir / "receipt_public_js" / "receipt_public.wasm",
+                "vkey_path": self.circuits_dir / "receipt_public_js" / "verification_key.json",
+            },
             "receipt_simple": {
                 "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_simple"),
                 "wasm_path": self.circuits_dir / "receipt_simple_js" / "receipt_simple.wasm",
@@ -318,6 +324,8 @@ class ZKProofService:
             return {
                 "proof": proof_data["proof"],
                 "public_signals": proof_data["publicSignals"],
+                "receipt": inputs.get("receipt", []),
+                "circuit": RECEIPT_CIRCUIT,
                 "privacy_level": privacy_level,
                 "circuit_hash": await self._get_circuit_hash(),
             }
@@ -383,17 +391,16 @@ class ZKProofService:
             if not self.available_circuits:
                 return {"verified": False, "error": "No circuits available for verification"}
 
-            if circuit_name is not None:
-                if circuit_name not in self.available_circuits:
-                    return {
-                        "verified": False,
-                        "error": (
-                            f"Unknown or unavailable circuit '{circuit_name}'. Available: {sorted(self.available_circuits)}"
-                        ),
-                    }
-                circuit = self.available_circuits[circuit_name]
-            else:
-                circuit = list(self.available_circuits.values())[0]
+            if circuit_name is None:
+                circuit_name = RECEIPT_CIRCUIT
+            if circuit_name not in self.available_circuits:
+                return {
+                    "verified": False,
+                    "error": (
+                        f"Unknown or unavailable circuit '{circuit_name}'. Available: {sorted(self.available_circuits)}"
+                    ),
+                }
+            circuit = self.available_circuits[circuit_name]
 
             vkey_path = circuit["vkey_path"]
             try:
@@ -431,58 +438,68 @@ class ZKProofService:
             return {"verified": False, "error": str(e)}
 
     async def _prepare_inputs(self, receipt: Receipt, job_result: JobResult, privacy_level: str) -> dict[str, Any]:
-        """Prepare circuit inputs based on privacy level"""
-        if privacy_level == "basic":
-            return {
-                "data": [
-                    str(receipt.receiptId),
-                    str(receipt.miner),
-                    str(getattr(job_result, "output_hash", "")),
-                    str((receipt.payload or {}).get("rate", 0)),
-                ],
-                "hash": await self._hash_receipt(receipt),
-            }
-        elif privacy_level == "enhanced":
-            payload = receipt.payload or {}
-            return {
-                "settlementAmount": payload.get("settlement_amount", 0),
-                "timestamp": receipt.issuedAt.isoformat(),
-                "receipt": self._serialize_receipt(receipt),
-                "computationResult": getattr(job_result, "output_hash", ""),
-                "pricingRate": payload.get("rate", 0),
-                "minerReward": payload.get("miner_reward", 0),
-                "coordinatorFee": payload.get("coordinator_fee", 0),
-            }
-        else:
-            raise ValueError(f"Unknown privacy level: {privacy_level}")
+        """Prepare `receipt_public` inputs: public Poseidon hash of 4 private receipt fields."""
+        payload = receipt.payload or {}
+        try:
+            units = float(payload.get("units", 0.0))
+        except (TypeError, ValueError):
+            units = 0.0
+        # Derive 4 field elements from receipt metadata.
+        job_id_felt = self._field_encode(receipt.payload.get("job_id") if receipt.payload else None, receipt.receiptId)
+        provider_felt = self._field_encode(receipt.miner)
+        output_hash = self._result_hash(job_result)
+        result_felt = self._field_encode(output_hash)
+        units_felt = self._field_encode(str(int(units * 1_000_000)))
+        receipt_values = [job_id_felt, provider_felt, result_felt, units_felt]
+        receipt_hash = await self._poseidon4(receipt_values)
+        return {
+            "receiptHash": str(receipt_hash),
+            "receipt": [str(v) for v in receipt_values],
+        }
 
-    async def _hash_receipt(self, receipt: Receipt) -> str:
-        """Hash receipt for public verification"""
+    def _result_hash(self, job_result: JobResult | dict[str, Any] | None) -> str:
+        """Deterministic hash of the job result for the circuit."""
         import hashlib
 
-        payload = receipt.payload or {}
-        receipt_data = {
-            "receipt_id": receipt.receiptId,
-            "miner": receipt.miner,
-            "timestamp": receipt.issuedAt.isoformat(),
-            "pricing": payload.get("pricing", {}),
-        }
-        receipt_str = json.dumps(receipt_data, sort_keys=True)
-        return hashlib.sha256(receipt_str.encode()).hexdigest()
+        if job_result is None:
+            return ""
+        if isinstance(job_result, dict):
+            data = job_result
+        else:
+            data = getattr(job_result, "result", None) or job_result.model_dump(by_alias=True)
+        result = data.get("output") or data.get("result") or data.get("output_hash") or ""
+        return hashlib.sha256(str(result).encode()).hexdigest()
 
-    def _serialize_receipt(self, receipt: Receipt) -> list[str]:
-        """Serialize receipt for circuit input"""
-        payload = receipt.payload or {}
-        return [
-            str(receipt.receiptId)[:32],
-            str(receipt.miner)[:32],
-            str(receipt.issuedAt)[:32],
-            str(payload.get("settlement_amount", 0))[:32],
-            str(payload.get("miner_reward", 0))[:32],
-            str(payload.get("coordinator_fee", 0))[:32],
-            "0",
-            "0",
-        ]
+    def _field_encode(self, *values: Any) -> int:
+        """Encode a value as a bn128 field element (< _BN128_FQ)."""
+        import hashlib
+
+        raw = "".join(str(v) for v in values if v is not None) or "0"
+        # 32 hex chars = 128 bits, comfortably below the 254-bit field prime.
+        return int(hashlib.sha256(raw.encode()).hexdigest()[:32], 16)
+
+    async def _poseidon4(self, inputs: list[int]) -> int:
+        """Compute Poseidon hash of 4 field elements using the same circomlib parameters."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
+            f.write(
+                "const { poseidon4 } = require('poseidon-lite');\n"
+                f"const inputs = {json.dumps([str(v) for v in inputs])}.map(BigInt);\n"
+                "console.log(poseidon4(inputs).toString());\n"
+            )
+            script_file = f.name
+        try:
+            result = subprocess.run(
+                ["node", script_file],
+                capture_output=True,
+                text=True,
+                cwd=str(self.circuits_dir),
+                env=_node_env(),
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"Poseidon4 computation failed: {result.stderr}")
+            return int(result.stdout.strip())
+        finally:
+            os.unlink(script_file)
 
     async def _generate_proof(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Generate a receipt proof using snarkjs.

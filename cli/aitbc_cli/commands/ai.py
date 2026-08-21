@@ -163,6 +163,7 @@ def ai():
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
 @click.option("--min-reputation", type=float, help="Minimum provider reputation score (0-1) required for this job")
+@click.option("--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
 @click.option("--chain-id", help="Chain ID")
@@ -184,6 +185,7 @@ def submit(
     buyer_address,
     provider_address,
     min_reputation,
+    zk_proof_required,
     password,
     password_file,
     chain_id,
@@ -228,6 +230,9 @@ def submit(
 
         if min_reputation is not None:
             job_data["constraints"]["min_reputation"] = min_reputation
+
+        if zk_proof_required:
+            job_data["constraints"]["zk_proof_required"] = True
 
         if payment:
             job_data["payment_amount"] = payment
