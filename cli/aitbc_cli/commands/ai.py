@@ -28,6 +28,21 @@ def _auth_headers(ctx) -> dict[str, str] | None:
     return None
 
 
+def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
+    """Return the coordinator base URL without a trailing /v1 path.
+
+    The coordinator routers are mounted under /v1, and the endpoints below
+    use /v1/... paths. If the configured URL already ends in /v1, strip it
+    to avoid doubling the path.
+    """
+    config = get_config()
+    url = coordinator_url or ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
+    url = url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url
+
+
 def _wait_for_job(
     ctx,
     http_client: AITBCHTTPClient,
@@ -182,7 +197,7 @@ def submit(
 
     try:
         # Get coordinator URL
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -255,7 +270,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -284,7 +299,7 @@ def status(ctx, job_id, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -318,7 +333,7 @@ def list(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -344,7 +359,7 @@ def service_status(ctx, name, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -373,7 +388,7 @@ def test(ctx, name, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -403,7 +418,7 @@ def results(ctx, job_id, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -435,7 +450,7 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -469,7 +484,7 @@ def stats(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -494,7 +509,7 @@ def distribution_stats(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_api_url
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
