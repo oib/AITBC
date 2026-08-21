@@ -11,6 +11,10 @@ Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/miner/src"
 Environment="COORDINATOR_URL=http://localhost:8203"
 Environment="MINER_ID=aitbc-miner-1"
 Environment="LOG_DIR=/var/log/aitbc"
+Environment="XDG_CACHE_HOME=/var/lib/aitbc/cache"
+Environment="WHISPER_CACHE_DIR=/var/lib/aitbc/cache/whisper"
+# Keep runtime $HOME under /var/lib/aitbc; ProtectHome=yes hides /home/aitbc.
+Environment="HOME=/var/lib/aitbc"
 # Secret: AUTH_TOKEN moved to /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/miner/production_miner.py
