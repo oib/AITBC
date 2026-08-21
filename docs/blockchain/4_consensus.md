@@ -1,8 +1,16 @@
 # Consensus Mechanism
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-08-21
 
 Understand AITBC's hybrid Proof-of-Authority/Proof-of-Stake consensus mechanism.
+
+> **Current operational model:** The live network runs single-validator PoA by
+default. `multi_validator_consensus_enabled` is `False`, so `PoAProposer`
+produces every block with the configured `PROPOSER_ID`. The MultiValidatorPoA
+engine (round-robin proposer selection, PBFT phases, partition tolerance, and
+slashing) is implemented, regression-tested, and now covered by a soak test, but
+it is only activated when `multi_validator_consensus_enabled` is explicitly set
+to `True`.
 
 ## Overview
 
@@ -129,8 +137,8 @@ REPUTATION_THRESHOLD=0.7              # Minimum reputation for rotation
 
 ### Single vs Multi-Validator Mode
 
-- **Single-validator**: Use `PROPOSER_ID` for simple setup (genesis wallet only)
-- **Multi-validator**: Configure validator set via API or CLI for production
+- **Single-validator (default)**: Use `PROPOSER_ID` for simple setup (genesis wallet only). The live `PoAProposer` in `poa.py` uses the single `proposer_id` configured for the node, and `multi_validator_consensus_enabled` defaults to `False`. The hub is currently one validator.
+- **Multi-validator**: Set `multi_validator_consensus_enabled=True` and configure a validator set via API or CLI for production. The `MultiValidatorPoA` + `PBFTConsensus` engine is implemented and passes a 1000-round soak test, but it is **not wired into live block production** by default.
 
 ## Implementation
 

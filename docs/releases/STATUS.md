@@ -71,7 +71,7 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 | #4 | High | ✅ Fixed | Merkle proof verification silently skipped |
 | — | Low | ✅ Resolved | Dead config flag `escrow_require_proof_verification` removed |
 | — | Medium | ✅ Implemented | HTLC contract integration (B4) — Python-native HTLCContract wired into settlement |
-| — | Medium | 📝 Known | Multi-validator consensus not activated (soak test pending) |
+| — | Medium | ✅ Soaked | Multi-validator consensus not activated by default; soak test passes (1000 rounds, validator changes, partition tolerance, PBFT) |
 
 ## Key Configuration Defaults
 
@@ -82,7 +82,7 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
 | `escrow_enabled` | `False` | Two meanings: (1) paid job escrow and release is **live** in the blockchain node; (2) bridge HTLC settlement is still gated by this flag. Do not disable the job payment path. |
-| `multi_validator_consensus_enabled` | `False` | Enable after soak test passes |
+| `multi_validator_consensus_enabled` | `False` | Soak test added (1000 rounds + partition/PBFT). Enable only after configuring a validator set and per-validator signing keys; the live `PoAProposer` still uses the single `PROPOSER_ID` while this flag is `False`. |
 
 > **Known drift:** `escrow_enabled` in this table historically described the bridge HTLC path. Paid jobs create and release escrow today (see `docs/DESIGN_CYCLE.md` and scenario 34). The flag remains `False` as the safe default for cross-chain bridge HTLC until `bridge_require_merkle_proof=True`, `bridge_multisig_enabled=True`, and `multi_validator_consensus_enabled=True` are also enabled and audited.
 >
