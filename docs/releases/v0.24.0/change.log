@@ -812,3 +812,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Added `ChainParameter` model and `genesis_private_key`/`genesis_address` settings.
 - CLI `aitbc operations governance proposal` now accepts `--params` for the execution payload.
 - Documented island credential ownership (`aitbc:aitbc`, mode 0600) in `docs/ops/aitbc-cli-live-setup.md`.
+* 1de9b1d2c fix(cli/sdk): align messaging routes with deployed endpoints
