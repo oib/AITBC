@@ -319,6 +319,23 @@ def send_pool_hub_heartbeat():
         logger.error("Pool hub heartbeat error: %s", e)
 
 
+def build_tee_quote(job):
+    """Generate a simulated TEE attestation quote when the job requires one."""
+    constraints = job.get("constraints") or {}
+    if not (constraints.get("tee_attestation_required") or constraints.get("tee_enclave_id")):
+        return None
+    try:
+        import base64
+        from aitbc.tee import QuoteGenerator
+
+        enclave_id = constraints.get("tee_enclave_id") or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
+        quote = QuoteGenerator(enclave_id).generate(measurement=enclave_id)
+        return base64.b64encode(quote.quote_blob).decode("ascii")
+    except Exception as e:
+        logger.warning("Failed to generate TEE quote for job %s: %s", job.get("job_id"), e)
+        return None
+
+
 def execute_job(job, available_models):
     """Execute a job using real GPU resources"""
     job_id = job.get("job_id")
@@ -346,24 +363,29 @@ def execute_job(job, available_models):
                 output = result.get("response", "")
                 execution_time = time.time() - start_time
                 gpu_after = get_gpu_info()
+                tee_quote = build_tee_quote(job)
+                submit_payload = {
+                    "result": {
+                        "status": "completed",
+                        "output": output,
+                        "model": model,
+                        "tokens_processed": result.get("eval_count", 0),
+                        "execution_time": execution_time,
+                        "gpu_used": True,
+                    },
+                    "metrics": {
+                        "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
+                        "memory_used": gpu_after["memory_used"] if gpu_after else 0,
+                        "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048),
+                        "duration_ms": int(execution_time * 1000),
+                    },
+                }
+                if tee_quote:
+                    submit_payload["tee_quote"] = tee_quote
+                    logger.info("Attaching TEE quote for job %s", job_id)
                 submit_result(
                     job_id,
-                    {
-                        "result": {
-                            "status": "completed",
-                            "output": output,
-                            "model": model,
-                            "tokens_processed": result.get("eval_count", 0),
-                            "execution_time": execution_time,
-                            "gpu_used": True,
-                        },
-                        "metrics": {
-                            "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
-                            "memory_used": gpu_after["memory_used"] if gpu_after else 0,
-                            "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048),
-                            "duration_ms": int(execution_time * 1000),
-                        },
-                    },
+                    submit_payload,
                 )
                 logger.info("Job %s completed in %ss", job_id, execution_time)
                 return True

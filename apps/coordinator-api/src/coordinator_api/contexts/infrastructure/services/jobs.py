@@ -115,6 +115,8 @@ class JobService:
             payment_status=job.payment_status,
             zk_status=receipt.get("zk_status"),
             zk_proof_id=zk_proof.get("circuit_hash"),
+            tee_status=receipt.get("tee_status"),
+            tee_attestation_id=receipt.get("tee_attestation_id"),
         )
 
     def to_result(self, job: Job) -> JobResult:

@@ -16,6 +16,7 @@ from ....services import JobService, MinerService
 from ...infrastructure.services.receipts import ReceiptService
 from ...zk_applications.services.zk_proofs import zk_proof_service
 from ....storage import get_session
+from ...tee.attestation import TEEAttestationService
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
@@ -34,6 +35,13 @@ def _zk_required_for(job: Any) -> bool:
         return True
     payment_amount = float(job.payment_amount or 0)
     return _ZK_THRESHOLD_AIT == 0 or payment_amount >= _ZK_THRESHOLD_AIT
+
+
+def _tee_required_for(job: Any) -> bool:
+    """Return True if this job requires a TEE attestation."""
+    if not job.constraints:
+        return False
+    return bool(job.constraints.get("tee_attestation_required") or job.constraints.get("tee_enclave_id"))
 
 
 async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -76,6 +84,56 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
     except Exception as e:
         logger.error("Error generating ZK proof for job %s: %s", job.id, e)
         receipt["zk_status"] = f"error: {e}"
+    return receipt
+
+
+async def _attach_tee_attestation(
+    receipt: dict[str, Any] | None,
+    job: Any,
+    req: Any,
+    session: Any,
+) -> dict[str, Any] | None:
+    """Verify or store a TEE attestation when the job requires one."""
+    if not receipt:
+        return receipt
+    if not _tee_required_for(job):
+        receipt["tee_status"] = "not_required"
+        return receipt
+
+    service = TEEAttestationService(session)
+    enclave_id = (job.constraints or {}).get("tee_enclave_id") or ""
+
+    try:
+        if req.tee_attestation_id:
+            attestation = service.get_attestation(req.tee_attestation_id)
+            if not attestation:
+                receipt["tee_status"] = "attestation_not_found"
+            elif attestation.status != "verified":
+                receipt["tee_status"] = "attestation_not_verified"
+            elif enclave_id and attestation.enclave_id != enclave_id:
+                receipt["tee_status"] = "enclave_mismatch"
+            else:
+                receipt["tee_status"] = "verified"
+                receipt["tee_attestation_id"] = attestation.id
+        elif req.tee_quote:
+            attestation = service.verify_and_store(
+                enclave_id or "unknown", req.tee_quote, measurement=enclave_id or ""
+            )
+            if attestation.status != "verified":
+                receipt["tee_status"] = "attestation_rejected"
+            elif enclave_id and attestation.measurement and attestation.measurement != enclave_id:
+                receipt["tee_status"] = "enclave_mismatch"
+            else:
+                receipt["tee_status"] = "verified"
+                receipt["tee_attestation_id"] = attestation.id
+                logger.info("TEE attestation verified for job %s: %s", job.id, attestation.id)
+        else:
+            logger.warning("TEE attestation required for job %s but none provided", job.id)
+            receipt["tee_status"] = "missing"
+    except Exception as e:
+        logger.error("Error verifying TEE attestation for job %s: %s", job.id, e)
+        receipt["tee_status"] = f"error: {e}"
+
     return receipt
 
 
@@ -162,6 +220,7 @@ async def submit_result(
         duration_ms = int(duration_ms)
     receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
     receipt = await _attach_zk_proof(receipt, job, req.result)
+    receipt = await _attach_tee_attestation(receipt, job, req, session)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     job.completed_at = datetime.now(UTC)
@@ -174,8 +233,35 @@ async def submit_result(
         # V23-46: release_payment(client_id, job_id, payment_id, reason). This is the
         # miner router, so user["sub"] is the miner -- the owning client is job.client_id,
         # which is what _require_owned_job checks against.
+        # P2.2: confidential jobs only release when a verified TEE attestation is present.
         # P2.1: high-value jobs only release when a verified ZK proof is present.
-        if _zk_required_for(job):
+        if _tee_required_for(job):
+            tee_status = (receipt or {}).get("tee_status")
+            if tee_status != "verified":
+                job.error = f"TEE attestation required before escrow release (status: {tee_status})"
+                session.commit()
+                logger.error(
+                    "Escrow release blocked for job %s: TEE status %s", job.id, tee_status
+                )
+                success = False
+            elif _zk_required_for(job):
+                zk_status = (receipt or {}).get("zk_status")
+                if zk_status != "verified":
+                    job.error = f"ZK proof required before escrow release (status: {zk_status})"
+                    session.commit()
+                    logger.error(
+                        "Escrow release blocked for job %s: ZK status %s", job.id, zk_status
+                    )
+                    success = False
+                else:
+                    success = await payment_service.release_payment(
+                        job.client_id, job.id, job.payment_id, reason="Job completed successfully"
+                    )
+            else:
+                success = await payment_service.release_payment(
+                    job.client_id, job.id, job.payment_id, reason="Job completed successfully"
+                )
+        elif _zk_required_for(job):
             zk_status = (receipt or {}).get("zk_status")
             if zk_status != "verified":
                 job.error = f"ZK proof required before escrow release (status: {zk_status})"
