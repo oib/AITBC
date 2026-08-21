@@ -70,7 +70,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. Not fed back into dispatch | Closed-loop reputation |
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest` commands exist; not automatic | Autonomy (v0.12+ roadmap) |
 | 10. Govern | Token-weighted votes change params | `aitbc governance status` live. Propose/vote via `aitbc operations governance` against RPC; execution not proven end-to-end on hub | Live governance loop |
-| Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up | Soak + alerts |
+| Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |
 | Cross-chain | BTC/ETH ↔ AIT, HTLC | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106 | Production bridge defaults |
 
 ---
@@ -193,7 +193,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P0.2 | Shop miner registers with **hub** pool hub; `aitbc pool-hub status` shows `miners_online ≥ 1` | Completes hub-visible capacity |
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Removes single-key settlement |
 | P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Config/docs lie today |
-| P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Already burned once at 6815 |
+| P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
 | P0.6 | One on-ramp play: funded faucet **or** working `aitbc exchange-island buy` without hunting `validator_keys.json` | Step 0 of the cycle |
 | P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Operators pick the wrong group |
 
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phase 1 shipped, Phase 2 aitbc auth login shipped)*
+*Last updated: 2026-08-21 (Phases 1–3 shipped)*
