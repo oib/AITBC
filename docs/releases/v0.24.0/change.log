@@ -595,3 +595,18 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   status=\`released\`, amount=0, and released_tx_hash recorded.
 - Account balance recovered the locked collateral after the release.
 - CLI now fetches the real provider nonce before signing each bond transaction.
+
+## Validation sweep
+
+- Ran governance, AI CLI, dashboard, marketplace, reputation, island
+  credentials, and broader unit/app test suites on `aitbc3`.
+- Fixed test drift discovered by the sweep:
+  - `StubSession.execute()` signature in governance timelock tests.
+  - `blockchain_rpc_url` expectations (`127.0.0.1` vs `localhost`).
+  - `get_rpc_endpoint()` fallback test.
+  - `hub_agent_url()` default path and `HUB_HERMES_URL` handling.
+  - `agent_comm` CLI paths (`/v1/agents/...`).
+  - `messaging topic` network-error behaviour and `CLIError` handling.
+  - OpenAPI drift guard `files:` pattern for `aitbc_agent_core/`.
+  - Regenerated `docs/api/*.json` so the drift guard passes.
+- Full suite passing: ~3700 tests.
