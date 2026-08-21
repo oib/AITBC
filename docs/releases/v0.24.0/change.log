@@ -719,3 +719,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Shop miner now registers and heartbeats with the hub pool-hub (`HUB_POOL_HUB_URL=http://hub.aitbc.bubuit.net/pool-hub`); `aitbc pool-hub status` on both nodes reports `miners_online: 1`.
 - Disabled `aitbc-pool-hub.service` on `aitbc3` (shop/follower) and pointed the shop miner at the hub pool-hub.
 
+
+- P2.5: Whisper and FFmpeg default shop offers.
+  - `aitbc ai submit --type transcribe --input <url> --model <whisper-model>` runs Whisper.
+  - `aitbc ai submit --type reencode --input <url> --output-format <fmt>` runs FFmpeg.
+  - `production_miner.py` advertises `transcribe` and `reencode` in `supported_tasks`.
+  - `aitbc-whisper` and `aitbc-ffmpeg` services started with executable memory enabled.
+  - Default marketplace offers for Whisper and FFmpeg created in marketplace service.
+  - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md`.
