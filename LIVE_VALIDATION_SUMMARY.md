@@ -1,3 +1,72 @@
+# Stuck TEE job escrow refund validation
+
+**Date:** 2026-08-21  
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
+**Gitea `main`:** `381cf5b17` — *fix(escrow): deterministic contract_id for loaded escrows*  
+**Job:** `febb20dde26342238196a3a99b57423e` (payment `a4a7348a869a46abb8ea9687c7a4b195`)  
+
+## What was validated
+
+A failed TEE job whose escrow was stuck after the blockchain RPC node was restarted was refunded end-to-end through the canonical `aitbc` CLI:
+
+```bash
+aitbc market escrow refund febb20dde26342238196a3a99b57423e
+```
+
+Output:
+
+```json
+{
+  "success": true,
+  "contract_id": "escrow_ba963aba0d3dd882",
+  "job_id": "febb20dde26342238196a3a99b57423e",
+  "message": "Escrow already refunded",
+  "refund_tx_hash": "0x71df1034f3067ea1cd7d4787260e18b25af58ab43eebb23cc526857d9d27e7e8"
+}
+```
+
+On-chain state:
+
+```bash
+curl -s http://localhost:8202/rpc/escrow/febb20dde26342238196a3a99b57423e
+```
+
+```json
+{
+  "job_id": "febb20dde26342238196a3a99b57423e",
+  "contract_id": "escrow_ba963aba0d3dd882",
+  "state": "refunded",
+  "buyer": "ait1705dc3fed48ba1a20381630d684bc88df9c8cdfa",
+  "provider": "ait1eb29516824e95adffeedfc914941f0fbed0bb1a4",
+  "amount": "5",
+  "released_amount": "0",
+  "refunded_amount": "5",
+  "refund_tx_hash": "0x71df1034f3067ea1cd7d4787260e18b25af58ab43eebb23cc526857d9d27e7e8"
+}
+```
+
+Coordinator state:
+
+```text
+sqlite3 /var/lib/aitbc/data/coordinator.db
+SELECT id, payment_id, state, payment_status, error FROM job WHERE id=febb20dde26342238196a3a99b57423e;
+febb20dde26342238196a3a99b57423e|a4a7348a869a46abb8ea9687c7a4b195|COMPLETED|refunded|TEE attestation required before escrow release (status: attestation_rejected)
+
+SELECT id, status, refund_transaction_hash, refunded_at FROM job_payments WHERE id=a4a7348a869a46abb8ea9687c7a4b195;
+a4a7348a869a46abb8ea9687c7a4b195|refunded|0x71df1034f3067ea1cd7d4787260e18b25af58ab43eebb23cc526857d9d27e7e8|2026-08-21 15:52:29.005651
+```
+
+## Key fixes that made this possible
+
+- `EscrowManager.load_from_db()` loads active escrows from the chain DB on startup; `_find_contract_id()` can lazy-load any persisted contract by `job_id`.
+- `EscrowManager.get_or_load_contract()` uses a deterministic `contract_id` derived from buyer/provider/job_id.
+- The blockchain `/escrow/{job_id}` endpoint now exposes `refunded_at` and `refund_tx_hash`.
+- `PaymentService.refund_payment()` checks the on-chain escrow state before calling `/rpc/escrow/{job_id}/refund`; if already refunded, it records the hash and updates the coordinator.
+- `aitbc market escrow refund` tries the coordinator first (when a client token is available) and falls back to the blockchain RPC.
+- `aitbc ai refund` is the canonical full-cycle refund command.
+
+---
+
 # Live two-node AI job validation summary
 
 **Date:** 2026-08-20 (replayed the same day)
