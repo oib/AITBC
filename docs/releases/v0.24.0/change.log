@@ -754,3 +754,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - Implemented P1.1: job completion records update `AgentReputation`; dispatch prefers `trust_score`; `aitbc market list` fetches and sorts by live reputation.
 
+
+- Scenario 37: ZK high-value jobs.
+  - Added `docs/scenarios/37_zk_high_value_jobs.md` documenting the P2.1 ZK
+    receipt proof flow.
+  - Live-validated on hub: payment 15 AIT inference job `324860acec664b5eac8fad85cc2cd873`
+    completed with `zk_status`: `verified` and `zk_proof_id` set.
+  - Linked from `docs/scenarios/README.md`.
