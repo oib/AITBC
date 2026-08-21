@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Wire the WebSocket connection manager to the persisted message storage
     # so it can restore topic subscriptions on agent reconnect.
-    from ..websocket import get_connection_manager
+    from .websocket import get_connection_manager
 
     connection_manager = get_connection_manager()
     connection_manager.message_storage = state.message_storage
