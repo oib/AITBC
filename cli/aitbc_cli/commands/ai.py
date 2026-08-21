@@ -162,6 +162,7 @@ def ai():
 @click.option("--currency", default=None, help="Payment currency (default: AITBC)")
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
+@click.option("--min-reputation", type=float, help="Minimum provider reputation score (0-1) required for this job")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
 @click.option("--chain-id", help="Chain ID")
@@ -182,6 +183,7 @@ def submit(
     currency,
     buyer_address,
     provider_address,
+    min_reputation,
     password,
     password_file,
     chain_id,
@@ -223,6 +225,9 @@ def submit(
             "constraints": {},
             "ttl_seconds": 900,
         }
+
+        if min_reputation is not None:
+            job_data["constraints"]["min_reputation"] = min_reputation
 
         if payment:
             job_data["payment_amount"] = payment
