@@ -185,20 +185,25 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         sender = tx_data.get("from")
         payload = tx_data.get("payload") or {}
         is_offer = tx_data.get("type") == "GPU_MARKETPLACE" and payload.get("action") in ("offer", "software_offer")
+        is_hardware_offer = is_offer and payload.get("action") == "offer"
+        is_software_offer = is_offer and payload.get("action") == "software_offer"
         if is_offer:
             # GPU/software offers are value-zero listings; they are still traceable to sender
             # by the public key / address, but requiring a secp256k1 signature here would break
             # the marketplace CLI which does not manage wallet private keys (V23-90).
             if not sender:
                 raise HTTPException(status_code=400, detail="Sender required")
-            min_bond = _market_bond_min_amount()
-            if min_bond > 0:
-                with session_scope(chain_id) as session:
-                    if not _has_active_bond(session, chain_id, sender, min_bond):
-                        raise HTTPException(
-                            status_code=403,
-                            detail=f"Active bond of at least {min_bond} compute-seconds required to list",
-                        )
+            # P2.5: software service offers (Whisper, FFmpeg, Ollama) do not require a prior
+            # on-chain bond to list; hardware bundle offers still do if the bond minimum is set.
+            if is_hardware_offer:
+                min_bond = _market_bond_min_amount()
+                if min_bond > 0:
+                    with session_scope(chain_id) as session:
+                        if not _has_active_bond(session, chain_id, sender, min_bond):
+                            raise HTTPException(
+                                status_code=403,
+                                detail=f"Active bond of at least {min_bond} compute-seconds required to list",
+                            )
             tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
         else:
             if not signature:
