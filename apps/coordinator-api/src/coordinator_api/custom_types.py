@@ -28,4 +28,13 @@ class Constraints(BaseModel):
     tee_attestation_required: bool = Field(default=False, description="Require a TEE attestation for this job")
     tee_enclave_id: str | None = Field(default=None, description="Required enclave identity for TEE attestation")
     min_reputation: float | None = None
-    auto_reinvest_pct: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake as reinvestment")
+    auto_reinvest_pct: Decimal | None = Field(
+        default=None,
+        ge=Decimal("0"),
+        le=Decimal("100"),
+        description="Percentage of released payment to auto-stake as reinvestment",
+    )
+    confidential: bool = Field(default=False, description="Mark this job as confidential")
+    required_enclave_measurement: str | None = Field(
+        default=None, description="Required TEE enclave measurement for confidential jobs"
+    )
