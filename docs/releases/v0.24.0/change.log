@@ -537,3 +537,23 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - high-reputation miner received the same job when it polled;
   - low-reputation miner received a `min_reputation: 0.1` job once the
     higher-reputation miners were offline.
+
+## P1.3 — bridge trusted-custodian documentation
+
+- Audited bridge verification code in `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py`,
+  `aitbc/bridge/multisig.py`, and `aitbc/bridge/proof.py`. Multi-signature and
+  Merkle-proof verification are implemented and regression-tested, but they are
+  gated by flags that default to `False`:
+  - `bridge_release_enabled`
+  - `bridge_multisig_enabled`
+  - `bridge_require_merkle_proof`
+- Updated `docs/releases/STATUS.md` to reflect the actual default (`False`) for
+  `bridge_release_enabled` and documented the trusted-custodian default.
+- Added an "Operational security model" section to
+  `docs/features/2-bridge-cross-chain.md`.
+- Updated `docs/architecture/bridge-threat-model.md` to state that the default
+  deployment is a trusted-custodian bridge.
+- Added a "Security Model" note to `docs/scenarios/20_cross_chain_transfer.md`.
+- Extended `bridge_security_status` to report `require_merkle_proof`,
+  `verification_mode`, and `trusted_custodian`.
+- Ran bridge unit/security tests successfully.
