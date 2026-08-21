@@ -768,3 +768,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - Fixed `aitbc auth login` URL normalization: strip trailing `/v1` from configured `coordinator_api_url` to avoid `/v1/v1/auth/nonce`.
 
+- Updated scenario 34 (`docs/scenarios/34_hub_customer_node_e2e.md`) to v1.5, covering `aitbc auth login`, `aitbc dashboard`, `aitbc zk verify`, `aitbc reputation`, and trust-aware `aitbc market list`.
+
