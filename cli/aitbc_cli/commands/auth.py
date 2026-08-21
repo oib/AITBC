@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -48,6 +49,10 @@ def _resolve_private_key(
         wallet_path = wallet_dir / f"{wallet_name}.json"
         if not wallet_path.exists():
             raise ValueError(f"Wallet not found: {wallet_path}")
+        wallet_data = json.loads(wallet_path.read_text())
+        private_key_field = wallet_data.get("private_key")
+        if isinstance(private_key_field, str):
+            return private_key_field.removeprefix("0x").strip()
         if not password:
             raise ValueError("Password required to decrypt wallet")
         return decrypt_private_key(wallet_path, password)
