@@ -268,9 +268,9 @@ class BridgeMixin:
 
             rates: dict[str, float] = {}
             if eth_usd and ait_usd and ait_usd.price > 0:
-                rates["ETH::AITBC"] = round(eth_usd.price / ait_usd.price, 8)
+                rates["ETH::AITBC"] = float(round(eth_usd.price / ait_usd.price, 8))
             if eth_usd and ait_usd and eth_usd.price > 0:
-                rates["AITBC::ETH"] = round(ait_usd.price / eth_usd.price, 8)
+                rates["AITBC::ETH"] = float(round(ait_usd.price / eth_usd.price, 8))
 
             self.send_json_response({
                 "rates": rates,
