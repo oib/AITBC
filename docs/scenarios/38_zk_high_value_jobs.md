@@ -74,6 +74,20 @@ Restart the coordinator:
 sudo systemctl restart aitbc-coordinator-api
 ```
 
+If the coordinator runs under systemd with `MemoryDenyWriteExecute=yes`, Node
+(processes spawned by snarkjs) will crash with a V8 `SetPermissions` error. Add
+an override:
+
+```bash
+sudo mkdir -p /etc/systemd/system/aitbc-coordinator-api.service.d
+cat <<EOF | sudo tee /etc/systemd/system/aitbc-coordinator-api.service.d/override.conf
+[Service]
+MemoryDenyWriteExecute=no
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart aitbc-coordinator-api
+```
+
 ### Step 2: Submit a high-value job with ZK proof required
 
 ```bash
