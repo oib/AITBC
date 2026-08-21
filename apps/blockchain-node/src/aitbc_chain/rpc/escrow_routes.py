@@ -9,7 +9,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 import hashlib
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -23,7 +23,7 @@ from eth_utils import keccak
 from ..contracts.escrow import get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Escrow
+from ..models import Account, Escrow, Stake
 
 _HUB_RPC_URL = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL)
 _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net"))
@@ -109,6 +109,51 @@ def _get_settlement_address() -> str | None:
     except Exception as e:
         _logger.warning("ESCROW_RELEASE: failed to derive settlement address: %s", e)
         return None
+
+
+async def _auto_stake(provider: str, amount: Decimal, chain_id: str) -> str | None:
+    """Stake a portion of released escrow for the provider without requiring a signature.
+
+    This is a protocol-level reinvestment triggered from the escrow release path.
+    The provider's on-chain account is expected to have just been credited by the
+    ESCROW_RELEASE transaction.
+    """
+    if not provider or amount <= 0:
+        return None
+    try:
+        with session_scope() as session:
+            address = provider.lower().strip()
+            if not address.startswith("0x"):
+                address = "0x" + address
+            account = session.get(Account, (chain_id, address))
+            if not account:
+                _logger.warning("AUTO_STAKE: no account for %s, creating with zero balance", address)
+                account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
+                session.add(account)
+            if account.balance < amount:
+                _logger.warning(
+                    "AUTO_STAKE: insufficient balance for %s: %s < %s",
+                    address, account.balance, amount
+                )
+                return None
+            account.balance -= amount
+            session.add(account)
+            locked_until = datetime.now(UTC) + timedelta(days=30)
+            stake = Stake(
+                chain_id=chain_id,
+                address=address,
+                amount=amount,
+                locked_until=locked_until,
+                status="active",
+            )
+            session.add(stake)
+            session.commit()
+            session.refresh(stake)
+            _logger.info("AUTO_STAKE: %s staked %s, stake_id=%s", address, amount, stake.id)
+            return stake.id
+    except Exception as e:
+        _logger.error("AUTO_STAKE failed: %s", e)
+    return None
 
 
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
@@ -261,7 +306,25 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
     buyer_addr = contract.client_address if contract else ""
     provider_addr = contract.agent_address if contract else ""
+    # Allow caller to override the provider address for reinvestment (e.g. from payment meta_data).
+    reinvest_address = request.get("auto_reinvest_address") or provider_addr or request.get("provider_address")
+    auto_reinvest_pct = request.get("auto_reinvest_pct")
     tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
+    reinvest_stake_id = None
+    reinvest_amount = Decimal(0)
+    if auto_reinvest_pct and reinvest_address and released_amount > 0:
+        try:
+            pct = Decimal(str(auto_reinvest_pct))
+            if 0 < pct <= 100:
+                reinvest_amount = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
+                if reinvest_amount > 0:
+                    reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount, _CHAIN_ID)
+                    _logger.info(
+                        "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
+                        job_id, reinvest_stake_id, reinvest_amount, pct
+                    )
+        except Exception as e:
+            _logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
     _logger.info("Escrow released: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
     return {
         "success": True,
@@ -271,6 +334,8 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         "released_amount": str(released_amount),
         "tx_hash": tx_hash,
         "released_at": released_at.isoformat(),
+        "reinvest_amount": str(reinvest_amount),
+        "reinvest_stake_id": reinvest_stake_id,
     }
 
 

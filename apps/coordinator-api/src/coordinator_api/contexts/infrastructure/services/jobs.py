@@ -117,6 +117,9 @@ class JobService:
             zk_proof_id=zk_proof.get("circuit_hash"),
             tee_status=receipt.get("tee_status"),
             tee_attestation_id=receipt.get("tee_attestation_id"),
+            auto_reinvest_pct=(job.constraints or {}).get("auto_reinvest_pct"),
+            reinvest_status=receipt.get("reinvest_status"),
+            reinvest_stake_id=receipt.get("reinvest_stake_id"),
         )
 
     def to_result(self, job: Job) -> JobResult:
