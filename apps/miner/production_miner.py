@@ -340,7 +340,11 @@ def build_tee_quote(job):
     try:
         from aitbc.tee import QuoteGenerator
 
-        enclave_id = constraints.get("tee_enclave_id") or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
+        enclave_id = (
+            constraints.get("tee_enclave_id")
+            or constraints.get("required_enclave_measurement")
+            or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
+        )
         job_id = job.get("job_id", "unknown-job")
         quote_id = f"tee-{job_id}-{enclave_id}-{datetime.now(UTC).isoformat()}"
         quote = QuoteGenerator(enclave_id).generate(
