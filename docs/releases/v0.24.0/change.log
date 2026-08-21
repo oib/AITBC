@@ -760,10 +760,12 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 
 - P2.6: real IPFS daemon behind `aitbc ipfs`.
-  - Deployed Kubo v0.43.0 via `aitbc-ipfs.service` on shop and hub.
-  - `aitbc ipfs upload|download|pin|list` use the local Kubo HTTP API.
+  - `aitbc ipfs upload|download|pin|list` now use the local Kubo HTTP API
+    (`http://127.0.0.1:5001` by default, overridable with `IPFS_API_URL`).
   - Falls back to the filesystem stub when the daemon is not reachable.
-  - Cross-node `aitbc ipfs download` validated over the IPFS swarm.
+  - Cross-node `aitbc ipfs download` validated over the public IPFS swarm
+    from `aitbc3` to `hub.aitbc` and back.
+  - `tests/cli/test_ipfs.py` updated to exercise the daemon-aware code path.
   - Scenario docs: `docs/scenarios/42_ipfs_daemon.md`.
 
 - P2.7: compliance, plugins, and white-label expansion.
