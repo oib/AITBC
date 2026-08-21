@@ -59,6 +59,16 @@ An agent needs to transfer tokens from one chain to another — either via a cro
 - The exchange service reachable and configured in the AITBC config
 - For SDK atomic swaps: a deployed `CrossChainAtomicSwap` contract and the `ContractConfig` set up
 
+### Security Model for This Scenario
+
+The bridge commands in this scenario exercise the **trusted-custodian bridge path** that is active in the default configuration:
+
+- `bridge_release_enabled = False` (operator release)
+- `bridge_multisig_enabled = False` (multi-sig verification not required)
+- `bridge_require_merkle_proof = False` (Merkle inclusion proof not required)
+
+The bridge supports a trust-minimized mode with multi-sig, Merkle proofs, and block-header verification, but those layers must be explicitly enabled and supplied with a validator set and source-chain block headers. Operators can inspect the current bridge security posture with `aitbc bridge security-status`.
+
 ---
 
 ## Step-by-Step Workflow
