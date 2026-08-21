@@ -4,7 +4,7 @@
 **Prerequisites**: [Scenario 21 Service Startup & Connectivity](./21_service_startup_connectivity.md)
 **Estimated Time**: 10 minutes
 **Last Updated**: 2026-08-21
-**Version**: 1.3
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -36,6 +36,8 @@ An operator or customer CLI must not be able to submit a malformed lock. Structu
 
 - How to check bridge health with `aitbc bridge health`
 - How `aitbc bridge lock` / `confirm` reject invalid input
+- How the bridge rejects same-chain locks and amount limits
+- How `aitbc bridge unlock` enforces a refund delay
 - How pending/status queries work when the RPC is up
 
 ---
@@ -105,14 +107,42 @@ aitbc bridge confirm \
 
 **Expected output:** CLI abort (empty `--transfer-id` and/or 422 from the RPC).
 
-### Step 5: List pending transfers (valid read path)
+### Step 5: Reject a same-chain lock
+
+```bash
+aitbc bridge lock   --target-chain ait-hub.aitbc.bubuit.net   --sender 0xabc   --recipient 0xdef   --amount 10   --signature 0x123
+```
+
+**Expected output:** HTTP 400 with `Source and target chain must be different`.
+
+### Step 6: Enforce maximum lock amount
+
+If the node is configured with a `bridge_max_lock_amount`, a larger lock is rejected:
+
+```bash
+aitbc bridge lock   --target-chain chain2   --sender 0xabc   --recipient 0xdef   --amount 9999999999999   --signature 0x123
+```
+
+**Expected output:** HTTP 400 with `Amount ... exceeds bridge max lock amount ...` (when the max is set and the amount exceeds it).
+
+### Step 7: Refund delay
+
+After a successful lock, an immediate refund is rejected if the node has `bridge_refund_delay_seconds > 0`:
+
+```bash
+aitbc bridge unlock   --transfer-id <transfer-id>   --sender 0xabc   --signature 0x123
+```
+
+**Expected output:** HTTP 400 with `Refund not allowed yet: ...s since lock, minimum delay is ...s`.
+
+### Step 8: List pending transfers (valid read path)
 
 ```bash
 aitbc bridge pending
 aitbc bridge security-status
 ```
 
-**Expected output:** a (possibly empty) pending list and a security-status payload. Multi-sig may report disabled — that matches current production defaults (see DESIGN_CYCLE.md).
+**Expected output:** a (possibly empty) pending list and a security-status payload. Multi-sig may report disabled — that matches current production defaults (see DESIGN_CYCLE.md). The health/status output also shows `bridge_refund_delay_seconds` and `bridge_max_lock_amount`.
 
 ---
 
@@ -122,6 +152,8 @@ After completing this scenario, you should be able to:
 
 - Confirm bridge health through `aitbc bridge health`
 - Prove malformed lock/confirm attempts fail closed
+- Prove same-chain and over-limit locks fail closed
+- Prove immediate refunds are delayed when configured
 - Inspect pending transfers without crafting raw HTTP
 
 ---
