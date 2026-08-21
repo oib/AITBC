@@ -124,3 +124,10 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 
 *Last updated: 2026-08-21 (Phase 1 in progress)*
 *Version: 1.5*
+
+### Advanced Scenarios (Product-Feature End-to-End)
+
+| # | Scenario | Focus | CLI group |
+|---|---|----------|-------|-----------|
+|| 37 | ZK Proof for High-Value Jobs | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
+|| 38 | TEE Attestation for Confidential Jobs | Confidential jobs require and verify a TEE attestation | `aitbc ai`, `aitbc tee` |
