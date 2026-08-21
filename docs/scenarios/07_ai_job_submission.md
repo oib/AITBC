@@ -34,6 +34,7 @@ An AI agent needs to run an inference or training workload on the the network. I
 ### What You'll Learn
 
 - How to submit an AI job via the `aitbc ai submit` command
+- How to use `aitbc ai submit --wait` to poll for completion
 - How to list jobs and filter by status
 - How to check a single job's status and fetch its results
 - How to submit and track jobs programmatically with the `ComputeConsumer` SDK class
@@ -320,17 +321,23 @@ After completing this scenario, you should be able to:
 Confirm the job lifecycle end-to-end:
 
 ```bash
-# Submit a job and capture its job_id
-aitbc --api-key "$COORDINATOR_TOKEN" ai submit --wallet agent-wallet --type inference --prompt "hello" --payment 1.0 --format json
+# Submit a job, authenticate with stored token, and wait for completion
+aitbc ai submit \
+  --wallet agent-wallet \
+  --type inference \
+  --prompt "hello" \
+  --payment 1.0 \
+  --wait \
+  --timeout 120
 
-# Poll until status is completed/failed
-aitbc --api-key "$COORDINATOR_TOKEN" ai status --job-id <job_id>
+# Or submit without waiting and poll manually
+aitbc ai status --job-id <job_id>
 
 # Fetch the result payload
-aitbc --api-key "$COORDINATOR_TOKEN" ai results --job-id <job_id>
+aitbc ai results --job-id <job_id>
 
 # Confirm the job appears in the list
-aitbc --api-key "$COORDINATOR_TOKEN" ai jobs --status completed --limit 5
+aitbc ai jobs --status completed --limit 5
 ```
 
 ---
