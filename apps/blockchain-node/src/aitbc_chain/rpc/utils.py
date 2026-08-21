@@ -52,6 +52,29 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
         return False
 
 
+def sign_transaction_data(tx_data: dict[str, Any], private_key: str) -> str:
+    """Sign a transaction dict with a secp256k1 private key.
+
+    Produces the same 65-byte hex signature that ``verify_transaction_signature``
+    expects. The signed message is the keccak256 hash of the canonical JSON
+    encoding of the transaction fields, excluding the ``signature`` field and the
+    internal ``value`` alias when ``amount`` is present.
+    """
+    import json
+
+    from eth_keys import keys
+    from eth_utils import keccak
+
+    has_amount = "amount" in tx_data
+    tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature" and not (has_amount and k == "value")}
+    message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
+    msg_hash = keccak(message)
+    pk_hex = private_key.removeprefix("0x")
+    pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+    sig = pk.sign_msg_hash(msg_hash)
+    return sig.to_hex()
+
+
 def verify_request_signature(sender: str, signature: str, message_data: dict[str, Any]) -> bool:
     """Verify a generic request signature (for bridge, staking, etc.).
 

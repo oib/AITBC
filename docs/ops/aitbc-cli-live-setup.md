@@ -86,22 +86,52 @@ aitbc config set coordinator_api_url http://hub.aitbc.bubuit.net/c/v1
 aitbc dashboard shop --miner-id aitbc-miner-1
 ```
 
-## 6. Governance flow
+## 6. Island credentials ownership
 
-Governance operates on `hub.aitbc`:
+`/var/lib/aitbc/island_credentials.json` is created and owned by the `aitbc` service user (`aitbc:aitbc`, mode `0600`).
+
+- The CLI can read this file as the `aitbc` user or as `root` for operator convenience.
+- It is **not** a wallet file; it stores island metadata (island_id, chain_id, RPC endpoint, genesis block hash) and the genesis address used to identify the network.
+- The actual signing key for the genesis address is not stored in this file; it lives in the node keystore / environment (`GENESIS_PRIVATE_KEY`) and is owned by the daemon.
+
+If the file becomes owned by the wrong user or world-readable, the CLI refuses to load it with a `PermissionError`. Run the deployment helper or `chown aitbc:aitbc 0600` it.
+
+## 7. Governance flow
+
+Governance operates on `hub.aitbc`.
+
+### Off-chain service path (coordinator governance)
 
 ```bash
 ssh hub.aitbc
-aitbc governance propose --title "Increase max concurrent" --description "Raise pool hub limit" --params '{"target_service":"poolhub","parameter_name":"max_concurrent","new_value":8}'
-aitbc governance vote --proposal-id <id> --vote for
+aitbc governance propose --title "Increase max concurrent" --description "Raise pool hub limit" --proposer-id <profile> --params '{"target_service":"poolhub","parameter_name":"max_concurrent","new_value":8}'
+aitbc governance vote --proposal-id <id> --voter-id <profile> --vote for
 aitbc governance close --proposal-id <id>
 # Wait for the execution timelock to elapse, then:
 aitbc governance execute --proposal-id <id>
 ```
 
+### On-chain execution path (blockchain RPC)
+
+The `aitbc operations governance` commands target the blockchain RPC directly. To execute a passed proposal on-chain:
+
+```bash
+ssh hub.aitbc
+aitbc operations governance proposal     --proposal-id increase-block-time-1     --title "Increase block time"     --description "Raise block time to 15s"     --wallet genesis     --params '{"action":"parameter_change","parameter":"block_time_seconds","value":"15"}'     --voting-days 0
+
+aitbc operations governance vote --proposal-id increase-block-time-1 --wallet genesis --vote for --voting-power 1000
+aitbc operations governance execute --proposal-id increase-block-time-1
+```
+
+After execution, the next block will include a `GOVERNANCE_EXECUTE` transaction that writes the parameter to the on-chain `chain_parameter` table and marks the proposal as `executed`. Query it with:
+
+```bash
+curl -s "http://localhost:8202/rpc/governance/proposal/increase-block-time-1"
+```
+
 If the off-chain execution fix is not yet deployed, the service may require `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false` in `/etc/aitbc/aitbc-governance.env`. This should only be used in development.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 ### 405 Method Not Allowed
 
