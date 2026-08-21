@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from aitbc.network import SharedHttpClient
-from aitbc.crypto.crypto import sign_transaction_hash
+from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
 from eth_utils import keccak
 
@@ -56,6 +56,10 @@ async def _get_account_nonce(address: str) -> int:
 
 _GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
 
+# v0.7.3: ESCROW_RELEASE may be signed by a dedicated non-genesis key.
+_ESCROW_RELEASE_PRIVATE_KEY = os.getenv("ESCROW_RELEASE_PRIVATE_KEY", "")
+_ESCROW_RELEASE_ADDRESS = os.getenv("ESCROW_RELEASE_ADDRESS", "")
+
 
 def _compute_tx_signing_hash(tx: dict[str, Any]) -> str:
     """Return the keccak hash the RPC verifies for a transaction signature."""
@@ -82,6 +86,31 @@ async def _create_account_if_missing(address: str, chain_id: str) -> bool:
     return False
 
 
+def _get_settlement_key() -> str:
+    """Return the configured non-genesis escrow release key, falling back to genesis."""
+    return _ESCROW_RELEASE_PRIVATE_KEY or _GENESIS_WALLET_PRIVATE_KEY
+
+
+def _get_settlement_address() -> str | None:
+    """Return the canonical settlement address for ESCROW_RELEASE signing.
+
+    Explicit ``ESCROW_RELEASE_ADDRESS`` takes precedence, otherwise derive it
+    from the configured release private key. ``canonical_address`` returns a
+    lowercase ``0x``-prefixed address that matches what signature recovery
+    produces for verification.
+    """
+    if _ESCROW_RELEASE_ADDRESS:
+        return canonical_address(_ESCROW_RELEASE_ADDRESS)
+    key = _get_settlement_key()
+    if not key:
+        return None
+    try:
+        return canonical_address(derive_ethereum_address(key))
+    except Exception as e:
+        _logger.warning("ESCROW_RELEASE: failed to derive settlement address: %s", e)
+        return None
+
+
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     amount_seconds = int(amount * 3600)
@@ -89,13 +118,21 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
     if amount_int <= 0:
         return None
     try:
-        if not _GENESIS_WALLET_PRIVATE_KEY:
-            _logger.warning("ESCROW_RELEASE TX skipped: GENESIS_WALLET_PRIVATE_KEY not configured")
+        settlement_key = _get_settlement_key()
+        if not settlement_key:
+            _logger.warning("ESCROW_RELEASE TX skipped: no settlement private key configured")
             return None
 
-        sender = await _resolve_chain_account(buyer) or _NODE_WALLET
-        if not sender:
-            _logger.warning("ESCROW_RELEASE TX skipped: could not resolve sender (buyer=%s)", buyer)
+        settlement_address = _get_settlement_address()
+        if not settlement_address:
+            _logger.warning("ESCROW_RELEASE TX skipped: could not resolve settlement address")
+            return None
+
+        sender = settlement_address
+
+        # The settlement account must exist before a TRANSFER-style transaction can be applied.
+        if not await _create_account_if_missing(sender, _CHAIN_ID):
+            _logger.warning("ESCROW_RELEASE TX skipped: could not create settlement account (sender=%s)", sender)
             return None
 
         # The provider account must exist before a TRANSFER-style transaction can be applied.
@@ -127,9 +164,9 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
                 "released_at": datetime.now(UTC).isoformat(),
             },
         }
-        # Sign with the genesis wallet private key (the buyer in the test flow).
+        # Sign with the configured non-genesis settlement key (or genesis as fallback).
         signing_hash = _compute_tx_signing_hash(tx)
-        tx["signature"] = sign_transaction_hash(signing_hash, _GENESIS_WALLET_PRIVATE_KEY)
+        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
 
         resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
         if resp.status_code in (200, 201):
