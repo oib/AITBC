@@ -251,6 +251,44 @@ class BridgeMixin:
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
+
+    def handle_cross_chain_rates(self):
+        """GET /cross-chain/rates or /v1/cross-chain/rates."""
+        import os
+        import sys
+        import urllib.parse
+
+        sys.path.insert(0, "/opt/aitbc")
+        try:
+            from aitbc.oracles.price_oracle import get_price_oracle
+
+            oracle = get_price_oracle()
+            eth_usd = oracle.get_price("ETH", "USD")
+            ait_usd = oracle.get_price("AIT", "USD")
+
+            rates: dict[str, float] = {}
+            if eth_usd and ait_usd and ait_usd.price > 0:
+                rates["ETH::AITBC"] = round(eth_usd.price / ait_usd.price, 8)
+            if eth_usd and ait_usd and eth_usd.price > 0:
+                rates["AITBC::ETH"] = round(ait_usd.price / eth_usd.price, 8)
+
+            self.send_json_response({
+                "rates": rates,
+                "custodian": True,
+                "multisig_enabled": False,
+                "require_merkle_proof": False,
+                "note": "Bridge is operating in trusted-custodian mode; rates are indicative only.",
+            })
+        except Exception as e:
+            pass
+            self.send_json_response({
+                "rates": {},
+                "custodian": True,
+                "multisig_enabled": False,
+                "require_merkle_proof": False,
+                "note": "Bridge is operating in trusted-custodian mode; rate feed unavailable.",
+            })
+
     def handle_bridge_estimate(self):
         """POST /v1/bridge/estimate — estimate AIT amount for ETH"""
         if not self._require_api_key():  # type: ignore[attr-defined]
