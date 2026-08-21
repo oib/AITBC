@@ -32,11 +32,12 @@ class JobService:
             requested_at=now,
             expires_at=now + timedelta(seconds=ttl),
         )
+        if req.payment_amount and req.payment_amount > 0:
+            job.payment_amount = req.payment_amount
+            job.payment_token = req.payment_currency
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
-        if req.payment_amount and req.payment_amount > 0:
-            pass
         return job
 
     def get_job(self, job_id: str, client_id: str | None = None) -> Job:
@@ -87,6 +88,8 @@ class JobService:
         return job
 
     def to_view(self, job: Job) -> JobView:
+        receipt = job.receipt or {}
+        zk_proof = receipt.get("zk_proof") or {}
         return JobView(
             job_id=job.id,
             state=job.state,
@@ -96,6 +99,8 @@ class JobService:
             error=job.error,
             payment_id=job.payment_id,
             payment_status=job.payment_status,
+            zk_status=receipt.get("zk_status"),
+            zk_proof_id=zk_proof.get("circuit_hash"),
         )
 
     def to_result(self, job: Job) -> JobResult:

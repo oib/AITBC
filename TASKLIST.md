@@ -116,6 +116,18 @@ Latest pushed commits:
 - [x] Who fixes shop chain sync / missing P2P on aitbc3? → fork reset done this session; P2P unit still missing (HTTPS pull is how the shop syncs).
 - [x] Who updates scenario 34 exchange + JWT snippets on gitea `main`? → commit `e8966aba1`.
 
+## P2.1 — ZK proofs for high-value jobs
+
+- [x] Build `receipt_public` circuit with public `receiptHash`
+- [x] Generate and commit `receipt_public` zkey/wasm/vkey
+- [x] Update `ZKProofService` to use `receipt_public` and Poseidon4
+- [x] Gate miner result submission on ZK proof for high-value jobs
+- [x] Gate `PaymentService.release_payment` on verified `zk_status`
+- [x] Add `--zk-proof-required` to `aitbc ai submit`
+- [x] Add `zk_status` and `zk_proof_id` to `JobView`
+- [x] Add `apps/coordinator-api/tests/test_zk_receipt.py`
+- [ ] Live validation of `aitbc ai` with ZK gate
+
 ## P2.3 — On-chain performance bonds and slashing
 
 - [x] Add Bond table and bond escrow/burn accounts
