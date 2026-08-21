@@ -17,6 +17,7 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")
+POOL_HUB_URL = os.environ.get("POOL_HUB_URL", "http://127.0.0.1:8210")
 MINER_ID = os.environ.get("MINER_ID", "")
 AUTH_TOKEN = os.environ.get("MINER_AUTH_TOKEN", os.environ.get("MINER_API_KEY", ""))
 if not MINER_ID:
@@ -238,6 +239,86 @@ def send_heartbeat():
         logger.error("Heartbeat error: %s", e)
 
 
+def build_pool_hub_register_data():
+    """Build the payload the pool hub expects for miner registration."""
+    gpu_info = get_gpu_info()
+    arch = classify_architecture(gpu_info["name"]) if gpu_info else "unknown"
+    caps = build_gpu_capabilities()
+    return {
+        "miner_id": MINER_ID,
+        "api_key": AUTH_TOKEN,
+        "addr": POOL_HUB_URL,
+        "proto": "http",
+        "gpu_vram_gb": (gpu_info["memory_total"] / 1024) if gpu_info else 0.0,
+        "gpu_name": gpu_info["name"] if gpu_info else None,
+        "cpu_cores": os.cpu_count() or 1,
+        "ram_gb": 16.0,
+        "max_parallel": caps.get("max_concurrent_jobs", 1),
+        "base_price": str(caps.get("price", 0.01)),
+        "tags": {"platform": caps.get("platform", "CPU"), "cuda": caps.get("cuda", "unknown")},
+        "capabilities": caps.get("supported_tasks", ["inference"]),
+        "region": caps.get("region", "localhost"),
+    }
+
+
+def build_pool_hub_heartbeat_data():
+    """Build the payload the pool hub expects for a heartbeat."""
+    gpu_info = get_gpu_info()
+    latency_ms = measure_coordinator_latency()
+    if gpu_info:
+        return {
+            "status": "active",
+            "current_jobs": 0,
+            "gpu_utilization": gpu_info["utilization"],
+            "memory_used": gpu_info["memory_used"],
+            "memory_total": gpu_info["memory_total"],
+            "network_latency_ms": latency_ms,
+        }
+    return {
+        "status": "active",
+        "current_jobs": 0,
+        "gpu_utilization": 0,
+        "memory_used": 0,
+        "memory_total": 0,
+        "network_latency_ms": latency_ms,
+    }
+
+
+def register_pool_hub():
+    """Register the miner with the pool hub so it appears in pool-hub status."""
+    register_data = build_pool_hub_register_data()
+    headers = {"Content-Type": "application/json"}
+    try:
+        client = AITBCHTTPClient(base_url=POOL_HUB_URL, headers=headers, timeout=10)
+        response = client.post("/v1/miners/register", json=register_data)
+        if response:
+            logger.info("Successfully registered miner with pool hub: %s", response)
+            return True
+        logger.error("Pool hub registration failed: empty response")
+        return False
+    except NetworkError as e:
+        logger.error("Pool hub registration error: %s", e)
+        return False
+
+
+def send_pool_hub_heartbeat():
+    """Send heartbeat to the pool hub."""
+    heartbeat_data = build_pool_hub_heartbeat_data()
+    headers = {
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    try:
+        client = AITBCHTTPClient(base_url=POOL_HUB_URL, headers=headers, timeout=5)
+        response = client.post("/v1/miners/heartbeat", json=heartbeat_data)
+        if response:
+            logger.info("Pool hub heartbeat sent")
+        else:
+            logger.error("Pool hub heartbeat failed")
+    except NetworkError as e:
+        logger.error("Pool hub heartbeat error: %s", e)
+
+
 def execute_job(job, available_models):
     """Execute a job using real GPU resources"""
     job_id = job.get("job_id")
@@ -363,7 +444,15 @@ async def main():
         logger.error("Failed to register, exiting")
         return
     logger.info("Miner registered successfully, starting main loop...")
+
+    # Pool hub registration is best-effort: the miner still serves jobs if the
+    # pool hub is unreachable, but visibility is required for discovery.
+    pool_hub_registered = register_pool_hub()
+    if not pool_hub_registered:
+        logger.warning("Pool hub registration failed; continuing without pool-hub visibility")
+
     last_heartbeat = 0.0
+    last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
     try:
         while True:
@@ -371,6 +460,9 @@ async def main():
             if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
                 send_heartbeat()
                 last_heartbeat = current_time
+            if current_time - last_pool_hub_heartbeat >= HEARTBEAT_INTERVAL:
+                send_pool_hub_heartbeat()
+                last_pool_hub_heartbeat = current_time
             if current_time - last_poll >= 3:
                 job = poll_for_jobs()
                 if job:

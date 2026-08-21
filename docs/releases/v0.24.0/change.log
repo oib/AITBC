@@ -142,6 +142,13 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `aitbc auth login` now accepts plaintext `private_key` strings in wallet files without requiring a password.
 - Scenario 07 updated to use `aitbc ai submit --wait`.
 
+## P0 Phase 7 — Hub/shop pool miner registration and visibility (2026-08-21)
+
+- Pool Hub now exposes `POST /v1/miners/register` and `POST /v1/miners/heartbeat` so shop miners can register directly.
+- The production GPU miner (`apps/miner/production_miner.py`) registers with the local pool hub and continues heartbeats on the same interval as the coordinator.
+- `aitbc pool-hub status` defaults to `http://localhost:8210` and correctly reports `miners_online` for the pool hub it queries.
+- Scenario 36 (`pool_hub_sla_e2e.md`) updated to show `miners_online: 1` on the shop.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
