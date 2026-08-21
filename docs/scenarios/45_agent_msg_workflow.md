@@ -196,6 +196,8 @@ Messages:
       "content": "{\"message\": \"Scenario validation message\"}",
       "message_type": "direct",
       "encrypted": "False",
+      "priority": "normal",
+      "ws_delivered": "False",
       "status": "pending",
       "message_id": "msg_20260821120000_abc123"
     }
