@@ -803,3 +803,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - fix(sync): persist block_metadata when importing blocks so followers retain attestations.
 * 55359ceba feat(agent-coordinator): REST message send tries WebSocket first
 * 3c72e13e0 feat(agent-coordinator): make POST /messages/subscribe real
+* 0225bc91c feat(agent-coordinator): wire protocol send/broadcast to ConnectionManager
