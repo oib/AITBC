@@ -21,7 +21,11 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")
-POOL_HUB_URL = os.environ.get("POOL_HUB_URL", "http://127.0.0.1:8210")
+# Pool Hub runs on the hub node. Shop/follower miners may set HUB_POOL_HUB_URL
+# to reach it, or fall back to a local pool-hub for hub deployments.
+POOL_HUB_URL = os.environ.get("POOL_HUB_URL") or os.environ.get("HUB_POOL_HUB_URL") or "http://127.0.0.1:8210"
+# Public endpoint for this miner (used by the pool hub registry, not the client).
+MINER_ENDPOINT = os.environ.get("MINER_ENDPOINT", "http://localhost:8101")
 MINER_ID = os.environ.get("MINER_ID", "")
 AUTH_TOKEN = os.environ.get("MINER_AUTH_TOKEN", os.environ.get("MINER_API_KEY", ""))
 if not MINER_ID:
@@ -251,7 +255,7 @@ def build_pool_hub_register_data():
     return {
         "miner_id": MINER_ID,
         "api_key": AUTH_TOKEN,
-        "addr": POOL_HUB_URL,
+        "addr": MINER_ENDPOINT,
         "proto": "http",
         "gpu_vram_gb": (gpu_info["memory_total"] / 1024) if gpu_info else 0.0,
         "gpu_name": gpu_info["name"] if gpu_info else None,
