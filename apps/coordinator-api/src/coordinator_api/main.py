@@ -52,7 +52,7 @@ from .contexts.compliance.routers import hipaa_router
 from .contexts.infrastructure.routers.auth import router as auth_router
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
-from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
+from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers, bonds as marketplace_bonds
 from .contexts.payments.routers import payments
 from .contexts.portfolio.routers import portfolio_router
 from .database_async import close_async_db
@@ -345,6 +345,7 @@ def create_app() -> FastAPI:
     app.include_router(marketplace, prefix="/v1")
     app.include_router(marketplace_gpu, prefix="/v1")
     app.include_router(marketplace_offers, prefix="/v1")
+    app.include_router(marketplace_bonds.router, prefix="/v1")
     app.include_router(monitor, prefix="/v1")
     app.include_router(miner, prefix="/v1")
     app.include_router(islands_proxy, prefix="/v1")
