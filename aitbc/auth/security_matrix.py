@@ -60,6 +60,14 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/marketplace/orders": AuthLevel.NONE,
     "/v1/marketplace/pricing/*": AuthLevel.NONE,
     "/v1/marketplace/miner-offers": AuthLevel.NONE,
+    # Provider-bond lifecycle
+    "/v1/marketplace/providers/*/bonds": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/providers/*/eligibility": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/providers/*/bonds/lock": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/providers/*/bonds/release": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/providers/*/bonds/slash": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/bonds/*": AuthLevel.ADMIN_OR_CLIENT,
+
     "/v1/offers": AuthLevel.NONE,
     # Admin routes
     "/v1/admin/*": AuthLevel.ADMIN,
