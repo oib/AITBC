@@ -34,6 +34,8 @@ class Constraints(BaseModel):
         le=Decimal("100"),
         description="Percentage of released payment to auto-stake as reinvestment",
     )
+    bond_required: bool = Field(default=False, description="Require a performance bond for this job")
+    min_bond_amount: Decimal | None = Field(default=None, description="Minimum bond amount required for provider eligibility")
     confidential: bool = Field(default=False, description="Mark this job as confidential")
     required_enclave_measurement: str | None = Field(
         default=None, description="Required TEE enclave measurement for confidential jobs"
