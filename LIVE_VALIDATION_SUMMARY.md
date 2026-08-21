@@ -345,14 +345,19 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
   - On-chain stake `7` with amount `4387` (1.21875 AIT * 3600 = 4387 compute-seconds)
     confirmed at `GET /rpc/staking/0xEB29516824E95AdFFeEdfc914941F0fbEd0bB1a4`.
 
-- 2026-08-21: P2.5 Whisper/FFmpeg live validation:
-  - `aitbc ai submit --payment 3 --type transcribe --input https://github.com/openai/whisper/raw/main/tests/jfk.flac --model base`
-    -> job `8db185c4099c452181b7bff36c9becdb` completed, output JFK speech text.
-  - `aitbc ai submit --payment 3 --type reencode --input <same> --output-format mp3`
-    -> job `7d53b98c32e542f2bedd36a4abd38827` completed, output 173KiB MP3.
-  - `aitbc-whisper` and `aitbc-ffmpeg` services running; marketplace offers
-    `07f10063c4384b04a590ecf528316645` (whisper) and `e762581945554dfe8711f5b017eda812` (ffmpeg)
-    registered on hub marketplace service.
+- 2026-08-21: P2.5 Whisper/FFmpeg/Ollama default shop offers live validation:
+  - `aitbc-miner` restart logged `Published default offer: whisper/base`,
+    `ffmpeg/h264-transcode`, and `ollama/llama3.2:3b`.
+  - `aitbc market list` on hub.aitbc shows active default offers for all three
+    service types.
+  - `aitbc market transcribe <whisper-offer-id> /tmp/test_audio.wav` completed,
+    payment released, `actual_cost_ait` = 0.01.
+  - `aitbc market process <ffmpeg-offer-id> /tmp/test_video.mp4 --resolution 720p
+    --format mp4 --codec h264` completed, produced output file, payment released.
+  - `aitbc market run <ollama-offer-id> "What is AITBC?"` completed, generated
+    response, payment released.
+  - `aitbc-whisper` (port 8110), `aitbc-ffmpeg` (port 8230), and `ollama` (port
+    11434) services are running and exposed through nginx.
 
 - 2026-08-21: P2.6 real IPFS daemon validation:
   - `aitbc ipfs upload --file /tmp/ipfs_test.txt` on aitbc3 -> CID `QmVsGhgoQHZgB581xEhCVH1L5wmXYAhNspjuW8eRL4DtPL`.
