@@ -42,6 +42,8 @@ class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMix
             self.handle_marketplace_orders(parsed)
         elif path == "/metrics":
             self.handle_metrics()
+        elif path in ("/v1/cross-chain/rates", "/cross-chain/rates"):
+            self.handle_cross_chain_rates()
         elif path == "/v1/bridge/price":
             self.handle_bridge_price(parsed)
         elif path == "/v1/bridge/status":
