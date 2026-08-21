@@ -103,7 +103,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
             release_result = rpc_client.post(
                 f"/rpc/escrow/{job_id}/release",
                 json={
-                    "amount": actual_cost,
+                    "amount": float(actual_cost),
                     "tokens_used": tokens_used,
                     "job_id": job_id,
                 },
@@ -124,7 +124,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
                 "model": model,
                 "tokens_used": tokens_used,
                 "elapsed_seconds": round(elapsed, 2),
-                "actual_cost_ait": round(actual_cost, 6),
+                "actual_cost_ait": float(round(actual_cost, 6)),
                 "contract_id": contract_id,
             },
             ctx.obj.get("output_format", "table"),
@@ -277,8 +277,8 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
                     "buyer_address": wallet_address,
                     "provider_address": provider_address or wallet_address,
                     "result_hash": result_hash,
-                    "actual_duration_minutes": round(actual_duration_minutes, 4),
-                    "actual_cost": round(actual_cost, 6),
+                    "actual_duration_minutes": float(round(actual_duration_minutes, 4)),
+                    "actual_cost": float(round(actual_cost, 6)),
                     "status": "completed",
                     "completed_at": datetime.now().isoformat(),
                 },
@@ -310,7 +310,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
             rpc_url = _get_blockchain_rpc_url(config)
             rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             release_result = rpc_client.post(
-                f"/rpc/escrow/{job_id}/release", json={"amount": actual_cost, "job_tx_hash": job_tx_hash}
+                f"/rpc/escrow/{job_id}/release", json={"amount": float(actual_cost), "job_tx_hash": job_tx_hash}
             )
             if release_result and release_result.get("tx_hash"):
                 success(
@@ -326,7 +326,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
                 "model": model,
                 "language": resp_data.get("language"),
                 "duration_minutes": round(actual_duration_minutes, 4),
-                "actual_cost_ait": round(actual_cost, 6),
+                "actual_cost_ait": float(round(actual_cost, 6)),
                 "elapsed_seconds": round(elapsed, 2),
                 "contract_id": contract_id,
             },
@@ -430,8 +430,8 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
                     "buyer_address": wallet_address,
                     "provider_address": provider_address or wallet_address,
                     "result_hash": result_hash,
-                    "actual_video_minutes": round(actual_minutes, 4),
-                    "actual_cost": round(actual_cost, 6),
+                    "actual_video_minutes": float(round(actual_minutes, 4)),
+                    "actual_cost": float(round(actual_cost, 6)),
                     "status": "completed",
                     "completed_at": datetime.now().isoformat(),
                 },
@@ -449,7 +449,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
             rpc_url = _get_blockchain_rpc_url(config)
             rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             release_result = rpc_client.post(
-                f"/rpc/escrow/{job_id}/release", json={"amount": actual_cost, "job_tx_hash": job_tx_hash}
+                f"/rpc/escrow/{job_id}/release", json={"amount": float(actual_cost), "job_tx_hash": job_tx_hash}
             )
             if release_result and release_result.get("tx_hash"):
                 success(
@@ -465,7 +465,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
                 "video_url": video_url,
                 "transcoded_url": transcode_result.get("transcoded_url"),
                 "duration_minutes": round(actual_minutes, 4),
-                "actual_cost_ait": round(actual_cost, 6),
+                "actual_cost_ait": float(round(actual_cost, 6)),
                 "elapsed_seconds": round(elapsed, 2),
                 "contract_id": contract_id,
             },
@@ -592,8 +592,8 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
                     "buyer_address": wallet_address,
                     "provider_address": provider_address or wallet_address,
                     "result_hash": result_hash,
-                    "actual_processing_hours": round(actual_hours, 4),
-                    "actual_cost": round(actual_cost, 6),
+                    "actual_processing_hours": float(round(actual_hours, 4)),
+                    "actual_cost": float(round(actual_cost, 6)),
                     "status": "completed",
                     "completed_at": datetime.now().isoformat(),
                 },
@@ -611,7 +611,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
             rpc_url = _get_blockchain_rpc_url(config)
             rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             release_result = rpc_client.post(
-                f"/rpc/escrow/{job_id}/release", json={"amount": actual_cost, "job_tx_hash": job_tx_hash}
+                f"/rpc/escrow/{job_id}/release", json={"amount": float(actual_cost), "job_tx_hash": job_tx_hash}
             )
             if release_result and release_result.get("tx_hash"):
                 success(
@@ -627,7 +627,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
                 "input_file": input_file,
                 "output_path": resp_data.get("output_path"),
                 "processing_hours": round(actual_hours, 4),
-                "actual_cost_ait": round(actual_cost, 6),
+                "actual_cost_ait": float(round(actual_cost, 6)),
                 "elapsed_seconds": round(elapsed, 2),
                 "contract_id": contract_id,
             },
