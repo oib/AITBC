@@ -11,7 +11,7 @@ from ...logger import get_logger
 
 _logger = get_logger(__name__)
 
-router = APIRouter(tags=["bond"])
+router = APIRouter(prefix="/bond", tags=["bond"])
 
 get_bond: Callable[..., Any] | None = None
 list_bonds: Callable[..., Any] | None = None
