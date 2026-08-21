@@ -8,11 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from ....auth import require_auth
 from ....storage import get_session
 from ..attestation import EnclaveIdentity, EnclaveStatus, TEEAttestation, TEEAttestationService
 
-router = APIRouter(tags=["tee"], prefix="/tee", dependencies=[Depends(require_auth)])
+router = APIRouter(tags=["tee"], prefix="/tee")
 
 
 def _get_service(session: Annotated[Session, Depends(get_session)]) -> TEEAttestationService:
