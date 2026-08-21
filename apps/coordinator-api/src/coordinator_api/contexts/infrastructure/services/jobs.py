@@ -63,11 +63,13 @@ class JobService:
         self.get_job(job_id, client_id=client_id)
         return list(self.session.execute(select(JobReceipt).where(JobReceipt.job_id == job_id)).scalars().all())
 
-    def list_jobs(self, client_id: str | None = None, limit: int = 20, offset: int = 0, **filters: Any) -> list[Job]:
+    def list_jobs(self, client_id: str | None = None, assigned_miner_id: str | None = None, limit: int = 20, offset: int = 0, **filters: Any) -> list[Job]:
         """List jobs with optional filtering"""
         query = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         if client_id:
             query = query.where(Job.client_id == client_id)
+        if assigned_miner_id:
+            query = query.where(Job.assigned_miner_id == assigned_miner_id)
         if "state" in filters:
             query = query.where(Job.state == filters["state"])
         if "job_type" in filters:
