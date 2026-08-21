@@ -119,6 +119,13 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `--alert` exits non-zero when the height gap exceeds `--gap-threshold` (default 5) or the hub hash at the same height differs.
 - `HUB_UNREACHABLE` is reported separately from `BEHIND_BY_N` / `HASH_MISMATCH` so operators do not get false positives when the hub RPC is not reachable.
 
+## P0 Phase 4 — Faucet on-ramp fix (2026-08-21)
+
+- `aitbc wallet fund` now calls `/rpc/faucet` (the old `/faucet` path was 404) and accepts bech32 (`aitbc1...`), `ait1...`, `0x...`, or raw hex addresses.
+- New `--amount-ait` option expresses the faucet amount in AIT; the CLI converts it to compute-seconds before the RPC call.
+- `faucet_request` and `create_account` in `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py` use `canonical_address` so the node accepts the same address formats the CLI does.
+- Scenario 07 documents `aitbc wallet fund` as the on-ramp step.
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]

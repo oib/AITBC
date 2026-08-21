@@ -59,7 +59,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 
 | Step | Intended | Today | Gap |
 |------|----------|-------|-----|
-| 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`. Exchange `buy` needs validator keystore. No production faucet. | Customer onboarding |
+| 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. Reputation not used in matching. | UX + matching quality |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc auth login` stores a coordinator JWT; `aitbc ai submit` falls back to it. `--api-key` still accepted. | Auth UX |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `STATUS.md` now distinguishes payment escrow from bridge HTLC gating | Config honesty |
@@ -194,7 +194,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Removes single-key settlement |
 | P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Config/docs lie today |
 | P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
-| P0.6 | One on-ramp play: funded faucet **or** working `aitbc exchange-island buy` without hunting `validator_keys.json` | Step 0 of the cycle |
+| P0.6 | One on-ramp play: `aitbc wallet fund` against `/rpc/faucet` with bech32/0x support | Shipped: CLI path to the live faucet (Phase 4) |
 | P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Operators pick the wrong group |
 
 ### P1 — make the loop trustless and operable
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-21 (Phases 1–3 shipped)*
+*Last updated: 2026-08-21 (Phases 1–4 shipped)*

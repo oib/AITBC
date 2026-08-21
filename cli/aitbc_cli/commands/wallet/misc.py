@@ -6,7 +6,9 @@ from pathlib import Path
 
 import click
 
+from aitbc.utils import ait_to_seconds
 from ...utils import error, output, success
+from ...utils.crypto_utils import bech32_to_hex
 from . import _load_wallet, wallet
 
 
@@ -67,10 +69,11 @@ def rewards(ctx):
 
 @wallet.command()
 @click.argument("address")
-@click.option("--amount", default=3600000000, help="Amount to request from faucet (default: 3600000000)")
+@click.option("--amount", default=3600000000, help="Amount to request from faucet in compute-seconds (default: 3600000000)")
+@click.option("--amount-ait", type=float, default=None, help="Amount to request from faucet in AIT (overrides --amount)")
 @click.option("--chain-id", help="Chain ID (defaults to node's chain)")
 @click.pass_context
-def fund(ctx, address: str, amount: int, chain_id: str):
+def fund(ctx, address: str, amount: int, amount_ait: float | None, chain_id: str):
     """Fund wallet using blockchain faucet"""
     import httpx
 
@@ -84,13 +87,23 @@ def fund(ctx, address: str, amount: int, chain_id: str):
     if not chain_id:
         chain_id = get_chain_id(rpc_url)
 
-    # Normalize address
-    address = address.lower().strip()
-    if not address.startswith("0x"):
-        address = "0x" + address
+    # Convert AIT to compute-seconds if requested
+    if amount_ait is not None:
+        amount = int(ait_to_seconds(amount_ait))
 
-    # Call faucet endpoint
-    faucet_url = f"{rpc_url}/faucet"
+    # Normalize address (accept 0x, aitbc1, ait1, or raw hex)
+    try:
+        address = bech32_to_hex(address).lower()
+    except ValueError as e:
+        error(f"Invalid address: {e}")
+        return
+
+    if not address.startswith("0x") or not all(c in "0123456789abcdef" for c in address[2:]):
+        error("Address must be a valid hex string")
+        return
+
+    # Call faucet endpoint at /rpc/faucet
+    faucet_url = f"{rpc_url}/rpc/faucet"
     faucet_data = {"address": address, "amount": amount, "chain_id": chain_id}
 
     try:
