@@ -2,6 +2,7 @@
 
 import os
 import time
+from typing import Any
 
 import click
 
@@ -25,6 +26,110 @@ def _auth_headers(ctx) -> dict[str, str] | None:
     if token:
         return {"Authorization": f"Bearer {token}"}
     return None
+
+
+def _wait_for_job(
+    ctx,
+    http_client: AITBCHTTPClient,
+    job_id: str,
+    payment_id: str | None,
+    timeout: float,
+    poll_interval: float,
+    output_format: str,
+) -> None:
+    """Poll job status until terminal, then wait for payment release if needed."""
+    click.echo(f"Waiting for job {job_id} (timeout: {timeout}s, poll: {poll_interval}s)")
+    started = time.time()
+    status: dict[str, Any] = {}
+    state = "QUEUED"
+
+    def _timed_out() -> bool:
+        return time.time() - started >= timeout
+
+    try:
+        while state not in _TERMINAL_STATES:
+            if _timed_out():
+                abort(ctx, f"Timed out waiting for job {job_id}; last state: {state}")
+            time.sleep(poll_interval)
+            try:
+                status = http_client.get(f"/v1/jobs/{job_id}")
+            except NetworkError as e:
+                abort(ctx, f"Network error while waiting for job {job_id}: {e}", from_exception=e)
+            state = status.get("state", state)
+
+        # For paid jobs, the miner triggers escrow release after submitting the
+        # result. Allow a short extra window for payment_status to flip.
+        if payment_id and state == "COMPLETED":
+            while status.get("payment_status") != "released":
+                if _timed_out():
+                    abort(
+                        ctx,
+                        f"Job {job_id} completed but payment {payment_id} was not released within timeout",
+                    )
+                time.sleep(min(poll_interval, 2.0))
+                try:
+                    status = http_client.get(f"/v1/jobs/{job_id}")
+                except NetworkError as e:
+                    abort(ctx, f"Network error while waiting for payment release: {e}", from_exception=e)
+                state = status.get("state", state)
+                if state != "COMPLETED":
+                    break
+
+        if state == "COMPLETED":
+            try:
+                result_data = http_client.get(f"/v1/jobs/{job_id}/result")
+            except NetworkError as e:
+                result_data = None
+                logger.warning("Could not fetch result for %s: %s", job_id, e)
+
+            escrow_tx_hash: str | None = None
+            if payment_id and status.get("payment_status") == "released":
+                try:
+                    payment = http_client.get(f"/v1/jobs/{job_id}/payment")
+                    escrow_tx_hash = payment.get("transaction_hash")
+                except NetworkError as e:
+                    logger.warning("Could not fetch payment for %s: %s", job_id, e)
+                except Exception:
+                    pass
+
+            completed_at: str | None = None
+            if isinstance((result_data or {}).get("receipt"), dict):
+                completed_at = result_data["receipt"].get("timestamp")  # type: ignore[index]
+
+            output(
+                {
+                    "job_id": job_id,
+                    "state": state,
+                    "payment_id": payment_id,
+                    "payment_status": status.get("payment_status"),
+                    "escrow_tx_hash": escrow_tx_hash,
+                    "result": result_data,
+                    "receipt": (result_data or {}).get("receipt"),
+                    "completed_at": completed_at,
+                    "status": status,
+                },
+                output_format,
+                title=f"Job completed: {job_id}",
+            )
+        else:
+            output(
+                {
+                    "job_id": job_id,
+                    "state": state,
+                    "payment_id": payment_id,
+                    "payment_status": status.get("payment_status"),
+                    "status": status,
+                },
+                output_format,
+                title=f"Job finished with {state}",
+            )
+    except KeyboardInterrupt:
+        click.echo(f"\nInterrupted; cancelling job {job_id} if still active...")
+        try:
+            http_client.post(f"/v1/jobs/{job_id}/cancel")
+        except Exception as e:
+            logger.warning("Could not cancel job %s after interrupt: %s", job_id, e)
+        abort(ctx, f"Wait for job {job_id} cancelled by user")
 
 
 @click.group()
@@ -116,57 +221,22 @@ def submit(
         result = http_client.post("/v1/jobs", json=job_data)
 
         job_id = result.get("job_id")
+        payment_id = result.get("payment_id")
         success(f"Job submitted: {job_id}")
 
         if not wait:
             output(result, ctx.obj.get("output_format", format))
             return
 
-        # Poll until the job reaches a terminal state or timeout
-        click.echo(f"Waiting for job {job_id} (timeout: {timeout}s, poll: {poll_interval}s)")
-        started = time.time()
-        status = result
-        state = status.get("state", "QUEUED")
-        while state not in _TERMINAL_STATES:
-            if time.time() - started >= timeout:
-                abort(ctx, f"Timed out waiting for job {job_id}; last state: {state}")
-                return
-            time.sleep(poll_interval)
-            try:
-                status = http_client.get(f"/v1/jobs/{job_id}")
-            except NetworkError as e:
-                abort(ctx, f"Network error while waiting for job {job_id}: {e}", from_exception=e)
-                return
-            state = status.get("state", state)
-
-        if state == "COMPLETED":
-            try:
-                result_data = http_client.get(f"/v1/jobs/{job_id}/result")
-            except NetworkError as e:
-                result_data = None
-                logger.warning("Could not fetch result for %s: %s", job_id, e)
-            output(
-                {
-                    "job_id": job_id,
-                    "state": state,
-                    "status": status,
-                    "result": result_data,
-                    "payment_status": status.get("payment_status"),
-                    "receipt": (result_data or {}).get("receipt"),
-                },
-                ctx.obj.get("output_format", format),
-                title=f"Job completed: {job_id}",
-            )
-        else:
-            output(
-                {
-                    "job_id": job_id,
-                    "state": state,
-                    "status": status,
-                },
-                ctx.obj.get("output_format", format),
-                title=f"Job finished with {state}",
-            )
+        _wait_for_job(
+            ctx,
+            http_client,
+            job_id,
+            payment_id,
+            timeout,
+            poll_interval,
+            ctx.obj.get("output_format", format),
+        )
 
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)

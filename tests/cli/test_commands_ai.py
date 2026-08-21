@@ -219,6 +219,80 @@ class TestAICommands:
 
         assert result.exit_code != 0
 
+    @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.ai.get_config")
+    def test_ai_submit_wait_released(self, mock_get_config, mock_http_class, runner, mock_config):
+        """``ai submit --wait`` polls to COMPLETED, waits for payment release, and prints the escrow tx."""
+        from aitbc_cli.commands.ai import ai
+
+        mock_get_config.return_value = mock_config
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {
+            "job_id": "job_test_123",
+            "payment_id": "pay_test_123",
+            "payment_status": "escrowed",
+        }
+        mock_client.get.side_effect = [
+            {"state": "QUEUED"},
+            {"state": "COMPLETED", "payment_status": "released"},
+            {"result": "ok", "receipt": {"receipt_id": "r1"}},
+            {"transaction_hash": "0xescrowtx123"},
+        ]
+
+        result = runner.invoke(
+            ai,
+            [
+                "submit",
+                "--prompt",
+                "wait test",
+                "--payment",
+                "1.0",
+                "--coordinator-url",
+                "http://coordinator:8006",
+                "--wait",
+                "--timeout",
+                "1",
+                "--poll-interval",
+                "0.001",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "job_test_123" in result.output
+        assert "COMPLETED" in result.output
+        assert "released" in result.output
+        assert "0xescrowtx123" in result.output
+
+    @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.ai.get_config")
+    def test_ai_submit_wait_timeout(self, mock_get_config, mock_http_class, runner, mock_config):
+        """``ai submit --wait`` aborts when the job does not complete in time."""
+        from aitbc_cli.commands.ai import ai
+
+        mock_get_config.return_value = mock_config
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {"job_id": "job_test_123"}
+        mock_client.get.return_value = {"state": "QUEUED"}
+
+        result = runner.invoke(
+            ai,
+            [
+                "submit",
+                "--prompt",
+                "wait timeout",
+                "--coordinator-url",
+                "http://coordinator:8006",
+                "--wait",
+                "--timeout",
+                "0.05",
+                "--poll-interval",
+                "0.01",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "Timed out" in result.output
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
