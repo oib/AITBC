@@ -188,7 +188,7 @@ class EscrowManager:
                     contract_id = self._generate_contract_id(record.buyer, record.provider, record.job_id)
                     if contract_id in self.escrow_contracts:
                         continue
-                    amount = Decimal(str(record.amount)) / Decimal("3600")
+                    amount = Decimal(str(record.amount))
                     contract = EscrowContract(
                         contract_id=contract_id,
                         job_id=record.job_id,
@@ -232,7 +232,7 @@ class EscrowManager:
                 if not record:
                     return None
                 contract_id = self._generate_contract_id(record.buyer, record.provider, record.job_id)
-                amount = Decimal(str(record.amount)) / Decimal("3600")
+                amount = Decimal(str(record.amount))
                 state = EscrowState.FUNDED
                 if record.released_at:
                     state = EscrowState.RELEASED
