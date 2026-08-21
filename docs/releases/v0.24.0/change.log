@@ -820,3 +820,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Added coordinator `/v1/auth/nonce` and `/v1/login` endpoints that verify wallet signatures and issue `client` JWTs.
 - `aitbc ai refund --job-id <id>` now sends the required `payment_id` in the refund body and successfully refunds failed jobs.
 * 93a20cf91 feat(agent-coordinator): add key exchange endpoints and public-key registry
+* a0a8acbc7 feat(agent-coordinator): add delivery guarantees, idempotency, and SQLite fallback
