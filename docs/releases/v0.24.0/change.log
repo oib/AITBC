@@ -850,3 +850,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Add `--confidential` and `--enclave-measurement` to `aitbc ai submit`.
   - Extend `Constraints` with `confidential` and `required_enclave_measurement`.
   - Add CLI unit tests in `cli/tests/test_tee.py` and `cli/tests/test_ai_tee_submit.py`.
+
+* 30f32e93b feat(miner,coordinator): respect confidential/required_enclave_measurement in TEE gate
+- _tee_required_for now treats confidential jobs and jobs with required_enclave_measurement as TEE-gated.
+- The coordinator checks the quote measurement against required_enclave_measurement and the enclave_id against tee_enclave_id.
+- production_miner.py falls back to required_enclave_measurement to generate the quote when tee_enclave_id is not set.
