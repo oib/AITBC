@@ -84,6 +84,13 @@ def login(
     if not coord_url:
         abort(ctx, "Coordinator URL not configured")
 
+    # The configured URL may already contain the /v1 prefix that the
+    # coordinator application mounts.  Strip it so the login endpoints below
+    # use the canonical /v1/... paths without doubling.
+    coord_url = coord_url.rstrip("/")
+    if coord_url.endswith("/v1"):
+        coord_url = coord_url[:-3]
+
     # Password priority: CLI arg > env var
     password = password or os.environ.get("WALLET_PASSWORD")
 
