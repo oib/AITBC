@@ -25,4 +25,6 @@ class Constraints(BaseModel):
     region: str | None = None
     max_price: Decimal | None = None
     zk_proof_required: bool = Field(default=False, description="Require a ZK receipt proof for this job")
+    tee_attestation_required: bool = Field(default=False, description="Require a TEE attestation for this job")
+    tee_enclave_id: str | None = Field(default=None, description="Required enclave identity for TEE attestation")
     min_reputation: float | None = None

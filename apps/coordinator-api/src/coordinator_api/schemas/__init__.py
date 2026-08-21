@@ -304,6 +304,8 @@ class JobView(BaseModel):
     payload: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     zk_proof_id: str | None = None
+    tee_status: str | None = None
+    tee_attestation_id: str | None = None
 
 
 class JobResult(BaseModel):
@@ -339,6 +341,8 @@ class AssignedJob(BaseModel):
 class JobResultSubmit(BaseModel):
     result: dict[str, Any]
     metrics: dict[str, Any] = Field(default_factory=dict)
+    tee_attestation_id: str | None = Field(default=None, description="Existing TEE attestation ID")
+    tee_quote: str | None = Field(default=None, description="Base64 TEE attestation quote to verify")
 
 
 class JobFailSubmit(BaseModel):
