@@ -98,6 +98,10 @@ Latest pushed commits:
 - [x] P2.5 default Whisper/FFmpeg/Ollama shop offers implemented and validated.
 - [x] P2.6 real IPFS daemon behind `aitbc ipfs` implemented and validated.
 - [x] P2.7 compliance, plugins, and white-label expansion implemented and validated.
+- [x] Hub-wide pool-hub miner registry verified and `aitbc pool-hub status` shows `miners_online > 0`.
+  - `aitbc-pool-hub` runs on `hub.aitbc`; `aitbc-miner` on `aitbc3` registers and heartbeats to it.
+  - `aitbc pool-hub status` and `aitbc pool-hub sla` work from both nodes.
+  - Scenario 36 and CLI tests updated to reflect hub-wide pool-hub behavior.
   - `aitbc brand`, `aitbc plugin list/load/create`, and `aitbc compliance check/classify` work.
   - `aitbc ai submit --compliance-framework` validates classification before submission.
   - Scenario 43 and release changelog/live summary updated.
