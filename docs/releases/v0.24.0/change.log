@@ -579,3 +579,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Bond collateral is locked in a deterministic bond escrow account; slashed funds move to a burn address; releases return funds to the provider after the lock period.
 - Added read-only `/rpc/bond/{bond_id}` and `/rpc/bond/provider/{provider}` endpoints.
 - Added `apps/blockchain-node/tests/test_bond.py` covering lock, release, and slash.
+
+## P2.3 follow-up — bond CLI and /rpc/bond routes
+
+- `aitbc bond create` signs a `BOND_LOCK` transaction from a local wallet and submits it to the blockchain.
+- `aitbc bond status` queries `/rpc/bond/{bond_id}` and `/rpc/bond/provider/{provider}`.
+- `aitbc bond release` signs a `BOND_RELEASE` transaction.
+- Bond query router is mounted under `/rpc/bond`.
+- Live validation: bond locked on chain, queryable by ID.
