@@ -302,6 +302,22 @@ async def submit_result(
     miner_service.release(
         user["sub"], success=True, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
     )
+
+    # Record job completion in the reputation service.
+    try:
+        from ....contexts.reputation.services.reputation_service import ReputationService
+        reputation_service = ReputationService(session)
+        earnings = Decimal(str(receipt.get("price", "0"))) if receipt else Decimal("0")
+        await reputation_service.record_job_completion(
+            agent_id=user["sub"],
+            job_id=job_id,
+            success=True,
+            response_time=float(duration_ms or 0),
+            earnings=earnings,
+        )
+    except Exception as rep_err:
+        logger.warning("Failed to record reputation for completed job %s: %s", job_id, rep_err)
+
     return {"status": "ok", "receipt": receipt}
 
 
@@ -317,6 +333,21 @@ async def submit_failure(
     try:
         service = JobService(session)
         service.fail_job(job_id, user["sub"], req.error_message)
+
+        # Record the failure in the reputation service.
+        try:
+            from ....contexts.reputation.services.reputation_service import ReputationService
+            reputation_service = ReputationService(session)
+            await reputation_service.record_job_completion(
+                agent_id=user["sub"],
+                job_id=job_id,
+                success=False,
+                response_time=0.0,
+                earnings=Decimal("0"),
+            )
+        except Exception as rep_err:
+            logger.warning("Failed to record reputation for failed job %s: %s", job_id, rep_err)
+
         return {"status": "ok"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
