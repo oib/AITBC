@@ -74,6 +74,15 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
         info(f"Locking escrow: ~{estimated_cost:.4f} AIT (est. {estimated_tokens} tokens)")
         contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
 
+        # Resolve the Ollama endpoint. The offer lists a provider-side public endpoint
+        # (for remote consumers) and a local endpoint (for the shop itself). Customers
+        # always reach the public endpoint.
+        ollama_endpoint = offer.get("public_endpoint") or offer.get("endpoint") or "http://localhost:11434"
+        if not ollama_endpoint.startswith(("http://", "https://")):
+            error(f"Rejecting offer with unsafe endpoint scheme: {ollama_endpoint}")
+            raise click.Abort()
+        ollama_base = ollama_endpoint.rstrip("/")
+
         # Run inference via Ollama
         import urllib.request
 
@@ -81,7 +90,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
             {"model": model, "prompt": prompt, "stream": False, "options": {"num_predict": max_tokens}}
         ).encode()
         req = urllib.request.Request(
-            "http://localhost:11434/api/generate", data=payload, headers={"Content-Type": "application/json"}, method="POST"
+            f"{ollama_base}/api/generate", data=payload, headers={"Content-Type": "application/json"}, method="POST"
         )
         info("Running inference...")
         t_start = datetime.now()
