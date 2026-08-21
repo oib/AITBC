@@ -18,7 +18,6 @@ from ..domain.governance import (
     DaoTreasury,
     Delegation,
     GovernanceProfile,
-    GovernanceRole,
     GovernanceToken,
     Proposal,
     ProposalExecutionLog,
@@ -41,6 +40,7 @@ def _parse_datetime(value: Any) -> datetime | None:
         # Pydantic-style ISO parsing
         try:
             from dateutil import parser
+
             return parser.isoparse(value)
         except ImportError:
             # Fallback using the standard library
@@ -139,9 +139,11 @@ class GovernanceService:
             await self.session.commit()
 
         proposal = Proposal(**proposal_data)
-        # Ensure chain_id is set
-        if not proposal.chain_id:
-            proposal.chain_id = settings.default_chain_id
+        # Ensure chain_id is set. If the proposal body did not provide one, the
+        # model default is "ait-hub", which may not match the blockchain service's
+        # fully-qualified chain id. Use the service default so block-height and
+        # timelock queries resolve to the correct chain database.
+        proposal.chain_id = settings.default_chain_id or proposal.chain_id
 
         # Set voting period if not already provided
         from datetime import timedelta
