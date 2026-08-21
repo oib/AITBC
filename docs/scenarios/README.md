@@ -139,3 +139,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
 || 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` |
 || 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
+|| 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
