@@ -56,6 +56,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from .config import settings
 
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/1")
+    database_url = settings.database_url
     logger.info("Using Redis URL: %s", redis_url)
     state.agent_registry = AgentRegistry(redis_url=redis_url)
     await state.agent_registry.start()
@@ -68,7 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     state.communication_manager.add_protocol("broadcast", create_protocol("broadcast", "agent-coordinator"))
     state.message_processor = MessageProcessor("agent-coordinator")
-    state.message_storage = MessageStorage(redis_url=redis_url)
+    state.message_storage = MessageStorage(redis_url=redis_url, database_url=database_url)
     state.peer_storage = PeerStorage(redis_url=redis_url)
     await state.message_storage.start()
     await state.peer_storage.start()

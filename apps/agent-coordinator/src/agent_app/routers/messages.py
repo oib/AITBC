@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,6 +30,7 @@ class SendMessageRequest(BaseModel):
     encrypt: bool = Field(default=True, description="Whether to encrypt message")
     priority: str = Field(default="normal", description="Message priority")
     ttl: int = Field(default=300, description="Time to live in seconds")
+    message_id: str | None = Field(default=None, description="Client-provided message ID for idempotency")
 
 
 class SubscribeRequest(BaseModel):
@@ -39,11 +41,44 @@ class SubscribeRequest(BaseModel):
     filter: dict[str, Any] = Field(default_factory=dict, description="Filter criteria")
 
 
+def _coerce_bool(value: Any) -> bool:
+    """Coerce a stored string/bool value back to bool."""
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in ("true", "1", "yes")
+
+
 @router.post("/send")
 @rate_limit(rate=50, per=60)
 async def send_encrypted_message(request: Request, req: SendMessageRequest) -> dict[str, Any]:
-    """Send encrypted message to agent, trying WebSocket first then Redis."""
+    """Send encrypted message to agent, trying WebSocket first then storage.
+
+    A client-provided ``message_id`` makes the call idempotent: if a message
+    with that ID already exists, the existing record is returned without
+    re-sending.  After the first call the message status is ``pending`` until
+    the WebSocket layer confirms delivery (``delivered``).
+    """
     try:
+        message_id = req.message_id or f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+
+        # Idempotency check: return the existing record if present.
+        if state.message_storage:
+            try:
+                existing = await state.message_storage.get_message(message_id)
+                if existing:
+                    return {
+                        "status": "success",
+                        "message_id": message_id,
+                        "sender": existing.get("sender", req.sender),
+                        "recipient": existing.get("recipient", req.recipient),
+                        "encrypted": _coerce_bool(existing.get("encrypted", "False")),
+                        "ws_delivered": _coerce_bool(existing.get("ws_delivered", "False")),
+                        "message_status": existing.get("status", "unknown"),
+                        "sent_at": existing.get("sent_at", ""),
+                    }
+            except Exception as e:
+                logger.warning("Could not check idempotency for %s: %s", message_id, e)
+
         encryptor = get_encryptor()
         message_content = {
             "content": req.content,
@@ -76,7 +111,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
         message_data.setdefault("message_type", req.message_type)
         message_data.setdefault("priority", req.priority)
 
-        # Try real-time WebSocket delivery first; fall back to Redis storage.
+        # Try real-time WebSocket delivery first; fall back to storage.
         ws_delivered = False
         if req.recipient:
             try:
@@ -85,13 +120,20 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
             except Exception as e:
                 logger.warning("Could not deliver message to %s over WebSocket: %s", req.recipient, e)
 
-        message_id = "in-memory"
-        if state.message_storage:
-            import uuid
+        status = "delivered" if ws_delivered else "pending"
+        sent_at = datetime.now(UTC).isoformat()
 
-            message_id = f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        message_data["ws_delivered"] = ws_delivered
+        message_data["status"] = status
+        message_data["sent_at"] = sent_at
+
+        if state.message_storage:
             redis_message_data = {k: str(v) if not isinstance(v, str) else v for k, v in message_data.items()}
+            redis_message_data["message_id"] = message_id
             await state.message_storage.store_message(message_id, redis_message_data)
+            # Update to delivered explicitly so the record reflects the actual outcome.
+            if ws_delivered:
+                await state.message_storage.update_message_status(message_id, "delivered")
 
         return {
             "status": "success",
@@ -100,7 +142,8 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
             "recipient": req.recipient,
             "encrypted": req.encrypt,
             "ws_delivered": ws_delivered,
-            "sent_at": datetime.now(UTC).isoformat(),
+            "message_status": status,
+            "sent_at": sent_at,
         }
     except HTTPException:
         raise
@@ -125,7 +168,11 @@ async def get_inbox(
             return {"agent_id": agent_id, "messages": [], "count": 0, "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, limit, 0)
         if unread_only:
-            messages = [m for m in messages if not m.get("read", False)]
+            messages = [
+                m
+                for m in messages
+                if not m.get("read", False) and m.get("status", "pending") != "read"
+            ]
         return {"agent_id": agent_id, "messages": messages, "count": len(messages), "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting inbox: %s", e)
@@ -411,6 +458,32 @@ async def get_message(request: Request, message_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error retrieving message %s: %s", message_id, e)
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/id/{message_id}/read")
+@rate_limit(rate=50, per=60)
+async def mark_message_read(request: Request, message_id: str) -> dict[str, Any]:
+    """Mark a specific message as read."""
+    try:
+        if not state.message_storage:
+            raise HTTPException(status_code=503, detail="Message storage not available")
+        message = await state.message_storage.get_message(message_id)
+        if not message:
+            raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+        await state.message_storage.update_message_status(message_id, "read")
+        return {
+            "status": "success",
+            "message_id": message_id,
+            "message_status": "read",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error marking message %s as read: %s", message_id, e)
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
