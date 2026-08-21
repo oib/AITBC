@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -241,17 +242,19 @@ async def submit_result(
         if _tee_required_for(job):
             tee_status = (receipt or {}).get("tee_status")
             if tee_status != "verified":
-                # Refresh the job record inside this transaction so the
-                # failure state is guaranteed to be flushed to the database.
-                fresh_job = session.get(Job, job_id)
-                if fresh_job is None:
-                    fresh_job = job
-                fresh_job.error = f"TEE attestation required before escrow release (status: {tee_status})"
-                fresh_job.state = JobState.failed
-                session.add(fresh_job)
-                session.flush()
+                error_message = f"TEE attestation required before escrow release (status: {tee_status})"
+                # v0.14.3: force the failure state and error to the database with an
+                # explicit update. The ORM object can become stale across the async
+                # event loop and PaymentService calls, so SQL is used for the final
+                # job-state transition.
+                session.execute(
+                    update(Job)
+                    .where(Job.id == job_id)
+                    .values(state=JobState.failed.value, error=error_message)
+                )
                 session.commit()
-                job = fresh_job
+                job.error = error_message
+                job.state = JobState.failed
                 logger.error(
                     "Escrow release blocked for job %s: TEE status %s", job.id, tee_status
                 )
@@ -261,7 +264,6 @@ async def submit_result(
                     job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}"
                 )
                 if refunded:
-                    job.payment_status = "refunded"
                     logger.info(
                         "Refunded payment %s for job %s after TEE attestation failure",
                         job.payment_id,
@@ -273,16 +275,12 @@ async def submit_result(
                         job.payment_id,
                         job.id,
                     )
-                fresh_job = session.get(Job, job_id)
-                if fresh_job is None:
-                    fresh_job = job
                 if refunded:
-                    fresh_job.payment_status = "refunded"
-                fresh_job.error = fresh_job.error or job.error
-                fresh_job.state = job.state
-                session.add(fresh_job)
-                session.flush()
-                session.commit()
+                    session.execute(
+                        update(Job).where(Job.id == job_id).values(payment_status="refunded")
+                    )
+                    session.commit()
+                    job.payment_status = "refunded"
                 success = False
             elif _zk_required_for(job):
                 zk_status = (receipt or {}).get("zk_status")
