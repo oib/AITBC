@@ -49,6 +49,7 @@ from .contexts.compliance.finance import NonRepudiationProof, TransactionAuditRe
 from .contexts.compliance.hipaa import ConsentRecord, PHIAccessLog  # noqa: F401
 from .contexts.compliance.routers import hipaa_router
 
+from .contexts.infrastructure.routers.auth import router as auth_router
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
 from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
@@ -409,6 +410,7 @@ def create_app() -> FastAPI:
     app.include_router(users, prefix="/v1")
     app.include_router(exchange, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
+    app.include_router(auth_router, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
     app.include_router(agent_identity, prefix="/v1")
