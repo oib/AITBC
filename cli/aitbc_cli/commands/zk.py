@@ -24,14 +24,27 @@ def _auth_headers(ctx) -> dict[str, str] | None:
     return None
 
 
+def _looks_like_jwt(token: str) -> bool:
+    """A JWT is three base64url segments separated by dots."""
+    return token.startswith("ey") and token.count(".") == 2
+
+
 def _coordinator_client(ctx, coordinator_url: str | None) -> AITBCHTTPClient:
     """Build an HTTP client for the coordinator API."""
     config = get_config()
     coord_url = coordinator_url or config.coordinator_api_url
     if not coord_url:
         abort(ctx, "Coordinator URL not configured")
+
+    token = ctx.obj.get("api_key")
     headers = _auth_headers(ctx)
-    return AITBCHTTPClient(base_url=coord_url, timeout=60, headers=headers)
+    client_kwargs: dict[str, Any] = {"base_url": coord_url, "timeout": 60, "headers": headers}
+    if token and not _looks_like_jwt(token):
+        # Miner API keys go through the X-Api-Key header, not Bearer.
+        client_kwargs["api_key"] = token
+        client_kwargs["headers"] = None
+
+    return AITBCHTTPClient(**client_kwargs)
 
 
 @click.group()
