@@ -22,12 +22,77 @@ from . import get_chain_id, get_island_id, get_next_nonce, get_wallet_address, m
 from .escrow import _get_blockchain_rpc_url
 
 
+def _to_decimal(value: Any) -> Decimal:
+    """Convert an offer price to Decimal for stable sorting."""
+    if value is None:
+        return Decimal("0")
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except (TypeError, ValueError, ArithmeticError):
+        return Decimal("0")
+
+
+def _is_active(status: Any) -> bool:
+    return str(status).lower() in ("active", "available", "open")
+
+
+def _reputation_key(offer: dict[str, Any]) -> tuple[float, int, Decimal, bool, int]:
+    """Sort by reputation desc, then price asc, then availability desc."""
+    avg_rating = float(offer.get("avg_rating", 0) or 0)
+    rating_count = int(offer.get("rating_count", 0) or 0)
+    price = _to_decimal(offer.get("price", 0))
+    available = _is_active(offer.get("status"))
+    capacity = int(offer.get("capacity", 0) or 0)
+    # Negate for descending; available is True first.
+    return (-avg_rating, -rating_count, price, not available, -capacity)
+
+
+def _price_key(offer: dict[str, Any]) -> tuple[Decimal, float, int, bool, int]:
+    """Sort by price asc, then reputation desc, availability desc."""
+    price = _to_decimal(offer.get("price", 0))
+    avg_rating = float(offer.get("avg_rating", 0) or 0)
+    rating_count = int(offer.get("rating_count", 0) or 0)
+    available = _is_active(offer.get("status"))
+    capacity = int(offer.get("capacity", 0) or 0)
+    return (price, -avg_rating, -rating_count, not available, -capacity)
+
+
+def _availability_key(offer: dict[str, Any]) -> tuple[bool, float, int, int, Decimal]:
+    """Sort by availability (active first), then capacity desc, reputation, price."""
+    available = _is_active(offer.get("status"))
+    capacity = int(offer.get("capacity", 0) or 0)
+    avg_rating = float(offer.get("avg_rating", 0) or 0)
+    rating_count = int(offer.get("rating_count", 0) or 0)
+    price = _to_decimal(offer.get("price", 0))
+    return (not available, -capacity, -avg_rating, -rating_count, price)
+
+
+def _sort_offers(offers: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
+    """Sort marketplace offers according to the selected sort mode."""
+    if sort == "reputation":
+        return sorted(offers, key=_reputation_key)
+    if sort == "price":
+        return sorted(offers, key=_price_key)
+    if sort == "availability":
+        return sorted(offers, key=_availability_key)
+    # default is the same as reputation, but we keep a named branch above
+    return sorted(offers, key=_reputation_key)
+
+
 @market.command(name="list")
 @click.option("--provider", help="Filter by provider address")
 @click.option("--status", help="Filter by status (active, inactive)")
 @click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg, peertube_pruner)")
+@click.option(
+    "--sort",
+    type=click.Choice(["reputation", "price", "availability", "default"]),
+    default="default",
+    help="Sort order: reputation (rating desc, then price), price (asc), availability (active first, capacity), default (reputation, price, availability)",
+)
 @click.pass_context
-def list_offers(ctx, provider: str | None, status: str | None, service_type: str | None):
+def list_offers(ctx, provider: str | None, status: str | None, service_type: str | None, sort: str):
     """List blockchain marketplace offers and bids"""
     try:
         # Load CLI config
@@ -60,6 +125,11 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                     offers = [o for o in offers if o.get("service_type") == service_type]
 
                 if offers:
+                    # Sort deterministically. The "reputation" sort uses the
+                    # marketplace avg_rating and rating_count; if a separate
+                    # trust score is configured it could be merged here.
+                    offers = _sort_offers(offers, sort)
+
                     # Format output for marketplace offers
                     market_data = []
                     for offer in offers:

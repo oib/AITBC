@@ -190,9 +190,11 @@ On the hub/customer:
 
 ```bash
 aitbc market list --service-type ollama
+aitbc market list --service-type ollama --sort reputation
+aitbc market list --service-type ollama --sort price
 ```
 
-**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash.
+**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash. The `--sort` option orders by `reputation` (avg_rating desc, then price asc, then capacity), `price` (asc), or `availability` (active first, then capacity).
 
 ---
 
