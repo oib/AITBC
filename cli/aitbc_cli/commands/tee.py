@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import UTC, datetime
 import os
 
 import click
@@ -59,7 +60,8 @@ def attest(ctx, enclave_id: str, measurement: str):
     """Generate a local attestation quote for an enclave."""
     try:
         generator = QuoteGenerator(enclave_id)
-        quote = generator.generate(measurement=measurement)
+        quote_id = f"tee-{enclave_id}-{datetime.now(UTC).isoformat()}"
+        quote = generator.generate(quote_id=quote_id, measurement=measurement)
         client = _api_client(ctx)
         if client is None:
             result = {
