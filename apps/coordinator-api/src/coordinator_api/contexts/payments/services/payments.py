@@ -234,7 +234,7 @@ class PaymentService:
                 if reinvest_stake_id:
                     meta = payment.meta_data or {}
                     meta["reinvest_stake_id"] = reinvest_stake_id
-                    payment.meta_data = meta
+                    payment.meta_data = dict(meta)
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )
