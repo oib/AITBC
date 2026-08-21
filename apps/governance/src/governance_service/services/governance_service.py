@@ -301,12 +301,15 @@ class GovernanceService:
         if not vote.chain_id:
             vote.chain_id = settings.default_chain_id
 
+        voter_address = vote_data.get("voter_address", "")
+        if not voter_address:
+            voter_address = voter_id
+
         if settings.enable_onchain_submission and settings.proposer_private_key:
             try:
                 from aitbc.governance.onchain import build_vote_tx
                 from aitbc.governance.types import VoteData
 
-                voter_address = vote_data.get("voter_address", "")
                 # Query on-chain balance for voting power snapshot
                 voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
                 vote.voting_power = voting_power
@@ -334,6 +337,15 @@ class GovernanceService:
                 import logging
 
                 logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
+
+        # Off-chain voting power: derive from staked/held governance tokens when
+        # on-chain submission is disabled or the chain query failed.
+        if vote.voting_power is None or vote.voting_power == 0:
+            try:
+                vote.voting_power = await self.calculate_voting_power(voter_address)
+                vote.power_at_snapshot = vote.voting_power
+            except Exception as e:
+                logger.warning("Could not calculate off-chain voting power for %s: %s", voter_address, e)
 
         # Server-side voting power: do not let clients self-report unlimited weight.
         # Use the on-chain balance snapshot (or zero if the chain query failed) as
