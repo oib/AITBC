@@ -501,3 +501,24 @@ Live validation: `aitbc governance status` works. `propose`/`close`/`execute`
 fail against the running aitbc3 governance service because the governance DB
 has `invalid page in block 4 of relation base/16399/2610` corruption. The code
 path is implemented and unit-tested; the live cycle is blocked by the DB.
+
+## P1.7 update — governance DB recovered and lifecycle live-validated
+
+- Dropped and recreated the corrupt `aitbc_governance` PostgreSQL database on aitbc3.
+- Ran `alembic upgrade head` to rebuild the schema.
+- Fixed `governance_service.py` for PostgreSQL use:
+  - parse ISO datetime strings from the CLI
+  - auto-create governance profiles for proposer/voter
+  - normalise vote numbers to `Decimal`
+  - set proposal status to `active` on creation
+- Live-validated the full `propose → vote → close → execute` cycle:
+  ```bash
+  aitbc governance propose --title 'Gas2' --description 'Gas2' --proposer-id aitbc3 --voting-days 1
+  aitbc governance vote --proposal-id prop_b9f8d532 --voter-id aitbc3 --vote for --voting-power 1000000
+  aitbc governance close prop_b9f8d532
+  aitbc governance execute prop_b9f8d532
+  ```
+- For the live aitbc3 test environment, `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false`
+  was added to `/etc/aitbc/aitbc-governance.env` because on-chain submission is
+  disabled there and no block height is recorded. In a production deployment with
+  `enable_onchain_submission=true`, the timelock should remain enabled.
