@@ -202,6 +202,7 @@ class BlockImportMixin(SyncBase):
             # was then stored unsigned, so this node could never re-serve proof of who
             # proposed it. One sync hop stripped authorship from the whole chain.
             signature=block_data.get("signature", ""),
+            block_metadata=block_data.get("block_metadata"),
         )
         session.add(block)
         if transactions:
