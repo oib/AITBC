@@ -72,6 +72,22 @@ Continuing the live two-node validation on `aitbc3` and `hub.aitbc`:
 
 Replayed scenarios 01-02, 04, 06 (partial, exchange not deployed), 08, 10-14, 16 (auth still open), 17-22, 28-33, and 36.
 
+## Session task-list close-outs
+
+The following items from `TASKLIST.md` were completed during the v0.24.0 validation cycle and are recorded here for traceability:
+
+- `aitbc wallet list` now includes file wallets alongside daemon wallets (`0ae4bb389`).
+- `aitbc mining status/list` works on the shop node after blockchain RPC auth canonicalises bech32 addresses.
+- `aitbc market offer` 400s fixed: `my-agent-wallet` funded from genesis and offer re-published (`6b9ede797`).
+- `aitbc pool-hub` and hub URL resolution now fall back to `HUB_P2P_HOST` / `HUB_RPC_URL` on follower nodes.
+- `aitbc-blockchain-p2p` is installed and active on `aitbc3` after resetting the local PostgreSQL WAL and creating the `aitbc_mempool` database.
+- Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `hub.aitbc` to a clean working tree.
+- Documented wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
+- Scrubbed historical `.gitea_token.sh` from gitea history (done from `aitbc3`).
+- Extended `docs/scenarios/34_hub_customer_node_e2e.md` with paid-job + escrow + GPU offer steps (`b18468450`).
+- Patched scenario 34 exchange paths and JWT import (`e8966aba1` on gitea `main`).
+- Simulated fallbacks made deterministic for `aitbc reputation` and `aitbc exchange-island` (`d6958ed00`).
+
 ## Commits since v0.23.0
 
 * a8c49ed02 ci: delete js-sdk-tests.yml, whose only target is gone [AITBC-135]
