@@ -43,6 +43,10 @@ A network participant wants to propose a parameter change (e.g., adjusting the b
 - How to stake and delegate voting power
 - How to execute a passed proposal
 
+### Live operator setup
+
+On the live two-node deployment, generate and store a client JWT, set the governance service URL, and ensure `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK` is not disabled in production. See [CLI Live Setup](../ops/aitbc-cli-live-setup.md).
+
 ---
 
 ## Prerequisites

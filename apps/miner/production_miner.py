@@ -361,6 +361,7 @@ def execute_job(job, available_models):
                             "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
                             "memory_used": gpu_after["memory_used"] if gpu_after else 0,
                             "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048),
+                            "duration_ms": int(execution_time * 1000),
                         },
                     },
                 )

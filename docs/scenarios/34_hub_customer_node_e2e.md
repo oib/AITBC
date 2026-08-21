@@ -86,8 +86,10 @@ Do not assume shop can `curl` hub LAN ports.
 
 ```bash
 aitbc config show
-aitbc config set coordinator_api_url http://127.0.0.1:8203
+aitbc config set coordinator_api_url http://hub.aitbc.bubuit.net/c/v1
 ```
+
+You also need a client JWT. See [CLI Live Setup](../ops/aitbc-cli-live-setup.md) for the URL/JWT instructions used in the live deployment.
 
 On a follower, set hub discovery in `/etc/aitbc/node.env` (`HUB_DISCOVERY_URL`, `HUB_RPC_URL`, `HUB_P2P_HOST`). `aitbc config set` currently knows `coordinator_api_url`, `agent_coordinator_url`, `api_key`, `timeout` — other URLs come from those env files.
 

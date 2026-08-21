@@ -142,15 +142,29 @@ async def submit_result(
     job.error = None
     metrics = dict(req.metrics or {})
     duration_ms = metrics.get("duration_ms")
+    if duration_ms is None and req.result:
+        try:
+            execution_time = float(req.result.get("execution_time", 0))
+            if execution_time > 0:
+                duration_ms = int(execution_time * 1000)
+                metrics["duration_ms"] = duration_ms
+        except (TypeError, ValueError):
+            pass
     if duration_ms is None and job.requested_at:
         now = datetime.now(UTC)
         requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=UTC)
         duration_ms = int((now - requested_at).total_seconds() * 1000)
+        if duration_ms < 0:
+            logger.warning("Computed negative duration_ms for job %s; setting to 0", job_id)
+            duration_ms = 0
         metrics["duration_ms"] = duration_ms
+    if duration_ms is not None:
+        duration_ms = int(duration_ms)
     receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
     receipt = await _attach_zk_proof(receipt, job, req.result)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
+    job.completed_at = datetime.now(UTC)
     session.add(job)
     session.commit()
     if job.payment_id and job.payment_status == "escrowed":

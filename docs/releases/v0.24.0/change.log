@@ -638,3 +638,23 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Operational note: the `aitbc-coordinator-api` systemd unit needs
   `MemoryDenyWriteExecute=no` so the Node.js subprocesses used by snarkjs
   can allocate executable memory pages.
+
+## v0.24.0-next — Live scenario playback fixes
+
+### Fixed negative receipt `units`, `duration_ms` and `price`
+
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`: store `requested_at`, `expires_at`, and `completed_at` as UTC.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/domain/job.py`: default `requested_at` and `expires_at` to UTC.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`: prefer `execution_time` from the miner result when computing `duration_ms`, and clamp negative values to 0.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py`: clamp `units`, `unit_price`, and `price` to non-negative values; prefer `duration_ms` only when positive.
+- `apps/miner/production_miner.py`: send `duration_ms` in metrics so the coordinator does not derive it from clock-sensitive timestamps.
+
+### Fixed off-chain governance execution timelock
+
+- `apps/governance/src/governance_service/services/governance_service.py`: when `enable_onchain_submission` is false, query the chain RPC for the current block height at proposal creation and record `voting_ends_block`. Also record the height at close time if it is still missing.
+- `/etc/aitbc/aitbc-governance.env`: the temporary `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false` bypass has been removed.
+
+### Operator documentation
+
+- `docs/ops/aitbc-cli-live-setup.md`: new guide covering coordinator URL, JWT generation, client/shop commands, and governance live setup.
+- `docs/scenarios/34_hub_customer_node_e2e.md`, `docs/scenarios/07_ai_job_submission.md`, `docs/scenarios/17_governance_voting.md`: cross-reference the live setup guide and use the correct `http://hub.aitbc.bubuit.net/c/v1` coordinator URL.
