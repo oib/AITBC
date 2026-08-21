@@ -123,6 +123,26 @@ diff /tmp/sim1.json /tmp/sim2.json && echo SIMULATION_DETERMINISTIC
 
 ---
 
+### Step 7: Command-family clarity
+
+```bash
+aitbc market --help
+aitbc marketplace --help
+aitbc governance --help
+aitbc operations governance --help
+```
+
+**Expected output:**
+
+- `aitbc market` is the GPU/software offer group used by shop providers and customers.
+- `aitbc marketplace` is the older global chain-listings group.
+- `aitbc governance` queries the governance service on port 8105.
+- `aitbc operations governance` uses the blockchain RPC vote/proposal path.
+
+Scenarios choose the live group: `market` for GPU offers, `governance` for status, and `operations governance` only when the RPC vote path is required.
+
+---
+
 ## Related Resources
 
 - [CLI README](../../cli/README.md)
