@@ -675,3 +675,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py`: derive `started_at` from `completed_at - units` so the receipt duration is internally consistent.
 - `cli/aitbc_cli/commands/dashboard.py`, `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`, `apps/coordinator-api/src/coordinator_api/schemas/__init__.py`: show `Model` and `Created` columns in the customer dashboard by including `payload`/`result` in `JobView`.
 
+- feat(cli): add `aitbc zk` command group with `health`, `circuits`, and
+  `verify` subcommands; supports `--proof-id`, `--job-id`, and `--proof-file`.
+- feat(coordinator): add `POST /v1/zk/receipt/verify` to verify the stored
+  ZK receipt proof for a completed job.
