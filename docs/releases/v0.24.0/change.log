@@ -572,3 +572,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   `docs/releases/STATUS.md` to be explicit that the live network remains
   single-validator PoA by default (`multi_validator_consensus_enabled=False`)
   and that MultiValidatorPoA/PBFT is opt-in.
+
+## P2.3 — On-chain performance bonds (foundation)
+
+- Added `Bond` table and `StateTransition` handling for `BOND_LOCK`, `BOND_RELEASE`, and `BOND_SLASH` transaction types.
+- Bond collateral is locked in a deterministic bond escrow account; slashed funds move to a burn address; releases return funds to the provider after the lock period.
+- Added read-only `/rpc/bond/{bond_id}` and `/rpc/bond/provider/{provider}` endpoints.
+- Added `apps/blockchain-node/tests/test_bond.py` covering lock, release, and slash.
