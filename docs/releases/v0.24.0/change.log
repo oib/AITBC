@@ -714,3 +714,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Added `HUB_COORDINATOR_URL=http://hub.aitbc.bubuit.net/c/v1` to `/etc/aitbc/blockchain.env` on `aitbc3` and `hub.aitbc` so the `aitbc` operator user resolves the coordinator URL correctly without relying on a per-user `.aitbc.yaml`.
 - Validated `sudo -u aitbc aitbc ai submit --payment 1.0 --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f --model llama3.2:3b --prompt "What is 2+2?" --wait` on `hub.aitbc`: job completed, payment released, escrow tx `0x867529e7b692e222bb3406ec4b6ed51b86e8411da99654be14d962b38a913c74`.
 
+- `aitbc-miner.service`: set `HOME=/var/lib/aitbc` so `ProtectHome=yes` does not break Whisper temp paths after the operator home move.
+- `aitbc-pool-hub.service`: set `HOME=/var/lib/aitbc` and `PGSSLMODE=disable` so the hub pool-hub starts cleanly with the new `aitbc` home.
+- Shop miner now registers and heartbeats with the hub pool-hub (`HUB_POOL_HUB_URL=http://hub.aitbc.bubuit.net/pool-hub`); `aitbc pool-hub status` on both nodes reports `miners_online: 1`.
+- Disabled `aitbc-pool-hub.service` on `aitbc3` (shop/follower) and pointed the shop miner at the hub pool-hub.
+
