@@ -379,3 +379,56 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
     - `payment_status`: `released`
     - `zk_status`: `verified`
     - `zk_proof_id`: `9c780c45716ee8e2925ae7d922fffbc21cfc4546486d5f8ff217dcdff96376dc`
+
+---
+
+# Confidential TEE job live validation
+
+**Date:** 2026-08-21  
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
+**Gitea `main`:** `cc1907ee6` — *feat(cli,coordinator-api): TEE register/status and confidential job flags*  
+**Scenario:** `docs/scenarios/46_tee_confidential_jobs.md`
+
+## What was validated
+
+A confidential AI inference job was submitted through the canonical `aitbc` CLI. The job requested TEE attestation for a target enclave measurement. The shop miner completed the job, the coordinator auto-generated and verified a TEE attestation, and the escrow was released only after `tee_status: verified` was recorded in the receipt.
+
+```bash
+aitbc --api-key "$CLIENT_JWT" tee register enc-live-01 --agent-id hub-coordinator
+aitbc --api-key "$CLIENT_JWT" tee status enc-live-01
+aitbc --api-key "$CLIENT_JWT" ai submit \
+  --prompt "Confidential TEE live validation" \
+  --payment 1.0 \
+  --wallet genesis \
+  --buyer-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --coordinator-url http://127.0.0.1:8203 \
+  --confidential \
+  --enclave-measurement "sha256:0000000000000000000000000000000000000000000000000000000000000001" \
+  --wait --timeout 180
+```
+
+Result:
+
+```json
+{
+  "job_id": "9517cfc0500843c49abfc1f476469407",
+  "state": "COMPLETED",
+  "payment_status": "released",
+  "escrow_tx_hash": "0xa44925d601d7fecba9f2e88f665f3bd130447d2839f16cea72f5af2af03e4c6d",
+  "result": {
+    "status": "completed",
+    "tee_status": "verified",
+    "tee_attestation_id": "ta_a9bef0c722",
+    "zk_status": "not_required"
+  }
+}
+```
+
+## Key observations
+
+- The `aitbc tee register` and `aitbc tee status` commands are wired to `/v1/tee/enclaves` and return the full `EnclaveIdentity` record.
+- `aitbc ai submit --confidential --enclave-measurement ...` passes `confidential: true`, `tee_attestation_required: true`, `required_enclave_measurement`, and `tee_enclave_id` to the coordinator.
+- The receipt’s `job_constraints` include `confidential: true` and the requested `required_enclave_measurement`.
+- Escrow was released on-chain after the coordinator verified the auto-generated TEE attestation.
+
