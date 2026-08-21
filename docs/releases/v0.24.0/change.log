@@ -862,3 +862,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Live validation on hub.aitbc/aitbc3 produced a released escrow with
     tee_status: verified and confidential: true in the job constraints.
   - Append validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- feat(cli): add aitbc zk command group for circuits, health, and verify
+  - New `aitbc zk circuits` lists available ZK circuits from /v1/zk/info.
+  - New `aitbc zk health` checks ZK service status.
+  - New `aitbc zk verify` re-verifies a job receipt proof or a user-supplied proof.
+  - Add CLI unit tests in cli/tests/test_zk.py.
