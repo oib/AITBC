@@ -752,3 +752,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Wired coordinator reputation into dispatch: `JobService` now loads `AgentReputation.trust_score` (0-1000, normalized to 0-1) when choosing the best miner, and `miner.py` records successful/failed job completions into the reputation service.
 - `aitbc market list` now enriches offers with the canonical coordinator `trust_score` when the provider is a known agent, and the default sort prefers live trust score over marketplace avg_rating.
 
+- Implemented P1.1: job completion records update `AgentReputation`; dispatch prefers `trust_score`; `aitbc market list` fetches and sorts by live reputation.
+
