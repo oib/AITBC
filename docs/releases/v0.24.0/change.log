@@ -522,3 +522,18 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   was added to `/etc/aitbc/aitbc-governance.env` because on-chain submission is
   disabled there and no block height is recorded. In a production deployment with
   `enable_onchain_submission=true`, the timelock should remain enabled.
+
+## P1.1 Phase B — reputation-aware job dispatch
+
+- Added `min_reputation` to `Constraints` in `apps/coordinator-api/src/coordinator_api/custom_types.py`.
+- Updated `JobService` to compute miner reputation from `reputation_score` metadata
+  or from the historical `jobs_completed / (jobs_completed + jobs_failed)` ratio.
+- `acquire_next_job` now:
+  - rejects jobs whose `min_reputation` the miner does not meet;
+  - defers a job to a higher-reputation online miner when one is available.
+- Added `--min-reputation` to `aitbc ai submit`.
+- Live validation on aitbc3 (coordinator SQLite + manual test miners):
+  - low-reputation miner skipped a `min_reputation: 0.5` job;
+  - high-reputation miner received the same job when it polled;
+  - low-reputation miner received a `min_reputation: 0.1` job once the
+    higher-reputation miners were offline.
