@@ -686,3 +686,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - MultiValidatorPoA: `apps/blockchain-node/tests/consensus/test_multi_validator_poa_soak.py` passes; production toggle remains `multi_validator_consensus_enabled=false` until a live multi-node soak is scheduled.
 
+- feat(coordinator,miner,cli): P2.2 TEE attestation for confidential jobs.
+  - Job constraints accept `tee_attestation_required` and `tee_enclave_id`.
+  - `aitbc ai submit` gains `--tee-attestation-required` and `--tee-enclave-id`.
+  - `aitbc ai status` shows `tee_status` and `tee_attestation_id`.
+  - Miner result path generates/verifies TEE quotes and blocks escrow release
+    until `tee_status: verified`.
+  - `aitbc tee attest`, `verify`, `launch` work against live coordinator.
