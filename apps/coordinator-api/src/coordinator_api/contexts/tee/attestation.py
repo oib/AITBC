@@ -43,7 +43,7 @@ class TEEAttestation(SQLModel, table=True):
     status: str = Field(default=TEEAttestationStatus.PENDING.value, max_length=20, index=True)
     meta: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, server_default=text("' {}")),
+        sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
     )
     verified_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
@@ -62,7 +62,7 @@ class EnclaveIdentity(SQLModel, table=True):
     status: str = Field(default=EnclaveStatus.PENDING.value, max_length=20, index=True)
     meta: dict = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False, server_default=text("' {}")),
+        sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
