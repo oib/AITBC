@@ -1,3 +1,13 @@
+## Agent B P1 product-gap sprint (hub.aitbc)
+
+- Branch: `feature/agent-b-p1-sprint` on `hub.aitbc`, created from gitea `main` (`7bda4c91d`).
+- Owner: Agent B (hub.aitbc / customer + docs + governance + web dashboards).
+- [x] Refresh `docs/DESIGN_CYCLE.md` staleness (P2.3–P2.7 shipped; step 2/5/9/10 gaps closed/clarified).
+- [ ] Update `TASKLIST.md` with branch and current state.
+- [ ] P1.2 — web customer and shop dashboards.
+- [ ] P1.7 — governance parameter change end-to-end live validation.
+- [ ] P1.3a — bridge custodian doc + multi-sig config (hub side).
+
 ## P1 implementation (current session)
 
 - [x] P1.8 — honest rewrite of docs/architecture/1_system-flow.md
