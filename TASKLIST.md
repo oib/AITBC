@@ -65,18 +65,22 @@
 
 ### Open follow-ups
 
-- [ ] Apply alembic `b7f3c1a90d24` on `hub.aitbc` and `aitbc3` (payload job_id index).
-      The `job_id` filter works without it, unindexed.
+- [x] `b7f3c1a90d24` applied on hub (2026-08-22). The chain DB is **SQLite**
+      (`/var/lib/aitbc/data/<chain_id>/chain.db`), not Postgres, and had no
+      `alembic_version` at all, so it was stamped at `d4e8b91c0a37` first. Pass
+      `DATABASE_URL` explicitly or alembic targets the wrong file (see `env.py` V23-49).
+- [ ] Apply `b7f3c1a90d24` on `aitbc3` the same way (stamp `d4e8b91c0a37`, then upgrade).
 - [ ] Decide whether `release_escrow` should return HTTP 4xx/5xx rather than
       `success: false` when settlement fails; the current shape keeps the coordinator
       and `ai submit --wait` contract intact.
-- [ ] `/rpc/transactions` returns rows oldest-first and truncates to `limit`, so any
-      other caller passing `limit` is reading the *oldest* rows. Only the escrow lookup
-      was audited.
+- [x] `/rpc/transactions` now orders newest-first, so `limit` returns the most recent
+      rows. This also fixed `aitbc wallet transactions --limit`, which was showing users
+      their oldest transactions.
 - [ ] `agent.py` and `market/__init__.py` still hardcode `~/.aitbc/wallets`; only
       `auth.py` honours `AITBC_WALLET_DIR`.
-- [ ] Enable `ESCROW_RECONCILER_ENABLED` on hub once its retry behaviour has been
-      watched against a deliberately failed settlement.
+- [x] `ESCROW_RECONCILER_ENABLED=true` on hub (2026-08-22), interval 300s, min age
+      120s, batch 25. Not yet observed against a deliberately failed settlement.
+- [ ] Enable the reconciler on `aitbc3` once hub has run clean for a while.
 
 Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`):
 - 4f0ca3ba0 feat(exchange,docs): bridge custodian config and documentation (P1.3a)
