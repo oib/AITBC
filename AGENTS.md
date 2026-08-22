@@ -24,6 +24,31 @@ Both remotes point to gitea as `origin` and GitHub as `github`.
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
 `/opt/aitbc` on the IDE host has been reset to gitea `main` (`eec9f22ac`) and is clean. It is safe to read and run local verification, but still use `aitbc3` or `hub.aitbc` for any edits that affect live services or the gitea `main` branch. The stale `cli-canonical` (`a4472e97`) branch still exists in the Git history but is no longer on `main`.
 
+## Using sshfs to edit the canonical repo from the IDE
+
+The IDE host cannot safely `git commit` from `/home/oib/windsurf/aitbc` or `/opt/aitbc`, but you may still want to read or edit a live checkout through the local editor. `sshfs` can mount a remote working tree on the IDE host:
+
+```bash
+mkdir -p /tmp/hub_aitbc
+sshfs -o idmap=user,reconnect,ServerAliveInterval=15 hub.aitbc:/opt/aitbc /tmp/hub_aitbc
+# or for the shop node
+sshfs -o idmap=user,reconnect,ServerAliveInterval=15 aitbc3:/opt/aitbc /tmp/aitbc3_aitbc
+```
+
+After mounting, `/tmp/hub_aitbc` is the live working tree. Be aware of the following:
+
+- **Do not run `git` inside the mount from the IDE host.** `git` may trigger `detected dubious ownership` because the directory is owned by `root` (or the remote user) and `git config safe.directory` is required. Always `ssh` to the node for `git add` / `git commit` / `git push`.
+- **The mount may cache files.** This has caused `read`/`edit` tools to see stale versions of files. If a file seems out of sync, `ssh` into the node and read it directly, or unmount and remount.
+- **Some `sshfs` options are not supported.** `Cache=no` and `KernelCache=no` will fail with `fuse: unknown option(s)`. Use `reconnect` and `ServerAliveInterval` instead.
+- **Symlinks may not list or read** depending on the remote configuration (`ls: cannot read symbolic link`). File contents are still accessible through `ssh`.
+- **Unmount when done**:
+  ```bash
+  fusermount -u /tmp/hub_aitbc
+  rmdir /tmp/hub_aitbc
+  ```
+
+Use the mount only for file inspection and text editing. Always commit, push, and run tests from `aitbc3` or `hub.aitbc`.
+
 ## Standard workflow
 
 1. Always start live work by SSHing to the correct node:
@@ -154,29 +179,3 @@ fixed by code changes alone.
 ## Task tracking
 
 `AGENTS.md` is for workspace rules and conventions only. Open tasks, assignments and current state belong in `TASKLIST.md` in the same directory.
-
-## Operator user and CLI wallet hardening
-
-The `aitbc` CLI should be run as the `aitbc` service/operator user, not as `root`.
-Live setup:
-
-- `aitbc` user home: `/home/aitbc`
-- CLI config and credentials: `/home/aitbc/.aitbc/`
-- File wallets: `/home/aitbc/.aitbc/wallets/`
-- Wallet daemon wallets: `/var/lib/aitbc/wallets/`
-- Island credentials: `/var/lib/aitbc/island_credentials.json`
-
-Run the CLI:
-
-```bash
-sudo -u aitbc aitbc <command>
-```
-
-The wallet directory is mode `0700` and wallet files are `0600`. `root` wallet
-files have been removed from `/root/.aitbc/wallets`; a note is left in
-`/root/.aitbc/WALLETS_MOVED.txt` to prevent accidental root CLI wallet creation.
-
-If the `aitbc` user home must be created or moved on a new node, use the
-procedure in `docs/ops/operator-user-setup.md` (create `/home/aitbc`, `usermod -d
-/home/aitbc aitbc`, copy `/root/.aitbc` contents, set ownership and permissions,
-restart aitbc services).
