@@ -18,10 +18,10 @@
 - [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
 
 Latest pushed commits:
+- 8c994306c docs: mark P2.1 and P2.2 shipped, update result verification in design cycle
+- 7c07fd86b docs: mark P2.1 live ZK validation as completed
 - 3cd547272 refactor(exchange): remove legacy BTC balance placeholder, use ETH
 - d8eb1c694 fix(cli): correct _reputation_key return type annotation
-- 57e9b3368 docs: replace BTC/Bitcoin on-ramp references with ETH/Ethereum
-- ea2d56be2 refactor(cli,docs): remove peertube runner and pruner from the repo
 
 
 # Open task list for AITBC agents
@@ -33,7 +33,7 @@ Latest pushed commits:
   - `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` are handled in state transitions.
   - Marketplace offers require an active bond when `MARKET_BOND_MIN_AMOUNT` > 0.
 
-- Live nodes: hub `hub.aitbc` is on gitea `main` at `3cd547272` (clean). Shop `aitbc3` is at `3cd547272` (clean, fast-forwarded to `origin/main`).
+- Live nodes: hub `hub.aitbc` is on gitea `main` at `8c994306c` (clean). Shop `aitbc3` is at `8c994306c` (clean, fast-forwarded to `origin/main`).
 - P1.1 Phase B shipped: `JobService.acquire_next_job` defers to higher-reputation online miners, enforces `Constraints.min_reputation`, and `aitbc ai submit` exposes `--min-reputation`.
 - Scenario 34 was replayed 2026-08-20 from this session:
   - unpaid job `1363fff0bc4b48c6903bc46f54fe0a7a` completed on `aitbc-miner-1`
