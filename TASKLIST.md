@@ -3,10 +3,22 @@
 - Branch: `feature/agent-b-p1-sprint` on `hub.aitbc`, created from gitea `main` (`7bda4c91d`).
 - Owner: Agent B (hub.aitbc / customer + docs + governance + web dashboards).
 - [x] Refresh `docs/DESIGN_CYCLE.md` staleness (P2.3–P2.7 shipped; step 2/5/9/10 gaps closed/clarified).
-- [ ] Update `TASKLIST.md` with branch and current state.
-- [ ] P1.2 — web customer and shop dashboards.
+- [x] Update `TASKLIST.md` with branch and current state.
+- [x] P1.2 — web customer and shop dashboards.
+  - Added `website/customer-dashboard.html`, `website/shop-dashboard.html`,
+    `website/dashboard.js`, and `examples/nginx/nginx-aitbc.conf.example`
+    routes for `/dashboard/` and `/shop/`.
+  - Dashboards call live APIs and degrade gracefully.
 - [ ] P1.7 — governance parameter change end-to-end live validation.
-- [ ] P1.3a — bridge custodian doc + multi-sig config (hub side).
+  - Service is active on hub; `propose/vote/close/execute` CLI exists.
+  - Execution blocked by 43200-block timelock (24h at 2s block time).
+- [x] P1.3a — bridge custodian doc + multi-sig config (hub side).
+  - Added `apps/exchange/simple_exchange/config.py` and `.env.example`.
+  - Added `docs/security/bridge-custodian.md`.
+  - Exchange `v1/bridge/status` and `v1/cross-chain/rates` now return
+    custodian/multisig fields.
+  - Live validation: exchange service restarted on hub, status endpoint
+    returns new fields.
 
 ## P1 implementation (current session)
 
@@ -27,11 +39,10 @@
 - [x] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
 - [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
 
-Latest pushed commits:
-- 8c994306c docs: mark P2.1 and P2.2 shipped, update result verification in design cycle
-- 7c07fd86b docs: mark P2.1 live ZK validation as completed
-- 3cd547272 refactor(exchange): remove legacy BTC balance placeholder, use ETH
-- d8eb1c694 fix(cli): correct _reputation_key return type annotation
+Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`):
+- 4f0ca3ba0 feat(exchange,docs): bridge custodian config and documentation (P1.3a)
+- 1b86056b1 feat(website): add live customer and shop web dashboards (P1.2)
+- 58a68d14c docs: refresh DESIGN_CYCLE and TASKLIST for Agent B P1 sprint
 
 
 # Open task list for AITBC agents
