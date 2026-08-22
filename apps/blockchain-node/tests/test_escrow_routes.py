@@ -235,3 +235,27 @@ async def test_find_existing_release_is_quiet_when_the_rpc_is_unreachable(monkey
     with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock,
                       side_effect=RuntimeError("connection refused")):
         assert await escrow_routes._find_existing_release("job-123") is None
+
+
+@pytest.mark.asyncio
+async def test_find_existing_release_filters_server_side(monkeypatch):
+    """The lookup must ask the RPC to filter by job_id, not scan and filter locally.
+
+    /transactions returns rows oldest-first and truncates to `limit`, so an unfiltered
+    scan silently misses recent settlements -- the ones a retry asks about. Missing one
+    means resubmitting at the next nonce and paying the provider twice.
+    """
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = []
+
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock,
+                      return_value=mock_response) as mock_get:
+        await escrow_routes._find_existing_release("job-123")
+
+    url = mock_get.call_args.args[0]
+    assert "job_id=job-123" in url
+    assert "transaction_type=ESCROW_RELEASE" in url

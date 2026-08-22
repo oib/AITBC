@@ -44,6 +44,39 @@
   - Regression tests added in this commit.
 - [x] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
 - [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
+- [x] Step 7 settlement hardening (escrow payout correctness), 2026-08-22
+  - Settlement key/address validated before escrow state is mutated; a mismatch is
+    refused instead of producing a 403 and an unpaid provider.
+  - Release is settled on-chain *before* `released_at` is persisted; an unsettled
+    release returns `success: false` / `settlement_status: unsettled` and the
+    coordinator honours that instead of marking the payment released.
+  - In-memory release is rolled back when settlement does not land, under a
+    per-contract lock, leaving the contract retryable in `JOB_COMPLETED`.
+  - `ESCROW_RELEASE` made deterministic so a retry at the same nonce is deduplicated
+    by the mempool; this closed a real double-pay window.
+  - Settled-release lookup + server-side `job_id` filter on `/rpc/transactions`
+    (alembic `b7f3c1a90d24` adds the payload expression index).
+  - `SettlementReconciler` retries stuck payouts; **disabled by default**
+    (`ESCROW_RECONCILER_ENABLED`).
+  - `aitbc auth login` honours `AITBC_WALLET_DIR`, so the documented validation flow
+    reproduces on a hub node where wallets live in `/var/lib/aitbc/wallets`.
+  - Live-validated end-to-end: job `e72705b6d0274e13bc8a340896f0e006`, release tx
+    `0xe733a8106e93940500ca320da830edd5bf4e9a8b1eb94239476fb105b9cccf36`.
+
+### Open follow-ups
+
+- [ ] Apply alembic `b7f3c1a90d24` on `hub.aitbc` and `aitbc3` (payload job_id index).
+      The `job_id` filter works without it, unindexed.
+- [ ] Decide whether `release_escrow` should return HTTP 4xx/5xx rather than
+      `success: false` when settlement fails; the current shape keeps the coordinator
+      and `ai submit --wait` contract intact.
+- [ ] `/rpc/transactions` returns rows oldest-first and truncates to `limit`, so any
+      other caller passing `limit` is reading the *oldest* rows. Only the escrow lookup
+      was audited.
+- [ ] `agent.py` and `market/__init__.py` still hardcode `~/.aitbc/wallets`; only
+      `auth.py` honours `AITBC_WALLET_DIR`.
+- [ ] Enable `ESCROW_RECONCILER_ENABLED` on hub once its retry behaviour has been
+      watched against a deliberately failed settlement.
 
 Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`):
 - 4f0ca3ba0 feat(exchange,docs): bridge custodian config and documentation (P1.3a)
