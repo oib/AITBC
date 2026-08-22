@@ -133,3 +133,48 @@ async def test_submit_payment_tx_signs_with_settlement_key(release_key, monkeypa
         assert sent_tx["from"] == settlement_address
         assert sent_tx["type"] == "ESCROW_RELEASE"
         assert sent_tx["payload"]["buyer_escrow_addr"] == "0x4444444444444444444444444444444444444444"
+
+
+@pytest.mark.asyncio
+async def test_retried_release_builds_an_identical_transaction(release_key, monkeypatch):
+    """A retry at the same nonce must hash identically so the mempool deduplicates it.
+
+    Admission validates the nonce against the account, which has not advanced while a
+    first attempt is still pending. Two non-identical transactions sharing that nonce
+    would both be admitted and the provider paid twice.
+    """
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+    provider = "0x3333333333333333333333333333333333333333"
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"transaction_hash": "0xabc"}
+
+    sent = []
+    with patch.object(escrow_routes, "_create_account_if_missing", new_callable=AsyncMock) as mock_create, \
+         patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock) as mock_resolve, \
+         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce, \
+         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+
+        mock_create.return_value = True
+        mock_resolve.return_value = provider
+        mock_nonce.return_value = 5
+
+        for _ in range(2):
+            await escrow_routes._submit_payment_tx(
+                buyer="0x4444444444444444444444444444444444444444",
+                provider=provider,
+                amount=Decimal("1.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
+            sent.append(mock_post.call_args.kwargs["json"])
+
+    first, second = sent
+    assert first == second, "retry produced a different transaction; the mempool cannot deduplicate it"
+    assert first["signature"] == second["signature"]
+    assert escrow_routes._compute_tx_signing_hash(first) == escrow_routes._compute_tx_signing_hash(second)
+    assert "released_at" not in first["payload"]
