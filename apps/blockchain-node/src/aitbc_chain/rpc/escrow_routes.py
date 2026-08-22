@@ -174,6 +174,34 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
     return None
 
 
+# How many recent ESCROW_RELEASE transactions to scan when checking whether a job has
+# already settled. The RPC has no server-side job_id filter yet, so this is a bounded
+# scan of the most recent releases rather than a full history search.
+_RELEASE_LOOKUP_LIMIT = int(os.getenv("ESCROW_RELEASE_LOOKUP_LIMIT", "200"))
+
+
+async def _find_existing_release(job_id: str) -> str | None:
+    """Return the hash of an ESCROW_RELEASE already on-chain for ``job_id``, if any.
+
+    A retry must never pay twice. Once a first attempt is mined the nonce check rejects
+    a replay, which looks like a failure even though the provider was paid -- so a
+    reconciler that trusted the failure alone would retry forever. This lookup tells the
+    two apart, and lets a retry return the transaction that already settled.
+    """
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_RELEASE&limit={_RELEASE_LOOKUP_LIMIT}"
+        )
+        if r.status_code != 200:
+            return None
+        for tx in r.json() or []:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                return tx.get("tx_hash")
+    except Exception as e:
+        _logger.warning("ESCROW_RELEASE: settled-release lookup failed for job_id=%s: %s", job_id, e)
+    return None
+
+
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     amount_seconds = int(amount * 3600)
@@ -181,6 +209,15 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
     if amount_int <= 0:
         return None
     try:
+        # Never pay a job twice: if it already settled, hand back that transaction.
+        existing_release = await _find_existing_release(job_id)
+        if existing_release:
+            _logger.info(
+                "ESCROW_RELEASE already settled for job_id=%s (%s); not resubmitting",
+                job_id, existing_release,
+            )
+            return existing_release
+
         settlement_key = _get_settlement_key()
         if not settlement_key:
             _logger.warning("ESCROW_RELEASE TX skipped: no settlement private key configured")

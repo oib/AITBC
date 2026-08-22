@@ -112,6 +112,7 @@ async def test_submit_payment_tx_signs_with_settlement_key(release_key, monkeypa
     mock_response.json.return_value = {"transaction_hash": "0xabc"}
 
     with patch.object(escrow_routes, "_create_account_if_missing", new_callable=AsyncMock) as mock_create, \
+         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None), \
          patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock) as mock_resolve, \
          patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce, \
          patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
@@ -155,6 +156,7 @@ async def test_retried_release_builds_an_identical_transaction(release_key, monk
 
     sent = []
     with patch.object(escrow_routes, "_create_account_if_missing", new_callable=AsyncMock) as mock_create, \
+         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None), \
          patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock) as mock_resolve, \
          patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce, \
          patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
@@ -178,3 +180,58 @@ async def test_retried_release_builds_an_identical_transaction(release_key, monk
     assert first["signature"] == second["signature"]
     assert escrow_routes._compute_tx_signing_hash(first) == escrow_routes._compute_tx_signing_hash(second)
     assert "released_at" not in first["payload"]
+
+
+@pytest.mark.asyncio
+async def test_submit_payment_tx_skips_already_settled_job(release_key, monkeypatch):
+    """A job that already settled must return the existing hash, not pay again."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+
+    with patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock,
+                      return_value="0xalready") as mock_lookup, \
+         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post:
+
+        tx_hash = await escrow_routes._submit_payment_tx(
+            buyer="0x4444444444444444444444444444444444444444",
+            provider="0x3333333333333333333333333333333333333333",
+            amount=Decimal("1.0"),
+            job_id="job-123",
+            contract_id="contract-123",
+        )
+
+    assert tx_hash == "0xalready"
+    mock_lookup.assert_awaited_once()
+    mock_post.assert_not_awaited(), "a settled job must not be paid a second time"
+
+
+@pytest.mark.asyncio
+async def test_find_existing_release_matches_on_job_id(monkeypatch):
+    """The lookup matches the job_id carried in the ESCROW_RELEASE payload."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = [
+        {"tx_hash": "0xother", "payload": {"job_id": "job-999"}},
+        {"tx_hash": "0xmine", "payload": {"job_id": "job-123"}},
+    ]
+
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=mock_response):
+        assert await escrow_routes._find_existing_release("job-123") == "0xmine"
+        assert await escrow_routes._find_existing_release("job-absent") is None
+
+
+@pytest.mark.asyncio
+async def test_find_existing_release_is_quiet_when_the_rpc_is_unreachable(monkeypatch):
+    """A lookup failure must not be mistaken for 'already settled'."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock,
+                      side_effect=RuntimeError("connection refused")):
+        assert await escrow_routes._find_existing_release("job-123") is None
