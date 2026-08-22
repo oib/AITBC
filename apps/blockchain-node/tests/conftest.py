@@ -20,8 +20,10 @@ os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
 
 # Disable rate limiting in tests to avoid 429s from tight loops
 os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
-# Enable multi-validator consensus for tests (threshold guard bypass)
-os.environ.setdefault("MULTI_VALIDATOR_CONSENSUS_ENABLED", "true")
+# Isolate tests from the deployment's blockchain.env. Sub-directories (e.g.
+# consensus/) can opt back in by setting AITBC_CHAIN_ENV_FILE or by patching
+# ``settings`` directly in their conftest.
+os.environ.setdefault("AITBC_CHAIN_ENV_FILE", "")
 
 from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
