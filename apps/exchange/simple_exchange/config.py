@@ -7,6 +7,7 @@ Values are read from the environment or from `/etc/aitbc/blockchain.env` via
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
 
@@ -74,14 +75,23 @@ def _env_list(name: str, default: str = "") -> tuple[str, ...]:
 
 
 def _load_bridge_config() -> BridgeConfig:
-    try:
-        # Try to load the same env file the systemd unit uses.  This is
-        # intentionally best-effort; unit tests usually set env vars directly.
-        from dotenv import load_dotenv
+    # Do not load a shared env file.  The aitbc-exchange systemd unit uses
+    # EnvironmentFile=/etc/aitbc/%N.env, so bridge variables are already in the
+    # process environment.  During tests conftest sets AITBC_SKIP_ENV_FILES=1;
+    # honour it so we do not leak /etc/aitbc/blockchain.env values (e.g.
+    # BLOCKCHAIN_RPC_URL) into other service Settings objects.
+    if os.getenv("AITBC_SKIP_ENV_FILES") != "1":
+        try:
+            from dotenv import load_dotenv
 
-        load_dotenv("/etc/aitbc/blockchain.env", override=False)
-    except Exception:
-        pass
+
+            # Best-effort load of an exchange-specific env file.  The operator
+            # may set BRIDGE_ENV_FILE; otherwise we try the service env file.
+            env_file = os.getenv("BRIDGE_ENV_FILE", "/etc/aitbc/aitbc-exchange.env")
+            if Path(env_file).exists():
+                load_dotenv(env_file, override=False)
+        except Exception:
+            pass
 
     threshold_raw = os.getenv("BRIDGE_MULTISIG_THRESHOLD", "0")
     try:
