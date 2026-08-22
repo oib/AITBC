@@ -131,7 +131,7 @@ Latest pushed commits:
 - [x] Add `--zk-proof-required` to `aitbc ai submit`
 - [x] Add `zk_status` and `zk_proof_id` to `JobView`
 - [x] Add `apps/coordinator-api/tests/test_zk_receipt.py`
-- [ ] Live validation of `aitbc ai` with ZK gate
+- [x] Live validation of `aitbc ai` with ZK gate — validated 2026-08-21; see LIVE_VALIDATION_SUMMARY.md section "P2.1 ZK Proofs for High-Value Jobs" and "ZK proof for high-value jobs — live validation".
 
 ## P2.3 — On-chain performance bonds and slashing
 
