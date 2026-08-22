@@ -927,3 +927,26 @@ Fixed by filtering server-side on payload `job_id`, verified live:
   either node; the filter works unindexed.
 - `SettlementReconciler` is implemented but **disabled by default**
   (`ESCROW_RECONCILER_ENABLED`), pending a watched run against a failed settlement.
+
+### 2026-08-22 (later) — index, ordering and reconciler enablement
+
+- **The chain DB is SQLite, not Postgres.** `/var/lib/aitbc/data/<chain_id>/chain.db`
+  (10 MB, 521 transactions). A bare `alembic upgrade head` targets
+  `/var/lib/aitbc/data/chain.db` — a different, empty file — exactly as `migrations/env.py`
+  (V23-49) warns. Pass `DATABASE_URL` to name the island.
+- The real DB had **no `alembic_version`**: its schema came from SQLModel `create_all`,
+  so it was stamped at `d4e8b91c0a37` before applying `b7f3c1a90d24`. Backup taken first
+  via `sqlite3 .backup` to `/var/lib/aitbc/data/chain-backup-2026-08-22.db`.
+- **The index as first shipped was unusable.** SQLModel renders
+  `payload["job_id"].as_string()` with the JSON *path* as a bound parameter, and neither
+  SQLite nor Postgres matches a parameterised path against an expression index built on a
+  literal one. `EXPLAIN QUERY PLAN` reported `SCAN transaction`. With the path inlined it
+  reports `SEARCH transaction USING INDEX ix_transaction_payload_job_id`. The searched
+  value stays bound; only the fixed path is inline.
+- **Ordering fixed.** `query_transactions` now orders newest-first, so `limit` returns the
+  most recent rows: `limit=3` returns ids 509, 91, 84 where it previously returned 13, 14, ...
+  The only other consumer, `aitbc wallet transactions --limit`, was showing the oldest
+  transactions to users.
+- **Reconciler enabled on hub**: `ESCROW_RECONCILER_ENABLED=true`, interval 300s, min age
+  120s, batch 25. Startup confirms `Started background task: escrow_settlement_reconciler`.
+  It has not yet been observed recovering a deliberately failed settlement.
