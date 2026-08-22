@@ -60,14 +60,14 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | Step | Intended | Today | Gap |
 |------|----------|-------|-----|
 | 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
-| 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. Reputation not used in matching. | UX + matching quality |
+| 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. `aitbc market list` supports reputation sort (Phase A). `aitbc ai submit --min-reputation` lets customers require a minimum provider reputation. | Web UI still mock-first |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc auth login` stores a coordinator JWT; `aitbc ai submit` falls back to it. `--api-key` still accepted. | Auth UX |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
 | 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama inference live. Whisper/FFmpeg services exist, not in the default shop loop | Optional services |
 | 6. Verify result | ZK / TEE attestation | Result is trusted coordinator receipt. ZK circuits exist, not wired. TEE CLI exists, not wired | Verifiable compute |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, genesis-signed. Fee ~2.5% | Operator-key coupling (genesis signs release) |
-| 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. Not fed back into dispatch | Closed-loop reputation |
+| 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest` commands exist; not automatic | Autonomy (v0.12+ roadmap) |
 | 10. Govern | Token-weighted votes change params | `aitbc governance status` live. Propose/vote via `aitbc operations governance` against RPC; execution not proven end-to-end on hub | Live governance loop |
 | Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |
@@ -201,7 +201,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 | # | Wish | Why |
 |---|------|-----|
-| P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Closes step 8 |
+| P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Shipped: `min_reputation` constraint, higher-reputation dispatch preference, and `--min-reputation` CLI flag (commit `fdbd17f5c`). Closes step 8. |
 | P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Mock web UI is not a product |
 | P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | STATUS.md vs production |
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Soak test added; single-proposer `PoAProposer` still active by default because `multi_validator_consensus_enabled` is `False` |
@@ -233,4 +233,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-22 (Phases 1–8 shipped; pool-hub and escrow drift fixed)*
+*Last updated: 2026-08-22 (P1.1 shipped; Phases 1–8; pool-hub, escrow, and dispatch table refreshed)*
