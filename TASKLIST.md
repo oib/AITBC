@@ -8,7 +8,10 @@
   - Added `website/customer-dashboard.html`, `website/shop-dashboard.html`,
     `website/dashboard.js`, and `examples/nginx/nginx-aitbc.conf.example`
     routes for `/dashboard/` and `/shop/`.
-  - Dashboards call live APIs and degrade gracefully.
+  - Live nginx config on `hub.aitbc` updated with `/v1/jobs`, `/v1/miners/`,
+    `/v1/monitoring/`, `/v1/wallets`, `/v1/chains/`, `/v1/gpu/` routes.
+  - Customer and shop pages serve; `/v1/wallets` and `/v1/marketplace/offer`
+    populate; coordinator endpoints require auth and degrade gracefully.
 - [x] P1.7 — governance parameter change end-to-end live validation.
   - `propose -> vote -> close -> execute` cycled for `prop_9d1dfbca` on hub.
   - Marketplace `matching_algorithm` set to `reputation` via
