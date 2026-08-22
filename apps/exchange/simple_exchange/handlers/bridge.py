@@ -1,10 +1,10 @@
 """Bridge deposit, status, price, and estimate handlers."""
 
-import os
 import urllib.parse
 from decimal import Decimal
 
 from aitbc.utils.decimal import to_decimal as _to_decimal
+from ..config import bridge_config
 
 
 class BridgeMixin:
@@ -38,34 +38,12 @@ class BridgeMixin:
 
     def handle_bridge_status(self, tx_id):
         """GET /v1/bridge/status[/{tx_id}]"""
-        bridge_addr = os.getenv("BRIDGE_CONTRACT_ADDRESS")
         if tx_id:
             self.send_json_response(  # type: ignore[attr-defined]
                 {"tx_id": tx_id, "status": "pending", "message": "Bridge contract not yet deployed on-chain"}
             )
         else:
-            if bridge_addr:
-                status = "deployed"
-                msg = "Bridge contract deployed on-chain"
-            else:
-                status = "configured"
-                msg = "Deploy bridge contract with: npx hardhat run contracts/scripts/deploy-bridge.js --network sepolia"
-            deposit_addr = os.getenv("BRIDGE_ETH_ADDRESS")
-            self.send_json_response(  # type: ignore[attr-defined]
-                {
-                    "bridge": "CrossChainBridge",
-                    "status": status,
-                    "direction": "ETH → AIT (deposits only)",
-                    "supported_chains": ["ethereum", "aitbc"],
-                    "deposit_address": deposit_addr,
-                    "withdraw_address": None,
-                    "withdraw_enabled": False,
-                    "fee_rate": 0.005,
-                    "contract_address": bridge_addr,
-                    "message": msg,
-                    "note": "Withdrawals (AIT → ETH) are currently disabled. Only ETH deposits to AIT are supported.",
-                }
-            )
+            self.send_json_response(bridge_config.as_status())  # type: ignore[attr-defined]
 
     def handle_bridge_deposit(self):
         """POST /v1/bridge/deposit — initiate ETH→AIT bridge deposit"""
@@ -90,12 +68,12 @@ class BridgeMixin:
                 return
 
             # Get bridge configuration
-            bridge_eth_address = os.getenv("BRIDGE_ETH_ADDRESS")
+            bridge_eth_address = bridge_config.bridge_eth_address
             try:
-                min_eth_deposit = _to_decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
+                min_eth_deposit = _to_decimal(bridge_config.min_eth_deposit)
             except Exception:
                 min_eth_deposit = Decimal("0.001")
-            eth_network = os.getenv("ETH_NETWORK", "sepolia")
+            eth_network = bridge_config.eth_network
 
             if not bridge_eth_address:
                 self.send_json_response({"error": "Bridge not configured - BRIDGE_ETH_ADDRESS not set"}, status=500)  # type: ignore[attr-defined]
@@ -118,8 +96,8 @@ class BridgeMixin:
             if eth_usd and ait_usd and ait_usd.price > 0:
                 ait_amount = (eth_amount * eth_usd.price) / ait_usd.price
 
-            # Calculate fee (0.5%)
-            fee_eth = eth_amount * Decimal("0.005")
+            # Calculate fee from configured rate
+            fee_eth = eth_amount * Decimal(str(bridge_config.fee_rate))
             net_eth = eth_amount - fee_eth
 
             # Hex-encode the AIT address as UTF-8 for the tx data field
@@ -155,22 +133,18 @@ class BridgeMixin:
 
     def _verify_bridge_withdrawal_signatures(self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]]) -> tuple[bool, int]:
         """Verify 2-of-n multi-sig signatures for an AIT→ETH bridge withdrawal."""
-        raw_signers = os.getenv("BRIDGE_SIGNERS", "")
-        if not raw_signers:
+        signers = {s.strip().lower() for s in bridge_config.signers}
+        threshold = bridge_config.multisig_threshold
+        if not signers or threshold <= 0:
             return (True, 0)  # no multi-sig configured; gate is open
-
-        signers = {s.strip().lower() for s in raw_signers.split(",") if s.strip()}
-        threshold = int(os.getenv("BRIDGE_MULTISIG_THRESHOLD", "2"))
-        if threshold <= 0:
-            return (True, 0)
 
         try:
             from eth_keys import keys
-        except Exception as e:
+        except Exception:
             # eth_keys not available; cannot verify signatures
             return (False, 0)
 
-        message = f"BRIDGE_WITHDRAW:{eth_address}:{ait_amount}".encode("utf-8")
+        message = f"BRIDGE_WITHDRAW:{eth_address}:{ait_amount}".encode()
         valid = set()
         for sig in signatures:
             try:
@@ -220,15 +194,15 @@ class BridgeMixin:
                 self.send_json_response(  # type: ignore[attr-defined]
                     {
                         "status": "forbidden",
-                        "message": f"Bridge withdrawal requires {os.getenv('BRIDGE_MULTISIG_THRESHOLD', '2')} valid signer signatures; got {valid_count}.",
-                        "required_signatures": int(os.getenv("BRIDGE_MULTISIG_THRESHOLD", "2")),
+                        "message": f"Bridge withdrawal requires {bridge_config.multisig_threshold} valid signer signatures; got {valid_count}.",
+                        "required_signatures": bridge_config.multisig_threshold,
                         "valid_signatures": valid_count,
                     },
                     status=403,
                 )
                 return
 
-            if os.getenv("BRIDGE_WITHDRAW_ENABLED", "").lower() != "true":
+            if not bridge_config.withdraw_enabled:
                 self.send_json_response(  # type: ignore[attr-defined]
                     {
                         "status": "disabled",
@@ -236,6 +210,8 @@ class BridgeMixin:
                         "reason": "Withdrawal functionality not yet enabled",
                         "supported_direction": "ETH → AIT (deposits only)",
                         "deposit_endpoint": "/v1/bridge/deposit",
+                        "multisig_enabled": bridge_config.multisig_enabled,
+                        "multisig_threshold": bridge_config.multisig_threshold,
                         "signatures_valid": valid_count,
                     },
                     status=503,
@@ -322,9 +298,7 @@ class BridgeMixin:
 
     def handle_cross_chain_rates(self):
         """GET /cross-chain/rates or /v1/cross-chain/rates."""
-        import os
         import sys
-        import urllib.parse
 
         sys.path.insert(0, "/opt/aitbc")
         try:
@@ -340,19 +314,22 @@ class BridgeMixin:
             if eth_usd and ait_usd and eth_usd.price > 0:
                 rates["AITBC::ETH"] = float(round(ait_usd.price / eth_usd.price, 8))
 
-            self.send_json_response({
+            self.send_json_response({  # type: ignore[attr-defined]
                 "rates": rates,
-                "custodian": True,
-                "multisig_enabled": False,
+                "custodian": bridge_config.custodian,
+                "multisig_enabled": bridge_config.multisig_enabled,
+                "multisig_threshold": bridge_config.multisig_threshold,
+                "multisig_signers_count": len(bridge_config.signers),
                 "require_merkle_proof": False,
                 "note": "Bridge is operating in trusted-custodian mode; rates are indicative only.",
             })
-        except Exception as e:
-            pass
-            self.send_json_response({
+        except Exception:
+            self.send_json_response({  # type: ignore[attr-defined]
                 "rates": {},
-                "custodian": True,
-                "multisig_enabled": False,
+                "custodian": bridge_config.custodian,
+                "multisig_enabled": bridge_config.multisig_enabled,
+                "multisig_threshold": bridge_config.multisig_threshold,
+                "multisig_signers_count": len(bridge_config.signers),
                 "require_merkle_proof": False,
                 "note": "Bridge is operating in trusted-custodian mode; rate feed unavailable.",
             })
