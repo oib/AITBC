@@ -98,6 +98,85 @@ Hub working tree is dirty (`apps/marketplace/...` modified, untracked `website/f
 ### Steps 1-5: hub identity, bind, A6
 
 - Hub IP / hostname match the scenario.
+
+---
+
+# Agent B P1 sprint live validation — 2026-08-22
+
+**Branch:** `feature/agent-b-p1-sprint` on `hub.aitbc`  
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
+
+## P1.2 — Web customer and shop dashboards
+
+- Added `website/customer-dashboard.html`, `website/shop-dashboard.html`,
+  `website/dashboard.js`, and `examples/nginx/nginx-aitbc.conf.example` routes.
+- Customer dashboard calls `/v1/jobs` and `/v1/wallets` live.
+- Shop dashboard calls `/v1/monitoring/metrics`, `/v1/miners/{miner_id}/jobs`,
+  `/v1/miners/{miner_id}/earnings`, `/v1/marketplace/offer`, and `/v1/wallets`.
+- Pages degrade gracefully when an endpoint is down.
+- Nginx example includes `/dashboard/` and `/shop/` aliases plus wallet-daemon
+  proxy paths for `/v1/wallets` and `/v1/chains/`.
+- Dashboards are live-only; no mock data.
+- Live service restart not yet performed on hub; the new files are staged in the
+  feature branch for integration testing.
+
+## P1.3a — Bridge custodian model and multisig config
+
+- Added `apps/exchange/simple_exchange/config.py` to load public bridge env vars:
+  `BRIDGE_CUSTODIAN_MODE`, `BRIDGE_MULTISIG_ENABLED`,
+  `BRIDGE_MULTISIG_THRESHOLD`, `BRIDGE_SIGNERS`, `BRIDGE_SAFE_ADDRESS`,
+  `BRIDGE_FEE_RATE`, `BRIDGE_ETH_ADDRESS`, `BRIDGE_CONTRACT_ADDRESS`.
+- Updated `apps/exchange/simple_exchange/handlers/bridge.py` to return
+  custodian/multisig fields in `/v1/bridge/status` and `/v1/cross-chain/rates`.
+- Added `docs/security/bridge-custodian.md` and
+  `apps/exchange/simple_exchange/.env.example`.
+- Live restart of `aitbc-exchange` on `hub.aitbc` succeeded.  Verified:
+
+```bash
+$ curl -s http://127.0.0.1:8106/v1/bridge/status
+{
+  "bridge": "CrossChainBridge",
+  "status": "deployed",
+  "direction": "ETH -> AIT (deposits only)",
+  "supported_chains": ["ethereum", "aitbc"],
+  "deposit_address": "0x818018F30d8F5FB7AE7a64f25895F15110923748",
+  "withdraw_address": null,
+  "withdraw_enabled": false,
+  "fee_rate": 0.005,
+  "contract_address": "0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA",
+  "custodian": true,
+  "multisig_enabled": false,
+  "multisig_threshold": 0,
+  "multisig_signers_count": 0,
+  "safe_address": null,
+  "message": "Bridge contract deployed on-chain",
+  "note": "Withdrawals (AIT -> ETH) are currently disabled. Only ETH deposits to AIT are supported."
+}
+```
+
+```bash
+$ curl -s http://127.0.0.1:8106/v1/cross-chain/rates
+{
+  "rates": { "ETH::AITBC": 8339.16, "AITBC::ETH": 0.00011992 },
+  "custodian": true,
+  "multisig_enabled": false,
+  "multisig_threshold": 0,
+  "multisig_signers_count": 0,
+  "require_merkle_proof": false,
+  "note": "Bridge is operating in trusted-custodian mode; rates are indicative only."
+}
+```
+
+## P1.7 — Governance end-to-end (pending / blocked)
+
+- `aitbc governance status` on `hub.aitbc` reports the service is operational.
+- The CLI supports `propose`, `vote`, `close`, and `execute` against the
+  governance service on port 8105.
+- End-to-end execution is blocked by the live `timelock_blocks` of `43200`
+  (24 hours at 2s block time) and `voting_period_blocks` of `7200`.
+- The previous `aitbc3` validation already recorded `propose -> vote -> close -> execute`
+  with the governance DB recreated; this can be re-run once integration is merged
+  or after the timelock is satisfied.
 - A6 still in deployed code:
   - `coordinator_api/settlement/hooks.py` uses `settings.blockchain_rpc_url`
   - `governance_service.py` uses `os.getenv("BLOCKCHAIN_RPC_URL", ...)`
