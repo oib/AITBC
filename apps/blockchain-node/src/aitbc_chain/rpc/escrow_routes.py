@@ -174,10 +174,9 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
     return None
 
 
-# How many recent ESCROW_RELEASE transactions to scan when checking whether a job has
-# already settled. The RPC has no server-side job_id filter yet, so this is a bounded
-# scan of the most recent releases rather than a full history search.
-_RELEASE_LOOKUP_LIMIT = int(os.getenv("ESCROW_RELEASE_LOOKUP_LIMIT", "200"))
+# Safety bound on an already job_id-filtered result set; a job should match at most one
+# release. This is no longer a history scan: the RPC filters by payload job_id in SQL.
+_RELEASE_LOOKUP_LIMIT = int(os.getenv("ESCROW_RELEASE_LOOKUP_LIMIT", "10"))
 
 
 async def _find_existing_release(job_id: str) -> str | None:
@@ -187,14 +186,21 @@ async def _find_existing_release(job_id: str) -> str | None:
     a replay, which looks like a failure even though the provider was paid -- so a
     reconciler that trusted the failure alone would retry forever. This lookup tells the
     two apart, and lets a retry return the transaction that already settled.
+
+    The query filters on payload job_id server-side. An unfiltered scan was not merely
+    slow: /transactions returns rows oldest-first and truncates to ``limit``, so a bounded
+    scan silently missed recent settlements -- exactly the ones a retry asks about.
     """
     try:
         r = await SharedHttpClient.get(
-            f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_RELEASE&limit={_RELEASE_LOOKUP_LIMIT}"
+            f"{_HUB_RPC_URL}/transactions"
+            f"?transaction_type=ESCROW_RELEASE&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
         )
         if r.status_code != 200:
             return None
         for tx in r.json() or []:
+            # Re-check the payload: an older node without the job_id filter would
+            # otherwise return unrelated releases and settle the wrong job.
             if (tx.get("payload") or {}).get("job_id") == job_id:
                 return tx.get("tx_hash")
     except Exception as e:

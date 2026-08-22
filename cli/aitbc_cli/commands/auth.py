@@ -45,7 +45,10 @@ def _resolve_private_key(
         raw = path.read_text().strip()
         return raw.removeprefix("0x").strip()
     if wallet_name:
-        wallet_dir = Path.home() / ".aitbc" / "wallets"
+        # Service wallets do not always live under the invoking user's home: on a hub
+        # node they sit in /var/lib/aitbc/wallets. Allow AITBC_WALLET_DIR to point at
+        # them, keeping ~/.aitbc/wallets as the default.
+        wallet_dir = Path(os.getenv("AITBC_WALLET_DIR") or (Path.home() / ".aitbc" / "wallets"))
         wallet_path = wallet_dir / f"{wallet_name}.json"
         if not wallet_path.exists():
             raise ValueError(f"Wallet not found: {wallet_path}")
@@ -60,7 +63,7 @@ def _resolve_private_key(
 
 
 @auth.command()
-@click.option("--wallet", help="Wallet name in ~/.aitbc/wallets/")
+@click.option("--wallet", help="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")
 @click.option("--password", help="Wallet password (or WALLET_PASSWORD env var)")
 @click.option("--private-key", help="Raw hex private key (use only in CI/scripts)")
 @click.option("--private-key-file", type=click.Path(), help="File containing a raw hex private key")
