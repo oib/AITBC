@@ -109,16 +109,25 @@ Hub working tree is dirty (`apps/marketplace/...` modified, untracked `website/f
 ## P1.2 — Web customer and shop dashboards
 
 - Added `website/customer-dashboard.html`, `website/shop-dashboard.html`,
-  `website/dashboard.js`, and `examples/nginx/nginx-aitbc.conf.example` routes.
-- Customer dashboard calls `/v1/jobs` and `/v1/wallets` live.
-- Shop dashboard calls `/v1/monitoring/metrics`, `/v1/miners/{miner_id}/jobs`,
-  `/v1/miners/{miner_id}/earnings`, `/v1/marketplace/offer`, and `/v1/wallets`.
-- Pages degrade gracefully when an endpoint is down.
-- Nginx example includes `/dashboard/` and `/shop/` aliases plus wallet-daemon
-  proxy paths for `/v1/wallets` and `/v1/chains/`.
-- Dashboards are live-only; no mock data.
-- Live service restart not yet performed on hub; the new files are staged in the
-  feature branch for integration testing.
+  `website/dashboard.js`, and updated `examples/nginx/nginx-aitbc.conf.example` routes.
+- On `p1-sprint-integration` the live nginx config on `hub.aitbc` was updated with
+  dashboard API routes: `/v1/jobs`, `/v1/miners/`, `/v1/monitoring/`, `/v1/wallets`,
+  `/v1/chains/`, `/v1/gpu/`, plus the `gpu_service` upstream.
+- Live checks:
+
+```bash
+$ curl -s http://127.0.0.1/customer-dashboard.html  # HTTP 200
+$ curl -s http://127.0.0.1/shop-dashboard.html      # HTTP 200
+$ curl -s 'http://127.0.0.1/v1/marketplace/offer?limit=1'  # returns live offers
+$ curl -s 'http://127.0.0.1/v1/wallets'            # returns wallet list
+$ curl -s 'http://127.0.0.1/v1/jobs?limit=1'       # 401 / auth required
+```
+
+- `/v1/jobs` and `/v1/miners/...` require coordinator API authentication, so the
+  dashboard tables gracefully degrade to empty/error state when no API key is set.
+- `/v1/wallets` and `/v1/marketplace/offer` are reachable and populate the dashboard.
+- Pages use shared `dashboard.js`, degrade on API failures, and support an optional
+  API key from browser local storage.
 
 ## P1.3a — Bridge custodian model and multisig config
 
