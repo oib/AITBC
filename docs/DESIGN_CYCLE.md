@@ -66,7 +66,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama, Whisper and FFmpeg services are live; `aitbc market offer/run/transcribe/process` validated; default miner offers include all three. | Done |
 | 6. Verify result | ZK + TEE attestation | ZK `receipt_public` Groth16 proof is required and verified for high-value jobs. TEE attestation is required and verified for confidential jobs. Both gates block escrow release until verified. | Done |
-| 7. Settle | Signed `ESCROW_RELEASE` | Live, genesis-signed. Fee ~2.5% | Operator-key coupling (genesis signs release) |
+| 7. Settle | Signed `ESCROW_RELEASE` | Live, signed by the dedicated non-genesis settlement key `0x477737bd028eeb38350c58e62f7a766ac061ce2e`. Fee ~2.5%. Release is refused up front when the settlement key and `ESCROW_RELEASE_ADDRESS` disagree, and a release that does not settle on-chain now reports `success: false` / `settlement_status: unsettled` instead of a silent no-op. | Done (multi-party key ceremony still future work) |
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest policy/simulate`, and `--auto-reinvest-pct` live; not yet fully automatic. | Done |
 | 10. Govern | Token-weighted votes change params | `aitbc governance propose/vote/execute` live-validated end-to-end on hub; parameter changes are on-chain after timelock. | Done |
@@ -167,7 +167,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 7. Hub RPC/coordinator/exchange bind `127.0.0.1` — customers reach them via nginx or SSH tunnel. Scenario 34 must say so.
 8. Shop already forked once; follower divergence handling is new (`0983db5fb`) and needs soak + alerting.
-9. `ESCROW_RELEASE` is signed with the **genesis** key — settlement is not yet a provider/coordinator key ceremony.
+9. ~~`ESCROW_RELEASE` is signed with the **genesis** key.~~ Fixed — a dedicated `ESCROW_RELEASE_PRIVATE_KEY` signs settlement on hub and genesis is only a logged fallback. A key/address mismatch is now refused before the escrow is touched rather than producing a 403 and an unpaid provider. A provider/coordinator multi-party key ceremony is still future work.
 10. JWT for jobs is not `aitbc login`; operators scrape `/etc/aitbc/aitbc-coordinator-api.env`.
 11. Island credential file ownership vs `blockchain-secrets.env` root:600 still fights `aitbc market offer` as root.
 12. Wallet key mismatches cannot be recovered from an address (see `AGENTS.md`).
