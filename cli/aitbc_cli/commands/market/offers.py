@@ -81,7 +81,7 @@ def _reputation_score(offer: dict[str, Any]) -> tuple[float, float, int, int]:
     return (avg_rating / 5.0, 0.0, rating_count, 0)
 
 
-def _reputation_key(offer: dict[str, Any]) -> tuple[float, float, float, int, Decimal, bool, int]:
+def _reputation_key(offer: dict[str, Any]) -> tuple[float, float, int, Decimal, bool, int]:
     """Sort by reputation desc, then price asc, then availability desc."""
     reputation, has_trust, count, _ = _reputation_score(offer)
     price = _to_decimal(offer.get("price", 0))
