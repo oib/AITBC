@@ -119,7 +119,7 @@ Content-Type: application/json
 
 {
   "feed_type": "price|volume|orders",
-  "symbols": ["BTC_AIT", "ETH_AIT"]
+  "symbols": ["ETH_AIT"]
 }
 ```
 

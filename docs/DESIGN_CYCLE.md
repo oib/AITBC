@@ -59,7 +59,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 
 | Step | Intended | Today | Gap |
 |------|----------|-------|-----|
-| 0. Acquire AIT | Fiat/BTC on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
+| 0. Acquire AIT | ETH on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. `aitbc market list` supports reputation sort (Phase A). `aitbc ai submit --min-reputation` lets customers require a minimum provider reputation. | Web UI still mock-first |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc auth login` stores a coordinator JWT; `aitbc ai submit` falls back to it. `--api-key` still accepted. | Auth UX |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
@@ -71,7 +71,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest` commands exist; not automatic | Autonomy (v0.12+ roadmap) |
 | 10. Govern | Token-weighted votes change params | `aitbc governance status` live. Propose/vote via `aitbc operations governance` against RPC; execution not proven end-to-end on hub | Live governance loop |
 | Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |
-| Cross-chain | BTC/ETH ↔ AIT, HTLC | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106 | Production bridge defaults |
+| Cross-chain | ETH ↔ AIT, HTLC | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106 | Production bridge defaults |
 
 ---
 
@@ -156,7 +156,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ### Product / economics
 
-1. No real customer on-ramp (BTC→AIT `buy` still keystore-gated; no faucet play).
+1. No real customer on-ramp (ETH→AIT `buy` still keystore-gated; no faucet play).
 2. Reputation is queryable but does not rank miners or offers.
 3. No automatic provider reinvestment or performance bonds (CLI shells only).
 4. Fee market is fixed; dynamic pricing was deprecated in v0.5.0.

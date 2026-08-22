@@ -111,13 +111,13 @@ ADMIN_API_KEY=your-admin-key-here
 # BLOCKCHAIN CONFIGURATION
 # =============================================================================
 ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
-BITCOIN_RPC_URL=http://127.0.0.1:18332
+ETHEREUM_RPC_URL=http://127.0.0.1:18332
 ```
 
 ### **Naming Conventions**
 
 - **Uppercase with underscores**: `API_KEY`, `DATABASE_URL`
-- **Descriptive names**: `BITCOIN_RPC_URL` not `BTC_RPC`
+- **Descriptive names**: `ETHEREUM_RPC_URL` not `ETH_RPC`
 - **Group by functionality**: API, Database, Blockchain, etc.
 - **Use placeholder values**: `your-secret-here`, `change-me`
 
@@ -261,7 +261,7 @@ fi
 ### **For Developers**
 
 1. **Always run linter locally** before committing
-2. **Use descriptive variable names**: `BITCOIN_RPC_URL` not `BTC_URL`
+2. **Use descriptive variable names**: `ETHEREUM_RPC_URL` not `ETH_URL`
 3. **Group related variables**: Database, API, Blockchain sections
 4. **Use placeholder values**: `your-secret-here`, `change-me`
 

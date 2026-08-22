@@ -93,7 +93,7 @@ apps/coordinator-api/
 │   ├── domain/              # Domain models (job, miner, payment, user, marketplace, gpu_marketplace)
 │   ├── models/              # DB models (registry, confidential, multitenant, services)
 │   ├── routers/             # API endpoints (admin, client, miner, marketplace, payments, governance, exchange, explorer, ZK)
-│   ├── services/            # Business logic (jobs, miners, payments, receipts, ZK proofs, encryption, HSM, blockchain, bitcoin wallet)
+│   ├── services/            # Business logic (jobs, miners, payments, receipts, ZK proofs, encryption, HSM, blockchain, ethereum wallet)
 │   ├── storage/             # Database adapters (SQLite, PostgreSQL)
 │   ├── middleware/          # Tenant context middleware
 │   ├── repositories/        # Data access layer
@@ -118,7 +118,7 @@ apps/blockchain-explorer/
 
 ### exchange
 
-Bitcoin/AITBC trading exchange with order book, price ticker, and admin panel.
+Ethereum/AITBC trading exchange with order book, price ticker, and admin panel.
 
 ```
 apps/exchange/
@@ -126,7 +126,7 @@ apps/exchange/
 ├── simple_exchange_api.py   # Exchange REST API (SQLite)
 ├── simple_exchange_api_pg.py # Exchange REST API (PostgreSQL)
 ├── exchange_api.py          # Full exchange API
-├── bitcoin-wallet.py        # Bitcoin wallet integration
+├── ethereum-wallet.py        # Ethereum on-ramp integration
 ├── database.py              # Database layer
 ├── build.py                 # Production build script
 ├── index.html               # Exchange frontend

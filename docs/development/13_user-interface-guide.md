@@ -40,20 +40,20 @@ Click on "Wallet" in the navigation to see:
 
 ## Trading AITBC
 
-### Buy AITBC with Bitcoin
+### Buy AITBC with Ethereum
 
 1. Navigate to the **Trade** section
 2. Enter the amount of AITBC you want to buy
-3. The system calculates the equivalent Bitcoin amount
+3. The system calculates the equivalent Ethereum amount
 4. Click "Create Payment Request"
 5. A QR code and payment address will be displayed
-6. Send Bitcoin to the provided address
+6. Send Ethereum to the provided address
 7. Wait for confirmation (1 confirmation needed)
 8. the network tokens will be credited to your wallet
 
 ### Exchange Rates
 
-- **Current Rate**: 1 BTC = 100,000 AITBC
+- **Current Rate**: 1 ETH = 100,000 AITBC (example rate; oracle-driven in production)
 - **Fee**: 0.5% transaction fee
 - **Updates**: Prices refresh every 30 seconds
 
@@ -104,7 +104,7 @@ Click on "Wallet" in the navigation to see:
 ### Trading
 
 1. Always check the current exchange rate
-2. Bitcoin payments require 1 confirmation
+2. Ethereum deposits require 1 confirmation
 3. the network tokens are credited automatically
 
 ### Security
@@ -117,15 +117,15 @@ Click on "Wallet" in the navigation to see:
 
 ### Test Mode
 
-- **Testnet Bitcoin**: Uses Bitcoin testnet for safe testing
+- **Testnet Ethereum**: Uses Ethereum testnet for safe testing
 - **Demo Wallets**: Auto-generated wallet addresses
 - **Simulated Trading**: No real money required
 
-### Getting Testnet Bitcoin
+### Getting Testnet Ethereum
 
-1. Visit a testnet faucet (e.g., https://testnet-faucet.mempool.co/)
+1. Visit a testnet faucet (e.g., https://sepoliafaucet.com/)
 2. Enter your testnet address
-3. Receive free testnet Bitcoin for testing
+3. Receive free testnet Ethereum for testing
 
 ## Troubleshooting
 

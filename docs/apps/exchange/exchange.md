@@ -119,13 +119,13 @@ pytest tests/test_cross_chain.py
 #### Get Order Book
 
 ```http
-GET /api/v1/orderbook?pair=BTC_AIT
+GET /api/v1/orderbook?pair=ETH_AIT
 ```
 
 #### Get Price Ticker
 
 ```http
-GET /api/v1/ticker?pair=BTC_AIT
+GET /api/v1/ticker?pair=ETH_AIT
 ```
 
 #### Get Market Summary
@@ -143,7 +143,7 @@ POST /api/v1/orders
 Content-Type: application/json
 
 {
-  "pair": "BTC_AIT",
+  "pair": "ETH_AIT",
   "side": "buy|sell",
   "type": "limit|market|stop",
   "amount": 100,
@@ -180,8 +180,8 @@ Content-Type: application/json
 
 {
   "from_chain": "ait-mainnet",
-  "to_chain": "btc-mainnet",
-  "asset": "BTC",
+  "to_chain": "eth-mainnet",
+  "asset": "ETH",
   "amount": 100,
   "recipient": "address"
 }
