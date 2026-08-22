@@ -88,27 +88,46 @@ async def _create_account_if_missing(address: str, chain_id: str) -> bool:
 
 def _get_settlement_key() -> str:
     """Return the configured non-genesis escrow release key, falling back to genesis."""
-    return _ESCROW_RELEASE_PRIVATE_KEY or _GENESIS_WALLET_PRIVATE_KEY
+    if _ESCROW_RELEASE_PRIVATE_KEY:
+        return _ESCROW_RELEASE_PRIVATE_KEY
+    if _GENESIS_WALLET_PRIVATE_KEY:
+        _logger.warning(
+            "ESCROW_RELEASE: ESCROW_RELEASE_PRIVATE_KEY is not set; signing payouts with the "
+            "genesis key. Configure a dedicated settlement key to decouple settlement from genesis."
+        )
+    return _GENESIS_WALLET_PRIVATE_KEY
 
 
 def _get_settlement_address() -> str | None:
     """Return the canonical settlement address for ESCROW_RELEASE signing.
 
-    Explicit ``ESCROW_RELEASE_ADDRESS`` takes precedence, otherwise derive it
-    from the configured release private key. ``canonical_address`` returns a
-    lowercase ``0x``-prefixed address that matches what signature recovery
-    produces for verification.
+    The address must be the one the signing key actually controls: the RPC
+    verifies the signature against the transaction ``from`` field, so a
+    key/address mismatch produces a 403 and the provider is never paid. When
+    ``ESCROW_RELEASE_ADDRESS`` is set it is checked against the address derived
+    from the signing key and a mismatch is refused rather than submitted.
     """
-    if _ESCROW_RELEASE_ADDRESS:
-        return canonical_address(_ESCROW_RELEASE_ADDRESS)
     key = _get_settlement_key()
     if not key:
         return None
     try:
-        return canonical_address(derive_ethereum_address(key))
+        derived = canonical_address(derive_ethereum_address(key))
     except Exception as e:
-        _logger.warning("ESCROW_RELEASE: failed to derive settlement address: %s", e)
+        _logger.error("ESCROW_RELEASE: failed to derive settlement address: %s", e)
         return None
+    if not _ESCROW_RELEASE_ADDRESS:
+        return derived
+    configured = canonical_address(_ESCROW_RELEASE_ADDRESS)
+    if configured != derived:
+        _logger.error(
+            "ESCROW_RELEASE: settlement key/address mismatch - ESCROW_RELEASE_ADDRESS is %s but the "
+            "configured signing key controls %s. Refusing to submit a transaction the RPC would "
+            "reject; fix ESCROW_RELEASE_PRIVATE_KEY / ESCROW_RELEASE_ADDRESS in the node environment.",
+            configured,
+            derived,
+        )
+        return None
+    return configured
 
 
 async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
@@ -221,9 +240,15 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
             )
             return actual_tx_hash
         else:
-            _logger.warning("ESCROW_RELEASE TX failed %s: %s", resp.status_code, resp.text[:200])
+            _logger.error(
+                "ESCROW_RELEASE TX rejected %s for job_id=%s (provider %s was NOT paid on-chain): %s",
+                resp.status_code, job_id, provider, resp.text[:200],
+            )
     except Exception as e:
-        _logger.warning("ESCROW_RELEASE TX submission failed (non-fatal): %s", e)
+        _logger.error(
+            "ESCROW_RELEASE TX submission failed for job_id=%s (provider %s was NOT paid on-chain): %s",
+            job_id, provider, e,
+        )
     return None
 
 
@@ -276,6 +301,20 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
+
+    # Settlement must be possible before any escrow state is mutated. A node whose
+    # settlement key and address disagree cannot pay the provider, and releasing
+    # first would leave the escrow marked paid with nothing on-chain.
+    if not _get_settlement_key() or not _get_settlement_address():
+        _logger.error(
+            "ESCROW_RELEASE: refusing to release job_id=%s - settlement key/address is missing or mismatched",
+            job_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Settlement key/address is not configured correctly; escrow was not released",
+        )
+
     job_tx_hash = request.get("job_tx_hash")
     contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
@@ -292,6 +331,33 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     if not ok:
         raise HTTPException(status_code=400, detail=message)
     released_amount = contract.released_amount if contract else Decimal(0)
+    buyer_addr = contract.client_address if contract else ""
+    provider_addr = contract.agent_address if contract else ""
+    # Allow caller to override the provider address for reinvestment (e.g. from payment meta_data).
+    reinvest_address = request.get("auto_reinvest_address") or provider_addr or request.get("provider_address")
+    auto_reinvest_pct = request.get("auto_reinvest_pct")
+
+    # Settle on-chain first; only a confirmed transaction counts as a release.
+    tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
+    if not tx_hash:
+        _logger.error(
+            "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
+            "The escrow is left unreleased so it can be retried.",
+            contract_id, job_id, provider_addr, released_amount,
+        )
+        return {
+            "success": False,
+            "contract_id": contract_id,
+            "job_id": job_id,
+            "message": "Escrow release could not be settled on-chain; the provider was not paid",
+            "released_amount": str(released_amount),
+            "tx_hash": None,
+            "settlement_status": "unsettled",
+            "released_at": None,
+            "reinvest_amount": "0",
+            "reinvest_stake_id": None,
+        }
+
     released_at = datetime.now(UTC)
     try:
         with session_scope() as session:
@@ -303,12 +369,6 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 session.commit()
     except Exception as e:
         _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
-    buyer_addr = contract.client_address if contract else ""
-    provider_addr = contract.agent_address if contract else ""
-    # Allow caller to override the provider address for reinvestment (e.g. from payment meta_data).
-    reinvest_address = request.get("auto_reinvest_address") or provider_addr or request.get("provider_address")
-    auto_reinvest_pct = request.get("auto_reinvest_pct")
-    tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
     reinvest_stake_id = None
     reinvest_amount = Decimal(0)
     if auto_reinvest_pct and reinvest_address and released_amount > 0:
@@ -335,6 +395,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         "message": message,
         "released_amount": str(released_amount),
         "tx_hash": tx_hash,
+        "settlement_status": "settled" if tx_hash else "unsettled",
         "released_at": released_at.isoformat(),
         "reinvest_amount": str(reinvest_amount),
         "reinvest_stake_id": reinvest_stake_id,

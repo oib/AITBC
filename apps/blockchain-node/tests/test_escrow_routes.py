@@ -39,13 +39,50 @@ def test_settlement_key_falls_back_to_genesis(monkeypatch):
     assert escrow_routes._get_settlement_key() == genesis_key
 
 
-def test_settlement_address_uses_explicit_env_address(monkeypatch):
+# The address the deterministic ``release_key`` fixture actually controls.
+RELEASE_KEY_ADDRESS = "0x1563915e194d8cfba1943570603f7606a3115508"
+FOREIGN_ADDRESS = "0xaabbccddeeff00112233445566778899aabbccdd"
+GENESIS_KEY = "0x1111111111111111111111111111111111111111111111111111111111111111"
+
+
+def test_settlement_address_accepts_matching_explicit_address(release_key, monkeypatch):
+    """An explicit address is honoured (and canonicalised) when the key matches it."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", RELEASE_KEY_ADDRESS.upper().replace("0X", "0x"))
+    monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
+
+    escrow_routes = _reload_routes()
+    assert escrow_routes._get_settlement_address() == RELEASE_KEY_ADDRESS
+
+
+def test_settlement_address_rejects_mismatched_explicit_address(release_key, monkeypatch):
+    """A from-address the signing key does not control would be rejected by the RPC (403)."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", FOREIGN_ADDRESS)
+    monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
+
+    escrow_routes = _reload_routes()
+    assert escrow_routes._get_settlement_address() is None
+
+
+def test_settlement_address_rejects_address_without_matching_key(monkeypatch):
+    """Half-configured node: address set, release key missing, so genesis would sign for it."""
+    monkeypatch.delenv("ESCROW_RELEASE_PRIVATE_KEY", raising=False)
+    monkeypatch.setenv("GENESIS_WALLET_PRIVATE_KEY", GENESIS_KEY)
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", FOREIGN_ADDRESS)
+
+    escrow_routes = _reload_routes()
+    assert escrow_routes._get_settlement_address() is None
+
+
+def test_settlement_address_none_without_any_key(monkeypatch):
+    """Without a signing key there is nothing to settle with, address or not."""
     monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", "ait1aabbccddeeff00112233445566778899aabbccdd")
     monkeypatch.delenv("ESCROW_RELEASE_PRIVATE_KEY", raising=False)
     monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
 
     escrow_routes = _reload_routes()
-    assert escrow_routes._get_settlement_address() == "0xaabbccddeeff00112233445566778899aabbccdd"
+    assert escrow_routes._get_settlement_address() is None
 
 
 def test_settlement_address_derives_from_release_key(release_key, monkeypatch):
