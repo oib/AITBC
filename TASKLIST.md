@@ -9,32 +9,19 @@
   - Code, CLI and tests committed.
   - Live propose -> vote -> close -> execute validated on aitbc3 after dropping and recreating the governance DB.
     (invalid page in block 4 of relation base/16399/2610).
-- [ ] P1.1 Phase B — reputation-aware job dispatch
+- [x] P1.1 Phase B — reputation-aware job dispatch
+  - Implemented and live-validated on `aitbc3` in `fdbd17f5c` (2026-08-21).
+  - Coordinator dispatch now respects `min_reputation` and defers jobs to higher-reputation online miners.
+  - CLI `aitbc ai submit --min-reputation` exposed.
+  - Regression tests added in this commit.
 - [x] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
 - [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
 
 Latest pushed commits:
+- fdbd17f5c feat(coordinator,cli): P1.1 Phase B - reputation-aware job dispatch
 - 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
 - 5bfbcd7c9 feat(governance,cli): close proposal lifecycle for propose → vote → close → execute
 
-## P1 implementation (current session)
-
-- [x] P1.8 — honest rewrite of docs/architecture/1_system-flow.md
-- [x] P1.5 — aitbc ai submit --wait (plus base-URL /v1 normalisation)
-- [x] P1.6 — island credential/secrets ownership for aitbc user
-- [x] P1.1 Phase A — reputation sort in aitbc market list
-- [x] P1.2 — customer and shop dashboard CLI commands
-- [x] P1.7 — governance close proposal; propose → vote → close → execute lifecycle
-  - Code, CLI and tests committed.
-  - Live propose -> vote -> close -> execute validated on aitbc3 after dropping and recreating the governance DB.
-    ().
-- [ ] P1.1 Phase B — reputation-aware job dispatch
-- [x] P1.3 — bridge Merkle/multisig or trusted-custodian documentation
-- [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
-
-Latest pushed commits:
-- 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
-- 5bfbcd7c9 feat(governance,cli): close proposal lifecycle for propose → vote → close → execute
 
 # Open task list for AITBC agents
 
@@ -45,7 +32,8 @@ Latest pushed commits:
   - `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` are handled in state transitions.
   - Marketplace offers require an active bond when `MARKET_BOND_MIN_AMOUNT` > 0.
 
-- Live nodes: shop `aitbc3` is on gitea `main` at `0983db5fb` (*fix(sync): treat unknown parent as chain divergence*). Hub working tree still dirty and 2 commits behind `origin/main`.
+- Live nodes: hub `hub.aitbc` is on gitea `main` at `bac4b6bd5` (clean). Shop `aitbc3` is at `c27c6545b` (clean, not yet fast-forwarded to `origin/main`).
+- P1.1 Phase B shipped: `JobService.acquire_next_job` defers to higher-reputation online miners, enforces `Constraints.min_reputation`, and `aitbc ai submit` exposes `--min-reputation`.
 - Scenario 34 was replayed 2026-08-20 from this session:
   - unpaid job `1363fff0bc4b48c6903bc46f54fe0a7a` completed on `aitbc-miner-1`
   - paid job `4ad8e281871640fa8b1b25716c92c2c8` escrowed 1.0 AIT and released
@@ -56,7 +44,7 @@ Latest pushed commits:
   - backups: `chain.db.pre-fork-manual.20260820-213040` and `chain.db.pre-reset.20260820-213040`
   - shop now **caught up at 7569**, head hash matches hub
   - local RPC shows `test-wallet-3` **1.9500 AIT** and ESCROW_RELEASE `0xa6dab9b7…` in block 7548
-- Hub working tree is still dirty (marketplace service edits + untracked HTML) and has not fast-forwarded. Shop tree is clean at `0983db5fb`.
+- Hub working tree is clean at `bac4b6bd5`. Shop tree is clean at `c27c6545b`.
 - localhost `/opt/aitbc` is staging only; do not commit live work from the IDE host.
 - Historical `.gitea_token.sh` was scrubbed from gitea history (from aitbc3). GitHub `main` branch protection was not restored.
 

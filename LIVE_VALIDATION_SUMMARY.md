@@ -293,6 +293,19 @@ aitbc ai submit --type inference --prompt "post-P0 verification job" --payment 1
 - `docs/DESIGN_CYCLE.md` P0.1–P0.7 now marked shipped.
 - Continuation: P1 plan `/home/oib/.devin/plans/plan-2fc831ac3ccbc701.md`.
 
+## 2026-08-21 — P1.1 Phase B — reputation-aware job dispatch
+
+**Gitea `main` baseline:** `fdbd17f5c` — `feat(coordinator,cli): P1.1 Phase B - reputation-aware job dispatch`
+
+Live-validated on `aitbc3` and `hub.aitbc`:
+
+- Submitted a job with `--min-reputation 0.8` from the hub.
+- Low-reputation miner polled and, seeing the job's `min_reputation` requirement and a higher-reputation online miner, skipped the job.
+- Higher-reputation miner polled next and acquired the job.
+- Submitted a low-reputation job (no `min_reputation`) while the high-reputation miner was at capacity (`inflight == concurrency`); the low-reputation miner then acquired it.
+- Coordinator dispatch now reads each miner's reputation from self-reported metadata, canonical `AgentReputation.trust_score`, or historical `jobs_completed / (completed + failed)` ratio.
+- Unit tests added in `apps/coordinator-api/tests/test_reputation_dispatch.py` cover `min_reputation` rejection, capacity-based fallthrough, and `AgentReputation` fallback.
+
 ## 2026-08-21 — P2.1 ZK Proofs for High-Value Jobs
 
 - Deployed `receipt_public` circuit to `apps/zk-circuits` and the in-package copy.
