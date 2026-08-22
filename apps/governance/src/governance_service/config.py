@@ -68,6 +68,11 @@ class Settings(ServiceSettings):
     poolhub_url: str = Field(default="http://localhost:8103")
     marketplace_url: str = Field(default="http://localhost:8102")
 
+    # API keys for target services (set via environment; never committed).
+    # These are sent as X-Api-Key when calling /v1/{service}/parameters/apply.
+    marketplace_api_key: str = Field(default="")
+    poolhub_api_key: str = Field(default="")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
