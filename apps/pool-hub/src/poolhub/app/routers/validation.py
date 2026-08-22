@@ -138,7 +138,6 @@ def _get_best_categories(compatible: list[tuple[Any, ...]]) -> list[str]:
         "llm": "AI/ML",
         "stable-diffusion": "AI/ML",
         "ffmpeg": "Media Processing",
-        "peertube": "Media Processing",
         "transcode": "Media Processing",
         "render": "Media Processing",
     }

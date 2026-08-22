@@ -30,11 +30,6 @@ curl -s $HUB_URL/plugin/plugins | jq . 2>/dev/null || echo "Plugin registry not 
 
 echo ""
 echo "📋 Step 3: Test Whisper service"
-
-echo ""
-echo "📋 Step 4: Test PeerTube transcoder at hub"
-echo "=========================================="
-curl -s $HUB_URL/peertube/health | jq . 2>/dev/null || echo "PeerTube transcoder not available"
 echo "==============================="
 curl -s $HUB_URL/whisper/health | jq . 2>/dev/null || echo "Whisper service not available"
 

@@ -119,7 +119,6 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Bond / reinvest / economics / grants / plugin / platform / compliance | CLI groups exist; roadmap v0.11–v0.16 |
 | Marketplace web | Mock-first (`VITE_MARKETPLACE_DATA_MODE`) |
 | `ai-engine`, whisper, ffmpeg | Optional, not auto-enabled |
-| PeerTube transcoder | Archived |
 | STATUS.md rows v0.11–v1.0 | Planned; many already have CLI shells |
 
 Architecture docs (`docs/architecture/1_system-flow.md`, `active_apps.md`) still mention `aitbc-cli.sh`, Tendermint `26657`, and v0.5.0 dates. Treat `README.md` + this file + `docs/getting-started/setup-service-selection.md` as the current picture.
