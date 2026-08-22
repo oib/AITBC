@@ -167,16 +167,44 @@ $ curl -s http://127.0.0.1:8106/v1/cross-chain/rates
 }
 ```
 
-## P1.7 — Governance end-to-end (pending / blocked)
+## P1.7 — Governance end-to-end live on hub.aitbc
 
-- `aitbc governance status` on `hub.aitbc` reports the service is operational.
-- The CLI supports `propose`, `vote`, `close`, and `execute` against the
-  governance service on port 8105.
-- End-to-end execution is blocked by the live `timelock_blocks` of `43200`
-  (24 hours at 2s block time) and `voting_period_blocks` of `7200`.
-- The previous `aitbc3` validation already recorded `propose -> vote -> close -> execute`
-  with the governance DB recreated; this can be re-run once integration is merged
-  or after the timelock is satisfied.
+- Pre-requisite: governance service was configured with a temporary
+  `GOVERNANCE_TIMELOCK_BLOCKS=0` and `GOVERNANCE_VOTING_PERIOD_BLOCKS=0` (drop-in)
+  for this validation; restored to defaults (`43200` / `7200`) after the run.
+- Added `GOVERNANCE_MARKETPLACE_API_KEY` and `MARKETPLACE_API_KEY` so the
+  governance automation can call `/v1/marketplace/parameters/apply`.
+- Staked 2,000,000 AIT for `ait1fe2d63fe87db282083b9159e5857cac788af9e03`
+  → voting power 4,000,000.
+
+Cycle:
+
+```bash
+aitbc governance propose --title "Change matching algorithm" \
+  --description "Set marketplace matching algorithm to reputation" \
+  --proposer-id agent-b-p1-7 \
+  --proposer-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --params '{"target_service":"marketplace","parameter_name":"matching_algorithm","new_value":"reputation"}' \
+  --voting-days 0
+# proposal: prop_9d1dfbca
+
+aitbc governance vote --proposal-id prop_9d1dfbca \
+  --voter-id agent-b-p1-7 \
+  --voter-address ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  --vote for
+
+aitbc governance close prop_9d1dfbca
+# status: succeeded, yes_votes: 4000000
+
+aitbc governance execute prop_9d1dfbca
+# status: executed
+```
+
+- Governance log shows `POST http://localhost:8102/v1/marketplace/parameters/apply`
+  returned `HTTP/1.1 200 OK`, so the marketplace `matching_algorithm` parameter
+  was changed to `reputation` live.
+- `aitbc governance status` after restore:
+  `{"voting_period_blocks":7200,"timelock_blocks":43200}`.
 - A6 still in deployed code:
   - `coordinator_api/settlement/hooks.py` uses `settings.blockchain_rpc_url`
   - `governance_service.py` uses `os.getenv("BLOCKCHAIN_RPC_URL", ...)`
@@ -842,23 +870,3 @@ Live observed balance: `89505`.
   - `docs/releases/STATUS.md` updated to list `escrow_enabled` default `True`.
   - `docs/DESIGN_CYCLE.md` step 3 gap marked `Done`.
   - Scope note clarifies job-payment escrow is live and cross-chain bridge HTLC is gated by this flag.
-- 2026-08-23: P1.4 MultiValidatorPoA product-gap closure (Agent A on aitbc3):
-  - `apps/blockchain-node/src/aitbc_chain/config.py` now defaults `multi_validator_consensus_enabled=True`.
-  - `apps/blockchain-node/tests/conftest.py` isolates tests from `/etc/aitbc/blockchain.env` via `AITBC_CHAIN_ENV_FILE`.
-  - `apps/blockchain-node/tests/test_bridge_suite.py` updated to expect `multi_validator_consensus_enabled` enabled by default.
-  - `apps/blockchain-node/tests` pass (683 tests) with multi-validator on.
-  - `apps/blockchain-node/tests/consensus` passes (50 tests) with multi-validator fixtures.
-
-- 2026-08-23: P1.3 bridge multi-sig product closure (Agent A on aitbc3):
-  - `apps/exchange/simple_exchange/handlers/bridge.py` adds `_verify_bridge_withdrawal_signatures`.
-  - `handle_bridge_withdraw` requires `BRIDGE_MULTISIG_THRESHOLD` valid signatures from `BRIDGE_SIGNERS` before any AIT→ETH release.
-  - Withdrawals remain disabled by default (`BRIDGE_WITHDRAW_ENABLED` false) until the Ethereum bridge contract is deployed.
-  - New `apps/exchange/tests/test_bridge_withdraw.py` covers no-policy, single valid, threshold, and unauthorized signer cases.
-  - `apps/exchange/tests` pass (77 tests).
-
-- 2026-08-23: BTC artifact cleanup (Agent A on aitbc3):
-  - `apps/trading/src/trading_service/routers/exchange_compat.py` migrated from BTC to ETH.
-  - `apps/coordinator-api` payment schemas, portfolio, cache, oracle, and payments service no longer reference BTC.
-  - `cli/aitbc_cli/commands/exchange/*` and tests (`tests/cli/test_commands_exchange_island.py`, `tests/test_performance_caching.py`) use ETH.
-  - `apps/ai-engine` default symbols and tests use AITBC/ETH instead of AITBC/BTC.
-  - All CLI, exchange, and blockchain-node tests pass.
