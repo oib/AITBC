@@ -18,17 +18,25 @@ depends_on: str | None = None
 INDEX_NAME = "ix_transaction_payload_job_id"
 
 
+# The expression must match what the query emits or the planner ignores the index:
+#   SQLite   -> JSON_EXTRACT("transaction".payload, \'$."job_id"\')
+#   Postgres -> (transaction.payload ->> \'job_id\')
+_EXPRESSIONS = {
+    "sqlite": """json_extract(payload, \'$."job_id"\')""",
+    "postgresql": """(payload ->> \'job_id\')""",
+}
+
+
 def upgrade() -> None:
-    bind = op.get_bind()
-    if bind.dialect.name != "postgresql":
-        # The expression index is Postgres-specific; SQLite deployments fall back to
-        # the JSON extraction filter without an index.
+    dialect = op.get_bind().dialect.name
+    expression = _EXPRESSIONS.get(dialect)
+    if expression is None:
+        # Unknown dialect: the job_id filter still works, just unindexed.
         return
-    op.execute(f'CREATE INDEX IF NOT EXISTS {INDEX_NAME} ON "transaction" ((payload ->> \'job_id\'))')
+    op.execute(f'CREATE INDEX IF NOT EXISTS {INDEX_NAME} ON "transaction" ({expression})')
 
 
 def downgrade() -> None:
-    bind = op.get_bind()
-    if bind.dialect.name != "postgresql":
+    if op.get_bind().dialect.name not in _EXPRESSIONS:
         return
     op.execute(f"DROP INDEX IF EXISTS {INDEX_NAME}")
