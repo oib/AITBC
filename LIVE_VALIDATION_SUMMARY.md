@@ -879,3 +879,51 @@ Live observed balance: `89505`.
   - `docs/releases/STATUS.md` updated to list `escrow_enabled` default `True`.
   - `docs/DESIGN_CYCLE.md` step 3 gap marked `Done`.
   - Scope note clarifies job-payment escrow is live and cross-chain bridge HTLC is gated by this flag.
+
+## 2026-08-22 — Escrow settlement hardening (cycle step 7)
+
+Live-validated on `hub.aitbc`:
+
+```bash
+AITBC_WALLET_DIR=/var/lib/aitbc/wallets aitbc auth login --wallet default \
+  --coordinator-url http://localhost:8203
+aitbc ai submit --type inference --prompt "escrow settlement hardening validation" \
+  --payment 1.0 \
+  --buyer-address 0x35daba990a37177398e0e0c1670baa316a032417 \
+  --provider-address 0x06F8bB05B167fa4E32F4AC61FA7cb02663205f35 \
+  --wait --timeout 240 --poll-interval 5 --coordinator-url http://localhost:8203
+```
+
+- Job `e72705b6d0274e13bc8a340896f0e006` completed on `aitbc-miner-1`
+  (`llama3.2:3b`, 542 tokens, 88.8s, GPU), `payment_status: released`.
+- `ESCROW_RELEASE` tx `0xe733a8106e93940500ca320da830edd5bf4e9a8b1eb94239476fb105b9cccf36`
+  (transaction id 509), status `confirmed`, nonce 42.
+- Signed by the **non-genesis settlement address**
+  `0x477737bd028eeb38350c58e62f7a766ac061ce2e`; recipient
+  `0x06F8bB05B167fa4E32F4AC61FA7cb02663205f35`.
+- Value 3510 compute-seconds = **0.975 AIT** after the 2.5% fee.
+- The payload carries **no `released_at`**: the release transaction is deterministic,
+  so a retry at the same nonce is deduplicated by the mempool rather than paying twice.
+
+### Finding — the settled-release lookup was reading the wrong end of the chain
+
+`/rpc/transactions` returns rows **oldest-first** and truncates to `limit`. The first
+version of the lookup scanned the most recent 200 releases as it thought; in fact
+`limit=40` did not return this job while `limit=500` did. A bounded scan therefore
+misses recent settlements — exactly the ones a retry asks about — and because
+`_get_account_nonce` reads the *current* nonce, a missed lookup would resubmit a valid
+transaction at the next nonce and pay the provider twice.
+
+Fixed by filtering server-side on payload `job_id`, verified live:
+
+```text
+?transaction_type=ESCROW_RELEASE&job_id=e72705b6d0274e13bc8a340896f0e006  -> 1 row (id 509)
+?transaction_type=ESCROW_RELEASE&job_id=does-not-exist                    -> []
+```
+
+### Still outstanding
+
+- Alembic `b7f3c1a90d24` (payload `job_id` expression index) is **not yet applied** on
+  either node; the filter works unindexed.
+- `SettlementReconciler` is implemented but **disabled by default**
+  (`ESCROW_RECONCILER_ENABLED`), pending a watched run against a failed settlement.

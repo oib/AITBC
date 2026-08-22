@@ -245,6 +245,7 @@ async def query_transactions(
     limit: int | None = 100,
     chain_id: str | None = None,
     address: str | None = None,
+    job_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     resolved_chain_id = get_chain_id(chain_id)
@@ -257,6 +258,13 @@ async def query_transactions(
             from ..base_models import address_spellings
             spellings = address_spellings(address)
             query = query.where((Transaction.sender.in_(spellings)) | (Transaction.recipient.in_(spellings)))
+
+        if job_id is not None:
+            # Filter in SQL, not in Python: the other payload filters below load every
+            # transaction on the chain first. Settlement asks this question before
+            # paying a provider, and the expression matches the
+            # ix_transaction_payload_job_id index (payload ->> 'job_id').
+            query = query.where(Transaction.payload["job_id"].as_string() == job_id)  # type: ignore[index]
 
         _logger.info(f"Query: {query}")
 
