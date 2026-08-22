@@ -230,6 +230,17 @@ class PaymentService:
                     f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
                     json=release_body,
                 )
+                # The RPC reports success only once the ESCROW_RELEASE transaction is
+                # accepted on-chain. Leave the payment escrowed otherwise, so it can be
+                # retried rather than recorded as paid with no settlement behind it.
+                if release_data.get("success") is False or release_data.get("settlement_status") == "unsettled":
+                    logger.error(
+                        "Escrow release for job %s was not settled on-chain (%s); payment %s stays escrowed",
+                        job_id,
+                        release_data.get("message"),
+                        payment_id,
+                    )
+                    return False
                 payment.status = "released"
                 payment.released_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
