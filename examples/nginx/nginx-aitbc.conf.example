@@ -27,6 +27,10 @@ upstream marketplace_service {
     server 127.0.0.1:8102;
 }
 
+upstream gpu_service {
+    server 127.0.0.1:8101;
+}
+
 upstream whisper {
     server 127.0.0.1:8110;
 }
@@ -79,8 +83,64 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
+    # Dashboard / customer / shop API routes (P1.2)
+    location /v1/jobs {
+        proxy_pass http://coordinator_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /v1/miners/ {
+        proxy_pass http://coordinator_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /v1/monitoring/ {
+        proxy_pass http://coordinator_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /v1/gpu/ {
+        proxy_pass http://gpu_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
     location /v1/ {
         proxy_pass http://agent_coordinator/v1/;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    # Wallet endpoints are served by the wallet daemon, not agent-coordinator.
+    location /v1/wallets {
+        proxy_pass http://wallet_service/v1/wallets;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /v1/chains/ {
+        proxy_pass http://wallet_service/v1/chains/;
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
@@ -336,7 +396,19 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
+    # ── Web dashboards ────────────────────────────────────────
 
+    location /dashboard/ {
+        alias /opt/aitbc/website/customer-dashboard.html;
+        default_type text/html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /shop/ {
+        alias /opt/aitbc/website/shop-dashboard.html;
+        default_type text/html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
 
     location / {
         try_files $uri $uri/ =404;
