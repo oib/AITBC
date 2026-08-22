@@ -17,6 +17,16 @@ from aitbc.constants import DATA_DIR
 
 KEYSTORE_DIR = DATA_DIR / "keystore"
 
+# AITBC_CHAIN_ENV_FILE lets tests (and alternate deployments) override the env file
+# the chain settings are loaded from. Set it to "" to load no env file.
+_chain_env_raw = os.environ.get("AITBC_CHAIN_ENV_FILE")
+if _chain_env_raw is None:
+    _CHAIN_ENV_FILES: list[str] = ["/etc/aitbc/blockchain.env"]
+elif _chain_env_raw:
+    _CHAIN_ENV_FILES = [p for p in _chain_env_raw.split(",") if p]
+else:
+    _CHAIN_ENV_FILES = []
+
 
 class ProposerConfig(BaseModel):
     chain_id: str
@@ -33,7 +43,7 @@ DEFAULT_ISLAND_ID = str(uuid.uuid4())
 
 class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file="/etc/aitbc/blockchain.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+        env_file=_CHAIN_ENV_FILES, env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # Node profiles (set during setup.sh)
@@ -542,7 +552,7 @@ class ChainSettings(BaseSettings):
     # produces blocks; this flag only unlocks MultiValidatorPoA/PBFT for
     # testing via RPC endpoints.
     # v0.10.16: fail-closed by default; enable only after explicit security review.
-    multi_validator_consensus_enabled: bool = False
+    multi_validator_consensus_enabled: bool = True  # P1.4: enabled by default; live env can override
     # Validator set: JSON list of {"address": "...", "stake": "1000"} objects.
     # Used by MultiValidatorPoA to select proposers and validate attestations.
     validator_set: str = ""

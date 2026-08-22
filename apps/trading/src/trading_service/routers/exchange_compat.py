@@ -21,9 +21,9 @@ router = APIRouter(tags=["exchange"])
 logger = get_logger(__name__)
 _brand = get_active_brand()
 
-BITCOIN_CONFIG: dict[str, Any] = {
+ETHEREUM_CONFIG: dict[str, Any] = {
     "testnet": True,
-    "main_address": "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    "main_address": "0x0000000000000000000000000000000000000000",
     "exchange_rate": 100000,
     "min_confirmations": 1,
     "payment_timeout": 3600,
@@ -62,22 +62,22 @@ class ExchangePaymentRequest(BaseModel):
 
     user_id: str
     aitbc_amount: Decimal
-    btc_amount: Decimal
+    eth_amount: Decimal
 
 
 @router.post("/v1/exchange/create-payment", dependencies=[Depends(require_trading_api_key)])
 async def create_exchange_payment(
     payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks, request: Request
 ) -> dict[str, Any]:
-    """Create a new Bitcoin payment request (migrated from Coordinator API).
+    """Create a new Ethereum payment request (migrated from Coordinator API).
 
     Supports idempotency via the ``Idempotency-Key`` header: if the same key
     is replayed, the original payment is returned instead of creating a duplicate.
     """
-    if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
+    if payment_request.aitbc_amount <= 0 or payment_request.eth_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
-    expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG["exchange_rate"]
-    if payment_request.btc_amount != expected_btc:
+    expected_eth = payment_request.aitbc_amount / ETHEREUM_CONFIG["exchange_rate"]
+    if payment_request.eth_amount != expected_eth:
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     # Idempotency: if the same key was used before, return the original payment
@@ -92,11 +92,11 @@ async def create_exchange_payment(
         "payment_id": payment_id,
         "user_id": payment_request.user_id,
         "aitbc_amount": str(payment_request.aitbc_amount),
-        "btc_amount": str(payment_request.btc_amount),
-        "payment_address": BITCOIN_CONFIG["main_address"],
+        "eth_amount": str(payment_request.eth_amount),
+        "payment_address": ETHEREUM_CONFIG["main_address"],
         "status": "pending",
         "created_at": int(time.time()),
-        "expires_at": int(time.time()) + BITCOIN_CONFIG["payment_timeout"],
+        "expires_at": int(time.time()) + ETHEREUM_CONFIG["payment_timeout"],
         "confirmations": 0,
         "tx_hash": None,
     }
@@ -145,8 +145,8 @@ async def confirm_exchange_payment(payment_id: str, tx_hash: str, request: Reque
 async def get_exchange_rates() -> dict[str, Any]:
     """Get current exchange rates (migrated from Coordinator API)."""
     return {
-        "btc_to_aitbc": BITCOIN_CONFIG["exchange_rate"],
-        "aitbc_to_btc": 1.0 / BITCOIN_CONFIG["exchange_rate"],
+        "eth_to_aitbc": ETHEREUM_CONFIG["exchange_rate"],
+        "aitbc_to_eth": 1.0 / ETHEREUM_CONFIG["exchange_rate"],
         "fee_percent": 0.5,
     }
 
@@ -160,13 +160,13 @@ async def get_market_stats() -> dict[str, Any]:
     for payment in payments.values():
         if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
             daily_volume += Decimal(payment["aitbc_amount"])
-    base_price = Decimal("1") / BITCOIN_CONFIG["exchange_rate"]
+    base_price = Decimal("1") / ETHEREUM_CONFIG["exchange_rate"]
     price_change_percent = 5.2
     return {
         "price": str(base_price),
         "price_change_24h": price_change_percent,
         "daily_volume": str(daily_volume),
-        "daily_volume_btc": str(daily_volume / BITCOIN_CONFIG["exchange_rate"]),
+        "daily_volume_eth": str(daily_volume / ETHEREUM_CONFIG["exchange_rate"]),
         "total_payments": len([p for p in payments.values() if p["status"] == "confirmed"]),
         "pending_payments": len([p for p in payments.values() if p["status"] == "pending"]),
     }
@@ -174,14 +174,14 @@ async def get_market_stats() -> dict[str, Any]:
 
 @router.get("/v1/exchange/wallet/balance", dependencies=[Depends(require_trading_api_key)])
 async def get_exchange_wallet_balance() -> dict[str, Any]:
-    """Get Bitcoin wallet balance (migrated from Coordinator API)."""
-    return {"balance": 0.0, "unconfirmed_balance": 0.0, "address": BITCOIN_CONFIG["main_address"]}
+    """Get Ethereum wallet balance (migrated from Coordinator API)."""
+    return {"balance": 0.0, "unconfirmed_balance": 0.0, "address": ETHEREUM_CONFIG["main_address"]}
 
 
 @router.get("/v1/exchange/wallet/info", dependencies=[Depends(require_trading_api_key)])
 async def get_exchange_wallet_info() -> dict[str, Any]:
     """Get comprehensive wallet information (migrated from Coordinator API)."""
-    return {"address": BITCOIN_CONFIG["main_address"], "network": "testnet", "balance": 0.0, "transactions": []}
+    return {"address": ETHEREUM_CONFIG["main_address"], "network": "testnet", "balance": 0.0, "transactions": []}
 
 
 async def monitor_payment(payment_id: str) -> None:
