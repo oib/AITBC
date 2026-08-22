@@ -9,9 +9,12 @@
     `website/dashboard.js`, and `examples/nginx/nginx-aitbc.conf.example`
     routes for `/dashboard/` and `/shop/`.
   - Dashboards call live APIs and degrade gracefully.
-- [ ] P1.7 — governance parameter change end-to-end live validation.
-  - Service is active on hub; `propose/vote/close/execute` CLI exists.
-  - Execution blocked by 43200-block timelock (24h at 2s block time).
+- [x] P1.7 — governance parameter change end-to-end live validation.
+  - `propose -> vote -> close -> execute` cycled for `prop_9d1dfbca` on hub.
+  - Marketplace `matching_algorithm` set to `reputation` via
+    `/v1/marketplace/parameters/apply` (200 OK in governance log).
+  - Temporary `GOVERNANCE_TIMELOCK_BLOCKS=0` / `GOVERNANCE_VOTING_PERIOD_BLOCKS=0`
+    drop-in removed after validation; service restored to 43200/7200.
 - [x] P1.3a — bridge custodian doc + multi-sig config (hub side).
   - Added `apps/exchange/simple_exchange/config.py` and `.env.example`.
   - Added `docs/security/bridge-custodian.md`.
