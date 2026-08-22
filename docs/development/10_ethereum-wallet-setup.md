@@ -1,15 +1,15 @@
-# Bitcoin Wallet Integration for AITBC Trade Exchange
+# Ethereum Wallet Integration for AITBC Trade Exchange
 
 ## Overview
 
-The AITBC Trade Exchange now supports Bitcoin payments for purchasing the network tokens. Users can send Bitcoin to a generated address and receive the network tokens after confirmation.
+The AITBC Trade Exchange now supports Ethereum deposits for purchasing the network tokens. Users can send Ethereum to a generated address and receive the network tokens after confirmation.
 
 ## Current Implementation
 
 ### Frontend Features
 
 - **Payment Request Generation**: Users enter the amount of AITBC they want to buy
-- **Dynamic QR Code**: A QR code is generated with the Bitcoin address and amount
+- **Dynamic QR Code**: A QR code is generated with the Ethereum address and amount
 - **Payment Monitoring**: The system automatically checks for payment confirmation
 - **Real-time Updates**: Users see payment status updates in real-time
 
@@ -17,17 +17,17 @@ The AITBC Trade Exchange now supports Bitcoin payments for purchasing the networ
 
 - **Payment API**: `/api/exchange/create-payment` creates payment requests
 - **Status Tracking**: `/api/exchange/payment-status/{id}` checks payment status
-- **Exchange Rates**: `/api/exchange/rates` provides current BTC/AITBC rates
+- **Exchange Rates**: `/api/exchange/rates` provides current ETH/AITBC rates
 
 ## Configuration
 
-### Bitcoin Settings
+### Ethereum Settings
 
 ```python
-BITCOIN_CONFIG = {
-    'testnet': True,                    # Using Bitcoin testnet
-    'main_address': 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-    'exchange_rate': 100000,           # 1 BTC = 100,000 AITBC
+ETHEREUM_CONFIG = {
+    'testnet': True,                    # Using Ethereum testnet
+    'main_address': '0x0000000000000000000000000000000000000000',
+    'exchange_rate': 100000,           # 1 ETH = 100,000 AITBC (example rate; oracle-driven in production)
     'min_confirmations': 1,
     'payment_timeout': 3600            # 1 hour expiry
 }
@@ -36,25 +36,25 @@ BITCOIN_CONFIG = {
 ### Environment Variables
 
 ```bash
-BITCOIN_TESTNET=true
-BITCOIN_ADDRESS=tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
-BITCOIN_PRIVATE_KEY=your_private_key
+ETHEREUM_TESTNET=true
+ETHEREUM_ADDRESS=0x0000000000000000000000000000000000000000
+ETHEREUM_PRIVATE_KEY=your_private_key
 BLOCKCHAIN_API_KEY=your_blockchain_api_key
 WEBHOOK_SECRET=your_webhook_secret
 MIN_CONFIRMATIONS=1
-BTC_TO_AITBC_RATE=100000
+ETH_TO_AITBC_RATE=100000
 ```
 
 ## How It Works
 
 1. **User Initiates Purchase**
-   - Enters AITBC amount or BTC amount
+   - Enters AITBC amount or ETH amount
    - System calculates the conversion
    - Creates a payment request
 
 2. **Payment Address Generated**
    - Unique payment address (demo: uses fixed address)
-   - QR code generated with `bitcoin:` URI
+   - QR code generated with `ethereum:` URI
    - Payment details displayed
 
 3. **Payment Monitoring**
@@ -71,7 +71,7 @@ BTC_TO_AITBC_RATE=100000
 
 ### Current (Demo) Implementation
 
-- Uses a fixed Bitcoin testnet address
+- Uses a fixed Ethereum testnet address
 - No private key integration
 - Manual payment confirmation for demo
 
@@ -92,7 +92,7 @@ POST /api/exchange/create-payment
 {
     "user_id": "user_wallet_address",
     "aitbc_amount": 1000,
-    "btc_amount": 0.01
+    "eth_amount": 0.01
 }
 ```
 
@@ -110,12 +110,12 @@ GET /api/exchange/rates
 
 ## Testing
 
-### Testnet Bitcoin
+### Testnet Ethereum
 
-- Use Bitcoin testnet for testing
-- Get testnet Bitcoin from faucets:
-  - https://testnet-faucet.mempool.co/
-  - https://coinfaucet.eu/en/btc-testnet/
+- Use Ethereum testnet for testing
+- Get testnet Ethereum from faucets:
+  - https://sepoliafaucet.com/
+  - https://sepoliafaucet.com/
 
 ### Demo Mode
 

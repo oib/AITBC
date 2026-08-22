@@ -193,18 +193,18 @@ class BlockchainPlugin(BasePlugin):
         pass
 
 # Example blockchain plugin
-class BitcoinPlugin(BlockchainPlugin):
+class EthereumPlugin(BlockchainPlugin):
     def get_metadata(self) -> PluginMetadata:
         return PluginMetadata(
-            name="bitcoin-integration",
+            name="ethereum-integration",
             version="1.0.0",
-            description="Bitcoin blockchain integration",
+            description="Ethereum blockchain integration",
             author="AITBC Team",
             license="MIT"
         )
 
     async def connect(self, config: Dict[str, Any]) -> bool:
-        # Connect to Bitcoin node
+        # Connect to Ethereum node
         return True
 ```
 
@@ -356,12 +356,12 @@ plugins:
       default_agent_type: "chat"
       max_agents: 100
 
-  bitcoin-integration:
+  ethereum-integration:
     enabled: true
     priority: 20
     config:
       rpc_url: "http://localhost:8332"
-      rpc_user: "bitcoin"
+      rpc_user: "ethereum"
       rpc_password: "password"
 
   translation-ai:

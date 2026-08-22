@@ -5,7 +5,7 @@
 The AITBC platform uses a dual-currency system:
 
 - **the network tokens**: For job payments and platform operations
-- **Bitcoin**: For purchasing the network tokens through the exchange
+- **Ethereum**: For purchasing the network tokens through the exchange
 
 ## Payment Flow
 
@@ -24,16 +24,16 @@ Client ──► Creates Job with AITBC Payment ──► Coordinator API
 Miner completes job ──► Release AITBC Escrow ──► Miner Wallet
 ```
 
-### 2. Token Purchase (Bitcoin → AITBC)
+### 2. Token Purchase (Ethereum → AITBC)
 
 ```
-Client ──► Bitcoin Payment ──► Exchange API
+Client ──► Ethereum Deposit ──► Exchange API
     │                           │
     │                           ▼
-    │                     Process Bitcoin
+    │                     Process Ethereum
     │                           │
     ▼                           ▼
-Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AITBC
+Receive the network tokens ◄─── Exchange Rate ◄─── 1 ETH = 100,000 AITBC (example rate; oracle-driven in production)
 ```
 
 ## Implementation Details
@@ -52,7 +52,7 @@ Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,0
 ### Payment Methods
 
 - `aitbc_token`: Default for all job payments
-- `bitcoin`: Only used for exchange purchases
+- `ethereum`: Only used for exchange purchases
 
 ### Escrow System
 
@@ -61,7 +61,7 @@ Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,0
   - Timeout: 1 hour default
   - Release on job completion
 
-- **Bitcoin Escrow**: Managed by Wallet Daemon
+- **Ethereum Escrow**: Managed by Wallet Daemon
   - Endpoint: `/api/v1/escrow/create`
   - Only for token purchases
 
@@ -76,8 +76,8 @@ Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,0
 
 ### Exchange Endpoints
 
-- `POST /api/exchange/purchase` - Buy AITBC with BTC
-- `GET /api/exchange/rate` - Get current rate (1 BTC = 100,000 AITBC)
+- `POST /api/exchange/purchase` - Buy AITBC with ETH
+- `GET /api/exchange/rate` - Get current rate (1 ETH = 100,000 AITBC (example rate; oracle-driven in production))
 
 ## Database Schema
 
@@ -143,15 +143,15 @@ curl -X POST http://localhost:8203/v1/payments/pay456/release \
 ## Benefits
 
 1. **Stable Pricing**: the network tokens provide stable job pricing
-2. **Fast Transactions**: Token payments faster than Bitcoin
+2. **Fast Transactions**: Token payments faster than Ethereum
 3. **Gas Optimization**: Batch operations reduce costs
 4. **Platform Control**: Token supply managed by platform
 
 ## Migration Path
 
 1. **Phase 1**: Implement the network token payments for new jobs
-2. **Phase 2**: Migrate existing Bitcoin job payments to tokens
-3. **Phase 3**: Phase out Bitcoin for direct job payments
-4. **Phase 4**: Bitcoin only used for token purchases
+2. **Phase 2**: Migrate existing Ethereum job payments to tokens
+3. **Phase 3**: Phase out Ethereum for direct job payments
+4. **Phase 4**: Ethereum only used for token purchases
 
-This architecture ensures efficient job payments while maintaining Bitcoin as the entry point for platform participation.
+This architecture ensures efficient job payments while maintaining Ethereum as the entry point for platform participation.

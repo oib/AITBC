@@ -21,7 +21,7 @@ This document describes the implementation of wallet-coordinator integration for
 
 #### Features
 
-- Automatic escrow creation for Bitcoin payments
+- Automatic escrow creation for Ethereum deposits
 - Timeout-based escrow expiration (default 1 hour)
 - Integration with wallet daemon for escrow management
 - Status tracking (pending → escrowed → released/refunded)
@@ -116,7 +116,7 @@ POST /v1/jobs
     },
     "ttl_seconds": 900,
     "payment_amount": 0.001,
-    "payment_currency": "BTC"
+    "payment_currency": "ETH"
 }
 ```
 

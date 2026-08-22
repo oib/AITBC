@@ -48,7 +48,7 @@ Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and r
 
 ● Live
 
-Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
+Ethereum-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with ETH instantly.
 
 [Learn More →](6_trade-exchange.md)
 

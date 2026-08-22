@@ -106,10 +106,10 @@ curl https://aitbc.bubuit.net/api/v1/receipts?client=<your_address>
 
 1. Visit [Trade Exchange](https://aitbc.bubuit.net/Exchange/)
 2. Create an account or connect wallet
-3. Send Bitcoin to your deposit address
-4. Receive AITBC at current exchange rate (1 BTC = 100,000 AITBC)
+3. Send Ethereum to your deposit address
+4. Receive AITBC at current exchange rate (1 ETH = 100,000 AITBC (example rate; oracle-driven in production))
 
-See [Bitcoin Wallet Setup](../architecture/6_trade-exchange.md) for detailed instructions.
+See [Ethereum Wallet Setup](../architecture/6_trade-exchange.md) for detailed instructions.
 
 ### Via Mining
 
