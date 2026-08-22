@@ -53,7 +53,6 @@ All 12 MyPy strict options are now enforced:
 | gpu | ⚠️ Minor issues | Near Clean |
 | marketplace | ⚠️ Minor issues | Near Clean |
 | miner | ⚠️ Minor issues | Near Clean |
-| peertube-transcoder | ⚠️ Minor issues | Near Clean |
 | shared-core | ✅ Yes | Clean ✅ |
 | shared-domain | ✅ Yes | Clean ✅ |
 | trading | ⚠️ Minor issues | Near Clean |

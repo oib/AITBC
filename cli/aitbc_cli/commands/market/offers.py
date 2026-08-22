@@ -4,7 +4,6 @@ Marketplace offer commands: list, cancel, status, match, providers, offer
 
 import hashlib
 import json
-import re
 import socket
 from datetime import datetime
 from decimal import Decimal
@@ -124,7 +123,7 @@ def _sort_offers(offers: list[dict[str, Any]], sort: str) -> list[dict[str, Any]
 @market.command(name="list")
 @click.option("--provider", help="Filter by provider address")
 @click.option("--status", help="Filter by status (active, inactive)")
-@click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg, peertube_pruner)")
+@click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg)")
 @click.option(
     "--sort",
     type=click.Choice(["reputation", "price", "availability", "default"]),
@@ -489,12 +488,12 @@ def providers(ctx):
 
 
 # ---------------------------------------------------------------------------
-# Software marketplace — Ollama inference, Whisper, PeerTube pruner
+# Software marketplace — Ollama inference, Whisper, FFmpeg
 # ---------------------------------------------------------------------------
 
 
 @market.command(name="offer")
-@click.argument("service_type", type=click.Choice(["ollama", "whisper", "peertube_pruner", "ffmpeg"]))
+@click.argument("service_type", type=click.Choice(["ollama", "whisper", "ffmpeg"]))
 @click.argument("model_or_variant")
 @click.argument("price", type=DECIMAL)
 @click.option(
@@ -521,7 +520,7 @@ def offer(
     gpu_device: str | None,
     gpu_offer_id: str | None,
 ):
-    """List a hardware+software bundle offer (Ollama/Whisper/PeerTube/FFmpeg) in the marketplace"""
+    """List a hardware+software bundle offer (Ollama/Whisper/FFmpeg) in the marketplace"""
     try:
         config = get_config()
         chain_id = get_chain_id()
@@ -597,18 +596,6 @@ def offer(
                 error(f"Whisper service not reachable at localhost:8110: {e}")
                 error("Start it with: systemctl start aitbc-whisper")
                 raise click.Abort() from e
-        elif service_type == "peertube_transcoder":
-            try:
-                p_client = AITBCHTTPClient(base_url="http://localhost:8220", timeout=5)
-                health = p_client.get("/health")
-                if health.get("status") != "ok":
-                    error("PeerTube transcoder service is not ready at localhost:8220")
-                    raise click.Abort()
-                info("Verified PeerTube transcoder service")
-            except NetworkError as e:
-                error(f"PeerTube transcoder service not reachable at localhost:8220: {e}")
-                error("Start it with: systemctl start aitbc-peertube-transcoder")
-                raise click.Abort() from e
         elif service_type == "ffmpeg":
             try:
                 f_client = AITBCHTTPClient(base_url="http://localhost:8230", timeout=5)
@@ -626,7 +613,7 @@ def offer(
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
         # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {"ollama": 11434, "whisper": 8110, "peertube_transcoder": 8220, "ffmpeg": 8230}
+        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230}
         _local_port = _local_ports.get(service_type, 8110)
         _hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
         _base_domain = _hub_hostname.removeprefix("hub.")
@@ -634,8 +621,8 @@ def offer(
         # If FQDN doesn't include domain, construct it from short hostname + base domain
         if _base_domain and _base_domain not in _node_hostname:
             _node_hostname = f"{socket.gethostname()}.{_base_domain}"
-        # nginx routes: /whisper/ → :8110, /ollama/ → :11434, /peertube/ → :8220 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "peertube_transcoder": "peertube", "ffmpeg": "ffmpeg"}
+        # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
+        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg"}
         _nginx_path = _nginx_paths.get(service_type, service_type)
         _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
         _local_endpoint = f"http://localhost:{_local_port}"
@@ -686,7 +673,6 @@ def offer(
         _health_urls = {
             "ollama": "http://localhost:11434/api/tags",
             "whisper": "http://localhost:8110/health",
-            "peertube_transcoder": "http://localhost:8220/health",
             "ffmpeg": "http://localhost:8230/health",
         }
         try:

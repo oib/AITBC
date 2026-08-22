@@ -35,7 +35,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `grant` — DAO grant proposal commands.. Subcommands: `create`, `disburse`, `list`, `vote`
 - `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `list`, `pin`, `upload`
 - `list` — Legacy wallet list alias
-- `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcode`, `transcribe`
+- `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
 - `marketplace` — Global chain marketplace commands. Subcommands: `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions`
 - `messaging` — Messaging system and forum operations. Subcommands: `list`, `send`, `topic`
 - `mining` — Mining operations commands. Subcommands: `list`, `start`, `status`, `stop`

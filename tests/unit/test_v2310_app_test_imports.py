@@ -84,8 +84,6 @@ def _top_level_imports(test_file: Path) -> set[str]:
 
 # V23-10 counted seven flat-layout apps. Checked against the tree, it is five.
 #
-#   archive  is not an app — three files under peertube-transcoder/, one of them
-#            DEPRECATED.md. A deprecation graveyard counted as a flat-layout service.
 #   miner    is half-migrated: src/miner_app/ exists and production_miner.py is still at the
 #            root, which is why its own pytest pythonpath needed both entries.
 #

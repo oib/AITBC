@@ -41,12 +41,10 @@ An example configuration is available at:
 - `WALLET_PORT`: 8108
 - `PLUGIN_REGISTRY_PORT`: 8109
 - `WHISPER_PORT`: 8110
-- `PEERTUBE_PORT`: 8220
 
 ### Service Endpoints
 - `PLUGIN_REGISTRY_ENDPOINT`: Shop's plugin registry endpoint
 - `WHISPER_ENDPOINT`: Shop's Whisper service endpoint
-- `PEERTUBE_ENDPOINT`: Shop's PeerTube transcoder endpoint
 
 ## Usage
 
@@ -100,7 +98,7 @@ export SHOP_URL="https://custom-shop.example.com"
 ### Hub vs Shop
 
 - **Hub**: The blockchain hub for the island (e.g., `hub.aitbc.bubuit.net`). Handles blockchain operations, hardware+software bundle offer discovery, and transaction coordination.
-- **Shop**: A follower node that provides services (e.g., `aitbc3.aitbc.bubuit.net`). Runs services like Whisper transcription, plugin registry, and PeerTube transcoding.
+- **Shop**: A follower node that provides services (e.g., `aitbc3.aitbc.bubuit.net`). Runs services like Whisper transcription and plugin registry.
 
 ### Customer
 

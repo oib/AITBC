@@ -129,7 +129,6 @@ See the [CLI README](cli/README.md) for the full command reference and the [cust
 
 ## Media
 
-- [Video walkthroughs on PeerTube](https://peertube.bubuit.net/c/aitbc/videos)
 - [Gemini NotebookLM companion notebook](https://notebooklm.google.com/notebook/e3ca6fea-5f40-4932-9df5-71843e61ff95)
 
 ## Contributing
