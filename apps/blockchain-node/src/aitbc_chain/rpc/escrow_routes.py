@@ -327,79 +327,84 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         from ..contracts.escrow import EscrowState
 
         contract.state = EscrowState.JOB_COMPLETED
-    ok, message = await mgr.release_full_payment(contract_id)
-    if not ok:
-        raise HTTPException(status_code=400, detail=message)
-    released_amount = contract.released_amount if contract else Decimal(0)
-    buyer_addr = contract.client_address if contract else ""
-    provider_addr = contract.agent_address if contract else ""
-    # Allow caller to override the provider address for reinvestment (e.g. from payment meta_data).
-    reinvest_address = request.get("auto_reinvest_address") or provider_addr or request.get("provider_address")
-    auto_reinvest_pct = request.get("auto_reinvest_pct")
+    # Hold the per-contract lock across release and settlement so the rollback
+    # snapshot cannot interleave with a concurrent release of this contract.
+    async with mgr.release_lock(contract_id):
+        release_snapshot = mgr.snapshot_release_state(contract_id)
+        ok, message = await mgr.release_full_payment(contract_id)
+        if not ok:
+            raise HTTPException(status_code=400, detail=message)
+        released_amount = contract.released_amount if contract else Decimal(0)
+        buyer_addr = contract.client_address if contract else ""
+        provider_addr = contract.agent_address if contract else ""
+        # Allow caller to override the provider address for reinvestment (e.g. from payment meta_data).
+        reinvest_address = request.get("auto_reinvest_address") or provider_addr or request.get("provider_address")
+        auto_reinvest_pct = request.get("auto_reinvest_pct")
 
-    # Settle on-chain first; only a confirmed transaction counts as a release.
-    tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
-    if not tx_hash:
-        _logger.error(
-            "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
-            "The escrow is left unreleased so it can be retried.",
-            contract_id, job_id, provider_addr, released_amount,
-        )
+        # Settle on-chain first; only a confirmed transaction counts as a release.
+        tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
+        if not tx_hash:
+            mgr.restore_after_failed_settlement(contract_id, release_snapshot)
+            _logger.error(
+                "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
+                "The release was rolled back so it can be retried.",
+                contract_id, job_id, provider_addr, released_amount,
+            )
+            return {
+                "success": False,
+                "contract_id": contract_id,
+                "job_id": job_id,
+                "message": "Escrow release could not be settled on-chain; the provider was not paid",
+                "released_amount": str(released_amount),
+                "tx_hash": None,
+                "settlement_status": "unsettled",
+                "released_at": None,
+                "reinvest_amount": "0",
+                "reinvest_stake_id": None,
+            }
+
+        released_at = datetime.now(UTC)
+        try:
+            with session_scope() as session:
+                record = session.get(Escrow, job_id)
+                if record:
+                    record.released_at = released_at
+                    if job_tx_hash:
+                        record.job_tx_hash = job_tx_hash
+                    session.commit()
+        except Exception as e:
+            _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
+        reinvest_stake_id = None
+        reinvest_amount = Decimal(0)
+        if auto_reinvest_pct and reinvest_address and released_amount > 0:
+            try:
+                pct = Decimal(str(auto_reinvest_pct))
+                if 0 < pct <= 100:
+                    reinvest_amount_ait = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
+                    if reinvest_amount_ait > 0:
+                        reinvest_amount_seconds = int(reinvest_amount_ait * 3600)
+                        if reinvest_amount_seconds > 0:
+                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_seconds, _CHAIN_ID)
+                            reinvest_amount = reinvest_amount_ait
+                        _logger.info(
+                            "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
+                            job_id, reinvest_stake_id, reinvest_amount, pct
+                        )
+            except Exception as e:
+                _logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
+        _logger.info("Escrow released: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
         return {
-            "success": False,
+            "success": True,
             "contract_id": contract_id,
             "job_id": job_id,
-            "message": "Escrow release could not be settled on-chain; the provider was not paid",
+            "message": message,
             "released_amount": str(released_amount),
-            "tx_hash": None,
-            "settlement_status": "unsettled",
-            "released_at": None,
-            "reinvest_amount": "0",
-            "reinvest_stake_id": None,
+            "tx_hash": tx_hash,
+            "settlement_status": "settled" if tx_hash else "unsettled",
+            "released_at": released_at.isoformat(),
+            "reinvest_amount": str(reinvest_amount),
+            "reinvest_stake_id": reinvest_stake_id,
         }
-
-    released_at = datetime.now(UTC)
-    try:
-        with session_scope() as session:
-            record = session.get(Escrow, job_id)
-            if record:
-                record.released_at = released_at
-                if job_tx_hash:
-                    record.job_tx_hash = job_tx_hash
-                session.commit()
-    except Exception as e:
-        _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
-    reinvest_stake_id = None
-    reinvest_amount = Decimal(0)
-    if auto_reinvest_pct and reinvest_address and released_amount > 0:
-        try:
-            pct = Decimal(str(auto_reinvest_pct))
-            if 0 < pct <= 100:
-                reinvest_amount_ait = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
-                if reinvest_amount_ait > 0:
-                    reinvest_amount_seconds = int(reinvest_amount_ait * 3600)
-                    if reinvest_amount_seconds > 0:
-                        reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_seconds, _CHAIN_ID)
-                        reinvest_amount = reinvest_amount_ait
-                    _logger.info(
-                        "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
-                        job_id, reinvest_stake_id, reinvest_amount, pct
-                    )
-        except Exception as e:
-            _logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
-    _logger.info("Escrow released: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
-    return {
-        "success": True,
-        "contract_id": contract_id,
-        "job_id": job_id,
-        "message": message,
-        "released_amount": str(released_amount),
-        "tx_hash": tx_hash,
-        "settlement_status": "settled" if tx_hash else "unsettled",
-        "released_at": released_at.isoformat(),
-        "reinvest_amount": str(reinvest_amount),
-        "reinvest_stake_id": reinvest_stake_id,
-    }
 
 
 @router.post("/escrow/{job_id}/refund", summary="Refund escrow to buyer")

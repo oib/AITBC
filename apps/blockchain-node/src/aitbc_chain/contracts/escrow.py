@@ -3,6 +3,7 @@ Smart Contract Escrow System
 Handles automated payment holding and release for AI job marketplace
 """
 
+import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
@@ -96,6 +97,9 @@ class EscrowManager:
         self.min_milestone_amount = Decimal("0.01")
         self.max_milestones = 10
         self.verification_timeout = 86400
+        # Serialises release attempts per contract so a rollback snapshot cannot
+        # interleave with a concurrent release of the same contract.
+        self._release_locks: dict[str, asyncio.Lock] = {}
 
     async def create_contract(
         self,
@@ -413,6 +417,46 @@ class EscrowManager:
         self.active_contracts.discard(contract_id)
         log_info(f"Full payment released for contract: {contract_id}")
         return (True, "Payment released successfully")
+
+    def release_lock(self, contract_id: str) -> asyncio.Lock:
+        """Return the per-contract lock guarding release/rollback of ``contract_id``."""
+        lock = self._release_locks.get(contract_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._release_locks[contract_id] = lock
+        return lock
+
+    def snapshot_release_state(self, contract_id: str) -> dict[str, Any] | None:
+        """Capture the fields ``release_full_payment`` mutates, so they can be restored.
+
+        Settlement happens after the release is applied in memory, so a payout that
+        never lands on-chain must put the contract back rather than leave it reading
+        as RELEASED with nothing settled.
+        """
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return None
+        return {
+            "released_amount": contract.released_amount,
+            "state": contract.state,
+            "was_active": contract_id in self.active_contracts,
+        }
+
+    def restore_after_failed_settlement(self, contract_id: str, snapshot: dict[str, Any] | None) -> bool:
+        """Undo an in-memory release whose on-chain settlement did not land."""
+        if not snapshot:
+            return False
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False
+        contract.released_amount = snapshot["released_amount"]
+        contract.state = snapshot["state"]
+        if snapshot.get("was_active"):
+            self.active_contracts.add(contract_id)
+        else:
+            self.active_contracts.discard(contract_id)
+        log_info(f"Rolled back unsettled release for contract: {contract_id}")
+        return True
 
     async def create_dispute(
         self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict[str, Any]] | None = None
