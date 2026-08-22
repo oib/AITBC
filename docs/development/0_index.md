@@ -15,7 +15,7 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 | 7 | [7_payments-receipts.md](./7_payments-receipts.md) | Payment system internals |
 | 8 | [8_blockchain-node-deployment.md](./8_blockchain-node-deployment.md) | Deploy a node |
 | 9 | [9_block-production-runbook.md](./9_block-production-runbook.md) | Block production ops |
-| 10 | [10_bitcoin-wallet-setup.md](./10_bitcoin-wallet-setup.md) | BTC wallet integration |
+| 10 | [10_ethereum-wallet-setup.md](./10_ethereum-wallet-setup.md) | ETH on-ramp integration |
 | 11 | [11_marketplace-backend-analysis.md](./11_marketplace-backend-analysis.md) | Marketplace internals |
 | 12 | [12_marketplace-extensions.md](./12_marketplace-extensions.md) | Build marketplace plugins |
 | 13 | [13_user-interface-guide.md](./13_user-interface-guide.md) | Trade exchange UI |

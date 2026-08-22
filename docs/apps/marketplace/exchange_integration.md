@@ -22,10 +22,10 @@
 aitbc exchange register --name "Binance" --api-key <YOUR_API_KEY>
 
 # Create trading pair
-aitbc exchange create-pair AITBC/BTC
+aitbc exchange create-pair AITBC/ETH
 
 # Start trading
-aitbc exchange start-trading --pair AITBC/BTC
+aitbc exchange start-trading --pair AITBC/ETH
 ```
 
 ### Market Operations
@@ -38,7 +38,7 @@ aitbc exchange status
 aitbc exchange balances
 
 # Monitor trading
-aitbc exchange monitor --pair AITBC/BTC
+aitbc exchange monitor --pair AITBC/ETH
 ```
 
 ## 📋 **Exchange Commands**
@@ -69,7 +69,7 @@ aitbc exchange monitor --pair AITBC/BTC
 
 ```bash
 # Configure market making
-aitbc exchange market-maker --pair AITBC/BTC --spread 0.5 --depth 10
+aitbc exchange market-maker --pair AITBC/ETH --spread 0.5 --depth 10
 
 # Set trading parameters
 aitbc exchange config --max-order-size 1000 --min-order-size 10
@@ -79,10 +79,10 @@ aitbc exchange config --max-order-size 1000 --min-order-size 10
 
 ```bash
 # Configure price oracle
-aitbc oracle configure --source "coingecko" --pair AITBC/BTC
+aitbc oracle configure --source "coingecko" --pair AITBC/ETH
 
 # Set price alerts
-aitbc oracle alert --pair AITBC/BTC --price 0.001 --direction "above"
+aitbc oracle alert --pair AITBC/ETH --price 0.001 --direction "above"
 ```
 
 ## 🔒 **Security Features**
@@ -110,20 +110,20 @@ aitbc wallet timelock --amount 100 --recipient <address> --unlock-time 2026-06-0
 
 ```bash
 # Real-time price monitoring
-aitbc exchange monitor --pair AITBC/BTC --real-time
+aitbc exchange monitor --pair AITBC/ETH --real-time
 
 # Historical data
-aitbc exchange history --pair AITBC/BTC --period 1d
+aitbc exchange history --pair AITBC/ETH --period 1d
 ```
 
 ### Volume Analysis
 
 ```bash
 # Trading volume
-aitbc exchange volume --pair AITBC/BTC --period 24h
+aitbc exchange volume --pair AITBC/ETH --period 24h
 
 # Liquidity analysis
-aitbc exchange liquidity --pair AITBC/BTC
+aitbc exchange liquidity --pair AITBC/ETH
 ```
 
 ## 🔍 **Troubleshooting**

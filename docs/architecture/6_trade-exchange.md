@@ -1,6 +1,6 @@
 # Trade Exchange - AITBC Documentation
 
-Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
+Ethereum-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with ETH instantly.
 
 ● Live
 
@@ -8,11 +8,11 @@ Bitcoin-to-AITBC exchange with QR payments, user management, and real-time tradi
 
 ## Overview
 
-The AITBC Trade Exchange is a crypto-only platform that enables users to exchange Bitcoin for the network tokens. It features a modern, responsive interface with user authentication, wallet management, and real-time trading capabilities.
+The AITBC Trade Exchange is a crypto-only platform that enables users to exchange Ethereum for the network tokens. It features a modern, responsive interface with user authentication, wallet management, and real-time trading capabilities.
 
 ### Key Features
 
-- Bitcoin wallet integration with QR code payments
+- Ethereum on-ramp integration with QR code payments
 - User management with wallet-based authentication
 - Real-time payment monitoring and confirmation
 - Individual user wallets and balance tracking
@@ -21,7 +21,7 @@ The AITBC Trade Exchange is a crypto-only platform that enables users to exchang
 
 ## How It Works
 
-The Trade Exchange provides a simple, secure way to acquire the network tokens using Bitcoin.
+The Trade Exchange provides a simple, secure way to acquire the network tokens using Ethereum.
 
 #### 1. Connect Wallet
 
@@ -29,11 +29,11 @@ Click "Connect Wallet" to generate a unique wallet address and create your accou
 
 #### 2. Select Amount
 
-Enter the amount of AITBC you want to buy or Bitcoin you want to spend
+Enter the amount of AITBC you want to buy or Ethereum you want to spend
 
 #### 3. Make Payment
 
-Scan the QR code or send Bitcoin to the provided address
+Scan the QR code or send Ethereum to the provided address
 
 #### 4. Receive Tokens
 
@@ -78,7 +78,7 @@ Logout and invalidate session
 ### Exchange Endpoints
 
 `POST /api/exchange/create-payment`
-Create Bitcoin payment request
+Create Ethereum deposit request
 
 `GET /api/exchange/payment-status/{id}`
 Check payment confirmation status
@@ -118,19 +118,19 @@ The exchange can be configured for different environments and requirements.
 
 ```bash
 # Exchange Rate
-BTC_TO_AITBC_RATE=100000
+ETH_TO_AITBC_RATE=100000
 
 # Payment Settings
 MIN_CONFIRMATIONS=1
 PAYMENT_TIMEOUT=3600  # 1 hour
-MIN_PAYMENT=0.0001  # BTC
-MAX_PAYMENT=10      # BTC
+MIN_PAYMENT=0.0001  # ETH
+MAX_PAYMENT=10      # ETH
 
-# Bitcoin Network
-BITCOIN_NETWORK=testnet
-BITCOIN_RPC_URL=http://localhost:8332
-BITCOIN_RPC_USER=user
-BITCOIN_RPC_PASS=password
+# Ethereum Network
+ETHEREUM_NETWORK=testnet
+ETHEREUM_RPC_URL=http://localhost:8332
+ETHEREUM_RPC_USER=user
+ETHEREUM_RPC_PASS=password
 ```
 
 ## Getting Started
@@ -145,15 +145,15 @@ Visit: [https://aitbc.bubuit.net/Exchange/](https://aitbc.bubuit.net/Exchange/)
 
 Click the "Connect Wallet" button. A unique wallet address will be generated for you.
 
-### 3. Get Testnet Bitcoin
+### 3. Get Testnet Ethereum
 
-For testing, get free testnet Bitcoin from:
-[testnet-faucet.mempool.co](https://testnet-faucet.mempool.co/)
+For testing, get free testnet Ethereum from:
+[sepoliafaucet.com](https://sepoliafaucet.com/)
 
 ### 4. Make Your First Purchase
 
 1. Enter the amount of AITBC you want to buy
-2. Scan the QR code with your Bitcoin wallet
+2. Scan the QR code with your Ethereum wallet
 3. Wait for confirmation (usually 10-20 minutes on testnet)
 4. Receive the network tokens in your wallet
 
@@ -167,7 +167,7 @@ curl -X POST https://aitbc.bubuit.net/api/exchange/create-payment \
   -H "X-Session-Token: your-session-token" \
   -d '{
     "aitbc_amount": 1000,
-    "btc_amount": 0.01
+    "eth_amount": 0.01
   }'
 ```
 
@@ -176,8 +176,8 @@ Response:
 ```json
 {
   "payment_id": "pay_123456",
-  "btc_address": "tb1qxy2...",
-  "btc_amount": 0.01,
+  "eth_address": "0x0000...",
+  "eth_amount": 0.01,
   "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
   "expires_at": "2025-01-29T15:50:00Z"
 }
@@ -277,13 +277,13 @@ class AITBCExchange:
    - Sessions automatically expire after 24 hours
 
 3. **QR code not working**
-   - Ensure your Bitcoin wallet supports QR codes
+   - Ensure your Ethereum wallet supports QR codes
    - Manually copy the address if needed
    - Check for sufficient wallet balance
 
 ### Support
 
-- Check transaction on [block explorer](https://mempool.space/testnet)
+- Check transaction on [block explorer](https://sepolia.etherscan.io)
 - Contact support: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)
 - Discord: [#exchange-support](https://discord.gg/aitbc)
 
@@ -293,7 +293,7 @@ To ensure fair usage, the exchange implements rate limiting:
 
 - 10 payments per hour per user
 - 100 API requests per minute per session
-- Maximum payment: 10 BTC per transaction
+- Maximum payment: 10 ETH per transaction
 
 ## Future Updates
 
