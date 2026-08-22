@@ -39,7 +39,7 @@ def start_trading_command(ctx, pair: str, exchange: str | None, order_type: tupl
 def list_pairs_command(ctx, pair: str | None, exchange: str | None, status: str | None):
     """List trading pairs on external exchange"""
     try:
-        pairs = [{"pair": "AITBC/BTC", "status": "active", "exchange": "binance"}]
+        pairs = [{"pair": "AITBC/ETH", "status": "active", "exchange": "binance"}]
         output(pairs, title="Trading Pairs")
     except Exception as e:
         error(f"Error: {e}")
@@ -83,7 +83,7 @@ def orderbook_command(ctx, exchange: str, symbol: str, limit: int):
 def balance_command(ctx, exchange: str):
     """Get balance from external exchange"""
     try:
-        balance = {"exchange": exchange, "aitbc": 1000.0, "btc": 0.05}
+        balance = {"exchange": exchange, "aitbc": 1000.0, "eth": 0.05}
         output(balance, title="Exchange Balance")
     except Exception as e:
         error(f"Error: {e}")
@@ -92,7 +92,7 @@ def balance_command(ctx, exchange: str):
 def pairs_command(ctx, exchange: str):
     """List pairs from external exchange"""
     try:
-        pairs = ["AITBC/BTC", "AITBC/ETH"]
+        pairs = ["AITBC/ETH", "AITBC/ETH"]
         output(pairs, title=f"Pairs on {exchange}")
     except Exception as e:
         error(f"Error: {e}")
@@ -110,7 +110,7 @@ def order_command(ctx, order_id: str):
 def orders_command(ctx, pair: str | None, status: str | None, limit: int):
     """List orders from external exchange"""
     try:
-        orders = [{"order_id": "1", "status": "filled", "pair": "AITBC/BTC"}]
+        orders = [{"order_id": "1", "status": "filled", "pair": "AITBC/ETH"}]
         output(orders, title="Orders")
     except Exception as e:
         error(f"Error: {e}")

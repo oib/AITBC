@@ -69,10 +69,10 @@ class TestBlockchainCache:
         """Test market data cache key generation"""
         cache = BlockchainCache()
 
-        key = cache.generate_market_data_key("spot", "BTC-USD")
+        key = cache.generate_market_data_key("spot", "ETH-USD")
         assert "market_data" in key
         assert "spot" in key
-        assert "BTC-USD" in key
+        assert "ETH-USD" in key
 
     def test_cache_ttl_defaults(self):
         """Test that cache TTL defaults are appropriate for different data types"""

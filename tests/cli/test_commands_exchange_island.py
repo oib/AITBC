@@ -108,7 +108,7 @@ class TestExchangeIslandCommands:
                 "side": "buy",
                 "amount": 10.0,
                 "max_price": 0.001,
-                "pair": "AIT/BTC",
+                "pair": "AIT/ETH",
                 "status": "open",
                 "user_id": "user1",
             },

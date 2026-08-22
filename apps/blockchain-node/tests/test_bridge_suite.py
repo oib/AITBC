@@ -386,12 +386,14 @@ class TestBridgeFailClosedDefaults:
 
         assert ChainSettings.model_fields["bridge_release_enabled"].default is False
 
-    def test_escrow_disabled_by_default(self) -> None:
+    def test_escrow_enabled_by_default(self) -> None:
         from aitbc_chain.config import ChainSettings
 
-        assert ChainSettings.model_fields["escrow_enabled"].default is False
+        # Escrow is enabled by default so paid AI jobs are protected by default.
+        assert ChainSettings.model_fields["escrow_enabled"].default is True
 
-    def test_multi_validator_consensus_disabled_by_default(self) -> None:
+    def test_multi_validator_consensus_enabled_by_default(self) -> None:
         from aitbc_chain.config import ChainSettings
 
-        assert ChainSettings.model_fields["multi_validator_consensus_enabled"].default is False
+        # P1.4: multi-validator consensus is enabled by default; operator can disable.
+        assert ChainSettings.model_fields["multi_validator_consensus_enabled"].default is True
