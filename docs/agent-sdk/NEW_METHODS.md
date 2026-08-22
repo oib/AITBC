@@ -111,7 +111,7 @@ swarm_id = agent.create_swarm(name="compute-swarm", max_agents=10)
 stake_id = agent.add_stake(amount=100.0, validator_id="val1")
 
 # Cross-chain
-bridge_id = agent.create_island_bridge(name="eth-btc", source_chain="eth", target_chain="btc")
+bridge_id = agent.create_island_bridge(name="eth-aitbc", source_chain="eth", target_chain="aitbc")
 transfer_id = agent.execute_bridge_transfer(bridge_id, amount=1.0, token="ETH")
 
 # Database

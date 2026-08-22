@@ -174,7 +174,7 @@ List job receipts
 ### Exchange Endpoints
 
 `POST /v1/exchange/create-payment`
-Create Bitcoin payment request
+Create Ethereum deposit request
 
 `GET /v1/exchange/payment-status/{id}`
 Check payment status
@@ -226,8 +226,8 @@ SECRET_KEY=<YOUR_SECRET_KEY>
 API_KEYS=key1,key2,key3
 
 # Exchange
-BITCOIN_ADDRESS=tb1qxy2...
-BTC_TO_AITBC_RATE=100000
+ETHEREUM_ADDRESS=0x0000...
+ETH_TO_AITBC_RATE=100000
 ```
 
 ## Deployment

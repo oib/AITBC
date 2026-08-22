@@ -31,7 +31,7 @@ The wallet-coordinator integration for job payments has been successfully implem
 
 - Jobs can be created with `payment_amount` and `payment_currency`
 - Payment status tracked in job model
-- Automatic escrow creation for Bitcoin payments
+- Automatic escrow creation for Ethereum deposits
 
 ### 3. Escrow Service ✅
 
@@ -49,7 +49,7 @@ The wallet-coordinator integration for job payments has been successfully implem
 
 The payment flow test now:
 
-1. Creates a job with 0.001 BTC payment
+1. Creates a job with 0.001 ETH deposit
 2. Verifies payment creation and escrow
 3. Retrieves payment details
 4. Tests payment release (gracefully handles wallet daemon availability)

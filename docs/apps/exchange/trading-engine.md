@@ -103,7 +103,7 @@ Content-Type: application/json
 
 {
   "user_id": "string",
-  "symbol": "BTC_AIT",
+  "symbol": "ETH_AIT",
   "side": "buy|sell",
   "type": "limit|market|stop",
   "quantity": 100,
@@ -129,7 +129,7 @@ GET /api/v1/trading/orders/{order_id}
 #### Get Trade History
 
 ```http
-GET /api/v1/trading/trades?symbol=BTC_AIT&limit=100
+GET /api/v1/trading/trades?symbol=ETH_AIT&limit=100
 ```
 
 #### Get User Trades
