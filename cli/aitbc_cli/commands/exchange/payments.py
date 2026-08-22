@@ -9,21 +9,21 @@ from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 
 def create_payment_command(
-    ctx, aitbc_amount: Decimal | None, btc_amount: Decimal | None, user_id: str | None, notes: str | None
+    ctx, aitbc_amount: Decimal | None, eth_amount: Decimal | None, user_id: str | None, notes: str | None
 ):
-    """Create a Bitcoin payment request for AITBC purchase"""
+    """Create a Ethereum payment request for AITBC purchase"""
     config = ctx.obj["config"]
 
     if aitbc_amount is not None and aitbc_amount <= 0:
         error("AITBC amount must be greater than 0")
         return
 
-    if btc_amount is not None and btc_amount <= 0:
-        error("BTC amount must be greater than 0")
+    if eth_amount is not None and eth_amount <= 0:
+        error("ETH amount must be greater than 0")
         return
 
-    if not aitbc_amount and not btc_amount:
-        error("Either --aitbc-amount or --btc-amount must be specified")
+    if not aitbc_amount and not eth_amount:
+        error("Either --aitbc-amount or --eth-amount must be specified")
         return
 
     try:
@@ -31,17 +31,17 @@ def create_payment_command(
         rates = http_client.get("/exchange/rates")
         # the rate arrives as a JSON number; convert once rather than dividing a Decimal
         # by a float, which raises
-        btc_to_aitbc = Decimal(str(rates.get("btc_to_aitbc", 100000)))
+        eth_to_aitbc = Decimal(str(rates.get("eth_to_aitbc", 100000)))
 
-        if aitbc_amount and not btc_amount:
-            btc_amount = aitbc_amount / btc_to_aitbc
-        elif btc_amount and not aitbc_amount:
-            aitbc_amount = btc_amount * btc_to_aitbc
+        if aitbc_amount and not eth_amount:
+            eth_amount = aitbc_amount / eth_to_aitbc
+        elif eth_amount and not aitbc_amount:
+            aitbc_amount = eth_amount * eth_to_aitbc
 
         payment_data = {
             "user_id": user_id or "cli_user",
             "aitbc_amount": str(aitbc_amount) if aitbc_amount is not None else None,
-            "btc_amount": str(btc_amount) if btc_amount is not None else None,
+            "eth_amount": str(eth_amount) if eth_amount is not None else None,
         }
 
         if notes:
@@ -49,7 +49,7 @@ def create_payment_command(
 
         payment = http_client.post("/exchange/create-payment", json=payment_data)
         success(f"Payment created: {payment.get('payment_id')}")
-        success(f"Send {btc_amount:.8f} BTC to: {payment.get('payment_address')}")
+        success(f"Send {eth_amount:.8f} ETH to: {payment.get('payment_address')}")
         success(f"Expires at: {payment.get('expires_at')}")
         output(payment, ctx.obj["output_format"])
     except NetworkError as e:
