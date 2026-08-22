@@ -43,7 +43,7 @@ class PriceResponse(BaseModel):
 
 @router.get("/price/{pair}", response_model=PriceResponse, summary="Get price for pair")
 async def get_price(request: Request, pair: str) -> dict[str, Any]:
-    """Get current price for a trading pair (e.g., BTC/USD)"""
+    """Get current price for a trading pair (e.g., ETH/USD)"""
     try:
         oracle = get_oracle_service()
         price = await oracle.get_price(pair)
