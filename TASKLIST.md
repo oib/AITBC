@@ -18,9 +18,10 @@
 - [x] P1.4 — MultiValidatorPoA/PBFT soak and single-proposer dependence
 
 Latest pushed commits:
+- 2dad81646 test(coordinator,docs): close out P1.1 Phase B with regression tests and docs
+- 633b3f12d fix(coordinator): valid JSON default for TEE attestation/enclave meta columns
+- c27c6545b docs(design-cycle): reflect fixed pool-hub and escrow state
 - fdbd17f5c feat(coordinator,cli): P1.1 Phase B - reputation-aware job dispatch
-- 6191eaf3a feat(cli): aitbc dashboard customer and aitbc dashboard shop
-- 5bfbcd7c9 feat(governance,cli): close proposal lifecycle for propose → vote → close → execute
 
 
 # Open task list for AITBC agents
@@ -32,7 +33,7 @@ Latest pushed commits:
   - `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` are handled in state transitions.
   - Marketplace offers require an active bond when `MARKET_BOND_MIN_AMOUNT` > 0.
 
-- Live nodes: hub `hub.aitbc` is on gitea `main` at `bac4b6bd5` (clean). Shop `aitbc3` is at `c27c6545b` (clean, not yet fast-forwarded to `origin/main`).
+- Live nodes: hub `hub.aitbc` is on gitea `main` at `2dad81646` (clean). Shop `aitbc3` is at `c27c6545b` (clean, not yet fast-forwarded to `origin/main`).
 - P1.1 Phase B shipped: `JobService.acquire_next_job` defers to higher-reputation online miners, enforces `Constraints.min_reputation`, and `aitbc ai submit` exposes `--min-reputation`.
 - Scenario 34 was replayed 2026-08-20 from this session:
   - unpaid job `1363fff0bc4b48c6903bc46f54fe0a7a` completed on `aitbc-miner-1`
