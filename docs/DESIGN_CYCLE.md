@@ -65,7 +65,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
 | 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama inference live. Whisper/FFmpeg services exist, not in the default shop loop | Optional services |
-| 6. Verify result | ZK / TEE attestation | Result is trusted coordinator receipt. ZK circuits exist, not wired. TEE CLI exists, not wired | Verifiable compute |
+| 6. Verify result | ZK + TEE attestation | ZK `receipt_public` Groth16 proof is required and verified for high-value jobs. TEE attestation is required and verified for confidential jobs. Both gates block escrow release until verified. | Done |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, genesis-signed. Fee ~2.5% | Operator-key coupling (genesis signs release) |
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest` commands exist; not automatic | Autonomy (v0.12+ roadmap) |
@@ -161,7 +161,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 3. No automatic provider reinvestment or performance bonds (CLI shells only).
 4. Fee market is fixed; dynamic pricing was deprecated in v0.5.0.
 5. ~~Hub pool does not see shop miners (`miners_online: 0`).~~ Fixed — shop miner heartbeats to hub pool hub.
-6. Result verification is “coordinator says COMPLETED”, not ZK/TEE.
+6. ~~Result verification is “coordinator says COMPLETED”, not ZK/TEE.~~ Fixed — ZK proof required for high-value jobs; TEE attestation required for confidential jobs.
 
 ### Operations / trust
 
@@ -213,8 +213,8 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 | # | Wish | Why |
 |---|------|-----|
-| P2.1 | ZK proof required for high-value jobs (circuits already in tree) | Verifiable compute |
-| P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Roadmap v0.14 |
+| P2.1 | ZK proof required for high-value jobs (circuits already in tree) | Shipped: `receipt_public` circuit, `ZKProofService`, `--zk-proof-required`, `zk_status` gating, live-validated 2026-08-21. |
+| P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Shipped: `aitbc tee register/verify`, `--tee-attestation-required`, `--confidential`, `tee_status` gating, live-validated 2026-08-21. |
 | P2.3 | Performance bonds + slashing (`aitbc bond`) | Roadmap v0.12 |
 | P2.4 | Auto reinvest (`aitbc reinvest`) from released escrow | Provider growth |
 | P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Services exist |
@@ -232,4 +232,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-22 (P1.1 shipped; Phases 1–8; pool-hub, escrow, and dispatch table refreshed)*
+*Last updated: 2026-08-22 (P1.1 shipped; ZK/TEE verification gates validated; pool-hub, escrow, and dispatch table refreshed)*
