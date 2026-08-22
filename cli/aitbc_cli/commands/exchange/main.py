@@ -62,7 +62,7 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
 
 @exchange.command()
 @click.option("--base-asset", required=True, help="Base asset symbol (e.g., AITBC)")
-@click.option("--quote-asset", required=True, help="Quote asset symbol (e.g., BTC)")
+@click.option("--quote-asset", required=True, help="Quote asset symbol (e.g., ETH)")
 @click.option("--exchange", required=True, help="Exchange name")
 @click.option("--min-order-size", type=float, default=0.001, help="Minimum order size")
 @click.option("--price-precision", type=int, default=8, help="Price precision")
@@ -107,7 +107,7 @@ def create_pair(
 
 
 @exchange.command()
-@click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/BTC)")
+@click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/ETH)")
 @click.option("--price", type=DECIMAL, help="Initial price for the pair")
 @click.option("--base-liquidity", type=float, default=10000, help="Base asset liquidity amount")
 @click.option("--quote-liquidity", type=float, default=10000, help="Quote asset liquidity amount")
@@ -165,7 +165,7 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
 
 
 @exchange.command()
-@click.option("--pair", help="Trading pair symbol (e.g., AITBC/BTC)")
+@click.option("--pair", help="Trading pair symbol (e.g., AITBC/ETH)")
 @click.option("--exchange", help="Exchange name")
 @click.option("--real-time", is_flag=True, help="Enable real-time monitoring")
 @click.option("--interval", type=int, default=60, help="Update interval in seconds")
@@ -222,7 +222,7 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
 
 
 @exchange.command()
-@click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/BTC)")
+@click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/ETH)")
 @click.option("--amount", type=DECIMAL, required=True, help="Liquidity amount")
 @click.option("--side", type=click.Choice(["buy", "sell"]), default="both", help="Side to provide liquidity")
 @click.option("--exchange", help="Exchange name")
