@@ -90,8 +90,8 @@ class PaymentService:
                 except Exception as e:
                     logger.warning("Token escrow not available, skipping payment: %s", e)
                     payment.status = "skipped"
-            elif payment_data.payment_method == "bitcoin":
-                escrow = await self._create_bitcoin_escrow(payment)
+            elif payment_data.payment_method == "ethereum":
+                escrow = await self._create_crypto_escrow(payment)
                 if escrow is not None:
                     self.session.add(escrow)
             self.session.commit()
@@ -155,8 +155,8 @@ class PaymentService:
             logger.warning("Token escrow creation failed: %s", e)
             return None
 
-    async def _create_bitcoin_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
-        """Create an escrow for Bitcoin payments (exchange only)"""
+    async def _create_crypto_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
+        """Create an escrow for crypto payments (exchange only)"""
         try:
             client = AITBCHTTPClient(timeout=30.0)
             try:
@@ -178,16 +178,16 @@ class PaymentService:
                 if escrow is not None:
                     self.session.add(escrow)
                 self.session.commit()
-                logger.info("Created Bitcoin escrow for payment %s", payment.id)
+                logger.info("Created crypto escrow for payment %s", payment.id)
                 return escrow
             except NetworkError as e:
-                logger.error("Failed to create Bitcoin escrow: %s", e)
+                logger.error("Failed to create crypto escrow: %s", e)
                 payment.status = "failed"
                 payment.updated_at = datetime.now(UTC)
                 self.session.commit()
                 return None
         except Exception as e:
-            logger.error("Error creating Bitcoin escrow: %s", e)
+            logger.error("Error creating crypto escrow: %s", e)
             payment.status = "failed"
             payment.updated_at = datetime.now(UTC)
             self.session.commit()
