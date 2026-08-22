@@ -224,9 +224,15 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
                 "contract_id": contract_id,
                 "buyer_escrow_addr": buyer,
                 "provider_escrow_addr": provider,
-                "released_at": datetime.now(UTC).isoformat(),
             },
         }
+        # The payload carries no wall-clock timestamp on purpose: an identical retry
+        # must hash identically so the mempool deduplicates it (mempool.add returns the
+        # existing hash for a duplicate). Two concurrent release attempts would otherwise
+        # build two different transactions sharing one nonce, and admission validates the
+        # nonce against the account -- which has not advanced while the first is pending --
+        # so both would be admitted and the provider paid twice. Settlement time is
+        # recoverable from the including block; the local escrow row keeps released_at.
         # Sign with the configured non-genesis settlement key (or genesis as fallback).
         signing_hash = _compute_tx_signing_hash(tx)
         tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
