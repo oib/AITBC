@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import select
+from sqlalchemy import literal_column
 
 from aitbc.rate_limiting import rate_limit
 
@@ -50,6 +51,15 @@ class TransactionRequest(BaseModel):
 
         values["payload"] = payload
         return values
+
+
+# Kept in step with migration b7f3c1a90d24, which builds ix_transaction_payload_job_id
+# on exactly these expressions. If either side changes, the planner silently stops using
+# the index -- verify with EXPLAIN QUERY PLAN, which should report SEARCH, not SCAN.
+_JOB_ID_INDEX_EXPRESSIONS = {
+    "sqlite": """json_extract(payload, '$."job_id"')""",
+    "postgresql": """(payload ->> 'job_id')""",
+}
 
 
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
@@ -253,7 +263,16 @@ async def query_transactions(
     _logger.info(f"Query transactions - resolved_chain_id: {resolved_chain_id}")
 
     with session_scope() as session:
-        query = select(Transaction).where(Transaction.chain_id == resolved_chain_id)
+        # Newest first. `limit` is applied after the payload filters below, so with the
+        # natural (ascending id) order a bounded query returned the OLDEST rows and
+        # silently omitted recent ones -- a caller asking for "the last 40 releases" got
+        # the first 40 instead. Settlement depended on that answer to decide whether a job
+        # had already been paid.
+        query = (
+            select(Transaction)
+            .where(Transaction.chain_id == resolved_chain_id)
+            .order_by(Transaction.id.desc())  # type: ignore[union-attr]
+        )
         if address:
             from ..base_models import address_spellings
             spellings = address_spellings(address)
@@ -261,10 +280,19 @@ async def query_transactions(
 
         if job_id is not None:
             # Filter in SQL, not in Python: the other payload filters below load every
-            # transaction on the chain first. Settlement asks this question before
-            # paying a provider, and the expression matches the
-            # ix_transaction_payload_job_id index (payload ->> 'job_id').
-            query = query.where(Transaction.payload["job_id"].as_string() == job_id)  # type: ignore[index]
+            # transaction on the chain first. Settlement asks this question before paying
+            # a provider, so it has to stay cheap.
+            #
+            # The JSON *path* is inlined rather than bound. SQLModel's
+            # `payload["job_id"].as_string()` binds the path as a parameter, and neither
+            # SQLite nor Postgres can match a parameterised path against an expression
+            # index built on a literal one -- the plan degrades to a full scan. The
+            # searched value stays bound; only the fixed path is inline.
+            expression = _JOB_ID_INDEX_EXPRESSIONS.get(session.get_bind().dialect.name)
+            if expression is not None:
+                query = query.where(literal_column(expression) == job_id)
+            else:
+                query = query.where(Transaction.payload["job_id"].as_string() == job_id)  # type: ignore[index]
 
         _logger.info(f"Query: {query}")
 
@@ -317,7 +345,7 @@ async def query_transactions(
                 }
             )
 
-        # Apply limit
+        # Apply limit (results are newest-first, so this keeps the most recent rows)
         if limit:
             results = results[:limit]
 
