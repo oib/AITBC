@@ -51,7 +51,7 @@ class JobPaymentCreate(BaseModel):
     @classmethod
     def validate_currency(cls, v: str) -> str:
         """Validate currency code"""
-        allowed_currencies = ["AITBC", "BTC", "ETH", "USDT"]
+        allowed_currencies = ["AITBC", "ETH", "USDT"]
         if v.upper() not in allowed_currencies:
             raise ValueError(f"Currency must be one of: {allowed_currencies}")
         return v.upper()
@@ -81,7 +81,7 @@ class PaymentRequest(BaseModel):
 
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
     amount: Decimal = Field(..., gt=Decimal("0"), le=Decimal("1000000"), description="Payment amount")
-    currency: str = Field(default="BTC", description="Payment currency")
+    currency: str = Field(default="ETH", description="Payment currency")
     refund_address: str | None = Field(None, min_length=1, max_length=255, description="Refund address")
 
     @field_validator("job_id")
@@ -96,8 +96,8 @@ class PaymentRequest(BaseModel):
     @classmethod
     def validate_amount(cls, v: Decimal) -> Decimal:
         """Validate payment amount"""
-        if v < Decimal("0.0001"):  # Minimum BTC amount
-            raise ValueError("Minimum payment amount is 0.0001")
+        if v < Decimal("0.0001"):  # Minimum ETH amount
+            raise ValueError("Minimum payment amount is 0.0001 ETH")
         return round(v, 8)
 
     @field_validator("refund_address")
@@ -106,9 +106,9 @@ class PaymentRequest(BaseModel):
         """Validate refund address format"""
         if v is None:
             return v
-        # Basic Bitcoin address validation
-        if not re.match(r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{8,87}$", v):
-            raise ValueError("Invalid Bitcoin address format")
+        # Basic Ethereum / AITBC address validation
+        if not re.match(r"^0x[a-fA-F0-9]{40}$", v):
+            raise ValueError("Invalid Ethereum address format")
         return v
 
 

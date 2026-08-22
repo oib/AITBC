@@ -477,7 +477,7 @@ def get_surveillance_summary() -> dict[str, Any]:
 async def test_trading_surveillance() -> None:
     """Test trading surveillance system"""
     logger.info("Testing Trading Surveillance System")
-    await start_surveillance(["BTC/USDT", "ETH/USDT"])
+    await start_surveillance(["ETH/USDT"])
     logger.info("Surveillance started")
     await asyncio.sleep(5)
     alerts = get_alerts()

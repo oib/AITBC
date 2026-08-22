@@ -193,7 +193,7 @@ class CacheWarmer:
     async def warm_exchange_rates(self) -> None:
         """Warm up exchange rates cache"""
         try:
-            rates = {"AITBC_BTC": 1e-05, "AITBC_USD": 0.1}
+            rates = {"AITBC_ETH": 1e-05, "AITBC_USD": 0.1}
             cache_manager.set("exchange_rates_current", rates, ttl_seconds=600)
             logger.info("Exchange rates cache warmed up")
         except Exception as e:
