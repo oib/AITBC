@@ -153,8 +153,47 @@ class BridgeMixin:
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
+    def _verify_bridge_withdrawal_signatures(self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]]) -> tuple[bool, int]:
+        """Verify 2-of-n multi-sig signatures for an AIT→ETH bridge withdrawal."""
+        raw_signers = os.getenv("BRIDGE_SIGNERS", "")
+        if not raw_signers:
+            return (True, 0)  # no multi-sig configured; gate is open
+
+        signers = {s.strip().lower() for s in raw_signers.split(",") if s.strip()}
+        threshold = int(os.getenv("BRIDGE_MULTISIG_THRESHOLD", "2"))
+        if threshold <= 0:
+            return (True, 0)
+
+        try:
+            from eth_keys import keys
+        except Exception as e:
+            # eth_keys not available; cannot verify signatures
+            return (False, 0)
+
+        message = f"BRIDGE_WITHDRAW:{eth_address}:{ait_amount}".encode("utf-8")
+        valid = set()
+        for sig in signatures:
+            try:
+                sig_hex = sig.get("signature", "").removeprefix("0x")
+                if not sig_hex:
+                    continue
+                signature = keys.Signature(bytes.fromhex(sig_hex))
+                public_key = signature.recover_public_key_from_msg(message)
+                addr = public_key.to_address().lower()
+                if addr in signers:
+                    valid.add(addr)
+            except Exception:
+                continue
+
+        return (len(valid) >= threshold, len(valid))
+
     def handle_bridge_withdraw(self):
-        """POST /v1/bridge/withdraw — initiate AIT→ETH bridge withdrawal (DISABLED)"""
+        """POST /v1/bridge/withdraw — initiate AIT→ETH bridge withdrawal (DISABLED).
+
+        When BRIDGE_WITHDRAW_ENABLED is false this still validates any provided
+        multi-sig signatures and returns the validation result, so integrators can
+        test the 2-of-3 policy before withdrawals go live.
+        """
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
@@ -169,21 +208,50 @@ class BridgeMixin:
                 self.send_json_response({"error": "ait_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
                 return
             eth_address = body.get("eth_address", "")
+            signatures = body.get("signatures", [])
 
             if ait_amount <= 0 or not eth_address:
                 self.send_json_response({"error": "ait_amount and eth_address required"}, status=400)  # type: ignore[attr-defined]
                 return
 
-            # Feature is disabled
+            # P1.3: require multi-sig threshold before any withdrawal can proceed
+            ok, valid_count = self._verify_bridge_withdrawal_signatures(eth_address, ait_amount, signatures)
+            if not ok:
+                self.send_json_response(  # type: ignore[attr-defined]
+                    {
+                        "status": "forbidden",
+                        "message": f"Bridge withdrawal requires {os.getenv('BRIDGE_MULTISIG_THRESHOLD', '2')} valid signer signatures; got {valid_count}.",
+                        "required_signatures": int(os.getenv("BRIDGE_MULTISIG_THRESHOLD", "2")),
+                        "valid_signatures": valid_count,
+                    },
+                    status=403,
+                )
+                return
+
+            if os.getenv("BRIDGE_WITHDRAW_ENABLED", "").lower() != "true":
+                self.send_json_response(  # type: ignore[attr-defined]
+                    {
+                        "status": "disabled",
+                        "message": "AIT→ETH withdrawals are currently disabled. Only ETH→AIT deposits are supported.",
+                        "reason": "Withdrawal functionality not yet enabled",
+                        "supported_direction": "ETH → AIT (deposits only)",
+                        "deposit_endpoint": "/v1/bridge/deposit",
+                        "signatures_valid": valid_count,
+                    },
+                    status=503,
+                )
+                return
+
+            # Withdrawals are enabled and multi-sig is satisfied. The release path
+            # is intentionally a stub until the Ethereum bridge contract is deployed.
             self.send_json_response(  # type: ignore[attr-defined]
                 {
-                    "status": "disabled",
-                    "message": "AIT→ETH withdrawals are currently disabled. Only ETH→AIT deposits are supported.",
-                    "reason": "Withdrawal functionality not yet enabled",
-                    "supported_direction": "ETH → AIT (deposits only)",
-                    "deposit_endpoint": "/v1/bridge/deposit",
+                    "status": "not_implemented",
+                    "message": "Withdrawal multi-sig accepted; on-chain release is not yet deployed.",
+                    "eth_address": eth_address,
+                    "ait_amount": str(ait_amount),
                 },
-                status=503,
+                status=501,
             )
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]

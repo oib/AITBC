@@ -24,13 +24,13 @@ def test_analyze_market_endpoint():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "bullish"
 
-            response = client.post("/api/ai/analyze", json={"symbol": "AITBC/BTC", "analysis_type": "full"})
+            response = client.post("/api/ai/analyze", json={"symbol": "AITBC/ETH", "analysis_type": "full"})
 
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "success"
             assert "analysis" in data
-            assert data["analysis"]["symbol"] == "AITBC/BTC"
+            assert data["analysis"]["symbol"] == "AITBC/ETH"
 
 
 @pytest.mark.integration
@@ -43,13 +43,13 @@ def test_execute_ai_trade_endpoint():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "bullish"
 
-            response = client.post("/api/ai/trade", json={"symbol": "AITBC/BTC", "strategy": "ai_enhanced"})
+            response = client.post("/api/ai/trade", json={"symbol": "AITBC/ETH", "strategy": "ai_enhanced"})
 
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "success"
             assert "decision" in data
-            assert data["decision"]["symbol"] == "AITBC/BTC"
+            assert data["decision"]["symbol"] == "AITBC/ETH"
             assert "signal" in data["decision"]
 
 
@@ -63,7 +63,7 @@ def test_predict_market_endpoint():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "bullish"
 
-            response = client.get("/api/ai/predict/AITBC-BTC")
+            response = client.get("/api/ai/predict/AITBC-ETH")
 
             assert response.status_code == 200
             data = response.json()
@@ -86,7 +86,7 @@ def test_get_ai_dashboard_endpoint():
         patch.object(ai_engine, "make_trading_decision") as mock_decision,
     ):
         mock_analyze.return_value = {
-            "symbol": "AITBC/BTC",
+            "symbol": "AITBC/ETH",
             "current_price": 0.005,
             "price_change_24h": 0.02,
             "volume_24h": 5000,
@@ -102,7 +102,7 @@ def test_get_ai_dashboard_endpoint():
         }
 
         mock_decision.return_value = {
-            "symbol": "AITBC/BTC",
+            "symbol": "AITBC/ETH",
             "signal": "buy",
             "confidence": 0.5,
             "quantity": 500,

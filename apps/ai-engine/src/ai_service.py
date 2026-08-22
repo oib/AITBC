@@ -226,7 +226,7 @@ async def get_ai_dashboard(
     """Simulated dashboard overview. Every figure is randomly generated."""
     try:
         # Generate dashboard data
-        symbols = ["AITBC/BTC", "AITBC/ETH", "AITBC/USDT"]
+        symbols = ["AITBC/ETH", "AITBC/ETH", "AITBC/USDT"]
         dashboard_data = {
             "market_overview": {
                 "total_volume": np.random.uniform(100000, 1000000),
