@@ -67,7 +67,7 @@ class ChainlinkAdapter:
 
     PRICE_FEEDS = {
         "ETH/USD": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
-        "BTC/USD": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
+
         "LINK/USD": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
         "DAI/USD": "0xAed0c38402a5d7df9586C690b38Fc32549649B6F",
         "USDC/USD": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
@@ -146,7 +146,7 @@ class AggregatedPriceFeed:
         Get price for a trading pair.
 
         Args:
-            pair: Trading pair (e.g., "BTC/USD")
+            pair: Trading pair (e.g., "ETH/USD")
             max_age_seconds: Maximum age of cached price
 
         Returns:
@@ -167,7 +167,7 @@ class AggregatedPriceFeed:
 
     async def get_all_prices(self) -> dict[str, PriceData]:
         """Get all available prices"""
-        pairs = ["BTC/USD", "ETH/USD", "LINK/USD", "USDC/USD", "AITBC/USD"]
+        pairs = ["ETH/USD", "LINK/USD", "USDC/USD", "AITBC/USD"]
         for pair in pairs:
             await self.get_price(pair)
         return dict(self._prices)
@@ -185,7 +185,6 @@ class AggregatedPriceFeed:
     async def _fetch_from_api(self, pair: str) -> PriceData | None:
         """Fetch price from external API (CoinGecko)"""
         coin_map = {
-            "BTC/USD": "bitcoin",
             "ETH/USD": "ethereum",
             "LINK/USD": "chainlink",
             "USDC/USD": "usd-coin",

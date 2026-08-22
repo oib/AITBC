@@ -150,7 +150,7 @@ class PortfolioAggregationService:
         """Fetch AI trade signals from AI service"""
         try:
             response = await self.http_client.post(
-                f"{self.ai_service_url}/api/ai/trade", json={"symbol": "AITBC/BTC", "strategy": "ai_enhanced"}
+                f"{self.ai_service_url}/api/ai/trade", json={"symbol": "AITBC/ETH", "strategy": "ai_enhanced"}
             )
             if response.status_code == 200:
                 data = response.json()
@@ -191,8 +191,8 @@ class PortfolioAggregationService:
             wallets = wallet_data.get("wallets", [])
             total_aitbc_balance = wallet_data.get("total_balance", len(wallets))
             rates = exchange_data.get("rates", {})
-            aitbc_btc_rate = rates.get("BTC/AITBC", {}).get("rate", 1e-05)
-            btc_value = total_aitbc_balance * aitbc_btc_rate
+            aitbc_eth_rate = rates.get("ETH/AITBC", {}).get("rate", 1e-05)
+            eth_value = total_aitbc_balance * aitbc_eth_rate
             marketplace_offers = marketplace_data.get("offers", 0)
             marketplace_bids = marketplace_data.get("bids", 0)
             marketplace_capacity = marketplace_data.get("capacity", 0)
@@ -206,8 +206,8 @@ class PortfolioAggregationService:
                 avg_signal_confidence = sum(s.get("confidence", 0) for s in signals) / len(signals)
             return {
                 "total_aitbc_balance": total_aitbc_balance,
-                "btc_equivalent": btc_value,
-                "exchange_rate": aitbc_btc_rate,
+                "eth_equivalent": eth_value,
+                "exchange_rate": aitbc_eth_rate,
                 "marketplace_exposure": {
                     "offers": marketplace_offers,
                     "bids": marketplace_bids,
@@ -222,7 +222,7 @@ class PortfolioAggregationService:
             }
         except Exception as e:
             logger.error("Error calculating portfolio summary: %s", str(e))
-            return {"total_aitbc_balance": 0, "btc_equivalent": 0, "exchange_rate": 0, "error": str(e)}
+            return {"total_aitbc_balance": 0, "eth_equivalent": 0, "exchange_rate": 0, "error": str(e)}
 
     async def close(self) -> None:
         """Close HTTP client"""
