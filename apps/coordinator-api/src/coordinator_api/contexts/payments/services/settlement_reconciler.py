@@ -77,8 +77,11 @@ class SettlementReconciler:
         from .payments import PaymentService
 
         counts = {"retried": 0, "settled": 0, "failed": 0}
+        scanned = 0
         with self._session_factory() as session:
-            for job in self._find_unsettled(session):
+            candidates = self._find_unsettled(session)
+            scanned = len(candidates)
+            for job in candidates:
                 if not job.payment_id:
                     continue
                 counts["retried"] += 1
@@ -99,6 +102,13 @@ class SettlementReconciler:
                 else:
                     counts["failed"] += 1
                     logger.warning("Job %s still unsettled after retry; leaving it escrowed", job.id)
+        # Heartbeat. A pass with nothing to do logs nothing else, so at info level
+        # "ran clean" and "the task died" are indistinguishable. Debug so a normal
+        # deployment stays quiet but an operator can prove the loop is alive.
+        logger.debug(
+            "Settlement reconciliation pass complete: scanned=%s retried=%s settled=%s failed=%s",
+            scanned, counts["retried"], counts["settled"], counts["failed"],
+        )
         return counts
 
     async def run_forever(self) -> None:
