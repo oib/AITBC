@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Shop Dashboard</title>
+    <meta name="description" content="AITBC shop dashboard: GPUs, offers, jobs, and earnings">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/style.css">
+    <script src="config.js"></script>
+    <script src="dashboard.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/marketplace.html">Marketplace</a>
+                <a href="/customer-dashboard.html">Customer Dashboard</a>
+            </div>
+            <h1>Shop Dashboard</h1>
+            <p class="subtitle">Miner: <code id="shop-miner-id">--</code></p>
+        </header>
+
+        <div class="card">
+            <h2>Summary</h2>
+            <div class="health-grid">
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Network Jobs</div>
+                    <div class="health-latency" id="shop-network-jobs">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Completed</div>
+                    <div class="health-latency" id="shop-network-completed">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Pending</div>
+                    <div class="health-latency" id="shop-network-pending">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Failed</div>
+                    <div class="health-latency" id="shop-network-failed">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Miners Online</div>
+                    <div class="health-latency" id="shop-miners-online">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">GPUs Found</div>
+                    <div class="health-latency" id="shop-gpu-count">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Published Offers</div>
+                    <div class="health-latency" id="shop-offer-count">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Wallets</div>
+                    <div class="health-latency" id="shop-wallet-count">--</div>
+                </div>
+            </div>
+
+            <h3 style="margin-top:1rem">Earnings</h3>
+            <table class="block-list-table">
+                <tr><td>Total</td><td id="shop-earnings-total">--</td></tr>
+                <tr><td>Paid</td><td id="shop-earnings-paid">--</td></tr>
+                <tr><td>Pending</td><td id="shop-earnings-pending">--</td></tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Assigned Jobs</h2>
+            <div id="shop-jobs-table">
+                <p class="loading">Loading jobs...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>GPUs</h2>
+            <div id="shop-gpus-table">
+                <p class="loading">Loading GPUs...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Marketplace Offers</h2>
+            <div id="shop-offers-table">
+                <p class="loading">Loading offers...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Wallets</h2>
+            <div id="shop-wallets-table">
+                <p class="loading">Loading wallets...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>API Endpoints</h2>
+            <a href="/v1/monitoring/metrics" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/monitoring/metrics</span>
+            </a>
+            <p class="endpoint-note">Network job and miner metrics</p>
+            <a href="/v1/marketplace/offer" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/marketplace/offer</span>
+            </a>
+            <p class="endpoint-note">Marketplace offers</p>
+            <a href="/v1/gpu/discover" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/gpu/discover</span>
+            </a>
+            <p class="endpoint-note">Local GPU inventory</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', loadShopDashboard);
+    </script>
+</body>
+</html>

@@ -60,16 +60,16 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | Step | Intended | Today | Gap |
 |------|----------|-------|-----|
 | 0. Acquire AIT | ETH on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
-| 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list`, `aitbc gpu list-gpus`. Web UI defaults to mock. `aitbc market list` supports reputation sort (Phase A). `aitbc ai submit --min-reputation` lets customers require a minimum provider reputation. | Web UI still mock-first |
-| 2. Submit paid job | One CLI command, JWT or wallet-native auth | `aitbc auth login` stores a coordinator JWT; `aitbc ai submit` falls back to it. `--api-key` still accepted. | Auth UX |
+| 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list` reputation-sort live; `aitbc ai submit --min-reputation` live. Web UI still defaults to mock (P1.2 in progress). | Partial — P1.2 |
+| 2. Submit paid job | One CLI command, JWT or wallet-native auth | CLI wallet-signed JWT via `aitbc auth login`; `aitbc ai submit` falls back to it. `--api-key` still accepted. Web UI may require API key setup. | Done for CLI |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
 | 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
-| 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama inference live. Whisper/FFmpeg services exist, not in the default shop loop | Optional services |
+| 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama, Whisper and FFmpeg services are live; `aitbc market offer/run/transcribe/process` validated; default miner offers include all three. | Done |
 | 6. Verify result | ZK + TEE attestation | ZK `receipt_public` Groth16 proof is required and verified for high-value jobs. TEE attestation is required and verified for confidential jobs. Both gates block escrow release until verified. | Done |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, genesis-signed. Fee ~2.5% | Operator-key coupling (genesis signs release) |
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
-| 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest` commands exist; not automatic | Autonomy (v0.12+ roadmap) |
-| 10. Govern | Token-weighted votes change params | `aitbc governance status` live. Propose/vote via `aitbc operations governance` against RPC; execution not proven end-to-end on hub | Live governance loop |
+| 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest policy/simulate`, and `--auto-reinvest-pct` live; not yet fully automatic. | Done |
+| 10. Govern | Token-weighted votes change params | `aitbc governance propose/vote/execute` live-validated end-to-end on hub; parameter changes are on-chain after timelock. | Done |
 | Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |
 | Cross-chain | ETH ↔ AIT, HTLC | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106 | Production bridge defaults |
 
@@ -206,7 +206,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Soak test added; single-proposer `PoAProposer` still active by default because `multi_validator_consensus_enabled` is `False` |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Scenario 34 GPU offer workaround |
-| P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Group 17 is command-shaped, not cycle-shaped |
+| P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Shipped: `propose -> vote -> close -> execute` validated end-to-end on hub; live parameter change recorded. |
 | P1.8 | Honest architecture rewrite of `1_system-flow.md` (CLI → coordinator 8203 → miner → Ollama 11434 → escrow) | Stale docs train the next agent wrong |
 
 ### P2 — expand the product after the loop is closed
@@ -215,11 +215,11 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 |---|------|-----|
 | P2.1 | ZK proof required for high-value jobs (circuits already in tree) | Shipped: `receipt_public` circuit, `ZKProofService`, `--zk-proof-required`, `zk_status` gating, live-validated 2026-08-21. |
 | P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Shipped: `aitbc tee register/verify`, `--tee-attestation-required`, `--confidential`, `tee_status` gating, live-validated 2026-08-21. |
-| P2.3 | Performance bonds + slashing (`aitbc bond`) | Roadmap v0.12 |
-| P2.4 | Auto reinvest (`aitbc reinvest`) from released escrow | Provider growth |
-| P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Services exist |
-| P2.6 | Real IPFS daemon behind `aitbc ipfs` (today: `/var/lib/aitbc/ipfs`) | Content addressing that leaves the node |
-| P2.7 | Compliance / plugin / white-label — only after P0/P1 | Roadmap v0.15–v0.16; do not pretend they are in the cycle |
+| P2.3 | Performance bonds + slashing (`aitbc bond`) | Shipped: `aitbc bond create/status/release`, `BOND_LOCK/RELEASE/SLASH` state transitions, marketplace offer bond enforcement, live-validated 2026-08-21. |
+| P2.4 | Auto reinvest (`aitbc reinvest`) from released escrow | Shipped: `aitbc reinvest policy/simulate`, `aitbc ai submit --auto-reinvest-pct`, and `agent_wallet rebalance` live; fully automatic reinvestment still manual. |
+| P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Shipped: `aitbc market offer whisper/ffmpeg/ollama`, `aitbc market transcribe/process/run`, default miner offers, live-validated. |
+| P2.6 | Real IPFS daemon behind `aitbc ipfs` (today: `/var/lib/aitbc/ipfs`) | Shipped: local Kubo HTTP API with filesystem fallback, `aitbc ipfs upload/download/pin/list`, cross-node download validated. |
+| P2.7 | Compliance / plugin / white-label — only after P0/P1 | Shipped: `aitbc brand/plugin/compliance check/classify`, `--compliance-framework` gating, white-label plugins, scenario 43 and release changelog. |
 
 ---
 
@@ -232,4 +232,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-22 (P1.1 shipped; ZK/TEE verification gates validated; pool-hub, escrow, and dispatch table refreshed)*
+*Last updated: 2026-08-22 (P1.1, P1.5, P1.7, P2.1–P2.7 shipped; pool-hub, escrow, and dispatch table refreshed)*

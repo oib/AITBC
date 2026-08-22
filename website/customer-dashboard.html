@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Customer Dashboard</title>
+    <meta name="description" content="AITBC customer dashboard: jobs, payments, and wallet balances">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/style.css">
+    <script src="config.js"></script>
+    <script src="dashboard.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/marketplace.html">Marketplace</a>
+                <a href="/shop-dashboard.html">Shop Dashboard</a>
+            </div>
+            <h1>Customer Dashboard</h1>
+            <p class="subtitle">Live jobs, payments, and wallets</p>
+        </header>
+
+        <div class="card">
+            <h2>Summary</h2>
+            <div class="health-grid">
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Total Jobs</div>
+                    <div class="health-latency" id="cust-total-jobs">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Job States</div>
+                    <div class="health-latency" id="cust-job-states" style="font-size:0.75rem">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Payment Statuses</div>
+                    <div class="health-latency" id="cust-payment-statuses" style="font-size:0.75rem">--</div>
+                </div>
+                <div class="health-item">
+                    <div class="health-status ok"></div>
+                    <div class="health-name">Wallets</div>
+                    <div class="health-latency" id="cust-wallet-count">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Recent Jobs</h2>
+            <div id="cust-jobs-table">
+                <p class="loading">Loading jobs...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Wallets</h2>
+            <div id="cust-wallets-table">
+                <p class="loading">Loading wallets...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>API Endpoints</h2>
+            <a href="/v1/jobs" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/jobs</span>
+            </a>
+            <p class="endpoint-note">List recent jobs for this customer</p>
+            <a href="/v1/wallets" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/wallets</span>
+            </a>
+            <p class="endpoint-note">List wallet balances</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', loadCustomerDashboard);
+    </script>
+</body>
+</html>
