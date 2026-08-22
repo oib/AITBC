@@ -214,23 +214,14 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Maintainer**: @root
 **Recent Activity**: Last activity: 2025-05-23
 
-## Archived Applications
-
-### PeerTube Transcoder
-
-**Path**: `apps/archive/peertube-transcoder`
-**Status**: archived
-**Reason**: Planned for reactivation after v0.5
-**Note**: See [DEPRECATED.md](../../apps/archive/peertube-transcoder/DEPRECATED.md) for details
-
 ## Summary
 
-- **Total Applications**: 25
+- **Total Applications**: 24
 - **Active**: 22
 - **Under Development**: 2
 - **Shared Libraries**: 2
 - **Experimental**: 1
-- **Archived**: 1
+- **Archived**: 0
 
 All active applications have recent git activity (within the last 6 months) and are either:
 
@@ -249,4 +240,3 @@ All active applications have recent git activity (within the last 6 months) and 
 - `apps/agent-management` — deprecated; agent SDK and lifecycle moved to `aitbc agent` and `packages/py/aitbc-agent-sdk/`. The service file is no longer deployed on the live nodes.
 - `apps/ai-engine` — under development; not part of the default Ollama shop loop.
 - `apps/zk-circuits` — experimental; circuits exist but are not wired into job verification.
-- `apps/archive/peertube-transcoder` — archived.

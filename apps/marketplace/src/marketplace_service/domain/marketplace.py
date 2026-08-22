@@ -40,7 +40,7 @@ class SoftwareService(MarketplaceBase, table=True):
     __tablename__ = "softwareservice"
 
     plugin_id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
-    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, peertube_transcoder, cloud_ollama
+    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, cloud_ollama
     model: str = Field(default="", index=True)
     price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     price_unit: str = Field(default="per_1k_tokens")  # per_1k_tokens, per_audio_min, per_processing_hour
