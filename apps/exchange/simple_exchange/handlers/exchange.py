@@ -391,7 +391,7 @@ class ExchangeMixin:
         address = params.get("address", [""])[0]
 
         if not address:
-            self.send_json_response({"btc": "0.00000000", "aitbc": "0.00", "address": "unknown"})  # type: ignore[attr-defined]
+            self.send_json_response({"eth": "0.00000000", "aitbc": "0.00", "address": "unknown"})  # type: ignore[attr-defined]
             return
 
         try:
@@ -404,13 +404,12 @@ class ExchangeMixin:
             with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
                 balance_data = json.loads(response.read().decode())
 
-            # For BTC, we'll query a Bitcoin API (simplified for now)
-            # In production, you'd integrate with a real Bitcoin node API
-            btc_balance = "0.00000000"  # Placeholder - would query real Bitcoin network
+            # ETH balance is not yet queried from the network; return a zero placeholder
+            eth_balance = "0.00000000"  # Placeholder - would query real Ethereum network
 
             self.send_json_response(  # type: ignore[attr-defined]
                 {
-                    "btc": btc_balance,
+                    "eth": eth_balance,
                     "aitbc": str(balance_data.get("balance", 0)),
                     "address": address,
                     "nonce": balance_data.get("nonce", 0),
@@ -419,7 +418,7 @@ class ExchangeMixin:
         except Exception:
             # Fallback to error if blockchain is down
             self.send_json_response(  # type: ignore[attr-defined]
-                {"btc": "0.00000000", "aitbc": "0.00", "address": address, "error": "Failed to fetch balance from blockchain"}
+                {"eth": "0.00000000", "aitbc": "0.00", "address": address, "error": "Failed to fetch balance from blockchain"}
             )
 
     def handle_wallet_connect(self):
