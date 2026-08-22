@@ -205,6 +205,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.rate_limit_exchange_payment,
         )
         logger.info("Audit logging: %s", settings.audit_log_dir)
+        # Retry escrow releases that completed but never settled on-chain. Off by
+        # default: it re-drives real payouts, so it is opted into per deployment.
+        from .contexts.payments.services.settlement_reconciler import (
+            SettlementReconciler,
+            reconciler_enabled,
+        )
+
+        if reconciler_enabled():
+            await task_manager.start_task(
+                "escrow_settlement_reconciler", SettlementReconciler().run_forever
+            )
+            logger.info("Escrow settlement reconciler enabled")
+        else:
+            logger.info(
+                "Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)"
+            )
+
         logger.info("🚀 Coordinator API is ready to serve requests")
 
         lifecycle_state.set_state(lifecycle_state.RUNNING)
