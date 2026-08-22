@@ -761,9 +761,15 @@ class GovernanceService:
             "description": params.get("description", ""),
         }
 
+        headers = {}
+        if target_service == "marketplace" and settings.marketplace_api_key:
+            headers["X-Api-Key"] = settings.marketplace_api_key
+        if target_service == "poolhub" and settings.poolhub_api_key:
+            headers["X-Api-Key"] = settings.poolhub_api_key
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(endpoint, json=payload)
+                resp = await client.post(endpoint, json=payload, headers=headers)
                 if resp.status_code == 200:
                     result = resp.json()
                     return {"applied": True, "target_service": target_service, "result": result}
