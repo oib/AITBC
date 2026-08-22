@@ -50,7 +50,7 @@ async def test_make_trading_decision_extreme_confidence():
     # Mock the entire decision process to avoid complex numpy calculations
     with patch.object(engine, "analyze_market") as mock_analyze:
         mock_analyze.return_value = {
-            "symbol": "AITBC/BTC",
+            "symbol": "AITBC/ETH",
             "current_price": 0.005,
             "price_change_24h": 0.02,
             "volume_24h": 5000,
@@ -65,7 +65,7 @@ async def test_make_trading_decision_extreme_confidence():
             "timestamp": datetime.now(UTC),
         }
 
-        result = await engine.make_trading_decision("AITBC/BTC")
+        result = await engine.make_trading_decision("AITBC/ETH")
 
         assert result["signal"] == "buy"
         assert result["confidence"] > 0.5
@@ -83,7 +83,7 @@ async def test_make_trading_decision_low_confidence():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "neutral"
 
-            result = await engine.make_trading_decision("AITBC/BTC")
+            result = await engine.make_trading_decision("AITBC/ETH")
 
             assert result["signal"] == "hold"
             assert result["confidence"] < 0.3
@@ -100,7 +100,7 @@ async def test_analyze_market_timestamp_format():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "bullish"
 
-            result = await engine.analyze_market("AITBC/BTC")
+            result = await engine.analyze_market("AITBC/ETH")
 
             assert isinstance(result["timestamp"], datetime)
 
@@ -121,7 +121,7 @@ async def test_make_trading_decision_quantity_calculation():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "bullish"
 
-            result = await engine.make_trading_decision("AITBC/BTC")
+            result = await engine.make_trading_decision("AITBC/ETH")
 
             # Quantity should be 1000 * confidence
             expected_quantity = 1000 * result["confidence"]
@@ -137,7 +137,7 @@ async def test_signal_strength_boundary_buy():
     # Mock the entire decision process to avoid complex numpy calculations
     with patch.object(engine, "analyze_market") as mock_analyze:
         mock_analyze.return_value = {
-            "symbol": "AITBC/BTC",
+            "symbol": "AITBC/ETH",
             "current_price": 0.005,
             "price_change_24h": 0.02,
             "volume_24h": 5000,
@@ -152,7 +152,7 @@ async def test_signal_strength_boundary_buy():
             "timestamp": datetime.now(UTC),
         }
 
-        result = await engine.make_trading_decision("AITBC/BTC")
+        result = await engine.make_trading_decision("AITBC/ETH")
 
         # At > 0.2, should be buy
         assert result["signal"] == "buy"
@@ -172,7 +172,7 @@ async def test_signal_strength_boundary_sell():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "bearish"
 
-            result = await engine.make_trading_decision("AITBC/BTC")
+            result = await engine.make_trading_decision("AITBC/ETH")
 
             # At < -0.2, should be sell
             assert result["signal"] == "sell"
@@ -190,7 +190,7 @@ async def test_signal_strength_just_below_buy_threshold():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "neutral"
 
-            result = await engine.make_trading_decision("AITBC/BTC")
+            result = await engine.make_trading_decision("AITBC/ETH")
 
             # Just below 0.2, should be hold
             assert result["signal"] == "hold"
@@ -208,7 +208,7 @@ async def test_signal_strength_just_above_sell_threshold():
         with patch("ai_service.np.random.choice") as mock_choice:
             mock_choice.return_value = "neutral"
 
-            result = await engine.make_trading_decision("AITBC/BTC")
+            result = await engine.make_trading_decision("AITBC/ETH")
 
             # Just above -0.2, should be hold
             assert result["signal"] == "hold"
