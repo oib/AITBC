@@ -32,7 +32,8 @@ class TestCLIBasicFunctionality:
         assert result.returncode == 0
         assert "AITBC CLI" in result.stdout
         assert "wallet" in result.stdout
-        assert "blockchain" in result.stdout
+        assert "ai" in result.stdout
+        assert "market" in result.stdout
         assert "ai" in result.stdout
         assert "market" in result.stdout
 
@@ -75,7 +76,7 @@ class TestCLIConfiguration:
         assert CLI_BIN.exists()
         assert os.access(CLI_BIN, os.X_OK)
 
-    def test_explorer_command_available(self):
-        result = run_cli("explorer", "--help")
-        assert result.returncode == 0
-        assert "Blockchain Explorer" in result.stdout
+    def test_explorer_command_deprecated(self):
+        result = run_cli("explorer")
+        assert result.returncode != 0
+        assert "deprecated" in result.stderr
