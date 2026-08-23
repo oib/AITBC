@@ -408,18 +408,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 provider_addr,
                 released_amount,
             )
-            return {
-                "success": False,
-                "contract_id": contract_id,
-                "job_id": job_id,
-                "message": "Escrow release could not be settled on-chain; the provider was not paid",
-                "released_amount": str(released_amount),
-                "tx_hash": None,
-                "settlement_status": "unsettled",
-                "released_at": None,
-                "reinvest_amount": "0",
-                "reinvest_stake_id": None,
-            }
+            raise HTTPException(
+                status_code=502,
+                detail="Escrow release could not be settled on-chain; the provider was not paid. "
+                "The release was rolled back and can be retried.",
+            )
 
         released_at = datetime.now(UTC)
         try:
