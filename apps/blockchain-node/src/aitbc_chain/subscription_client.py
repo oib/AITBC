@@ -11,7 +11,7 @@ from .config import settings
 from .database import session_scope
 from .gossip import gossip_broker
 from .logger import get_logger
-from .metrics import metrics_registry, subscription_reconnects_total
+from .metrics import metrics_registry, subscription_messages_received_total, subscription_reconnects_total
 from .sync import ChainSync
 from .sync_divergence import clear_divergence, report_divergence
 
