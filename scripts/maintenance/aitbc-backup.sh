@@ -23,14 +23,15 @@ log "Starting AITBC backup to ${BACKUP_DIR}"
 mkdir -p "${BACKUP_DIR}"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
-# Back up all AITBC PostgreSQL databases, not just governance.
+# Back up AITBC PostgreSQL databases that actually exist.
+# aitbc_user is a role, not a database; aitbc_poolhub is added for the pool-hub service.
 PG_DBS=(
     "aitbc_governance"
     "aitbc_marketplace"
     "aitbc_trading"
-    "aitbc_user"
     "aitbc_mempool"
     "aitbc_gpu"
+    "aitbc_poolhub"
 )
 
 for pg_db in "${PG_DBS[@]}"; do
@@ -39,17 +40,35 @@ for pg_db in "${PG_DBS[@]}"; do
     pg_creds="/etc/aitbc/credentials/postgres_${pg_db}_password"
     pg_env="/etc/aitbc/${pg_service}.env"
     pg_pw=""
+    pg_user="${pg_db}"
+
+    # aitbc_poolhub is managed by aitbc-pool-hub and uses the poolhub user
+    if [ "$pg_db" = "aitbc_poolhub" ]; then
+        pg_service="aitbc-pool-hub"
+        pg_env="/etc/aitbc/${pg_service}.env"
+        pg_user="poolhub"
+    fi
 
     if [ -f "$pg_creds" ]; then
         pg_pw=$(cat "$pg_creds")
     elif [ -f "$pg_env" ]; then
         pg_pw=$(grep "^DB_PASS=" "$pg_env" 2>/dev/null | cut -d= -f2- || true)
+        # aitbc-pool-hub stores its DSN in POOLHUB_POSTGRES_DSN
+        if [ -z "$pg_pw" ]; then
+            pg_pw=$(grep "^POOLHUB_POSTGRES_DSN=" "$pg_env" 2>/dev/null | cut -d= -f2- | sed -E 's|^[^/]+://[^:]*:([^@]+)@.*$|\1|' || true)
+        fi
     fi
 
-    pg_user="${pg_db}"
     if [ -f "$pg_env" ]; then
         pg_user_env=$(grep "^DB_USER=" "$pg_env" 2>/dev/null | cut -d= -f2- || true)
         [ -n "$pg_user_env" ] && pg_user="$pg_user_env"
+    fi
+
+    # Only back up databases that actually exist; this removes DUMP_FAILED
+    # artifacts and tiny backup files for unused or corrupt PostgreSQL databases.
+    if ! sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${pg_db}'" 2>/dev/null | grep -q 1; then
+        warn "PostgreSQL backup SKIPPED for ${pg_db}: database does not exist"
+        continue
     fi
 
     log "Backing up PostgreSQL ${pg_db}..."
@@ -58,6 +77,7 @@ for pg_db in "${PG_DBS[@]}"; do
     else
         if PGPASSWORD="$pg_pw" pg_dump -U "$pg_user" -h localhost "$pg_db" \
             | gzip > "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"; then
+            chmod 600 "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"
             log "PostgreSQL backup: OK for ${pg_db} ($(du -sh "${BACKUP_DIR}/postgres_${pg_db}.sql.gz" | cut -f1))"
         else
             error "PostgreSQL backup FAILED for ${pg_db}"
@@ -135,6 +155,10 @@ fi
 # ── Finalize ──────────────────────────────────────────────────────────────────
 TOTAL=$(du -sh "${BACKUP_DIR}" | cut -f1)
 log "Backup complete: ${BACKUP_DIR} (total: ${TOTAL})"
+
+# Ensure backup artifacts are not world-readable
+find "${BACKUP_DIR}" -type f -exec chmod 600 {} + 2>/dev/null || true
+chmod 750 "${BACKUP_DIR}" 2>/dev/null || true
 
 # ── Prune old backups ─────────────────────────────────────────────────────────
 log "Pruning backups older than ${RETENTION_DAYS} days..."
