@@ -1067,3 +1067,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `docs/scenarios/README.md` now lists which CLI groups can fall back to simulated output and why.
   - Scenarios 04, 06, 11, 12, 27, 33, 34, and 42 include a `> **Live vs. simulated:**` note explaining live and simulated behavior.
   - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #16.
+- fix(state,sync): handle FAUCET/BRIDGE_* as pre-registered credit transactions on followers
+- fix(state): BRIDGE_LOCK is now a pre-registered debit transaction on
+  followers. The sender is debited and the nonce is incremented, but no
+  bridge_lock account is created, and the tx nonce is not checked against the
+  current sender nonce. This prevents the extra bridge_lock account that caused
+  the resynced aitbc3 state root to diverge from the hub.
