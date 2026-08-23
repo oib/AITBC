@@ -39,6 +39,12 @@ def _update_bridge_metrics(bridge: Any) -> None:
     balances = bridge.get_bridge_balance()
     for chain_id, amount in balances.items():
         bridge_total_locked_amount.labels(chain_id=chain_id, token="default").set(int(amount))
+    # Ensure every observed chain has both gauges set, defaulting to 0.
+    all_chains = set(pending_by_chain) | set(balances)
+    all_chains.add(settings.chain_id)
+    for chain_id in all_chains:
+        bridge_pending_transfers.labels(chain_id=chain_id).set(pending_by_chain.get(chain_id, 0))
+        bridge_total_locked_amount.labels(chain_id=chain_id, token="default").set(int(balances.get(chain_id, 0)))
 
 
 
