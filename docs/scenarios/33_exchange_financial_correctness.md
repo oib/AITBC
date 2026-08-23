@@ -24,6 +24,8 @@ breadcrumb: Home > Scenarios > Exchange Financial Correctness
 
 ## Scenario Overview
 
+> **Live vs. simulated:** `aitbc exchange-island` commands are **live** when the exchange service (port 8106) is running. If the exchange is unreachable, the CLI returns `(Simulated)` orders and transactions.
+
 The live hub exchange is `apps/exchange/simple_exchange` on port 8106 (API-key auth, Decimal/TEXT money columns, `BEGIN IMMEDIATE` matching — B1/B2/B3). Operators trade through `aitbc exchange-island`, not raw `/v1/exchange/orderbook` (that path 404s).
 
 `buy` / `sell` / `cancel` still need `/var/lib/aitbc/keystore/validator_keys.json`. `orderbook`, `rates`, and `orders` work without it.
