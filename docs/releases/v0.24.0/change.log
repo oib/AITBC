@@ -1084,3 +1084,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   than `state_sync_max_gap` (default 10) blocks behind the peer. This prevents
   the account/nonce snapshot from making old transactions fail their nonce
   checks and producing thousands of misleading warnings during initial resyncs.
+- docs(scenarios): reframe intermediate scenarios 21–35 as operator plays
+  - `docs/scenarios/README.md` now calls them "operator hardening plays" and clarifies A/B ids are change-log cross-references.
+  - Added a `> **Operator play:**` note to scenarios 21–35.
+  - Renamed a few scenario titles to remove "Fix" framing.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #17.
