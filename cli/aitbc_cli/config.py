@@ -55,6 +55,7 @@ class CLIConfig(BaseAITBCConfig):
     wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default="http://127.0.0.1:8202", description="Blockchain RPC URL")
+    prometheus_url: str = Field(default="http://127.0.0.1:9090", description="Prometheus base URL for CLI queries")
     explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
 
     # Chain configuration
