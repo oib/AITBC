@@ -14,7 +14,12 @@ from .base_models import Account, Block, _to_ait_address
 from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
-from .metrics import block_height, metrics_registry, sync_blocks_imported
+from .metrics import (
+    block_height,
+    metrics_registry,
+    sync_blocks_imported,
+    sync_failures_total,
+)
 from .state import state_root_utils
 from .state.pure_state_transition import (
     StateDelta,
@@ -35,6 +40,14 @@ class BlockImportMixin(SyncBase):
     """Import a single block, append it, and resolve chain forks."""
 
     # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
+    def _make_import_result(self, **kwargs: Any) -> ImportResult:
+        """Create an ImportResult and record Prometheus sync failures if rejected."""
+        result = ImportResult(**kwargs)
+        if not result.accepted:
+            reason = result.reason.split(":")[0].strip()[:40]
+            sync_failures_total.labels(chain_id=self._chain_id, reason=reason).inc()
+        return result
+
 
     def import_block(
         self,
@@ -67,7 +80,7 @@ class BlockImportMixin(SyncBase):
             if not valid:
                 metrics_registry.increment("sync_blocks_rejected_total")
                 logger.warning("Block rejected: signature validation failed", extra={"height": height, "reason": reason})
-                return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
+                return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
         # The in-memory replay cache must be scoped to one block. A rejected
         # block is rolled back, but if the cache is not cleared the next import
         # attempt reports "replay attack" for transactions that were never
@@ -81,13 +94,13 @@ class BlockImportMixin(SyncBase):
                     logger.error(
                         "Genesis block metadata validation failed: %s", reason, extra={"height": height, "hash": block_hash}
                     )
-                    return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
+                    return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
             existing = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
             ).first()
             if existing:
                 metrics_registry.increment("sync_blocks_duplicate_total")
-                return ImportResult(accepted=False, height=height, block_hash=block_hash, reason="Block already exists")
+                return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason="Block already exists")
             our_head = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
             ).first()
@@ -116,7 +129,7 @@ class BlockImportMixin(SyncBase):
                 # "Unhandled import case" and stall catch-up forever (V23-90).
                 metrics_registry.increment("sync_divergence_rejected_total")
                 our_hash = our_head.hash if our_head else ""
-                return ImportResult(
+                return self._make_import_result(
                     accepted=False,
                     height=height,
                     block_hash=block_hash,
@@ -134,18 +147,18 @@ class BlockImportMixin(SyncBase):
                     if our_head:
                         return self._resolve_fork(session, block_data, transactions, our_head)
                 metrics_registry.increment("sync_blocks_stale_total")
-                return ImportResult(
+                return self._make_import_result(
                     accepted=False, height=height, block_hash=block_hash, reason=f"Stale block (our height: {our_height})"
                 )
             if height > our_height + 1:
                 metrics_registry.increment("sync_blocks_gap_total")
-                return ImportResult(
+                return self._make_import_result(
                     accepted=False,
                     height=height,
                     block_hash=block_hash,
                     reason=f"Gap detected (our height: {our_height}, received: {height})",
                 )
-        return ImportResult(accepted=False, height=height, block_hash=block_hash, reason="Unhandled import case")
+        return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason="Unhandled import case")
 
     def _append_block(
         self,
@@ -404,7 +417,7 @@ class BlockImportMixin(SyncBase):
                     block_data.get("state_root"),
                 )
                 self._check_and_trigger_resync(self._chain_id)
-                return ImportResult(
+                return self._make_import_result(
                     accepted=False,
                     height=block_data["height"],
                     block_hash=block_hash,
@@ -421,7 +434,7 @@ class BlockImportMixin(SyncBase):
                     computed_root.hex(),  # type: ignore[union-attr]
                 )
                 self._check_and_trigger_resync(self._chain_id)
-                return ImportResult(
+                return self._make_import_result(
                     accepted=False,
                     height=block_data["height"],
                     block_hash=block_hash,
@@ -442,7 +455,7 @@ class BlockImportMixin(SyncBase):
                 "tx_count": tx_count,
             },
         )
-        return ImportResult(
+        return self._make_import_result(
             accepted=True, height=block_data["height"], block_hash=block_data["hash"], reason="Appended to chain"
         )
 
@@ -479,7 +492,7 @@ class BlockImportMixin(SyncBase):
             },
         )
         if fork_chain_id and fork_chain_id != self._chain_id:
-            return ImportResult(
+            return self._make_import_result(
                 accepted=False,
                 height=fork_height,
                 block_hash=block_data.get("hash", ""),
@@ -492,7 +505,7 @@ class BlockImportMixin(SyncBase):
             # `diverged` tells the caller — the old reason said "our chain is longer", which reads
             # like a healthy outcome and hid a 46-hour outage.
             metrics_registry.increment("sync_divergence_rejected_total")
-            return ImportResult(
+            return self._make_import_result(
                 accepted=False,
                 height=fork_height,
                 block_hash=block_data.get("hash", ""),
@@ -505,7 +518,7 @@ class BlockImportMixin(SyncBase):
         reorg_depth = our_height - fork_height + 1
         if reorg_depth > self._max_reorg_depth:
             metrics_registry.increment("sync_reorg_rejected_total")
-            return ImportResult(
+            return self._make_import_result(
                 accepted=False,
                 height=fork_height,
                 block_hash=block_data.get("hash", ""),

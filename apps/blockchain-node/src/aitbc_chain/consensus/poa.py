@@ -708,7 +708,9 @@ class PoAProposer:
                 else:
                     poa_broadcast_skipped_total.labels(chain_id=self._config.chain_id).inc()
                     self._logger.warning(
-                        "[BROADCAST SKIPPED] block=%s, no valid subscribers", block.height
+                        "[BROADCAST SKIPPED] block=%s, chain=%s, no valid subscribers",
+                        block.height,
+                        self._config.chain_id,
                     )
             except Exception as e:
                 self._logger.error("Failed to broadcast block %s: %s", block.height, e)
