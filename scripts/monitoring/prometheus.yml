@@ -52,54 +52,31 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  - job_name: 'aitbc3-coordinator-api'
-    static_configs:
-      - targets: ['localhost:8203']
-        labels:
-          node: aitbc3
-          service: coordinator-api
-    metrics_path: '/prometheus'
-    scrape_interval: 15s
+  # Coordinator API and marketplace only run on the hub node by default.
+  # - job_name: 'aitbc3-coordinator-api'
+  #   static_configs:
+  #     - targets: ['localhost:8203']
+  #       labels:
+  #         node: aitbc3
+  #         service: coordinator-api
+  #   metrics_path: '/prometheus'
+  #   scrape_interval: 15s
+  #
+  # - job_name: 'aitbc3-marketplace'
+  #   static_configs:
+  #     - targets: ['localhost:8104']
+  #       labels:
+  #         node: aitbc3
+  #         service: marketplace
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
 
-  - job_name: 'aitbc3-marketplace'
-    static_configs:
-      - targets: ['localhost:8104']
-        labels:
-          node: aitbc3
-          service: marketplace
-    metrics_path: '/metrics'
-    scrape_interval: 15s
-
-  # hub.aitbc (hub/customer) services
-  - job_name: 'hub-blockchain-node'
-    static_configs:
-      - targets: ['hub.aitbc.bubuit.net:9009']
-        labels:
-          node: hub
-          service: blockchain-node
-    metrics_path: '/metrics'
-    scrape_interval: 15s
-
-  - job_name: 'hub-blockchain-rpc'
-    static_configs:
-      - targets: ['hub.aitbc.bubuit.net:8202']
-        labels:
-          node: hub
-          service: blockchain-rpc
-    metrics_path: '/metrics'
-    scrape_interval: 15s
-
-  - job_name: 'hub-coordinator-api'
-    static_configs:
-      - targets: ['hub.aitbc.bubuit.net:8203']
-        labels:
-          node: hub
-          service: coordinator-api
-    metrics_path: '/prometheus'
-    scrape_interval: 15s
-
-  # Optional: pool-hub, governance, trading when they expose /metrics
+  # Optional local services — enable only if they are running on this node.
   # - job_name: 'aitbc3-pool-hub'
   #   static_configs:
   #     - targets: ['localhost:8210']
+  #       labels:
+  #         node: aitbc3
+  #         service: pool-hub
   #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
