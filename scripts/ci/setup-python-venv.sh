@@ -167,12 +167,17 @@ source "$VENV_DIR/bin/activate"
 # be imported. Reinstall from the current repo so local packages resolve.
 # Use `python -m pip` instead of the `pip` script because the copied venv's
 # `bin/pip` script still has a shebang pointing at the original cache python.
+failed=()
 for pkg_dir in "$REPO_DIR/packages/aitbc-shared" "$REPO_DIR"/packages/py/*; do
     if [ -d "$pkg_dir" ] && [ -f "$pkg_dir/pyproject.toml" ]; then
         if ! "$VENV_DIR/bin/python" -m pip install -q --force-reinstall --no-deps -e "$pkg_dir" >/dev/null 2>&1; then
-            echo "⚠️  Could not install local package from $pkg_dir" >&2
+            failed+=("$pkg_dir")
         fi
     fi
 done
+if [ ${#failed[@]} -gt 0 ]; then
+    echo "❌ Failed to install repo-local packages: ${failed[*]}" >&2
+    exit 1
+fi
 
 echo "✅ Python environment ready from cache: $CACHE_KEY"

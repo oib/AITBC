@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import shlex
+from decimal import Decimal
+
 from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
@@ -24,7 +26,6 @@ from aitbc_mcp_server import (
     _host_for_role,
     _http_read_tool,
     _json,
-    _require_confirm,
     _run_http,
     mcp,
 )
@@ -33,6 +34,7 @@ from aitbc_mcp_server import (
 # ---------------------------------------------------------------------------
 # HTTP write helper for mutating RPC calls
 # ---------------------------------------------------------------------------
+
 
 def _http_write_tool(
     role: str | None,
@@ -47,10 +49,12 @@ def _http_write_tool(
     """Run a mutating HTTP call with dry-run and confirmation gates."""
     target = _host_for_role(role, host)
     if service not in ALL_HTTP_SERVICES:
-        return _json({
-            "error": f"unknown HTTP service: {service}",
-            "known_services": sorted(ALL_HTTP_SERVICES),
-        })
+        return _json(
+            {
+                "error": f"unknown HTTP service: {service}",
+                "known_services": sorted(ALL_HTTP_SERVICES),
+            }
+        )
 
     base = ALL_SERVICE_BASES[service]
     url = _build_http_url(base, path, None)
@@ -61,11 +65,13 @@ def _http_write_tool(
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false and confirm=true to execute.", command))
     if not confirm:
-        return _json({
-            "error": "Confirmation required",
-            "command": command,
-            "note": "This is a destructive RPC call. Pass dry_run=false and confirm=true to execute.",
-        })
+        return _json(
+            {
+                "error": "Confirmation required",
+                "command": command,
+                "note": "This is a destructive RPC call. Pass dry_run=false and confirm=true to execute.",
+            }
+        )
 
     return _json(_run_http(target, service, path, "POST", None, body, timeout))
 
@@ -73,6 +79,7 @@ def _http_write_tool(
 # ---------------------------------------------------------------------------
 # Mempool aliases
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_pending_mempool(
@@ -92,6 +99,7 @@ def get_pending_mempool(
 # ---------------------------------------------------------------------------
 # Marketplace (on-chain)
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_marketplace_listings(
@@ -130,6 +138,7 @@ def get_marketplace_listing(
 # ---------------------------------------------------------------------------
 # Identity / governance
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_agent_identity(
@@ -186,6 +195,7 @@ def get_governance_proposal(
 # ---------------------------------------------------------------------------
 # Bridge
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_bridge_transfer_proof(
@@ -320,6 +330,7 @@ def get_bridge_block_header(
 # Cross-chain
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_cross_chain_swaps(
     user_address: Annotated[
@@ -411,6 +422,7 @@ def get_cross_chain_stats(
 # GPU resources (continued)
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_gpu_allocations(
     gpu_id: Annotated[
@@ -453,6 +465,7 @@ def get_edge_info(
 # AI services (on-chain)
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_ai_service_stats(
     role: Annotated[
@@ -471,6 +484,7 @@ def get_ai_service_stats(
 # ---------------------------------------------------------------------------
 # Contracts / messaging / forum
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_contracts(
@@ -558,6 +572,7 @@ def get_topic_messages(
 # ---------------------------------------------------------------------------
 # Disputes
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_active_disputes(
@@ -688,6 +703,7 @@ def get_arbitration_votes(
 # Subscription
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_subscribers(
     chain_id: Annotated[
@@ -732,6 +748,7 @@ def get_lease_status(
 # ---------------------------------------------------------------------------
 # Mutating blockchain RPC tools (dry_run / confirm protected)
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def submit_blockchain_transaction(
