@@ -33,10 +33,10 @@
 
 ### Prometheus Metrics
 
-Future implementation:
+Implementation:
 
 - Export metrics at `/metrics` endpoint
-- Use Grafana for visualization
+- Use Prometheus for metrics collection, alerting and ad-hoc queries
 
 ### Log Aggregation
 
