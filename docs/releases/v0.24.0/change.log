@@ -1029,3 +1029,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - fix(database): switch blockchain chain database from StaticPool to NullPool
   - Each Session now opens and closes a fresh SQLite connection, preventing long-lived read transactions from holding stale WAL snapshots across proposer/RPC processes.
   - Consolidated SQLite pragma setup into _set_sqlite_pragmas() so all new connections get WAL, tuning and busy_timeout settings.
+- fix(cli): `aitbc node island join` now chowns `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` mode 0600 after writing, matching `aitbc node join`.
+- fix(cli): `aitbc market offer` error now points to `aitbc node island join` instead of the non-writing `aitbc edge island join`.
+- docs(design): mark P1.6 and operations gap #11 (island credential ownership) as fixed in `DESIGN_CYCLE.md`.
