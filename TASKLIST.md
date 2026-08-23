@@ -174,6 +174,11 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Document wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
 - [x] Clear mypy-clean-apps (34) and no-float-money (16) on gitea `main` (`1d8ab0d40`). Committed with `SKIP=openapi-drift`; regenerating `docs/api/` is still open.
 - [x] Regenerated `docs/api` 2026-08-23; `openapi-drift` passes and the pre-commit hook is no longer skipped.
+- [x] 2026-08-24 status: gitea `main` now at `a04e1626b` (`fix(chain): restore escrow settlement-key idempotency and integrate lock requirement`).
+  - Escrow-lock (`857379abe`) and V23-42 agent-stake/bounty surface (`f1b06e33c`) are on `main` and pulled to both `aitbc3` and `hub.aitbc`.
+  - Both blockchain RPC and coordinator services restarted; health endpoints return 200.
+  - `mypy-clean-apps`, `no-float-money`, and `openapi-drift` all 0.
+  - Full `apps/blockchain-node/tests` suite plus `test_blockchain_client_paths.py` and `test_routers_bounty.py` pass.
 
 ## Agent B (localhost / documentation / support)
 
@@ -263,14 +268,10 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 
 # Open tasks
 
-The remaining work, after the 2026-08-24 session, is primarily the V23-42 agent-stake / bounty chain surface that this plan set out to build:
+Status after the 2026-08-24 session:
 
-- [ ] **V23-42 agent-stake RPC surface** (`/rpc/staking/agent-stake`, `/rpc/staking/stake/{stake_id}/{add,unbond,complete}`, `/rpc/staking/performance`, `/rpc/staking/agents/{agent_wallet}/distribute`, `/rpc/staking/claim-rewards`)
-- [ ] **V23-42 bounty RPC surface** (`/rpc/bounty/deploy`, `/rpc/bounty/{bounty_id}/{submit,verify,dispute,expire}`)
-- [ ] **Agent economics operator key signing**: `AGENT_ECONOMICS_OPERATOR_ADDRESS` on the node, `AGENT_ECONOMICS_OPERATOR_PRIVATE_KEY` on the coordinator hub.
-- [ ] **Chain-first coordinator writes**: `StakingService` and `BountyService` await the on-chain result before committing local SQLite state.
-- [ ] **Models and migration** for `AgentStakeRecord`, `BountyContract`, `BountySubmissionRecord`.
-- [ ] **Unit and live tests** for agent-stake and bounty on hub.
-- [ ] **OpenAPI regeneration** once the new routes exist, then re-enable the `openapi-drift` hook (currently must not be skipped).
-- [ ] **`AITBC_WALLET_DIR` CLI helper** if not already landed (phase 0 of the original plan).
-- [ ] **One live validation pass** for agent-stake debit and bounty expire refund on hub.
+- [x] **V23-42 agent-stake / bounty chain surface** is implemented and committed on gitea `main` (`f1b06e33c`). Routes, models, migration, operator signing and coordinator chain-first writes are all in place. The `test_blockchain_client_paths.py` ratchet passes and the full blockchain-node test suite is green.
+- [x] **`AITBC_WALLET_DIR` CLI helper** is implemented (`cli/aitbc_cli/utils/wallet_paths.py`) and used by the file-wallet sites.
+- [x] **OpenAPI regeneration** is current and the `openapi-drift` hook is passing.
+- [~] **Escrow lock integration** is implemented (`857379abe`) and the regression test suite has been restored to green (`a04e1626b`).
+- [ ] **Live validation of V23-42 agent-stake and bounty** on hub remains the one un-run box: a funded wallet must stake on an agent, add to the stake, unbond/complete after the lock period, and a bounty must be deployed, submitted, verified and expired with real balance movement.
