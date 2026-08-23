@@ -4,7 +4,6 @@ Real GPU Miner Client for AITBC - runs on host with actual GPU
 
 import asyncio
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -311,7 +310,6 @@ def send_heartbeat():
 def build_pool_hub_register_data():
     """Build the payload the pool hub expects for miner registration."""
     gpu_info = get_gpu_info()
-    arch = classify_architecture(gpu_info["name"]) if gpu_info else "unknown"
     caps = build_gpu_capabilities()
     return {
         "miner_id": MINER_ID,
@@ -401,7 +399,7 @@ def build_tee_quote(job):
     try:
         from aitbc.tee import QuoteGenerator
 
-        enclave_id = (
+        enclave_id = str(
             constraints.get("tee_enclave_id")
             or constraints.get("required_enclave_measurement")
             or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
@@ -432,7 +430,7 @@ def _run_whisper(audio_path: str, model: str = "base") -> str:
 
         w = whisper.load_model(model)
         result = w.transcribe(audio_path, fp16=False)
-        return result.get("text", "").strip()
+        return str(result.get("text", "")).strip()
     except Exception as e:
         raise Exception(f"Whisper transcription failed: {e}") from e
 
@@ -442,7 +440,7 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
     fmt = output_format or os.path.splitext(output_path)[1].lstrip(".") or "mp4"
     try:
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path, f"-f", fmt, output_path],
+            ["ffmpeg", "-y", "-i", input_path, "-f", fmt, output_path],
             capture_output=True,
             text=True,
             timeout=300,

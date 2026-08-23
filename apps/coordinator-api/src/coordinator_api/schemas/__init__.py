@@ -13,7 +13,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from ..custom_types import Constraints, JobState
 
 _brand = get_active_brand()
-brand_symbol = getattr(_brand, "token_symbol", _brand)
+# str() because the getattr fallback is the BrandSettings object itself, and both
+# uses below are declared `str`.
+brand_symbol = str(getattr(_brand, "token_symbol", _brand))
 
 
 # Payment schemas
@@ -21,15 +23,15 @@ class JobPaymentCreate(BaseModel):
     """Request to create a payment for a job"""
 
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
-    amount: Decimal = Field(
-        ..., gt=Decimal("0"), le=Decimal("1000000"), description=f"Payment amount in {brand_symbol}"
-    )
+    amount: Decimal = Field(..., gt=Decimal("0"), le=Decimal("1000000"), description=f"Payment amount in {brand_symbol}")
     currency: str = Field(default=brand_symbol, description="Payment currency")
     payment_method: str = Field(default="aitbc_token", description="Payment method")
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
     buyer_address: str | None = Field(default=None, description="Customer wallet address for escrow")
     provider_address: str | None = Field(default=None, description="Provider wallet address for escrow")
-    auto_reinvest_pct: Decimal | None = Field(default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake")
+    auto_reinvest_pct: Decimal | None = Field(
+        default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake"
+    )
 
     @field_validator("job_id")
     @classmethod
