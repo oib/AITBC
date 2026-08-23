@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import hashlib
 import json
 import re
@@ -280,7 +281,7 @@ class PoAProposer:
                     except TimeoutError:
                         pass
             except Exception as exc:
-                self._logger.exception("Failed to propose block", extra={"error": str(exc)})
+                self._logger.error("Failed to propose block: %s\n%s", exc, traceback.format_exc())
                 await asyncio.sleep(1.0)
 
     async def _wait_until_next_slot(self) -> None:
@@ -300,7 +301,7 @@ class PoAProposer:
 
     async def _propose_block(self) -> bool:
         from ..config import settings
-        from ..mempool import get_mempool as get_mempool_instance
+        from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
         from ..models import Account, Transaction
 
         mempool = get_mempool_instance()
@@ -362,8 +363,40 @@ class PoAProposer:
             timestamp = datetime.now(UTC)
             max_txs = self._config.max_txs_per_block
             max_bytes = self._config.max_block_size_bytes
-            pending_txs = mempool.drain(max_txs, max_bytes, self._config.chain_id)
+            pending_txs = list(mempool.drain(max_txs, max_bytes, self._config.chain_id))
             self._logger.info("[PROPOSE] drained %s txs from mempool, chain=%s", len(pending_txs), self._config.chain_id)
+            # Include transactions that were pre-registered in the DB (e.g. bridge releases)
+            # but not yet assigned to a block.
+            pre_registered = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == self._config.chain_id,
+                    Transaction.block_height == None,
+                    Transaction.status == "confirmed",
+                )
+            ).all()
+            for tx_rec in pre_registered:
+                content = {
+                    "from": tx_rec.sender or "bridge_release",
+                    "to": tx_rec.recipient or "",
+                    "amount": tx_rec.value or 0,
+                    "value": tx_rec.value or 0,
+                    "fee": tx_rec.fee or 0,
+                    "nonce": tx_rec.nonce or 0,
+                    "type": tx_rec.type or "TRANSFER",
+                    "payload": tx_rec.payload or {},
+                    "signature": "",
+                }
+                pending_txs.append(
+                    MempoolPendingTx(
+                        tx_hash=tx_rec.tx_hash,
+                        content=content,
+                        received_at=0.0,
+                        fee=content["fee"],  # type: ignore[arg-type]
+                        size_bytes=len(str(content).encode()),
+                    )
+                )
+            if pre_registered:
+                self._logger.info("[PROPOSE] added %s pre-registered DB txs, chain=%s", len(pre_registered), self._config.chain_id)
             # Batch-fetch all unique sender and recipient accounts in one query
             # (eliminates the per-tx session.get() round-trips).
             unique_addresses: set[str] = set()
@@ -417,6 +450,7 @@ class PoAProposer:
                         recipient = _to_ait_address(tx_data.get("to", ""))
                         value = tx_data.get("amount", 0)
                         fee = tx_data.get("fee", 0)
+                        tx_type = (tx_data.get("type") or "TRANSFER").upper()
                         self._logger.info(
                             "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
                             tx.tx_hash,
@@ -427,6 +461,23 @@ class PoAProposer:
                         )
                         if not sender or not recipient:
                             self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
+                            continue
+                        # Pre-registered MESSAGE transactions (e.g. bridge releases) are already
+                        # applied by the originating RPC call.  Record them in the block without
+                        # re-running the state transition to avoid replay and double-credit.
+                        existing_tx_record = session.exec(
+                            select(Transaction).where(
+                                Transaction.chain_id == self._config.chain_id,
+                                Transaction.tx_hash == tx.tx_hash,
+                            )
+                        ).first()
+                        if existing_tx_record and existing_tx_record.status == "confirmed" and existing_tx_record.block_height is None and tx_type in {"MESSAGE", "BRIDGE_RELEASE"}:
+                            existing_tx_record.block_height = next_height
+                            existing_tx_record.timestamp = timestamp.isoformat()
+                            session.add(existing_tx_record)
+                            processed_txs.append(tx)
+                            existing_tx_map[tx.tx_hash] = next_height
+                            self._logger.info("[PROPOSE] Included pre-registered MESSAGE tx %s in block %s", tx.tx_hash, next_height)
                             continue
                         sender_account = account_map.get(sender)
                         if not sender_account:
@@ -490,22 +541,29 @@ class PoAProposer:
                                 )
                                 continue
                         original_payload = tx.content.get("payload", {})
-                        transaction = Transaction(
-                            chain_id=self._config.chain_id,
-                            tx_hash=tx.tx_hash,
-                            # Raw, not the canonicalised locals: these are signed (V23-65).
-                            sender=tx_data.get("from", ""),
-                            recipient=tx_data.get("to", ""),
-                            payload=original_payload,
-                            value=value,
-                            fee=fee,
-                            nonce=tx_data_for_transition["nonce"],
-                            timestamp=timestamp,
-                            block_height=next_height,
-                            status="confirmed",
-                            type=tx_type,
-                        )
-                        session.add(transaction)
+                        if existing_tx_record:
+                            existing_tx_record.block_height = next_height
+                            existing_tx_record.status = "confirmed"
+                            existing_tx_record.timestamp = timestamp.isoformat()
+                            existing_tx_record.nonce = tx_data_for_transition["nonce"]
+                            session.add(existing_tx_record)
+                        else:
+                            transaction = Transaction(
+                                chain_id=self._config.chain_id,
+                                tx_hash=tx.tx_hash,
+                                # Raw, not the canonicalised locals: these are signed (V23-65).
+                                sender=tx_data.get("from", ""),
+                                recipient=tx_data.get("to", ""),
+                                payload=original_payload,
+                                value=value,
+                                fee=fee,
+                                nonce=tx_data_for_transition["nonce"],
+                                timestamp=timestamp.isoformat(),
+                                block_height=next_height,
+                                status="confirmed",
+                                type=tx_type,
+                            )
+                            session.add(transaction)
                         nested.commit()
                         # Track changed addresses for incremental state root computation
                         changed_addresses.add(sender)
@@ -1016,7 +1074,7 @@ class PoAProposer:
                 value=value,
                 fee=fee,
                 nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
-                timestamp=timestamp,
+                timestamp=timestamp.isoformat(),
                 block_height=next_height,
                 status="confirmed",
                 type=tx_type,

@@ -942,3 +942,20 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Live end-to-end validation on aitbc3: lock 50 compute-seconds on `ait-hub.aitbc.bubuit.net`, generate and sign proof with 2-of-5 validator set, store hub block header, confirm on `ait-shop-island.aitbc.bubuit.net`, recipient balance increased.
 - Quality gates: mypy clean on 9 changed files, no float money violations, OpenAPI drift fixed and spec regenerated, bridge test suite passes.
 - SQLAlchemy session makers set `expire_on_commit=False` so bridge block-header objects remain attached after commit.
+
+- fix(blockchain,bridge): anchor bridge release transactions in island blocks
+  - `confirm_transfer` creates a `bridge_release` system account and a
+    `BRIDGE_RELEASE` Transaction with `block_height=NULL` and
+    `status="confirmed"`; the recipient is credited immediately.
+  - `PoAProposer._propose_block` now drains pre-registered `Transaction`
+    records from the chain DB and includes them in the next block.
+  - Pre-registered `BRIDGE_RELEASE`/`MESSAGE` transactions are recorded in
+    the block without re-running the state transition, avoiding double-credit.
+  - `confirm_transfer` also updates the source-chain `CrossChainTransfer`
+    record to `completed` and sets `target_tx_hash`, so bridge health and
+    balance endpoints reflect the finalised state.
+  - Live on aitbc3: two historical bridge releases anchored in island
+    blocks 10 and 12; a fresh 50-unit hub→island bridge release anchored in
+    island block 18; source account debited correctly.
+  - Quality gates: mypy clean, no float money, OpenAPI drift check passes,
+    `pytest apps/blockchain-node/tests` all green.

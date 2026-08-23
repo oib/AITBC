@@ -1364,5 +1364,35 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
 - `aitbc-blockchain-node` on aitbc3 produced the first real island block at height 1 (`0xc23afa9f...`) after setting `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in `/etc/aitbc/blockchain.env` and restarting the shop-side blockchain node.
 - With `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, the PoA proposer selected a validator (`ait1ffbda3398a7b1e016fddd509834b07dc8f4034e6`) from the configured `VALIDATOR_SET` that the shop node does not control, so it skipped every proposal at height 1.
 - Disabling the feature flag falls back to the configured `PROPOSER_ID`/`proposer_key` for the island, which the shop node does control, so it can sign and broadcast blocks.
-- The bridge `BRIDGE_RELEASE` transaction created by `confirm_transfer` is currently written directly to the `transaction` table with `block_height=NULL` and is not submitted to the mempool, so it is not yet included in an island block. The recipient balance is still credited, but block inclusion of the release record is the next gap to close.
+- ✅ **Gap closed**: bridge release transactions are now recorded in island blocks. `confirm_transfer` creates a `bridge_release` account and a `BRIDGE_RELEASE` `Transaction` with `block_height=NULL`, and the island proposer's block proposal now drains these pre-registered DB transactions and sets their `block_height`.
 
+### Bridge release block inclusion — 2026-08-23 follow-up
+
+**Date:** 2026-08-23  
+**Gitea `main`:** updated on `aitbc3`  
+
+1. **Code changes**
+   - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py`:
+     - `confirm_transfer` now creates a `bridge_release` system account and a `BRIDGE_RELEASE` `Transaction` with `value=0`, `block_height=NULL`, and `status="confirmed"`.
+     - The recipient is credited immediately; the `Transaction` is anchored in the next island block.
+     - `confirm_transfer` also updates the source-chain `CrossChainTransfer` record to `completed` and sets `target_tx_hash`, so bridge health and balance endpoints report the finalised state.
+   - `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`:
+     - `_propose_block` now queries the chain DB for pre-registered `Transaction` records (`block_height=NULL` and `status="confirmed"`) and adds them to the block's transaction list.
+     - Pre-registered `MESSAGE`/`BRIDGE_RELEASE` transactions are recorded in the block without re-running the state transition, avoiding double-credit and replay failures.
+     - The `Transaction` record is updated in place with `block_height` and `status="confirmed"` rather than creating a duplicate.
+
+2. **Live validation**
+   - After restart, the two previously-pending bridge release transactions were anchored in island blocks 10 and 12.
+   - A fresh 50-unit hub→island bridge was locked, confirmed, and the release transaction was included in island block 18 (`ec104e2e4e37ec5fd097e48f043ade54f570481d604e997e336340c88e63315a`).
+   - Source account `ait19df8f71c4161364898e0ad0b33e2368b227fe612` was correctly debited (balance 150, nonce 1 after a 50-unit lock).
+   - Bridge health reports `pending_transfer_count: 0` and `total_locked_amount: 0` after source records were marked `completed`.
+
+3. **Quality gates**
+   - `mypy` clean on `bridge_transfer.py`, `poa.py`, and `database.py`.
+   - `no_float_money.py`: 0 violations.
+   - `pytest apps/blockchain-node/tests/`: all green.
+   - `check-openapi-drift.sh`: 5 specs match.
+
+4. **Remaining operational findings**
+   - Hub→shop state sync still logs `state_root mismatch` and a one-time `Invalid nonce for ait1a54...: expected 1503, got 1502` warning. These are recorded for later investigation and are not addressed by this change.
+   - The historical first bridge lock (`0x45e3cb856c9da0e...`) did not debit the source `ait19df8...` account due to the prior `expire_on_commit=True` session handling; that account has an extra 50-unit balance. This is a one-time data inconsistency on the live hub DB, not a reproducible code bug after `database.py` `expire_on_commit=False`.
