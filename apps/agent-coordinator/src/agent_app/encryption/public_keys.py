@@ -5,6 +5,7 @@ Public keys can be registered by agents and fetched by the encryptor at
 runtime without reading from the local filesystem.  The MessageEncryptor
 falls back to this registry when a key is not present in its own key pairs.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -38,7 +39,10 @@ def get_public_key(agent_id: str) -> bytes | None:
     """Fetch a public key for an agent from the registry."""
     entry = PUBLIC_KEY_REGISTRY.get(agent_id)
     if entry:
-        return entry["public_key"]
+        # Registry values are dict[str, Any]; the "public_key" slot is only ever
+        # written by register_public_key(), which takes bytes.
+        public_key: bytes = entry["public_key"]
+        return public_key
     return None
 
 
