@@ -17,12 +17,11 @@ from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
+from ..utils.wallet_paths import wallet_dir
 
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8202"
-DEFAULT_WALLET_DIR = Path.home() / ".aitbc" / "wallets"
-DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 
 
 def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
@@ -96,7 +95,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
 
         # Get wallet configuration
         config = get_config()
-        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
+        keystore_path = wallet_dir() / f"{wallet}.json"
         if not keystore_path.exists():
             abort(None, f"Wallet '{wallet}' not found")
 
@@ -175,7 +174,7 @@ def create_listing(wallet_name: str, item_type: str, price: Decimal, description
     """Create a marketplace listing"""
     try:
         # Get wallet address
-        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet_name}.json"
+        keystore_path = wallet_dir() / f"{wallet_name}.json"
         if not keystore_path.exists():
             error(f"Wallet '{wallet_name}' not found")
             return None
@@ -227,7 +226,7 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, m
     """Submit an AI job"""
     try:
         # Get wallet address
-        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet_name}.json"
+        keystore_path = wallet_dir() / f"{wallet_name}.json"
         if not keystore_path.exists():
             error(f"Wallet '{wallet_name}' not found")
             return None
@@ -404,7 +403,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
 
     try:
         # Decrypt wallet
-        keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
+        keystore_path = wallet_dir() / f"{wallet}.json"
         private_key_hex = decrypt_private_key(keystore_path, password)
         private_key_bytes = bytes.fromhex(private_key_hex)
 
@@ -494,7 +493,7 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Get wallet address from correct wallet directory
-        wallet_path = DEFAULT_WALLET_DIR / f"{wallet}.json"
+        wallet_path = wallet_dir() / f"{wallet}.json"
         if not wallet_path.exists():
             error(f"Wallet '{wallet}' not found at {wallet_path}")
             return
@@ -532,12 +531,26 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
 @click.option("--title", required=True, help="Proposal title")
 @click.option("--description", required=True, help="Proposal description")
 @click.option("--category", default="general", help="Proposal category")
-@click.option("--params", default=None, help='JSON execution payload, e.g. {"action":"parameter_change","parameter":"block_time_seconds","value":"10"}')
+@click.option(
+    "--params",
+    default=None,
+    help='JSON execution payload, e.g. {"action":"parameter_change","parameter":"block_time_seconds","value":"10"}',
+)
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def proposal(ctx, proposal_id: str, title: str, description: str, category: str, params: str | None, wallet: str, voting_days: int, format: str):
+def proposal(
+    ctx,
+    proposal_id: str,
+    title: str,
+    description: str,
+    category: str,
+    params: str | None,
+    wallet: str,
+    voting_days: int,
+    format: str,
+):
     """Create a governance proposal on blockchain"""
     config = get_config()
 
@@ -556,7 +569,7 @@ def proposal(ctx, proposal_id: str, title: str, description: str, category: str,
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Get wallet address from correct wallet directory
-        wallet_path = DEFAULT_WALLET_DIR / f"{wallet}.json"
+        wallet_path = wallet_dir() / f"{wallet}.json"
         if not wallet_path.exists():
             error(f"Wallet '{wallet}' not found at {wallet_path}")
             return

@@ -15,10 +15,9 @@ from websockets.exceptions import WebSocketException
 from ..config import get_config
 from ..utils import error, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.wallet_paths import wallet_dir
 
 logger = get_logger(__name__)
-
-WALLET_DIR = Path.home() / ".aitbc" / "wallets"
 
 
 def _build_ws_url(base_url: str, sender: str, token: str | None = None) -> str:
@@ -53,8 +52,8 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     Priority: explicit wallet_name arg > AITBC_DEFAULT_WALLET env var >
     active_wallet in ~/.aitbc/config.yaml > first wallet found.
     """
-    if not WALLET_DIR.exists():
-        error(f"No wallet directory found at {WALLET_DIR}")
+    if not wallet_dir().exists():
+        error(f"No wallet directory found at {wallet_dir()}")
         error("Create a wallet first: aitbc wallet create")
         return None
 
@@ -77,18 +76,18 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
                     pass
 
     if wallet_name:
-        wallet_file = WALLET_DIR / f"{wallet_name}.json"
+        wallet_file = wallet_dir() / f"{wallet_name}.json"
         if not wallet_file.exists():
             error(f"Wallet '{wallet_name}' not found at {wallet_file}")
-            available = [f.stem for f in WALLET_DIR.glob("*.json")]
+            available = [f.stem for f in wallet_dir().glob("*.json")]
             error(f"Available wallets: {', '.join(available)}")
             error("Set AITBC_DEFAULT_WALLET env var or use --wallet to specify one")
             return None
     else:
         # 3. Fall back to first wallet found
-        wallet_files = sorted(WALLET_DIR.glob("*.json"))
+        wallet_files = sorted(wallet_dir().glob("*.json"))
         if not wallet_files:
-            error(f"No wallets found in {WALLET_DIR}")
+            error(f"No wallets found in {wallet_dir()}")
             error("Create a wallet first: aitbc wallet create")
             return None
         wallet_file = wallet_files[0]
