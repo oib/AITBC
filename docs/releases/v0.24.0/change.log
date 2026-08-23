@@ -1021,3 +1021,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   reject every push block.
 - Quality gates: mypy clean, no float money, OpenAPI drift check, and
   `pytest apps/blockchain-node/tests` all pass.
+- fix(database): switch blockchain chain database from StaticPool to NullPool
+  - Each Session now opens and closes a fresh SQLite connection, preventing long-lived read transactions from holding stale WAL snapshots across proposer/RPC processes.
+  - Consolidated SQLite pragma setup into _set_sqlite_pragmas() so all new connections get WAL, tuning and busy_timeout settings.
