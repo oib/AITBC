@@ -547,12 +547,11 @@ class ChainSettings(BaseSettings):
     # Multi-validator consensus (v0.7.5). Master toggle for activating
     # MultiValidatorPoA + PBFT. When False, single-validator PoA remains
     # active. The RuntimeError guards in multi_validator_poa.py and pbft.py
-    # read this setting. Enabled for homebrew testing — no external security audit will
-    # be performed (poor homebrew project). Single-validator PoA still
-    # produces blocks; this flag only unlocks MultiValidatorPoA/PBFT for
-    # testing via RPC endpoints.
-    # v0.10.16: fail-closed by default; enable only after explicit security review.
-    multi_validator_consensus_enabled: bool = True  # P1.4: enabled by default; live env can override
+    # read this setting.
+    # v0.10.16 / G6: fail-closed by default. The single-proposer hub deployment must
+    # not report itself as multi-validator. Enable only after explicit security review
+    # and a validator_set has been configured.
+    multi_validator_consensus_enabled: bool = False
     # Validator set: JSON list of {"address": "...", "stake": "1000"} objects.
     # Used by MultiValidatorPoA to select proposers and validate attestations.
     validator_set: str = ""
@@ -562,7 +561,7 @@ class ChainSettings(BaseSettings):
     validator_keys: str = ""
     # Minimum number of attestations required in block_metadata for a multi-validator
     # block to be accepted during sync (in addition to the proposer signature).
-    multi_validator_min_attestations: int = 0
+    multi_validator_min_attestations: int = 2  # G6: require at least 2 validator attestations when multi-validator is active
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
     # set this to False explicitly.
     pbft_require_signatures: bool = True
