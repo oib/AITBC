@@ -26,6 +26,7 @@ import re
 import shlex
 import subprocess
 from typing import Annotated, Any, Literal
+from urllib.parse import urlencode
 
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
@@ -84,6 +85,28 @@ ALL_SERVICE_ENDPOINTS = {
     "aitbc-pool-hub": "http://localhost:8210/health",
     "aitbc-monitoring": "http://localhost:8002/health",
 }
+
+# Base URLs for the AITBC HTTP APIs (used by call_aitbc_http).  These map a
+# logical service name to the port the service listens on locally on a node.
+ALL_SERVICE_BASES = {
+    "blockchain-rpc": "http://localhost:8202/rpc",
+    "coordinator-api": "http://localhost:8203",
+    "api-gateway": "http://localhost:8201",
+    "marketplace": "http://localhost:8102",
+    "exchange": "http://localhost:8106",
+    "wallet": "http://localhost:8108",
+    "agent-coordinator": "http://localhost:8107",
+    "gpu": "http://localhost:8101",
+    "blockchain-explorer": "http://localhost:8100",
+    "pool-hub": "http://localhost:8210",
+    "blockchain-event-bridge": "http://localhost:8205",
+    "monitoring": "http://localhost:8002",
+    "trading": "http://localhost:8104",
+    "governance": "http://localhost:8105",
+}
+
+# Set of service names available to call_aitbc_http.
+ALL_HTTP_SERVICES = set(ALL_SERVICE_BASES)
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +334,70 @@ def _aitbc_cli_read_tool(
             "allowed_groups": sorted(ALL_AITBC_GROUPS),
         })
     return _json(_run_aitbc_cli(target, group, subcommand, args, options, "json", timeout))
+
+
+def _build_http_url(base: str, path: str, params: dict[str, str] | None) -> str:
+    """Build a local HTTP URL with query parameters."""
+    url = base.rstrip("/") + "/" + path.lstrip("/")
+    if params:
+        url += "?" + urlencode(params)
+    return url
+
+
+def _run_http(
+    host: str,
+    service: str,
+    path: str,
+    method: str = "GET",
+    params: dict[str, str] | None = None,
+    body: dict[str, Any] | None = None,
+    timeout: int = 30,
+) -> dict[str, Any]:
+    """Call an AITBC HTTP endpoint on a remote node via curl."""
+    base = ALL_SERVICE_BASES.get(service)
+    if not base:
+        return {
+            "error": f"unknown service: {service}",
+            "known_services": sorted(ALL_SERVICE_BASES),
+        }
+
+    url = _build_http_url(base, path, params)
+    method = method.upper()
+    if method == "GET":
+        command = f"curl -sS {shlex.quote(url)}"
+    else:
+        headers = "-H 'Content-Type: application/json'"
+        if body:
+            payload = shlex.quote(json.dumps(body))
+            command = f"curl -sS -X {method} {headers} -d {payload} {shlex.quote(url)}"
+        else:
+            command = f"curl -sS -X {method} {shlex.quote(url)}"
+
+    result = _run_remote(host, command, timeout)
+    if result.get("returncode") == 0:
+        try:
+            result["json"] = json.loads(result["stdout"])
+        except json.JSONDecodeError:
+            pass
+    return result
+
+
+def _http_read_tool(
+    role: str | None,
+    host: str | None,
+    service: str,
+    path: str,
+    params: dict[str, str] | None = None,
+    timeout: int = 30,
+) -> str:
+    """Helper for read-only HTTP tools."""
+    target = _host_for_role(role, host)
+    if service not in ALL_HTTP_SERVICES:
+        return _json({
+            "error": f"unknown HTTP service: {service}",
+            "known_services": sorted(ALL_HTTP_SERVICES),
+        })
+    return _json(_run_http(target, service, path, "GET", params, None, timeout))
 
 
 def _build_dry_run(message: str, real_command: str) -> dict[str, Any]:
@@ -1192,6 +1279,544 @@ def get_service_logs(
         return _json({"error": "invalid service name", "service": service})
     command = f"journalctl -n {lines} -u {service} --no-pager"
     return _json(_run_remote(target, command, timeout=30))
+
+
+# ---------------------------------------------------------------------------
+# HTTP / RPC pivot tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def call_aitbc_http(
+    service: Annotated[
+        str,
+        Field(description="AITBC service name (e.g. 'blockchain-rpc', 'coordinator-api', 'marketplace')."),
+    ],
+    path: Annotated[
+        str,
+        Field(description="URL path after the service base, e.g. 'info', 'account/0x...', 'v1/jobs'."),
+    ],
+    method: Annotated[
+        Literal["GET", "POST", "PUT", "PATCH", "DELETE"],
+        Field(description="HTTP method."),
+    ] = "GET",
+    params: Annotated[
+        dict[str, str] | None,
+        Field(description="Query parameters as key/value pairs."),
+    ] = None,
+    body: Annotated[
+        dict[str, Any] | None,
+        Field(description="JSON body for POST/PUT/PATCH requests."),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the curl command without executing it."),
+    ] = False,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm a mutating HTTP call."),
+    ] = False,
+    timeout: Annotated[
+        int,
+        Field(description="Timeout in seconds.", ge=5, le=300),
+    ] = 30,
+) -> str:
+    """Call an AITBC HTTP/RPC endpoint on a selected node.
+
+    This is the generic HTTP pivot. GET calls can run directly; mutating methods
+    (POST, PUT, PATCH, DELETE) require ``dry_run=false`` and ``confirm=true``.
+
+    Examples:
+      - service="blockchain-rpc", path="info"
+      - service="blockchain-rpc", path="account/ait1..."
+      - service="blockchain-rpc", path="blocks-range", params={"limit": "3"}
+      - service="coordinator-api", path="v1/jobs", params={"limit": "10"}
+    """
+    target = _host_for_role(role, host)
+    if service not in ALL_HTTP_SERVICES:
+        return _json({
+            "error": f"unknown HTTP service: {service}",
+            "known_services": sorted(ALL_HTTP_SERVICES),
+        })
+
+    base = ALL_SERVICE_BASES[service]
+    url = _build_http_url(base, path, params)
+    command = f"curl -sS {shlex.quote(url)}"
+    if method != "GET":
+        headers = "-H 'Content-Type: application/json'"
+        if body:
+            payload = shlex.quote(json.dumps(body))
+            command = f"curl -sS -X {method} {headers} -d {payload} {shlex.quote(url)}"
+        else:
+            command = f"curl -sS -X {method} {shlex.quote(url)}"
+
+    if dry_run:
+        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+
+    if method != "GET" and not confirm:
+        return _json({
+            "error": "Confirmation required",
+            "command": command,
+            "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
+        })
+
+    return _json(_run_http(target, service, path, method, params, body, timeout))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_blockchain_info(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get comprehensive blockchain information (height, tx count, accounts, genesis)."""
+    return _http_read_tool(role, host, "blockchain-rpc", "info")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_blockchain_head(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the current chain head block."""
+    return _http_read_tool(role, host, "blockchain-rpc", "head")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_blocks(
+    start: Annotated[
+        int | None,
+        Field(description="Start height (inclusive).", ge=0),
+    ] = None,
+    end: Annotated[
+        int | None,
+        Field(description="End height (inclusive).", ge=0),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        Field(description="Return the most recent N blocks.", ge=1),
+    ] = None,
+    include_tx: Annotated[
+        bool,
+        Field(description="Include transactions in each block."),
+    ] = True,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get a range of blocks by height or the most recent N blocks."""
+    params: dict[str, str] = {}
+    if start is not None:
+        params["start"] = str(start)
+    if end is not None:
+        params["end"] = str(end)
+    if limit is not None:
+        params["limit"] = str(limit)
+    params["include_tx"] = "true" if include_tx else "false"
+    return _http_read_tool(role, host, "blockchain-rpc", "blocks-range", params)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_block_info(
+    height: Annotated[
+        int,
+        Field(description="Block height to retrieve.", ge=0),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get a single block by height."""
+    return _http_read_tool(role, host, "blockchain-rpc", f"blocks/{height}")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_account_info(
+    address: Annotated[
+        str,
+        Field(description="Account address or bech32 address."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get account balance and nonce from the blockchain RPC."""
+    return _http_read_tool(role, host, "blockchain-rpc", f"account/{address}")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_transaction_info(
+    tx_hash: Annotated[
+        str,
+        Field(description="Transaction hash with 0x prefix."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get a transaction by hash from the blockchain RPC."""
+    return _http_read_tool(role, host, "blockchain-rpc", f"transaction/{tx_hash}")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_mempool(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get pending transactions in the mempool."""
+    return _http_read_tool(role, host, "blockchain-rpc", "mempool")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_network_info(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get P2P, chain, and network configuration."""
+    return _http_read_tool(role, host, "blockchain-rpc", "network-info")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_blockchain_status(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the blockchain node status."""
+    return _http_read_tool(role, host, "blockchain-rpc", "status")
+
+
+# ---------------------------------------------------------------------------
+# Mutating aitbc CLI wrappers
+# ---------------------------------------------------------------------------
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def submit_ai_job(
+    prompt: Annotated[
+        str,
+        Field(description="Prompt or input for the AI job."),
+    ],
+    wallet: Annotated[
+        str | None,
+        Field(description="Wallet name to pay for the job."),
+    ] = None,
+    job_type: Annotated[
+        str | None,
+        Field(description="Job type, e.g. 'ollama', 'whisper', 'ffmpeg'."),
+    ] = None,
+    model: Annotated[
+        str | None,
+        Field(description="Ollama model to use (for ollama jobs)."),
+    ] = None,
+    payment: Annotated[
+        str | None,
+        Field(description="Payment amount, e.g. '0.1'"),
+    ] = None,
+    currency: Annotated[
+        str,
+        Field(description="Payment currency."),
+    ] = "AITBC",
+    offer_id: Annotated[
+        str | None,
+        Field(description="Marketplace offer ID this job is bought against."),
+    ] = None,
+    min_reputation: Annotated[
+        float | None,
+        Field(description="Minimum provider reputation (0-1).", ge=0, le=1),
+    ] = None,
+    wait: Annotated[
+        bool,
+        Field(description="Wait for the job to reach a terminal state."),
+    ] = False,
+    timeout: Annotated[
+        int | None,
+        Field(description="Seconds to wait when --wait is used.", ge=1),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Submit an AI job via the aitbc CLI."""
+    options: dict[str, str | None] = {"prompt": prompt, "currency": currency}
+    if wallet is not None:
+        options["wallet"] = wallet
+    if job_type is not None:
+        options["type"] = job_type
+    if model is not None:
+        options["model"] = model
+    if payment is not None:
+        options["payment"] = payment
+    if offer_id is not None:
+        options["offer-id"] = offer_id
+    if min_reputation is not None:
+        options["min-reputation"] = str(min_reputation)
+    if wait:
+        options["wait"] = None
+    if timeout is not None:
+        options["timeout"] = str(timeout)
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("ai", "submit", None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "ai", "submit", None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def send_aitbc_transaction(
+    from_wallet: Annotated[
+        str,
+        Field(description="Source wallet name."),
+    ],
+    to_address: Annotated[
+        str,
+        Field(description="Destination address."),
+    ],
+    amount: Annotated[
+        str,
+        Field(description="Amount to send, e.g. '1.5'"),
+    ],
+    fee: Annotated[
+        str | None,
+        Field(description="Transaction fee."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Send AITBC from one wallet to another address."""
+    options: dict[str, str | None] = {
+        "from": from_wallet,
+        "to": to_address,
+        "amount": amount,
+    }
+    if fee is not None:
+        options["fee"] = fee
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("transactions", "send", None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "transactions", "send", None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def create_performance_bond(
+    provider_id: Annotated[
+        str,
+        Field(description="Provider ID or address."),
+    ],
+    amount: Annotated[
+        str,
+        Field(description="Amount to lock as a performance bond."),
+    ],
+    required_amount: Annotated[
+        str | None,
+        Field(description="Required bond amount for this provider."),
+    ] = None,
+    bond_id: Annotated[
+        str | None,
+        Field(description="Optional external bond identifier."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Create or top up a provider's performance bond."""
+    options: dict[str, str | None] = {"amount": amount}
+    if required_amount is not None:
+        options["required-amount"] = required_amount
+    if bond_id is not None:
+        options["bond-id"] = bond_id
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("bond", "create", [provider_id], options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "bond", "create", [provider_id], options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def stake_aitbc(
+    amount: Annotated[
+        str,
+        Field(description="Amount to stake."),
+    ],
+    wallet_name: Annotated[
+        str | None,
+        Field(description="Wallet name to stake from."),
+    ] = None,
+    duration_days: Annotated[
+        int | None,
+        Field(description="Staking duration in days.", ge=1),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Stake AITBC tokens on the blockchain."""
+    options: dict[str, str | None] = {}
+    if wallet_name is not None:
+        options["wallet-name"] = wallet_name
+    if duration_days is not None:
+        options["duration"] = str(duration_days)
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("wallet", "stake", [amount], options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "wallet", "stake", [amount], options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def unstake_aitbc(
+    stake_id: Annotated[
+        str,
+        Field(description="Stake ID to unstake."),
+    ],
+    wallet_name: Annotated[
+        str | None,
+        Field(description="Wallet name to unstake from."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Unstake AITBC tokens from the blockchain."""
+    options: dict[str, str | None] = {}
+    if wallet_name is not None:
+        options["wallet-name"] = wallet_name
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("wallet", "unstake", [stake_id], options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "wallet", "unstake", [stake_id], options, "json"))
 
 
 # ---------------------------------------------------------------------------
