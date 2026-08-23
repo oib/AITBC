@@ -100,6 +100,20 @@ except ImportError as e:
     _import_failed("Settlement sub-router", e)
 
 try:
+    from .routers.agent_economy import router as agent_economy_router
+
+    router.include_router(agent_economy_router)
+except ImportError as e:
+    _import_failed("Agent economy sub-router", e)
+
+try:
+    from .routers.bounty import router as bounty_router
+
+    router.include_router(bounty_router)
+except ImportError as e:
+    _import_failed("Bounty sub-router", e)
+
+try:
     from .routers.bridge import router as bridge_router
 
     router.include_router(bridge_router)

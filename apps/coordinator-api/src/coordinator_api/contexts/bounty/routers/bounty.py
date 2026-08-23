@@ -205,14 +205,11 @@ async def create_bounty(
     """Create a new bounty"""
     try:
         logger.info("Creating bounty: %s by user %s", bounty_request.title, user["sub"])
-        bounty = await bounty_service.create_bounty(creator_id=user["sub"], **bounty_request.model_dump())
-        background_tasks.add_task(
-            blockchain_service.deploy_bounty_contract,
-            bounty.bounty_id,
-            bounty.reward_amount,
-            bounty.tier,
-            bounty.deadline,
-        )
+        import secrets
+
+        bounty_id = f"bounty_{secrets.token_hex(8)}"
+        await blockchain_service.deploy_bounty_contract(bounty_id, user["sub"], bounty_request.reward_amount)
+        bounty = await bounty_service.create_bounty(creator_id=user["sub"], bounty_id=bounty_id, **bounty_request.model_dump())
         return BountyResponse.model_validate(bounty)
     except Exception as e:
         logger.error("Failed to create bounty: %s", e)
@@ -292,17 +289,23 @@ async def submit_bounty_solution(
             raise HTTPException(status_code=400, detail="Bounty is not active")
         if datetime.now(UTC) > bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has passed")
-        submission = await bounty_service.create_submission(
-            bounty_id=bounty_id, submitter_address=user["sub"], **submission_request.model_dump()
-        )
-        background_tasks.add_task(
-            blockchain_service.submit_bounty_solution,
+        import secrets
+
+        submission_id = f"submission_{secrets.token_hex(8)}"
+        await blockchain_service.submit_bounty_solution(
             bounty_id,
-            submission.submission_id,
+            submission_id,
+            user["sub"],
             submission_request.zk_proof,
             submission_request.performance_hash,
             submission_request.accuracy,
             submission_request.response_time,
+        )
+        submission = await bounty_service.create_submission(
+            bounty_id=bounty_id,
+            submission_id=submission_id,
+            submitter_address=user["sub"],
+            **submission_request.model_dump(exclude={"bounty_id"}),
         )
         return BountySubmissionResponse.model_validate(submission)
     except HTTPException:
@@ -354,19 +357,18 @@ async def verify_bounty_submission(
     try:
         if not user.get("role") == "admin":
             raise HTTPException(status_code=403, detail="Not authorized to verify submissions")
+        await blockchain_service.verify_submission(
+            bounty_id,
+            verification_request.submission_id,
+            verification_request.verified,
+            user["sub"],
+        )
         await bounty_service.verify_submission(
             bounty_id=bounty_id,
             submission_id=verification_request.submission_id,
             verified=verification_request.verified,
             verifier_address=verification_request.verifier_address,
             verification_notes=verification_request.verification_notes,
-        )
-        background_tasks.add_task(
-            blockchain_service.verify_submission,
-            bounty_id,
-            verification_request.submission_id,
-            verification_request.verified,
-            verification_request.verifier_address,
         )
         return {"message": "Submission verified successfully"}
     except Exception as e:
@@ -388,18 +390,17 @@ async def dispute_bounty_submission(
 ) -> dict[str, str]:
     """Dispute a bounty submission"""
     try:
+        await blockchain_service.dispute_submission(
+            bounty_id,
+            dispute_request.submission_id,
+            user["sub"],
+            dispute_request.dispute_reason,
+        )
         await bounty_service.create_dispute(
             bounty_id=bounty_id,
             submission_id=dispute_request.submission_id,
             disputer_address=user["sub"],
             dispute_reason=dispute_request.dispute_reason,
-        )
-        background_tasks.add_task(
-            blockchain_service.dispute_submission,
-            bounty_id,
-            dispute_request.submission_id,
-            user["sub"],
-            dispute_request.dispute_reason,
         )
         return {"message": "Dispute created successfully"}
     except Exception as e:
@@ -508,8 +509,8 @@ async def expire_bounty(
             raise HTTPException(status_code=400, detail="Bounty is not active")
         if datetime.now(UTC) <= bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has not passed")
+        await blockchain_service.expire_bounty(bounty_id, user["sub"])
         await bounty_service.expire_bounty(bounty_id)
-        background_tasks.add_task(blockchain_service.expire_bounty, bounty_id)
         return {"message": "Bounty expired successfully"}
     except HTTPException:
         raise
