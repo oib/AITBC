@@ -467,9 +467,10 @@ class PoAProposer:
                         if not sender or not recipient:
                             self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
                             continue
-                        # Pre-registered MESSAGE transactions (e.g. bridge releases) are already
-                        # applied by the originating RPC call.  Record them in the block without
-                        # re-running the state transition to avoid replay and double-credit.
+                        # Pre-registered transactions (e.g. bridge releases/refunds and faucet
+                        # funding) are already applied by the originating RPC call. Record them in
+                        # the block without re-running the state transition to avoid replay and
+                        # double-credit.
                         existing_tx_record = session.exec(
                             select(Transaction).where(
                                 Transaction.chain_id == self._config.chain_id,
@@ -480,7 +481,7 @@ class PoAProposer:
                             existing_tx_record
                             and existing_tx_record.status == "confirmed"
                             and existing_tx_record.block_height is None
-                            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_LOCK", "FAUCET"}
+                            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK", "FAUCET"}
                         ):
                             existing_tx_record.block_height = next_height
                             existing_tx_record.timestamp = timestamp.isoformat()
