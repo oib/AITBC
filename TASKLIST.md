@@ -171,7 +171,7 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
   - Scenario 50 and release changelog updated.
 - [x] Document wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
 - [x] Clear mypy-clean-apps (34) and no-float-money (16) on gitea `main` (`1d8ab0d40`). Committed with `SKIP=openapi-drift`; regenerating `docs/api/` is still open.
-- [ ] Regenerate `docs/api/` so `openapi-drift` can stop being skipped. Review the existing ~1400-line lag first; do not land `make openapi` blindly.
+- [x] Regenerated `docs/api` 2026-08-23; `openapi-drift` passes and the pre-commit hook is no longer skipped.
 
 ## Agent B (localhost / documentation / support)
 
