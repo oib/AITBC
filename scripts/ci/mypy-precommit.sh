@@ -29,6 +29,21 @@
 # result off it was Any too.
 #
 # Keep it empty. A baseline that grows back is a baseline nobody reads.
+#
+# 2026-08-23: cli/ was never in APPS, so 154 source files went unchecked. Its
+# errors still leaked into the output whenever an app's import graph happened to
+# reach them, which made the gate non-deterministic: hub reported one cli error on
+# a warm cache and three on a cold one, aitbc3 reported none at all. Adding cli to
+# APPS makes the coverage explicit and the result reproducible.
+#
+# The errors that surfaced are recorded here rather than fixed, so the ratchet is
+# non-empty again. This is a debt, not a decision to live with: the paragraph above
+# still applies. Shrink it with --update as the entries are fixed.
+#
+# Generate the baseline on a host with the full dependency set. Where torch,
+# tenseal or opentelemetry are missing, mypy degrades those imports to Any and the
+# 'type: ignore' comments covering them are reported as unused -- roughly 17 bogus
+# errors that would otherwise be baselined as real.
 
 set -euo pipefail
 
@@ -51,6 +66,7 @@ APPS=(
   apps/blockchain-explorer
   apps/miner
   apps/zk-circuits
+  cli
 )
 
 set +e
