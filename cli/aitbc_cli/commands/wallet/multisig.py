@@ -4,12 +4,12 @@ import json
 import os
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
 
 import click
 
 from ...utils import DECIMAL, error, output, success
 from ...utils.money import wallet_amount as _wallet_amount
+from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import wallet
 
 
@@ -20,7 +20,7 @@ from . import wallet
 @click.pass_context
 def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     """Create a multi-signature wallet"""
-    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
     multisig_path = wallet_dir / f"{name}_multisig.json"
 
@@ -69,7 +69,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @click.pass_context
 def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, description: str | None):
     """Propose a multisig transaction"""
-    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
     if not multisig_path.exists():
@@ -122,7 +122,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
 @click.pass_context
 def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     """Sign a pending multisig transaction"""
-    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
     if not multisig_path.exists():
