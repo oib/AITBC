@@ -1003,3 +1003,106 @@ still unproven in production.
 
 This closes the two items left open above: `b7f3c1a90d24` is now applied on both nodes, and
 the reconciler is enabled on both.
+
+## 2026-08-23 — coordinator migrations recovered from the wrong database
+
+### The bug
+
+`apps/coordinator-api/alembic/env.py` resolved its target as
+`DATABASE_URL or SQLITE_URL or app_settings.database.effective_url`. The deployed
+env file `/etc/aitbc/aitbc-coordinator-api.env` set `DATABASE_URL` to a Postgres
+DSN, but the running service resolves its engine from
+`settings.database.effective_url` and never reads `DATABASE_URL`.
+
+Every `alembic upgrade` therefore advanced a Postgres schema that nothing reads,
+while the live SQLite database silently fell behind head:
+
+| node | live SQLite was at | head | behind |
+|---|---|---|---|
+| hub.aitbc | `1a7d8e9b0c2f` | `a3e7c15b8d94` | 3 revisions |
+| aitbc3 | `e9cf23ae4640` | `a3e7c15b8d94` | 11 revisions |
+
+Meanwhile hub's unused Postgres DB sat at head, and aitbc3's had no
+`alembic_version` row at all and is corrupt (`invalid page in block 4 of
+relation base/16395/2620`).
+
+The three revisions missing on hub are the V23 Float→Numeric money-column
+conversions. The SQLModel models already declared `Numeric`, so model and
+schema had drifted apart on the live payments database.
+
+### The fix
+
+1. **Guard** (`42d31e5af`) — `env.py` now resolves both URLs, prints the target it
+   is about to migrate, and warns loudly when the override disagrees with what the
+   app reads. Passwords are redacted so a DSN never lands in a log. The override
+   is kept because CI relies on it.
+
+2. **Config** — the dead `DATABASE_URL` line is commented out in
+   `/etc/aitbc/aitbc-coordinator-api.env` on both nodes (backup:
+   `.bak-2026-08-23`), so alembic and the app now agree on one source of truth.
+   Verified safe first: `EnvironmentFile=/etc/aitbc/%N.env` expands per-unit, so
+   only `aitbc-coordinator-api.service` loads that file, and the sole in-app
+   reader of `DATABASE_URL` is an unreferenced diagnostic list in
+   `contexts/language/services/multi_language/config.py`.
+
+3. **Migrations applied live**, after a dry run against a `sqlite3.backup()`
+   snapshot of each live database.
+
+### Dry run, then live
+
+Both nodes reached `a3e7c15b8d94` with `PRAGMA integrity_check` = ok.
+
+| | pending | tables | money sums before → after |
+|---|---|---|---|
+| hub.aitbc | 3 | 158 → 158 | unchanged (see below) |
+| aitbc3 | 11 | 198 → 205 | unchanged |
+
+hub money columns, all now `NUMERIC(20, 8)`:
+
+| table | column | rows | sum before | sum after |
+|---|---|---|---|---|
+| job_payments | amount | 69 | 209.74 | 209.74 |
+| payment_escrows | amount | 63 | 184.73 | 184.73 |
+| provider_bond | amount | 1 | 10.0 | 10.0 |
+| provider_bond | required_amount | 1 | 10.0 | 10.0 |
+| agent_reputation | total_earnings | 6 | 16.6138 | 16.6138 |
+
+`PRAGMA foreign_key_check` on hub reports 39 violations both before and after —
+orphaned `reputation_events` (31), `agent_reputation` (6) and `community_feedback`
+(2) rows. The migration introduces none of them. **Open finding**, unrelated to
+this work.
+
+Procedure per node: stop `aitbc-coordinator-api` → `cp -a` the database to
+`coordinator.db.bak-2026-08-23-premigrate` → `alembic upgrade head` → verify →
+start. Neither node logged a warning or error after restart; `/health` returned
+200 on both; the escrow settlement reconciler came back up on hub
+(`interval=300s min_age=120s batch=25`).
+
+### End-to-end proof
+
+Reading through the app's own engine and models after the migration:
+
+```
+job_payments    -> JobPayment     amount=Decimal('5.00000000')
+payment_escrows -> PaymentEscrow  amount=Decimal('0.01000000')
+```
+
+Exact decimals, not floats — schema and models now agree.
+
+### Correction to an earlier note
+
+An earlier draft of this document framed the exposure as "102 Float money
+columns". That count came from the migration source, not from the data. On the
+live hub database only `provider_bond.amount`, `provider_bond.required_amount`,
+`regional_hub.budget_allocation`, `regional_hub.spent_budget` and
+`agent_reputation.total_earnings` were both Float-typed and populated — about six
+rows in total. `job_payments.amount` and `payment_escrows.amount` were already
+`NUMERIC`. The remaining Float columns hold scores and ratings, not money.
+
+### Still open
+
+- The orphaned Postgres databases should be dropped or repaired rather than left
+  advertising themselves. aitbc3's is corrupt.
+- The Postgres DSN password was printed to a terminal during this session and is
+  worth rotating.
+- 39 pre-existing FK violations on hub's reputation tables.
