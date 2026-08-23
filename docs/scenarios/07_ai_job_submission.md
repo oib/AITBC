@@ -53,7 +53,7 @@ An AI agent needs to run an inference or training workload on the the network. I
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - A wallet with AIT balance (created in Scenario 01)
 - Coordinator API reachable at `http://localhost:8203` (override with `--coordinator-url`)
-- A valid JWT passed with `--api-key` (generate with `python3 -c "from aitbc.auth import create_access_token; ..."`)
+- Log in with `aitbc auth login --wallet <wallet-name>`; subsequent commands do not need `--api-key`.
 
 ### Setup Required
 
@@ -61,7 +61,7 @@ An AI agent needs to run an inference or training workload on the the network. I
 - See [CLI Live Setup](../ops/aitbc-cli-live-setup.md) for live two-node JWT and URL configuration.
 - Ensure the coordinator-api service is running
 - Have a wallet name and (optionally) a password file ready
-- Set `AITBC_API_KEY` or pass `--api-key` explicitly with a client JWT
+- Set `AITBC_API_KEY` or use `aitbc auth login` to store a client JWT.
 
 ---
 
@@ -83,7 +83,7 @@ Submit a job with a wallet, job type, prompt, and payment amount. The coordinato
 
 ```bash
 # Submit an inference job paying 5.0 AIT from wallet "agent-wallet"
-aitbc --api-key "$COORDINATOR_TOKEN" ai submit \
+aitbc ai submit \
   --wallet agent-wallet \
   --type inference \
   --prompt "Summarize the latest AITBC block headers" \
@@ -335,7 +335,7 @@ Confirm the job lifecycle end-to-end:
 
 ```bash
 # Submit a job, wait for completion, and print the escrow tx hash
-aitbc --api-key "$CLIENT_JWT" --output json ai submit \
+aitbc --output json ai submit \
   --wallet agent-wallet \
   --type inference \
   --prompt "hello" \
@@ -345,13 +345,13 @@ aitbc --api-key "$CLIENT_JWT" --output json ai submit \
   --timeout 120
 
 # Or submit without waiting and poll manually
-aitbc --api-key "$CLIENT_JWT" ai status --job-id <job_id>
+aitbc ai status --job-id <job_id>
 
 # Fetch the result payload
-aitbc --api-key "$CLIENT_JWT" ai results --job-id <job_id>
+aitbc ai results --job-id <job_id>
 
 # Confirm the job appears in the list
-aitbc --api-key "$CLIENT_JWT" ai jobs --status completed --limit 5
+aitbc ai jobs --status completed --limit 5
 ```
 
 ---
