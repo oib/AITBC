@@ -51,8 +51,8 @@ groups:
       - alert: BlockProposedButNoSubscribers
         expr: |
           (
-            blockchain_poa_valid_subscribers == 0
-            and on() (increase(blockchain_poa_broadcast_skipped_total[1m]) > 0)
+            blockchain_poa_valid_subscribers{chain_id!~".*island.*"} == 0
+            and on() (increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[1m]) > 0)
           )
         for: 1m
         labels:
@@ -62,7 +62,7 @@ groups:
           description: "Proposer is producing blocks on {{ $labels.chain_id }} but no follower is subscribed; blocks are not being broadcast."
 
       - alert: BroadcastSkipped
-        expr: increase(blockchain_poa_broadcast_skipped_total[5m]) > 0
+        expr: increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[5m]) > 0
         for: 1m
         labels:
           severity: warning
