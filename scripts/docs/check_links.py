@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Validate internal markdown links across the AITBC documentation tree.
+"""Validate internal links across the AITBC documentation tree.
+
+Covers links to other documents and links into the source tree.
 
 Exit codes:
     0 - all links valid
-    1 - one or more broken internal .md links found
+    1 - one or more broken internal links found
 """
 
 import re
@@ -46,6 +48,20 @@ BOILERPLATE_OWNED_PREFIXES = (
 # placeholders relative to the consuming project. Resolving them against this repo is
 # meaningless.
 EXCLUDED_DOC_DIRS = ("docs/archive/",)
+
+# Non-.md targets worth resolving.
+#
+# A link into the source tree is as navigable as a link to another document, and for as
+# long as this checker skipped everything that did not end in .md, it could not see them.
+# Three scenario docs pointed one level above the repo root for months on that account
+# (09ff3b7fe, c6e961ae6). Only extensions that name a file living in this repo belong here.
+SOURCE_SUFFIXES = frozenset(
+    {
+        ".py", ".sh", ".sol", ".circom", ".yml", ".yaml", ".toml", ".json",
+        ".ts", ".tsx", ".js", ".jsx", ".cfg", ".ini", ".txt", ".sql",
+        ".rs", ".go", ".html", ".css", ".conf", ".service", ".env", ".lock", ".proto",
+    }
+)
 
 LINK_RE = re.compile(r"(\[[^\]]*\]\()([^)]+)(\))")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
@@ -91,7 +107,15 @@ def main() -> int:
             if base.startswith(("http://", "https://", "mailto://", "vscode-remote://")):
                 continue
             if not base.endswith(".md"):
-                continue
+                # Root-relative source links are not checked. docs/architecture/7_wallet.md
+                # and docs/agent-sdk/ use "/Exchange/", "/explorer/" and
+                # "/rpc/messaging/topics/support" as *site* routes served by nginx, not as
+                # paths in the tree; resolving those against the repo root would report a
+                # dozen links that work exactly as intended.
+                if base.startswith("/"):
+                    continue
+                if Path(base).suffix.lower() not in SOURCE_SUFFIXES:
+                    continue
 
             if base.startswith("/"):
                 resolved = repo / base.lstrip("/")
@@ -115,10 +139,10 @@ def main() -> int:
     suffix = f" ({skipped_boilerplate} boilerplate-owned reference(s) skipped)" if skipped_boilerplate else ""
 
     if not broken:
-        print(f"Checked {checked} internal .md link(s). All valid.{suffix}")
+        print(f"Checked {checked} internal link(s). All valid.{suffix}")
         return 0
 
-    print(f"Checked {checked} internal .md link(s). Found {len(broken)} broken link(s):{suffix}\n")
+    print(f"Checked {checked} internal link(s). Found {len(broken)} broken link(s):{suffix}\n")
     for src, target in broken:
         print(f"  {src} -> {target}")
     return 1
