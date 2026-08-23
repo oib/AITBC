@@ -26,6 +26,10 @@ POOL_HUB_URL = os.environ.get("POOL_HUB_URL") or os.environ.get("HUB_POOL_HUB_UR
 # Public endpoint for this miner (used by the pool hub registry, not the client).
 MINER_ENDPOINT = os.environ.get("MINER_ENDPOINT", "http://localhost:8101")
 MINER_ID = os.environ.get("MINER_ID", "")
+# G2: the address escrow releases are paid to. The coordinator will not hand this
+# miner an escrowed job unless it matches the escrow's provider, so an unset value
+# means the miner only ever sees unpriced work.
+MINER_WALLET_ADDRESS = os.environ.get("MINER_WALLET_ADDRESS", "")
 AUTH_TOKEN = os.environ.get("MINER_AUTH_TOKEN", os.environ.get("MINER_API_KEY", ""))
 if not MINER_ID:
     raise RuntimeError("MINER_ID environment variable must be set — refusing to start without a public miner identifier")
@@ -247,6 +251,12 @@ async def wait_for_coordinator():
 def register_miner():
     """Register the miner with the coordinator"""
     register_data = {"capabilities": build_gpu_capabilities(), "concurrency": 1, "region": "localhost"}
+    if MINER_WALLET_ADDRESS:
+        register_data["wallet_address"] = MINER_WALLET_ADDRESS
+    else:
+        logger.warning(
+            "MINER_WALLET_ADDRESS is not set; the coordinator will not assign escrowed (paid) jobs to this miner"
+        )
     headers = {"X-Api-Key": AUTH_TOKEN, "X-Miner-ID": MINER_ID, "Content-Type": "application/json"}
     try:
         client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=10)
