@@ -41,6 +41,18 @@ class BridgeTransferMixin(BridgeBase):
         if max_amount and amount > max_amount:
             raise ValueError(f"Amount {amount} exceeds bridge max lock amount {max_amount}")
 
+        # v0.24.1: bridge locks must be initiated on the node that produces
+        # the source chain. Initiating a lock on a follower would update the
+        # local follower DB, which is then overwritten by the next state sync
+        # from the producer, producing state-root mismatches and unlocked
+        # source funds.  Single-node tests do not set a default peer, so the
+        # guard is skipped when there is no upstream RPC to follow.
+        has_peer = bool(getattr(settings, "default_peer_rpc_url", None))
+        if has_peer:
+            local_chains = [c.strip() for c in (getattr(settings, "block_production_chains", "") or "").split(",") if c.strip()]
+            if source_chain not in local_chains:
+                raise ValueError(f"Source chain {source_chain} is not produced by this node; initiate the lock on the source chain producer")
+
         transfer_id = self._generate_transfer_id(source_chain, target_chain, sender, recipient, amount, int(time.time()))
         with self._session_for(source_chain) as session:
             sender_account = session.get(Account, (source_chain, sender))
@@ -73,7 +85,7 @@ class BridgeTransferMixin(BridgeBase):
                 nonce=lock_nonce,
                 timestamp=datetime.now(UTC),
                 block_height=None,
-                status="pending",
+                status="confirmed",
                 type="BRIDGE_LOCK",
             )
             session.add(lock_tx)
