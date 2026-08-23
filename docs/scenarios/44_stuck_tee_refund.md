@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Refund a failed TEE job escrow
 - **Previous Scenario**: [39 TEE Attestation](./39_tee_attestation.md)
 - **Next Scenario**: [43 Compliance, Plugins and White-Label](./43_compliance_plugins_white_label.md)
 - **Design Cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
-- **Live Validation**: [LIVE_VALIDATION_SUMMARY.md](../../../LIVE_VALIDATION_SUMMARY.md)
+- **Live Validation**: [LIVE_VALIDATION_SUMMARY.md](../../LIVE_VALIDATION_SUMMARY.md)
 
 ---
 
@@ -172,7 +172,7 @@ SELECT id, status, refund_transaction_hash, refunded_at FROM job_payments WHERE 
 
 ## Related Resources
 
-- [LIVE_VALIDATION_SUMMARY.md](../../../LIVE_VALIDATION_SUMMARY.md)
+- [LIVE_VALIDATION_SUMMARY.md](../../LIVE_VALIDATION_SUMMARY.md)
 - [Scenario 39 — TEE Attestation](./39_tee_attestation.md)
 - [Scenario 34 — Hub Customer Node E2E](./34_hub_customer_node_e2e.md)
 - [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
