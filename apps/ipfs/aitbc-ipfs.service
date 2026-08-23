@@ -9,7 +9,9 @@ Group=aitbc
 Environment="IPFS_PATH=/var/lib/aitbc/ipfs-daemon"
 Environment="HOME=/var/lib/aitbc/ipfs-daemon"
 Environment="GOLOG_LOG_LEVEL=info"
-ExecStart=/usr/local/bin/ipfs daemon --enable-gc
+Environment="GOLOG_LOG_FMT=nocolor"
+Environment="IPFS_BIN=/usr/local/bin/ipfs"
+ExecStart=/usr/bin/python3 /opt/aitbc/apps/ipfs/ipfs-daemon.py daemon --enable-gc
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
