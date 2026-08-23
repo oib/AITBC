@@ -5,7 +5,7 @@ from base64 import b64decode, b64encode
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from aitbc_agent_core import get_active_brand
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -335,6 +335,21 @@ class JobView(BaseModel):
     auto_reinvest_pct: Decimal | None = None
     reinvest_status: str | None = None
     reinvest_stake_id: str | None = None
+    # G3: when the held escrow releases on its own if the customer says nothing.
+    acceptance_deadline: datetime | None = None
+
+
+class JobRejection(BaseModel):
+    """A customer's refusal of a delivered result."""
+
+    reason: str = Field(min_length=1, max_length=500, description="Why the result is being refused")
+
+
+class DisputeResolution(BaseModel):
+    """An operator's or arbiter's ruling on a disputed payment."""
+
+    outcome: Literal["refund", "release"] = Field(description="Whether the escrow returns to the buyer or pays the provider")
+    reason: str = Field(min_length=1, max_length=500, description="The ruling, recorded on the settlement")
 
 
 class JobResult(BaseModel):

@@ -24,6 +24,7 @@ from ....schemas import (
     Receipt,
 )
 from ...infrastructure.domain import Job
+from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE, window_seconds_for
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
 from ...infrastructure.services.receipts import ReceiptService
@@ -248,6 +249,70 @@ async def poll(
     return job  # type: ignore[no-any-return]
 
 
+def _attach_reinvest_info(session: Session, job: Job, receipt: dict[str, Any] | None) -> None:
+    """P2.4: surface reinvestment stake id on the receipt for CLI visibility."""
+    if receipt is None or not job.payment_id:
+        return
+    try:
+        from aitbc_shared import JobPayment
+
+        payment = session.get(JobPayment, job.payment_id)
+        if payment and payment.meta_data:
+            reinvest_stake_id = payment.meta_data.get("reinvest_stake_id")
+            reinvest_amount = payment.meta_data.get("reinvest_amount")
+            if reinvest_stake_id or reinvest_amount:
+                receipt_with_reinvest = dict(receipt)
+                receipt_with_reinvest["reinvest_status"] = payment.meta_data.get("reinvest_status", "staked")
+                if reinvest_stake_id:
+                    receipt_with_reinvest["reinvest_stake_id"] = reinvest_stake_id
+                if reinvest_amount:
+                    receipt_with_reinvest["reinvest_amount"] = reinvest_amount
+                job.receipt = receipt_with_reinvest
+    except Exception as e:
+        logger.warning("Could not attach reinvestment info to receipt: %s", e)
+
+
+async def _settle_completed_job(session: Session, payment_service: Any, job: Job, receipt: dict[str, Any] | None) -> bool:
+    """Open the customer's acceptance window, or pay the provider now (G3).
+
+    Releasing inside this request made the provider the only party to the settlement:
+    whatever it submitted was accepted by the act of submitting it. With a window
+    configured the escrow instead stays locked until the customer accepts, the
+    customer rejects, or the window expires and the sweeper releases it.
+
+    A window of zero restores same-request settlement for deployments that depend on
+    it. Either way the caller gets True only if the payment is in a state it can
+    settle from, so a miner is never told the job succeeded when the money did not
+    move and is not waiting.
+    """
+    window = window_seconds_for(job.constraints)
+    if window <= 0:
+        released = await payment_service.release_payment(
+            job.client_id, job.id, job.payment_id, reason="Job completed successfully"
+        )
+        if released:
+            job.payment_status = "released"
+            _attach_reinvest_info(session, job, receipt)
+            session.add(job)
+            session.commit()
+            logger.info("Auto-released payment %s for completed job %s", job.payment_id, job.id)
+        return bool(released)
+    deadline = payment_service.open_acceptance_window(job.id, job.payment_id, window)
+    if deadline is None:
+        logger.error("Could not hold payment %s for acceptance on job %s", job.payment_id, job.id)
+        return False
+    job.payment_status = PENDING_ACCEPTANCE
+    session.add(job)
+    session.commit()
+    logger.info(
+        "Job %s completed; payment %s held for customer acceptance until %s",
+        job.id,
+        job.payment_id,
+        deadline.isoformat(),
+    )
+    return True
+
+
 @router.post("/miners/{job_id}/result", summary="Submit job result")
 @rate_limit(rate=50, per=60)
 async def submit_result(
@@ -350,13 +415,9 @@ async def submit_result(
                     logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
                     success = False
                 else:
-                    success = await payment_service.release_payment(
-                        job.client_id, job.id, job.payment_id, reason="Job completed successfully"
-                    )
+                    success = await _settle_completed_job(session, payment_service, job, receipt)
             else:
-                success = await payment_service.release_payment(
-                    job.client_id, job.id, job.payment_id, reason="Job completed successfully"
-                )
+                success = await _settle_completed_job(session, payment_service, job, receipt)
         elif _zk_required_for(job):
             zk_status = (receipt or {}).get("zk_status")
             if zk_status != "verified":
@@ -365,38 +426,11 @@ async def submit_result(
                 logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
                 success = False
             else:
-                success = await payment_service.release_payment(
-                    job.client_id, job.id, job.payment_id, reason="Job completed successfully"
-                )
+                success = await _settle_completed_job(session, payment_service, job, receipt)
         else:
-            success = await payment_service.release_payment(
-                job.client_id, job.id, job.payment_id, reason="Job completed successfully"
-            )
-        if success:
-            job.payment_status = "released"
-            # P2.4: surface reinvestment stake id on the receipt for CLI visibility.
-            if receipt is not None and job.payment_id:
-                try:
-                    from aitbc_shared import JobPayment
-
-                    payment = session.get(JobPayment, job.payment_id)
-                    if payment and payment.meta_data:
-                        reinvest_stake_id = payment.meta_data.get("reinvest_stake_id")
-                        reinvest_amount = payment.meta_data.get("reinvest_amount")
-                        if reinvest_stake_id or reinvest_amount:
-                            receipt_with_reinvest = dict(receipt)
-                            receipt_with_reinvest["reinvest_status"] = payment.meta_data.get("reinvest_status", "staked")
-                            if reinvest_stake_id:
-                                receipt_with_reinvest["reinvest_stake_id"] = reinvest_stake_id
-                            if reinvest_amount:
-                                receipt_with_reinvest["reinvest_amount"] = reinvest_amount
-                            job.receipt = receipt_with_reinvest
-                except Exception as e:
-                    logger.warning("Could not attach reinvestment info to receipt: %s", e)
-            session.commit()
-            logger.info("Auto-released payment %s for completed job %s", job.payment_id, job.id)
-        else:
-            logger.error("Failed to auto-release payment %s for job %s", job.payment_id, job.id)
+            success = await _settle_completed_job(session, payment_service, job, receipt)
+        if not success:
+            logger.error("Failed to settle payment %s for job %s", job.payment_id, job.id)
     miner_service.release(
         user["sub"], success=success, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
     )
@@ -524,7 +558,9 @@ async def get_miner_earnings(
             if job.payment_status == "released":
                 paid_earnings += amount
                 total_earnings += amount
-            elif job.payment_status == "escrowed":
+            elif job.payment_status in {"escrowed", PENDING_ACCEPTANCE, DISPUTED}:
+                # G3: money that is locked but not yet paid out, whether it is still
+                # running, waiting on the customer, or before an arbiter.
                 pending_earnings += amount
             history.append(
                 {

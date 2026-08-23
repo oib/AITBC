@@ -729,6 +729,184 @@
         }
       }
     },
+    "/v1/jobs/{job_id}/accept": {
+      "post": {
+        "tags": [
+          "client"
+        ],
+        "summary": "Accept a result and release payment",
+        "description": "Release the held escrow now, without waiting for the window to expire (G3).\n\nAccepting is the customer's own decision to pay, so it is the one release path\nthat needs no timer and no arbiter.",
+        "operationId": "accept_job_v1_jobs__job_id__accept_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "job has no payment awaiting acceptance (payment_status={job.payment_status})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "the escrow release did not settle on-chain; the payment stays held and will be retried",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/reject": {
+      "post": {
+        "tags": [
+          "client"
+        ],
+        "summary": "Reject a result and open a dispute",
+        "description": "Refuse the delivered result. The escrow stays locked pending a ruling (G3).\n\nRejecting does not refund on its own. A customer who could take the money back\nunilaterally would be the mirror of the provider releasing it unilaterally, which\nis the imbalance the acceptance window exists to remove -- so the payment moves to\n\"disputed\" and an operator or arbiter settles it either way.",
+        "operationId": "reject_job_v1_jobs__job_id__reject_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobRejection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "job has no payment awaiting acceptance (payment_status={job.payment_status}) / payment could not be disputed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/debug-settings": {
       "get": {
         "tags": [
@@ -1108,6 +1286,107 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/disputes/{job_id}/resolve": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Resolve a disputed job payment",
+        "description": "Settle a payment the customer rejected, in either direction (G3).\n\nThis is the only path that moves a disputed escrow. It lives under /v1/admin so\nthe security matrix restricts it to an operator or arbiter: neither the customer\nwho rejected the work nor the provider who did it can rule on their own dispute.\n\nThe refund and release calls are made in the customer's name, which keeps\nPaymentService's ownership check doing its job rather than adding a bypass to it.",
+        "operationId": "resolve_dispute_v1_admin_disputes__job_id__resolve_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeResolution"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Resolve Dispute V1 Admin Disputes  Job Id  Resolve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "job has no disputed payment to resolve (payment_status={job.payment_status})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "the {req.outcome} did not settle on-chain; the payment stays disputed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -30082,6 +30361,19 @@
             "title": "Auto Reinvest Pct",
             "description": "Percentage of released payment to auto-stake as reinvestment"
           },
+          "acceptance_window_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance Window Seconds",
+            "description": "Seconds to review the result before payment auto-releases (0 releases immediately)"
+          },
           "bond_required": {
             "type": "boolean",
             "title": "Bond Required",
@@ -30245,6 +30537,19 @@
             ],
             "title": "Auto Reinvest Pct",
             "description": "Percentage of released payment to auto-stake as reinvestment"
+          },
+          "acceptance_window_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance Window Seconds",
+            "description": "Seconds to review the result before payment auto-releases (0 releases immediately)"
           },
           "bond_required": {
             "type": "boolean",
@@ -30599,6 +30904,33 @@
         "type": "object",
         "title": "DeveloperUpdate",
         "description": "Payload for updating a developer profile."
+      },
+      "DisputeResolution": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "refund",
+              "release"
+            ],
+            "title": "Outcome",
+            "description": "Whether the escrow returns to the buyer or pays the provider"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "The ruling, recorded on the settlement"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "reason"
+        ],
+        "title": "DisputeResolution",
+        "description": "An operator's or arbiter's ruling on a disputed payment."
       },
       "EarningsDistributionRequest": {
         "properties": {
@@ -32644,6 +32976,23 @@
         "title": "JobPaymentView",
         "description": "Payment information for a job"
       },
+      "JobRejection": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Why the result is being refused"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "JobRejection",
+        "description": "A customer's refusal of a delivered result."
+      },
       "JobResult": {
         "properties": {
           "result": {
@@ -32953,6 +33302,18 @@
               }
             ],
             "title": "Reinvest Stake Id"
+          },
+          "acceptance_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance Deadline"
           }
         },
         "type": "object",

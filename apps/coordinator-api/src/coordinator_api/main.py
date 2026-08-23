@@ -213,14 +213,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
 
         if reconciler_enabled():
-            await task_manager.start_task(
-                "escrow_settlement_reconciler", SettlementReconciler().run_forever
-            )
+            await task_manager.start_task("escrow_settlement_reconciler", SettlementReconciler().run_forever)
             logger.info("Escrow settlement reconciler enabled")
         else:
-            logger.info(
-                "Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)"
-            )
+            logger.info("Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)")
+
+        # G3: release escrow once a customer's acceptance window expires. Not opt-in
+        # the way the reconciler is: the reconciler re-drives payouts that should
+        # already have happened, while this one performs the release the window
+        # deferred. Without it, holding a payment would mean never paying it.
+        from .contexts.payments.acceptance import default_window_seconds
+        from .contexts.payments.services.acceptance_sweeper import AcceptanceSweeper, sweeper_enabled
+
+        if sweeper_enabled():
+            await task_manager.start_task("acceptance_window_sweeper", AcceptanceSweeper().run_forever)
+            logger.info("Acceptance window enabled: %ss before escrow auto-releases", default_window_seconds())
+        else:
+            logger.info("Acceptance window disabled (COORDINATOR_ACCEPTANCE_WINDOW_SECONDS=0); escrow releases on result")
 
         logger.info("🚀 Coordinator API is ready to serve requests")
 

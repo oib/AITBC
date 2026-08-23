@@ -170,6 +170,9 @@ def ai():
 @click.option("--provider-address", help="Provider wallet address for escrow")
 @click.option("--offer-id", help="Marketplace offer this job is bought against")
 @click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy (default: 1)")
+@click.option(
+    "--acceptance-window", type=int, default=None, help="Seconds after completion before payment auto-releases (default: 0)"
+)
 @click.option("--min-reputation", type=float, help="Minimum provider reputation score (0-1) required for this job")
 @click.option(
     "--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release"
@@ -219,6 +222,7 @@ def submit(
     provider_address,
     offer_id,
     offer_quantity,
+    acceptance_window,
     min_reputation,
     zk_proof_required,
     tee_attestation_required,
@@ -331,6 +335,8 @@ def submit(
             job_data["offer_id"] = offer_id
             if offer_quantity is not None:
                 job_data["offer_quantity"] = str(offer_quantity)
+        if acceptance_window is not None:
+            job_data["constraints"]["acceptance_window_seconds"] = acceptance_window
         if payment:
             job_data["payment_amount"] = payment
             job_data["payment_currency"] = currency or "AITBC"

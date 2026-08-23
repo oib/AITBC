@@ -34,6 +34,13 @@ class Constraints(BaseModel):
         le=Decimal("100"),
         description="Percentage of released payment to auto-stake as reinvestment",
     )
+    # G3: how long this job's customer may review the result before the escrow
+    # releases. None takes the operator's default; the coordinator clamps it.
+    acceptance_window_seconds: int | None = Field(
+        default=None,
+        ge=0,
+        description="Seconds to review the result before payment auto-releases (0 releases immediately)",
+    )
     bond_required: bool = Field(default=False, description="Require a performance bond for this job")
     min_bond_amount: Decimal | None = Field(default=None, description="Minimum bond amount required for provider eligibility")
     confidential: bool = Field(default=False, description="Mark this job as confidential")
