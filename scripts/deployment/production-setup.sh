@@ -234,7 +234,6 @@ MONITORING_PORT=9000
 
 # Monitoring
 PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
 EOF
 
 chmod 600 /opt/aitbc/production/.env
