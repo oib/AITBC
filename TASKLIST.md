@@ -300,3 +300,4 @@ Status after the 2026-08-24 session:
 - [x] Live end-to-end on aitbc3: lock on hub, generate and sign proof, store header, confirm on island, verify recipient balance.
 - [x] Quality gates: mypy, no-float-money, OpenAPI drift, bridge tests.
 - [x] Update `docs/releases/v0.24.0/change.log`.
+- [x] Follow-up 2026-08-23: anchor `BRIDGE_RELEASE` transactions in island blocks and update source-chain transfer records on confirm.
