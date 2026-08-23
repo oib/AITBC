@@ -977,3 +977,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Live on hub+aitbc3: a 30-unit hub-to-island lock was included in hub
     block 12240, aitbc3 followed with matching account state, and the island
     release was anchored in shop island block 40.
+
+- fix(sync): avoid pulling locally-produced island chains from the default hub. The periodic sync task now resolves the sync source per chain and skips chains that fall back to the default peer and are in block_production_chains.  Live on aitbc3: no more HTTP 503 / Failed to fetch remote head for ait-shop-island; hub sync continues normally.
