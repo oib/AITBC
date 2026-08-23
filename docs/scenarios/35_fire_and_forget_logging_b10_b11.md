@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > Fire-and-Forget Logging
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 Hub background tasks must log failures: agent-coordinator `TaskRegistry` (B10) and coordinator-api `create_task_with_logging` (B11). Operators poke those services with `aitbc system` and `aitbc agent-comm`, then read journals as validation.
 
 ### Use Case

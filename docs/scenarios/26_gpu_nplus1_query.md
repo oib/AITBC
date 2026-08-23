@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > GPU Marketplace N+1 Query Fix
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 Listing marketplace orders used to `session.get()` each GPU (N+1). B14 batch-fetches with `WHERE id IN (...)`. Operators hit that code by listing GPU hardware and marketplace offers through `aitbc gpu` and `aitbc market`.
 
 ### Use Case
@@ -91,7 +93,7 @@ After completing this scenario, you should be able to:
 
 ## Validation
 
-Confirm B14 is still in the coordinator source (not the operator play):
+Confirm B14 is still in the coordinator source (additional validation):
 
 ```bash
 cd /opt/aitbc && PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "

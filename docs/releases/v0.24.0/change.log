@@ -1079,3 +1079,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - docs(monitoring): update `scripts/monitoring/monitoring-setup.md` to match shop-node-only `prometheus.yml`
   - Clarifies that the sample Prometheus config scrapes only the local node by default.
   - Comments out hub and shop coordinator/marketplace targets that are not reachable from a follower.
+- fix(sync): re-enable state-root validation for push imports
+- fix(sync): state snapshots are now skipped when the follower is more
+  than `state_sync_max_gap` (default 10) blocks behind the peer. This prevents
+  the account/nonce snapshot from making old transactions fail their nonce
+  checks and producing thousands of misleading warnings during initial resyncs.

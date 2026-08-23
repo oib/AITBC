@@ -24,6 +24,8 @@ breadcrumb: Home > Scenarios > Hardcoded Secrets Fail-Fast
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 Production configs reject missing or default secrets at startup (A4 agent-coordinator `SECRET_KEY`, A5 coordinator-api `JWT_SECRET`). Operators confirm a live node is not running on `change-me-in-production` via `aitbc security` and `aitbc config`. Instantiating Settings in Python is validation only — do not put that in the play, and do not print secrets.
 
 ### Use Case

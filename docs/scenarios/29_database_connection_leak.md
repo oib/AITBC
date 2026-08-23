@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > Database Connection Leak Prevention
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 `SQLiteDatabaseService` must close connections (`close()`, context manager, `__del__` safety net — B7). Operators hit DB-backed services through `aitbc explorer` and `aitbc system` rather than instantiating the service in a Python snippet.
 
 ### Use Case

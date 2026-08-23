@@ -5,12 +5,12 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from sqlalchemy import func as sqlfunc
+from sqlalchemy import desc, func as sqlfunc
 from sqlmodel import select
 
 from aitbc.sync import apply_state_diff, decode_state_diff
 
-from .base_models import Account, _to_ait_address
+from .base_models import Account, Block, _to_ait_address
 from .config import settings
 from .logger import get_logger
 from .state import state_root_utils
@@ -37,7 +37,28 @@ class StateSyncMixin(SyncBase):
         # the account table agreeing with the peer while the block history does not, so the head
         # block's state_root no longer describes the accounts underneath it — which is what this
         # function did 414 times during the V23-90 outage, healing the symptom it should report.
-        divergence = await self.peer_head_divergence(source_url)
+        # If the follower is far behind, do not pull a snapshot now. The block
+        # sync path will build the state from the actual blocks and the snapshot
+        # would only make old transactions fail their nonce checks.
+        max_gap = getattr(settings, "state_sync_max_gap", 10)
+        divergence, peer_height = await self.peer_head_divergence(source_url)
+        with self._session_factory() as session:
+            local_block = session.exec(
+                select(Block)
+                .where(Block.chain_id == self._chain_id)
+                .order_by(desc(Block.height))  # type: ignore[arg-type]
+            ).first()
+            local_height = local_block.height if local_block else 0
+        if peer_height - local_height > max_gap:
+            self._logger.info(
+                "State sync skipped: local head %s is %s blocks behind remote head %s (threshold %s)",
+                local_height,
+                peer_height - local_height,
+                peer_height,
+                max_gap,
+                extra={"chain_id": self._chain_id, "local_head": local_height, "remote_head": peer_height},
+            )
+            return {"synced": 0, "skipped": True, "reason": "large gap", "local_head": local_height, "remote_head": peer_height}
         if divergence is not None:
             report_divergence(self._chain_id, divergence)
             self._logger.error(

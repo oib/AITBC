@@ -110,8 +110,13 @@ class DivergenceMixin(SyncBase):
             return None
         return Divergence(height=peer_height, our_hash=ours.hash, peer_hash=peer_hash, peer_url=peer_url)
 
-    async def peer_head_divergence(self, source_url: str) -> Divergence | None:
-        """Fetch the peer's head and compare it with the block we hold at that height."""
+    async def peer_head_divergence(self, source_url: str) -> tuple[Divergence | None, int]:
+        """Fetch the peer's head and compare it with the block we hold at that height.
+
+        Returns the divergence (if any) and the peer's head height. The height is
+        useful for callers that need to decide whether the peer is close enough to
+        sync state from.
+        """
         try:
             resp = await self._client.get(f"{source_url}/rpc/head", params={"chain_id": self._chain_id})
             resp.raise_for_status()
@@ -123,5 +128,7 @@ class DivergenceMixin(SyncBase):
                 e,
                 extra={"chain_id": self._chain_id, "source_url": source_url},
             )
-            return None
-        return self.detect_divergence(source_url, head.get("height", -1), head.get("hash", ""))
+            return None, -1
+        peer_height = head.get("height", -1)
+        divergence = self.detect_divergence(source_url, peer_height, head.get("hash", ""))
+        return divergence, peer_height

@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > Secret Manager Thread Safety
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 `SecretManager` is locked for concurrent set/get/rotate (A11). Operators do not stress the lock from a Python one-liner; they use `aitbc security` and `aitbc config` which read secrets and keys through the same process.
 
 ### Use Case
