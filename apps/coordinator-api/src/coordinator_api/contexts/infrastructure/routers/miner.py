@@ -272,6 +272,15 @@ def _attach_reinvest_info(session: Session, job: Job, receipt: dict[str, Any] | 
         logger.warning("Could not attach reinvestment info to receipt: %s", e)
 
 
+
+async def _maybe_slash_bond(session: Session, job: Job, condition: str, evidence: str) -> None:
+    """G5: slash the miner's bond when a bonded job fails verification."""
+    if not (job.constraints and job.constraints.get("bond_required")):
+        return
+    from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+    await BondSlashingService(session).slash(job, SlashingCondition(condition), evidence)
+
+
 async def _settle_completed_job(session: Session, payment_service: Any, job: Job, receipt: dict[str, Any] | None) -> bool:
     """Open the customer's acceptance window, or pay the provider now (G3).
 
@@ -406,6 +415,7 @@ async def submit_result(
                     session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))
                     session.commit()
                     job.payment_status = "refunded"
+                await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
                 success = False
             elif _zk_required_for(job):
                 zk_status = (receipt or {}).get("zk_status")
@@ -413,6 +423,7 @@ async def submit_result(
                     job.error = f"ZK proof required before escrow release (status: {zk_status})"
                     session.commit()
                     logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
+                    await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
                     success = False
                 else:
                     success = await _settle_completed_job(session, payment_service, job, receipt)
@@ -424,6 +435,7 @@ async def submit_result(
                 job.error = f"ZK proof required before escrow release (status: {zk_status})"
                 session.commit()
                 logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
+                await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
                 success = False
             else:
                 success = await _settle_completed_job(session, payment_service, job, receipt)
@@ -465,7 +477,15 @@ async def submit_failure(
 ) -> dict[str, str]:
     try:
         service = JobService(session)
-        service.fail_job(job_id, user["sub"], req.error_message)
+        job = service.fail_job(job_id, user["sub"], req.error_message)
+
+        # G5: a bonded provider that reports a failure has delivered a bad result.
+        from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+
+        if job.constraints and job.constraints.get("bond_required"):
+            await BondSlashingService(session).slash(
+                job, SlashingCondition.BAD_RESULT, req.error_message
+            )
 
         # Record the failure in the reputation service.
         try:
