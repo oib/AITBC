@@ -1044,3 +1044,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Documents `aitbc auth login`, `aitbc ai submit --wait`, reputation-aware dispatch, and the `ESCROW_RELEASE_PRIVATE_KEY` signer.
   - Removes stale "not yet" notes for shipped P0.1, P0.6, P1.1, P1.5, and P0.3.
   - Closes `DESIGN_CYCLE.md` P1.8 and operations gap #13.
+- docs(bridge): reconcile `STATUS.md` with live trusted-custodian bridge defaults
+  - `v0.7.1` and `v0.7.2` rows now note multi-sig/Merkle are implemented but disabled by default.
+  - Closes `DESIGN_CYCLE.md` P1.3.
