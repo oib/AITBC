@@ -17,7 +17,7 @@ breadcrumb: Home > Scenarios > Wallet Key Mismatch Recovery
 ## See Also
 
 - **Previous Scenario**: [Scenario 49 Auto Reinvest Escrow](./49_auto_reinvest_escrow.md)
-- **Feature Documentation**: [Wallet key mismatch guidance](../AGENTS.md#wallet-key-mismatches)
+- **Feature Documentation**: [Wallet key mismatch guidance](../../AGENTS.md#wallet-key-mismatches)
 - **Closed cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) operations gap #12
 
 ---
@@ -166,4 +166,4 @@ For a customer or provider wallet, run a small test transaction to prove the add
 - **Do not** run `aitbc wallet restore` from an address. Addresses are not seed data.
 - **Do not** search `/etc/aitbc/*.env` or the filesystem for other people's private keys unless you have explicit authorization.
 - **Do not** attempt to regenerate a missing key by hashing the address or by brute force. Any "recovered" key produced that way is a new, unrelated wallet.
-- The recommended response is the same as the guidance in [AGENTS.md](../AGENTS.md): record, check for an original backup, recover from that backup, or deprecate and replace.
+- The recommended response is the same as the guidance in [AGENTS.md](../../AGENTS.md): record, check for an original backup, recover from that backup, or deprecate and replace.
