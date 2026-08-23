@@ -223,7 +223,13 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
     - The buyer is never debited, and that is true of every escrow, not these four. The chain has no escrow-lock/deposit transaction type at all (census: `GPU_MARKETPLACE` 1336, `ESCROW_RELEASE` 51, `TRANSFER` 14, `BRIDGE_LOCK` 4, `GOVERNANCE_EXECUTE` 4, `FAUCET` 3, `BOND_*` 3, `BRIDGE_REFUND` 1). The coordinator does not debit either: `wallet_transaction` is empty and the buyer's wallet balance is still 0 after four released payments.
     - The provider is paid from node funds. Release transactions are sent by the settlement address by design. Across all 51: `ait1477737bd…` 44 (590,067 compute-seconds + 6,400 fee, faucet-funded, down to 3,003,533), `ait1fe2d63f…` 3, `ait11c5a77d…` 4. The four in question are confirmed in blocks 8392/8412/8429/10013, 3,510 cs + 36 fee each — 1 AIT minus the 2.5% platform fee, so the arithmetic is right.
     - **Data repair (not money repair):** migration `46c9bffdf9c6` inserted the missing `account` row for buyer `ait135daba990a37177398e0e0c1670baa316a032417` with `balance=0`, so the chain `escrow` FK is satisfied and `PRAGMA foreign_key_check` is 0. This does **not** create the missing escrow-lock funds; it only makes the schema checkable and records the buyer as a known chain participant.
-    - **Decision needed:** whether escrow is meant to be a memo (in which case the FK to `account` is wrong and should go, and the four rows are harmless) or a real two-sided settlement (in which case an escrow-lock transaction type and a buyer balance check are missing, and 173 AIT of payouts are unbacked).
+    - [x] **Decision made and implemented 2026-08-24:** escrows are real two-sided settlements. The FK to `account` stays; the missing escrow-lock transaction type and buyer balance check were the bug.
+      - `Escrow` model now has `status`, `lock_tx_hash`, `refunded_at`, `refund_tx_hash`.
+      - `/rpc/escrow/create` requires a buyer-signed `ESCROW_LOCK` transaction and persists the lock.
+      - `/rpc/escrow/{job_id}/release` only releases after `ESCROW_RELEASE` succeeds on-chain.
+      - Coordinator `PaymentService` builds and signs the lock tx from `PAYMENT_BUYER_PRIVATE_KEY` for test/operator flows; production callers should provide `buyer_lock_signature`.
+      - Migration `498540b266b4` back-filled `status` for existing rows.
+      - Historical 58 unbacked payouts are preserved unchanged; new escrows must be backed by a real lock.
   - Noticed while checking: aitbc3's `coordinator.db` has 197 tables against hub's 158, both at head `a3e7c15b8d94`. Unrelated to the above and not investigated.
   - Detail: `LIVE_VALIDATION_SUMMARY.md`, section on the 2026-08-23 coordinator migration recovery.
 
