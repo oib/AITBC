@@ -1093,3 +1093,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `metrics.py` now exports `mempool_pending_count/size/added/drained/evicted`, `bridge_*`, `subscription_*`, `sync_lag_blocks`, `sync_failures_total`.
   - `mempool.py` and `subscription_client.py` now increment the new Prometheus counters/gauges.
   - `observability/exporters.py` now uses a `ThreadingHTTPServer` `_MetricsHandler` that merges `prometheus_client` default and legacy `metrics_registry` output on `AITBC_NODE_METRICS_PORT` (default 9009).
+- feat(metrics): wire bridge and sync failure metrics
+  - `rpc/bridge.py` now sets `bridge_initialized`, `bridge_pending_transfers`, `bridge_release_enabled`, and `bridge_total_locked_amount` when `bridge_health` and `bridge_security_status` are called.
+  - `sync_block_import.py` increments `sync_failures_total` with a short reason label for every rejected block.
