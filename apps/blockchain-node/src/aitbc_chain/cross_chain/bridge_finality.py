@@ -62,6 +62,7 @@ class BridgeFinalityMixin(BridgeBase):
                 existing.parent_hash = header_data.get("parent_hash", existing.parent_hash)
                 existing.proposer = header_data.get("proposer", existing.proposer)
                 existing.state_root = header_data.get("state_root", existing.state_root)
+                existing.bridge_state_root = header_data.get("bridge_state_root", existing.bridge_state_root)
                 existing.signature = header_data.get("signature", existing.signature)
                 # In production release paths, do not trust caller-supplied
                 # confirmation/finality; derive them from stored chain data.
@@ -87,7 +88,8 @@ class BridgeFinalityMixin(BridgeBase):
                     hash=header_data["hash"],
                     parent_hash=header_data.get("parent_hash", "0x" + "00" * 32),
                     proposer=header_data["proposer"],
-                    state_root=header_data["state_root"],
+                    state_root=header_data.get("state_root", ""),
+                    bridge_state_root=header_data.get("bridge_state_root", ""),
                     signature=header_data.get("signature", ""),
                     confirmation_count=confirmation_count,
                     finality_confirmed=finality_confirmed,
@@ -152,6 +154,7 @@ class BridgeFinalityMixin(BridgeBase):
             parent_hash=header.parent_hash,
             proposer=header.proposer,
             state_root=header.state_root,
+            bridge_state_root=header.bridge_state_root,
             signature=header.signature,
         )
 

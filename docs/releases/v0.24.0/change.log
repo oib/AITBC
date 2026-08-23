@@ -1118,3 +1118,14 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - docs(scenarios): add Scenario 53 — Customer and Shop Dashboards
   - Documents the live `aitbc dashboard customer` and `aitbc dashboard shop` paths, the required `aitbc auth login` roles, and service health checks for empty sections.
   - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.2 to reflect that the CLI dashboard is live and the web UI mock is out-of-repo.
+
+- feat(bridge): P1.3 cross-chain bridge with block-anchored Merkle proofs
+  - Add `bridge_state_root` to `Block` and `BridgeBlockHeader` models and SDK types.
+  - Block hash commits to both account `state_root` and `bridge_state_root`.
+  - Block proposer signs the canonical block header JSON, matching the bridge verifier.
+  - Bridge state root is computed from `BRIDGE_LOCK` events during block production.
+  - `build_proof` rebuilds the bridge event trie from the source block and verifies it matches the committed `bridge_state_root`.
+  - `_validate_proof` verifies the Merkle proof against `BridgeBlockHeader.bridge_state_root`.
+  - Block header and validator attestations are verified as M-of-N signatures over the canonical header message.
+  - Bridge locks are added to the mempool so the next produced block anchors them.
+  - Closes `DESIGN_CYCLE.md` P1.3 bridge multi-signature and Merkle-proof verification.

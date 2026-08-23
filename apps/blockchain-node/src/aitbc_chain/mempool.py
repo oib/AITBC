@@ -12,14 +12,7 @@ from sqlmodel import Field, Session, create_engine, select, text
 
 from .metadata import ChainBase
 
-from .metrics import (
-    mempool_pending_count,
-    mempool_pending_size_bytes,
-    mempool_tx_added_total,
-    mempool_tx_drained_total,
-    mempool_tx_evicted_total,
-    metrics_registry,
-)
+from .metrics import metrics_registry
 
 mempool_metadata = MetaData()
 
@@ -76,12 +69,12 @@ class InMemoryMempool:
     def _total_size(self) -> int:
         return sum(len(chain_txs) for chain_txs in self._transactions.values())
 
-    def _total_bytes(self) -> int:
-        return sum(
-            tx.size_bytes for chain_txs in self._transactions.values() for tx in chain_txs.values()
-        )
-
-    def add(self, tx: dict[str, Any], chain_id: str | None = None) -> str:
+    def add(
+        self,
+        tx: dict[str, Any],
+        chain_id: str | None = None,
+        tx_hash: str | None = None,
+    ) -> str:
         from .config import settings
 
         if chain_id is None:
@@ -90,7 +83,8 @@ class InMemoryMempool:
         if fee < self._min_fee:
             raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
 
-        tx_hash = compute_tx_hash(tx)
+        if tx_hash is None:
+            tx_hash = compute_tx_hash(tx)
         size_bytes = _estimate_size(tx)
         entry = PendingTransaction(tx_hash=tx_hash, content=tx, received_at=time.time(), fee=fee, size_bytes=size_bytes)
         with self._lock:
@@ -102,9 +96,6 @@ class InMemoryMempool:
             chain_transactions[tx_hash] = entry
             metrics_registry.set_gauge("mempool_size", float(self._total_size()))
             metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
-            mempool_pending_count.labels(chain_id=chain_id).set(self._total_size())
-            mempool_pending_size_bytes.labels(chain_id=chain_id).set(self._total_bytes())
-            mempool_tx_added_total.labels(chain_id=chain_id).inc()
         return tx_hash
 
     def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
@@ -139,9 +130,6 @@ class InMemoryMempool:
 
             metrics_registry.set_gauge("mempool_size", float(self._total_size()))
             metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
-            mempool_pending_count.labels(chain_id=chain_id).set(self._total_size())
-            mempool_pending_size_bytes.labels(chain_id=chain_id).set(self._total_bytes())
-            mempool_tx_drained_total.labels(chain_id=chain_id).inc(len(result))
             return result
 
     def remove(self, tx_hash: str, chain_id: str | None = None) -> bool:
@@ -153,8 +141,6 @@ class InMemoryMempool:
             removed = self._get_chain_transactions(chain_id).pop(tx_hash, None) is not None
             if removed:
                 metrics_registry.set_gauge("mempool_size", float(self._total_size()))
-                mempool_pending_count.labels(chain_id=chain_id).set(self._total_size())
-                mempool_pending_size_bytes.labels(chain_id=chain_id).set(self._total_bytes())
             return removed
 
     def size(self, chain_id: str | None = None) -> int:
@@ -187,9 +173,6 @@ class InMemoryMempool:
         lowest = min(chain_transactions.values(), key=lambda t: (t.fee, t.received_at, t.tx_hash))
         del chain_transactions[lowest.tx_hash]
         metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-        mempool_pending_count.labels(chain_id=chain_id).set(self._total_size())
-        mempool_pending_size_bytes.labels(chain_id=chain_id).set(self._total_bytes())
-        mempool_tx_evicted_total.labels(chain_id=chain_id).inc()
 
 
 class DatabaseMempool:
@@ -223,7 +206,13 @@ class DatabaseMempool:
                 session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
                 session.commit()
 
-    def add(self, tx: dict[str, Any], chain_id: str | None = None, commit: bool = True) -> str:
+    def add(
+        self,
+        tx: dict[str, Any],
+        chain_id: str | None = None,
+        tx_hash: str | None = None,
+        commit: bool = True,
+    ) -> str:
         from .config import settings
 
         if chain_id is None:
@@ -232,7 +221,8 @@ class DatabaseMempool:
         if fee < self._min_fee:
             raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
 
-        tx_hash = compute_tx_hash(tx)
+        if tx_hash is None:
+            tx_hash = compute_tx_hash(tx)
         content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
         size_bytes = len(content.encode())
 
@@ -265,7 +255,6 @@ class DatabaseMempool:
                     if to_evict:
                         session.delete(to_evict)
                         metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-                        mempool_tx_evicted_total.labels(chain_id=chain_id).inc()
 
                 entry = MempoolEntry(
                     chain_id=chain_id,
@@ -279,7 +268,6 @@ class DatabaseMempool:
                 if commit:
                     session.commit()
                 metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
-                mempool_tx_added_total.labels(chain_id=chain_id).inc()
             self._update_gauge(chain_id)
         return tx_hash
 
@@ -342,7 +330,6 @@ class DatabaseMempool:
                             session.delete(to_evict)
                             current_count -= 1
                             metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-                            mempool_tx_evicted_total.labels(chain_id=chain_id).inc()
 
                     entry = MempoolEntry(
                         chain_id=chain_id,
@@ -357,7 +344,6 @@ class DatabaseMempool:
                     existing_hashes.add(tx_hash)
                     hashes.append(tx_hash)
                     metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
-                    mempool_tx_added_total.labels(chain_id=chain_id).inc()
                 session.commit()
             self._update_gauge(chain_id)
         return hashes
@@ -425,7 +411,6 @@ class DatabaseMempool:
                     session.commit()
 
                 metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
-                mempool_tx_drained_total.labels(chain_id=chain_id).inc(len(result))
             self._update_gauge(chain_id)
             return result
 
@@ -509,12 +494,6 @@ class DatabaseMempool:
             chain_id = settings.chain_id
         count = self.size(chain_id)
         metrics_registry.set_gauge(f"mempool_size_{chain_id}", float(count))
-        with Session(self._engine) as session:
-            total_bytes = session.exec(
-                select(func.coalesce(func.sum(MempoolEntry.size_bytes), 0)).where(MempoolEntry.chain_id == chain_id)
-            ).one() or 0
-        mempool_pending_count.labels(chain_id=chain_id).set(count)
-        mempool_pending_size_bytes.labels(chain_id=chain_id).set(int(total_bytes))
 
 
 # Singleton
