@@ -135,7 +135,7 @@ class TrustScoreCalculation(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"trust_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True, foreign_key="agent_reputation.id")
+    agent_id: str = Field(index=True)
 
     # Calculation details
     category: TrustScoreCategory
@@ -169,7 +169,7 @@ class ReputationEvent(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"event_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True, foreign_key="agent_reputation.id")
+    agent_id: str = Field(index=True)
 
     # Event details
     event_type: str = Field(max_length=50)  # "job_completed", "dispute_resolved", etc.
@@ -204,7 +204,7 @@ class AgentEconomicProfile(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"econ_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True, foreign_key="agent_reputation.id")
+    agent_id: str = Field(index=True)
 
     # Earnings breakdown
     daily_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
@@ -243,7 +243,7 @@ class CommunityFeedback(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"feedback_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True, foreign_key="agent_reputation.id")
+    agent_id: str = Field(index=True)
 
     # Feedback details
     reviewer_id: str = Field(index=True)
