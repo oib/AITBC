@@ -5,12 +5,13 @@ from __future__ import annotations
 from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
+import json
 import os
 
 from aitbc.aitbc_logging import get_logger
@@ -95,6 +96,7 @@ class PaymentService:
                 try:
                     escrow = await self._create_token_escrow(
                         payment,
+                        payment_data,
                         buyer_address=payment_data.buyer_address,
                         provider_address=payment_data.provider_address,
                     )
@@ -116,19 +118,108 @@ class PaymentService:
             logger.error("Failed to create payment: %s", e)
             raise
 
+    def _compute_lock_tx_signing_hash(self, tx: dict[str, Any]) -> str:
+        """Compute the keccak hash used by the blockchain for transaction signatures."""
+        from eth_utils import keccak
+
+        has_amount = "amount" in tx
+        tx_for_sign = {k: v for k, v in tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
+        canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
+        return "0x" + keccak(canonical).hex()
+
+    def _get_chain_id(self) -> str:
+        return os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+    def _get_node_wallet_address(self) -> str:
+        return os.getenv("NODE_WALLET_ADDRESS") or os.getenv("GENESIS_WALLET_ADDRESS") or ""
+
+    async def _get_account_nonce(self, address: str) -> int:
+        try:
+            client = AITBCHTTPClient(timeout=5.0)
+            r = client.get(f"{self.blockchain_rpc_url}/accounts/{address}")
+            if isinstance(r, dict):
+                return int(r.get("nonce", 0))
+            if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
+                return int(r.get("nonce", 0))
+        except Exception as e:
+            logger.warning("Failed to fetch nonce for %s: %s", address, e)
+        return 0
+
+    def _build_escrow_lock_tx(
+        self,
+        payment: JobPayment,
+        buyer: str,
+        provider: str,
+        nonce: int,
+        fee: int | None = None,
+    ) -> tuple[dict[str, Any], int]:
+        """Build the canonical ESCROW_LOCK transaction. Amount is in compute-seconds."""
+        amount_ait = payment.amount
+        amount_seconds = int(amount_ait * 3600)
+        if amount_seconds <= 0:
+            amount_seconds = int(amount_ait)
+        if fee is None:
+            fee = max(36, amount_seconds // 100)
+        node_wallet = self._get_node_wallet_address()
+        if not node_wallet:
+            raise ValueError("NODE_WALLET_ADDRESS or GENESIS_WALLET_ADDRESS not configured")
+        return {
+            "from": buyer,
+            "to": node_wallet,
+            "amount": amount_seconds,
+            "fee": fee,
+            "nonce": nonce,
+            "type": "ESCROW_LOCK",
+            "chain_id": self._get_chain_id(),
+            "payload": {
+                "action": "escrow_lock",
+                "job_id": payment.job_id,
+                "provider": provider,
+            },
+        }, amount_seconds
+
     async def _create_token_escrow(
         self,
         payment: JobPayment,
+        payment_data: JobPaymentCreate,
         buyer_address: str | None = None,
         provider_address: str | None = None,
     ) -> PaymentEscrow | None:
-        """Create an escrow for token payments using the blockchain escrow contract."""
+        """Create an escrow for token payments using the blockchain escrow contract.
+
+        Requires a buyer-signed ESCROW_LOCK transaction so the on-chain contract is
+        backed by real funds.  If a pre-signed lock is not supplied, the service will
+        sign one using PAYMENT_BUYER_PRIVATE_KEY for test/operator flows.
+        """
         buyer = buyer_address or os.getenv("PAYMENT_BUYER_ADDRESS") or os.getenv("GENESIS_ADDRESS")
         provider = provider_address or os.getenv("PAYMENT_PROVIDER_ADDRESS") or buyer
         if not buyer or not provider:
             logger.warning("No buyer or provider address available for escrow; skipping payment")
             return None
+
+        if not self._get_node_wallet_address():
+            logger.warning("No node wallet configured for escrow lock; skipping payment")
+            return None
+
         try:
+            nonce = payment_data.buyer_lock_nonce
+            if nonce is None:
+                nonce = await self._get_account_nonce(buyer)
+            fee = payment_data.buyer_lock_fee
+            lock_tx, _amount_seconds = self._build_escrow_lock_tx(payment, buyer, provider, nonce, fee)
+
+            if payment_data.buyer_lock_signature:
+                lock_tx["signature"] = payment_data.buyer_lock_signature
+            else:
+                buyer_private_key = os.getenv("PAYMENT_BUYER_PRIVATE_KEY")
+                if not buyer_private_key:
+                    logger.warning("No buyer lock signature or PAYMENT_BUYER_PRIVATE_KEY; skipping payment")
+                    return None
+                from aitbc.crypto.crypto import sign_transaction_hash
+
+                signing_hash = self._compute_lock_tx_signing_hash(lock_tx)
+                lock_tx["signature"] = sign_transaction_hash(signing_hash, buyer_private_key)
+
             client = AITBCHTTPClient(timeout=10.0)
             response = client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/create",
@@ -137,6 +228,7 @@ class PaymentService:
                     "buyer": buyer,
                     "provider": provider,
                     "amount": str(payment.amount),
+                    "lock_tx": lock_tx,
                 },
             )
             escrow_data = response
