@@ -42,7 +42,7 @@ A client fat-fingers the currency. The job must still run unpaid; no orphaned pa
 ### Tools Required
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
-- A coordinator JWT in `$CLIENT_JWT` (`from aitbc.auth import create_access_token`)
+- A funded wallet (e.g. `customer-wallet`) and `aitbc auth login`
 
 ### Setup Required
 
@@ -52,17 +52,17 @@ A client fat-fingers the currency. The job must still run unpaid; no orphaned pa
 
 ## Step-by-Step Workflow
 
-Mint a client JWT on the hub (not a scenario step to scrape secrets into git):
+Log in on the hub (do not scrape JWT secrets from env files):
 
 ```bash
-# On the hub, with JWT_SECRET already in the process environment
-python3 -c "from aitbc.auth import create_access_token; print(create_access_token('test-user-b12', 'client', {'wallet_address': '0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C'}))"
+# On the hub, with a funded customer wallet
+aitbc auth login --wallet customer-wallet --coordinator-url http://127.0.0.1:8203
 ```
 
 ### Step 1: Submit a job with an invalid payment currency
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai submit \
+aitbc --output json ai submit \
   --prompt "B12 payment-failure probe" \
   --payment 1.0 \
   --currency INVALID_CURRENCY \
@@ -74,8 +74,8 @@ aitbc --api-key "$CLIENT_JWT" --output json ai submit \
 ### Step 2: Inspect the job
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai status --job-id "$JOB_ID"
-aitbc --api-key "$CLIENT_JWT" ai jobs --limit 5
+aitbc --output json ai status --job-id "$JOB_ID"
+aitbc ai jobs --limit 5
 ```
 
 **Expected output:** the same `job_id` with `payment_status: skipped`. State may move to `COMPLETED` if a miner picks it up (unpaid).
@@ -83,7 +83,7 @@ aitbc --api-key "$CLIENT_JWT" ai jobs --limit 5
 ### Step 3: Contrast with a clean unpaid job
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" --output json ai submit \
+aitbc --output json ai submit \
   --prompt "unpaid control job" \
   --coordinator-url http://127.0.0.1:8203
 ```

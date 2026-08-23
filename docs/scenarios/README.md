@@ -91,7 +91,7 @@ These were originally v0.10.3 shop-node bug tickets (A3–A14, B5–B15). They a
 
 - Primary tool: `aitbc` (never the retired `aitbc-cli` / `aitbc-cli.sh`).
 - SDK extras import `aitbc_agent` (`from aitbc_agent import Agent, AgentIdentity, AgentCapabilities`).
-- JWT for coordinator calls: `aitbc --api-key "$TOKEN" …`. Mint tokens with `from aitbc.auth import create_access_token` (the old `coordinator_api.auth.jwt_auth` import is gone).
+- JWT for coordinator calls: use `aitbc auth login --wallet <wallet-name>` to store a token, then run commands without `--api-key`. For scripts, `aitbc auth login --wallet <wallet-name>` followed by commands that read the stored credential. Do not scrape `/etc/aitbc/*.env` for `JWT_SECRET` in a scenario.
 - Label **live** vs **simulated** output. Several hub-only groups fall back to deterministic simulated data on a shop node.
 - No hermes / mock-training references.
 - Do not invent commands. If `aitbc <group> --help` does not list it, it is not in the play.
@@ -114,7 +114,7 @@ These were originally v0.10.3 shop-node bug tickets (A3–A14, B5–B15). They a
 The current product path is the two-node hub/shop marketplace loop:
 
 - Shop publishes GPU software offers (`aitbc market offer`).
-- Hub/customer submits authenticated jobs (`aitbc --api-key … ai submit`).
+- Hub/customer submits authenticated jobs (`aitbc auth login` followed by `aitbc ai submit`).
 - Shop miner executes on Ollama; escrow releases on-chain.
 - Pool hub SLA is readable from the shop (`aitbc pool-hub status`).
 
