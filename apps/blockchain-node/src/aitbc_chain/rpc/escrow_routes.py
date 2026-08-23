@@ -417,7 +417,14 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             with session_scope() as session:
                 record = session.get(Escrow, job_id)
                 if record:
-                    record.released_at = released_at
+                    # A reconciliation retry re-releases an escrow that already settled,
+                    # and _submit_payment_tx hands back the transaction that settled it.
+                    # Keep the original timestamp: it is when the provider was actually
+                    # paid. Overwriting it would date the payment to the retry instead.
+                    if record.released_at is not None:
+                        released_at = record.released_at
+                    else:
+                        record.released_at = released_at
                     if job_tx_hash:
                         record.job_tx_hash = job_tx_hash
                     session.commit()
