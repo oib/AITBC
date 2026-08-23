@@ -159,6 +159,160 @@ def _is_allowed_script(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in ALLOWED_SCRIPT_PREFIXES)
 
 
+# ---------------------------------------------------------------------------
+# AITBC CLI pivot helpers
+# ---------------------------------------------------------------------------
+
+# Live/validated top-level aitbc CLI groups (from ``aitbc --help`` without
+# ``--show-deprecated``).  The generic ``run_aitbc_cli`` tool is restricted to
+# these groups; typed wrappers are provided for the most common subcommands.
+ALL_AITBC_GROUPS = {
+    "account",
+    "ai",
+    "auth",
+    "bond",
+    "config",
+    "list",
+    "market",
+    "node",
+    "restart",
+    "start",
+    "stop",
+    "transactions",
+    "version",
+    "wallet",
+}
+
+# Subcommands that are known to mutate state.  The generic ``run_aitbc_cli``
+# tool treats these as destructive and requires dry_run=false and confirm=true.
+DESTRUCTIVE_AITBC_SUBCOMMANDS = {
+    "submit",
+    "cancel",
+    "refund",
+    "create",
+    "delete",
+    "send",
+    "spend",
+    "stake",
+    "unstake",
+    "fund",
+    "import-wallet",
+    "restore",
+    "backup",
+    "propose",
+    "execute",
+    "start",
+    "stop",
+    "restart",
+    "offer",
+    "process",
+    "run",
+    "transcribe",
+    "buy",
+    "sell",
+    "deploy",
+    "update",
+    "multisig-propose",
+    "multisig-sign",
+    "liquidity-stake",
+    "liquidity-unstake",
+    "rate",
+    "publish",
+    "register",
+    "escrow",
+    "appeal",
+    "lock",
+    "release",
+    "slash",
+    "top-up",
+    "batch",
+    "login",
+    "logout",
+}
+
+
+def _safe_option_key(key: str) -> bool:
+    """Validate a CLI option name: only letters, digits, dashes and underscores."""
+    return bool(re.match(r"^[A-Za-z0-9_-]+$", key))
+
+
+def _build_aitbc_cli_command(
+    group: str,
+    subcommand: str | None = None,
+    args: list[str] | None = None,
+    options: dict[str, str | None] | None = None,
+    output_format: str = "json",
+) -> str:
+    """Build a quoted aitbc CLI command string.
+
+    Global options like ``--output`` are placed before the group. Group-specific
+    options are placed after the group but before the subcommand to match how
+    Click parses them, e.g.::
+
+        aitbc --output json wallet --wallet-name genesis balance
+    """
+    tokens: list[str] = [AITBC_CLI]
+    if output_format in {"json", "yaml", "csv"}:
+        tokens.append(f"--output={output_format}")
+    tokens.append(shlex.quote(group))
+    if subcommand:
+        tokens.append(shlex.quote(subcommand))
+    for arg in args or []:
+        tokens.append(shlex.quote(str(arg)))
+    for key, value in (options or {}).items():
+        if not _safe_option_key(key):
+            raise ValueError(f"invalid option key: {key}")
+        if value is None:
+            tokens.append(f"--{key}")
+        else:
+            tokens.append(f"--{key}={shlex.quote(str(value))}")
+    return " ".join(tokens)
+
+
+def _is_aitbc_subcommand_destructive(subcommand: str | None) -> bool:
+    """Return True when a subcommand is known to mutate state."""
+    return subcommand in DESTRUCTIVE_AITBC_SUBCOMMANDS if subcommand else False
+
+
+def _run_aitbc_cli(
+    host: str,
+    group: str,
+    subcommand: str | None,
+    args: list[str] | None,
+    options: dict[str, str | None] | None,
+    output_format: str = "json",
+    timeout: int = 120,
+) -> dict[str, Any]:
+    """Run an aitbc CLI subcommand on a remote host and optionally parse JSON."""
+    command = _build_aitbc_cli_command(group, subcommand, args, options, output_format)
+    result = _run_remote(host, command, timeout)
+    if output_format == "json" and result.get("returncode") == 0:
+        try:
+            result["json"] = json.loads(result["stdout"])
+        except json.JSONDecodeError:
+            pass
+    return result
+
+
+def _aitbc_cli_read_tool(
+    role: str | None,
+    host: str | None,
+    group: str,
+    subcommand: str | None = None,
+    args: list[str] | None = None,
+    options: dict[str, str | None] | None = None,
+    timeout: int = 120,
+) -> str:
+    """Helper for read-only aitbc CLI tools."""
+    target = _host_for_role(role, host)
+    if group not in ALL_AITBC_GROUPS:
+        return _json({
+            "error": f"unknown aitbc group: {group}",
+            "allowed_groups": sorted(ALL_AITBC_GROUPS),
+        })
+    return _json(_run_aitbc_cli(target, group, subcommand, args, options, "json", timeout))
+
+
 def _build_dry_run(message: str, real_command: str) -> dict[str, Any]:
     return {
         "dry_run": True,
@@ -556,6 +710,488 @@ def run_aitbc_command(
         return _json(guard)
 
     return _json(_run_remote(target, real_command, timeout=120))
+
+
+# ---------------------------------------------------------------------------
+# AITBC CLI pivot tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def run_aitbc_cli(
+    group: Annotated[
+        str,
+        Field(description="Live aitbc CLI group (e.g. 'wallet', 'market', 'ai', 'node')."),
+    ],
+    subcommand: Annotated[
+        str,
+        Field(description="Subcommand to run (e.g. 'list', 'status', 'submit')."),
+    ],
+    args: Annotated[
+        list[str] | None,
+        Field(description="Positional arguments for the subcommand."),
+    ] = None,
+    options: Annotated[
+        dict[str, str] | None,
+        Field(description="Options as --key=value. Use an empty string value for boolean flags."),
+    ] = None,
+    output_format: Annotated[
+        Literal["json", "yaml", "csv", "table"],
+        Field(description="Output format; JSON is preferred for machine parsing."),
+    ] = "json",
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the action."),
+    ] = False,
+    timeout: Annotated[
+        int,
+        Field(description="Timeout in seconds.", ge=5, le=600),
+    ] = 120,
+) -> str:
+    """Run an aitbc CLI command with structured group, subcommand, args and options.
+
+    This is the generic pivot for any live aitbc CLI operation not covered by a
+    dedicated wrapper. Destructive subcommands require ``dry_run=false`` and
+    ``confirm=true``. Read-only subcommands require ``dry_run=false`` to run.
+
+    Examples:
+      - group="wallet", subcommand="list"
+      - group="wallet", subcommand="balance", options={"wallet-name": "genesis"}
+      - group="ai", subcommand="status", args=["<job-id>"]
+      - group="market", subcommand="status", args=["<order-id>"]
+      - group="node", subcommand="info", args=["<node-id>"]
+    """
+    target = _host_for_role(role, host)
+    if group not in ALL_AITBC_GROUPS:
+        return _json({
+            "error": f"unknown aitbc group: {group}",
+            "allowed_groups": sorted(ALL_AITBC_GROUPS),
+        })
+
+    command = _build_aitbc_cli_command(group, subcommand, args, options, output_format)
+    destructive = _is_aitbc_subcommand_destructive(subcommand)
+
+    if dry_run:
+        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+
+    if destructive and not confirm:
+        return _json({
+            "error": "Confirmation required",
+            "command": command,
+            "note": (
+                "This aitbc subcommand may mutate state. "
+                "Pass dry_run=false and confirm=true to execute."
+            ),
+        })
+
+    return _json(_run_aitbc_cli(target, group, subcommand, args, options, output_format, timeout))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_aitbc_cli_group(
+    group: Annotated[
+        str,
+        Field(description="Live aitbc CLI group to describe (e.g. 'wallet', 'market')."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the help output for a live aitbc CLI group."""
+    target = _host_for_role(role, host)
+    if group not in ALL_AITBC_GROUPS:
+        return _json({
+            "error": f"unknown aitbc group: {group}",
+            "allowed_groups": sorted(ALL_AITBC_GROUPS),
+        })
+    return _json(_run_remote(target, f"{AITBC_CLI} {shlex.quote(group)} --help"))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_version(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the installed aitbc CLI version."""
+    return _aitbc_cli_read_tool(role, host, "version", subcommand=None)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_auth_status(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show stored aitbc CLI authentication credentials (values are masked)."""
+    return _aitbc_cli_read_tool(role, host, "auth", "status")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_wallets(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List wallets known to the aitbc CLI."""
+    return _aitbc_cli_read_tool(role, host, "wallet", "list")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_wallet_balance(
+    wallet_name: Annotated[
+        str,
+        Field(description="Wallet name to query."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the balance of a named wallet."""
+    return _aitbc_cli_read_tool(role, host, "wallet", "balance", args=[wallet_name])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_wallet_transactions(
+    wallet_name: Annotated[
+        str,
+        Field(description="Wallet name to query."),
+    ],
+    limit: Annotated[
+        int | None,
+        Field(description="Maximum number of transactions to return.", ge=1),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List blockchain transactions for a wallet."""
+    options: dict[str, str] = {}
+    if limit is not None:
+        options["limit"] = str(limit)
+    return _aitbc_cli_read_tool(role, host, "wallet", "transactions", args=[wallet_name], options=options)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_ai_jobs(
+    limit: Annotated[
+        int | None,
+        Field(description="Maximum number of jobs to return.", ge=1),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List AI jobs."""
+    options: dict[str, str] = {}
+    if limit is not None:
+        options["limit"] = str(limit)
+    return _aitbc_cli_read_tool(role, host, "ai", "jobs", options=options)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_ai_job_status(
+    job_id: Annotated[
+        str,
+        Field(description="AI job ID."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the status of an AI job."""
+    return _aitbc_cli_read_tool(role, host, "ai", "status", options={"job-id": job_id})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_ai_job_results(
+    job_id: Annotated[
+        str,
+        Field(description="AI job ID."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the results of a completed AI job."""
+    return _aitbc_cli_read_tool(role, host, "ai", "results", options={"job-id": job_id})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_market_offers(
+    limit: Annotated[
+        int | None,
+        Field(description="Maximum number of offers to return.", ge=1),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List GPU/software marketplace offers and bids."""
+    options: dict[str, str] = {}
+    if limit is not None:
+        options["limit"] = str(limit)
+    return _aitbc_cli_read_tool(role, host, "market", "list", options=options)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_market_status(
+    order_id: Annotated[
+        str,
+        Field(description="Marketplace order/escrow ID."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Check the status of a GPU order including on-chain escrow."""
+    return _aitbc_cli_read_tool(role, host, "market", "status", args=[order_id])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_aitbc_node_config(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List nodes configured in the aitbc CLI."""
+    return _aitbc_cli_read_tool(role, host, "node", "list")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_node_info(
+    node_id: Annotated[
+        str,
+        Field(description="Node ID to look up."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get detailed information about a configured aitbc node."""
+    return _aitbc_cli_read_tool(role, host, "node", "info", args=[node_id])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_accounts(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List accounts tracked by the aitbc CLI."""
+    return _aitbc_cli_read_tool(role, host, "account", "list")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_account(
+    address: Annotated[
+        str,
+        Field(description="Account address to look up."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get account information for a single address."""
+    return _aitbc_cli_read_tool(role, host, "account", "get", options={"address": address})
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_bond_status(
+    provider: Annotated[
+        str,
+        Field(description="Provider ID or address to look up."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show a provider's performance bond eligibility status."""
+    return _aitbc_cli_read_tool(role, host, "bond", "status", args=[provider])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_pending_transactions(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get pending aitbc transactions."""
+    return _aitbc_cli_read_tool(role, host, "transactions", "pending")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_transaction_status(
+    tx_hash: Annotated[
+        str,
+        Field(description="Transaction hash."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the status of a transaction."""
+    return _aitbc_cli_read_tool(role, host, "transactions", "status", args=[tx_hash])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def search_transactions(
+    address: Annotated[
+        str,
+        Field(description="Address or node ID to search for."),
+    ],
+    limit: Annotated[
+        int | None,
+        Field(description="Maximum number of transactions to return.", ge=1),
+    ] = None,
+    use_explorer: Annotated[
+        bool,
+        Field(description="Use the Explorer API instead of RPC."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Search transactions by address or node ID."""
+    options: dict[str, str] = {}
+    if limit is not None:
+        options["limit"] = str(limit)
+    if use_explorer:
+        options["use-explorer"] = ""
+    return _aitbc_cli_read_tool(role, host, "transactions", "search", args=[address], options=options)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_service_logs(
+    service: Annotated[
+        str,
+        Field(description="systemd unit name, e.g. 'aitbc-blockchain-rpc'."),
+    ],
+    lines: Annotated[
+        int,
+        Field(description="Number of recent log lines to return.", ge=1, le=1000),
+    ] = 50,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Tail systemd journal logs for an AITBC service."""
+    target = _host_for_role(role, host)
+    if re.search(r"[;&|<>$`\\!\n\r]", service):
+        return _json({"error": "invalid service name", "service": service})
+    command = f"journalctl -n {lines} -u {service} --no-pager"
+    return _json(_run_remote(target, command, timeout=30))
 
 
 # ---------------------------------------------------------------------------
