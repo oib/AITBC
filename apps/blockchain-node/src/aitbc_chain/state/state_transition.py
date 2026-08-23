@@ -149,6 +149,9 @@ class StateTransition:
         if persisted_tx is not None:
             logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
             return (False, f"Transaction {tx_hash} already processed (replay attack)")
+        sender_addr = _to_ait_address(tx_data.get("from") or "")
+        value = tx_data.get("value", 0)
+        fee = tx_data.get("fee", 0)
         tx_record = session.exec(
             select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
         ).first()
@@ -159,7 +162,17 @@ class StateTransition:
             # created the transaction; the block just anchors the record.  Replay is
             # prevented by the persistent tx hash check above.
             return (True, "Pre-registered credit transaction validated")
-        sender_addr = _to_ait_address(tx_data.get("from") or "")
+        if tx_type == "BRIDGE_LOCK":
+            # Pre-registered bridge lock: the sender was already debited when the
+            # lock was created. The block only anchors the record. Do not validate
+            # the tx nonce or require a bridge_lock recipient account.
+            sender_account = session.get(Account, (chain_id, sender_addr))
+            if not sender_account:
+                return (False, f"Sender account not found: {sender_addr}")
+            total_cost = value + fee
+            if sender_account.balance < total_cost:
+                return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
+            return (True, "Pre-registered bridge lock validated")
         signature = tx_data.get("signature")
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
@@ -171,8 +184,6 @@ class StateTransition:
         tx_nonce = tx_data.get("nonce", 0)
         if tx_nonce != expected_nonce:
             return (False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}")
-        value = tx_data.get("value", 0)
-        fee = tx_data.get("fee", 0)
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"} and value != 0:
             return (False, f"{tx_type} transactions must have value=0, got {value}")
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
@@ -182,18 +193,10 @@ class StateTransition:
         if sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
-        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE"}:
+        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE", "BRIDGE_LOCK"}:
             recipient_account = session.get(Account, (chain_id, recipient_addr))
             if not recipient_account:
-                # Bridge lock transactions create the bridge_lock account
-                # lazily so a source chain can lock funds for a cross-chain
-                # transfer without a separate setup step.
-                if tx_type == "BRIDGE_LOCK" and recipient_addr == "bridge_lock":
-                    recipient_account = Account(chain_id=chain_id, address=recipient_addr, balance=0, nonce=0)
-                    session.add(recipient_account)
-                    session.flush()
-                else:
-                    return (False, f"Recipient account not found: {recipient_addr}")
+                return (False, f"Recipient account not found: {recipient_addr}")
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             if not receipt_id:
@@ -260,6 +263,32 @@ class StateTransition:
                 tx_hash,
                 sender_addr,
                 recipient_addr,
+                value,
+                fee,
+            )
+            return (True, "Transaction applied successfully")
+        if tx_type == "BRIDGE_LOCK":
+            # Pre-registered bridge lock: debit the sender and increment the nonce.
+            # The locked value is not credited to any account; it is recorded in the
+            # CrossChainTransfer table. No bridge_lock account is created.
+            _ensure_account(session, chain_id, sender_addr)
+            total_cost = value + fee
+            logger.info("Bridge lock: %s -= %s, nonce += 1", sender_addr, total_cost)
+            session.execute(
+                text(
+                    "UPDATE account SET balance = balance - :total_cost, nonce = nonce + 1 WHERE chain_id = :chain_id AND address = :sender_addr"
+                ),
+                {"total_cost": total_cost, "chain_id": chain_id, "sender_addr": sender_addr},
+            )
+            self._processed_tx_hashes.add(tx_hash)
+            if _cache and _cache.is_available():
+                _cache.delete(f"account_balance:{chain_id}:{sender_addr.lower()}")
+                _cache.delete(f"account_details:{chain_id}:{sender_addr.lower()}")
+            logger.info(
+                "Applied %s transaction %s: %s, value=%s, fee=%s",
+                tx_type,
+                tx_hash,
+                sender_addr,
                 value,
                 fee,
             )
