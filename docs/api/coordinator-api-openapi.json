@@ -2601,6 +2601,390 @@
         }
       }
     },
+    "/v1/marketplace/providers/{provider_id}/bonds": {
+      "post": {
+        "tags": [
+          "marketplace-bonds"
+        ],
+        "summary": "Create or update a provider bond",
+        "description": "Create or top-up a provider performance bond record.",
+        "operationId": "create_bond_v1_marketplace_providers__provider_id__bonds_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BondCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/providers/{provider_id}/eligibility": {
+      "get": {
+        "tags": [
+          "marketplace-bonds"
+        ],
+        "summary": "Check provider bond eligibility",
+        "description": "Return whether a provider is eligible for high-value jobs.",
+        "operationId": "get_eligibility_v1_marketplace_providers__provider_id__eligibility_get",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/bonds/{bond_id}": {
+      "get": {
+        "tags": [
+          "marketplace-bonds"
+        ],
+        "summary": "Get a bond record by ID",
+        "description": "Return a single bond record.",
+        "operationId": "get_bond_by_id_v1_marketplace_bonds__bond_id__get",
+        "parameters": [
+          {
+            "name": "bond_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bond Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Bond not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/providers/{provider_id}/bonds/lock": {
+      "post": {
+        "tags": [
+          "marketplace-bonds"
+        ],
+        "summary": "Lock a provider bond",
+        "description": "Lock a provider's bond while a high-value job is in flight.",
+        "operationId": "lock_bond_v1_marketplace_providers__provider_id__bonds_lock_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/providers/{provider_id}/bonds/release": {
+      "post": {
+        "tags": [
+          "marketplace-bonds"
+        ],
+        "summary": "Release a locked provider bond",
+        "description": "Release a locked bond back to active status.",
+        "operationId": "release_bond_v1_marketplace_providers__provider_id__bonds_release_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/providers/{provider_id}/bonds/slash": {
+      "post": {
+        "tags": [
+          "marketplace-bonds"
+        ],
+        "summary": "Slash a provider bond",
+        "description": "Slash a provider's bond for misbehavior.",
+        "operationId": "slash_bond_v1_marketplace_providers__provider_id__bonds_slash_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BondAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/miners/register": {
       "post": {
         "tags": [
@@ -5792,6 +6176,78 @@
         }
       }
     },
+    "/v1/zk/receipt/verify": {
+      "post": {
+        "tags": [
+          "zk-proofs"
+        ],
+        "summary": "Verify a job receipt's stored ZK proof",
+        "description": "Verify the ZK receipt proof that was attached to a completed job.",
+        "operationId": "verify_job_receipt_v1_zk_receipt_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyJobReceiptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No ZK proof stored for this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job or receipt not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/zk/health": {
       "get": {
         "tags": [
@@ -6307,7 +6763,7 @@
           "oracle"
         ],
         "summary": "Get price for pair",
-        "description": "Get current price for a trading pair (e.g., BTC/USD)",
+        "description": "Get current price for a trading pair (e.g., ETH/USD)",
         "operationId": "get_price_v1_oracle_price__pair__get",
         "parameters": [
           {
@@ -9556,16 +10012,18 @@
     "/v1/auth/nonce": {
       "post": {
         "tags": [
-          "users"
+          "authentication"
         ],
-        "summary": "Get Login Nonce",
-        "description": "Issue a short-lived nonce that must be signed to log in or register.",
-        "operationId": "get_login_nonce_v1_auth_nonce_post",
+        "summary": "Request an authentication nonce",
+        "description": "Return a fresh nonce that the caller must sign to log in.",
+        "operationId": "auth_nonce_v1_auth_nonce_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserNonceRequest"
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Data"
               }
             }
           },
@@ -9577,7 +10035,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserNonceResponse"
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Auth Nonce V1 Auth Nonce Post"
                 }
               }
             }
@@ -9588,16 +10048,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid wallet address",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9670,16 +10120,18 @@
     "/v1/login": {
       "post": {
         "tags": [
-          "users"
+          "authentication"
         ],
-        "summary": "Login User",
-        "description": "Log in (or auto-register) with a signed wallet-address nonce challenge.",
-        "operationId": "login_user_v1_login_post",
+        "summary": "Log in with a wallet-signed nonce",
+        "description": "Verify a wallet-signed nonce and issue a client JWT.",
+        "operationId": "auth_login_v1_login_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserLogin"
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Data"
               }
             }
           },
@@ -9691,7 +10143,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserProfile"
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Auth Login V1 Login Post"
                 }
               }
             }
@@ -9706,28 +10160,8 @@
               }
             }
           },
-          "400": {
-            "description": "Invalid wallet address",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "401": {
-            "description": "Invalid or expired nonce / Invalid wallet signature",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "User not found for wallet",
+            "description": "Invalid or expired nonce / Invalid signature format / Signature verification failed",
             "content": {
               "application/json": {
                 "schema": {
@@ -17690,33 +18124,15 @@
         "summary": "Submit Attestation",
         "description": "Submit and verify a TEE attestation quote.",
         "operationId": "submit_attestation_v1_tee_attestations_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AttestationSubmit"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -17758,22 +18174,6 @@
             "schema": {
               "type": "string",
               "title": "Attestation Id"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -17819,33 +18219,15 @@
         "summary": "Register Enclave",
         "description": "Register or update an enclave identity.",
         "operationId": "register_enclave_v1_tee_enclaves_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EnclaveRegister"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -17897,22 +18279,6 @@
             "schema": {
               "type": "string",
               "title": "Enclave Id"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
             }
           }
         ],
@@ -28950,6 +29316,175 @@
         ],
         "title": "Body_update_performance_metrics_v1_agent_performance_profiles__agent_id__metrics_post"
       },
+      "BondAction": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "title": "BondAction"
+      },
+      "BondCreate": {
+        "properties": {
+          "bond_id": {
+            "type": "string",
+            "title": "Bond Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount",
+            "default": "0.0"
+          },
+          "required_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Required Amount",
+            "default": "0.0"
+          }
+        },
+        "type": "object",
+        "title": "BondCreate"
+      },
+      "BondResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "bond_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bond Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "required_amount": {
+            "type": "string",
+            "title": "Required Amount"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider_id",
+          "status",
+          "amount",
+          "required_amount",
+          "meta",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BondResponse"
+      },
+      "BondStatusResponse": {
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "eligible": {
+            "type": "boolean",
+            "title": "Eligible"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "required_amount": {
+            "type": "string",
+            "title": "Required Amount"
+          },
+          "bond_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bond Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider_id",
+          "eligible",
+          "status",
+          "amount",
+          "required_amount"
+        ],
+        "title": "BondStatusResponse"
+      },
       "BountyCreate": {
         "properties": {
           "title": {
@@ -29494,6 +30029,30 @@
             ],
             "title": "Max Price"
           },
+          "zk_proof_required": {
+            "type": "boolean",
+            "title": "Zk Proof Required",
+            "description": "Require a ZK receipt proof for this job",
+            "default": false
+          },
+          "tee_attestation_required": {
+            "type": "boolean",
+            "title": "Tee Attestation Required",
+            "description": "Require a TEE attestation for this job",
+            "default": false
+          },
+          "tee_enclave_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tee Enclave Id",
+            "description": "Required enclave identity for TEE attestation"
+          },
           "min_reputation": {
             "anyOf": [
               {
@@ -29504,6 +30063,64 @@
               }
             ],
             "title": "Min Reputation"
+          },
+          "auto_reinvest_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Reinvest Pct",
+            "description": "Percentage of released payment to auto-stake as reinvestment"
+          },
+          "bond_required": {
+            "type": "boolean",
+            "title": "Bond Required",
+            "description": "Require a performance bond for this job",
+            "default": false
+          },
+          "min_bond_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Bond Amount",
+            "description": "Minimum bond amount required for provider eligibility"
+          },
+          "confidential": {
+            "type": "boolean",
+            "title": "Confidential",
+            "description": "Mark this job as confidential",
+            "default": false
+          },
+          "required_enclave_measurement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Enclave Measurement",
+            "description": "Required TEE enclave measurement for confidential jobs"
           }
         },
         "type": "object",
@@ -29581,6 +30198,30 @@
             ],
             "title": "Max Price"
           },
+          "zk_proof_required": {
+            "type": "boolean",
+            "title": "Zk Proof Required",
+            "description": "Require a ZK receipt proof for this job",
+            "default": false
+          },
+          "tee_attestation_required": {
+            "type": "boolean",
+            "title": "Tee Attestation Required",
+            "description": "Require a TEE attestation for this job",
+            "default": false
+          },
+          "tee_enclave_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tee Enclave Id",
+            "description": "Required enclave identity for TEE attestation"
+          },
           "min_reputation": {
             "anyOf": [
               {
@@ -29591,6 +30232,56 @@
               }
             ],
             "title": "Min Reputation"
+          },
+          "auto_reinvest_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Reinvest Pct",
+            "description": "Percentage of released payment to auto-stake as reinvestment"
+          },
+          "bond_required": {
+            "type": "boolean",
+            "title": "Bond Required",
+            "description": "Require a performance bond for this job",
+            "default": false
+          },
+          "min_bond_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Bond Amount",
+            "description": "Minimum bond amount required for provider eligibility"
+          },
+          "confidential": {
+            "type": "boolean",
+            "title": "Confidential",
+            "description": "Mark this job as confidential",
+            "default": false
+          },
+          "required_enclave_measurement": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Enclave Measurement",
+            "description": "Required TEE enclave measurement for confidential jobs"
           }
         },
         "type": "object",
@@ -31668,13 +32359,13 @@
               }
             ],
             "title": "Amount",
-            "description": "Payment amount in aitbc"
+            "description": "Payment amount in AITBC"
           },
           "currency": {
             "type": "string",
             "title": "Currency",
             "description": "Payment currency",
-            "default": "aitbc"
+            "default": "AITBC"
           },
           "payment_method": {
             "type": "string",
@@ -31713,6 +32404,24 @@
             ],
             "title": "Provider Address",
             "description": "Provider wallet address for escrow"
+          },
+          "auto_reinvest_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Reinvest Pct",
+            "description": "Percentage of released payment to auto-stake"
           }
         },
         "type": "object",
@@ -31884,6 +32593,30 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Metrics"
+          },
+          "tee_attestation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tee Attestation Id",
+            "description": "Existing TEE attestation ID"
+          },
+          "tee_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tee Quote",
+            "description": "Base64 TEE attestation quote to verify"
           }
         },
         "type": "object",
@@ -31980,6 +32713,108 @@
               }
             ],
             "title": "Payment Status"
+          },
+          "zk_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zk Status"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "zk_proof_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zk Proof Id"
+          },
+          "tee_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tee Status"
+          },
+          "tee_attestation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tee Attestation Id"
+          },
+          "auto_reinvest_pct": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Reinvest Pct"
+          },
+          "reinvest_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reinvest Status"
+          },
+          "reinvest_stake_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reinvest Stake Id"
           }
         },
         "type": "object",
@@ -36232,6 +37067,20 @@
         "title": "VerificationType",
         "description": "Identity verification type enumeration"
       },
+      "VerifyJobReceiptRequest": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "VerifyJobReceiptRequest",
+        "description": "Request to verify the stored ZK receipt proof for a completed job."
+      },
       "VerifyProofRequest": {
         "properties": {
           "proof": {
@@ -36956,7 +37805,7 @@
           "payment_currency": {
             "type": "string",
             "title": "Payment Currency",
-            "default": "aitbc"
+            "default": "AITBC"
           },
           "buyer_address": {
             "anyOf": [
