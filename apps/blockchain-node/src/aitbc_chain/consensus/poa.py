@@ -471,7 +471,7 @@ class PoAProposer:
                                 Transaction.tx_hash == tx.tx_hash,
                             )
                         ).first()
-                        if existing_tx_record and existing_tx_record.status == "confirmed" and existing_tx_record.block_height is None and tx_type in {"MESSAGE", "BRIDGE_RELEASE"}:
+                        if existing_tx_record and existing_tx_record.status == "confirmed" and existing_tx_record.block_height is None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_LOCK"}:
                             existing_tx_record.block_height = next_height
                             existing_tx_record.timestamp = timestamp.isoformat()
                             session.add(existing_tx_record)
