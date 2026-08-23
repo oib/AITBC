@@ -2,212 +2,73 @@
 
 ## Overview
 
-This document describes the performance monitoring setup for AITBC, including block processing time, job processing time, and uptime monitoring using systemd services.
+This document describes the AITBC monitoring stack. It is **agent-first**: metrics are stored as time series in Prometheus, anomalies are exposed as alert rules and structured log events, and any rendering layer is optional. Grafana is not part of the stack because the operational evidence comes from `journalctl`, `curl /health`, `redis-cli` and source-level queries rather than dashboards.
 
 ## Monitoring Infrastructure
 
 ### Components
 
-1. **Prometheus** - Metrics collection and storage (systemd service)
-2. **Grafana** - Visualization and dashboards (systemd service)
-3. **Node Exporter** - System-level metrics (systemd service)
-4. **Custom Metrics Exporters** - Application-specific metrics
+1. **Prometheus** - Metrics collection, storage, evaluation and alerting (systemd service).
+2. **Node Exporter** - System-level metrics (installed as `prometheus-node-exporter`).
+3. **Custom Metrics Exporters** - Application-specific `/metrics` endpoints served by AITBC services.
+4. **Alertmanager** (optional) - Routes firing alerts to a webhook, log file, or external system.
 
-### Systemd Service Management
+### Why no Grafana?
 
-AITBC uses systemd for service orchestration. Monitoring services are managed as systemd units.
+Grafana is a human-facing rendering layer. None of the live incident investigations in this project have used a dashboard; they used the Prometheus query API, service logs and health endpoints. Keeping Grafana running consumes memory and package maintenance cycles for no operational benefit. If a human-on-call rotation is added later, dashboards can be reintroduced, but the metrics substrate does not depend on them.
 
-#### Starting Monitoring Services
+## Prometheus-first metrics
 
-```bash
-# Start Prometheus
-sudo systemctl start prometheus
-sudo systemctl enable prometheus
+### Core AITBC metrics
 
-# Start Grafana
-sudo systemctl start grafana
-sudo systemctl enable grafana
+The blockchain RPC exposes `/metrics` (and `/prometheus` on the coordinator API). Key series to watch:
 
-# Start Node Exporter
-sudo systemctl start node-exporter
-sudo systemctl enable node-exporter
+- `blockchain_block_height` - current block height.
+- `blockchain_poa_valid_subscribers{chain_id}` - number of valid subscribers at block broadcast time.
+- `blockchain_poa_broadcast_skipped_total{chain_id}` - blocks skipped because no subscribers were present.
+- `blockchain_block_processing_duration_seconds` - block processing latency histogram.
+- `blockchain_transactions_total{status}` - transaction outcomes.
+- `blockchain_rpc_request_duration_seconds` / `blockchain_rpc_requests_total{method,status}` - RPC latency and errors.
+- `gossip_subscribers_total`, `gossip_subscribers_topic_*`, `gossip_broadcast_subscribers_total` - in-memory and broadcast subscriber counts.
+- `gossip_publications_rate_per_sec`, `gossip_queue_size_by_topic` - gossip throughput and back-pressure.
 
-# Check service status
-sudo systemctl status prometheus
-sudo systemctl status grafana
-sudo systemctl status node-exporter
-```
+### Application-specific metrics
 
-## Block Processing Time Monitoring
+Coordinate with each service's metrics endpoint:
 
-### Metrics to Track
+- `coordinator_jobs_submitted_total`, `coordinator_jobs_completed_total`, `coordinator_jobs_failed_total`
+- `jobs_in_queue`, `miner_active_jobs`, `miner_error_rate`
+- `poolhub_miners_online`
 
-- `block_processing_duration_seconds` - Time to process a block
-- `block_height` - Current blockchain height
-- `block_validation_duration_seconds` - Time to validate a block
-- `block_propagation_duration_seconds` - Time to propagate block to peers
+## Alert rules
 
-### Implementation
-
-Add metrics to blockchain node:
-
-```python
-from prometheus_client import Counter, Histogram, Gauge
-
-block_processing_duration = Histogram(
-    'block_processing_duration_seconds',
-    'Time to process a block',
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
-)
-
-block_height = Gauge(
-    'block_height',
-    'Current blockchain height'
-)
-
-block_validation_duration = Histogram(
-    'block_validation_duration_seconds',
-    'Time to validate a block',
-    buckets=[0.01, 0.05, 0.1, 0.5, 1.0]
-)
-
-block_propagation_duration = Histogram(
-    'block_propagation_duration_seconds',
-    'Time to propagate block to peers',
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0]
-)
-```
-
-### Monitoring Endpoint
-
-Add `/metrics` endpoint to blockchain node:
-
-```python
-from prometheus_client import make_asgi_app
-
-metrics_app = make_asgi_app()
-
-# In FastAPI app
-app.mount("/metrics", metrics_app)
-```
-
-## Job Processing Time Monitoring
-
-### Metrics to Track
-
-- `job_submission_duration_seconds` - Time to submit a job
-- `job_processing_duration_seconds` - Time to complete a job
-- `job_queue_duration_seconds` - Time job spends in queue
-- `job_execution_duration_seconds` - Time for actual GPU execution
-- `jobs_total` - Total number of jobs processed
-- `jobs_failed_total` - Total number of failed jobs
-
-### Implementation
-
-Add metrics to coordinator API:
-
-```python
-from prometheus_client import Counter, Histogram, Gauge
-
-job_submission_duration = Histogram(
-    'job_submission_duration_seconds',
-    'Time to submit a job',
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0]
-)
-
-job_processing_duration = Histogram(
-    'job_processing_duration_seconds',
-    'Time to complete a job from submission to result',
-    buckets=[1.0, 5.0, 10.0, 30.0, 60.0, 300.0]
-)
-
-job_queue_duration = Histogram(
-    'job_queue_duration_seconds',
-    'Time job spends in queue before assignment',
-    buckets=[1.0, 5.0, 10.0, 30.0, 60.0]
-)
-
-job_execution_duration = Histogram(
-    'job_execution_duration_seconds',
-    'Time for actual GPU execution',
-    buckets=[1.0, 5.0, 10.0, 30.0, 60.0, 300.0]
-)
-
-jobs_total = Counter(
-    'jobs_total',
-    'Total number of jobs processed',
-    ['status']
-)
-
-jobs_in_queue = Gauge(
-    'jobs_in_queue',
-    'Number of jobs currently in queue'
-)
-```
-
-### Instrumentation Points
-
-1. **Job Submission** - Track submission duration
-2. **Job Assignment** - Track queue duration
-3. **Job Execution** - Track execution duration
-4. **Job Completion** - Track total processing duration
-
-## Uptime Monitoring
-
-### Metrics to Track
-
-- `up` - Service availability (1 = up, 0 = down)
-- `service_uptime_seconds` - Total uptime duration
-- `service_downtime_seconds` - Total downtime duration
-- `service_restart_count` - Number of service restarts
-
-### Implementation
-
-Use Prometheus blackbox exporter for external uptime monitoring:
-
-```yaml
-scrape_configs:
-  - job_name: 'blackbox'
-    metrics_path: /probe
-    params:
-      module: [http_2xx]
-    static_configs:
-      - targets:
-        - http://coordinator-api:8203/health
-        - http://blockchain-node:8202/health
-        - http://marketplace:8102/health
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: '$1'
-```
-
-### Internal Uptime Metrics
-
-Add to each service:
-
-```python
-from prometheus_client import Gauge, Counter
-
-service_uptime = Gauge(
-    'service_uptime_seconds',
-    'Service uptime in seconds'
-)
-
-service_restart_count = Counter(
-    'service_restart_count',
-    'Number of service restarts'
-)
-```
-
-## Alerting Rules
-
-### Critical Alerts
+Store rules in `/etc/prometheus/aitbc_rules.yml` and load them from `prometheus.yml`.
 
 ```yaml
 groups:
-  - name: critical
+  - name: aitbc
     rules:
+      - alert: BlockProposedButNoSubscribers
+        expr: |
+          (
+            blockchain_poa_valid_subscribers == 0
+            and on() (rate(blockchain_block_height[5m]) > 0)
+          )
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Block {{ $labels.chain_id }} produced but has zero valid subscribers"
+          description: "Proposer is producing blocks on {{ $labels.chain_id }} but no follower is subscribed; blocks are not being broadcast."
+
+      - alert: BroadcastSkipped
+        expr: increase(blockchain_poa_broadcast_skipped_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blocks are being skipped on {{ $labels.chain_id }} due to no subscribers"
+
       - alert: ServiceDown
         expr: up == 0
         for: 1m
@@ -217,223 +78,172 @@ groups:
           summary: "Service {{ $labels.instance }} is down"
 
       - alert: BlockProcessingTooSlow
-        expr: histogram_quantile(0.95, block_processing_duration_seconds) > 1
+        expr: histogram_quantile(0.95, rate(blockchain_block_processing_duration_seconds_bucket[5m])) > 1
         for: 5m
         labels:
-          severity: critical
+          severity: warning
         annotations:
-          summary: "Block processing time exceeds 1s (p95)"
+          summary: "Block processing p95 exceeds 1 second"
 
-      - alert: JobProcessingTooSlow
-        expr: histogram_quantile(0.95, job_processing_duration_seconds) > 5
+      - alert: RpcErrorsSpiking
+        expr: rate(blockchain_rpc_requests_total{status=~"4xx|5xx"}[5m]) > 0.05
         for: 5m
         labels:
-          severity: critical
+          severity: warning
         annotations:
-          summary: "Job processing time exceeds 5s (p95)"
+          summary: "RPC error rate is spiking"
 ```
 
-### Warning Alerts
+## Scrape configuration
+
+`/etc/prometheus/prometheus.yml` should scrape all live nodes. On `aitbc3` (which has more resources than `hub`), Prometheus can pull from both the shop and the hub:
 
 ```yaml
-  - name: warnings
-    rules:
-      - alert: HighJobQueue
-        expr: jobs_in_queue > 100
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Job queue backlog exceeds 100 jobs"
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
-      - alert: HighFailureRate
-        expr: rate(jobs_failed_total[5m]) / rate(jobs_total[5m]) > 0.05
-        for: 5m
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['localhost:9093']
+
+rule_files:
+  - aitbc_rules.yml
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node-exporter-local'
+    static_configs:
+      - targets: ['localhost:9100']
+
+  - job_name: 'aitbc3-blockchain-rpc'
+    static_configs:
+      - targets: ['localhost:8202']
         labels:
-          severity: warning
-        annotations:
-          summary: "Job failure rate exceeds 5%"
+          node: aitbc3
+          service: blockchain-rpc
+
+  - job_name: 'aitbc3-coordinator-api'
+    static_configs:
+      - targets: ['localhost:8203']
+        labels:
+          node: aitbc3
+          service: coordinator-api
+
+  - job_name: 'aitbc3-marketplace'
+    static_configs:
+      - targets: ['localhost:8104']
+        labels:
+          node: aitbc3
+          service: marketplace
+
+  - job_name: 'hub-blockchain-rpc'
+    static_configs:
+      - targets: ['hub.aitbc.bubuit.net:8202']
+        labels:
+          node: hub
+          service: blockchain-rpc
+
+  - job_name: 'hub-coordinator-api'
+    static_configs:
+      - targets: ['hub.aitbc.bubuit.net:8203']
+        labels:
+          node: hub
+          service: coordinator-api
 ```
 
-## Grafana Dashboards
+## Making Prometheus more useful on aitbc3
 
-### Dashboard: AITBC System Overview
+Since `aitbc3` has more hardware than `hub`:
 
-**Panels:**
-1. Service Uptime (uptime gauge)
-2. Request Rate (requests per second)
-3. Error Rate (errors per second)
-4. Response Time (p50, p95, p99)
-5. Queue Length (jobs in queue)
-6. Blockchain Height (current block)
-7. Block Processing Time (histogram)
-8. Job Processing Time (histogram)
-
-### Dashboard: Blockchain Performance
-
-**Panels:**
-1. Block Processing Time (p95)
-2. Block Validation Time (p95)
-3. Block Propagation Time (p95)
-4. Block Height (current)
-5. Transactions per Block
-6. Network Peer Count
-
-### Dashboard: Job Processing Performance
-
-**Panels:**
-1. Job Submission Rate (jobs/second)
-2. Job Processing Time (p95)
-3. Job Queue Duration (p95)
-4. Job Execution Time (p95)
-5. Jobs in Queue (current)
-6. Job Success Rate (percentage)
+1. **Centralise scraping there.** Point Prometheus at both `aitbc3` and `hub` so one place holds the full network view.
+2. **Add recording rules** for expensive queries used in alerts and ad-hoc investigation:
+   ```yaml
+   - record: aitbc:block_interval_seconds:rate5m
+     expr: 60 / rate(blockchain_block_height[5m])
+   ```
+3. **Extend the `/metrics` endpoints.** Every long-lived service should export `up`, `process_*` (already present from `prometheus_client`) and domain-specific counters/gauges.
+4. **Promote operational log lines.** `BROADCAST SKIPPED` and similar events are now logged at `WARNING` and counted in `blockchain_poa_broadcast_skipped_total` so an agent sees both the event and the metric.
+5. **Run `prometheus-node-exporter` on every node.** System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion.
+6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly.
+7. **Use the Prometheus expression API for checks.** Example:
+   ```bash
+   curl -s 'http://localhost:9090/api/v1/query?query=blockchain_poa_valid_subscribers'
+   ```
 
 ## Installation
 
-### Prerequisites
+### Debian stable
 
 ```bash
-# Install Prometheus (available in Debian stable)
 sudo apt update
-sudo apt install prometheus promtool prometheus-node-exporter
-
-# Grafana is NOT available in Debian stable
-# Install from official Grafana repository or download .deb
-wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
-echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
-sudo apt update
-sudo apt install grafana
+sudo apt install prometheus prometheus-node-exporter
 ```
 
-### Setup
+If you want Alertmanager:
 
 ```bash
-# Create systemd service for Prometheus
-sudo tee /etc/systemd/system/prometheus.service > /dev/null <<EOF
-[Unit]
-Description=Prometheus
-After=network.target
-
-[Service]
-Type=simple
-User=prometheus
-ExecStart=/usr/local/bin/prometheus \
-  --config.file=/etc/prometheus/prometheus.yml \
-  --storage.tsdb.path=/var/lib/prometheus
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo useradd --no-create-home --shell /bin/false prometheus
-sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
-sudo systemctl daemon-reload
-sudo systemctl enable prometheus
-sudo systemctl start prometheus
-
-# Access Grafana
-# URL: http://localhost:3000
-# Username: admin
-# Password: admin
+sudo apt install prometheus-alertmanager
 ```
 
-### Import Dashboards
+### Systemd
 
-1. Navigate to Grafana
-2. Go to Dashboards → Import
-3. Import dashboard JSON files from `infra/monitoring/grafana/dashboards/`
+```bash
+sudo systemctl enable --now prometheus
+sudo systemctl enable --now prometheus-node-exporter
+```
 
-## Configuration Files
+### Reload after config changes
 
-### Prometheus Config
-
-Location: `infra/monitoring/prometheus.yml`
-
-### Grafana Datasources
-
-Location: `infra/monitoring/grafana/datasources/prometheus.yml`
-
-### Grafana Dashboards
-
-Location: `infra/monitoring/grafana/dashboards/`
+```bash
+sudo promtool check config /etc/prometheus/prometheus.yml
+sudo promtool check rules /etc/prometheus/aitbc_rules.yml
+sudo systemctl reload prometheus
+# or, if the service does not pick up the new config:
+sudo systemctl restart prometheus
+```
 
 ## Testing
 
-### Verify Metrics Endpoint
+### Verify a metrics endpoint
 
 ```bash
-# Test coordinator API metrics
-curl http://localhost:8203/metrics
-
-# Test blockchain node metrics
-curl http://localhost:8080/metrics
-
-# Test marketplace metrics
-curl http://localhost:8102/metrics
+curl -s http://localhost:8202/metrics | grep blockchain_poa_valid_subscribers
+curl -s http://localhost:8203/prometheus | head
 ```
 
-### Verify Prometheus
+### Verify Prometheus targets
 
 ```bash
-# Check Prometheus targets
-curl http://localhost:9090/api/v1/targets
-
-# Query metrics
-curl http://localhost:9090/api/v1/query?query=up
+curl -s http://localhost:9090/api/v1/targets
+curl -s http://localhost:9090/api/v1/rules
 ```
 
 ## Maintenance
 
-### Regular Tasks
+### Regular tasks
 
-1. **Review Alerts** - Weekly review of alert rules
-2. **Update Dashboards** - Monthly dashboard updates
-3. **Review Retention** - Quarterly review of data retention policies
-4. **Capacity Planning** - Quarterly review of storage needs
+1. Review firing and pending alerts.
+2. Check retention and disk usage.
+3. Verify all scrape targets are healthy.
+4. Add recording rules for any query that becomes slow.
 
 ### Backup
 
 ```bash
-# Backup Prometheus data
+# Prometheus data
 sudo tar -czf /tmp/prometheus-backup.tar.gz /var/lib/prometheus
-
-# Backup Grafana data
-sudo tar -czf /tmp/grafana-backup.tar.gz /var/lib/grafana
 ```
 
-## Troubleshooting
+### Troubleshooting
 
-### Metrics Not Appearing
-
-1. Check service is running: `sudo systemctl status prometheus`
-2. Check metrics endpoint: `curl http://service:port/metrics`
-3. Check Prometheus logs: `sudo journalctl -u prometheus -n 50`
-4. Check Prometheus targets: http://localhost:9090/targets
-
-### High Memory Usage
-
-1. Reduce retention period in prometheus.yml
-2. Reduce scrape interval
-3. Add more storage to Prometheus
-
-### Alerts Not Firing
-
-1. Check alert rules syntax
-2. Check alert manager configuration
-3. Check Grafana notification channels
-
-### Service Won't Start
-
-1. Check service logs: `sudo journalctl -u [service] -n 50`
-2. Check configuration: `sudo systemctl cat [service]`
-3. Check port conflicts: `sudo netstat -tulpn`
-
-## Next Steps
-
-1. Implement metrics instrumentation in services
-2. Create Grafana dashboards
-3. Set up alert notifications
-4. Configure external uptime monitoring (e.g., UptimeRobot, Pingdom)
-5. Integrate with incident management system
+| Symptom | Check |
+|---------|-------|
+| Metrics not appearing | `systemctl status prometheus`; `curl` the service `/metrics` endpoint. |
+| High memory usage | Reduce scrape interval or retention; check for high-cardinality labels. |
+| Alerts not firing | `promtool check rules` and `curl http://localhost:9090/api/v1/alerts`. |
+| No subscribers alert | Verify gossip/Redis lease state; check `blockchain_poa_valid_subscribers`. |

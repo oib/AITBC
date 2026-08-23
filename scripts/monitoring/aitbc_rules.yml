@@ -1,0 +1,47 @@
+groups:
+  - name: aitbc
+    rules:
+      - alert: BlockProposedButNoSubscribers
+        expr: |
+          (
+            blockchain_poa_valid_subscribers == 0
+            and on() (rate(blockchain_block_height[5m]) > 0)
+          )
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Block {{ $labels.chain_id }} produced but has zero valid subscribers"
+          description: "Proposer is producing blocks on {{ $labels.chain_id }} but no follower is subscribed; blocks are not being broadcast."
+
+      - alert: BroadcastSkipped
+        expr: increase(blockchain_poa_broadcast_skipped_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blocks are being skipped on {{ $labels.chain_id }} due to no subscribers"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+
+      - alert: BlockProcessingTooSlow
+        expr: histogram_quantile(0.95, rate(blockchain_block_processing_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Block processing p95 exceeds 1 second"
+
+      - alert: RpcErrorsSpiking
+        expr: rate(blockchain_rpc_requests_total{status=~"4xx|5xx"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RPC error rate is spiking"

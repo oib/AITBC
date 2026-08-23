@@ -25,11 +25,12 @@ MINER_ID=aitbc-miner-1
 
 ```bash
 export COORDINATOR_API_URL=http://127.0.0.1:8203
-export CLIENT_JWT=$(JWT_SECRET=$(grep -h "JWT_SECRET=" /etc/aitbc/*.env | cut -d= -f2) \
-  /opt/aitbc/venv/bin/python3.13 -c \
-  "import sys; sys.path.insert(0, '/opt/aitbc'); from aitbc.auth import create_access_token; print(create_access_token('cli-client', 'client'))")
+export WALLET=customer-wallet
 
-aitbc --api-key "$CLIENT_JWT" bond create "$MINER_ID" \
+# Log in once with a funded customer wallet; subsequent commands use the stored token.
+aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
+
+aitbc bond create "$MINER_ID" \
   --amount 10 \
   --required-amount 10
 ```
@@ -49,7 +50,7 @@ Expected output:
 ## Step 2: Check provider eligibility
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" bond status "$MINER_ID"
+aitbc bond status "$MINER_ID"
 ```
 
 Expected output: `eligible: true`, `status: active`.
@@ -57,7 +58,7 @@ Expected output: `eligible: true`, `status: active`.
 ## Step 3: Submit a high-value job with explicit bond requirement
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai submit \
+aitbc ai submit \
   --prompt "Bonded high-value job validation" \
   --payment 5 \
   --bond-required \
@@ -99,7 +100,7 @@ The default `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD` is 10 AIT. A job with
 also triggers the default ZK and TEE gates from scenarios 46 and 47).
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai submit \
+aitbc ai submit \
   --prompt "Automatic high-value bond validation" \
   --payment 10 \
   --wallet genesis \
@@ -118,15 +119,15 @@ has an active bond.
 A bond can be locked while a high-value job is in flight and released afterward:
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" bond lock "$MINER_ID"
-aitbc --api-key "$CLIENT_JWT" bond release "$MINER_ID"
+aitbc bond lock "$MINER_ID"
+aitbc bond release "$MINER_ID"
 ```
 
 A bond can be slashed for misbehavior and then appealed:
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" bond slash "$MINER_ID" --reason "failed SLA"
-aitbc --api-key "$CLIENT_JWT" bond appeal <bond-id> --reason "dispute"
+aitbc bond slash "$MINER_ID" --reason "failed SLA"
+aitbc bond appeal <bond-id> --reason "dispute"
 ```
 
 ## What the CLI actually does

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # AITBC Basic Monitoring Setup
-# Creates simple monitoring without Grafana/Prometheus
+# Creates simple monitoring without Prometheus
 
 set -e
 
@@ -239,9 +239,8 @@ echo "  http://$(hostname -I | awk '{print $1}'):8080"
 echo ""
 echo "=== 📊 BASIC MONITORING SETUP COMPLETE ==="
 echo ""
-echo "Basic monitoring deployed without Grafana/Prometheus:"
+echo "Basic monitoring deployed without Prometheus:"
 echo "• Health monitoring script"
-echo "• Simple web dashboard"
 echo "• Metrics API endpoint"
 echo "• Automated health checks"
 echo ""
