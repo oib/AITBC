@@ -5,7 +5,8 @@ Used by both consensus/poa.py (block proposal) and sync.py (block verification).
 
 from __future__ import annotations
 
-from sqlmodel import Session, select
+from sqlalchemy import text
+from sqlmodel import Session
 
 from ..logger import get_logger
 from ..models import Account
@@ -19,11 +20,22 @@ def compute_state_root_full(session: Session, chain_id: str) -> str | None:
 
     Loads ALL accounts from the DB and builds a new trie.
     Use as fallback when no account_map is available.
+
+    Uses a raw SQL query instead of the ORM select so that any account rows
+    updated with ``session.execute(text(...))`` inside the same transaction are
+    reflected in the trie, even when Account instances in the session's
+    identity map still hold stale in-memory balance/nonce values.
     """
     try:
         state_manager = StateManager()
-        accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
-        account_dict = {acc.address: acc for acc in accounts}
+        rows = session.execute(
+            text("SELECT address, balance, nonce FROM account WHERE chain_id = :chain_id"),
+            {"chain_id": chain_id},
+        ).all()
+        account_dict = {}
+        for address, balance, nonce in rows:
+            account = Account(chain_id=chain_id, address=address, balance=balance, nonce=nonce)
+            account_dict[account.address] = account
         root = state_manager.compute_state_root(account_dict)
         return "0x" + root.hex()
     except Exception as e:
