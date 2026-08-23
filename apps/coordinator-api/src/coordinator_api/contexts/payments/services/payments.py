@@ -31,6 +31,18 @@ _ZK_THRESHOLD_AIT = float(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10")
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
+def _parse_settled_at(value: object) -> datetime | None:
+    """Parse the settlement time the chain RPC reports, if it reported a usable one."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        logger.warning("Ignoring unparseable released_at from escrow release: %r", value)
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
 def _zk_required_for_payment(payment_amount: float | None, job: Job | None) -> bool:
     """Return True when a job payment triggers the ZK-proof escrow gate."""
     if _ZK_THRESHOLD_AIT < 0:
@@ -241,8 +253,12 @@ class PaymentService:
                         payment_id,
                     )
                     return False
+                # Prefer the settlement time the chain reports. On a reconciliation
+                # retry that is the original settlement, not this retry, so the payment
+                # keeps the time the provider was actually paid.
+                settled_at = _parse_settled_at(release_data.get("released_at")) or datetime.now(UTC)
                 payment.status = "released"
-                payment.released_at = datetime.now(UTC)
+                payment.released_at = settled_at
                 payment.updated_at = datetime.now(UTC)
                 payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
                 reinvest_stake_id = release_data.get("reinvest_stake_id")
@@ -260,7 +276,7 @@ class PaymentService:
                 )
                 if escrow:
                     escrow.is_released = True
-                    escrow.released_at = datetime.now(UTC)
+                    escrow.released_at = settled_at
                 self.session.commit()
                 logger.info("Released payment %s for job %s", payment_id, job_id)
                 return True
