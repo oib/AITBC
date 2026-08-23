@@ -1031,7 +1031,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   transaction was created.
 - fix(sync): `sync_block_import` no longer creates a zero-balance sender account
 - perf(sync): initial resync bulk batch size now uses the full gap up to the
-  configured `initial_sync_max_batch_size` instead of a conservative 500 + gap/20
+- feat(ops): `aitbc-ipfs` now uses a Python wrapper (`apps/ipfs/ipfs-daemon.py`)
+  that runs `ipfs daemon` and reformats Kubo/go-log and logfmt output to the
+  AITBC journal style (`[LEVEL] [component] caller: message: key=value`). This
+  makes the IPFS service consistent with every other AITBC service.  configured `initial_sync_max_batch_size` instead of a conservative 500 + gap/20
   formula. This roughly halves resync time for large gaps.
   for `FAUCET`/`BRIDGE_RELEASE`/`BRIDGE_REFUND` before applying them, preventing
   extra `faucet`/`bridge_*` accounts from polluting the follower state trie.
