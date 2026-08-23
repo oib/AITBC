@@ -18,12 +18,12 @@ jobs:
           bash scripts/ci/setup-python-venv.sh \
             --cache-root /opt/gitea-runner/.cache/aitbc-venvs \
             --venv-dir /opt/gitea-runner/.cache/aitbc-venvs/job-venv \
+            --extra-packages \
+              "packages/py/aitbc-agent-core \
+               packages/py/aitbc-agent-sdk \
+               packages/py/aitbc-crypto \
+               packages/py/aitbc-sdk" \
             --mode copy
-
-      - name: Re-link editable aitbc-shared package
-        run: |
-          /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python -m pip install -q \
-            -e packages/aitbc-shared
 
       - name: MyPy clean apps
         run: |
