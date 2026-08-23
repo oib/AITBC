@@ -184,7 +184,7 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Replay scenario 34 live on hub + shop (2026-08-20) and record results in `LIVE_VALIDATION_SUMMARY.md`.
 - [x] Patch scenario 34 exchange paths and JWT import (commit `e8966aba1` on gitea `main`).
 - [x] Keep `AGENTS.md`, `TASKLIST.md`, and `LIVE_VALIDATION_SUMMARY.md` accurate as the workspace evolves.
-- [ ] Provide diffs / verification for Agent A when requested.
+- [x] Verification summary provided for Agent A: commit range `0537efdc0..7fd156feb`, 714 tests passed, mypy/no-float-money/OpenAPI drift clean, live health 200 on both nodes.
 - [x] Commit/push location rule recorded in `AGENTS.md`. Release work is committed and pushed only from `aitbc3` or `hub.aitbc`; the IDE host (`/home/oib/windsurf/aitbc`, `/opt/aitbc` on the IDE) is staging/scratch only.
 
 ## Shared / unresolved decisions
