@@ -8623,7 +8623,7 @@
           "escrow"
         ],
         "summary": "Create escrow for a job",
-        "description": "Create a new escrow contract locking buyer funds until job completion.",
+        "description": "Create a new escrow contract after the buyer has signed an ESCROW_LOCK transaction.\n\nThe request must include either a fully signed `lock_tx` dict or the\n`lock_signature` plus the lock transaction fields (nonce/fee).  The lock\ntransaction must transfer the escrow amount from the buyer to the node\nwallet and include the job_id and provider in the payload.",
         "operationId": "create_escrow_rpc_escrow_create_post",
         "requestBody": {
           "content": {
@@ -8661,7 +8661,17 @@
             }
           },
           "400": {
-            "description": "job_id, buyer, provider, and amount are required / Invalid amount: {amount} / Invalid types for job_id, buyer, or provider",
+            "description": "job_id, buyer, provider, and amount are required / Invalid amount: {amount} / Invalid types for job_id, buyer, or provider / escrow amount must be positive / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "escrow contract_id missing after create",
             "content": {
               "application/json": {
                 "schema": {
@@ -8748,7 +8758,17 @@
             }
           },
           "404": {
-            "description": "No escrow contract found for job_id={job_id}",
+            "description": "No escrow record found for job_id={job_id} / No escrow contract found for job_id={job_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Escrow for job_id={job_id} is not locked (status={record.status})",
             "content": {
               "application/json": {
                 "schema": {
@@ -8758,7 +8778,7 @@
             }
           },
           "502": {
-            "description": "Escrow release could not be settled on-chain; the provider was not paid. The release was rolled back and can be retried.",
+            "description": "ESCROW_RELEASE transaction submission failed; escrow remains locked",
             "content": {
               "application/json": {
                 "schema": {
@@ -8768,7 +8788,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released",
+            "description": "EscrowManager not initialised",
             "content": {
               "application/json": {
                 "schema": {
@@ -8841,7 +8861,7 @@
             }
           },
           "400": {
-            "description": "Escrow already in final state: {contract.state.value}",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
