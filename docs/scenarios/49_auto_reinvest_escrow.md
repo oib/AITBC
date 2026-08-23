@@ -19,17 +19,23 @@ configured percentage of the provider's earnings on-chain.
 ```bash
 CUSTOMER=ait1fe2d63fe87db282083b9159e5857cac788af9e03
 PROVIDER=aitbc1a54b82312beb65d0e90c21717ea372396991fa36
-CLIENT_JWT=...
+WALLET=genesis
+```
+
+## Step 0: Log in
+
+```bash
+aitbc auth login --wallet "$WALLET"
 ```
 
 ## Step 1: Submit a paid job with auto-reinvest
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai submit \
+aitbc ai submit \
   --prompt "Auto reinvest validation" \
   --payment 5 \
   --auto-reinvest-pct 50 \
-  --wallet genesis \
+  --wallet "$WALLET" \
   --buyer-address "$CUSTOMER" \
   --provider-address "$PROVIDER" \
   --coordinator-url http://127.0.0.1:8203 \

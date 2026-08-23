@@ -1047,3 +1047,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - docs(bridge): reconcile `STATUS.md` with live trusted-custodian bridge defaults
   - `v0.7.1` and `v0.7.2` rows now note multi-sig/Merkle are implemented but disabled by default.
   - Closes `DESIGN_CYCLE.md` P1.3.
+- docs(scenarios): canonicalize `aitbc auth login` for coordinator authentication
+  - Updated `docs/scenarios/README.md`, `07_ai_job_submission.md`, `25_job_payment_failure.md`, `35_fire_and_forget_logging_b10_b11.md`, `46_tee_confidential_jobs.md`, `47_zk_high_value_jobs.md`, `48_performance_bonds_high_value.md`, `49_auto_reinvest_escrow.md` to use `aitbc auth login` instead of scraping `JWT_SECRET` from `/etc/aitbc/*.env`.
+  - Closes `DESIGN_CYCLE.md` operations gap #10.

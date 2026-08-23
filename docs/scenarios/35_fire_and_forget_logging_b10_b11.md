@@ -74,8 +74,9 @@ aitbc agent-comm status
 ### Step 3: Exercise coordinator work (B11 path)
 
 ```bash
+aitbc auth login --wallet customer-wallet
 aitbc analytics summary
-aitbc --api-key "$CLIENT_JWT" ai jobs --limit 3
+aitbc ai jobs --limit 3
 ```
 
 **Expected output:** analytics summary and a job list. Those requests run on the same process that owns the fire-and-forget analytics/trading tasks.
