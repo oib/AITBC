@@ -1129,3 +1129,13 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Block header and validator attestations are verified as M-of-N signatures over the canonical header message.
   - Bridge locks are added to the mempool so the next produced block anchors them.
   - Closes `DESIGN_CYCLE.md` P1.3 bridge multi-signature and Merkle-proof verification.
+
+- fix(bridge): live ait-hub -> ait-shop-island transfer succeeded
+  - build_proof now returns the real account state_root in proof.state_root
+    and the bridge event trie root in proof.bridge_state_root.
+  - _validate_proof checks the proof bridge_state_root against the stored
+    BridgeBlockHeader bridge root, preserving account state root in the
+    canonical block-header signature.
+  - Validated end-to-end: lock on hub, block inclusion at height 12493,
+    Merkle proof, block header + validator signature verification, and
+    release on aitbc3.
