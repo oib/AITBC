@@ -563,7 +563,7 @@ class BridgeTransferMixin(BridgeBase):
                 "block_hash": block.hash,
                 "proposer": block.proposer,
                 "parent_hash": block.parent_hash,
-                "state_root": block.bridge_state_root or "",
+                "state_root": block.state_root or "",
                 "bridge_state_root": block.bridge_state_root or "",
                 "merkle_proof": [p.hex() for p in proof_bytes],
                 "lock_event": lock_value.decode(),
@@ -671,14 +671,14 @@ class BridgeTransferMixin(BridgeBase):
                 )
                 return False
 
-            # Step 5a: State root verification
-            proof_state_root = proof.get("state_root", "")
-            expected_state_root = header.bridge_state_root or header.state_root
-            if proof_state_root and proof_state_root != expected_state_root:
+            # Step 5a: Bridge state root verification
+            proof_bridge_root = proof.get("bridge_state_root") or proof.get("state_root", "")
+            expected_bridge_root = header.bridge_state_root or header.state_root
+            if proof_bridge_root and proof_bridge_root != expected_bridge_root:
                 logger.warning(
-                    "State root mismatch: proof=%s vs header=%s",
-                    proof_state_root[:16],
-                    expected_state_root[:16],
+                    "Bridge state root mismatch: proof=%s vs header=%s",
+                    proof_bridge_root[:16],
+                    expected_bridge_root[:16],
                 )
                 return False
 
