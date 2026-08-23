@@ -34,7 +34,6 @@ def _bond_required_for(job: Job) -> bool:
     return False
 
 
-
 def _to_utc(dt: datetime | None) -> datetime | None:
     """Make a datetime timezone-aware for comparison; SQLite returns naive datetimes."""
     if dt is None:
@@ -82,7 +81,14 @@ class JobService:
         self.get_job(job_id, client_id=client_id)
         return list(self.session.execute(select(JobReceipt).where(JobReceipt.job_id == job_id)).scalars().all())
 
-    def list_jobs(self, client_id: str | None = None, assigned_miner_id: str | None = None, limit: int = 20, offset: int = 0, **filters: Any) -> list[Job]:
+    def list_jobs(
+        self,
+        client_id: str | None = None,
+        assigned_miner_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **filters: Any,
+    ) -> list[Job]:
         """List jobs with optional filtering"""
         query = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         if client_id:
@@ -156,9 +162,7 @@ class JobService:
 
             # Load the pool of online miners once per dispatch decision so we can
             # route high-reputation jobs to the best available provider.
-            online_miners = list(
-                self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all()
-            )
+            online_miners = list(self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all())
             current_reputation = self._get_miner_reputation(miner)
 
             for job in jobs:
@@ -245,9 +249,7 @@ class JobService:
         if _bond_required_for(job):
             eligible = is_provider_eligible(self.session, miner.id)
             if not eligible:
-                logger.info(
-                    "Job %s requires a performance bond; miner %s is not eligible", job.id, miner.id
-                )
+                logger.info("Job %s requires a performance bond; miner %s is not eligible", job.id, miner.id)
                 return False
 
         return True
@@ -271,12 +273,13 @@ class JobService:
 
         # Prefer the canonical reputation service profile when available.
         try:
-            reputation = self.session.execute(
-                select(AgentReputation).where(AgentReputation.agent_id == miner.id)
-            ).scalars().first()
+            reputation = (
+                self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == miner.id)).scalars().first()
+            )
             if reputation and reputation.trust_score is not None:
                 # trust_score is on a 0-1000 scale; normalize to 0-1.
-                return max(0.0, min(1.0, reputation.trust_score / 1000.0))
+                trust_score: float = reputation.trust_score
+                return max(0.0, min(1.0, trust_score / 1000.0))
         except Exception:
             logger.debug("Could not load reputation profile for %s", miner.id, exc_info=True)
 
@@ -327,8 +330,10 @@ class JobService:
             job.result = result.get("output")
             job.receipt = result.get("receipt")
             job.completed_at = datetime.now(UTC)
-            if job.requested_at:
-                job.requested_at = _to_utc(job.requested_at)
+            if job.requested_at and job.requested_at.tzinfo is None:
+                # Same normalization as _to_utc, inline so the assignment target
+                # keeps its non-optional datetime type.
+                job.requested_at = job.requested_at.replace(tzinfo=UTC)
             self.session.add(job)
             self.session.commit()
             self.session.refresh(job)
