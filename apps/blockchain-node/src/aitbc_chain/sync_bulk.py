@@ -45,7 +45,7 @@ class BulkSyncMixin(SyncBase):
         large_gap_threshold = getattr(settings, "large_gap_threshold", 1000)
         large_gap_max_batch = getattr(settings, "large_gap_max_batch_size", 500)
         if gap_size > initial_sync_threshold:
-            return min(500 + (gap_size - initial_sync_threshold) // 20, initial_sync_max_batch)
+            return min(gap_size, initial_sync_max_batch)
         elif gap_size > large_gap_threshold:
             return min(200 + (gap_size - large_gap_threshold) // 10, large_gap_max_batch)
         elif gap_size > 500:
