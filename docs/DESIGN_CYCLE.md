@@ -178,7 +178,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 13. ~~Architecture system-flow still shows `aitbc-cli.sh` and Tendermint 26657.~~ Fixed — `docs/architecture/1_system-flow.md` now reflects the live CLI → coordinator → miner → Ollama → escrow path, wallet-signed `aitbc auth login`, `ai submit --wait`, reputation dispatch, and the non-genesis settlement key.
 14. ~~`STATUS.md` escrow/bridge defaults disagree with the live paid-job path.~~ Fixed — `escrow_enabled` default is `True` in `config.py` and `STATUS.md`.
-15. Dual command groups confuse operators (`market`/`marketplace`, `governance`/`operations governance`).
+15. ~~Dual command groups confuse operators (`market`/`marketplace`, `governance`/`operations governance`).~~ Fixed — `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`, their group docstrings mark them as legacy, and `cli/README.md`, `docs/scenarios/README.md`, and the top-level `--help` disambiguate the preferred command groups.
 16. Many CLI groups simulate when the service is hub-only; scenarios must label **live vs simulated**.
 17. Intermediate 21–35 were written as bug tickets (A3, B12…) not operator plays.
 

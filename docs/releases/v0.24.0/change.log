@@ -1054,3 +1054,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Updated `docs/scenarios/README.md`, `07_ai_job_submission.md`, `25_job_payment_failure.md`, `35_fire_and_forget_logging_b10_b11.md`, `46_tee_confidential_jobs.md`, `47_zk_high_value_jobs.md`, `48_performance_bonds_high_value.md`, `49_auto_reinvest_escrow.md` to use `aitbc auth login` instead of scraping `JWT_SECRET` from `/etc/aitbc/*.env`.
   - Closes `DESIGN_CYCLE.md` operations gap #10.
 - docs(design): close operations gap #8 — follower divergence handling now has bulk resync, regression tests, and Prometheus metrics/alerting.
+- fix(cli): collapse legacy command groups to reduce operator confusion
+  - `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`.
+  - Group docstrings and `cli/README.md` clarify that `aitbc market`, `aitbc ai`, `aitbc agent`, and `aitbc governance` are the preferred command groups.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #15.
