@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from ..domain import Miner
+from ...payments.provider_binding import WALLET_CAPABILITY_KEY
 from ....schemas import AssignedJob, MinerHeartbeat, MinerRegister
 from .jobs import JobService
 
@@ -18,17 +19,24 @@ class MinerService:
     def register(self, miner_id: str, payload: MinerRegister) -> Miner:
         miner = self.session.get(Miner, miner_id)
         session_token = uuid4().hex
+        # G2: the payout address is folded into capabilities rather than kept in
+        # extra_metadata, because heartbeat() replaces extra_metadata wholesale and
+        # would drop it on the next beat. A miner that puts wallet_address straight
+        # into its capabilities dict works without the explicit field.
+        capabilities = dict(payload.capabilities or {})
+        if payload.wallet_address:
+            capabilities[WALLET_CAPABILITY_KEY] = payload.wallet_address
         if miner is None:
             miner = Miner(
                 id=miner_id,
-                capabilities=payload.capabilities,
+                capabilities=capabilities,
                 concurrency=payload.concurrency,
                 region=payload.region,
                 session_token=session_token,
             )
             self.session.add(miner)
         else:
-            miner.capabilities = payload.capabilities
+            miner.capabilities = capabilities
             miner.concurrency = payload.concurrency
             miner.region = payload.region
             miner.session_token = session_token

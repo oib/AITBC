@@ -33734,6 +33734,18 @@
               }
             ],
             "title": "Region"
+          },
+          "wallet_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wallet Address",
+            "description": "Payout wallet address for escrow releases"
           }
         },
         "type": "object",
