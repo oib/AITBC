@@ -1,0 +1,24 @@
+[Unit]
+Description=AITBC Prometheus alert watcher
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=network.target prometheus.service
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --interval 15
+Restart=on-failure
+RestartSec=10
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target
