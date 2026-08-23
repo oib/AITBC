@@ -51,16 +51,16 @@ GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`, not `aitbc m
 
 ### Intermediate Scenarios (Live Operator Plays)
 
-These were originally v0.10.3 shop-node bug tickets (A3–A14, B5–B15). They are now operator plays of the same surfaces, still tagged with the old task ids so the change logs remain findable.
+These are operator hardening plays (21–35). The A/B task ids in each play are change-log cross-references to the original v0.10.3 hardening items (A3–A14, B5–B15), not bug-ticket reproductions.
 
 | # | Scenario | Tasks | CLI group |
 |---|----------|-------|-----------|
 | 21 | [Service Startup & Connectivity](./21_service_startup_connectivity.md) | A3, B9 | `aitbc start`, `aitbc system`, `aitbc mining`, `aitbc edge`, `aitbc bridge` |
 | 22 | [Bridge RPC Input Validation](./22_bridge_rpc_validation.md) | B13 | `aitbc bridge` |
 | 23 | [Mempool Eviction Order](./23_mempool_eviction_order.md) | B15 | `aitbc transactions`, `aitbc simulate` |
-| 24 | [Fire-and-Forget Task Error Logging](./24_task_error_logging.md) | B8, B9 | `aitbc system`, `aitbc network`, `aitbc edge` |
-| 25 | [Job Submission with Payment Failure](./25_job_payment_failure.md) | B12 | `aitbc ai` |
-| 26 | [GPU Marketplace N+1 Query Fix](./26_gpu_nplus1_query.md) | B14 | `aitbc market`, `aitbc gpu` |
+| 24 | [Fire-and-Forget Task Logging](./24_task_error_logging.md) | B8, B9 | `aitbc system`, `aitbc network`, `aitbc edge` |
+| 25 | [Job Payment Failure Handling](./25_job_payment_failure.md) | B12 | `aitbc ai` |
+| 26 | [GPU Marketplace N+1 Query](./26_gpu_nplus1_query.md) | B14 | `aitbc market`, `aitbc gpu` |
 | 27 | [CLI Commands](./27_cli_commands.md) | A2, A7, A8, A3 | `aitbc agent`, `aitbc pool-hub`, `aitbc mining`, `aitbc gpu`, `aitbc simulate` |
 | 28 | [HTTP Client Resource Cleanup](./28_http_client_cleanup.md) | A12, A13, A14 | `aitbc agent`, `aitbc edge`, `aitbc bridge` |
 | 29 | [Database Connection Leak](./29_database_connection_leak.md) | B7 | `aitbc system`, `aitbc explorer` |

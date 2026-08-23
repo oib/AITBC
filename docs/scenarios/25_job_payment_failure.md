@@ -24,6 +24,8 @@ breadcrumb: Home > Scenarios > Job Submission with Payment Failure
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 When a job is submitted with a payment that the coordinator cannot create, the job is still queued with `payment_status="skipped"` and `payment_id=null` (B12: rollback before marking skipped). Drive this with `aitbc ai submit --payment … --currency INVALID_CURRENCY`.
 
 ### Use Case
