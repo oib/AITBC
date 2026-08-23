@@ -1100,3 +1100,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - fix(consensus): `BROADCAST SKIPPED` warning in `poa.py` now includes the
   chain_id, so it is clear which chain has no subscribers when a node supports
   multiple chains.
+- feat(monitoring): update `scripts/monitoring/aitbc_rules.yml` with recording rules and new alerts
+  - Adds `aitbc:block_interval_seconds:rate5m`, `aitbc:rpc_requests_per_second:rate5m`, `aitbc:rpc_error_rate:ratio5m`, and `aitbc:bridge_locked_amount` recording rules.
+  - Adds `SyncLagHigh` and `MempoolFull` alerts.
+  - Updates `RpcErrorsSpiking` to use the combined client/server error rate.

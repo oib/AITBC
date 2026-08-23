@@ -1,6 +1,22 @@
 groups:
   - name: aitbc
     rules:
+      - record: aitbc:block_interval_seconds:rate5m
+        expr: 60 / rate(blockchain_block_height[5m])
+
+      - record: aitbc:rpc_requests_per_second:rate5m
+        expr: rate(rpc_requests_total[5m])
+
+      - record: aitbc:rpc_error_rate:ratio5m
+        expr: |
+          (
+            rate(rpc_client_errors_total[5m])
+            + rate(rpc_server_errors_total[5m])
+          ) / clamp_min(rate(rpc_requests_total[5m]), 1)
+
+      - record: aitbc:bridge_locked_amount
+        expr: blockchain_bridge_total_locked_amount
+
       - alert: BlockProposedButNoSubscribers
         expr: |
           (
@@ -39,9 +55,30 @@ groups:
           summary: "Block processing p95 exceeds 1 second"
 
       - alert: RpcErrorsSpiking
-        expr: rate(blockchain_rpc_requests_total{status=~"4xx|5xx"}[5m]) > 0.05
+        expr: |
+          (
+            rate(rpc_client_errors_total[5m])
+            + rate(rpc_server_errors_total[5m])
+          ) / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.05
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "RPC error rate is spiking"
+
+      - alert: SyncLagHigh
+        expr: blockchain_sync_lag_blocks > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node is lagging on {{ $labels.chain_id }}"
+          description: "Local chain on {{ $labels.chain_id }} is {{ $value }} blocks behind the remote peer."
+
+      - alert: MempoolFull
+        expr: blockchain_mempool_pending_count > 9000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mempool is filling on {{ $labels.chain_id }}"
