@@ -20,7 +20,12 @@ from ..config import ProposerConfig, settings
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
-from ..metrics import metrics_registry
+from ..metrics import (
+    block_height,
+    metrics_registry,
+    poa_broadcast_skipped_total,
+    poa_valid_subscribers,
+)
 from ..models import Account, Block
 from ..models import Transaction
 from ..base_models import _to_ait_address
@@ -669,12 +674,14 @@ class PoAProposer:
                 metrics_registry.increment("poa_proposer_switches_total")
             self._last_proposer_id = proposer
             self._last_block_timestamp = timestamp
+            block_height.set(block.height)
             self._logger.info("Proposed block", extra={"height": block.height, "hash": block.hash, "proposer": block.proposer})
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
             gossip_topic = f"blocks.{self._config.chain_id}"
             try:
                 subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
                 subscriber_count = len(subscribers)
+                poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)
                 self._logger.info(
                     "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
                 )
@@ -699,7 +706,10 @@ class PoAProposer:
                         "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
                     )
                 else:
-                    self._logger.info("[BROADCAST SKIPPED] block=%s, no valid subscribers", block.height)
+                    poa_broadcast_skipped_total.labels(chain_id=self._config.chain_id).inc()
+                    self._logger.warning(
+                        "[BROADCAST SKIPPED] block=%s, no valid subscribers", block.height
+                    )
             except Exception as e:
                 self._logger.error("Failed to broadcast block %s: %s", block.height, e)
         return True
