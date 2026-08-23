@@ -184,6 +184,13 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Should workspace notes live in the canonical repo? → yes, already pushed earlier.
 - [x] Who fixes shop chain sync / missing P2P on aitbc3? → fork reset done this session; P2P unit still missing (HTTPS pull is how the shop syncs).
 - [x] Who updates scenario 34 exchange + JWT snippets on gitea `main`? → commit `e8966aba1`.
+- [ ] **V23-42 / AITBC-155 — does the staking/bounty chain surface get built or removed?** Open since 2026-08-11 (`2b2d0d923`); re-derived from scratch on 2026-08-23 because it was tracked nowhere but a commit message and the `BlockchainService` docstring.
+  - Twelve outbound calls in `contexts/blockchain/services/blockchain.py` target chain endpoints that do not exist. They are near-copies of *this app's own* staking routes addressed to the node's host; the node has no `/bounty` surface at all.
+  - **0 of 12 are fixed by adding the `/rpc` prefix.** `POST /rpc/staking/stake` is the only one with a counterpart, and it returns `403 Signature required for staking` (`rpc/staking.py:56`) — the coordinator has no agent staking key — and expects `lock_days` where the coordinator sends `lock_period`. The URLs are left unprefixed deliberately: a prefix would imply they resolve.
+  - Failure is invisible where it matters. The calls are FastAPI background tasks, so the router returns 200/201 before the 404 lands; the journal logs an error, the caller is told it succeeded.
+  - Latent, not active: unexercised on hub (no journal hits in 7 days; `agent_stakes`, `bounty_task`, `bounty_submission(s)`, `bounty_integrations`, `bounty_stats` all 0 rows). First real use writes a coordinator-side stake with no on-chain counterpart — same divergence shape as the settlement drift fixed in `1b43ca3bd`.
+  - **Decision needed:** build the 11 endpoints on the node (plus a signing story the coordinator can satisfy) and stop committing local state before the chain call succeeds — *or* delete the twelve methods and the `admin_api_keys` header plumbing, and make the coordinator's staking/bounty routers honest about being local-only (or return 501).
+  - Detail: `LIVE_VALIDATION_SUMMARY.md`, section "2026-08-23 — OPEN DECISION (already diagnosed): the staking/bounty chain surface".
 
 ## P2.1 — ZK proofs for high-value jobs
 
