@@ -8758,7 +8758,7 @@
             }
           },
           "404": {
-            "description": "No escrow record found for job_id={job_id} / No escrow contract found for job_id={job_id}",
+            "description": "No escrow contract found for job_id={job_id}",
             "content": {
               "application/json": {
                 "schema": {
@@ -8777,18 +8777,8 @@
               }
             }
           },
-          "502": {
-            "description": "ESCROW_RELEASE transaction submission failed; escrow remains locked",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "503": {
-            "description": "EscrowManager not initialised",
+            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released",
             "content": {
               "application/json": {
                 "schema": {
@@ -8861,7 +8851,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Escrow already in final state: {contract.state.value}",
             "content": {
               "application/json": {
                 "schema": {
