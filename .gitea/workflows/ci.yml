@@ -17,38 +17,28 @@ jobs:
         run: |
           bash scripts/ci/setup-python-venv.sh \
             --cache-root /opt/gitea-runner/.cache/aitbc-venvs \
-            --venv-dir /opt/gitea-runner/.cache/aitbc-venvs/job-venv \
+            --venv-dir ./venv \
             --extra-packages "-r requirements-dev.txt" \
             --mode copy
 
-      - name: Re-link repo-local editable packages
-        run: |
-          /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python -m pip install -q \
-            -e packages/aitbc-shared \
-            -e packages/py/aitbc-agent-core \
-            -e packages/py/aitbc-agent-sdk \
-            -e packages/py/aitbc-crypto \
-            -e packages/py/aitbc-sdk
-
       - name: MyPy clean apps
         run: |
-          export PYTHON=/opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
+          export PYTHON=./venv/bin/python
           bash scripts/ci/mypy-precommit.sh
 
       - name: No float money
-        run: /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python scripts/lint/no_float_money.py
+        run: ./venv/bin/python scripts/lint/no_float_money.py
 
       - name: OpenAPI drift check
         run: |
-          export PYTHON=/opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
+          export PYTHON=./venv/bin/python
           bash scripts/ci/check-openapi-drift.sh
 
       - name: Unit tests
         env:
-          PYTHON: /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
         run: |
-          "$PYTHON" -m pytest -q \
+          ./venv/bin/python -m pytest -q \
             --ignore=apps/coordinator-api/tests/test_phase8_integration.py \
             --ignore=apps/coordinator-api/tests/test_zk_receipt.py \
             apps/coordinator-api/tests/test_*.py \
