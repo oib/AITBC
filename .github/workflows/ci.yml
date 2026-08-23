@@ -37,7 +37,7 @@ jobs:
           if [ -f requirements-dev.txt ]; then
             ./venv/bin/python -m pip install -q -r requirements-dev.txt
           fi
-          for pkg in packages/aitbc-shared packages/py/aitbc-agent-core packages/py/aitbc-agent-sdk packages/py/aitbc-crypto packages/py/aitbc-sdk; do
+          for pkg in packages/aitbc-shared packages/py/aitbc-agent-core packages/py/aitbc-agent-sdk packages/py/aitbc-crypto packages/py/aitbc-sdk cli; do
             if [ -d "$pkg" ]; then
               ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e "$pkg"
             fi
@@ -56,10 +56,12 @@ jobs:
         env:
           PYTHON: ./venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
+          WALLET_URL: http://127.0.0.1:1
+          BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: |
           "$PYTHON" -m pytest -q \
-            --ignore=apps/coordinator-api/tests/test_phase8_integration.py \
-            --ignore=apps/coordinator-api/tests/test_zk_receipt.py \
+            --deselect=apps/coordinator-api/tests/test_phase8_integration.py \
+            --deselect=apps/coordinator-api/tests/test_zk_receipt.py \
             apps/coordinator-api/tests/test_*.py \
             apps/blockchain-node/tests \
             cli/tests
