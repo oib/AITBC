@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__aitbc__list_*",
+      "mcp__aitbc__get_*",
+      "mcp__aitbc__node_status",
+      "mcp__aitbc__get_service_health"
+    ],
+    "ask": [
+      "mcp__aitbc__start_node",
+      "mcp__aitbc__stop_node",
+      "mcp__aitbc__restart_node",
+      "mcp__aitbc__run_cron_job",
+      "mcp__aitbc__run_aitbc_command"
+    ],
+    "deny": []
+  }
+}
