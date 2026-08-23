@@ -959,3 +959,21 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
     island block 18; source account debited correctly.
   - Quality gates: mypy clean, no float money, OpenAPI drift check passes,
     `pytest apps/blockchain-node/tests` all green.
+
+- fix(bridge,consensus,state): real source-chain bridge locks and follower sync
+  - `initiate_transfer` rejects source chains the node does not produce when a
+    default peer RPC is configured, preventing followers from creating local
+    source state that is overwritten by upstream sync.
+  - Local bridge locks now create a `bridge_lock` account, mark the
+    `BRIDGE_LOCK` Transaction as `confirmed` with `block_height=NULL`, and let
+    the proposer anchor the lock in a real block.
+  - `PoAProposer` pre-registered transaction bypass now includes `BRIDGE_LOCK`
+    so locks are recorded without double-debiting the sender.
+  - `state_transition` learns `BRIDGE_LOCK`: it lazily creates the
+    `bridge_lock` recipient and transfers the locked amount, allowing
+    followers to apply imported source locks.
+  - `POST /bridge/lock` no longer validates the target chain, so the hub can
+    lock funds for a shop island without an island genesis block.
+  - Live on hub+aitbc3: a 30-unit hub-to-island lock was included in hub
+    block 12240, aitbc3 followed with matching account state, and the island
+    release was anchored in shop island block 40.
