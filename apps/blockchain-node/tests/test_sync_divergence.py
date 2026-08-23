@@ -267,7 +267,7 @@ class TestSubscriptionClientEscalation:
             def __init__(self, session_factory=None, chain_id=""):
                 pass
 
-            def import_block(self, block_data, transactions=None):
+            def import_block(self, block_data, transactions=None, skip_state_root_validation=False):
                 return outcome[0]
 
             def detect_divergence(self, peer_url, peer_height, peer_hash):
