@@ -569,15 +569,42 @@ class BlockchainNode:
             self._proposers[chain_id] = proposer
             self._task_registry.create_task(proposer.start, name=f"proposer_{chain_id}")
 
+    def _block_production_chains(self) -> list[str]:
+        """Return the list of chains this node is configured to produce blocks for."""
+        chains_str = self._env_value(
+            "AITBC_FORCE_BLOCK_PRODUCTION_CHAINS", "BLOCK_PRODUCTION_CHAINS", "block_production_chains"
+        )
+        if chains_str is None:
+            chains_str = getattr(settings, "block_production_chains", "")
+        return [c.strip() for c in (chains_str or "").split(",") if c.strip()]
+
+    def _should_skip_sync(self, chain_id: str, source_url: str | None) -> bool:
+        """Do not pull a chain from the default peer if we produce it locally.
+
+        A chain that is in our block_production_chains and has no explicit
+        per-chain sync source is a local-only chain (e.g. an island).  Pulling
+        it from the default hub returns 503 because the hub does not serve that
+        chain.  If a per-chain source is explicitly configured, that overrides
+        this heuristic.
+        """
+        if source_url is None:
+            return True
+        if not self._sync_source_resolver.is_fallback_source(chain_id):
+            return False
+        if chain_id in self._block_production_chains():
+            logger.info("Skipping sync for locally-produced chain %s (no remote source configured)", chain_id)
+            return True
+        return False
+
     async def _periodic_sync_task(self, subscription_client: SubscriptionClient | None = None) -> None:
         """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active, but forces pull if gap grows."""
         chains = self._supported_chains()
         sync_interval = settings.periodic_sync_interval
-        source_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
-        if not source_url:
+        default_source_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
+        if not default_source_url:
             logger.warning("Periodic sync disabled: no default_peer_rpc_url or genesis_node configured")
             return
-        logger.info("Starting periodic sync task (interval=%ss, source=%s)", sync_interval, source_url)
+        logger.info("Starting periodic sync task (interval=%ss, default_source=%s)", sync_interval, default_source_url)
 
         # Sync account state from hub on startup (every 10 cycles thereafter)
         state_sync_counter = 0
@@ -587,6 +614,9 @@ class BlockchainNode:
                 # State sync: reconcile accounts with hub
                 if state_sync_counter % state_sync_every == 0:
                     for chain_id in chains:
+                        source_url = self.get_sync_source(chain_id)
+                        if source_url is None or self._should_skip_sync(chain_id, source_url):
+                            continue
                         try:
                             sync = ChainSync(
                                 session_factory=lambda chain_id=chain_id: session_scope(chain_id),
@@ -628,7 +658,10 @@ class BlockchainNode:
                             local_height = local_status.get("head_height", 0)
 
                             # Get remote height via HTTP
-                            response = await SharedHttpClient.get(f"{source_url}/rpc/height", timeout=10.0)
+                            chain_source_url = self.get_sync_source(chain_id)
+                            if self._should_skip_sync(chain_id, chain_source_url):
+                                continue
+                            response = await SharedHttpClient.get(f"{chain_source_url}/rpc/height", timeout=10.0)
                             response.raise_for_status()
                             remote_data = response.json()
                             remote_height = remote_data.get("height", 0)
@@ -648,7 +681,7 @@ class BlockchainNode:
                                     "Local chain is %s blocks ahead of peer %s (local %s, peer %s), forcing pull sync to "
                                     "check for divergence",
                                     -gap,
-                                    source_url,
+                                    chain_source_url,
                                     local_height,
                                     remote_height,
                                     extra={"chain_id": chain_id, "local_height": local_height, "remote_height": remote_height},
@@ -669,6 +702,9 @@ class BlockchainNode:
                         },
                     )
                     for chain_id in chains:
+                        source_url = self.get_sync_source(chain_id)
+                        if source_url is None or self._should_skip_sync(chain_id, source_url):
+                            continue
                         try:
                             sync = ChainSync(
                                 session_factory=lambda chain_id=chain_id: session_scope(chain_id),
