@@ -17,6 +17,7 @@ from .gossip import create_backend, gossip_broker
 from .lease_tracker import lease_tracker
 from .logger import get_logger
 from .mempool import init_mempool
+from .observability import register_exporters
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 
@@ -384,6 +385,7 @@ class BlockchainNode:
         logger.info(
             "Starting blockchain node", extra={"supported_chains": getattr(settings, "supported_chains", settings.chain_id)}
         )
+        register_exporters(["prometheus"])
         backend = create_backend(settings.gossip_backend, broadcast_url=settings.gossip_broadcast_url)
         logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
         await gossip_broker.set_backend(backend)
