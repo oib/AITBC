@@ -1115,3 +1115,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - docs(scenarios): add Scenario 52 — Wallet Key Mismatch Recovery
   - Documents the operator recovery path for a wallet whose stored key does not match the expected address.
   - Closes `DESIGN_CYCLE.md` operations gap #12.
+- docs(scenarios): add Scenario 53 — Customer and Shop Dashboards
+  - Documents the live `aitbc dashboard customer` and `aitbc dashboard shop` paths, the required `aitbc auth login` roles, and service health checks for empty sections.
+  - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.2 to reflect that the CLI dashboard is live and the web UI mock is out-of-repo.
