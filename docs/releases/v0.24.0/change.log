@@ -1109,6 +1109,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - fix(metrics): add missing `re` import to `metrics.py` so the legacy
   `MetricsRegistry.render_prometheus()` path does not raise `NameError` when
   `/metrics` is scraped.
-- docs(scenarios): add Scenario 50 — Multi-Validator PoA Soak
+- docs(scenarios): add Scenario 51 — Multi-Validator PoA Soak
   - Documents how to configure `VALIDATOR_SET`/`VALIDATOR_KEYS`, run the consensus unit and soak tests, and observe proposer rotation locally before enabling `MULTI_VALIDATOR_CONSENSUS_ENABLED` in production.
   - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.4 to reflect that the implementation is shipped and live enablement is operator-gated.
+- docs(scenarios): add Scenario 52 — Wallet Key Mismatch Recovery
+  - Documents the operator recovery path for a wallet whose stored key does not match the expected address.
+  - Closes `DESIGN_CYCLE.md` operations gap #12.
