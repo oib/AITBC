@@ -197,14 +197,18 @@ async def create_stake(
         agent_metrics = await staking_service.get_agent_metrics(stake_request.agent_wallet)
         if not agent_metrics:
             raise HTTPException(status_code=404, detail="Agent not supported for staking")
-        stake = await staking_service.create_stake(staker_address=current_user["address"], **stake_request.model_dump())
-        background_tasks.add_task(
-            blockchain_service.create_stake_contract,
-            stake.stake_id,
+        import secrets
+
+        stake_id = f"stake_{secrets.token_hex(8)}"
+        await blockchain_service.create_stake_contract(
+            stake_id,
+            current_user["address"],
             stake_request.agent_wallet,
             stake_request.amount,
             stake_request.lock_period,
-            stake_request.auto_compound,
+        )
+        stake = await staking_service.create_stake(
+            staker_address=current_user["address"], stake_id=stake_id, **stake_request.model_dump()
         )
         return StakeResponse.model_validate(stake)
     except HTTPException:
@@ -287,10 +291,10 @@ async def add_to_stake(
             raise HTTPException(status_code=403, detail="Not authorized to modify this stake")
         if stake.status != StakeStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Stake is not active")
+        await blockchain_service.add_to_stake(stake_id, current_user["address"], stake_request.additional_amount)
         updated_stake = await staking_service.add_to_stake(
             stake_id=stake_id, additional_amount=Decimal(str(stake_request.additional_amount))
         )
-        background_tasks.add_task(blockchain_service.add_to_stake, stake_id, stake_request.additional_amount)
         return StakeResponse.model_validate(updated_stake)
     except HTTPException:
         raise
@@ -321,8 +325,8 @@ async def unbond_stake(
             raise HTTPException(status_code=400, detail="Stake is not active")
         if datetime.now(UTC) < stake.end_time:
             raise HTTPException(status_code=400, detail="Lock period has not ended")
+        await blockchain_service.unbond_stake(stake_id, current_user["address"])
         await staking_service.unbond_stake(stake_id)
-        background_tasks.add_task(blockchain_service.unbond_stake, stake_id)
         return {"message": "Unbonding initiated successfully"}
     except HTTPException:
         raise
@@ -351,8 +355,8 @@ async def complete_unbonding(
             raise HTTPException(status_code=403, detail="Not authorized to complete this stake")
         if stake.status != StakeStatus.UNBONDING:
             raise HTTPException(status_code=400, detail="Stake is not unbonding")
+        await blockchain_service.complete_unbonding(stake_id, current_user["address"])
         result = await staking_service.complete_unbonding(stake_id)
-        background_tasks.add_task(blockchain_service.complete_unbonding, stake_id)
         return {
             "message": "Unbonding completed successfully",
             "total_amount": result["total_amount"],
@@ -481,13 +485,12 @@ async def update_agent_performance(
     try:
         if not current_user.get("is_oracle", False):
             raise HTTPException(status_code=403, detail="Not authorized to update performance")
-        await staking_service.update_agent_performance(agent_wallet=agent_wallet, **performance_request.model_dump())
-        background_tasks.add_task(
-            blockchain_service.update_agent_performance,
+        await blockchain_service.update_agent_performance(
             agent_wallet,
             performance_request.accuracy,
             performance_request.successful,
         )
+        await staking_service.update_agent_performance(agent_wallet=agent_wallet, **performance_request.model_dump())
         return {"message": "Agent performance updated successfully"}
     except HTTPException:
         raise
@@ -512,12 +515,12 @@ async def distribute_agent_earnings(
     try:
         if not current_user.get("is_admin", False):
             raise HTTPException(status_code=403, detail="Not authorized to distribute earnings")
+        await blockchain_service.distribute_earnings(agent_wallet, earnings_request.total_earnings)
         result = await staking_service.distribute_earnings(
             agent_wallet=agent_wallet,
             total_earnings=Decimal(str(earnings_request.total_earnings)),
             distribution_data=earnings_request.distribution_data,
         )
-        background_tasks.add_task(blockchain_service.distribute_earnings, agent_wallet, earnings_request.total_earnings)
         return {
             "message": "Earnings distributed successfully",
             "total_distributed": result["total_distributed"],
@@ -703,8 +706,8 @@ async def claim_staking_rewards(
             total_rewards += stake.accumulated_rewards
         if total_rewards <= 0:
             raise HTTPException(status_code=400, detail="No rewards to claim")
+        await blockchain_service.claim_rewards(stake_ids)
         result = await staking_service.claim_rewards(stake_ids)
-        background_tasks.add_task(blockchain_service.claim_rewards, stake_ids)
         return {
             "message": "Rewards claimed successfully",
             "total_rewards": total_rewards,

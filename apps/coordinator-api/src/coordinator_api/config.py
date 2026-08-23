@@ -218,6 +218,10 @@ class Settings(BaseAITBCConfig):
     enable_orchestration_simulation: bool = Field(default=False, description="Enable simulated AI agent workflow execution")
     auth_enabled: bool = Field(default=True, description="Enforce route-level authentication middleware")
 
+    # Agent-economics operator (hub) used to sign agent-stake/bounty chain calls.
+    agent_economics_operator_key: str = Field(default="", description="Agent economics operator private key (hex, env)")
+    agent_economics_operator_address: str = Field(default="", description="Agent economics operator address (ait1...)")
+
     @field_validator("debug", "enable_mock_swarm", mode="before")
     @classmethod
     def _parse_bool_env(cls, v: Any) -> bool:

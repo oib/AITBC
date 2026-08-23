@@ -28,6 +28,10 @@ from .base_models import (  # noqa: F401
     SmartContract,
     Transaction,
     Stake,
+    AgentStakeRecord,
+    AgentStakeMemo,
+    BountyContract,
+    BountySubmissionRecord,
     AgentIdentity,
     GovernanceProposal,
     GovernanceVote,
@@ -358,7 +362,6 @@ def _bond_burn_address() -> str:
 
 def ensure_bond_accounts(session: Session, chain_id: str) -> None:
     """Create zero-balance bond escrow and burn accounts if missing."""
-    from .base_models import Account
 
     for address in (_bond_escrow_address(), _bond_burn_address()):
         ait_addr = _to_ait_address(address)
