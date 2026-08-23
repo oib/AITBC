@@ -12,7 +12,9 @@ from ..logger import get_logger
 
 router = APIRouter(prefix="", tags=["ws"])
 logger = get_logger(__name__)
-_active_subscribers: dict[str, WebSocket] = {}
+# Keyed on (node_id, chain_id): a node following several chains opens one
+# connection per chain, and keying on node_id alone dropped all but the last.
+_active_subscribers: dict[tuple[str, str], WebSocket] = {}
 
 
 async def _stream_topic(topic: str, websocket: WebSocket) -> None:
@@ -51,6 +53,9 @@ async def subscription_websocket(websocket: WebSocket) -> None:
     """
     await websocket.accept()
     node_id: str | None = None
+    # Bound before the handshake so the finally block can look up the entry
+    # even when the client disconnects before sending its subscription message.
+    chain_id: str = ""
     try:
         message = await websocket.receive_text()
         try:
@@ -67,7 +72,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             await websocket.close(code=1008)
             return
         try:
-            expiry = await lease_tracker.get_lease_expiry(node_id)
+            expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
             import time
 
             if expiry <= time.time():
@@ -81,7 +86,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             await websocket.send_json({"error": "Failed to validate lease"})
             await websocket.close(code=1011)
             return
-        _active_subscribers[node_id] = websocket
+        _active_subscribers[node_id, chain_id] = websocket
         logger.info("WebSocket subscriber connected: %s (chain=%s, transport=%s)", node_id, chain_id, transport)
         await websocket.send_json({"status": "subscribed", "node_id": node_id, "chain_id": chain_id, "transport": transport})
         topic = f"blocks.{chain_id}"
@@ -127,8 +132,8 @@ async def subscription_websocket(websocket: WebSocket) -> None:
     except Exception as e:
         logger.error("WebSocket error for %s: %s", node_id, e)
     finally:
-        if node_id and node_id in _active_subscribers:
-            del _active_subscribers[node_id]
+        if node_id and (node_id, chain_id) in _active_subscribers:
+            del _active_subscribers[node_id, chain_id]
         try:
             await websocket.close()
         except Exception:

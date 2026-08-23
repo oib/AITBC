@@ -63,6 +63,8 @@ async def heartbeat(request: dict[str, Any]) -> dict[str, Any]:
 
     Request body:
         node_id: str - Subscriber node ID
+        chain_id: str (optional) - Extend only this chain's lease; omitted
+            means extend every lease the node holds
         duration: int (optional) - Additional duration in seconds
         _client_ip: str (injected by router) - IP of the heartbeat sender
 
@@ -72,12 +74,13 @@ async def heartbeat(request: dict[str, Any]) -> dict[str, Any]:
         lease_duration: int - Duration added
     """
     node_id = request.get("node_id")
+    chain_id = request.get("chain_id")
     duration = request.get("duration")
     client_ip = request.get("_client_ip", "unknown")
     if not node_id:
         raise HTTPException(status_code=400, detail="node_id is required")
     try:
-        expiry = await lease_tracker.extend_lease(node_id, duration, client_ip=client_ip)
+        expiry = await lease_tracker.extend_lease(node_id, duration, client_ip=client_ip, chain_id=chain_id)
         if expiry == 0.0:
             raise HTTPException(status_code=404, detail="Subscriber not found or lease expired")
         return {"node_id": node_id, "expiry": expiry, "lease_duration": duration or settings.lease_duration}
