@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import Any, Protocol
 
 from aitbc.bridge import ValidatorSetRegistry
+from sqlmodel import Session
 
 from ..models import BridgeBlockHeader
 from .bridge_types import BridgeTransfer
@@ -14,9 +16,11 @@ from .bridge_types import BridgeTransfer
 class BridgeBase(Protocol):
     """Attributes and methods required by the bridge transfer/validator/finality mixins."""
 
-    _session_factory: Callable[[], Any]
+    _session_factory: Callable[..., Any]
     _pending_transfers: dict[str, BridgeTransfer]
     _processed_proofs: set[str]
+
+    def _session_for(self, chain_id: str = "") -> AbstractContextManager[Session]: ...
     _validator_registry: ValidatorSetRegistry
     _validator_cache_loaded: set[tuple[str, int]]
     _oracle: Any
