@@ -26,21 +26,35 @@ live nodes (`aitbc3` and `hub.aitbc`) through natural-language tool calls.
 | Bonds (mutate) | `create_performance_bond` |
 | Transactions | `list_pending_transactions`, `get_transaction_status`, `search_transactions` |
 | HTTP / RPC pivot | `call_aitbc_http` |
-| Blockchain core | `get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`, `get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`, `get_blockchain_status`, `get_genesis_allocations`, `get_sync_config`, `list_chains` |
-| Accounts / state | `get_account_balance`, `reconcile_account_balance`, `get_account_state_snapshot`, `get_account_state_delta` |
+| Blockchain core | `get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`, `get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`, `get_blockchain_status`, `get_genesis_allocations`, `get_sync_config`, `list_chains`, `get_pending_mempool`, `reconcile_account_balance` |
+| Transactions | `query_blockchain_transactions`, `get_cross_chain_swap`, `list_cross_chain_swaps`, `get_cross_chain_bridge`, `get_cross_chain_stats` |
+| Accounts / state | `get_account_balance`, `get_account_state_snapshot`, `get_account_state_delta` |
 | Consensus | `get_consensus_status`, `list_validators` |
 | Staking | `get_staking_info` |
+| Identity / governance | `get_agent_identity`, `get_governance_proposal` |
 | Bonds | `get_bond`, `list_provider_bonds` |
-| Bridge | `get_bridge_transfer`, `list_pending_bridge_transfers` |
+| Bridge | `get_bridge_transfer`, `list_pending_bridge_transfers`, `get_bridge_transfer_proof`, `get_bridge_balance`, `get_bridge_validators`, `get_bridge_security_status`, `get_bridge_oracle_status`, `get_bridge_block_header` |
 | Cross-chain | `get_cross_chain_rates`, `get_cross_chain_pools` |
-| GPU | `list_gpus`, `get_gpu_info` |
-| AI on-chain | `list_ai_jobs_onchain`, `get_ai_job_onchain` |
+| GPU | `list_gpus`, `get_gpu_info`, `get_gpu_allocations`, `get_edge_info` |
+| AI on-chain | `list_ai_jobs_onchain`, `get_ai_job_onchain`, `get_ai_service_stats` |
+| Marketplace on-chain | `list_marketplace_listings`, `get_marketplace_listing` |
 | Escrow | `get_escrow_state` |
 | Islands | `list_islands`, `get_island` |
+| Contracts / forum | `list_contracts`, `get_messaging_contract_state`, `get_forum_topics`, `get_topic_messages` |
+| Disputes | `get_active_disputes`, `get_authorized_arbitrators`, `get_arbitrator_disputes`, `get_user_disputes`, `get_dispute`, `get_dispute_evidence`, `get_arbitration_votes` |
+| Subscription | `list_subscribers`, `get_lease_status` |
+| Mutating RPC | `submit_blockchain_transaction`, `submit_marketplace_transaction`, `create_marketplace_listing`, `register_gpu`, `allocate_gpu`, `stake_tokens`, `unstake_tokens`, `register_agent_identity`, `create_governance_proposal`, `cast_governance_vote`, `execute_governance_proposal`, `create_cross_chain_swap`, `create_cross_chain_bridge`, `bridge_lock`, `bridge_confirm`, `bridge_unlock`, `create_escrow`, `release_escrow`, `refund_escrow`, `register_account`, `request_faucet`, `force_sync_chain` |
 | Version / auth | `get_aitbc_version`, `get_auth_status` |
 
 All destructive tools default to `dry_run=true` and require `confirm=true` before
 they actually run a command on a remote host.
+
+Additional typed RPC tools live in `aitbc_mcp_rpc_tools.py` and are imported by
+`aitbc_mcp_server.py`; they cover the remaining blockchain routers (marketplace,
+bridge, cross-chain, GPU, contracts, disputes, subscription, escrow, islands,
+governance/identity, and a curated set of mutating RPC endpoints).
+
+A generic catch-all remains `call_aitbc_http` for any endpoint not yet wrapped.
 
 ## Installation
 
@@ -118,7 +132,29 @@ Recommended `.devin/config.json`:
       "mcp__aitbc__send_aitbc_transaction",
       "mcp__aitbc__create_performance_bond",
       "mcp__aitbc__stake_aitbc",
-      "mcp__aitbc__unstake_aitbc"
+      "mcp__aitbc__unstake_aitbc",
+      "mcp__aitbc__submit_blockchain_transaction",
+      "mcp__aitbc__submit_marketplace_transaction",
+      "mcp__aitbc__create_marketplace_listing",
+      "mcp__aitbc__register_gpu",
+      "mcp__aitbc__allocate_gpu",
+      "mcp__aitbc__stake_tokens",
+      "mcp__aitbc__unstake_tokens",
+      "mcp__aitbc__register_agent_identity",
+      "mcp__aitbc__create_governance_proposal",
+      "mcp__aitbc__cast_governance_vote",
+      "mcp__aitbc__execute_governance_proposal",
+      "mcp__aitbc__create_cross_chain_swap",
+      "mcp__aitbc__create_cross_chain_bridge",
+      "mcp__aitbc__bridge_lock",
+      "mcp__aitbc__bridge_confirm",
+      "mcp__aitbc__bridge_unlock",
+      "mcp__aitbc__create_escrow",
+      "mcp__aitbc__release_escrow",
+      "mcp__aitbc__refund_escrow",
+      "mcp__aitbc__register_account",
+      "mcp__aitbc__request_faucet",
+      "mcp__aitbc__force_sync_chain"
     ],
     "deny": []
   }
