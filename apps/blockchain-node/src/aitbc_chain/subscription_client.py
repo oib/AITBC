@@ -11,7 +11,7 @@ from .config import settings
 from .database import session_scope
 from .gossip import gossip_broker
 from .logger import get_logger
-from .metrics import metrics_registry
+from .metrics import metrics_registry, subscription_reconnects_total
 from .sync import ChainSync
 from .sync_divergence import clear_divergence, report_divergence
 
@@ -151,6 +151,7 @@ class SubscriptionClient:
                         "Subscription failed, retrying in 30s",
                         extra={"hub_url": self._hub_url, "node_id": self._node_id, "transport": self._transport},
                     )
+                    subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
                     await asyncio.sleep(30)
                     continue
                 if self._transport == "websocket":
@@ -265,6 +266,10 @@ class SubscriptionClient:
                                     },
                                 )
                                 continue
+                            subscription_messages_received_total.labels(
+                                chain_id=self._chain_id,
+                                topic=f"blocks.{self._chain_id}",
+                            ).inc()
                             await self._import_block(block_data)
                         except Exception as e:
                             logger.error(
@@ -277,6 +282,7 @@ class SubscriptionClient:
                     "WebSocket connection closed, reconnecting",
                     extra={"ws_url": ws_url, "node_id": self._node_id, "error": str(e)},
                 )
+                subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
                 self._set_sync_mode("pull")
                 await asyncio.sleep(5)
             except Exception as e:
@@ -285,6 +291,7 @@ class SubscriptionClient:
                     str(e),
                     extra={"ws_url": ws_url, "node_id": self._node_id},
                 )
+                subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
                 self._set_sync_mode("pull")
                 await asyncio.sleep(30)
                 break
@@ -318,6 +325,10 @@ class SubscriptionClient:
                     import json
 
                     block_data = json.loads(block_data)
+                subscription_messages_received_total.labels(
+                    chain_id=self._chain_id,
+                    topic=f"blocks.{self._chain_id}",
+                ).inc()
                 await self._import_block(block_data)
         except Exception as e:
             logger.error(
