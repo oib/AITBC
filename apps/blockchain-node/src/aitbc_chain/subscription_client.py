@@ -114,7 +114,11 @@ class SubscriptionClient:
     async def _heartbeat(self) -> bool:
         """Send heartbeat to extend lease."""
         try:
-            response = await self._client.post(f"{self._hub_url}/rpc/heartbeat", json={"node_id": self._node_id})
+            # Send chain_id so a node following several chains renews only the
+            # lease this client owns, not every lease it happens to hold.
+            response = await self._client.post(
+                f"{self._hub_url}/rpc/heartbeat", json={"node_id": self._node_id, "chain_id": self._chain_id}
+            )
             response.raise_for_status()
             data = response.json()
             self._lease_expiry = data.get("expiry", 0.0)
