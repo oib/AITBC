@@ -263,7 +263,13 @@ def create_app() -> FastAPI:
 
     @metrics_router.get("/metrics", response_class=PlainTextResponse, tags=["metrics"], summary="Prometheus metrics")
     async def metrics() -> PlainTextResponse:
-        return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+        default_metrics = generate_latest()
+        legacy_metrics = metrics_registry.render_prometheus().encode()
+        if legacy_metrics.strip():
+            content = default_metrics + b"\n" + legacy_metrics
+        else:
+            content = default_metrics
+        return PlainTextResponse(content=content, media_type=CONTENT_TYPE_LATEST)
 
     @metrics_router.get("/health", tags=["health"], summary="Health check")
     async def health() -> dict[str, Any]:

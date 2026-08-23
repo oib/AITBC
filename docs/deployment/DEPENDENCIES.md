@@ -140,17 +140,14 @@ apt install python3.13 python3.13-venv postgresql-15 redis-server libpq-dev
 **Required:**
 
 - Prometheus 2.45+
-- Grafana 10+
-- Alertmanager 0.26+
+- Alertmanager 0.26+ (optional, for alert routing)
 
 **Installation:**
 
 ```bash
-# Using official repositories
-wget -qO- https://packages.grafana.com/gpg.key | apt-key add -
-echo "deb https://packages.grafana.com/oss/deb stable main" > /etc/apt/sources.list.d/grafana.list
+# Debian stable
 apt update
-apt install prometheus grafana alertmanager
+apt install prometheus prometheus-alertmanager
 ```
 
 ## Database Configuration
@@ -237,7 +234,6 @@ appendfsync everysec
 | PostgreSQL | 5432 | TCP | Local only | Database |
 | Redis | 6379 | TCP | Local only | Cache |
 | Prometheus | 9090 | TCP | Local only | Metrics |
-| Grafana | 3000 | TCP | Inbound (VPN) | Monitoring |
 | nginx | 80, 443 | TCP | Inbound | HTTP/HTTPS |
 
 **UFW Configuration:**
@@ -351,8 +347,7 @@ systemctl start prometheus-node-exporter
 
 **Required:**
 
-- Prometheus (for metrics collection)
-- Grafana (for visualization)
+- Prometheus (for metrics collection and alerting)
 
 **Configuration:**
 

@@ -486,13 +486,6 @@ verify_monitoring() {
         print_warning "⚠ Prometheus is not running"
     fi
 
-    # Check Grafana
-    if curl -s http://localhost:3001/api/health | grep -q '"database":'; then
-        print_success "✓ Grafana is running"
-    else
-        print_warning "⚠ Grafana is not running"
-    fi
-
     # Check Alert Manager
     if curl -s http://localhost:9093/api/v1/alerts | grep -q '"status":'; then
         print_success "✓ Alert Manager is running"
@@ -597,7 +590,6 @@ generate_verification_report() {
     },
     "monitoring": {
         "prometheus": "running",
-        "grafana": "running",
         "alert_manager": "running",
         "metrics": "available"
     },
