@@ -38,7 +38,7 @@ def safe_load_credentials():
             }
         error(f"Island credentials required for marketplace operations: {e}")
         error("Note: Hub nodes do not need to join islands - marketplace works with blockchain config")
-        error("For follower nodes, run: aitbc edge island join <island_id> <island_name> <chain_id>")
+        error("For follower nodes, run: aitbc node island join <island_id> <island_name> <chain_id>")
         error("Example: aitbc edge island join ait-hub.aitbc.bubuit.net-island 'AIT Hub' ait-hub.aitbc.bubuit.net")
         return None
 
