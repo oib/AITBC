@@ -20,8 +20,8 @@
 | v0.6.6 | Compute marketplace | ✅ Complete | |
 | v0.6.7 | Pool hub & mining | ✅ Complete | |
 | v0.7.0 | Bridge basics | ✅ Complete | Lock/unlock, RPC |
-| v0.7.1 | Bridge security | ✅ Complete | Multi-sig, signature verification, time-locks |
-| v0.7.2 | Bridge verification | ✅ Complete | Merkle proofs, block headers, finality |
+| v0.7.1 | Bridge security | ✅ Complete | Multi-sig, signature verification, time-locks — implemented and regression-tested, but `bridge_multisig_enabled` defaults to `False`; live bridge is trusted-custodian unless enabled. |
+| v0.7.2 | Bridge verification | ✅ Complete | Merkle proofs, block headers, finality — implemented and regression-tested, but `bridge_require_merkle_proof` defaults to `False`; live bridge is trusted-custodian unless enabled. |
 | v0.7.3 | Governance | ✅ Complete | |
 | v0.7.4 | Deferred v0.7.x items | ✅ Complete | External oracle, cross-chain governance, parameter automation |
 | v0.7.5 | Consensus activation | ✅ Complete | MultiValidatorPoA + PBFT enabled for homebrew testing in v0.10.0 (no external audit) |
