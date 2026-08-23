@@ -171,7 +171,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 8. Shop already forked once; follower divergence handling is new (`0983db5fb`) and needs soak + alerting.
 9. ~~`ESCROW_RELEASE` is signed with the **genesis** key.~~ Fixed — a dedicated `ESCROW_RELEASE_PRIVATE_KEY` signs settlement on hub and genesis is only a logged fallback. A key/address mismatch is now refused before the escrow is touched rather than producing a 403 and an unpaid provider. A provider/coordinator multi-party key ceremony is still future work.
 10. JWT for jobs is not `aitbc login`; operators scrape `/etc/aitbc/aitbc-coordinator-api.env`.
-11. Island credential file ownership vs `blockchain-secrets.env` root:600 still fights `aitbc market offer` as root.
+11. ~~Island credential file ownership vs `blockchain-secrets.env` root:600 still fights `aitbc market offer` as root.~~ Fixed — `aitbc node island join` now chowns `island_credentials.json` to `aitbc:aitbc` 0600 (matching `node.py`), and the marketplace command error points to the correct `node island join` command.
 12. Wallet key mismatches cannot be recovered from an address (see `AGENTS.md`).
 
 ### Docs / CLI honesty
@@ -207,7 +207,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | STATUS.md vs production |
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Soak test added; single-proposer `PoAProposer` still active by default because `multi_validator_consensus_enabled` is `False` |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
-| P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Scenario 34 GPU offer workaround |
+| P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Shipped: `aitbc node island join` now sets `aitbc:aitbc` 0600 on `island_credentials.json`; `aitbc market offer` error points to `node island join`. Closes step 11. |
 | P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Shipped: `propose -> vote -> close -> execute` validated end-to-end on hub; live parameter change recorded. |
 | P1.8 | Honest architecture rewrite of `1_system-flow.md` (CLI → coordinator 8203 → miner → Ollama 11434 → escrow) | Stale docs train the next agent wrong |
 
