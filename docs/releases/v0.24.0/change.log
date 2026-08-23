@@ -1096,3 +1096,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - feat(metrics): wire bridge and sync failure metrics
   - `rpc/bridge.py` now sets `bridge_initialized`, `bridge_pending_transfers`, `bridge_release_enabled`, and `bridge_total_locked_amount` when `bridge_health` and `bridge_security_status` are called.
   - `sync_block_import.py` increments `sync_failures_total` with a short reason label for every rejected block.
+- fix(sync): skip state sync when follower is far behind peer
+- fix(consensus): `BROADCAST SKIPPED` warning in `poa.py` now includes the
+  chain_id, so it is clear which chain has no subscribers when a node supports
+  multiple chains.
