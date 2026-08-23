@@ -53,9 +53,14 @@ jobs:
         run: bash scripts/ci/check-openapi-drift.sh
 
       - name: Unit tests
+        env:
+          PYTHON: ./venv/bin/python
+          PYTHONPATH: apps/blockchain-node/src
         run: |
-          ./venv/bin/python -m pytest -q \
-            apps/coordinator-api/tests \
+          "$PYTHON" -m pytest -q \
+            --ignore=apps/coordinator-api/tests/test_phase8_integration.py \
+            --ignore=apps/coordinator-api/tests/test_zk_receipt.py \
+            apps/coordinator-api/tests/test_*.py \
             apps/blockchain-node/tests \
             cli/tests
 

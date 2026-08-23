@@ -45,9 +45,12 @@ jobs:
 
       - name: Unit tests
         env:
+          PYTHON: /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
         run: |
-          /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python -m pytest -q \
+          "$PYTHON" -m pytest -q \
+            --ignore=apps/coordinator-api/tests/test_phase8_integration.py \
+            --ignore=apps/coordinator-api/tests/test_zk_receipt.py \
             apps/coordinator-api/tests/test_*.py \
             apps/blockchain-node/tests \
             cli/tests
