@@ -565,17 +565,16 @@ setup_postgresql_databases() {
         warning "Centralized PostgreSQL setup script not found"
         warning "Creating individual databases manually..."
 
-        # Fallback to individual database creation
+        # Fallback to individual database creation.
+        # coordinator, exchange, wallet, marketplace, trading, gpu and ai
+        # services have moved to SQLite and are no longer created here.
+        # aitbc_governance is only needed when DB_TYPE=postgresql.
+        # aitbc_mempool is only needed when MEMPOOL_BACKEND=database.
+        # aitbc_poolhub is required by aitbc-pool-hub.
         databases=(
-            "aitbc_coordinator:aitbc_user"
-            "aitbc_exchange:aitbc_user"
-            "aitbc_wallet:aitbc_user"
-            "aitbc_marketplace:aitbc_marketplace"
             "aitbc_governance:aitbc_governance"
-            "aitbc_trading:aitbc_trading"
-            "aitbc_gpu:aitbc_gpu"
-            "aitbc_ai:aitbc_ai"
             "aitbc_mempool:aitbc_mempool"
+            "aitbc_poolhub:poolhub"
         )
 
         for db_user in "${databases[@]}"; do
