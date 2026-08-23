@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from prometheus_client import Counter, Gauge, Histogram
 
 # Block Processing Metrics
@@ -31,18 +33,6 @@ sync_duration = Histogram("blockchain_sync_duration_seconds", "Time to sync bloc
 
 sync_blocks_imported = Counter("blockchain_sync_blocks_imported_total", "Total number of blocks imported during sync")
 
-sync_lag_blocks = Gauge(
-    "blockchain_sync_lag_blocks",
-    "Difference between the highest known remote block and the local head",
-    ["chain_id"],
-)
-
-sync_failures_total = Counter(
-    "blockchain_sync_failures_total",
-    "Total number of failed sync attempts",
-    ["chain_id", "reason"],
-)
-
 # RPC Metrics
 rpc_request_duration = Histogram(
     "blockchain_rpc_request_duration_seconds", "RPC request duration", buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
@@ -60,75 +50,6 @@ poa_valid_subscribers = Gauge(
 poa_broadcast_skipped_total = Counter(
     "blockchain_poa_broadcast_skipped_total",
     "Blocks skipped because there were zero valid subscribers",
-    ["chain_id"],
-)
-
-# Mempool Metrics
-mempool_pending_count = Gauge(
-    "blockchain_mempool_pending_count",
-    "Number of pending transactions in the mempool",
-    ["chain_id"],
-)
-
-mempool_pending_size_bytes = Gauge(
-    "blockchain_mempool_pending_size_bytes",
-    "Total byte size of pending transactions in the mempool",
-    ["chain_id"],
-)
-
-mempool_tx_added_total = Counter(
-    "blockchain_mempool_tx_added_total",
-    "Transactions added to the mempool",
-    ["chain_id"],
-)
-
-mempool_tx_drained_total = Counter(
-    "blockchain_mempool_tx_drained_total",
-    "Transactions drained from the mempool for a block",
-    ["chain_id"],
-)
-
-mempool_tx_evicted_total = Counter(
-    "blockchain_mempool_tx_evicted_total",
-    "Transactions evicted from the mempool",
-    ["chain_id"],
-)
-
-# Subscription / Gossip Metrics
-subscription_reconnects_total = Counter(
-    "blockchain_subscription_reconnects_total",
-    "Total subscription reconnect attempts",
-    ["chain_id", "topic"],
-)
-
-subscription_messages_received_total = Counter(
-    "blockchain_subscription_messages_received_total",
-    "Total messages received on subscriptions",
-    ["chain_id", "topic"],
-)
-
-# Bridge / Escrow Metrics
-bridge_pending_transfers = Gauge(
-    "blockchain_bridge_pending_transfers",
-    "Number of pending cross-chain bridge transfers",
-    ["chain_id"],
-)
-
-bridge_total_locked_amount = Gauge(
-    "blockchain_bridge_total_locked_amount",
-    "Total amount locked in bridge escrow (smallest unit integer value, not a float)",
-    ["chain_id", "token"],
-)
-
-bridge_release_enabled = Gauge(
-    "blockchain_bridge_release_enabled",
-    "Whether bridge release is enabled (1 = enabled, 0 = disabled)",
-    ["chain_id"],
-)
-
-bridge_initialized = Gauge(
-    "blockchain_bridge_initialized",
-    "Whether the bridge is initialized (1 = yes, 0 = no)",
     ["chain_id"],
 )
 
@@ -170,29 +91,19 @@ class MetricsRegistry:
             self._gauges.clear()
             self._summaries.clear()
 
-    def _sanitize_name(self, name: str) -> str:
-        """Make a metric name valid for the Prometheus text format."""
-        sanitized = re.sub(r"[^a-zA-Z0-9_:]", "_", name).strip("_")
-        if sanitized and sanitized[0].isdigit():
-            sanitized = "m_" + sanitized
-        return sanitized or "invalid_metric_name"
-
     def render_prometheus(self) -> str:
         with self._lock:
             lines: list[str] = []
             for name, value in sorted(self._counters.items()):
-                safe = self._sanitize_name(name)
-                lines.append(f"# TYPE {safe} counter")
-                lines.append(f"{safe} {value}")
+                lines.append(f"# TYPE {name} counter")
+                lines.append(f"{name} {value}")
             for name, value in sorted(self._gauges.items()):
-                safe = self._sanitize_name(name)
-                lines.append(f"# TYPE {safe} gauge")
-                lines.append(f"{safe} {value}")
+                lines.append(f"# TYPE {name} gauge")
+                lines.append(f"{name} {value}")
             for name, (count, total) in sorted(self._summaries.items()):
-                safe = self._sanitize_name(name)
-                lines.append(f"# TYPE {safe} summary")
-                lines.append(f"{safe}_count {count}")
-                lines.append(f"{safe}_sum {total}")
+                lines.append(f"# TYPE {name} summary")
+                lines.append(f"{name}_count {count}")
+                lines.append(f"{name}_sum {total}")
             return "\n".join(lines) + "\n"
 
 
