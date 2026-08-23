@@ -94,6 +94,32 @@ def bridge():
     pass
 
 
+def _get_wallet_dir() -> Path:
+    """Resolve the wallet directory from env or default."""
+    from pathlib import Path
+
+    return Path(os.getenv("AITBC_WALLET_DIR") or os.getenv("WALLET_DIR") or os.path.expanduser("~/.aitbc/wallets"))
+
+
+def _load_private_key(wallet_name: str, password: str = "") -> str:
+    """Load a wallet's private key (plaintext or encrypted)."""
+    wallet_path = _get_wallet_dir() / f"{wallet_name}.json"
+    if not wallet_path.exists():
+        raise click.ClickException(f"Wallet not found: {wallet_path}")
+    with open(wallet_path) as f:
+        wallet = json.load(f)
+    private_key = wallet.get("private_key")
+    if isinstance(private_key, dict):
+        from ..utils.wallet import decrypt_private_key
+
+        if not password:
+            raise click.ClickException("Wallet is encrypted; --wallet-password is required")
+        return decrypt_private_key(wallet_path, password)
+    if not isinstance(private_key, str) or not private_key:
+        raise click.ClickException("Wallet does not contain a usable private_key")
+    return private_key
+
+
 @bridge.command()
 @click.option("--target-chain", required=True, help="Target chain ID for the transfer")
 @click.option("--sender", required=True, help="Sender address (source chain)")
@@ -101,11 +127,25 @@ def bridge():
 @click.option("--amount", required=True, type=int, help="Amount to bridge (in compute-seconds)")
 @click.option("--asset", default="native", help="Asset type (default: native)")
 @click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
-@click.option("--signature", default="", help="Sender signature authorizing the lock")
+@click.option("--signature", default="", help="Sender signature authorizing the lock (hex)")
+@click.option("--wallet-name", default=None, help="Wallet to sign the lock with")
+@click.option("--wallet-password", default="", help="Password if the wallet is encrypted")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, signature, rpc_url):
+def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, signature, wallet_name, wallet_password, rpc_url):
     """Lock funds for a cross-chain bridge transfer"""
+
+    if wallet_name:
+        private_key = _load_private_key(wallet_name, wallet_password)
+        sign_data = {
+            "source_chain": source_chain or "",
+            "target_chain": target_chain,
+            "sender": sender,
+            "recipient": recipient,
+            "amount": amount,
+            "asset": asset,
+        }
+        signature = _sign_dict(private_key, sign_data)
 
     async def _lock():
         client = _get_bridge_client(rpc_url)
@@ -130,16 +170,21 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
 @bridge.command()
 @click.option("--transfer-id", required=True, help="Transfer ID to confirm")
 @click.option("--confirmer", required=True, help="Confirmer address")
-@click.option("--signature", required=True, help="Confirmer signature")
+@click.option("--signature", default="", help="Confirmer signature (hex)")
+@click.option("--confirmer-private-key", default=None, help="Private key to sign the confirm request")
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="JSON file containing the lock proof")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def confirm(ctx, transfer_id, confirmer, signature, proof_file, rpc_url):
+def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof_file, rpc_url):
     """Confirm and release a cross-chain bridge transfer"""
     try:
         proof = json.loads(Path(proof_file).read_text())
     except Exception as e:
         abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
+
+    if confirmer_private_key:
+        sign_data = {"transfer_id": transfer_id, "confirmer": confirmer}
+        signature = _sign_dict(confirmer_private_key, sign_data)
 
     async def _confirm():
         client = _get_bridge_client(rpc_url)
