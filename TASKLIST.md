@@ -305,3 +305,4 @@ Status after the 2026-08-24 session:
 - [x] Fix shop sync repeatedly requesting the island chain from the hub (HTTP 503).
 - [x] Fix empty tx_hash causing UNIQUE constraint and replay warnings on block import.
 - [x] Historical bridge data archaeology: document the four pre-v0.24.1 unbacked transfers in LIVE_VALIDATION_SUMMARY.md and record the do-not-fix decision.
+- [x] PostgreSQL/credential cleanup: stale backups, unused postgres password files, misleading MEMPOOL_DB_URL/DATABASE_URL, and 0600/0640 perms on both nodes.
