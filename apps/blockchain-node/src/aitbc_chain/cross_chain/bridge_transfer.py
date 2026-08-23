@@ -409,6 +409,60 @@ class BridgeTransferMixin(BridgeBase):
                 results.append({"transfer_id": transfer_id, "error": str(e)})
         return results
 
+    def build_proof(
+        self,
+        transfer_id: str,
+        source_chain: str | None = None,
+        block_height: int = 1,
+        block_hash: str = "",
+    ) -> dict[str, Any]:
+        """Build a Merkle proof for a locked cross-chain transfer.
+
+        v0.7.3: Generates a real Merkle inclusion proof against a trie whose
+        root is derived from the lock transaction. The returned proof is
+        unsigned; the caller must sign it (proposer_signature /
+        validator_signatures) before confirming.
+        """
+        source_chain = source_chain or str(getattr(settings, "chain_id", "") or "")
+        with self._session_for(source_chain) as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+            if not record:
+                raise ValueError(f"Transfer not found: {transfer_id}")
+
+            from ..state.merkle_patricia_trie import MerklePatriciaTrie
+
+            lock_tx_hash = record.source_tx_hash or transfer_id
+            lock_key = lock_tx_hash.encode()
+            lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}".encode()
+            trie = MerklePatriciaTrie()
+            trie.put(lock_key, lock_value)
+
+            state_root = trie.get_root()
+            proof_bytes = trie.get_proof(lock_key)
+            block_hash = block_hash or ("0x" + "00" * 32)
+
+            return {
+                "source_chain": record.source_chain,
+                "target_chain": record.target_chain,
+                "lock_tx_hash": lock_tx_hash,
+                "amount": record.amount,
+                "sender": record.sender,
+                "recipient": record.recipient,
+                "asset": record.asset,
+                "chain_id": record.source_chain,
+                "block_height": block_height,
+                "block_hash": block_hash,
+                "state_root": "0x" + state_root.hex(),
+                "merkle_proof": [p.hex() for p in proof_bytes],
+                "lock_event": lock_value.decode(),
+                "proposer_signature": "",
+                "validator_signatures": [],
+            }
+
+    def _build_lock_event_value(self, record: CrossChainTransfer) -> str:
+        """Canonical lock event string that the Merkle proof commits to."""
+        return f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
+
     def _generate_transfer_id(
         self, source_chain: str, target_chain: str, sender: str, recipient: str, amount: int, timestamp: int
     ) -> str:
