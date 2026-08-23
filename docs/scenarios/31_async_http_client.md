@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > Async HTTP Client Non-Blocking
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 Async services use `httpx.AsyncClient` (B5), not `requests` wrapped in `run_in_executor`. Operators exercise the async RPC path with `aitbc bridge` and `aitbc explorer`.
 
 ### Use Case
