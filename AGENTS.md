@@ -205,6 +205,26 @@ Recommended response:
 This is a data integrity / operator-recovery issue, not a CLI bug that can be
 fixed by code changes alone.
 
+## Use the AITBC MCP server
+
+When operating the live AITBC nodes, prefer the MCP server in `mcp-server/`
+over arbitrary SSH or shell commands.
+
+- The canonical server is `mcp-server/aitbc_mcp_server.py`, which imports the
+  typed RPC tool set from `mcp-server/aitbc_mcp_rpc_tools.py`.
+- It provides read-only tools for nodes, services, chain state, accounts,
+  transactions, blocks, mempool, bridge, cross-chain, GPU, AI jobs, marketplace,
+  escrow, disputes, contracts, subscription, islands, and governance/identity.
+- Mutating tools (start/stop/restart, cron jobs, CLI commands, staking,
+  transfers, marketplace listings, GPU registration, bridge operations, escrow,
+  governance, etc.) are gated with `dry_run=true` by default and require
+  `confirm=true` to execute.
+- The generic fallback `call_aitbc_http` can reach any known service, but only
+  pre-mapped local service names and paths are allowed.
+
+Use the typed MCP tools first. Drop to explicit SSH only when the MCP server
+itself is being debugged or a specific one-off command has no MCP wrapper.
+
 ## Task tracking
 
 `AGENTS.md` is for workspace rules and conventions only.
