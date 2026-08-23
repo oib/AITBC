@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "aitbc": {
+      "command": "/opt/aitbc/mcp-server/.venv/bin/python",
+      "args": ["/opt/aitbc/mcp-server/aitbc_mcp_server.py"]
+    }
+  }
+}
