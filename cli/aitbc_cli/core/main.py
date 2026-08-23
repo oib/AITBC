@@ -17,6 +17,8 @@ if REPO_ROOT not in sys.path:
 
 import click
 from aitbc_cli.utils.http_client import get_logger
+from .surface_policy import VALIDATED_COMMANDS
+from .validated_group import ValidatedGroup
 from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.agent_wallet import agent_wallet
@@ -126,7 +128,7 @@ def version():
     click.echo("New Features: ✅")
 
 
-@click.group()
+@click.group(cls=ValidatedGroup, validated_commands=VALIDATED_COMMANDS)
 @click.version_option(version=__version__, prog_name="aitbc")
 @click.option("--url", default=None, help="Coordinator API URL (overrides config)")
 @click.option("--api-key", default=None, help="API key for authentication")
@@ -134,8 +136,14 @@ def version():
 @click.option("--output", default="table", type=click.Choice(["table", "json", "yaml", "csv"]), help="Output format")
 @click.option("--verbose", "-v", count=True, help="Increase verbosity (can be used multiple times)")
 @click.option("--debug", is_flag=True, help="Enable debug mode")
+@click.option(
+    "--show-deprecated",
+    is_flag=True,
+    hidden=True,
+    help="Show and run unvalidated commands (use at your own risk)",
+)
 @click.pass_context
-def cli(ctx, url, api_key, chain_id, output, verbose, debug):
+def cli(ctx, url, api_key, chain_id, output, verbose, debug, show_deprecated):
     """AITBC CLI - Command Line Interface for AITBC Network
 
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
@@ -167,6 +175,7 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     ctx.obj["output_format"] = output
     ctx.obj["verbose"] = verbose
     ctx.obj["debug"] = debug
+    ctx.obj["show_deprecated"] = show_deprecated
 
     # Load the configuration object once and share it with all subcommands.
     # Commands that need fresh data (e.g., after a config set) can call
