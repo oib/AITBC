@@ -8,8 +8,10 @@ from typing import Any
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc_shared import JobPayment
 
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
+from ...payments.provider_binding import miner_wallet_address, same_address
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
@@ -69,6 +71,44 @@ def _payment_blocks_dispatch(job: Job) -> str | None:
     if payment_status in _PAYMENT_DISPATCHABLE_STATES:
         return None
     return f"payment not secured (payment_status={payment_status})"
+
+
+# G2: an escrow names its payee before any miner is chosen, and the chain pays that
+# address and no other -- rpc/escrow/{job_id}/release settles to the contract's
+# agent_address, and the release call cannot redirect it. Assignment is therefore the
+# only point where the payee and the worker can be tied together. Without this a buyer
+# could name their own address as the provider, let a real miner do the work, and take
+# the money back when the job completed.
+_PROVIDER_BINDING_REQUIRE = os.getenv("COORDINATOR_REQUIRE_PROVIDER_BINDING", "true").lower() == "true"
+
+
+def _provider_binding_blocks_dispatch(session: Session, job: Job, miner: Miner) -> str | None:
+    """Return why this miner must not take this job, or None if it may.
+
+    Only escrowed jobs carry a payee to protect. Unpriced work has none, and every
+    other payment state is already refused by :func:`_payment_blocks_dispatch`.
+
+    It fails closed on both sides of the comparison: a miner that registered no
+    wallet, and an escrow that recorded no provider, block dispatch rather than
+    falling back to some default address. As with the payment gate the job stays
+    QUEUED, so the miner that *is* the payee can still pick it up.
+    """
+    if not _PROVIDER_BINDING_REQUIRE:
+        return None
+    if not job.payment_id or (job.payment_status or "").strip().lower() != "escrowed":
+        return None
+    payment = session.get(JobPayment, job.payment_id)
+    if payment is None:
+        return f"payment {job.payment_id} backing the escrow is missing"
+    provider = (payment.meta_data or {}).get("provider_address")
+    if not provider:
+        return "the escrow records no provider address to pay"
+    wallet = miner_wallet_address(miner)
+    if not wallet:
+        return f"miner {miner.id} registered no wallet_address, so it cannot be the escrow provider"
+    if not same_address(wallet, provider):
+        return f"miner {miner.id} wallet {wallet} is not the escrow provider {provider}"
+    return None
 
 
 def _to_utc(dt: datetime | None) -> datetime | None:
@@ -214,6 +254,10 @@ class JobService:
                     unpaid_reason = _payment_blocks_dispatch(job)
                     if unpaid_reason:
                         logger.info("Job %s is not dispatchable: %s", job.id, unpaid_reason)
+                        continue
+                    mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner)
+                    if mismatch_reason:
+                        logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, mismatch_reason)
                         continue
                     if not self._satisfies_constraints(job, miner):
                         continue
