@@ -44,12 +44,16 @@ jobs:
           done
 
       - name: MyPy clean apps
+        env:
+          PYTHON: ./venv/bin/python
         run: bash scripts/ci/mypy-precommit.sh
 
       - name: No float money
         run: ./venv/bin/python scripts/lint/no_float_money.py
 
       - name: OpenAPI drift check
+        env:
+          PYTHON: ./venv/bin/python
         run: bash scripts/ci/check-openapi-drift.sh
 
       - name: Unit tests
