@@ -6,13 +6,23 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import update
-from sqlalchemy.orm import Session
+from sqlmodel import Session, col
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import MinerDep
-from ....schemas import AssignedJob, JobFailSubmit, JobResult, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest, Receipt
+from ....schemas import (
+    AssignedJob,
+    JobFailSubmit,
+    JobResult,
+    JobResultSubmit,
+    JobState,
+    MinerHeartbeat,
+    MinerRegister,
+    PollRequest,
+    Receipt,
+)
 from ...infrastructure.domain import Job
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
@@ -27,12 +37,12 @@ router = APIRouter(tags=["miner"])
 
 # P2.1: high-value jobs require a ZK receipt proof before escrow release.
 # -1 disables the threshold, 0 always requires a proof, default 10 AIT.
-_ZK_THRESHOLD_AIT = float(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
+_ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 # P2.2: high-value jobs require a TEE attestation quote before escrow release.
 # Mirrors the ZK threshold gating above.
-_TEE_THRESHOLD_AIT = float(os.getenv("COORDINATOR_TEE_HIGH_VALUE_THRESHOLD", "10"))
+_TEE_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_TEE_HIGH_VALUE_THRESHOLD", "10"))
 _TEE_REQUIRE = os.getenv("COORDINATOR_TEE_REQUIRE", "false").lower() == "true"
 
 
@@ -42,7 +52,7 @@ def _zk_required_for(job: Any) -> bool:
         return False
     if job.constraints and job.constraints.get("zk_proof_required"):
         return True
-    payment_amount = float(job.payment_amount or 0)
+    payment_amount = Decimal(str(job.payment_amount or 0))
     return _ZK_THRESHOLD_AIT == 0 or payment_amount >= _ZK_THRESHOLD_AIT
 
 
@@ -70,7 +80,7 @@ def _tee_required_for(job: Any) -> bool:
         return False
     if _TEE_THRESHOLD_AIT == 0:
         return True
-    return float(job.payment_amount or 0) >= _TEE_THRESHOLD_AIT
+    return Decimal(str(job.payment_amount or 0)) >= _TEE_THRESHOLD_AIT
 
 
 async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -177,20 +187,14 @@ async def _attach_tee_attestation(
                     report_data=job.id.encode(),
                 )
                 quote_b64 = quote.to_base64()
-                attestation = service.verify_and_store(
-                    auto_enclave_id, quote_b64, measurement=auto_enclave_id
-                )
+                attestation = service.verify_and_store(auto_enclave_id, quote_b64, measurement=auto_enclave_id)
                 if attestation.status == "verified":
                     receipt["tee_status"] = "verified"
                     receipt["tee_attestation_id"] = attestation.id
                     receipt["tee_quote"] = quote_b64
-                    logger.info(
-                        "Auto-generated TEE attestation for job %s: %s", job.id, attestation.id
-                    )
+                    logger.info("Auto-generated TEE attestation for job %s: %s", job.id, attestation.id)
                 else:
-                    logger.error(
-                        "Auto-generated TEE attestation for job %s was rejected", job.id
-                    )
+                    logger.error("Auto-generated TEE attestation for job %s was rejected", job.id)
                     receipt["tee_status"] = "auto_generation_rejected"
             except Exception as e:
                 logger.error("Error auto-generating TEE attestation for job %s: %s", job.id, e)
@@ -255,7 +259,7 @@ async def submit_result(
 ) -> dict[str, Any]:
     job_service = JobService(session)
     miner_service = MinerService(session)
-    receipt_service = ReceiptService(session)  # type: ignore[arg-type]
+    receipt_service = ReceiptService(session)
     try:
         job = job_service.get_job(job_id)
     except KeyError:
@@ -310,16 +314,12 @@ async def submit_result(
                 # event loop and PaymentService calls, so SQL is used for the final
                 # job-state transition.
                 session.execute(
-                    update(Job)
-                    .where(Job.id == job_id)
-                    .values(state=JobState.failed.value, error=error_message)
+                    update(Job).where(col(Job.id) == job_id).values(state=JobState.failed.value, error=error_message)
                 )
                 session.commit()
                 job.error = error_message
                 job.state = JobState.failed
-                logger.error(
-                    "Escrow release blocked for job %s: TEE status %s", job.id, tee_status
-                )
+                logger.error("Escrow release blocked for job %s: TEE status %s", job.id, tee_status)
                 # v0.14.3: TEE failure now triggers an automatic refund so the
                 # customer is not left with an escrowed stuck job.
                 refunded = await payment_service.refund_payment(
@@ -338,9 +338,7 @@ async def submit_result(
                         job.id,
                     )
                 if refunded:
-                    session.execute(
-                        update(Job).where(Job.id == job_id).values(payment_status="refunded")
-                    )
+                    session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))
                     session.commit()
                     job.payment_status = "refunded"
                 success = False
@@ -349,9 +347,7 @@ async def submit_result(
                 if zk_status != "verified":
                     job.error = f"ZK proof required before escrow release (status: {zk_status})"
                     session.commit()
-                    logger.error(
-                        "Escrow release blocked for job %s: ZK status %s", job.id, zk_status
-                    )
+                    logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
                     success = False
                 else:
                     success = await payment_service.release_payment(
@@ -366,9 +362,7 @@ async def submit_result(
             if zk_status != "verified":
                 job.error = f"ZK proof required before escrow release (status: {zk_status})"
                 session.commit()
-                logger.error(
-                    "Escrow release blocked for job %s: ZK status %s", job.id, zk_status
-                )
+                logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
                 success = False
             else:
                 success = await payment_service.release_payment(
@@ -384,6 +378,7 @@ async def submit_result(
             if receipt is not None and job.payment_id:
                 try:
                     from aitbc_shared import JobPayment
+
                     payment = session.get(JobPayment, job.payment_id)
                     if payment and payment.meta_data:
                         reinvest_stake_id = payment.meta_data.get("reinvest_stake_id")
@@ -409,6 +404,7 @@ async def submit_result(
     # Record job completion in the reputation service.
     try:
         from ....contexts.reputation.services.reputation_service import ReputationService
+
         reputation_service = ReputationService(session)
         earnings = Decimal(str(receipt.get("price", "0"))) if receipt else Decimal("0")
         await reputation_service.record_job_completion(
@@ -440,6 +436,7 @@ async def submit_failure(
         # Record the failure in the reputation service.
         try:
             from ....contexts.reputation.services.reputation_service import ReputationService
+
             reputation_service = ReputationService(session)
             await reputation_service.record_job_completion(
                 agent_id=user["sub"],
@@ -529,18 +526,22 @@ async def get_miner_earnings(
                 total_earnings += amount
             elif job.payment_status == "escrowed":
                 pending_earnings += amount
-            history.append({
-                "job_id": job.id,
-                "amount": str(amount),
-                "currency": token,
-                "payment_status": job.payment_status or "unknown",
-            })
+            history.append(
+                {
+                    "job_id": job.id,
+                    "amount": str(amount),
+                    "currency": token,
+                    "payment_status": job.payment_status or "unknown",
+                }
+            )
 
         return {
             "miner_id": miner_id,
-            "total_earnings": float(total_earnings),
-            "pending_earnings": float(pending_earnings),
-            "paid_earnings": float(paid_earnings),
+            # Strings, like earnings_history[].amount above: these are Decimal sums
+            # of Numeric(20, 8) columns and float() would round them.
+            "total_earnings": str(total_earnings),
+            "pending_earnings": str(pending_earnings),
+            "paid_earnings": str(paid_earnings),
             "completed_jobs": len(completed_jobs),
             "currency": "AITBC",
             "from_time": from_time,
@@ -551,9 +552,9 @@ async def get_miner_earnings(
         logger.error("Error getting miner earnings: %s", e)
         return {
             "miner_id": miner_id,
-            "total_earnings": 0.0,
-            "pending_earnings": 0.0,
-            "paid_earnings": 0.0,
+            "total_earnings": "0",
+            "pending_earnings": "0",
+            "paid_earnings": "0",
             "completed_jobs": 0,
             "currency": "AITBC",
             "error": str(e),

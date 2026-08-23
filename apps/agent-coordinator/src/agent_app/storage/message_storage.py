@@ -9,7 +9,7 @@ a local SQLite database so messages are still durably stored on the
 import json
 import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
 
@@ -30,7 +30,7 @@ class MessageStorage:
         self.sqlite_db_path: str | None = None
 
         if database_url and database_url.startswith("sqlite:///"):
-            self.sqlite_db_path = database_url[len("sqlite:///"):]
+            self.sqlite_db_path = database_url[len("sqlite:///") :]
 
     async def start(self) -> None:
         """Connect to Redis and prepare the SQLite fallback."""
@@ -59,15 +59,9 @@ class MessageStorage:
                     "timestamp REAL, "
                     "status TEXT DEFAULT 'pending')"
                 )
-                await self.sqlite_conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender)"
-                )
-                await self.sqlite_conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver)"
-                )
-                await self.sqlite_conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)"
-                )
+                await self.sqlite_conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender)")
+                await self.sqlite_conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver)")
+                await self.sqlite_conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)")
                 await self.sqlite_conn.commit()
                 logger.info("SQLite fallback initialised at %s", self.sqlite_db_path)
             except Exception as e:
@@ -132,12 +126,10 @@ class MessageStorage:
         if not self.sqlite_conn:
             return None
         try:
-            cursor = await self.sqlite_conn.execute(
-                "SELECT data FROM messages WHERE message_id = ?", (message_id,)
-            )
+            cursor = await self.sqlite_conn.execute("SELECT data FROM messages WHERE message_id = ?", (message_id,))
             row = await cursor.fetchone()
             if row:
-                data = json.loads(row[0])
+                data: dict[str, Any] = json.loads(row[0])
                 if "payload" in data:
                     data["payload"] = json.loads(data["payload"])
                 return data
@@ -150,9 +142,7 @@ class MessageStorage:
         if not self.sqlite_conn:
             return False
         try:
-            cursor = await self.sqlite_conn.execute(
-                "SELECT data FROM messages WHERE message_id = ?", (message_id,)
-            )
+            cursor = await self.sqlite_conn.execute("SELECT data FROM messages WHERE message_id = ?", (message_id,))
             row = await cursor.fetchone()
             if row:
                 data = json.loads(row[0])
@@ -172,9 +162,7 @@ class MessageStorage:
             logger.error("SQLite update status failed for %s: %s", message_id, e)
             return False
 
-    async def _sqlite_get_by_field(
-        self, field: str, value: str, limit: int, offset: int
-    ) -> list[dict[str, Any]]:
+    async def _sqlite_get_by_field(self, field: str, value: str, limit: int, offset: int) -> list[dict[str, Any]]:
         if not self.sqlite_conn:
             return []
         try:
@@ -229,9 +217,7 @@ class MessageStorage:
         if not self.sqlite_conn:
             return False
         try:
-            await self.sqlite_conn.execute(
-                "DELETE FROM messages WHERE message_id = ?", (message_id,)
-            )
+            await self.sqlite_conn.execute("DELETE FROM messages WHERE message_id = ?", (message_id,))
             await self.sqlite_conn.commit()
             return True
         except Exception as e:
@@ -299,9 +285,7 @@ class MessageStorage:
                 logger.error("Redis count failed: %s", e)
         return await self._sqlite_count()
 
-    async def get_messages_by_sender(
-        self, sender_id: str, limit: int = 100, offset: int = 0
-    ) -> list[dict[str, Any]]:
+    async def get_messages_by_sender(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent."""
         if self.redis:
             try:
@@ -319,9 +303,7 @@ class MessageStorage:
                 logger.error("Redis get by sender failed for %s: %s", sender_id, e)
         return await self._sqlite_get_by_field("sender", sender_id, limit, offset)
 
-    async def get_messages_by_receiver(
-        self, receiver_id: str, limit: int = 100, offset: int = 0
-    ) -> list[dict[str, Any]]:
+    async def get_messages_by_receiver(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages received by a specific agent."""
         if self.redis:
             try:
@@ -332,9 +314,7 @@ class MessageStorage:
                     data = await self.get_message(mid)
                     if data:
                         messages.append(data)
-                messages.sort(
-                    key=lambda m: m.get("timestamp", ""), reverse=True
-                )
+                messages.sort(key=lambda m: m.get("timestamp", ""), reverse=True)
                 return messages[offset : offset + limit]
             except Exception as e:
                 logger.error("Redis get by receiver failed for %s: %s", receiver_id, e)
@@ -344,9 +324,7 @@ class MessageStorage:
         """Get all messages with pagination."""
         if self.redis:
             try:
-                message_ids_raw = await self.redis.zrevrange(
-                    "messages:timestamp", offset, offset + limit - 1
-                )
+                message_ids_raw = await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
                 message_ids: list[str] = [str(m) for m in message_ids_raw]
                 messages = []
                 for message_id in message_ids:
@@ -384,9 +362,7 @@ class MessageStorage:
     # Topic subscriptions (Redis only for now)
     # ------------------------------------------------------------------
 
-    async def add_subscription(
-        self, agent_id: str, topic: str, filter: dict[str, Any] | None = None
-    ) -> bool:
+    async def add_subscription(self, agent_id: str, topic: str, filter: dict[str, Any] | None = None) -> bool:
         """Persist a topic subscription for an agent."""
         if self.redis is None:
             raise RuntimeError("Redis not connected")
@@ -427,10 +403,12 @@ class MessageStorage:
         if self.redis is None:
             raise RuntimeError("Redis not connected")
         try:
-            topics = await self.redis.smembers(f"subscriptions:agent:{agent_id}")
+            # This client connects with decode_responses=True (see connect()), so
+            # redis-py returns str; its stubs describe the undecoded bytes shape.
+            topics = cast("set[str]", await self.redis.smembers(f"subscriptions:agent:{agent_id}"))
             subscriptions = []
             for topic in topics:
-                sub: dict[str, Any] = await self.redis.hgetall(f"subscription:{agent_id}:{topic}")
+                sub = cast("dict[str, Any]", await self.redis.hgetall(f"subscription:{agent_id}:{topic}"))
                 if sub:
                     if "filter" in sub:
                         sub["filter"] = json.loads(sub["filter"])

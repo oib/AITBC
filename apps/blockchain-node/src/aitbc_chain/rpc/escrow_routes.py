@@ -149,10 +149,7 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
                 account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
                 session.add(account)
             if account.balance < amount:
-                _logger.warning(
-                    "AUTO_STAKE: insufficient balance for %s: %s < %s",
-                    address, account.balance, amount
-                )
+                _logger.warning("AUTO_STAKE: insufficient balance for %s: %s < %s", address, account.balance, amount)
                 return None
             account.balance -= amount
             session.add(account)
@@ -168,7 +165,9 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
             session.commit()
             session.refresh(stake)
             _logger.info("AUTO_STAKE: %s staked %s, stake_id=%s", address, amount, stake.id)
-            return stake.id
+            # Stake.id is an int; every consumer (the release response, the
+            # coordinator's ReceiptView.reinvest_stake_id) declares it a string.
+            return str(stake.id)
     except Exception as e:
         _logger.error("AUTO_STAKE failed: %s", e)
     return None
@@ -193,8 +192,7 @@ async def _find_existing_release(job_id: str) -> str | None:
     """
     try:
         r = await SharedHttpClient.get(
-            f"{_HUB_RPC_URL}/transactions"
-            f"?transaction_type=ESCROW_RELEASE&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
+            f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_RELEASE&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
         )
         if r.status_code != 200:
             return None
@@ -202,7 +200,8 @@ async def _find_existing_release(job_id: str) -> str | None:
             # Re-check the payload: an older node without the job_id filter would
             # otherwise return unrelated releases and settle the wrong job.
             if (tx.get("payload") or {}).get("job_id") == job_id:
-                return tx.get("tx_hash")
+                settled_hash = tx.get("tx_hash")
+                return str(settled_hash) if settled_hash else None
     except Exception as e:
         _logger.warning("ESCROW_RELEASE: settled-release lookup failed for job_id=%s: %s", job_id, e)
     return None
@@ -220,7 +219,8 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
         if existing_release:
             _logger.info(
                 "ESCROW_RELEASE already settled for job_id=%s (%s); not resubmitting",
-                job_id, existing_release,
+                job_id,
+                existing_release,
             )
             return existing_release
 
@@ -283,7 +283,8 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
         resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
         if resp.status_code in (200, 201):
             result = resp.json()
-            actual_tx_hash = result.get("transaction_hash")
+            raw_tx_hash = result.get("transaction_hash")
+            actual_tx_hash: str | None = str(raw_tx_hash) if raw_tx_hash else None
             _logger.info(
                 "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s", actual_tx_hash, amount_int, sender, recipient
             )
@@ -291,12 +292,17 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
         else:
             _logger.error(
                 "ESCROW_RELEASE TX rejected %s for job_id=%s (provider %s was NOT paid on-chain): %s",
-                resp.status_code, job_id, provider, resp.text[:200],
+                resp.status_code,
+                job_id,
+                provider,
+                resp.text[:200],
             )
     except Exception as e:
         _logger.error(
             "ESCROW_RELEASE TX submission failed for job_id=%s (provider %s was NOT paid on-chain): %s",
-            job_id, provider, e,
+            job_id,
+            provider,
+            e,
         )
     return None
 
@@ -326,9 +332,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=message) from None
     try:
         with session_scope() as session:
-            escrow_record = Escrow(
-                job_id=job_id, chain_id=_CHAIN_ID, buyer=buyer, provider=provider, amount=int(amount_dec)
-            )
+            escrow_record = Escrow(job_id=job_id, chain_id=_CHAIN_ID, buyer=buyer, provider=provider, amount=int(amount_dec))
             session.add(escrow_record)
             session.commit()
     except Exception as e:
@@ -399,7 +403,10 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             _logger.error(
                 "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
                 "The release was rolled back so it can be retried.",
-                contract_id, job_id, provider_addr, released_amount,
+                contract_id,
+                job_id,
+                provider_addr,
+                released_amount,
             )
             return {
                 "success": False,
@@ -446,7 +453,10 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                             reinvest_amount = reinvest_amount_ait
                         _logger.info(
                             "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
-                            job_id, reinvest_stake_id, reinvest_amount, pct
+                            job_id,
+                            reinvest_stake_id,
+                            reinvest_amount,
+                            pct,
                         )
             except Exception as e:
                 _logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
@@ -506,7 +516,13 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     except Exception as e:
         _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
     _logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, refund_tx_hash)
-    return {"success": True, "contract_id": contract_id, "job_id": job_id, "message": message, "refund_tx_hash": refund_tx_hash}
+    return {
+        "success": True,
+        "contract_id": contract_id,
+        "job_id": job_id,
+        "message": message,
+        "refund_tx_hash": refund_tx_hash,
+    }
 
 
 @router.get("/escrow/{job_id}", summary="Get escrow state")

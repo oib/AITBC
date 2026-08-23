@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlalchemy import literal_column
 
 from aitbc.rate_limiting import rate_limit
@@ -196,7 +196,6 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         payload = tx_data.get("payload") or {}
         is_offer = tx_data.get("type") == "GPU_MARKETPLACE" and payload.get("action") in ("offer", "software_offer")
         is_hardware_offer = is_offer and payload.get("action") == "offer"
-        is_software_offer = is_offer and payload.get("action") == "software_offer"
         if is_offer:
             # GPU/software offers are value-zero listings; they are still traceable to sender
             # by the public key / address, but requiring a secp256k1 signature here would break
@@ -269,14 +268,13 @@ async def query_transactions(
         # the first 40 instead. Settlement depended on that answer to decide whether a job
         # had already been paid.
         query = (
-            select(Transaction)
-            .where(Transaction.chain_id == resolved_chain_id)
-            .order_by(Transaction.id.desc())  # type: ignore[union-attr]
+            select(Transaction).where(Transaction.chain_id == resolved_chain_id).order_by(Transaction.id.desc())  # type: ignore[union-attr]
         )
         if address:
             from ..base_models import address_spellings
+
             spellings = address_spellings(address)
-            query = query.where((Transaction.sender.in_(spellings)) | (Transaction.recipient.in_(spellings)))
+            query = query.where(col(Transaction.sender).in_(spellings) | col(Transaction.recipient).in_(spellings))
 
         if job_id is not None:
             # Filter in SQL, not in Python: the other payload filters below load every
@@ -292,7 +290,7 @@ async def query_transactions(
             if expression is not None:
                 query = query.where(literal_column(expression) == job_id)
             else:
-                query = query.where(Transaction.payload["job_id"].as_string() == job_id)  # type: ignore[index]
+                query = query.where(Transaction.payload["job_id"].as_string() == job_id)
 
         _logger.info(f"Query: {query}")
 

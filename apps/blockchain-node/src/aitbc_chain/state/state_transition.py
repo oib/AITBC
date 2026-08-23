@@ -43,6 +43,7 @@ if _BOND_BURN_ADDRESS:
 else:
     _BOND_BURN_ADDRESS = "0x" + keccak(b"aitbc.bond.burn").hex()[:40]
 
+
 def _bond_slash_authority() -> str | None:
     addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "")
     if addr:
@@ -336,9 +337,7 @@ class StateTransition:
             parameter = execution_payload.get("parameter")
             value = execution_payload.get("value")
             if not parameter:
-                logger.warning(
-                    "GOVERNANCE_EXECUTE tx %s parameter_change missing parameter name", tx_hash
-                )
+                logger.warning("GOVERNANCE_EXECUTE tx %s parameter_change missing parameter name", tx_hash)
                 return
             existing = session.exec(
                 select(ChainParameter).where(
@@ -410,16 +409,17 @@ class StateTransition:
             lock_days = int(payload.get("lock_days", 30))
             locked_until = now + timedelta(days=lock_days)
             # Reuse an existing active bond with the same id if it exists (top-up).
-            existing = session.exec(
-                select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)
-            ).first()
+            existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
             if existing:
                 existing.amount += value
                 existing.locked_until = locked_until
                 existing.updated_at = now
                 logger.info("Bond topped up: %s amount=%s locked_until=%s", bond_id, existing.amount, locked_until)
             else:
-                bond = Bond(
+                # Named apart from the `bond` the BOND_RELEASE/BOND_SLASH branches
+                # load: those are Bond | None, and sharing the name pinned the
+                # inferred type to Bond.
+                new_bond = Bond(
                     chain_id=chain_id,
                     bond_id=bond_id,
                     provider=_to_ait_address(provider),
@@ -430,7 +430,7 @@ class StateTransition:
                     created_at=now,
                     updated_at=now,
                 )
-                session.add(bond)
+                session.add(new_bond)
                 logger.info("Bond locked: %s provider=%s amount=%s locked_until=%s", bond_id, provider, value, locked_until)
         elif tx_type == "BOND_RELEASE":
             if sender_addr != _to_ait_address(provider):
