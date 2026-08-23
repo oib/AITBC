@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  PYTHON: /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
-
 jobs:
   ci:
     runs-on: debian
@@ -24,19 +21,23 @@ jobs:
             --mode copy
 
       - name: MyPy clean apps
-        run: bash scripts/ci/mypy-precommit.sh
+        run: |
+          export PYTHON=/opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
+          bash scripts/ci/mypy-precommit.sh
 
       - name: No float money
-        run: "$PYTHON" scripts/lint/no_float_money.py
+        run: /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python scripts/lint/no_float_money.py
 
       - name: OpenAPI drift check
-        run: bash scripts/ci/check-openapi-drift.sh
+        run: |
+          export PYTHON=/opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
+          bash scripts/ci/check-openapi-drift.sh
 
       - name: Unit tests
         env:
           PYTHONPATH: apps/blockchain-node/src
         run: |
-          "$PYTHON" -m pytest -q \
+          /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python -m pytest -q \
             apps/coordinator-api/tests/test_*.py \
             apps/blockchain-node/tests \
             cli/tests
