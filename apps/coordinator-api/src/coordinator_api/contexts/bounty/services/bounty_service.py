@@ -40,6 +40,7 @@ class BountyService:
         tags: list[str],
         category: str | None,
         difficulty: str | None,
+        bounty_id: str | None = None,
     ) -> Bounty:
         """Create a new bounty"""
         try:
@@ -47,6 +48,7 @@ class BountyService:
             success_fee = reward_amount * Decimal("0.02")
             platform_fee = reward_amount * Decimal("0.01")
             bounty = Bounty(
+                bounty_id=bounty_id or None,
                 title=title,
                 description=description,
                 reward_amount=reward_amount,
@@ -138,14 +140,15 @@ class BountyService:
         self,
         bounty_id: str,
         submitter_address: str,
-        zk_proof: dict[str, Any] | None,
-        performance_hash: str,
-        accuracy: float,
-        response_time: int | None,
-        compute_power: float | None,
-        energy_efficiency: float | None,
-        submission_data: dict[str, Any],
-        test_results: dict[str, Any],
+        submission_id: str | None = None,
+        zk_proof: dict[str, Any] | None = None,
+        performance_hash: str = "",
+        accuracy: float = 0.0,
+        response_time: int | None = None,
+        compute_power: float | None = None,
+        energy_efficiency: float | None = None,
+        submission_data: dict[str, Any] | None = None,
+        test_results: dict[str, Any] | None = None,
     ) -> BountySubmission:
         """Create a bounty submission"""
         try:
@@ -171,6 +174,7 @@ class BountyService:
             if existing:
                 raise ValueError("Already submitted to this bounty")
             submission = BountySubmission(
+                submission_id=submission_id or None,
                 bounty_id=bounty_id,
                 submitter_address=submitter_address,
                 accuracy=accuracy,
@@ -179,8 +183,8 @@ class BountyService:
                 energy_efficiency=energy_efficiency,
                 zk_proof=zk_proof or {},
                 performance_hash=performance_hash,
-                submission_data=submission_data,
-                test_results=test_results,
+                submission_data=submission_data or {},
+                test_results=test_results or {},
             )
             self.session.add(submission)  # type: ignore[union-attr]
             bounty.submission_count += 1

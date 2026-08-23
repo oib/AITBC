@@ -11,6 +11,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.units import ait_to_seconds
 
 from ..domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
@@ -52,7 +53,13 @@ class StakingService:
         return staking_pool
 
     async def create_stake(
-        self, staker_address: str, agent_wallet: str, amount: Decimal, lock_period: int, auto_compound: bool
+        self,
+        staker_address: str,
+        agent_wallet: str,
+        amount: Decimal,
+        lock_period: int,
+        auto_compound: bool,
+        stake_id: str | None = None,
     ) -> AgentStake:
         """Create a new stake on an agent wallet"""
         try:
@@ -60,11 +67,13 @@ class StakingService:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 raise ValueError("Agent not supported for staking")
-            if amount < 100:
+            min_seconds = 360000  # 100 AIT in compute-seconds
+            if ait_to_seconds(amount) < min_seconds:
                 raise ValueError("Stake amount must be at least 100 AITBC")
             current_apy = await self.calculate_apy(agent_wallet, lock_period)
             end_time = datetime.now(UTC) + timedelta(days=lock_period)
             stake = AgentStake(
+                stake_id=stake_id or None,
                 staker_address=staker_address,
                 agent_wallet=agent_wallet,
                 amount=amount,

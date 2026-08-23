@@ -101,3 +101,18 @@ def test_client_paths_were_found():
     paths = _client_paths()
     assert len(paths) >= 13, f"expected the client's URLs, parsed {len(paths)}: {sorted(paths)}"
     assert "/rpc/balance/{}" in paths, "the repaired get_balance URL should parse out"
+
+
+def test_client_paths_resolve_on_node():
+    """Every coordinator URL built for the chain must exist on the chain."""
+    client = _client_paths()
+    node = _node_paths()
+    missing = client - node
+    assert not missing, f"coordinator paths not on node: {sorted(missing)}"
+
+
+def test_known_missing_is_empty_or_documented():
+    """V23-42: these should all have node counterparts now."""
+    client = _client_paths()
+    found = client & _node_paths()
+    assert KNOWN_MISSING & found == set(), f"formerly missing paths now resolve: {sorted(KNOWN_MISSING & found)}"
