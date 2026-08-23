@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cache venv
+        uses: actions/cache@v4
+        with:
+          path: venv
+          key: venv-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
+
+      - name: Install dependencies
+        run: |
+          python3 -m venv venv
+          ./venv/bin/pip install -q --upgrade pip setuptools wheel
+          if [ -f requirements.txt ]; then
+            ./venv/bin/pip install -q -r requirements.txt
+          fi
+          ./venv/bin/pip install -q -e .
+
+      - name: MyPy clean apps
+        run: bash scripts/ci/mypy-precommit.sh
+
+      - name: No float money
+        run: ./venv/bin/python scripts/lint/no_float_money.py
+
+      - name: OpenAPI drift check
+        run: bash scripts/ci/check-openapi-drift.sh
+
+      - name: Unit tests
+        run: |
+          ./venv/bin/python -m pytest -q \
+            apps/coordinator-api/tests \
+            apps/blockchain-node/tests \
+            cli/tests
+
+      - name: Live scenario dry-run
+        run: bash scripts/ci/live-scenario-dry-run.sh
