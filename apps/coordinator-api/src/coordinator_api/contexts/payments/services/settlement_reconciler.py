@@ -19,7 +19,8 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from sqlmodel import Session, select
 
@@ -107,14 +108,19 @@ class SettlementReconciler:
         # deployment stays quiet but an operator can prove the loop is alive.
         logger.debug(
             "Settlement reconciliation pass complete: scanned=%s retried=%s settled=%s failed=%s",
-            scanned, counts["retried"], counts["settled"], counts["failed"],
+            scanned,
+            counts["retried"],
+            counts["settled"],
+            counts["failed"],
         )
         return counts
 
     async def run_forever(self) -> None:
         logger.info(
             "Escrow settlement reconciler started: interval=%ss min_age=%ss batch=%s",
-            self.interval_seconds, self.min_age_seconds, self.batch_size,
+            self.interval_seconds,
+            self.min_age_seconds,
+            self.batch_size,
         )
         while True:
             await asyncio.sleep(self.interval_seconds)
@@ -128,5 +134,7 @@ class SettlementReconciler:
             if counts["retried"]:
                 logger.info(
                     "Settlement reconciliation: retried=%s settled=%s failed=%s",
-                    counts["retried"], counts["settled"], counts["failed"],
+                    counts["retried"],
+                    counts["settled"],
+                    counts["failed"],
                 )

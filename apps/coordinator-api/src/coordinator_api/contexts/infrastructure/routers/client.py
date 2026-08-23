@@ -14,10 +14,11 @@ from aitbc.rate_limiting import rate_limit
 from ....auth import ClientDep
 from ....config import settings
 from ...marketplace.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
+from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE
 from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService
 from ....custom_types import JobState
-from ....schemas import JobCreate, JobPaymentCreate, JobResult, JobView
+from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
@@ -326,3 +327,80 @@ async def get_blocks(
             return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
     except Exception:
         return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
+
+
+@router.post("/jobs/{job_id}/accept", response_model=JobView, summary="Accept a result and release payment")
+@rate_limit(rate=50, per=60)
+async def accept_job(
+    request: Request,
+    job_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: ClientDep,
+) -> JobView:
+    """Release the held escrow now, without waiting for the window to expire (G3).
+
+    Accepting is the customer's own decision to pay, so it is the one release path
+    that needs no timer and no arbiter.
+    """
+    service = JobService(session)
+    try:
+        job = service.get_job(job_id, client_id=user["sub"])
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
+    if job.payment_status != PENDING_ACCEPTANCE or not job.payment_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"job has no payment awaiting acceptance (payment_status={job.payment_status})",
+        )
+    released = await PaymentService(session).release_payment(
+        user["sub"], job.id, job.payment_id, reason="Customer accepted the result"
+    )
+    if not released:
+        # The payment stays held, so the sweeper retries it when the window expires
+        # rather than leaving the provider unpaid on a transient chain failure.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="the escrow release did not settle on-chain; the payment stays held and will be retried",
+        )
+    job.payment_status = "released"
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    logger.info("Client %s accepted job %s; released payment %s", user["sub"], job.id, job.payment_id)
+    return service.to_view(job)  # type: ignore[no-any-return]
+
+
+@router.post("/jobs/{job_id}/reject", response_model=JobView, summary="Reject a result and open a dispute")
+@rate_limit(rate=50, per=60)
+async def reject_job(
+    request: Request,
+    job_id: str,
+    req: JobRejection,
+    session: Annotated[Session, Depends(get_session)],
+    user: ClientDep,
+) -> JobView:
+    """Refuse the delivered result. The escrow stays locked pending a ruling (G3).
+
+    Rejecting does not refund on its own. A customer who could take the money back
+    unilaterally would be the mirror of the provider releasing it unilaterally, which
+    is the imbalance the acceptance window exists to remove -- so the payment moves to
+    "disputed" and an operator or arbiter settles it either way.
+    """
+    service = JobService(session)
+    try:
+        job = service.get_job(job_id, client_id=user["sub"])
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
+    if job.payment_status != PENDING_ACCEPTANCE or not job.payment_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"job has no payment awaiting acceptance (payment_status={job.payment_status})",
+        )
+    if not PaymentService(session).dispute_payment(user["sub"], job.id, job.payment_id, req.reason):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="payment could not be disputed")
+    job.payment_status = DISPUTED
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    logger.info("Client %s rejected job %s: %s", user["sub"], job.id, req.reason)
+    return service.to_view(job)  # type: ignore[no-any-return]
