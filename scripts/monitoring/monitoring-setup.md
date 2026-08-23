@@ -17,6 +17,23 @@ This document describes the AITBC monitoring stack. It is **agent-first**: metri
 
 Grafana is a human-facing rendering layer. None of the live incident investigations in this project have used a dashboard; they used the Prometheus query API, service logs and health endpoints. Keeping Grafana running consumes memory and package maintenance cycles for no operational benefit. If a human-on-call rotation is added later, dashboards can be reintroduced, but the metrics substrate does not depend on them.
 
+## CLI integration
+
+The `aitbc prometheus` command lets operators query the local Prometheus instance without writing `curl`:
+
+```bash
+aitbc prometheus targets              # scrape target health
+aitbc prometheus rules                # loaded recording/alert rules
+aitbc prometheus alerts               # current firing/pending alerts
+aitbc prometheus alerts --watch       # poll and emit firing alerts (stdout/journal)
+aitbc prometheus query "blockchain_block_height"
+aitbc prometheus check                # promtool config + rules
+```
+
+`--prometheus-url` overrides the default `http://127.0.0.1:9090`, or set `prometheus_url` in `.aitbc.yaml`.
+
+In watch mode, each firing alert is emitted as a single JSON line to stdout and also logged, so an external watcher can follow `journalctl -u aitbc-prometheus-watch` or tail the output.
+
 ## Prometheus-first metrics
 
 ### Core AITBC metrics
