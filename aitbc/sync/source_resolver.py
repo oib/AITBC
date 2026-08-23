@@ -70,3 +70,12 @@ class SyncSourceResolver:
     def has_per_chain_sources(self) -> bool:
         """Return True if per-chain sources are configured (non-empty mapping)."""
         return bool(self._sources)
+
+    def is_fallback_source(self, chain_id: str) -> bool:
+        """Return True if the resolved source for this chain is the default fallback.
+
+        A chain that falls back to the default peer is typically one the node does
+        not explicitly map.  Followers should not try to pull such a chain from the
+        default hub unless they do not produce it locally.
+        """
+        return chain_id not in self._sources
