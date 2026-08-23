@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 def get_wallet_client() -> AITBCHTTPClient:
     """Get HTTP client for wallet service"""
     config = get_config()
-    return AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=30)
+    return AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=30, max_retries=0)
 
 
 def encrypt_value(value: str, password: str) -> dict[str, Any]:

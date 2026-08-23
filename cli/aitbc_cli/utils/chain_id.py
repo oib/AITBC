@@ -47,7 +47,7 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
         The detected chain ID, or default if detection fails
     """
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout)
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout, max_retries=0)
         health_data = http_client.get("/health")
         supported_chains = health_data.get("supported_chains", [])
 
