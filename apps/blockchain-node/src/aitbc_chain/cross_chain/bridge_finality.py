@@ -27,8 +27,8 @@ class BridgeFinalityMixin(BridgeBase):
 
     def _get_block_header(self, chain_id: str, height: int) -> BridgeBlockHeader | None:
         """Look up a stored remote block header by chain_id + height (B2/B3)."""
-        with self._session_factory() as session:
-            return session.exec(  # type: ignore[no-any-return]
+        with self._session_for(chain_id) as session:
+            return session.exec(
                 select(BridgeBlockHeader).where(
                     BridgeBlockHeader.chain_id == chain_id,
                     BridgeBlockHeader.height == height,
@@ -49,7 +49,7 @@ class BridgeFinalityMixin(BridgeBase):
         chain_id = header_data["chain_id"]
         height = header_data["height"]
         release_enabled = getattr(settings, "bridge_release_enabled", False)
-        with self._session_factory() as session:
+        with self._session_for(chain_id) as session:
             existing = session.exec(
                 select(BridgeBlockHeader).where(
                     BridgeBlockHeader.chain_id == chain_id,
@@ -75,7 +75,7 @@ class BridgeFinalityMixin(BridgeBase):
                 session.refresh(existing)
                 # Update finality status
                 self._update_finality(chain_id, existing, session)
-                return existing  # type: ignore[no-any-return]
+                return existing
             else:
                 # New header starts with 0 confirmations in production; dev/test
                 # networks with the release fence disabled may use caller values.
@@ -275,7 +275,7 @@ class BridgeFinalityMixin(BridgeBase):
     def get_oracle_status(self) -> dict[str, Any]:
         """Get bridge oracle/verification status (B7 RPC helper)."""
         # Count block headers per chain
-        with self._session_factory() as session:
+        with self._session_for() as session:
             all_headers = session.exec(select(BridgeBlockHeader)).all()
             chain_counts: dict[str, int] = {}
             for h in all_headers:
