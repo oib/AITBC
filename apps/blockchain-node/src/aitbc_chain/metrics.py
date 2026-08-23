@@ -1,3 +1,4 @@
+import re
 from __future__ import annotations
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -170,19 +171,29 @@ class MetricsRegistry:
             self._gauges.clear()
             self._summaries.clear()
 
+    def _sanitize_name(self, name: str) -> str:
+        """Make a metric name valid for the Prometheus text format."""
+        sanitized = re.sub(r"[^a-zA-Z0-9_:]", "_", name).strip("_")
+        if sanitized and sanitized[0].isdigit():
+            sanitized = "m_" + sanitized
+        return sanitized or "invalid_metric_name"
+
     def render_prometheus(self) -> str:
         with self._lock:
             lines: list[str] = []
             for name, value in sorted(self._counters.items()):
-                lines.append(f"# TYPE {name} counter")
-                lines.append(f"{name} {value}")
+                safe = self._sanitize_name(name)
+                lines.append(f"# TYPE {safe} counter")
+                lines.append(f"{safe} {value}")
             for name, value in sorted(self._gauges.items()):
-                lines.append(f"# TYPE {name} gauge")
-                lines.append(f"{name} {value}")
+                safe = self._sanitize_name(name)
+                lines.append(f"# TYPE {safe} gauge")
+                lines.append(f"{safe} {value}")
             for name, (count, total) in sorted(self._summaries.items()):
-                lines.append(f"# TYPE {name} summary")
-                lines.append(f"{name}_count {count}")
-                lines.append(f"{name}_sum {total}")
+                safe = self._sanitize_name(name)
+                lines.append(f"# TYPE {safe} summary")
+                lines.append(f"{safe}_count {count}")
+                lines.append(f"{safe}_sum {total}")
             return "\n".join(lines) + "\n"
 
 
