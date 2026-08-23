@@ -77,6 +77,18 @@ def _ensure_account(session: Session, chain_id: str, address: str) -> Account:
     return account
 
 
+def _tx_type(tx_data: dict[str, Any], tx_record: Transaction | None = None) -> str:
+    """Resolve the canonical transaction type from record or tx data."""
+    if tx_record and tx_record.type:
+        return tx_record.type.upper()
+    tx_type = tx_data.get("type", "TRANSFER")
+    if not tx_type or tx_type == "TRANSFER":
+        payload = tx_data.get("payload", {})
+        if isinstance(payload, dict):
+            tx_type = payload.get("type", "TRANSFER")
+    return (tx_type or "TRANSFER").upper()
+
+
 class StateTransition:
     """
     Validates and applies state transitions only through validated transactions.
@@ -137,6 +149,16 @@ class StateTransition:
         if persisted_tx is not None:
             logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
             return (False, f"Transaction {tx_hash} already processed (replay attack)")
+        tx_record = session.exec(
+            select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
+        ).first()
+        tx_type = _tx_type(tx_data, tx_record)
+        if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+            # Pre-registered credit transactions do not require a sender account or
+            # nonce. The state update is applied off-chain by the RPC call that
+            # created the transaction; the block just anchors the record.  Replay is
+            # prevented by the persistent tx hash check above.
+            return (True, "Pre-registered credit transaction validated")
         sender_addr = _to_ait_address(tx_data.get("from") or "")
         signature = tx_data.get("signature")
         if signature and sender_addr:
@@ -149,21 +171,6 @@ class StateTransition:
         tx_nonce = tx_data.get("nonce", 0)
         if tx_nonce != expected_nonce:
             return (False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}")
-        tx_record = session.exec(
-            select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
-        ).first()
-        if tx_record and tx_record.type:
-            tx_type = tx_record.type.upper()
-        else:
-            tx_type = tx_data.get("type", "TRANSFER")
-            if not tx_type or tx_type == "TRANSFER":
-                payload = tx_data.get("payload", {})
-                if isinstance(payload, dict):
-                    tx_type = payload.get("type", "TRANSFER")
-            if tx_type:
-                tx_type = tx_type.upper()
-            else:
-                tx_type = "TRANSFER"
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"} and value != 0:
@@ -223,28 +230,41 @@ class StateTransition:
             return (False, error_msg)
         sender_addr = _to_ait_address(tx_data.get("from") or "")
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
-        sender_account = session.get(Account, (chain_id, sender_addr))
         tx_record = session.exec(
             select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
         ).first()
-        if tx_record and tx_record.type:
-            tx_type = tx_record.type.upper()
-        else:
-            tx_type = tx_data.get("type", "TRANSFER")
-            if not tx_type or tx_type == "TRANSFER":
-                payload = tx_data.get("payload", {})
-                if isinstance(payload, dict):
-                    tx_type = payload.get("type", "TRANSFER")
-            if tx_type:
-                tx_type = tx_type.upper()
-            else:
-                tx_type = "TRANSFER"
+        tx_type = _tx_type(tx_data, tx_record)
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
         # Guard against BigInt overflow (SQLite INTEGER is 64-bit signed)
         _MAX_INT64 = 2**63 - 1
         if value < 0 or fee < 0 or value > _MAX_INT64 or fee > _MAX_INT64:
             raise ValueError(f"Transaction value/fee out of range: value={value}, fee={fee}")
+        if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+            # Pre-registered credit transactions: the sender is a magic string
+            # (faucet/bridge_release/bridge_refund) and does not have an account.
+            # Only the recipient is credited.
+            _ensure_account(session, chain_id, recipient_addr)
+            logger.info("Updating recipient balance: %s += %s", recipient_addr, value)
+            session.execute(
+                text("UPDATE account SET balance = balance + :value WHERE chain_id = :chain_id AND address = :recipient_addr"),
+                {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
+            )
+            self._processed_tx_hashes.add(tx_hash)
+            if _cache and _cache.is_available():
+                _cache.delete(f"account_balance:{chain_id}:{recipient_addr.lower()}")
+                _cache.delete(f"account_details:{chain_id}:{recipient_addr.lower()}")
+            logger.info(
+                "Applied %s transaction %s: %s -> %s, value=%s, fee=%s",
+                tx_type,
+                tx_hash,
+                sender_addr,
+                recipient_addr,
+                value,
+                fee,
+            )
+            return (True, "Transaction applied successfully")
+        sender_account = session.get(Account, (chain_id, sender_addr))
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
             total_cost = fee
         else:
