@@ -1497,3 +1497,43 @@ Current balances (2026-08-23):
 **Recommended follow-up (operator decision):**
 
 If the project wants to remove the unbacked 160 compute-seconds from circulation, the operator should submit a governance-style `GOVERNANCE_EXECUTE` or a manual `BURN` transaction with explicit approval, rather than having code silently mutate balances.  Until then, the anomaly is documented and the bridge accounting for new transfers is correct.
+
+### PostgreSQL / credential cleanup — 2026-08-23
+
+**Background**
+- The hub PostgreSQL instance still owns `aitbc_mempool` and `aitbc_poolhub`; those were kept.
+- The shop PostgreSQL instance had no AITBC databases at all.  `aitbc_mempool` does not exist on the shop, but several env files contained a hard-coded `MEMPOOL_DB_URL` pointing at `localhost:5432/aitbc_mempool` with plaintext passwords.
+- `/etc/aitbc/credentials/postgres_*_password` files referenced roles that had no live databases on the shop.
+- Stale backup env files (`*.backup_*`, `*.bak*`) contained old `KEYSTORE_PASSWORD`, `proposer_key`, and `MEMPOOL_DB_URL` values.
+- `aitbc_user` PostgreSQL role was not present on either node; live services use SQLite or role-specific PostgreSQL users.
+
+**Cleanup actions (approved)**
+
+1. `aitbc3`:
+   - Deleted stale backup env files:
+     - `aitbc-blockchain-node.env.backup_20260619_205731`
+     - `aitbc-coordinator-api.env.backup_20260619_205731`
+     - `aitbc-exchange.env.backup_20260619_205731`
+     - `aitbc-gpu.env.backup_20260619_205731`
+     - `aitbc-marketplace.env.backup_20260619_205731`
+     - `aitbc-blockchain-node.env.bak.20260823_152251`
+     - `aitbc-miner.env.bak-20260817-132453`
+     - `blockchain.env.bak.20260823_152251`
+     - `blockchain.env.bak-v2356-20260812-140543`
+     - `blockchain-secrets.env.bak.1786987267`
+     - `node.env.bak-20260817-135500`
+     - `node.env.bak_shop_fix_20260620_223712`
+   - Removed stale `postgres_*_password` files from `/etc/aitbc/credentials/`.
+   - Removed `MEMPOOL_DB_URL` lines from `aitbc-blockchain-node.env`, `blockchain.env`, `node.env` and replaced `aitbc-blockchain-p2p.env` with a comment-only placeholder.
+   - Redacted remaining commented `DATABASE_URL=<redacted>` DSN lines in `aitbc-exchange.env`, `aitbc-wallet.env`, `aitbc-coordinator-api.env`.
+   - Set all `/etc/aitbc/*.env` and secret files to `root:aitbc 640`; directories `root:aitbc 750`.
+
+2. `hub.aitbc`:
+   - Redacted commented `DATABASE_URL=<redacted>` DSN lines in `aitbc-exchange.env`, `aitbc-wallet.env`, `aitbc-coordinator-api.env`.
+   - Set all `/etc/aitbc/*.env` and credentials to `root:aitbc 640`; credentials directory `root:aitbc 750`.
+   - Did **not** remove live `MEMPOOL_DB_URL` entries on the hub because `aitbc_mempool` and `aitbc_poolhub` databases are still present and owned by their respective roles.
+
+**Verification**
+- `aitbc3`: `systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc aitbc-blockchain-p2p` all active; `/rpc/bridge/health` returns healthy.
+- `hub.aitbc`: `systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api` all active; `/rpc/bridge/health` returns healthy.
+- `grep -r "MEMPOOL_DB_URL\|DATABASE_URL" /etc/aitbc/` on `aitbc3` shows only disabled/explanatory comments and the SQLite `aitbc-edge.env` line.
