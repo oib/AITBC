@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import click
 import httpx
@@ -21,6 +22,36 @@ from aitbc.bridge import BridgeClient, BridgeConfig
 
 from ..utils import output
 from ..utils.error_handling import abort
+
+
+def _canonical_hash(data: dict[str, Any]) -> bytes:
+    """keccak256 of canonical JSON encoding (matches verify_request_signature)."""
+    from eth_utils import keccak
+
+    message = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    return keccak(message)
+
+
+def _sign_hash(private_key_hex: str, msg_hash: bytes) -> str:
+    """Sign a keccak message hash with a private key, returning a hex signature."""
+    from eth_keys import keys
+
+    pk = keys.PrivateKey(bytes.fromhex(private_key_hex.removeprefix("0x")))
+    sig = pk.sign_msg_hash(msg_hash)
+    return sig.to_hex()
+
+
+def _sign_dict(private_key_hex: str, data: dict[str, Any]) -> str:
+    """Sign a canonical dict and return the hex signature."""
+    return _sign_hash(private_key_hex, _canonical_hash(data))
+
+
+def _derive_address(private_key_hex: str) -> str:
+    """Derive the Ethereum address from a private key hex."""
+    from eth_keys import keys
+
+    pk = keys.PrivateKey(bytes.fromhex(private_key_hex.removeprefix("0x")))
+    return str(pk.public_key.to_checksum_address())
 
 
 _EVENT_BRIDGE_URL = os.getenv("EVENT_BRIDGE_URL", "http://127.0.0.1:8205")
@@ -343,3 +374,136 @@ def oracle_status(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Oracle Status")
     except Exception as e:
         abort(ctx, f"Failed to get bridge oracle status: {e}", from_exception=e)
+
+
+@bridge.command(name="proof")
+@click.argument("transfer-id")
+@click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
+@click.option("--block-height", default=1, type=int, help="Block height to anchor the proof")
+@click.option("--block-hash", default=None, help="Block hash to anchor the proof")
+@click.option("--output", "-o", required=True, type=click.Path(), help="JSON file to write the unsigned proof to")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
+@click.pass_context
+def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, rpc_url):
+    """Build a Merkle proof for a locked bridge transfer and write it to a file.
+
+    The proof is unsigned. Use ``aitbc bridge sign-proof`` to add validator
+    signatures before confirming.
+    """
+
+    async def _proof():
+        client = _get_bridge_client(rpc_url)
+        async with client:
+            return await client.get_proof(
+                transfer_id,
+                source_chain=source_chain,
+                block_height=block_height,
+                block_hash=block_hash,
+            )
+
+    try:
+        result = asyncio.run(_proof())
+        proof = result.get("proof", result)
+        Path(output).write_text(json.dumps(proof, indent=2, sort_keys=True))
+        output({"success": True, "transfer_id": transfer_id, "proof_file": output}, ctx.obj.get("output_format", "table"), title="Bridge Proof")
+    except Exception as e:
+        abort(ctx, f"Failed to build bridge proof: {e}", from_exception=e)
+
+
+@bridge.command(name="sign-proof")
+@click.option("--proof-file", required=True, type=click.Path(exists=True), help="Unsigned proof JSON file")
+@click.option(
+    "--private-key",
+    required=True,
+    multiple=True,
+    help="Private key hex to sign with (use multiple times for multi-sig; first becomes proposer_signature)",
+)
+@click.option("--output", "-o", default=None, type=click.Path(), help="Output file (defaults to proof-file)")
+@click.pass_context
+def sign_proof(ctx, proof_file, private_key, output):
+    """Sign a bridge proof with one or more validator keys.
+
+    The first key is used for ``proposer_signature``; all keys (including the
+    first) are added to ``validator_signatures`` for threshold verification.
+    """
+    try:
+        proof = json.loads(Path(proof_file).read_text())
+    except Exception as e:
+        abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
+
+    if not private_key:
+        abort(ctx, "At least one --private-key is required")
+
+    # Build the canonical message from the proof (excluding any signature fields)
+    sign_fields = {k: v for k, v in proof.items() if k not in ("proposer_signature", "validator_signatures")}
+
+    signatures: list[str] = []
+    for pk in private_key:
+        signatures.append(_sign_dict(pk, sign_fields))
+
+    proof["proposer_signature"] = signatures[0]
+    proof["validator_signatures"] = signatures
+
+    out_file = output or proof_file
+    try:
+        Path(out_file).write_text(json.dumps(proof, indent=2, sort_keys=True))
+    except Exception as e:
+        abort(ctx, f"Failed to write signed proof: {e}", from_exception=e)
+
+    output(
+        {"success": True, "proof_file": out_file, "signatures": len(signatures)},
+        ctx.obj.get("output_format", "table"),
+        title="Signed Bridge Proof",
+    )
+
+
+@bridge.command(name="store-header")
+@click.option("--proof-file", required=True, type=click.Path(exists=True), help="Signed proof JSON file")
+@click.option("--admin-private-key", required=True, help="Private key of a configured bridge admin")
+@click.option("--admin-address", default=None, help="Admin address (defaults to address of admin-private-key)")
+@click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL of the target node")
+@click.pass_context
+def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
+    """Store a bridge block header on the target node from a signed proof.
+
+    The block header is signed by the proposer/validator from the proof, then
+    the request is signed by the bridge admin so the target node will accept it.
+    """
+    try:
+        proof = json.loads(Path(proof_file).read_text())
+    except Exception as e:
+        abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
+
+    proposer = _derive_address(admin_private_key) if not admin_address else admin_address
+    header_fields = {
+        "chain_id": proof["chain_id"],
+        "height": proof["block_height"],
+        "hash": proof["block_hash"],
+        "parent_hash": "0x" + "00" * 32,
+        "proposer": proposer,
+        "state_root": proof["state_root"],
+    }
+    # The block header signature signs the block fields (same message as verify_block_header)
+    header_signature = _sign_dict(admin_private_key, header_fields)
+
+    header_data = {
+        **header_fields,
+        "signature": header_signature,
+        "confirmation_count": 0,
+        "finality_confirmed": False,
+        "admin_address": proposer,
+    }
+    # Admin signature over the request payload, excluding admin_signature itself
+    admin_signature = _sign_dict(admin_private_key, header_data)
+    header_data["admin_signature"] = admin_signature
+
+    async def _store():
+        client = _get_bridge_client(rpc_url)
+        async with client:
+            return await client.store_block_header(header_data)
+
+    try:
+        result = asyncio.run(_store())
+        output(result, ctx.obj.get("output_format", "table"), title="Stored Block Header")
+    except Exception as e:
+        abort(ctx, f"Failed to store block header: {e}", from_exception=e)

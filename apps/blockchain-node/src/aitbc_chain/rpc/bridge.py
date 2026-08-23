@@ -196,6 +196,45 @@ async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, A
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@rate_limit(rate=100, per=60)
+async def get_bridge_proof(
+    request: Request,
+    transfer_id: str,
+    source_chain: str | None = None,
+    block_height: int | None = None,
+    block_hash: str | None = None,
+) -> dict[str, Any]:
+    """Build a Merkle proof of a locked cross-chain transfer.
+
+    The returned proof is unsigned. The caller must add ``proposer_signature``
+    and/or ``validator_signatures`` before submitting it to ``/bridge/confirm``.
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        source_chain = source_chain or get_chain_id(None)
+        try:
+            proof = bridge.build_proof(
+                transfer_id,
+                source_chain=source_chain,
+                block_height=block_height or 1,
+                block_hash=block_hash or ("0x" + "00" * 32),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return {"success": True, "transfer_id": transfer_id, "proof": proof}
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Get bridge proof failed: %s", e)
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @rate_limit(rate=50, per=60)
 async def list_pending_transfers(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:
     """List all pending cross-chain transfers"""
