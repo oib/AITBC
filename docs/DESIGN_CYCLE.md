@@ -1,6 +1,6 @@
 # AITBC closed design cycle — current state, gaps, wish list
 
-**Date:** 2026-08-22
+**Date:** 2026-08-24
 **Scope:** live two-node network (`hub.aitbc` hub/customer + `aitbc3` shop/miner) on gitea `main`
 **CLI:** `aitbc` 0.10.18 (`aitbc_cli.core.main:main`)
 **Unit system:** 1 AIT = 3600 compute-seconds
@@ -49,7 +49,8 @@ Proven on the two live nodes (see `LIVE_VALIDATION_SUMMARY.md` and scenario 34):
 7. **Explorer / monitoring.** `aitbc explorer chain-head`, `aitbc explorer network-stats`.
 8. **Pool hub.** `aitbc pool-hub status` / `sla` work from hub and shop; the shop miner registers and heartbeats with the **hub** pool hub, so `miners_online` is now `1` (or more).
 9. **Bridge health + input validation.** `aitbc bridge health`; malformed `lock`/`confirm` return HTTP 422.
-10. **Most beginner CLI groups** (`wallet`, `transactions`, `ai`, `mining`, `reputation`, `agent`, `agent-comm`, `ipfs`, `security`, `analytics`, `governance status`, `exchange-island` orderbook/rates) return live or honest-simulated data.
+10. **Agent-stake / bounty economics (V23-42).** Operator-signed `/rpc/agent-staking/*` and `/rpc/bounty/*` routes live on hub. `POST /rpc/agent-staking/stake` debits a staker and creates an `agent_stake` row; `add`, `unbond`, `complete`, `performance`, `distribute`, and `claim-rewards` are wired. Bounty `deploy`/`submit`/`verify`/`dispute`/`expire` move real `Account.balance`. Live-validated 2026-08-24 with a funded test wallet.
+11. **Most beginner CLI groups** (`wallet`, `transactions`, `ai`, `mining`, `reputation`, `agent`, `agent-comm`, `ipfs`, `security`, `analytics`, `governance status`, `exchange-island` orderbook/rates) return live or honest-simulated data.
 
 This is a **working inner loop**: a funded customer can buy a GPU inference job from a shop and the shop gets paid on-chain.
 
@@ -70,6 +71,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest policy/simulate`, and `--auto-reinvest-pct` live; not yet fully automatic. | Done |
 | 10. Govern | Token-weighted votes change params | `aitbc governance propose/vote/execute` live-validated end-to-end on hub; parameter changes are on-chain after timelock. | Done |
+| 11. Agent stake / bounty | Stake on agent wallets; bounty contracts with on-chain reward locks | V23-42 routes live on hub; operator-signed; `Account.balance` debits/credits on create/add/complete and deploy/verify/expire; memos for performance/distribute/claim. Live-validated 2026-08-24. | Done |
 | Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |
 | Cross-chain | ETH ↔ AIT, HTLC | Bridge RPC + `aitbc bridge *`. Merkle proof and multi-sig default **off**. Exchange is `simple_exchange` on 8106 | Production bridge defaults |
 
@@ -220,6 +222,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Shipped: `aitbc market offer whisper/ffmpeg/ollama`, `aitbc market transcribe/process/run`, default miner offers, live-validated. |
 | P2.6 | Real IPFS daemon behind `aitbc ipfs` (today: `/var/lib/aitbc/ipfs`) | Shipped: local Kubo HTTP API with filesystem fallback, `aitbc ipfs upload/download/pin/list`, cross-node download validated. |
 | P2.7 | Compliance / plugin / white-label — only after P0/P1 | Shipped: `aitbc brand/plugin/compliance check/classify`, `--compliance-framework` gating, white-label plugins, scenario 43 and release changelog. |
+| P2.8 | Agent-stake / bounty economics with operator-signed on-chain locks | Shipped: `/rpc/agent-staking/*` and `/rpc/bounty/*` routes; real `Account.balance` debits/credits; operator signature auth; coordinator chain-first writes; live-validated 2026-08-24. |
 
 ---
 
@@ -232,4 +235,4 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ---
 
-*Last updated: 2026-08-22 (P1.1, P1.5, P1.7, P2.1–P2.7 shipped; pool-hub, escrow, and dispatch table refreshed)*
+*Last updated: 2026-08-24 (P1.1, P1.5, P1.7, P2.1–P2.8 shipped; V23-42 agent-stake/bounty live-validated; pool-hub, escrow, and dispatch table refreshed)*

@@ -174,7 +174,8 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Document wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
 - [x] Clear mypy-clean-apps (34) and no-float-money (16) on gitea `main` (`1d8ab0d40`). Committed with `SKIP=openapi-drift`; regenerating `docs/api/` is still open.
 - [x] Regenerated `docs/api` 2026-08-23; `openapi-drift` passes and the pre-commit hook is no longer skipped.
-- [x] 2026-08-24 status: gitea `main` now at `a04e1626b` (`fix(chain): restore escrow settlement-key idempotency and integrate lock requirement`).
+- [x] 2026-08-24 status: gitea `main` now at `a04e1626b` (
+- [x] `docs/DESIGN_CYCLE.md` updated 2026-08-24 to reflect V23-42 agent-stake/bounty as shipped and live-validated.`fix(chain): restore escrow settlement-key idempotency and integrate lock requirement`).
   - Escrow-lock (`857379abe`) and V23-42 agent-stake/bounty surface (`f1b06e33c`) are on `main` and pulled to both `aitbc3` and `hub.aitbc`.
   - Both blockchain RPC and coordinator services restarted; health endpoints return 200.
   - `mypy-clean-apps`, `no-float-money`, and `openapi-drift` all 0.
