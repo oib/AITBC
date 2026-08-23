@@ -1465,3 +1465,35 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
 3. **Live result**
    - After restarting `aitbc-blockchain-node` on `aitbc3`, GPU_MARKETPLACE transactions are now imported with full `tx_hash` values (e.g. `0x33644ebdb507cf6ff70af28ffe07b54c7d5e2c9e7e67b0c09d8b2c368592aebc`).
    - No further `UNIQUE constraint failed` or `Replay attack detected` errors for block imports.
+
+### Historical bridge data archaeology — 2026-08-23
+
+**Decision: do not blind-fix; document and monitor.**
+
+Before the v0.24.1 source-chain guard (`2b033c1be`), bridge locks were initiated from the shop follower against the hub chain.  The follower created `Transaction`/`CrossChainTransfer` records locally and credited the island `bridge_release` account, but the source `Account` on the hub was never debited because the hub did not include those follower-side transactions in its blocks.  This left four transfers with no corresponding source-chain debit.
+
+Live records on `aitbc3` (shop/follower hub DB):
+
+| transfer_id | source | target | amount | source_tx status | target_tx (island) | source Account debit |
+|-------------|--------|--------|--------|------------------|--------------------|----------------------|
+| `0x45e3cb856c9da0e40a85a3904c454408fb6b1aef69dbac5077c136f5a8d423e9` | ait-hub | ait-shop-island | 50 | BRIDGE_LOCK pending, block_height NULL | 0xa02ce9d5... (block 10) | none — source ait19df8... unaffected |
+| `0x3b3b5ea7e8755a384d8bf44026b77bec6d2d361ce9cbcf6786f89f867c0f1bce` | ait-hub | ait-shop-island | 50 | BRIDGE_LOCK pending, block_height NULL | 0x159061e5... (block 15) | none — source ait19df8... unaffected |
+| `0x6eb4c1865aea4532ec6eadf9d7ad2778e782c65c0a5f4d54599fa366d20027f8` | ait-hub | ait-shop-island | 50 | BRIDGE_LOCK pending, block_height NULL | 0xec104e2e... (block 18) | none — source ait19df8... unaffected |
+| `0x4bb3e035b0913a7aeab670d649e41b823e1ba32dd3486ac0c60b9a0c1f1bdcde` | ait-hub | ait-shop-island | 10 | BRIDGE_LOCK pending, block_height NULL | 0x6bf85a0f... (block 12) | none — source ait13ed... account no longer exists |
+
+Current balances (2026-08-23):
+
+- `ait19df8f71c4161364898e0ad0b33e2368b227fe612` on hub and shop: **120** compute-seconds, nonce 2.  This is correct for the two post-fix hub-locked transfers (50 + 30 in blocks 12239 and 12240).
+- `ait12b212528b2bf4339ac06dda50f8751c46e6c2fd4` on island: **10,000,000,240** compute-seconds, nonce 4.  The extra **240** above the 10,000,000,000 genesis balance is the sum of the four pre-fix releases (160) plus the two post-fix releases (80).
+- `bridge_release` on island: **10** compute-seconds.  This is residual unbacked value from the pre-fix transfers and is not consumed by `BRIDGE_RELEASE` transactions because the post-fix release `Transaction.value` is 0.
+
+**Why no blind fix?**
+
+- The four pre-fix transfers are already marked `completed` on the island and have public `target_tx_hash` values in real blocks.
+- The recipient balance has already been credited and possibly used.
+- Debiting any account now would require a compensating on-chain transaction with a valid signature and would change public balances retroactively, which is an operational/governance decision, not a code fix.
+- After `2b033c1be`, new bridge locks must be initiated on the source-chain producer, so this class of inconsistency cannot recur.
+
+**Recommended follow-up (operator decision):**
+
+If the project wants to remove the unbacked 160 compute-seconds from circulation, the operator should submit a governance-style `GOVERNANCE_EXECUTE` or a manual `BURN` transaction with explicit approval, rather than having code silently mutate balances.  Until then, the anomaly is documented and the bridge accounting for new transfers is correct.
