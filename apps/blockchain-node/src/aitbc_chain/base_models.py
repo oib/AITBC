@@ -373,6 +373,74 @@ class Stake(ChainBase, table=True):
     status: str = Field(default="active", index=True)  # active, withdrawn, slashed
 
 
+class AgentStakeRecord(ChainBase, table=True):
+    """Agent-economy stake (distinct from consensus Stake)."""
+
+    __tablename__ = "agent_stake"
+    __table_args__ = (UniqueConstraint("chain_id", "stake_id", name="uix_agent_stake_chain_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    stake_id: str = Field(index=True)
+    staker_address: str = Field(index=True)
+    agent_wallet: str = Field(index=True)
+    amount: int  # compute-seconds
+    lock_period: int = Field(default=30)
+    locked_until: datetime
+    status: str = Field(default="active", index=True)  # active, unbonding, completed
+    unbonding_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AgentStakeMemo(ChainBase, table=True):
+    """Signed memo for performance / distribute / claim (no extra debit)."""
+
+    __tablename__ = "agent_stake_memo"
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    kind: str = Field(index=True)
+    external_id: str = Field(default="", index=True)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class BountyContract(ChainBase, table=True):
+    """On-chain bounty lock. remaining_amount is what expire refunds."""
+
+    __tablename__ = "bounty_contract"
+    __table_args__ = (UniqueConstraint("chain_id", "bounty_id", name="uix_bounty_contract_chain_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    bounty_id: str = Field(index=True)
+    creator_address: str = Field(index=True)
+    reward_amount: int
+    remaining_amount: int
+    status: str = Field(default="active", index=True)  # active, completed, expired, disputed
+    winner_address: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class BountySubmissionRecord(ChainBase, table=True):
+    """On-chain bounty submission memo."""
+
+    __tablename__ = "bounty_submission"
+    __table_args__ = (UniqueConstraint("chain_id", "submission_id", name="uix_bounty_submission_chain_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    bounty_id: str = Field(index=True)
+    submission_id: str = Field(index=True)
+    submitter_address: str = Field(index=True)
+    status: str = Field(default="pending", index=True)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class Bond(ChainBase, table=True):
     """On-chain performance bond record."""
 
@@ -468,9 +536,7 @@ class ChainParameter(ChainBase, table=True):
     """On-chain parameter set by a governance proposal execution."""
 
     __tablename__ = "chain_parameter"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "parameter", name="uix_chain_parameter"),
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "parameter", name="uix_chain_parameter"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)

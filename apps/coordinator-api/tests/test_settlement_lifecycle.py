@@ -96,57 +96,67 @@ class TestBridgeManagerSettlementLifecycle:
 
 @pytest.mark.unit
 class TestBlockchainServiceStakingMethods:
-    """Test the 5 new BlockchainService staking RPC methods are callable and best-effort."""
+    """V23-42: chain-first means the service now raises on chain failure.
 
-    async def test_add_to_stake_swallows_network_error(self) -> None:
+    The operator key must be set, otherwise signing raises before the HTTP call.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _operator_key(self, monkeypatch):
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "agent_economics_operator_key", "0x" + "11" * 32)
+        monkeypatch.setattr(settings, "agent_economics_operator_address", "0x" + "aa" * 20)
+
+    async def test_add_to_stake_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
+        from aitbc.exceptions import NetworkError
 
         svc = BlockchainService()
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
-            mock_client_cls.return_value.post.side_effect = __import__(
-                "aitbc.exceptions", fromlist=["NetworkError"]
-            ).NetworkError("connection refused")
-            await svc.add_to_stake("stake_1", 100.0)
+            mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
+            with pytest.raises(NetworkError):
+                await svc.add_to_stake("stake_1", "0x" + "aa" * 20, 100.0)
 
-    async def test_unbond_stake_swallows_network_error(self) -> None:
+    async def test_unbond_stake_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
+        from aitbc.exceptions import NetworkError
 
         svc = BlockchainService()
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
-            mock_client_cls.return_value.post.side_effect = __import__(
-                "aitbc.exceptions", fromlist=["NetworkError"]
-            ).NetworkError("connection refused")
-            await svc.unbond_stake("stake_1")
+            mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
+            with pytest.raises(NetworkError):
+                await svc.unbond_stake("stake_1", "0x" + "aa" * 20)
 
-    async def test_complete_unbonding_swallows_network_error(self) -> None:
+    async def test_complete_unbonding_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
+        from aitbc.exceptions import NetworkError
 
         svc = BlockchainService()
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
-            mock_client_cls.return_value.post.side_effect = __import__(
-                "aitbc.exceptions", fromlist=["NetworkError"]
-            ).NetworkError("connection refused")
-            await svc.complete_unbonding("stake_1")
+            mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
+            with pytest.raises(NetworkError):
+                await svc.complete_unbonding("stake_1", "0x" + "aa" * 20)
 
-    async def test_distribute_earnings_swallows_network_error(self) -> None:
+    async def test_distribute_earnings_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
+        from aitbc.exceptions import NetworkError
 
         svc = BlockchainService()
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
-            mock_client_cls.return_value.post.side_effect = __import__(
-                "aitbc.exceptions", fromlist=["NetworkError"]
-            ).NetworkError("connection refused")
-            await svc.distribute_earnings("ait1agent", 500.0)
+            mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
+            with pytest.raises(NetworkError):
+                await svc.distribute_earnings("ait1agent", 500.0)
 
-    async def test_claim_rewards_swallows_network_error(self) -> None:
+    async def test_claim_rewards_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
+        from aitbc.exceptions import NetworkError
 
         svc = BlockchainService()
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
-            mock_client_cls.return_value.post.side_effect = __import__(
-                "aitbc.exceptions", fromlist=["NetworkError"]
-            ).NetworkError("connection refused")
-            await svc.claim_rewards(["stake_1", "stake_2"])
+            mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
+            with pytest.raises(NetworkError):
+                await svc.claim_rewards(["stake_1", "stake_2"])
 
     async def test_mint_tokens_is_awaitable(self) -> None:
         """Verify mint_tokens is an async function (the exchange.py bug was it wasn't awaited)."""
