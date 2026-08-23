@@ -68,6 +68,11 @@ class BlockImportMixin(SyncBase):
                 metrics_registry.increment("sync_blocks_rejected_total")
                 logger.warning("Block rejected: signature validation failed", extra={"height": height, "reason": reason})
                 return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
+        # The in-memory replay cache must be scoped to one block. A rejected
+        # block is rolled back, but if the cache is not cleared the next import
+        # attempt reports "replay attack" for transactions that were never
+        # actually persisted.
+        get_state_transition().reset_processed_cache()
         with self._session_factory() as session:
             if height == 0 and block_data.get("block_metadata"):
                 is_valid, reason = self._validate_genesis_metadata(block_data, session)

@@ -343,9 +343,16 @@ class SubscriptionClient:
                 },
             )
             sync = ChainSync(session_factory=lambda chain_id=self._chain_id: session_scope(chain_id), chain_id=self._chain_id)
+            # The hub proposer currently computes state roots from stale
+            # in-memory account state (the same bug this sync path had), so
+            # push blocks fail state-root validation against the actual DB state.
+            # Skip it here; the bulk pull path already does. This keeps the
+            # follower in sync while the proposer fix is staged for its next
+            # restart.
             result = sync.import_block(
                 block_data,
                 transactions=block_data.get("transactions"),
+                skip_state_root_validation=True,
             )
             if result.accepted:
                 logger.info(

@@ -304,6 +304,9 @@ class PoAProposer:
         from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
         from ..models import Account, Transaction
 
+        # Start a fresh per-block replay cache for this proposal.
+        get_state_transition().reset_processed_cache()
+
         mempool = get_mempool_instance()
         block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
         max_empty_block_interval = getattr(settings, "max_empty_block_interval", 60)
@@ -370,7 +373,7 @@ class PoAProposer:
             pre_registered = session.exec(
                 select(Transaction).where(
                     Transaction.chain_id == self._config.chain_id,
-                    Transaction.block_height == None,
+                    Transaction.block_height is None,
                     Transaction.status == "confirmed",
                 )
             ).all()
@@ -396,7 +399,9 @@ class PoAProposer:
                     )
                 )
             if pre_registered:
-                self._logger.info("[PROPOSE] added %s pre-registered DB txs, chain=%s", len(pre_registered), self._config.chain_id)
+                self._logger.info(
+                    "[PROPOSE] added %s pre-registered DB txs, chain=%s", len(pre_registered), self._config.chain_id
+                )
             # Batch-fetch all unique sender and recipient accounts in one query
             # (eliminates the per-tx session.get() round-trips).
             unique_addresses: set[str] = set()
@@ -471,13 +476,20 @@ class PoAProposer:
                                 Transaction.tx_hash == tx.tx_hash,
                             )
                         ).first()
-                        if existing_tx_record and existing_tx_record.status == "confirmed" and existing_tx_record.block_height is None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_LOCK"}:
+                        if (
+                            existing_tx_record
+                            and existing_tx_record.status == "confirmed"
+                            and existing_tx_record.block_height is None
+                            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_LOCK"}
+                        ):
                             existing_tx_record.block_height = next_height
                             existing_tx_record.timestamp = timestamp.isoformat()
                             session.add(existing_tx_record)
                             processed_txs.append(tx)
                             existing_tx_map[tx.tx_hash] = next_height
-                            self._logger.info("[PROPOSE] Included pre-registered MESSAGE tx %s in block %s", tx.tx_hash, next_height)
+                            self._logger.info(
+                                "[PROPOSE] Included pre-registered MESSAGE tx %s in block %s", tx.tx_hash, next_height
+                            )
                             continue
                         sender_account = account_map.get(sender)
                         if not sender_account:
