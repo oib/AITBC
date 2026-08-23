@@ -8,16 +8,16 @@ on:
 
 jobs:
   ci:
-    runs-on: self-hosted
+    runs-on: debian:host
     steps:
       - name: Checkout
-        uses: https://github.com/actions/checkout@v4
+        uses: actions/checkout@v4
 
       - name: Set up Python venv
         run: |
-          if [ ! -d ./venv ]; then
-            bash scripts/ci/setup-python-venv.sh --mode copy
-          fi
+          bash scripts/ci/setup-python-venv.sh \
+            --cache-root /opt/gitea-runner/.cache/aitbc-venvs \
+            --mode copy
 
       - name: MyPy clean apps
         run: bash scripts/ci/mypy-precommit.sh
@@ -29,9 +29,11 @@ jobs:
         run: bash scripts/ci/check-openapi-drift.sh
 
       - name: Unit tests
+        env:
+          PYTHONPATH: apps/blockchain-node/src
         run: |
           ./venv/bin/python -m pytest -q \
-            apps/coordinator-api/tests \
+            apps/coordinator-api/tests/test_*.py \
             apps/blockchain-node/tests \
             cli/tests
 
