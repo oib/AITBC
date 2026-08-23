@@ -10,9 +10,36 @@ from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
 from ..logger import get_logger
+from ..metrics import (
+    bridge_initialized,
+    bridge_pending_transfers,
+    bridge_release_enabled,
+    bridge_total_locked_amount,
+)
 from .utils import get_chain_id, verify_admin_signature, verify_request_signature
 
 _logger = get_logger(__name__)
+
+def _update_bridge_metrics(bridge: Any) -> None:
+    """Set Prometheus bridge health gauges from the live bridge state."""
+    if bridge is None:
+        bridge_initialized.labels(chain_id=settings.chain_id).set(0)
+        return
+    bridge_initialized.labels(chain_id=settings.chain_id).set(1)
+    bridge_release_enabled.labels(chain_id=settings.chain_id).set(
+        1 if getattr(settings, "bridge_release_enabled", False) else 0
+    )
+    pending = bridge.list_pending_transfers()
+    pending_by_chain: dict[str, int] = {}
+    for transfer in pending:
+        source = getattr(transfer, "source_chain", settings.chain_id) or settings.chain_id
+        pending_by_chain[source] = pending_by_chain.get(source, 0) + 1
+    for chain_id, count in pending_by_chain.items():
+        bridge_pending_transfers.labels(chain_id=chain_id).set(count)
+    balances = bridge.get_bridge_balance()
+    for chain_id, amount in balances.items():
+        bridge_total_locked_amount.labels(chain_id=chain_id, token="default").set(int(amount))
+
 
 
 @rate_limit(rate=20, per=60)
@@ -349,6 +376,7 @@ async def bridge_health(request: Request) -> dict[str, Any]:
         bridge = get_cross_chain_bridge()
         if not bridge:
             raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        _update_bridge_metrics(bridge)
         pending = bridge.list_pending_transfers()
         balances = bridge.get_bridge_balance()
         total_locked = sum(balances.values())
@@ -607,7 +635,14 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
         from ..cross_chain.bridge import get_cross_chain_bridge
 
         bridge = get_cross_chain_bridge()
-        bridge_initialized = bridge is not None
+        bridge_initialized_value = bridge is not None
+        if bridge_initialized_value:
+            bridge_initialized.labels(chain_id=settings.chain_id).set(1)
+            bridge_release_enabled.labels(chain_id=settings.chain_id).set(
+                1 if getattr(settings, "bridge_release_enabled", False) else 0
+            )
+        else:
+            bridge_initialized.labels(chain_id=settings.chain_id).set(0)
 
         # Count validators across all chains
         validator_count = 0
@@ -644,7 +679,7 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
             "require_merkle_proof": require_merkle,
             "verification_mode": verification_mode,
             "trusted_custodian": trusted_custodian,
-            "bridge_initialized": bridge_initialized,
+            "bridge_initialized": bridge_initialized_value,
             "validator_set_grace_period": getattr(settings, "bridge_validator_set_grace_period", 7200),
         }
     except HTTPException:
