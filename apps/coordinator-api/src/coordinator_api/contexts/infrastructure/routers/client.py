@@ -403,4 +403,10 @@ async def reject_job(
     session.commit()
     session.refresh(job)
     logger.info("Client %s rejected job %s: %s", user["sub"], job.id, req.reason)
+
+    # G5: a customer rejection is fraud-level evidence against a bonded provider.
+    if job.constraints and job.constraints.get("bond_required"):
+        from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+        await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
+
     return service.to_view(job)  # type: ignore[no-any-return]
