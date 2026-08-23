@@ -13,8 +13,11 @@ from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminDep  # NEW: JWT auth
 from ....config import settings
+from ...payments.acceptance import DISPUTED
+from ...payments.services.payments import PaymentService
 
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
+from ....schemas import DisputeResolution
 from ....services import JobService, MinerService
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
@@ -289,3 +292,54 @@ async def get_system_status(
 #    NEW: headers = {"Authorization": f"Bearer {token}"}
 #
 # ============================================================================
+
+
+@router.post("/disputes/{job_id}/resolve", summary="Resolve a disputed job payment")
+@rate_limit(rate=20, per=60)
+async def resolve_dispute(
+    request: Request,
+    job_id: str,
+    req: DisputeResolution,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> dict[str, Any]:
+    """Settle a payment the customer rejected, in either direction (G3).
+
+    This is the only path that moves a disputed escrow. It lives under /v1/admin so
+    the security matrix restricts it to an operator or arbiter: neither the customer
+    who rejected the work nor the provider who did it can rule on their own dispute.
+
+    The refund and release calls are made in the customer's name, which keeps
+    PaymentService's ownership check doing its job rather than adding a bypass to it.
+    """
+    service = JobService(session)
+    try:
+        job = service.get_job(job_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="job not found") from None
+    if job.payment_status != DISPUTED or not job.payment_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"job has no disputed payment to resolve (payment_status={job.payment_status})",
+        )
+    payment_service = PaymentService(session)
+    if req.outcome == "refund":
+        settled = await payment_service.refund_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
+        resolved_status = "refunded"
+    else:
+        settled = await payment_service.release_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
+        resolved_status = "released"
+    if not settled:
+        # Left disputed: the escrow is still funded and the ruling can be re-issued.
+        raise HTTPException(status_code=502, detail=f"the {req.outcome} did not settle on-chain; the payment stays disputed")
+    job.payment_status = resolved_status
+    session.add(job)
+    session.commit()
+    logger.info("Admin %s resolved the dispute on job %s as %s: %s", user["sub"], job.id, req.outcome, req.reason)
+    return {
+        "job_id": job.id,
+        "payment_id": job.payment_id,
+        "outcome": req.outcome,
+        "payment_status": resolved_status,
+        "resolved_at": datetime.now(UTC).isoformat(),
+    }
