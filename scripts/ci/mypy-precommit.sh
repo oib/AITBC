@@ -80,8 +80,18 @@ APPS=(
   aitbc
 )
 
+# Prefer the repo venv, but allow PYTHON to be set by CI (e.g. a venv built elsewhere).
+PYTHON="${PYTHON:-}"
+if [ -z "$PYTHON" ]; then
+  if [ -x ./venv/bin/python ]; then
+    PYTHON=./venv/bin/python
+  else
+    PYTHON=python3
+  fi
+fi
+
 set +e
-OUTPUT=$(./venv/bin/python -m mypy --show-error-codes --ignore-missing-imports "${APPS[@]}" 2>&1)
+OUTPUT=$("$PYTHON" -m mypy --show-error-codes --ignore-missing-imports "${APPS[@]}" 2>&1)
 STATUS=$?
 set -e
 
