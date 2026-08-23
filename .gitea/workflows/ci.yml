@@ -20,6 +20,11 @@ jobs:
             --venv-dir /opt/gitea-runner/.cache/aitbc-venvs/job-venv \
             --mode copy
 
+      - name: Re-link editable aitbc-shared package
+        run: |
+          /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python -m pip install -q \
+            -e packages/aitbc-shared
+
       - name: MyPy clean apps
         run: |
           export PYTHON=/opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
