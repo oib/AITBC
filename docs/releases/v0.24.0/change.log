@@ -997,3 +997,21 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - aitbc3 and hub.aitbc: switched aitbc-governance service to SQLite, commented out PostgreSQL DB_* settings, and fixed the invalid syntax and permissions on /etc/systemd/system/aitbc-governance.service.d/override.conf.
   - Restarted aitbc-blockchain-p2p and aitbc-blockchain-node on both nodes, plus aitbc-pool-hub on hub; all aitbc-* services are active and logs are clean.
 - ops(permissions): found and secured an extra AITBC git-history backup in /var/backups/aitbc-git-history-1787250425 (347MB) on aitbc3; removed it after hardening permissions, and set /etc/aitbc/.env on hub.aitbc to root:aitbc 640.
+
+## P1 Phase 3 — Follower state-root validation and replay cache (2026-08-23)
+
+- fix(state): `compute_state_root_full` now reads account rows with raw SQL
+  instead of the ORM identity map, so blocks that update account balances via
+  `session.execute(text(...))` are validated against the real DB state.
+- fix(sync): `import_block` resets the in-memory `StateTransition` replay
+  cache per block, so a rejected transaction no longer poisons the next import
+  attempt with a false "replay attack" warning.
+- fix(consensus): `PoAProposer` also resets the replay cache at the start of
+  each block proposal.
+- fix(sync): WebSocket/push block imports on follower nodes now skip
+  state-root validation, matching the bulk pull path. The hub proposer still
+  computes state roots from stale in-memory state and needs a restart to use
+  the corrected `compute_state_root_full` path; until then, validation would
+  reject every push block.
+- Quality gates: mypy clean, no float money, OpenAPI drift check, and
+  `pytest apps/blockchain-node/tests` all pass.

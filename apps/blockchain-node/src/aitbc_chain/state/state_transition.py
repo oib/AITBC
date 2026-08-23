@@ -90,6 +90,17 @@ class StateTransition:
         self._processed_nonces: dict[str, int] = {}
         self._processed_tx_hashes: set[str] = set()
 
+    def reset_processed_cache(self) -> None:
+        """Clear in-memory per-process tx/nonce caches.
+
+        The caches are intended to prevent the same transaction from being
+        applied twice within one block. Because a rejected block is rolled back,
+        leaving the cache populated causes false "replay attack" errors on the
+        next import attempt. Call this at the start of each block.
+        """
+        self._processed_nonces.clear()
+        self._processed_tx_hashes.clear()
+
     def validate_transaction(self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str) -> tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
