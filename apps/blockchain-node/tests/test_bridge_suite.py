@@ -395,5 +395,5 @@ class TestBridgeFailClosedDefaults:
     def test_multi_validator_consensus_enabled_by_default(self) -> None:
         from aitbc_chain.config import ChainSettings
 
-        # P1.4: multi-validator consensus is enabled by default; operator can disable.
-        assert ChainSettings.model_fields["multi_validator_consensus_enabled"].default is True
+        # G6: multi-validator consensus must be fail-closed; operator enables after review.
+        assert ChainSettings.model_fields["multi_validator_consensus_enabled"].default is False

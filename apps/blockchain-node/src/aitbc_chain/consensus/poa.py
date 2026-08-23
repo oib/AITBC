@@ -128,7 +128,7 @@ class PoAProposer:
         self._last_block_timestamp: datetime | None = None
         self._multi_validator = None
         self._validator_keys: dict[str, str] = {}
-        if getattr(settings, "multi_validator_consensus_enabled", False):
+        if getattr(settings, "multi_validator_consensus_enabled", False) and getattr(settings, "validator_set", ""):
             from .multi_validator_poa import get_consensus
 
             self._multi_validator = get_consensus(self._config.chain_id)
@@ -300,7 +300,7 @@ class PoAProposer:
     async def _propose_block(self) -> bool:
         from ..config import settings
         from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
-        from ..models import Account, CrossChainTransfer, Transaction
+        from ..models import Account, Transaction
 
         # Start a fresh per-block replay cache for this proposal.
         get_state_transition().reset_processed_cache()
