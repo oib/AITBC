@@ -1426,3 +1426,21 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
    - `no_float_money.py`: 0 violations.
    - `pytest apps/blockchain-node/tests -k bridge`: all green.
    - `check-openapi-drift.sh`: 5 specs match.
+
+### Follower sync 503 fix — 2026-08-23
+
+**Date:** 2026-08-23  
+**Gitea `main`:** `d52ba4520` — *fix(sync): avoid pulling locally-produced island chains from default hub*
+
+1. **Problem**
+   - `aitbc3` logs showed repeated `[ERROR] [aitbc_chain.sync_bulk] Failed to fetch remote head` because the periodic sync task asked `hub.aitbc` for `ait-shop-island.aitbc.bubuit.net`, which the hub does not serve.
+
+2. **Fix**
+   - `aitbc/sync/source_resolver.py` now exposes `is_fallback_source(chain_id)`.
+   - `apps/blockchain-node/src/aitbc_chain/main.py` resolves the sync source per chain in `_periodic_sync_task` and skips chains that fall back to the default peer and are in `BLOCK_PRODUCTION_CHAINS`.
+   - The gap-check and bulk-import loops use the same per-chain source.
+
+3. **Live result**
+   - After restarting `aitbc-blockchain-node` on aitbc3, the logs now show `INFO  [aitbc_chain.main] Skipping sync for locally-produced chain ait-shop-island.aitbc.bubuit.net` instead of `Failed to fetch remote head`.
+   - Hub sync continues normally for `ait-hub.aitbc.bubuit.net`.
+   - Both `aitbc3` and `hub.aitbc` report `bridge/health` healthy.
