@@ -928,3 +928,17 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Documents the end-to-end flow, expected receipt fields, and on-chain stake
     verification query.
 
+
+## V0.24.0 P1.3 — Cross-island bridge multi-sig and proof verification
+
+- `CrossChainBridge` is multi-chain session aware (`_session_for(chain_id)`) and uses per-island chain databases.
+- Bridge lock/confirm/refund/list operations resolve the source/target chain from the request or transfer record.
+- `GET /bridge/transfer/{id}/proof` generates a real Merkle Patricia Trie inclusion proof for a locked transfer.
+- `POST /bridge/block-headers` and `GET /bridge/block-headers/{chain_id}/{height}` store and retrieve remote block headers.
+- `confirm_transfer` validates proof fields, stored block header, state root, Merkle proof, block header signature, multi-signature threshold, finality, and replay/double-spend protection.
+- CLI gains `aitbc bridge proof`, `aitbc bridge sign-proof`, and `aitbc bridge store-header` for producing signed multi-sig proofs and ingesting block headers.
+- `aitbc bridge register-validator` and `BridgeClient.register_validator` support bridge admin authorization when `bridge_release_enabled=true`.
+- Shop node runs an independent island chain `ait-shop-island.aitbc.bubuit.net` (RPC 8302, P2P 8107) alongside the hub follower.
+- Live end-to-end validation on aitbc3: lock 50 compute-seconds on `ait-hub.aitbc.bubuit.net`, generate and sign proof with 2-of-5 validator set, store hub block header, confirm on `ait-shop-island.aitbc.bubuit.net`, recipient balance increased.
+- Quality gates: mypy clean on 9 changed files, no float money violations, OpenAPI drift fixed and spec regenerated, bridge test suite passes.
+- SQLAlchemy session makers set `expire_on_commit=False` so bridge block-header objects remain attached after commit.
