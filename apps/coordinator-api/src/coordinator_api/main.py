@@ -231,6 +231,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Acceptance window disabled (COORDINATOR_ACCEPTANCE_WINDOW_SECONDS=0); escrow releases on result")
 
+        # G5: slash provider bonds automatically when a condition is detected.
+        from .contexts.marketplace.services.bond_slash_sweeper import (
+            BondSlashSweeper,
+            sweeper_enabled as bond_slash_sweeper_enabled,
+        )
+
+        if bond_slash_sweeper_enabled():
+            await task_manager.start_task("bond_slash_sweeper", BondSlashSweeper().run_forever)
+            logger.info("Bond slash sweeper started")
+        else:
+            logger.info("Bond slash sweeper disabled (BOND_SLASH_SWEEPER_ENABLED=false)")
+
         logger.info("🚀 Coordinator API is ready to serve requests")
 
         lifecycle_state.set_state(lifecycle_state.RUNNING)

@@ -326,6 +326,10 @@ async def resolve_dispute(
     if req.outcome == "refund":
         settled = await payment_service.refund_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
         resolved_status = "refunded"
+        # G5: an arbiter ruling against the provider is a fraud slash for bonded jobs.
+        if job.constraints and job.constraints.get("bond_required"):
+            from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+            await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
     else:
         settled = await payment_service.release_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
         resolved_status = "released"
