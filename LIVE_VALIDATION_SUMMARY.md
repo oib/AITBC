@@ -950,3 +950,56 @@ Fixed by filtering server-side on payload `job_id`, verified live:
 - **Reconciler enabled on hub**: `ESCROW_RECONCILER_ENABLED=true`, interval 300s, min age
   120s, batch 25. Startup confirms `Started background task: escrow_settlement_reconciler`.
   It has not yet been observed recovering a deliberately failed settlement.
+
+### 2026-08-23 — aitbc3 upgrade, reconciler heartbeat, and a watched recovery
+
+**aitbc3 brought up to `main` (`c0c18557b`).** Its chain island is
+`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db` (528 transactions). Backed up with
+`sqlite3 .backup`, stamped `d4e8b91c0a37`, then upgraded to `b7f3c1a90d24`.
+`EXPLAIN QUERY PLAN` reports `SEARCH transaction USING INDEX ix_transaction_payload_job_id`.
+RPC restarted; `/rpc/transactions?limit=2` returns `transaction_id` 528 first, confirming
+newest-first. Reconciler enabled (`ESCROW_RECONCILER_ENABLED=true`, 300s/120s/25); startup
+logs `Started background task: escrow_settlement_reconciler`. The one escrowed job on
+aitbc3 (`d27ad1aaf3154bba886937099cfe3f07`) is `EXPIRED` with `completed_at` NULL and is
+therefore correctly out of the reconciler's scope.
+
+**The coordinator does not use the Postgres DSN in its own env file.** On both nodes
+`get_engine()` resolves to `sqlite:////var/lib/aitbc/data/coordinator.db`; the
+`DATABASE_URL=postgresql://...` line in `/etc/aitbc/aitbc-coordinator-api.env` is never
+read. That Postgres database on aitbc3 is in fact damaged — `invalid page in block 4 of
+relation base/16395/2620` (`pg_trigger`), with `data_checksums=off` — and its `public.job`
+table has 0 rows and no `completed_at` column. Nothing reads it, so it breaks nothing
+today, but the misleading DSN should be removed before anything is ever pointed at it.
+
+**Heartbeat.** `run_once()` now logs `scanned/retried/settled/failed` at debug on every
+pass, so a pass with nothing to do is no longer indistinguishable from a dead task.
+Verified: `Settlement reconciliation pass complete: scanned=0 retried=0 settled=0 failed=0`.
+It is reachable in the service through `LOG_LEVEL=DEBUG` (`settings.log_level` is passed to
+`configure_logging()` in `main.py`). A bare script that skips `configure_logging()` will not
+show it — the root logger defaults to WARNING and `get_logger()` sets no level.
+
+**Watched recovery.** Live job `61316a3f83c84757a68c017c70c6204a` settled normally as
+`0x488f667678fcac94021e64c8175262655c78ca01a22f9cabbb61000365ca2265`. A scratch copy of the
+coordinator DB was rewound to `escrowed` and driven through the real `SettlementReconciler`
+against the live chain RPC:
+
+| pass | chain RPC | counts | result |
+|---|---|---|---|
+| 1 | unreachable (`127.0.0.1:1`) | `retried=1 settled=0 failed=1` | payment left `escrowed`, warning logged |
+| 2 | live (`127.0.0.1:8202`) | `retried=1 settled=1 failed=0` | job and payment `released`, tx `0x488f66...` |
+
+On-chain `ESCROW_RELEASE` count for that job is **exactly 1**, sender
+`0x477737bd028eeb38350c58e62f7a766ac061ce2e`, value 3510 compute-seconds. The retry
+returned the existing settlement rather than paying twice, which is the property the whole
+retry design rests on. The escrow contract still reports `released_amount` 0.975 (not
+doubled); its `released_at` was rewritten to the retry time, which is cosmetic drift.
+
+Caveat: the failure was injected at the coordinator's RPC URL against a scratch DB copy.
+Degrading the live settlement path directly — editing `ESCROW_RELEASE_ADDRESS`, adding a
+systemd override, or stopping `aitbc-blockchain-rpc` mid-job — was refused by the operator
+guard. So detection, real retry over HTTP, the idempotency short-circuit and the DB
+transition are all proven; the "fresh settlement lands after a transient outage" branch is
+still unproven in production.
+
+This closes the two items left open above: `b7f3c1a90d24` is now applied on both nodes, and
+the reconciler is enabled on both.
