@@ -1358,3 +1358,11 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
 - The source-chain `account` balance for the test wallet after the bridge lock was reported as 200 by `/rpc/account` and the sender nonce remained 0, which diverges from the expected `initiate_transfer` balance/nonce update. This is recorded for follow-up: the `CrossChainTransfer` and island release succeeded, but the source-account debit path needs verification under the merged `main` tree.
 - The `aitbc-blockchain-rpc` service is running from `main` (`2e18868ca`) and the island proposer is producing blocks; the `aitbc-blockchain-node` service was also restarted to load the updated `database.py` `expire_on_commit=False` setting.
 
+
+### Island proposer / MultiValidatorPoA feature flag (2026-08-23 follow-up)
+
+- `aitbc-blockchain-node` on aitbc3 produced the first real island block at height 1 (`0xc23afa9f...`) after setting `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in `/etc/aitbc/blockchain.env` and restarting the shop-side blockchain node.
+- With `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, the PoA proposer selected a validator (`ait1ffbda3398a7b1e016fddd509834b07dc8f4034e6`) from the configured `VALIDATOR_SET` that the shop node does not control, so it skipped every proposal at height 1.
+- Disabling the feature flag falls back to the configured `PROPOSER_ID`/`proposer_key` for the island, which the shop node does control, so it can sign and broadcast blocks.
+- The bridge `BRIDGE_RELEASE` transaction created by `confirm_transfer` is currently written directly to the `transaction` table with `block_height=NULL` and is not submitted to the mempool, so it is not yet included in an island block. The recipient balance is still credited, but block inclusion of the release record is the next gap to close.
+
