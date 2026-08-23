@@ -52,7 +52,7 @@ groups:
         expr: |
           (
             blockchain_poa_valid_subscribers == 0
-            and on() (rate(blockchain_block_height[5m]) > 0)
+            and on() (increase(blockchain_poa_broadcast_skipped_total[1m]) > 0)
           )
         for: 1m
         labels:
