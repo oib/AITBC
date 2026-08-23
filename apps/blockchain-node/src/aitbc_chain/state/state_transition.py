@@ -167,7 +167,15 @@ class StateTransition:
         if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE"}:
             recipient_account = session.get(Account, (chain_id, recipient_addr))
             if not recipient_account:
-                return (False, f"Recipient account not found: {recipient_addr}")
+                # Bridge lock transactions create the bridge_lock account
+                # lazily so a source chain can lock funds for a cross-chain
+                # transfer without a separate setup step.
+                if tx_type == "BRIDGE_LOCK" and recipient_addr == "bridge_lock":
+                    recipient_account = Account(chain_id=chain_id, address=recipient_addr, balance=0, nonce=0)
+                    session.add(recipient_account)
+                    session.flush()
+                else:
+                    return (False, f"Recipient account not found: {recipient_addr}")
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             if not receipt_id:
