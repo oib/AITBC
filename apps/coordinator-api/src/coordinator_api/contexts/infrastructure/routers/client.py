@@ -59,7 +59,13 @@ async def submit_job(
             # This prevents orphaned payment records from a partially-successful create_payment.
             session.rollback()
             session.refresh(job)
-            logger.warning("Payment creation failed for job %s, proceeding without payment: %s", job.id, e)
+            # The job is still created so the client can retry the escrow against it,
+            # but it will not be dispatched while payment_status is "skipped" (G4).
+            logger.warning(
+                "Payment creation failed for job %s; it will not be dispatched until payment is secured: %s",
+                job.id,
+                e,
+            )
             job.payment_status = "skipped"
             session.commit()
             session.refresh(job)
