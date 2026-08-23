@@ -1320,3 +1320,41 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
 
 - The test wallet private key and the operator signing key were kept in node env files; they were not committed or printed.
 - One unbond/complete maturity test was completed immediately after this section by moving the test stake's `locked_until` one minute into the past and calling `POST /rpc/agent-staking/stake/{stake_id}/unbond` then `POST /rpc/agent-staking/stake/{stake_id}/complete`. `unbond` left the balance unchanged and marked the stake `unbonding`; `complete` credited the full principal (540,000 compute-seconds) and marked the stake `completed`. The staker `Account.balance` moved from 1,008,000 to 1,548,000 compute-seconds.
+
+---
+
+## P1.3 — Cross-island bridge multi-sig live validation
+
+**Date:** 2026-08-23  
+**Nodes:** `aitbc3` (shop/follower) with independent island `ait-shop-island.aitbc.bubuit.net`  
+**Gitea `main` baseline:** `2e18868ca` — *P1.3 cross-island bridge multi-sig*
+
+### What was validated
+
+1. Island chain startup  
+   - `aitbc3` runs `ait-hub.aitbc.bubuit.net` (follower) and `ait-shop-island.aitbc.bubuit.net` (island) on RPC 8202/8302 and P2P 8007/8107.
+
+2. Validator registration  
+   - Registered 5 island validators under `ait-hub.aitbc.bubuit.net` with 2-of-5 multi-sig threshold and admin authorization.
+
+3. Live lock → proof → sign → store header → confirm  
+   - Locked 50 compute-seconds on hub from `ait19df8f71c4161364898e0ad0b33e2368b227fe612` to island proposer `0x2b212528b2bf4339ac06dda50f8751c46e6c2fd4`.
+   - Built a real Merkle Patricia Trie proof for the locked transfer.
+   - Signed the proof with two validator keys, satisfying the multi-sig threshold.
+   - Stored a `BridgeBlockHeader` for hub height 1, signed by a validator in the set and authorized by the bridge admin.
+   - Confirmed on `ait-shop-island.aitbc.bubuit.net`; the island proposer balance increased to `10000000050`.
+   - Transfer record `0x45e3cb856c9da0e40a85a3904c454408fb6b1aef69dbac5077c136f5a8d423e9` shows `status: completed` on the target chain.
+
+### Quality gates
+
+- Mypy clean on 9 changed bridge/CLI/database files.
+- `no_float_money` gate: 0 violations.
+- OpenAPI drift check passed; `docs/api/blockchain-node-openapi.json` regenerated.
+- Bridge test suite (`test_v070_bridge_basics.py`, `test_v071_bridge_security.py`, `test_v072_bridge_verification.py`, `test_bridge_suite.py`, `test_bridge_security_audit_fixes.py`, `test_bridge_nonce.py`, `test_cross_chain_security.py`) passes with 100% completion.
+
+### Data-integrity / operational findings
+
+- `my-agent-wallet.json`, `test-wallet-2.json`, and `test-wallet-3.json` in `/var/lib/aitbc/wallets/` have `private_key` values that do **not** derive to the wallet address (key mismatch). The test wallet `test-bridge-wallet` was created and funded via the `/rpc/faucet` endpoint for this validation.
+- The source-chain `account` balance for the test wallet after the bridge lock was reported as 200 by `/rpc/account` and the sender nonce remained 0, which diverges from the expected `initiate_transfer` balance/nonce update. This is recorded for follow-up: the `CrossChainTransfer` and island release succeeded, but the source-account debit path needs verification under the merged `main` tree.
+- The `aitbc-blockchain-rpc` service is running from `main` (`2e18868ca`) and the island proposer is producing blocks; the `aitbc-blockchain-node` service was also restarted to load the updated `database.py` `expire_on_commit=False` setting.
+
