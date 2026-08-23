@@ -24,6 +24,35 @@ Both remotes point to gitea as `origin` and GitHub as `github`.
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
 `/opt/aitbc` on the IDE host is a read-only clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. Use it only for reading code and running local static checks. All live work must be done on `aitbc3` or `hub.aitbc`.
 
+### Why keep a non-active `/opt/aitbc` clone on the IDE host?
+
+A full, clean clone at `/opt/aitbc` is useful because it is:
+
+- **A stable `main` reference** for reading the whole codebase with IDE index, search, go-to-definition, and diff tools, without waiting on SSH round-trips.
+- **A local static-check runner** for `mypy`, `no_float_money.py`, OpenAPI drift checks, `pytest` dry-runs, and other read-only verification before changes are pushed to the live nodes.
+- **A comparison baseline** against `aitbc3` and `hub.aitbc` (`diff`, `rsync -n`, or `git diff /opt/aitbc <(ssh node ...)`).
+- **A safe place to stage canonical doc updates** such as `AGENTS.md`: edit here, then copy to a live node for the real commit.
+
+It is **not** for:
+
+- Starting or running live services (`aitbc-blockchain-node`, `aitbc-coordinator`, etc.).
+- Holding production `data/`, chain databases, or wallet files.
+- Committing or pushing release work directly to gitea.
+
+### Keeping `/opt/aitbc` clean
+
+To stay a reliable reference, it should track gitea `main` closely:
+
+```bash
+cd /opt/aitbc
+git fetch origin
+git reset --hard origin/main
+# remove any build artifacts or untracked files when they accumulate
+git clean -fdx
+```
+
+Always re-create the `data/` and `venv/` directories inside the live nodes (`aitbc3`, `hub.aitbc`), never here.
+
 ## Using sshfs to edit the canonical repo from the IDE
 
 The IDE host cannot safely `git commit` from `/home/oib/windsurf/aitbc` or `/opt/aitbc`, but you may still want to read or edit a live checkout through the local editor. `sshfs` can mount a remote working tree on the IDE host:

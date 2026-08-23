@@ -373,7 +373,7 @@ class PoAProposer:
             pre_registered = session.exec(
                 select(Transaction).where(
                     Transaction.chain_id == self._config.chain_id,
-                    Transaction.block_height is None,
+                    Transaction.block_height.is_(None),
                     Transaction.status == "confirmed",
                 )
             ).all()
