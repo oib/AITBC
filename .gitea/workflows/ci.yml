@@ -21,6 +21,9 @@ jobs:
             --extra-packages "-r requirements-dev.txt" \
             --mode copy
 
+      - name: Install CLI package
+        run: ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e cli
+
       - name: MyPy clean apps
         run: |
           export PYTHON=./venv/bin/python
