@@ -996,3 +996,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - hub.aitbc: set aitbc_mempool PostgreSQL role to NOSUPERUSER NOCREATEDB NOCREATEROLE.
   - aitbc3 and hub.aitbc: switched aitbc-governance service to SQLite, commented out PostgreSQL DB_* settings, and fixed the invalid syntax and permissions on /etc/systemd/system/aitbc-governance.service.d/override.conf.
   - Restarted aitbc-blockchain-p2p and aitbc-blockchain-node on both nodes, plus aitbc-pool-hub on hub; all aitbc-* services are active and logs are clean.
+- ops(permissions): found and secured an extra AITBC git-history backup in /var/backups/aitbc-git-history-1787250425 (347MB) on aitbc3; removed it after hardening permissions, and set /etc/aitbc/.env on hub.aitbc to root:aitbc 640.
