@@ -11,11 +11,10 @@ from eth_utils import keccak
 
 from sqlalchemy import Column, ColumnDefault, Engine, event, inspect, literal, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 from sqlmodel import Session, create_engine
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.database.pooling import create_pooled_engine
 
 # Import all models to ensure they are registered on chain_metadata. Every table this
 # package owns has to be imported here, or `create_all` below silently skips it.
@@ -109,52 +108,40 @@ def get_engine(chain_id: str = "") -> Engine:
                 key_bytes = f.read()
             key_hex = key_bytes.hex()
 
-            # Create engine with SQLCipher (StaticPool: single writer for SQLite)
+            # Create engine with SQLCipher (NullPool: fresh connection per session)
             engine = create_engine(
                 f"sqlite:///{db_path}",
                 module=sqlite3,
                 echo=False,
-                poolclass=StaticPool,
-                pool_pre_ping=True,
+                poolclass=NullPool,
+                connect_args={"check_same_thread": False},
             )
 
             # Set encryption key via connection event
             @event.listens_for(engine, "connect")
             def set_encryption_key(dbapi_connection: Any, connection_record: Any) -> None:
                 dbapi_connection.execute(f"PRAGMA key = '{key_hex}'")
-                dbapi_connection.execute("PRAGMA journal_mode=WAL")
-                dbapi_connection.execute("PRAGMA synchronous=NORMAL")
+                _set_sqlite_pragmas(dbapi_connection, connection_record)
         else:
-            # Use standard SQLite with connection pooling (StaticPool: single writer)
-            engine = create_pooled_engine(
+            # Use standard SQLite (NullPool: fresh connection per session)
+            engine = create_engine(
                 f"sqlite:///{db_path}",
-                pool_size=settings.db_connection_pool_size,
-                use_static_pool=True,
                 echo=False,
+                poolclass=NullPool,
+                connect_args={"check_same_thread": False},
             )
 
             @event.listens_for(engine, "connect")
-            def set_wal_mode(dbapi_connection: Any, connection_record: Any) -> None:
-                dbapi_connection.execute("PRAGMA journal_mode=WAL")
-                dbapi_connection.execute("PRAGMA synchronous=NORMAL")
+            def _on_chain_engine_connect(dbapi_connection: Any, connection_record: Any) -> None:
+                _set_sqlite_pragmas(dbapi_connection, connection_record)
 
         _engines[resolved_chain_id] = engine
 
     return _engines[resolved_chain_id]
 
 
-# Standard SQLite with file-based encryption via file permissions
-_db_path = settings.db_path
-_engine = create_pooled_engine(
-    f"sqlite:///{settings.db_path}",
-    pool_size=settings.db_connection_pool_size,
-    use_static_pool=True,
-    echo=False,
-)
-
-
-@event.listens_for(_engine, "connect")
-def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
+def _set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
+    """Set WAL and tuning pragmas on every new SQLite connection."""
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
@@ -163,6 +150,21 @@ def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.execute("PRAGMA mmap_size=30000000000")
     cursor.execute("PRAGMA busy_timeout=5000")
     cursor.close()
+
+
+# Standard SQLite with file-based encryption via file permissions
+_db_path = settings.db_path
+_engine = create_engine(
+    f"sqlite:///{settings.db_path}",
+    echo=False,
+    poolclass=NullPool,
+    connect_args={"check_same_thread": False},
+)
+
+
+@event.listens_for(_engine, "connect")
+def _on_engine_connect(dbapi_connection: Any, connection_record: Any) -> None:
+    _set_sqlite_pragmas(dbapi_connection, connection_record)
 
 
 # Application-layer validation
