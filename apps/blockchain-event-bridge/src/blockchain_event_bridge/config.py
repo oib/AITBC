@@ -30,6 +30,12 @@ class Settings(ServiceSettings):
     gossip_backend: str = Field(default="memory")  # memory, broadcast, redis
     gossip_broadcast_url: str | None = Field(default=None)
 
+    # Block events are published on the chain-scoped topic "blocks.<chain_id>"
+    # (aitbc_chain/consensus/poa.py). Reads CHAIN_ID from the environment, which
+    # the unit already receives via /etc/aitbc/blockchain.env. Empty falls back
+    # to the legacy global topic, matching chain_sync.py.
+    chain_id: str = Field(default="")
+
     # Coordinator API
     coordinator_api_url: str = Field(default="http://localhost:8203")
     coordinator_api_key: str | None = Field(default=None)
