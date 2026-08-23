@@ -69,18 +69,19 @@
       (`/var/lib/aitbc/data/<chain_id>/chain.db`), not Postgres, and had no
       `alembic_version` at all, so it was stamped at `d4e8b91c0a37` first. Pass
       `DATABASE_URL` explicitly or alembic targets the wrong file (see `env.py` V23-49).
-- [ ] Apply `b7f3c1a90d24` on `aitbc3` the same way (stamp `d4e8b91c0a37`, then upgrade).
+- [x] Apply `b7f3c1a90d24` on `aitbc3` — already at `c9a4f1e2b73d` on the live chain.db.
 - [ ] Decide whether `release_escrow` should return HTTP 4xx/5xx rather than
       `success: false` when settlement fails; the current shape keeps the coordinator
       and `ai submit --wait` contract intact.
 - [x] `/rpc/transactions` now orders newest-first, so `limit` returns the most recent
       rows. This also fixed `aitbc wallet transactions --limit`, which was showing users
       their oldest transactions.
-- [ ] `agent.py` and `market/__init__.py` still hardcode `~/.aitbc/wallets`; only
-      `auth.py` honours `AITBC_WALLET_DIR`.
+- [x] File-wallet lookups honour `AITBC_WALLET_DIR` via `cli/aitbc_cli/utils/wallet_paths.py`.
+      `market/__init__.py` still falls back to `/root/.aitbc/wallets/genesis.json` after the
+      wallet daemon; left alone on purpose.
 - [x] `ESCROW_RECONCILER_ENABLED=true` on hub (2026-08-22), interval 300s, min age
       120s, batch 25. Not yet observed against a deliberately failed settlement.
-- [ ] Enable the reconciler on `aitbc3` once hub has run clean for a while.
+- [x] Reconciler already enabled on `aitbc3` (`ESCROW_RECONCILER_ENABLED=true`).
 
 Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`):
 - 4f0ca3ba0 feat(exchange,docs): bridge custodian config and documentation (P1.3a)
@@ -97,9 +98,11 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
   - `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` are handled in state transitions.
   - Marketplace offers require an active bond when `MARKET_BOND_MIN_AMOUNT` > 0.
 
-- Live nodes: shop `aitbc3` is on gitea `main` at `1d8ab0d40` (clean). Hub `hub.aitbc` is still at `6a3f49c0c` until it fast-forwards; pull before any hub-side work.
-- `1d8ab0d40` (2026-08-23) cleared the two empty-baseline pre-commit gates that had been red on HEAD since before `fc7a0ee64`: mypy-clean-apps 34 -> 0, no-float-money 16 -> 0. Wire-visible: miner earnings `total/pending/paid_earnings` are strings (matching `earnings_history[].amount`), and node release `reinvest_stake_id` is a string (matching `ReceiptView`). Neither service has been restarted for this yet.
-- `openapi-drift` is still red on HEAD and was skipped for `1d8ab0d40`: `docs/api/` is ~1400 lines behind the apps (agent-coordinator 457, coordinator-api 968, blockchain-node 18). Same failure `tests/unit/test_openapi_drift_guard.py` reports. Regenerating is a published-contract review, not a mechanical `make openapi`.
+- Live nodes: shop `aitbc3` and hub `hub.aitbc` are both on gitea `main` at `1fc83882a` (clean). Units that load `1d8ab0d40` were restarted 2026-08-23; health 200 on rpc/coord/marketplace.
+- `1d8ab0d40` cleared mypy-clean-apps (34 -> 0) and no-float-money (16 -> 0). Wire-visible: miner earnings `total/pending/paid_earnings` are strings; node release `reinvest_stake_id` is a string.
+- `openapi-drift` is still red (~1400 lines) and stays skipped until the V23-42 routes exist; then one `make openapi` review.
+- Shop live `chain.db` (`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`) is at `c9a4f1e2b73d`, which already includes `b7f3c1a90d24`. The leftover stamp item is done.
+- Shop coordinator already has `ESCROW_RECONCILER_ENABLED=true` (same interval/min-age/batch as hub).
 - P1.1 Phase B shipped: `JobService.acquire_next_job` defers to higher-reputation online miners, enforces `Constraints.min_reputation`, and `aitbc ai submit` exposes `--min-reputation`.
 - Scenario 34 was replayed 2026-08-20 from this session:
   - unpaid job `1363fff0bc4b48c6903bc46f54fe0a7a` completed on `aitbc-miner-1`
@@ -188,19 +191,19 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Should workspace notes live in the canonical repo? → yes, already pushed earlier.
 - [x] Who fixes shop chain sync / missing P2P on aitbc3? → fork reset done this session; P2P unit still missing (HTTPS pull is how the shop syncs).
 - [x] Who updates scenario 34 exchange + JWT snippets on gitea `main`? → commit `e8966aba1`.
-- [ ] **V23-42 / AITBC-155 — does the staking/bounty chain surface get built or removed?** Open since 2026-08-11 (`2b2d0d923`); re-derived from scratch on 2026-08-23 because it was tracked nowhere but a commit message and the `BlockchainService` docstring.
+- [ ] **V23-42 / AITBC-155 — building the agent-stake / bounty chain surface.** Decision 2026-08-23: real locks + memos, hub operator key + user JWT address, chain-first coordinator writes. Not a `/rpc` prefix on the existing consensus stake route.
   - Twelve outbound calls in `contexts/blockchain/services/blockchain.py` target chain endpoints that do not exist. They are near-copies of *this app's own* staking routes addressed to the node's host; the node has no `/bounty` surface at all.
   - **0 of 12 are fixed by adding the `/rpc` prefix.** `POST /rpc/staking/stake` is the only one with a counterpart, and it returns `403 Signature required for staking` (`rpc/staking.py:56`) — the coordinator has no agent staking key — and expects `lock_days` where the coordinator sends `lock_period`. The URLs are left unprefixed deliberately: a prefix would imply they resolve.
   - Failure is invisible where it matters. The calls are FastAPI background tasks, so the router returns 200/201 before the 404 lands; the journal logs an error, the caller is told it succeeded.
   - Latent, not active: unexercised on hub (no journal hits in 7 days; `agent_stakes`, `bounty_task`, `bounty_submission(s)`, `bounty_integrations`, `bounty_stats` all 0 rows). First real use writes a coordinator-side stake with no on-chain counterpart — same divergence shape as the settlement drift fixed in `1b43ca3bd`.
-  - **Decision needed:** build the 11 endpoints on the node (plus a signing story the coordinator can satisfy) and stop committing local state before the chain call succeeds — *or* delete the twelve methods and the `admin_api_keys` header plumbing, and make the coordinator's staking/bounty routers honest about being local-only (or return 501).
+  - **Decided:** new `/rpc/staking/agent-stake` (not `/rpc/staking/stake`) plus the other 11 routes; operator-signed; debit/credit `Account.balance` for stake create/add/complete and bounty deploy/verify/expire.
   - Detail: `LIVE_VALIDATION_SUMMARY.md`, section "2026-08-23 — OPEN DECISION (already diagnosed): the staking/bounty chain surface".
 - [ ] **What happens to the unused Postgres databases on both nodes?** Surfaced 2026-08-23 while fixing the coordinator migration drift.
   - hub `aitbc_coordinator`: 139 tables, at head `a3e7c15b8d94`, **zero rows in every table** except `alembic_version`, zero client connections. It is the database `alembic upgrade` had been migrating for months while the service read SQLite. Nothing has ever written to it.
   - aitbc3 `aitbc_coordinator`: 139 tables, **corrupt and never migrated**. `vacuumdb` fails with `invalid page in block 148 of relation base/16395/1249` (`pg_catalog.pg_attribute`), and the catalog is inconsistent — `pg_stat_user_tables` reports an `alembic_version` row while `pg_class` has no such relation, so `SELECT ... FROM alembic_version` errors out. This is the *second* corrupt database on that cluster; the governance one (`base/16399/2610`) was dropped and recreated earlier. Two corrupt system catalogs on one cluster is worth a storage/`fsync` look, not just another drop-and-recreate.
   - aitbc3 carries ten `aitbc_*` databases (`aitbc`, `aitbc_ai`, `aitbc_coordinator`, `aitbc_exchange`, `aitbc_governance`, `aitbc_gpu`, `aitbc_marketplace`, `aitbc_mempool`, `aitbc_trading`, `aitbc_wallet`) with **no live connection to any of them**. hub uses only `aitbc_mempool` and `aitbc_poolhub`.
   - Same trap is still armed elsewhere on aitbc3: `aitbc-exchange.env` and `aitbc-wallet.env` set `DATABASE_URL=postgresql://...` with no `DATABASE_ADAPTER`, so `_load_legacy_database_url` ignores them (`packages/aitbc-shared/aitbc_shared/core/config.py:57`) and the services run on SQLite — `aitbc-wallet` has `/var/lib/aitbc/data/wallet_ledger.db` open right now. The DSNs read like configuration and are not.
-  - **Decision needed:** drop the orphans (hub's is provably empty; aitbc3's is corrupt and was never a real database), or declare Postgres the intended target and actually migrate onto it. Either way the dead `DATABASE_URL` lines in the exchange/wallet env files should go, so the next reader is not misled the way the coordinator's was.
+  - **Decided 2026-08-23:** drop unused/corrupt DBs (keep hub `aitbc_mempool` + `aitbc_poolhub`), comment the dead exchange/wallet DSNs, rotate `aitbc_user`, delete the five password-bearing `.bak` files. Not a Postgres migration.
   - Detail: `LIVE_VALIDATION_SUMMARY.md`, section on the 2026-08-23 coordinator migration recovery.
 - [ ] **Rotate the `aitbc_user` Postgres password.** The full DSN was printed to a terminal during the 2026-08-23 migration work, before the redaction guard in `apps/coordinator-api/alembic/env.py` existed (`42d31e5af`).
   - Five files still hold it in plaintext: hub `/etc/aitbc/aitbc-coordinator-api.env.bak-2026-08-22` and `.bak-2026-08-23` (mode `0640`, group `aitbc` — readable by every service account in that group), and aitbc3 `.bak-20260817-132453`, `.bak-2026-08-22`, `.bak-2026-08-23` (mode `0600`, root only). The live env files no longer contain it.
@@ -210,7 +213,8 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
   - hub `coordinator.db`: `reputation_events` → `agent_reputation` (31 orphans), `agent_reputation` → `ai_agent_workflows` (6), `community_feedback` → `agent_reputation` (2). SQLite does not enforce FKs unless `PRAGMA foreign_keys=ON`, so these accumulated silently.
   - hub `chain.db`: 4 escrow rows whose buyer `ait135daba990a37177398e0e0c1670baa316a032417` has no `account` row. All four are released, all pay the same provider. Surfaced 2026-08-23 by `fc7a0ee64` / migration `c9a4f1e2b73d` — `escrow` had referenced `account.address` while account's key is `(chain_id, address)`, and SQLite answers an unresolvable foreign key by refusing to check *any* table in the database. aitbc3's `chain.db` is migrated too and reports zero violations.
   - Nothing blocks a check any more. The eight chain tables that had leaked into aitbc3's `coordinator.db` before V23-74 (`escrow`, `account`, `stake`, `mempool`, `consensus_state`, `block`, `receipt`, `transaction`, all empty, none declared by a coordinator model, none present on hub) were dropped on 2026-08-23; backup at `coordinator.db.bak-2026-08-23-pre-chain-leftover-drop`. That database now checks clean.
-  - **Decision needed:** whether the 39 hub reputation orphans get deleted, back-filled, or accepted — and whether reputation reads currently return wrong numbers because of them. Nobody has looked at what the orphaned rows actually mean yet. The 4 chain escrow orphans are answered below.
+  - **The 39 reputation FKs are a schema-shape mismatch, not 39 missing rows** (checked 2026-08-23, no data changed). `reputation_events.agent_id` stores miner ids (`aitbc-miner-1`, `test-miner-tee`) while the declared parent key is `agent_reputation.id` (`rep_*`). The six `agent_reputation` rows all exist; they fail the unused `ai_agent_workflows` FK because that table is empty. Reputation reads key on `agent_id` and are unaffected. No schema surgery this pass.
+  - **Decision needed (still):** whether those unused FKs get dropped or retargeted so `pragma foreign_key_check` is 0. The 4 chain escrow orphans are answered below.
   - **The 4 chain escrow orphans are neither, and the finding is bigger than four rows** (investigated 2026-08-23, no data changed).
     - Not a canonicalization residue. `ait135daba990a37177398e0e0c1670baa316a032417` is the exact canonical form of `0x35daba990a37177398e0e0c1670baa316a032417`, which sits verbatim in hub's `coordinator.db` as a real user (`user_6a032417_d16fc935`, `users.id a1ac2dfa-e2d0-4786-b822-65a9ea5afb84`) with `wallets` row id 1, created 09:16:32 on 2026-08-21 — 19 s before the first of the four escrows. The `AccountAddress` decorator did its job.
     - No chain account exists because nothing in the escrow path creates one. `/rpc/escrow/create` copies `body["buyer"]` straight into the escrow row; `EscrowManager.create_contract` only checks the address *string shape* and keeps the contract in a process dict. On release, `_submit_payment_tx` calls `_create_account_if_missing` for the settlement sender and for the provider — never for the buyer. The other 71 buyers have `account` rows only because they also transacted (faucet, transfer, bridge, governance); this user did nothing but buy.
