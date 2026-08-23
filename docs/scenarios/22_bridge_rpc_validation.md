@@ -24,9 +24,11 @@ breadcrumb: Home > Scenarios > Bridge RPC Input Validation
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 Bridge lock/confirm requests with empty chains, zero amounts, or missing signatures must fail closed. The blockchain RPC returns HTTP 422 (Pydantic). Drive those checks through `aitbc bridge`, which posts to `/rpc/bridge/*` via `BridgeClient`.
 
-This is the B13 fix, as an operator play.
+This is the bridge RPC input validation operator play (B13).
 
 ### Use Case
 

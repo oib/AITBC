@@ -25,7 +25,9 @@ breadcrumb: Home > Scenarios > Service Startup & Connectivity
 
 ## Scenario Overview
 
-A shop-node operator confirms that the role's systemd units are up, the miner is heartbeating, the edge GPU inventory is reachable, and the bridge RPC is healthy. This play covers the old A3 (port corrections) and B9 (edge registration errors are logged) fixes, expressed as `aitbc` commands.
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
+A shop-node operator confirms that the role's systemd units are up, the miner is heartbeating, the edge GPU inventory is reachable, and the bridge RPC is healthy after a restart or upgrade.
 
 ### Use Case
 
