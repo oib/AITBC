@@ -154,7 +154,8 @@ async def bridge_lock_route(request: Request, lock_data: BridgeLockRequest) -> d
     """Initiate a cross-chain bridge transfer by locking funds"""
     if bridge_lock is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    _validate_chain_id(lock_data.target_chain)
+    # The target chain may be an island the hub does not produce; only the
+    # source chain (where funds are locked) must be a chain this node supports.
     if lock_data.source_chain:
         _validate_chain_id(lock_data.source_chain)
     return await bridge_lock(request, lock_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
