@@ -366,10 +366,12 @@ def security_status(ctx, rpc_url):
     required=True,
     help="Validator's private key hex (for signing the registration request)",
 )
+@click.option("--admin-private-key", default=None, help="Bridge admin private key hex (required when bridge_release_enabled=true)")
+@click.option("--admin-address", default=None, help="Bridge admin address (defaults to address of admin-private-key)")
 @click.option("--epoch", default=0, type=int, help="Validator set epoch number (default: 0)")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def register_validator(ctx, chain_id, address, public_key, private_key, epoch, rpc_url):
+def register_validator(ctx, chain_id, address, public_key, private_key, admin_private_key, admin_address, epoch, rpc_url):
     """Register a bridge validator for multi-sig operations"""
 
     # Sign the registration request
@@ -382,6 +384,25 @@ def register_validator(ctx, chain_id, address, public_key, private_key, epoch, r
 
     signature = sign_transaction_hash("0x" + keccak(msg).hex(), private_key)
 
+    payload: dict[str, Any] = {}
+    if admin_private_key:
+        from eth_keys import keys
+
+        admin_address = admin_address or str(keys.PrivateKey(bytes.fromhex(admin_private_key.removeprefix("0x"))).public_key.to_checksum_address())
+        payload = {
+            "chain_id": chain_id,
+            "address": address,
+            "public_key": public_key,
+            "signature": signature,
+            "action": "register",
+            "epoch": epoch,
+            "admin_address": admin_address,
+        }
+        # Admin signature covers payload excluding admin_signature itself
+        admin_sign_data = {k: v for k, v in payload.items() if k != "admin_signature"}
+        admin_msg = json.dumps(admin_sign_data, sort_keys=True, separators=(",", ":")).encode()
+        payload["admin_signature"] = sign_transaction_hash("0x" + keccak(admin_msg).hex(), admin_private_key)
+
     async def _register():
         client = _get_bridge_client(rpc_url)
         async with client:
@@ -390,6 +411,9 @@ def register_validator(ctx, chain_id, address, public_key, private_key, epoch, r
                 address=address,
                 public_key=public_key,
                 signature=signature,
+                epoch=epoch,
+                admin_address=payload.get("admin_address"),
+                admin_signature=payload.get("admin_signature"),
             )
 
     try:
