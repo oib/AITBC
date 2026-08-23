@@ -24,6 +24,8 @@ breadcrumb: Home > Scenarios > Fire-and-Forget Task Error Logging
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 Background asyncio tasks on the shop node (gossip/P2P, edge health) must log failures instead of swallowing them (`create_task_with_logging`, B8/B9). Operators poke those paths with `aitbc system`, `aitbc network`, and `aitbc edge` / `aitbc gpu`.
 
 ### Use Case
@@ -94,7 +96,7 @@ After completing this scenario, you should be able to:
 ## Validation
 
 ```bash
-# Direct helper (not the operator play)
+# Direct helper (additional validation)
 cd /opt/aitbc && ./venv/bin/python -c "
 import asyncio
 from aitbc.async_tasks import create_task_with_logging

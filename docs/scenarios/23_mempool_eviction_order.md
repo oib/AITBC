@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > Mempool Eviction Order
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 When the mempool is full, the **oldest** low-fee transaction is evicted first (B15: tie-break `(fee, received_at)`, not `(fee, -received_at)`). Operators exercise the mempool through `aitbc transactions pending` / `send`. Deterministic fee ordering can also be inspected with `aitbc simulate blockchain`.
 
 ### Use Case
@@ -95,7 +97,7 @@ After completing this scenario, you should be able to:
 
 ## Validation
 
-The B15 unit check (not the operator play):
+The B15 unit check (additional validation):
 
 ```bash
 cd /opt/aitbc && ./venv/bin/python -c "

@@ -24,6 +24,8 @@ breadcrumb: Home > Scenarios > CLI Commands Verification
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 > **Live vs. simulated:** This scenario exercises several CLI groups. `aitbc messaging` and any `aitbc simulate` commands can produce `(Simulated)` output. Other groups (`aitbc agent`, `aitbc pool-hub`, `aitbc mining`, `aitbc gpu`) are live when their services are running.
 
 Smoke-test the CLI groups that used to crash or hit the wrong port (A2 agent list, A7 pool-hub, A8 mining status, A3 edge/GPU port). Also re-check deterministic `simulate` and `messaging` fallbacks.

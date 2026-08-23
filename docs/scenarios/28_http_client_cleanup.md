@@ -23,6 +23,8 @@ breadcrumb: Home > Scenarios > HTTP Client Resource Cleanup
 
 ## Scenario Overview
 
+> **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
+
 HTTP clients (`AITBCHTTPClient`, `BridgeClient`, edge RPC clients) must close their `httpx` sessions. Unclosed clients emit a `__del__` warning (A12/A13/A14). Operators exercise those clients by running ordinary CLI commands that open and close them.
 
 ### Use Case
