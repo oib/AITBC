@@ -14,7 +14,7 @@ global:
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: ['localhost:9093']
+        - targets: ['127.0.0.1:9093']
 
 # Load rules once and periodically evaluate them
 rule_files:
@@ -25,18 +25,18 @@ scrape_configs:
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['127.0.0.1:9090']
 
   # Node exporter on the central host
   - job_name: 'node-exporter-local'
     static_configs:
-      - targets: ['localhost:9100']
+      - targets: ['127.0.0.1:9100']
 
   # aitbc3 (shop/follower) services
   # The blockchain node main process exposes chain-level metrics on AITBC_NODE_METRICS_PORT.
   - job_name: 'aitbc3-blockchain-node'
     static_configs:
-      - targets: ['localhost:9009']
+      - targets: ['127.0.0.1:9009']
         labels:
           node: aitbc3
           service: blockchain-node
@@ -45,7 +45,7 @@ scrape_configs:
 
   - job_name: 'aitbc3-blockchain-rpc'
     static_configs:
-      - targets: ['localhost:8202']
+      - targets: ['127.0.0.1:8202']
         labels:
           node: aitbc3
           service: blockchain-rpc
@@ -62,7 +62,7 @@ scrape_configs:
   # Coordinator API and marketplace only run on the hub node by default.
   # - job_name: 'aitbc3-coordinator-api'
   #   static_configs:
-  #     - targets: ['localhost:8203']
+  #     - targets: ['127.0.0.1:8203']
   #       labels:
   #         node: aitbc3
   #         service: coordinator-api
@@ -71,7 +71,7 @@ scrape_configs:
   #
   # - job_name: 'aitbc3-marketplace'
   #   static_configs:
-  #     - targets: ['localhost:8104']
+  #     - targets: ['127.0.0.1:8104']
   #       labels:
   #         node: aitbc3
   #         service: marketplace
@@ -81,7 +81,7 @@ scrape_configs:
   # Optional local services — enable only if they are running on this node.
   # - job_name: 'aitbc3-pool-hub'
   #   static_configs:
-  #     - targets: ['localhost:8210']
+  #     - targets: ['127.0.0.1:8210']
   #       labels:
   #         node: aitbc3
   #         service: pool-hub

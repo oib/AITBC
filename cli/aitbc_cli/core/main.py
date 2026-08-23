@@ -60,7 +60,8 @@ from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
 from aitbc_cli.commands.mining import mining
 
-from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency
+from aitbc_cli.commands.monitor import monitor
+from aitbc_cli.commands.prometheus import prometheus  # Re-enabled - no core dependency
 from aitbc_cli.commands.network import network
 from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.performance import performance
@@ -197,7 +198,8 @@ cli.add_command(reputation)  # Reputation management
 cli.add_command(governance)  # Governance operations
 cli.add_command(developer)  # Developer registry
 cli.add_command(grant)  # DAO grant proposals
-cli.add_command(monitor)  # Re-enabled - no core dependency
+cli.add_command(monitor)
+cli.add_command(prometheus)  # Re-enabled - no core dependency
 cli.add_command(node)
 cli.add_command(agent_comm)  # Cross-chain agent communication (distinct from `agent` SDK group)
 cli.add_command(exchange)
