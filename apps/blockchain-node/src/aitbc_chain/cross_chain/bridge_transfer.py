@@ -179,11 +179,21 @@ class BridgeTransferMixin(BridgeBase):
             release_nonce = recipient_account.nonce
             recipient_account.nonce += 1
             session.add(recipient_account)
+            # Create a bridge release account with enough balance to satisfy
+            # the MESSAGE state transition (fee=0, value=0).  The recipient
+            # is already credited here; the block proposer will record the
+            # MESSAGE in a block and advance the bridge release nonce.
+            bridge_release_addr = "bridge_release"
+            bridge_release_account = session.get(Account, (record.target_chain, bridge_release_addr))
+            if not bridge_release_account:
+                bridge_release_account = Account(chain_id=record.target_chain, address=bridge_release_addr, balance=record.amount, nonce=0)
+                session.add(bridge_release_account)
+            release_nonce = bridge_release_account.nonce
             target_tx_hash = hashlib.sha256(f"{transfer_id}:{record.target_chain}:{int(time.time())}".encode()).hexdigest()
             release_tx = Transaction(
                 chain_id=record.target_chain,
                 tx_hash=target_tx_hash,
-                sender="bridge_release",
+                sender=bridge_release_addr,
                 recipient=record.recipient,
                 payload={
                     "type": "BRIDGE_RELEASE",
@@ -194,7 +204,7 @@ class BridgeTransferMixin(BridgeBase):
                     "asset": record.asset,
                     "proof": proof_hash,
                 },
-                value=record.amount,
+                value=0,
                 fee=0,
                 nonce=release_nonce,
                 timestamp=datetime.now(UTC),
@@ -209,6 +219,20 @@ class BridgeTransferMixin(BridgeBase):
             record.confirm_time = datetime.now(UTC)
             session.add(record)
             session.commit()
+            # Also mark the source-chain transfer record completed so bridge
+            # health and query endpoints reflect the finalised state.
+            try:
+                with self._session_for(record.source_chain) as src_session:
+                    src_record = src_session.get(CrossChainTransfer, transfer_id)
+                    if src_record:
+                        src_record.status = "completed"
+                        src_record.target_tx_hash = target_tx_hash
+                        src_record.proof_hash = proof_hash
+                        src_record.confirm_time = record.confirm_time
+                        src_session.add(src_record)
+                        src_session.commit()
+            except Exception:
+                logger.exception("Failed to update source-chain bridge record for %s", transfer_id)
             self._processed_proofs.add(proof_hash)
             transfer = self._pending_transfers.get(transfer_id)
             if transfer:
