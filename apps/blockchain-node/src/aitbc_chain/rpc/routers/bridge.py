@@ -71,6 +71,14 @@ class BridgeBatchRequest(BaseModel):
     transfers: list[dict[str, Any]] = Field(..., min_length=1, description="List of transfer dicts")
 
 
+class BridgeProofRequest(BaseModel):
+    """Query parameters for GET /bridge/transfer/{transfer_id}/proof."""
+
+    source_chain: str | None = Field(default=None, description="Source chain ID (defaults to this node)")
+    block_height: int | None = Field(default=1, ge=0, description="Block height to anchor the proof")
+    block_hash: str | None = Field(default=None, description="Block hash to anchor the proof")
+
+
 class ValidatorRegisterRequest(BaseModel):
     """Request body for POST /bridge/validators/register."""
 
@@ -110,6 +118,7 @@ bridge_security_status: Callable[..., Any] | None = None
 bridge_unlock: Callable[..., Any] | None = None
 get_block_header: Callable[..., Any] | None = None
 get_bridge_balance: Callable[..., Any] | None = None
+get_bridge_proof: Callable[..., Any] | None = None
 get_bridge_transfer: Callable[..., Any] | None = None
 get_validator_set: Callable[..., Any] | None = None
 list_pending_transfers: Callable[..., Any] | None = None
@@ -128,6 +137,7 @@ try:
         bridge_unlock,
         get_block_header,
         get_bridge_balance,
+        get_bridge_proof,
         get_bridge_transfer,
         get_validator_set,
         list_pending_transfers,
@@ -166,6 +176,25 @@ async def get_bridge_transfer_route(request: Request, transfer_id: str) -> dict[
     if get_bridge_transfer is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     return await get_bridge_transfer(request, transfer_id)  # type: ignore[no-any-return]
+
+
+@router.get("/transfer/{transfer_id}/proof", summary="Build bridge transfer proof")
+@rate_limit(rate=50, per=60)
+async def get_bridge_proof_route(
+    request: Request,
+    transfer_id: str,
+    source_chain: str | None = None,
+    block_height: int = 1,
+    block_hash: str | None = None,
+) -> dict[str, Any]:
+    """Build a Merkle proof for a locked bridge transfer."""
+    if get_bridge_proof is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    if source_chain:
+        _validate_chain_id(source_chain)
+    return await get_bridge_proof(  # type: ignore[no-any-return]
+        request, transfer_id, source_chain=source_chain, block_height=block_height, block_hash=block_hash
+    )
 
 
 @router.get("/pending", summary="List pending bridge transfers")
