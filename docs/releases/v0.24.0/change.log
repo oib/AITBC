@@ -1104,3 +1104,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Adds `aitbc:block_interval_seconds:rate5m`, `aitbc:rpc_requests_per_second:rate5m`, `aitbc:rpc_error_rate:ratio5m`, and `aitbc:bridge_locked_amount` recording rules.
   - Adds `SyncLagHigh` and `MempoolFull` alerts.
   - Updates `RpcErrorsSpiking` to use the combined client/server error rate.
+- fix(metrics): remove stray `import re` that broke Python `from __future__` import ordering in `metrics.py`
