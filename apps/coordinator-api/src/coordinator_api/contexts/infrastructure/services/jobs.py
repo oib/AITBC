@@ -204,6 +204,28 @@ class JobService:
     def to_view(self, job: Job) -> JobView:
         receipt = job.receipt or {}
         zk_proof = receipt.get("zk_proof") or {}
+        offer_id: str | None = None
+        offer_unit_price: Decimal | None = None
+        offer_price_unit: str | None = None
+        offer_quantity: Decimal | None = None
+        if job.payment_id:
+            payment = self.session.get(JobPayment, job.payment_id)
+            if payment and payment.meta_data:
+                meta = payment.meta_data
+                offer_id = meta.get("offer_id") or offer_id
+                offer_price_unit = meta.get("offer_price_unit") or offer_price_unit
+                raw_unit_price = meta.get("offer_unit_price")
+                if raw_unit_price:
+                    try:
+                        offer_unit_price = Decimal(str(raw_unit_price))
+                    except (InvalidOperation, TypeError, ValueError):
+                        pass
+                raw_quantity = meta.get("offer_quantity")
+                if raw_quantity:
+                    try:
+                        offer_quantity = Decimal(str(raw_quantity))
+                    except (InvalidOperation, TypeError, ValueError):
+                        pass
         return JobView(
             job_id=job.id,
             state=job.state,
@@ -215,6 +237,10 @@ class JobService:
             payload=job.payload,
             result=job.result,
             payment_status=job.payment_status,
+            offer_id=offer_id,
+            offer_unit_price=offer_unit_price,
+            offer_price_unit=offer_price_unit,
+            offer_quantity=offer_quantity,
             zk_status=receipt.get("zk_status"),
             zk_proof_id=zk_proof.get("circuit_hash"),
             tee_status=receipt.get("tee_status"),

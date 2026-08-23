@@ -32458,6 +32458,62 @@
             ],
             "title": "Auto Reinvest Pct",
             "description": "Percentage of released payment to auto-stake"
+          },
+          "offer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Id",
+            "description": "Marketplace offer the amount was quoted from"
+          },
+          "offer_unit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Unit Price",
+            "description": "Advertised price of one unit"
+          },
+          "offer_price_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Price Unit",
+            "description": "Unit the offer is priced in"
+          },
+          "offer_quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Quantity",
+            "description": "Units bought at the advertised price"
           }
         },
         "type": "object",
@@ -32749,6 +32805,52 @@
               }
             ],
             "title": "Payment Status"
+          },
+          "offer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Id"
+          },
+          "offer_unit_price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Unit Price"
+          },
+          "offer_price_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Price Unit"
+          },
+          "offer_quantity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Quantity"
           },
           "zk_status": {
             "anyOf": [
@@ -37876,6 +37978,33 @@
               }
             ],
             "title": "Provider Address"
+          },
+          "offer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Id",
+            "description": "Marketplace offer this job is bought against"
+          },
+          "offer_quantity": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Offer Quantity",
+            "description": "How many of the offer's price_unit are being bought",
+            "default": "1"
           }
         },
         "type": "object",
