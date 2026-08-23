@@ -14,6 +14,10 @@ from aitbc_chain.contracts.escrow import EscrowManager, EscrowState, create_escr
 from aitbc_chain.rpc.escrow_routes import refund_escrow
 
 
+# The escrow foreign keys are chain-scoped, so every record has to name its chain. This is
+# the id the `escrow_engine` fixture installs as the default.
+CHAIN_ID = "test"
+
 # Valid AIT-style addresses (ait1 + 40 hex chars)
 BUYER = "ait1" + "0" * 40
 PROVIDER = "ait1" + "1" * 40
@@ -24,7 +28,7 @@ def escrow_engine(monkeypatch, engine):
     """Route EscrowManager DB access to the test in-memory engine."""
     from aitbc_chain import database
 
-    monkeypatch.setattr(database, "_default_chain_id", "test")
+    monkeypatch.setattr(database, "_default_chain_id", CHAIN_ID)
     monkeypatch.setattr(database, "_engines", {"test": engine})
     monkeypatch.setattr(database, "_session_factories", {})
     return engine
@@ -44,6 +48,7 @@ def manager(escrow_engine) -> EscrowManager:
 def _insert_escrow(session, job_id: str, released_at=None, refunded_at=None, refund_tx_hash=None):
     record = Escrow(
         job_id=job_id,
+        chain_id=CHAIN_ID,
         buyer=BUYER,
         provider=PROVIDER,
         amount=5,

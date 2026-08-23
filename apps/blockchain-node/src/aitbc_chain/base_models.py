@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, Column, ForeignKey, Index, String, TypeDecorator, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKeyConstraint, Index, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship
 
@@ -252,12 +252,34 @@ class Account(ChainBase, table=True):
 
 class Escrow(ChainBase, table=True):
     __tablename__ = "escrow"
+    # Chain-scoped, like block, transaction and receipt. `50fb6691025c` gave account the
+    # composite `(chain_id, address)` primary key and did not bring escrow along, which
+    # left the old references pointing at a column that is not unique on its own. SQLite
+    # accepts that at CREATE time and then fails `PRAGMA foreign_key_check` for the entire
+    # database -- "foreign key mismatch" -- so nothing in the chain database could be
+    # integrity-checked. V23-64 wanted these constraints; this is the shape that resolves
+    # (migration c9a4f1e2b73d).
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["chain_id", "buyer"],
+            ["account.chain_id", "account.address"],
+            name="fk_escrow_buyer_account",
+        ),
+        ForeignKeyConstraint(
+            ["chain_id", "provider"],
+            ["account.chain_id", "account.address"],
+            name="fk_escrow_provider_account",
+        ),
+    )
+
     job_id: str = Field(primary_key=True)
-    # `ForeignKey`, not `foreign_key=`: the latter is SQLModel's `Field` argument, and
+    chain_id: str = Field(index=True)
+    # The constraints sit in `__table_args__` because they span two columns. Do not move
+    # them back onto the fields as `foreign_key=`: that is SQLModel's `Field` argument, and
     # passing it to `Column` makes SQLAlchemy read it as a dialect option named
     # `foreign.key`, silently dropping the constraint (V23-64).
-    buyer: str = Field(sa_column=Column(AccountAddress(), ForeignKey("account.address")))
-    provider: str = Field(sa_column=Column(AccountAddress(), ForeignKey("account.address")))
+    buyer: str = Field(sa_column=Column(AccountAddress()))
+    provider: str = Field(sa_column=Column(AccountAddress()))
     amount: int  # in AIT (release/refund multiply by 3600 for compute-seconds)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
