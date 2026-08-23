@@ -159,4 +159,16 @@ case "$MODE" in
 esac
 
 source "$VENV_DIR/bin/activate"
+
+# Editable installs of repo-local packages (e.g. packages/aitbc-shared) are
+# recorded as the absolute path of the repo used to build the cache venv. When
+# that cache is copied/symlinked into a new runner workspace, the original path
+# no longer exists and the package cannot be imported. Reinstall from the
+# current repo so the local package resolves in this workspace.
+if [ -d "$REPO_DIR/packages/aitbc-shared" ]; then
+    if ! "$VENV_DIR/bin/pip" install -q --force-reinstall --no-deps -e "$REPO_DIR/packages/aitbc-shared" >/dev/null 2>&1; then
+        echo "⚠️  Could not reinstall aitbc-shared from $REPO_DIR/packages/aitbc-shared" >&2
+    fi
+fi
+
 echo "✅ Python environment ready from cache: $CACHE_KEY"
