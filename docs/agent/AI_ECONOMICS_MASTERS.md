@@ -265,7 +265,7 @@ agent agent --agent CoordinatorAgent --session-id $SESSION_ID \
 - **AI Economics Masters Roadmap** - Complete transformation guide
 - **Agent Coordination Enhancement** - Communication patterns
 - **Advanced AI Teaching Plan** - Prerequisite foundation
-- **[Production Scripts](../scripts/workflow-agent/08_ai_economics_masters.sh)** - Execution scripts
+- **[Production Scripts](../../scripts/workflow-agent/08_ai_economics_masters.sh)** - Execution scripts
 
 ## 🎉 **Achievement Status**
 
