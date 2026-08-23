@@ -225,6 +225,104 @@ over arbitrary SSH or shell commands.
 Use the typed MCP tools first. Drop to explicit SSH only when the MCP server
 itself is being debugged or a specific one-off command has no MCP wrapper.
 
+## CI runner (gitea-runner)
+
+The Gitea Actions runner is a separate Debian host reachable over SSH:
+
+```bash
+ssh gitea-runner
+```
+
+Key details from inspection:
+
+- Binary: `/opt/gitea-runner/act_runner`
+- Config: `/opt/gitea-runner/config.yaml`
+- Service: `gitea-runner.service`
+- Version: `act_runner v0.2.13`
+- Active label: `debian`
+- Capacity: `1`
+- Executor: host executor (`debian:host`)
+- Cached Python venvs: `/opt/gitea-runner/.cache/aitbc-venvs`
+- Work directory: `/opt/aitbc`
+- Python on host: `/usr/bin/python3` (3.13.5)
+
+Useful commands:
+
+```bash
+# Runner service status
+systemctl is-active gitea-runner
+systemctl status gitea-runner
+
+# Recent runner logs
+journalctl -u gitea-runner -n 50 --no-pager
+
+# Follow runner logs live
+journalctl -u gitea-runner -f
+
+# Inspect config (do not edit the runner token)
+cat /opt/gitea-runner/config.yaml
+
+# Restart the runner after config changes
+sudo systemctl restart gitea-runner
+
+# Test a workflow locally before pushing (stop daemon first to avoid cache races)
+sudo systemctl stop gitea-runner
+cd /opt/gitea-runner
+./act_runner exec -c /opt/gitea-runner/config.yaml \
+  -C /tmp/aitbc_ci2 \
+  -W .gitea/workflows/ci.yml \
+  -E push -i -self-hosted
+```
+
+The runner registration file `/opt/gitea-runner/.runner` contains a token. Treat it as secret and do not commit or copy it.
+
+## Gitea CLI (`tea`)
+
+`tea` is a command-line helper for Gitea, similar to `gh` for GitHub. It operates on the repository in `$PWD` and persists logins in `$XDG_CONFIG_HOME/tea`.
+
+### Setup
+
+```bash
+# Interactive login
+tea login add
+
+# Non-interactive (only if the user explicitly provides a token)
+tea login add --name my-gitea --url https://gitea.bubuit.net --token "$GITEA_TOKEN"
+```
+
+### Common workflows
+
+```bash
+# Show current repo info
+tea repo view
+
+# Pull requests
+tea pr list
+tea pr view 42
+tea pr checkout 42
+tea pr create --title "fix(scope): description" --body "..."
+tea pr merge --style rebase 42
+
+# Issues
+tea issue list
+tea issue view 7
+tea issue create --title "..." --body "..."
+
+# Direct API calls (token is sent automatically)
+tea api /repos/oib/aitbc/pulls
+tea api /repos/oib/aitbc/actions/runs
+
+# Open the current repo in a browser
+tea open
+```
+
+### Notes
+
+- `tea` assumes local `main` tracks the upstream repo in an upstream/fork workflow.
+- Publish local git state before running mutating `tea` commands.
+- Use `tea --debug <command>` when a command fails and the user wants details.
+- Prefer `tea pr checkout` over manual `git fetch` for PR branches.
+
 ## Task tracking
 
 `AGENTS.md` is for workspace rules and conventions only.
