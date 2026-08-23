@@ -40,13 +40,13 @@ def _initialize_exporter(exporter_name: str) -> None:
 
 
 def _initialize_prometheus() -> None:
-    """Initialize Prometheus metrics exporter."""
+    """Initialize Prometheus metrics exporter for the blockchain node process."""
     try:
         import os
 
         from prometheus_client import start_http_server
 
-        port = int(os.environ.get("PROMETHEUS_PORT", 9090))
+        port = int(os.environ.get("AITBC_NODE_METRICS_PORT", 9009))
         start_http_server(port)
         logger.info("Prometheus exporter started on port %s", port)
     except ImportError:

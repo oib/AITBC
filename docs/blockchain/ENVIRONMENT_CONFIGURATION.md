@@ -218,6 +218,7 @@ subscription_transport=websocket
 |----------|----------|---------|-------------|
 | `MONITORING_PORT` | No | `9000` | Monitoring service port |
 | `PROMETHEUS_PORT` | No | `9090` | Prometheus port |
+| `AITBC_NODE_METRICS_PORT` | No | `9009` | Port where the blockchain node main process exposes `/metrics` |
 
 ### Example blockchain.env (Hub Node - ait-mainnet)
 
