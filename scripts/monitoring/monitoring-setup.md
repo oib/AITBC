@@ -96,7 +96,7 @@ groups:
 
 ## Scrape configuration
 
-`/etc/prometheus/prometheus.yml` should scrape all live nodes. On `aitbc3` (which has more resources than `hub`), Prometheus can pull from both the shop and the hub:
+By default Prometheus only scrapes the local node. Remote targets are not planned, so the sample `/etc/prometheus/prometheus.yml` only lists `localhost` jobs:
 
 ```yaml
 global:
@@ -135,47 +135,31 @@ scrape_configs:
           node: aitbc3
           service: blockchain-rpc
 
-  - job_name: 'aitbc3-coordinator-api'
-    static_configs:
-      - targets: ['localhost:8203']
-        labels:
-          node: aitbc3
-          service: coordinator-api
-
-  - job_name: 'aitbc3-marketplace'
-    static_configs:
-      - targets: ['localhost:8104']
-        labels:
-          node: aitbc3
-          service: marketplace
-
-  - job_name: 'hub-blockchain-node'
-    static_configs:
-      - targets: ['hub.aitbc.bubuit.net:9009']
-        labels:
-          node: hub
-          service: blockchain-node
-
-  - job_name: 'hub-blockchain-rpc'
-    static_configs:
-      - targets: ['hub.aitbc.bubuit.net:8202']
-        labels:
-          node: hub
-          service: blockchain-rpc
-
-  - job_name: 'hub-coordinator-api'
-    static_configs:
-      - targets: ['hub.aitbc.bubuit.net:8203']
-        labels:
-          node: hub
-          service: coordinator-api
+  # Coordinator API and marketplace only run on the hub node by default.
+  # - job_name: 'aitbc3-coordinator-api'
+  #   static_configs:
+  #     - targets: ['localhost:8203']
+  #       labels:
+  #         node: aitbc3
+  #         service: coordinator-api
+  #   metrics_path: '/prometheus'
+  #   scrape_interval: 15s
+  #
+  # - job_name: 'aitbc3-marketplace'
+  #   static_configs:
+  #     - targets: ['localhost:8104']
+  #       labels:
+  #         node: aitbc3
+  #         service: marketplace
+  #   metrics_path: '/metrics'
+  #   scrape_interval: 15s
 ```
 
 ## Making Prometheus more useful on aitbc3
 
 Since `aitbc3` has more hardware than `hub`:
 
-1. **Centralise scraping there.** Point Prometheus at both `aitbc3` and `hub` so one place holds the full network view.
+1. **Run Prometheus on the local node.** The default configuration scrapes only `localhost`. If a central view is needed later, deploy a separate central Prometheus with an explicit remote-write or federation plan.
 2. **Add recording rules** for expensive queries used in alerts and ad-hoc investigation:
    ```yaml
    - record: aitbc:block_interval_seconds:rate5m
