@@ -1019,6 +1019,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   computes state roots from stale in-memory state and needs a restart to use
   the corrected `compute_state_root_full` path; until then, validation would
   reject every push block.
+- fix(consensus): the pre-registered transaction query in `PoAProposer` now
+  uses `Transaction.block_height.is_(None)` to correctly select records with a
+  NULL `block_height`. The previous `Transaction.block_height is None` was a
+  Python `True` literal, so the query never returned any pre-registered
+  `FAUCET`/`BRIDGE_REFUND`/`BRIDGE_LOCK` records and they were never anchored.
 - Quality gates: mypy clean, no float money, OpenAPI drift check, and
   `pytest apps/blockchain-node/tests` all pass.
 - fix(database): switch blockchain chain database from StaticPool to NullPool
