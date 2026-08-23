@@ -2,7 +2,6 @@
 
 import json
 from decimal import Decimal
-from pathlib import Path
 
 import click
 
@@ -10,6 +9,7 @@ from ..config import get_config
 from ..utils import DECIMAL, error, output, success
 from ..utils.crypto_utils import bech32_to_hex
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.wallet_paths import wallet_dir
 
 logger = get_logger(__name__)
 
@@ -65,8 +65,7 @@ def register_onchain(
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Load wallet to get address
-        wallet_dir = Path.home() / ".aitbc" / "wallets"
-        wallet_path = wallet_dir / f"{wallet}.json"
+        wallet_path = wallet_dir() / f"{wallet}.json"
 
         if not wallet_path.exists():
             error(f"Wallet '{wallet}' not found at {wallet_path}")
@@ -165,8 +164,7 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Load wallet to get address
-        wallet_dir = Path.home() / ".aitbc" / "wallets"
-        wallet_path = wallet_dir / f"{wallet}.json"
+        wallet_path = wallet_dir() / f"{wallet}.json"
 
         if not wallet_path.exists():
             error(f"Wallet '{wallet}' not found at {wallet_path}")

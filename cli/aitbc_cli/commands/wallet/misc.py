@@ -10,6 +10,7 @@ import click
 from aitbc.utils import ait_to_seconds
 from ...utils import error, output, success
 from ...utils.crypto_utils import bech32_to_hex
+from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import _load_wallet, wallet
 
 
@@ -174,7 +175,7 @@ def export(ctx, destination: str | None):
 @click.pass_context
 def import_wallet(ctx, file_path: str, name: str | None):
     """Import wallet from JSON file"""
-    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
 
     import_path = Path(file_path)

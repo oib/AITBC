@@ -14,6 +14,7 @@ from ...utils import error, output, success
 
 # Import shared modules
 from ...utils.http_client import AITBCHTTPClient, get_logger
+from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -191,7 +192,7 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
         return
 
     # Set wallet directory
-    wallet_dir = Path.home() / ".aitbc" / "wallets"
+    wallet_dir = resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
 
     # Set active wallet (priority: CLI arg > env var > config.yaml > 'default')
