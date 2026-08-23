@@ -6,15 +6,17 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import socket
+import stat
 import uuid
 
 import click
 
 try:
-    from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils import error, output, success, warning
 except ImportError:
-    from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils import error, output, success, warning
 
 
 def create_island_command(ctx, island_id, island_name, chain_id):
@@ -111,6 +113,16 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f, indent=2)
+
+            # Ensure the runtime user can read its own island credentials.
+            try:
+                shutil.chown(credentials_path, user="aitbc", group="aitbc")
+            except (LookupError, OSError) as e:
+                warning(f"Could not chown {credentials_path} to aitbc:aitbc: {e}")
+            try:
+                os.chmod(credentials_path, stat.S_IRUSR | stat.S_IWUSR)
+            except OSError as e:
+                warning(f"Could not chmod {credentials_path}: {e}")
 
             # Display join info
             join_info = {
