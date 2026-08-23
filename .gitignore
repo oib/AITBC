@@ -42,6 +42,9 @@ uv.lock
 .env.local
 .env.*.local
 
+# Devin local overrides (may contain host-specific paths / secrets)
+.devin/*.local.json
+
 # ===================
 # Database & Data
 # ===================
