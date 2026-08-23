@@ -185,7 +185,7 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Patch scenario 34 exchange paths and JWT import (commit `e8966aba1` on gitea `main`).
 - [x] Keep `AGENTS.md`, `TASKLIST.md`, and `LIVE_VALIDATION_SUMMARY.md` accurate as the workspace evolves.
 - [ ] Provide diffs / verification for Agent A when requested.
-- [ ] Do not commit or push release work from the IDE host — only from `aitbc3` or `hub.aitbc`.
+- [x] Commit/push location rule recorded in `AGENTS.md`. Release work is committed and pushed only from `aitbc3` or `hub.aitbc`; the IDE host (`/home/oib/windsurf/aitbc`, `/opt/aitbc` on the IDE) is staging/scratch only.
 
 ## Shared / unresolved decisions
 
