@@ -26,7 +26,17 @@ live nodes (`aitbc3` and `hub.aitbc`) through natural-language tool calls.
 | Bonds (mutate) | `create_performance_bond` |
 | Transactions | `list_pending_transactions`, `get_transaction_status`, `search_transactions` |
 | HTTP / RPC pivot | `call_aitbc_http` |
-| Blockchain RPC | `get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`, `get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`, `get_blockchain_status` |
+| Blockchain core | `get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`, `get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`, `get_blockchain_status`, `get_genesis_allocations`, `get_sync_config`, `list_chains` |
+| Accounts / state | `get_account_balance`, `reconcile_account_balance`, `get_account_state_snapshot`, `get_account_state_delta` |
+| Consensus | `get_consensus_status`, `list_validators` |
+| Staking | `get_staking_info` |
+| Bonds | `get_bond`, `list_provider_bonds` |
+| Bridge | `get_bridge_transfer`, `list_pending_bridge_transfers` |
+| Cross-chain | `get_cross_chain_rates`, `get_cross_chain_pools` |
+| GPU | `list_gpus`, `get_gpu_info` |
+| AI on-chain | `list_ai_jobs_onchain`, `get_ai_job_onchain` |
+| Escrow | `get_escrow_state` |
+| Islands | `list_islands`, `get_island` |
 | Version / auth | `get_aitbc_version`, `get_auth_status` |
 
 All destructive tools default to `dry_run=true` and require `confirm=true` before
@@ -92,6 +102,7 @@ Recommended `.devin/config.json`:
       "mcp__aitbc__list_*",
       "mcp__aitbc__get_*",
       "mcp__aitbc__search_*",
+      "mcp__aitbc__query_*",
       "mcp__aitbc__node_status",
       "mcp__aitbc__get_service_health"
     ],
