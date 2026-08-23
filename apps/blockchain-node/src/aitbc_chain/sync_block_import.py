@@ -343,17 +343,19 @@ class BlockImportMixin(SyncBase):
                     int(tx_data.get("fee", 0) or 0)
                     tx_hash = tx_data.get("tx_hash", "")
                     raw_from = tx_data.get("from", "")
+                    raw_to = tx_data.get("to", "")
                     if raw_from not in {"faucet", "bridge_release", "bridge_refund"}:
                         sender_acct = session.get(Account, (self._chain_id, sender_addr))
                         if sender_acct is None:
                             sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
                             session.add(sender_acct)
                             session.flush()
-                    recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
-                    if recipient_acct is None:
-                        recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
-                        session.add(recipient_acct)
-                        session.flush()
+                    if raw_to != "bridge_lock":
+                        recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
+                        if recipient_acct is None:
+                            recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
+                            session.add(recipient_acct)
+                            session.flush()
                     state_transition = get_state_transition()
                     success, error_msg = state_transition.apply_transaction(session, self._chain_id, tx_data, tx_hash)
                     if not success:
