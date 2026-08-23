@@ -14,7 +14,7 @@ from .base_models import Account, Block, _to_ait_address
 from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
-from .metrics import metrics_registry
+from .metrics import block_height, metrics_registry, sync_blocks_imported
 from .state import state_root_utils
 from .state.pure_state_transition import (
     StateDelta,
@@ -428,6 +428,8 @@ class BlockImportMixin(SyncBase):
         session.commit()
         self._reset_rejection_counter(self._chain_id)
         metrics_registry.increment("sync_blocks_accepted_total")
+        sync_blocks_imported.inc()
+        block_height.set(int(block_data["height"]))
         metrics_registry.set_gauge("sync_chain_height", float(block_data["height"]))
         logger.info(
             "Imported block",
