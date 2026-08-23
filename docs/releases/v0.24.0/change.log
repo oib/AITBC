@@ -1069,7 +1069,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #16.
 - fix(state,sync): handle FAUCET/BRIDGE_* as pre-registered credit transactions on followers
 - fix(state): BRIDGE_LOCK is now a pre-registered debit transaction on
-  followers. The sender is debited and the nonce is incremented, but no
+- fix(sync): re-enable state-root validation for push imports in
+  `subscription_client.py` now that the hub proposer computes correct roots and
+  pre-registered transactions are handled consistently.  followers. The sender is debited and the nonce is incremented, but no
   bridge_lock account is created, and the tx nonce is not checked against the
   current sender nonce. This prevents the extra bridge_lock account that caused
   the resynced aitbc3 state root to diverge from the hub.
