@@ -34,6 +34,20 @@ aitbc prometheus check                # promtool config + rules
 
 In watch mode, each firing alert is emitted as a single JSON line to stdout and also logged, so an external watcher can follow `journalctl -u aitbc-prometheus-watch` or tail the output.
 
+A systemd unit is provided in `scripts/monitoring/aitbc-prometheus-watch.service`. Install it with:
+
+```bash
+sudo cp scripts/monitoring/aitbc-prometheus-watch.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now aitbc-prometheus-watch
+```
+
+Firing alerts appear in the journal and can be followed with:
+
+```bash
+journalctl -u aitbc-prometheus-watch -f
+```
+
 ## Prometheus-first metrics
 
 ### Core AITBC metrics
