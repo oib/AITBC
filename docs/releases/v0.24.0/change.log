@@ -985,3 +985,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Historical bridge data archaeology: four pre-v0.24.1 hub-to-island transfers (0x45e3..., 0x3b3b..., 0x6eb4..., 0x4bb3...) were initiated from the shop follower instead of the hub producer.  Their island releases are confirmed in real blocks, but the hub source accounts were never debited.  The new source-chain guard in bridge_transfer.py prevents recurrence.  Reconciling the unbacked 160 compute-seconds is an operator/governance decision and is documented in LIVE_VALIDATION_SUMMARY.md, not a blind code fix.
 
 - PostgreSQL/credential cleanup on aitbc3 and hub.aitbc: removed stale password-bearing env backups, deleted unused postgres_*_password files, removed misleading MEMPOOL_DB_URL lines on aitbc3, redacted stale DATABASE_URL DSN comments, and set /etc/aitbc env/credential permissions to root:aitbc 640/750.
+
+- fix(scripts): secure AITBC backup files and clean PostgreSQL setup fallback
+  - aitbc-backup.sh now skips non-existent PostgreSQL databases, backs up aitbc_poolhub, and chmod 600/750s every backup artifact.
+  - setup.sh fallback no longer creates aitbc_user, aitbc_coordinator, aitbc_exchange, aitbc_wallet, aitbc_marketplace, aitbc_trading, aitbc_gpu, or aitbc_ai PostgreSQL databases; it documents the remaining aitbc_governance, aitbc_mempool, and aitbc_poolhub entries.
