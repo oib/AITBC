@@ -178,4 +178,7 @@ fixed by code changes alone.
 
 ## Task tracking
 
-`AGENTS.md` is for workspace rules and conventions only. Open tasks, assignments and current state belong in `TASKLIST.md` in the same directory.
+`AGENTS.md` is for workspace rules and conventions only.
+Open tasks, assignments and current state are tracked in `/home/oib/windsurf/aitbc/TASKLIST.md`.
+Live validation notes are tracked in `/home/oib/windsurf/aitbc/LIVE_VALIDATION_SUMMARY.md`.
+These files are intentionally not tracked in the canonical `aitbc3` / `hub.aitbc` repository.
