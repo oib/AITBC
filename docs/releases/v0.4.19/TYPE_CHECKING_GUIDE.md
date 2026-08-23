@@ -162,8 +162,8 @@ Mypy may report errors on valid code. Use explicit `# type: ignore` with error c
 
 ## Related Documentation
 
-- [pyproject.toml](../../pyproject.toml) - Mypy configuration
-- [scripts/ci/check-mypy-changed.sh](../../scripts/ci/check-mypy-changed.sh) - CI script
+- [pyproject.toml](../../../pyproject.toml) - Mypy configuration
+- [scripts/ci/check-mypy-changed.sh](../../../scripts/ci/check-mypy-changed.sh) - CI script
 - [Python Type Hints Cheat Sheet](https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html)
 
 ## Questions?

@@ -318,7 +318,7 @@ PERIODIC_SYNC_INTERVAL=30
 - [SETUP.md - Node Profiles](../../getting-started/SETUP.md)
 - [SETUP.md - Sync Modes](../../getting-started/SETUP.md)
 - [SETUP.md - Lease-Based Subscription](../../getting-started/SETUP.md)
-- [setup.sh - Profile Selection](../../scripts/deployment/setup.sh)
+- [setup.sh - Profile Selection](../../../scripts/deployment/setup.sh)
 
 ## 🚀 Dependencies
 

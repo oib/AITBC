@@ -27,7 +27,6 @@ Production Solidity contracts live in `contracts/contracts/`:
 |----------|--------|
 | `AIPowerRental` | [AIPowerRental.sol](../../contracts/contracts/AIPowerRental.sol) |
 | `AIServiceAMM` | [AIServiceAMM.sol](../../contracts/contracts/AIServiceAMM.sol) |
-| `AITBCPaymentProcessor` | [AITBCPaymentProcessor.sol](../../contracts/contracts/AITBCPaymentProcessor.sol) |
 | `AIToken` | [AIToken.sol](../../contracts/contracts/AIToken.sol) |
 | `AgentBounty` | [AgentBounty.sol](../../contracts/contracts/AgentBounty.sol) |
 | `AgentCommunication` | [AgentCommunication.sol](../../contracts/contracts/AgentCommunication.sol) |
@@ -47,11 +46,11 @@ Production Solidity contracts live in `contracts/contracts/`:
 | `DisputeResolution` | [DisputeResolution.sol](../../contracts/contracts/DisputeResolution.sol) |
 | `DynamicPricing` | [DynamicPricing.sol](../../contracts/contracts/DynamicPricing.sol) |
 | `EscrowService` | [EscrowService.sol](../../contracts/contracts/EscrowService.sol) |
-| `GPURegistry` | [GPURegistry.sol](../../contracts/contracts/GPURegistry.sol) |
 | `Groth16Verifier` | [Groth16Verifier.sol](../../contracts/contracts/Groth16Verifier.sol) |
 | `KnowledgeGraphMarket` | [KnowledgeGraphMarket.sol](../../contracts/contracts/KnowledgeGraphMarket.sol) |
 | `MemoryVerifier` | [MemoryVerifier.sol](../../contracts/contracts/MemoryVerifier.sol) |
 | `MockVerifier` | [MockVerifier.sol](../../contracts/contracts/MockVerifier.sol) |
+| `PaymentProcessor` | [PaymentProcessor.sol](../../contracts/contracts/PaymentProcessor.sol) |
 | `PerformanceAggregator` | [PerformanceAggregator.sol](../../contracts/contracts/PerformanceAggregator.sol) |
 | `PerformanceVerifier` | [PerformanceVerifier.sol](../../contracts/contracts/PerformanceVerifier.sol) |
 | `RewardDistributor` | [RewardDistributor.sol](../../contracts/contracts/RewardDistributor.sol) |
