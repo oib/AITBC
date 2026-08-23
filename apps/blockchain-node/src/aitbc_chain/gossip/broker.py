@@ -18,10 +18,6 @@ from ..config import settings
 from ..metrics import metrics_registry
 
 warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
-try:
-    from broadcaster import Broadcast
-except ImportError:
-    Broadcast = None
 
 
 def _increment_publication(metric_prefix: str, topic: str) -> None:
