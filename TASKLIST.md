@@ -70,9 +70,11 @@
       `alembic_version` at all, so it was stamped at `d4e8b91c0a37` first. Pass
       `DATABASE_URL` explicitly or alembic targets the wrong file (see `env.py` V23-49).
 - [x] Apply `b7f3c1a90d24` on `aitbc3` — already at `c9a4f1e2b73d` on the live chain.db.
-- [ ] Decide whether `release_escrow` should return HTTP 4xx/5xx rather than
-      `success: false` when settlement fails; the current shape keeps the coordinator
-      and `ai submit --wait` contract intact.
+- [x] `release_escrow` returns HTTP 502 (not `success: false` with 200) when
+      on-chain settlement fails. The escrow release is rolled back so it can be
+      retried, and `PaymentService.release_payment` now rejects any response with
+      `success` not true. This keeps `ai submit --wait` honest: payment_status stays
+      `escrowed` until a chain tx exists.
 - [x] `/rpc/transactions` now orders newest-first, so `limit` returns the most recent
       rows. This also fixed `aitbc wallet transactions --limit`, which was showing users
       their oldest transactions.
