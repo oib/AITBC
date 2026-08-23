@@ -12,6 +12,8 @@ import shlex
 from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
+from decimal import Decimal
+
 from pydantic import Field
 
 from aitbc_mcp_server import (
@@ -796,7 +798,7 @@ def create_marketplace_listing(
         Field(description="Type of item, e.g. 'GPU'."),
     ],
     price: Annotated[
-        float,
+        Decimal,
         Field(description="Price in AIT.", ge=0),
     ],
     description: Annotated[
@@ -849,7 +851,7 @@ def register_gpu(
         Field(description="GPU memory in GB.", ge=0),
     ],
     price_per_hour: Annotated[
-        float,
+        Decimal,
         Field(description="Price per hour in AIT.", ge=0),
     ],
     registered_by: Annotated[
@@ -924,7 +926,7 @@ def allocate_gpu(
         Field(description="Allocation duration in hours.", ge=0),
     ],
     total_cost: Annotated[
-        float,
+        Decimal,
         Field(description="Total cost in AIT.", ge=0),
     ],
     allocated_by: Annotated[
@@ -1307,7 +1309,7 @@ def create_cross_chain_swap(
         Field(description="Target token."),
     ],
     amount: Annotated[
-        float,
+        Decimal,
         Field(description="Amount to swap.", gt=0),
     ],
     user_address: Annotated[
@@ -1319,7 +1321,7 @@ def create_cross_chain_swap(
         Field(description="Slippage tolerance.", ge=0, le=1),
     ] = 0.01,
     min_amount: Annotated[
-        float | None,
+        Decimal | None,
         Field(description="Minimum acceptable output amount."),
     ] = None,
     dry_run: Annotated[
@@ -1370,7 +1372,7 @@ def create_cross_chain_bridge(
         Field(description="Token identifier."),
     ],
     amount: Annotated[
-        float,
+        Decimal,
         Field(description="Amount to bridge.", gt=0),
     ],
     recipient_address: Annotated[
@@ -1567,7 +1569,7 @@ def create_escrow(
         Field(description="Provider wallet address."),
     ],
     amount: Annotated[
-        float,
+        Decimal,
         Field(description="Escrow amount in AIT.", gt=0),
     ],
     lock_signature: Annotated[
