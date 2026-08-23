@@ -186,8 +186,11 @@ class ChainSyncService:
             from .network.compression import encode_payload
 
             payload = encode_payload(block_data)
-            await self._redis.publish("blocks", payload)
-            logger.info("Broadcasted block %s", block_data.get("height"))
+            # Must match the channel _receive_blocks() subscribes to, or nodes
+            # broadcast into a channel none of their peers is listening on.
+            channel = f"blocks.{self.chain_id}" if self.chain_id else "blocks"
+            await self._redis.publish(channel, payload)
+            logger.info("Broadcasted block %s on channel %s", block_data.get("height"), channel)
         except Exception as e:
             logger.error("Error broadcasting block: %s", e)
 
