@@ -42,6 +42,7 @@ def build_verification_message(header: BridgeBlockHeader) -> dict[str, Any]:
         "parent_hash": header.parent_hash,
         "proposer": header.proposer,
         "state_root": header.state_root,
+        "bridge_state_root": header.bridge_state_root,
     }
 
 

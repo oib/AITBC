@@ -518,10 +518,9 @@ class TestBlockHeaderSignatureVerification:
             assert record is not None
 
         proof_fields = _build_proof_fields(record, block_hash=block_hash)
-        proof_fields["proposer_signature"] = _sign_proof(
-            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            proposer.key.hex(),
-        )
+        # v0.7.3: the proposer signature in a bridge proof is the source
+        # block header signature.
+        proof_fields["proposer_signature"] = signature
 
         with patch("aitbc_chain.config.settings.bridge_multisig_enabled", False):
             result = bridge._validate_proof(proof_fields, record)
