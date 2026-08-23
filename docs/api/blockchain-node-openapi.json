@@ -8757,6 +8757,16 @@
               }
             }
           },
+          "502": {
+            "description": "Escrow release could not be settled on-chain; the provider was not paid. The release was rolled back and can be retried.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released",
             "content": {
