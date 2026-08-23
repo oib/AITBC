@@ -37,13 +37,13 @@ aitbc wallet create customer-wallet standard
 aitbc wallet fund <customer-address>
 ```
 
-The CLI authenticates with the coordinator using a JWT passed via `--api-key` or the `AITBC_API_KEY` environment variable. To generate a client JWT locally:
+The CLI authenticates with the coordinator using a JWT passed via `--api-key` or the `AITBC_API_KEY` environment variable. If not using `aitbc auth login`, generate a client JWT locally:
 
 ```bash
 python3 -c "from aitbc.auth import create_access_token; print(create_access_token('customer-node-user', 'client', {'wallet_address': '<customer-address>'}))"
 ```
 
-There is not yet a dedicated `aitbc auth login` command.
+`aitbc auth login` generates a wallet-signed JWT and stores it for subsequent commands; `--api-key` is still accepted as a fallback.
 
 ### 2. Discover compute
 
@@ -92,7 +92,7 @@ The CLI builds a `JobCreate` payload and posts it to `POST /v1/jobs` on the coor
 
 The coordinator creates a `JobPayment` record and calls `POST /rpc/escrow/create` on the blockchain node (port 8202) to escrow the buyer's funds. The job is then queued for a miner.
 
-**Note:** The CLI currently requires the operator to poll `aitbc ai status <job_id>` in a separate step. `aitbc ai submit --wait` is the P1.5 improvement that will add blocking, polling, and escrow-tx output.
+Use `aitbc ai submit --wait --timeout <seconds> --poll-interval <seconds>` to block, poll until the job is `released`, and print the escrow transaction hash.
 
 ### 4. Match and execute
 
@@ -113,7 +113,7 @@ The miner then:
 3. Runs inference against the local Ollama server (`http://localhost:11434/api/generate`).
 4. Returns the result, metrics, and a receipt to the coordinator via `POST /v1/miners/{job_id}/result`.
 
-The current dispatch model is pull-based: the first matching online miner that polls gets the job. Reputation-aware dispatch is the P1.1 improvement under design.
+The dispatch model is pull-based with reputation preference: matching online miners are polled, and `min_reputation` plus higher reputation scores are used to select the assignment. (P1.1 shipped.)
 
 ### 5. Escrow release and settlement
 
@@ -124,7 +124,7 @@ When the coordinator receives the miner's result:
 3. The blockchain node builds and signs an `ESCROW_RELEASE` transaction and submits it to `POST /rpc/transactions/marketplace`.
 4. The transaction is included in a block, transferring compute-seconds from the escrow to the provider.
 
-The release is currently signed by the configured genesis wallet private key (`GENESIS_WALLET_PRIVATE_KEY` in `/etc/aitbc/blockchain-secrets.env`). A 1.0 AIT job currently pays approximately 0.975 AIT to the provider after the network fee.
+The release is signed by the dedicated settlement key (`ESCROW_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_ADDRESS` in `/etc/aitbc/blockchain-secrets.env`); genesis is only a logged fallback and a key/address mismatch is refused before the escrow is touched. A 1.0 AIT job currently pays approximately 0.975 AIT to the provider after the network fee.
 
 ### 6. Inspect results
 
@@ -142,6 +142,7 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 | Component | Port | CLI group | Responsibility |
 |-----------|------|-----------|----------------|
 | aitbc CLI | — | — | User interface, credential store, job formatting |
+| aitbc auth | — | `aitbc auth login` | Wallet-signed JWT generation for coordinator access |
 | Blockchain node RPC | 8202 | `aitbc chain`, `aitbc explorer`, `aitbc transactions` | Blocks, accounts, transactions, `/escrow/*`, `/transactions/marketplace` |
 | Coordinator API | 8203 | `aitbc ai`, `aitbc auth` (JWT via `--api-key` only) | Job submission, assignment, result collection, payment records |
 | Agent-coordinator | 8107 | `aitbc agent-comm`, `aitbc agent` | Agent messaging and orchestration (not the AI job miner) |
@@ -155,15 +156,15 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 ## Trust boundaries and known gaps
 
 - **Authentication:** `Authorization: Bearer <jwt>` is the working header. The `X-Api-Key` legacy header is still accepted by some services but the CLI uses the bearer token.
-- **Escrow:** The live path creates an on-chain escrow and releases it with a signed `ESCROW_RELEASE`. The release signer is the hub-configured genesis key; the bridge is not involved in AI job escrow.
+- **Escrow:** The live path creates an on-chain escrow and releases it with a signed `ESCROW_RELEASE`. The release signer is the dedicated `ESCROW_RELEASE_PRIVATE_KEY`; genesis is only a logged fallback. The bridge is not involved in AI job escrow.
 - **Bridge:** Cross-chain bridge code exists but `bridge_multisig_enabled` and `bridge_require_merkle_proof` are `False` by default. See `docs/releases/STATUS.md` and P1.3 for the current trust model.
 - **Consensus:** The live hub currently runs single-validator Proof-of-Authority. MultiValidatorPoA/PBFT is behind the `multi_validator_consensus_enabled` flag; see P1.4.
-- **Dispatch:** Reputation data exists and is exposed via `aitbc reputation`, but it is not yet used to select which miner receives a job; see P1.1.
+- **Dispatch:** Reputation data is exposed via `aitbc reputation` and used to satisfy `min_reputation` and prefer higher-reputation miners during dispatch. (P1.1 shipped.)
 
 ## Message flow timeline
 
 ```
-0s:  Customer submits CLI command
+0s:  Customer submits CLI command (or `aitbc ai submit --wait`)
 1s:  CLI posts JobCreate to coordinator (8203)
 2s:  Coordinator creates JobPayment and posts /rpc/escrow/create (8202)
 3s:  Job queued in coordinator database
@@ -174,7 +175,7 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 16s: Miner posts result to coordinator
 17s: Coordinator posts /rpc/escrow/{job_id}/release (8202)
 18s: Blockchain includes ESCROW_RELEASE transaction
-30s: Customer polls aitbc ai status and sees COMPLETED + released
+30s: Customer polls `aitbc ai status` and sees `COMPLETED + released`, or `aitbc ai submit --wait` exits with the escrow transaction hash
 ```
 
 ## Error handling paths
@@ -196,7 +197,7 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
    - Customer can re-run `aitbc ai status` once connectivity returns.
 
 5. **Escrow release fails**
-   - If the genesis key or blockchain node is unavailable, the job may show `COMPLETED` but `payment_status: escrowed`.
+   - If the settlement key, genesis key, or blockchain node is unavailable, the job may show `COMPLETED` but `payment_status: escrowed`.
    - The operator must investigate the blockchain node logs; the payment is not lost while it remains escrowed.
 
 ## Monitoring
