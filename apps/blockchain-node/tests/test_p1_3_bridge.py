@@ -163,7 +163,8 @@ class TestP1_3Bridge:
             assert proof["proposer"] == block.proposer
             assert proof["parent_hash"] == block.parent_hash
             assert proof["proposer_signature"] == block.signature
-            assert proof["state_root"] == block.bridge_state_root
+            assert proof["state_root"] == block.state_root
+            assert proof["bridge_state_root"] == block.bridge_state_root
 
             # Confirm on the target chain.
             completed = bridge.confirm_transfer(transfer.transfer_id, proof)
