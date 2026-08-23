@@ -24,6 +24,15 @@ from ....config import settings
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
+from ..acceptance import (
+    DISPUTED,
+    HELD_STATES,
+    META_DISPUTE_REASON,
+    META_DISPUTED_AT,
+    PENDING_ACCEPTANCE,
+    deadline_from,
+    opened_window,
+)
 from ..provider_binding import same_address
 
 logger = get_logger(__name__)
@@ -330,13 +339,64 @@ class PaymentService:
             self.session.commit()
             return None
 
+    def open_acceptance_window(self, job_id: str, payment_id: str, window_seconds: int) -> datetime | None:
+        """Hold a completed job's escrow for the customer to review it (G3).
+
+        Returns the deadline the hold expires at, or None when there is nothing to
+        hold -- no such payment, or one that is not escrowed -- so the caller can
+        report a settlement failure rather than assume the money is waiting.
+
+        The escrow itself is untouched: the funds stay locked on-chain exactly as
+        they were, and only the coordinator's view of what happens next changes.
+        """
+        payment = self.session.get(JobPayment, payment_id)
+        if payment is None or payment.job_id != job_id or payment.status != "escrowed":
+            return None
+        now = datetime.now(UTC)
+        payment.meta_data = opened_window(payment.meta_data, window_seconds, now=now)
+        payment.status = PENDING_ACCEPTANCE
+        payment.updated_at = now
+        self.session.add(payment)
+        self.session.commit()
+        deadline = deadline_from(payment.meta_data)
+        logger.info("Payment %s held for acceptance on job %s until %s", payment_id, job_id, deadline)
+        return deadline
+
+    def dispute_payment(self, client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+        """Record a customer's rejection of the result (G3).
+
+        The escrow deliberately stays locked. Refunding on the customer's word alone
+        would be the mirror image of the problem an acceptance window exists to fix --
+        one party settling in its own favour -- so an operator or arbiter rules on it.
+        """
+        payment = self.session.get(JobPayment, payment_id)
+        if payment is None or payment.job_id != job_id:
+            return False
+        self._require_owned_job(payment.job_id, client_id)
+        if payment.status != PENDING_ACCEPTANCE:
+            return False
+        now = datetime.now(UTC)
+        meta = dict(payment.meta_data or {})
+        meta[META_DISPUTE_REASON] = reason
+        meta[META_DISPUTED_AT] = now.isoformat()
+        payment.meta_data = meta
+        payment.status = DISPUTED
+        payment.updated_at = now
+        self.session.add(payment)
+        self.session.commit()
+        logger.info("Payment %s disputed on job %s: %s", payment_id, job_id, reason)
+        return True
+
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
         payment = self.session.get(JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
             return False
         self._require_owned_job(payment.job_id, client_id)
-        if payment.status != "escrowed":
+        # G3: "pending_acceptance" and "disputed" are escrowed money under another
+        # name -- the funds are still locked -- so a release from either is the same
+        # on-chain operation. Anything outside HELD_STATES has already settled.
+        if payment.status not in HELD_STATES:
             return False
         job = self.session.get(Job, job_id)
         if _zk_required_for_payment(payment.amount if payment.amount else None, job):
@@ -418,7 +478,8 @@ class PaymentService:
         if payment is None or payment.job_id != job_id:
             return False
         self._require_owned_job(payment.job_id, client_id)
-        if payment.status not in ["escrowed", "pending"]:
+        # G3: a held or disputed payment is still refundable; the escrow never moved.
+        if payment.status not in HELD_STATES and payment.status != "pending":
             return False
         try:
             client = AITBCHTTPClient(timeout=30.0)
