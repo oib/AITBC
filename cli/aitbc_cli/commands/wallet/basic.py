@@ -14,6 +14,7 @@ from ...utils import DECIMAL, error, output, success
 from ...utils.crypto_utils import bech32_to_hex
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.money import wallet_amount as _wallet_amount
+from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from aitbc.utils import ait_to_seconds, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
@@ -323,11 +324,11 @@ def balance(ctx, name: str | None):
         balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
     except Exception:
         # Fall back to local file wallet if the daemon does not know this wallet.
-        wallet_dir = ctx.obj.get("wallet_dir") or (Path.home() / ".aitbc" / "wallets")
+        wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
         wallet_path = wallet_dir / f"{wallet_name}.json"
         if not wallet_path.exists():
             error(f"Wallet '{wallet_name}' not found in daemon or {wallet_path}")
-            raise click.Abort()
+            raise click.Abort() from None
 
         try:
             with open(wallet_path) as f:
