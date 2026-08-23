@@ -8,14 +8,18 @@ import click
 
 from ..utils import error, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.wallet_paths import wallet_dir
 
 DEFAULT_RPC_URL = "http://localhost:8202"
-DEFAULT_KEYSTORE_DIRS = [Path.home() / ".aitbc" / "wallets", Path("/var/lib/aitbc/keystore")]
+
+
+def _keystore_dirs() -> list[Path]:
+    return [wallet_dir(), Path("/var/lib/aitbc/keystore")]
 
 
 def _find_wallet_path(wallet_name: str) -> Path | None:
     """Find a wallet file by name in the known keystore directories."""
-    for directory in DEFAULT_KEYSTORE_DIRS:
+    for directory in _keystore_dirs():
         candidate = directory / f"{wallet_name}.json"
         if candidate.exists():
             return candidate
@@ -35,7 +39,7 @@ def _load_wallet_address(wallet_name: str) -> str:
 
 def _default_wallet_name() -> str:
     """Return the first wallet name found in the default keystore directories."""
-    for directory in DEFAULT_KEYSTORE_DIRS:
+    for directory in _keystore_dirs():
         if directory.exists():
             for entry in sorted(directory.glob("*.json")):
                 # Skip non-wallet JSON files such as genesis.json

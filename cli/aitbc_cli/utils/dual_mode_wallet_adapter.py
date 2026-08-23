@@ -7,13 +7,14 @@ and daemon-based wallet operations, allowing seamless switching between modes.
 import json
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 from aitbc_cli.utils import error, success
 from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
 
 from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+from aitbc_cli.utils.wallet_paths import wallet_dir
 
 
 class DualModeWalletAdapter:
@@ -23,7 +24,7 @@ class DualModeWalletAdapter:
         self.config = config
         self.use_daemon = use_daemon
         self.chain_id = chain_id
-        self.wallet_dir = Path.home() / ".aitbc" / "wallets"
+        self.wallet_dir = wallet_dir()
         self.wallet_dir.mkdir(parents=True, exist_ok=True)
 
         if use_daemon and config:
