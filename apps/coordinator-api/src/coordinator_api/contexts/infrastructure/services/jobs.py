@@ -34,6 +34,43 @@ def _bond_required_for(job: Job) -> bool:
     return False
 
 
+# G4: a job whose escrow never locked must not be handed to a miner. The
+# marketplace purchase path already refused this case -- marketplace_gpu.py checks
+# for "failed"/"skipped" before it returns a job id -- but POST /v1/jobs did not,
+# so an escrow failure there was recorded as payment_status="skipped" and the job
+# stayed dispatchable. A provider then burned GPU time for work nobody paid for.
+#
+# The allowlist is deliberate. "escrowed" is the one state the rest of the payment
+# path treats as funds-locked: settlement_reconciler queries it, and miner.py will
+# only release from it. Anything else -- pending, skipped, failed, released,
+# refunded, or a state added later -- fails closed.
+_PAYMENT_DISPATCHABLE_STATES = frozenset({"escrowed"})
+_PAYMENT_REQUIRE = os.getenv("COORDINATOR_REQUIRE_PAYMENT", "true").lower() == "true"
+
+
+def _payment_blocks_dispatch(job: Job) -> str | None:
+    """Return why a job must not be dispatched, or None if it may run.
+
+    ``payment_status`` is None for jobs submitted without a ``payment_amount``.
+    Unpriced work is still allowed through; what is refused is a job that asked to
+    be paid for and was not.
+
+    Blocked jobs stay QUEUED rather than being failed outright, so a client can
+    still secure the escrow against them via POST /v1/payments. If none arrives the
+    job leaves the queue on its own when its TTL expires.
+    """
+    if not _PAYMENT_REQUIRE:
+        return None
+    payment_status = (job.payment_status or "").strip().lower()
+    if not payment_status:
+        if job.payment_amount is not None and job.payment_amount > 0:
+            return "job is priced but carries no payment record"
+        return None
+    if payment_status in _PAYMENT_DISPATCHABLE_STATES:
+        return None
+    return f"payment not secured (payment_status={payment_status})"
+
+
 def _to_utc(dt: datetime | None) -> datetime | None:
     """Make a datetime timezone-aware for comparison; SQLite returns naive datetimes."""
     if dt is None:
@@ -174,6 +211,10 @@ class JobService:
                         expires_at = _to_utc(job.expires_at)
                         if expires_at and expires_at <= now:
                             continue
+                    unpaid_reason = _payment_blocks_dispatch(job)
+                    if unpaid_reason:
+                        logger.info("Job %s is not dispatchable: %s", job.id, unpaid_reason)
+                        continue
                     if not self._satisfies_constraints(job, miner):
                         continue
                     if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation):

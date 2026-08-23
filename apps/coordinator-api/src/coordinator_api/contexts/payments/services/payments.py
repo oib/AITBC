@@ -76,7 +76,7 @@ class PaymentService:
 
     async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
-        self._require_owned_job(job_id, client_id)
+        job = self._require_owned_job(job_id, client_id)
         try:
             meta = {}
             if payment_data.provider_address:
@@ -109,6 +109,13 @@ class PaymentService:
                 escrow = await self._create_crypto_escrow(payment)
                 if escrow is not None:
                     self.session.add(escrow)
+            # G4: the dispatch gate in JobService reads job.payment_status, so every
+            # entry point that creates a payment has to leave it in step. Without this a
+            # client retrying a skipped escrow through POST /v1/payments would lock the
+            # funds but never clear the gate, and the job would sit queued until its TTL.
+            job.payment_id = payment.id
+            job.payment_status = payment.status
+            self.session.add(job)
             self.session.commit()
             self.session.refresh(payment)
             logger.info("Payment created successfully: %s", payment.id)
