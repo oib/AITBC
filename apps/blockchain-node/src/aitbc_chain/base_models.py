@@ -281,9 +281,11 @@ class Escrow(ChainBase, table=True):
     buyer: str = Field(sa_column=Column(AccountAddress()))
     provider: str = Field(sa_column=Column(AccountAddress()))
     amount: int  # in AIT (release/refund multiply by 3600 for compute-seconds)
+    status: str = Field(default="locked")  # locked, released, refunded
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
     refunded_at: datetime | None = None
+    lock_tx_hash: str | None = None  # TX hash of the ESCROW_LOCK transaction
     job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
     refund_tx_hash: str | None = None  # TX hash of escrow refund
 
