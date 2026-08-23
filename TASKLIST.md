@@ -258,3 +258,19 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Fix `escrow_enabled` default/config drift in `STATUS.md` and `apps/blockchain-node/src/aitbc_chain/config.py`.
   - `escrow_enabled` now defaults to `True`; B4/HTLC integration complete.
   - `STATUS.md` no longer lists `False` for the flag; bridge-scope note updated.
+
+---
+
+# Open tasks
+
+The remaining work, after the 2026-08-24 session, is primarily the V23-42 agent-stake / bounty chain surface that this plan set out to build:
+
+- [ ] **V23-42 agent-stake RPC surface** (`/rpc/staking/agent-stake`, `/rpc/staking/stake/{stake_id}/{add,unbond,complete}`, `/rpc/staking/performance`, `/rpc/staking/agents/{agent_wallet}/distribute`, `/rpc/staking/claim-rewards`)
+- [ ] **V23-42 bounty RPC surface** (`/rpc/bounty/deploy`, `/rpc/bounty/{bounty_id}/{submit,verify,dispute,expire}`)
+- [ ] **Agent economics operator key signing**: `AGENT_ECONOMICS_OPERATOR_ADDRESS` on the node, `AGENT_ECONOMICS_OPERATOR_PRIVATE_KEY` on the coordinator hub.
+- [ ] **Chain-first coordinator writes**: `StakingService` and `BountyService` await the on-chain result before committing local SQLite state.
+- [ ] **Models and migration** for `AgentStakeRecord`, `BountyContract`, `BountySubmissionRecord`.
+- [ ] **Unit and live tests** for agent-stake and bounty on hub.
+- [ ] **OpenAPI regeneration** once the new routes exist, then re-enable the `openapi-drift` hook (currently must not be skipped).
+- [ ] **`AITBC_WALLET_DIR` CLI helper** if not already landed (phase 0 of the original plan).
+- [ ] **One live validation pass** for agent-stake debit and bounty expire refund on hub.
