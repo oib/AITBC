@@ -855,7 +855,7 @@
           "agent-messaging"
         ],
         "summary": "Send Encrypted Message",
-        "description": "Send encrypted message to agent",
+        "description": "Send encrypted message to agent, trying WebSocket first then storage.\n\nA client-provided ``message_id`` makes the call idempotent: if a message\nwith that ID already exists, the existing record is returned without\nre-sending.  After the first call the message status is ``pending`` until\nthe WebSocket layer confirms delivery (``delivered``).",
         "operationId": "send_encrypted_message_api_v1_agent_messages_send_post",
         "requestBody": {
           "content": {
@@ -1100,51 +1100,6 @@
         }
       }
     },
-    "/api/v1/agent/messages/{agent_id}": {
-      "get": {
-        "tags": [
-          "agent-messaging"
-        ],
-        "summary": "Get Messages For Agent Compatibility",
-        "description": "Get messages for agent - AgentDaemon compatibility route",
-        "operationId": "get_messages_for_agent_compatibility_api_v1_agent_messages__agent_id__get",
-        "parameters": [
-          {
-            "name": "agent_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Agent Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Messages For Agent Compatibility Api V1 Agent Messages  Agent Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/agent/messages/discover": {
       "get": {
         "tags": [
@@ -1267,7 +1222,7 @@
           "agent-messaging"
         ],
         "summary": "Subscribe To Topic",
-        "description": "Subscribe agent to topic",
+        "description": "Subscribe agent to topic and persist the subscription.",
         "operationId": "subscribe_to_topic_api_v1_agent_messages_subscribe_post",
         "requestBody": {
           "content": {
@@ -1303,7 +1258,146 @@
             }
           },
           "500": {
+            "description": "Failed to persist subscription / Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Message storage not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/unsubscribe": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Unsubscribe From Topic",
+        "description": "Unsubscribe agent from topic and remove the persisted subscription.",
+        "operationId": "unsubscribe_from_topic_api_v1_agent_messages_unsubscribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Unsubscribe From Topic Api V1 Agent Messages Unsubscribe Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to remove subscription / Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Message storage not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/subscriptions/{agent_id}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Agent Subscriptions",
+        "description": "Get persisted topic subscriptions for an agent.",
+        "operationId": "get_agent_subscriptions_api_v1_agent_messages_subscriptions__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Agent Subscriptions Api V1 Agent Messages Subscriptions  Agent Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Message storage not available",
             "content": {
               "application/json": {
                 "schema": {
@@ -1417,6 +1511,81 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Message Api V1 Agent Messages Id  Message Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Message {message_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Message storage not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/id/{message_id}/read": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Mark Message Read",
+        "description": "Mark a specific message as read.",
+        "operationId": "mark_message_read_api_v1_agent_messages_id__message_id__read_post",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Mark Message Read Api V1 Agent Messages Id  Message Id  Read Post"
                 }
               }
             }
@@ -2013,6 +2182,179 @@
           },
           "503": {
             "description": "Peer storage not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/{agent_id}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Messages For Agent Compatibility",
+        "description": "Get messages for agent - AgentDaemon compatibility route",
+        "operationId": "get_messages_for_agent_compatibility_api_v1_agent_messages__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Messages For Agent Compatibility Api V1 Agent Messages  Agent Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/keys/{agent_id}": {
+      "get": {
+        "tags": [
+          "agent-keys"
+        ],
+        "summary": "Get Public Key",
+        "description": "Get the registered public key for an agent.",
+        "operationId": "get_public_key_api_v1_agent_keys__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No public key found for {agent_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "title": "Message"
+                    },
+                    "status": {
+                      "title": "Status"
+                    },
+                    "timestamp": {
+                      "title": "Timestamp"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/keys/register": {
+      "post": {
+        "tags": [
+          "agent-keys"
+        ],
+        "summary": "Register Public Key",
+        "description": "Register a public key for an agent.",
+        "operationId": "register_public_key_api_v1_agent_keys_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Public Key Api V1 Agent Keys Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid base64 public_key: {e}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to register public key",
             "content": {
               "application/json": {
                 "schema": {
@@ -6630,6 +6972,62 @@
         "title": "JoinRequest",
         "description": "Swarm join request model."
       },
+      "KeyResponse": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "public_key": {
+            "type": "string",
+            "title": "Public Key"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "public_key",
+          "key_id",
+          "created_at"
+        ],
+        "title": "KeyResponse",
+        "description": "Response containing a public key."
+      },
+      "RegisterKeyRequest": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "description": "Agent ID that owns the key"
+          },
+          "public_key": {
+            "type": "string",
+            "title": "Public Key",
+            "description": "PEM-encoded public key (base64)"
+          },
+          "key_id": {
+            "type": "string",
+            "title": "Key Id",
+            "description": "Optional key identifier",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "public_key"
+        ],
+        "title": "RegisterKeyRequest",
+        "description": "Request to register a public key for an agent."
+      },
       "RegisterRequest": {
         "properties": {
           "request_id": {
@@ -6763,6 +7161,18 @@
             "title": "Ttl",
             "description": "Time to live in seconds",
             "default": 300
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id",
+            "description": "Client-provided message ID for idempotency"
           }
         },
         "type": "object",

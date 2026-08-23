@@ -2820,6 +2820,22 @@
               ],
               "title": "Address"
             }
+          },
+          {
+            "name": "job_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Id"
+            }
           }
         ],
         "responses": {
@@ -5599,6 +5615,648 @@
         }
       }
     },
+    "/rpc/agent-staking/stake": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Create agent stake",
+        "description": "Lock an agent stake. Operator-signed.",
+        "operationId": "create_agent_stake_route_rpc_agent_staking_stake_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Agent Stake Route Rpc Agent Staking Stake Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/agent-staking/stake/{stake_id}/add": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Add to agent stake",
+        "operationId": "add_to_agent_stake_route_rpc_agent_staking_stake__stake_id__add_post",
+        "parameters": [
+          {
+            "name": "stake_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Stake Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Add To Agent Stake Route Rpc Agent Staking Stake  Stake Id  Add Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/agent-staking/stake/{stake_id}/unbond": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Unbond agent stake",
+        "operationId": "unbond_agent_stake_route_rpc_agent_staking_stake__stake_id__unbond_post",
+        "parameters": [
+          {
+            "name": "stake_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Stake Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Unbond Agent Stake Route Rpc Agent Staking Stake  Stake Id  Unbond Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/agent-staking/stake/{stake_id}/complete": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Complete agent stake",
+        "operationId": "complete_agent_stake_route_rpc_agent_staking_stake__stake_id__complete_post",
+        "parameters": [
+          {
+            "name": "stake_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Stake Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Complete Agent Stake Route Rpc Agent Staking Stake  Stake Id  Complete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/agent-staking/performance": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Record performance update memo",
+        "operationId": "record_performance_route_rpc_agent_staking_performance_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Record Performance Route Rpc Agent Staking Performance Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/agent-staking/agents/{agent_wallet}/distribute": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Record earnings distribution memo",
+        "operationId": "record_distribute_route_rpc_agent_staking_agents__agent_wallet__distribute_post",
+        "parameters": [
+          {
+            "name": "agent_wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Wallet"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Record Distribute Route Rpc Agent Staking Agents  Agent Wallet  Distribute Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/agent-staking/claim-rewards": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Record rewards claim memo",
+        "operationId": "record_claim_route_rpc_agent_staking_claim_rewards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Record Claim Route Rpc Agent Staking Claim Rewards Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bounty/deploy": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Deploy bounty lock",
+        "description": "Lock bounty reward amount. Operator-signed.",
+        "operationId": "deploy_bounty_route_rpc_bounty_deploy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Deploy Bounty Route Rpc Bounty Deploy Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bounty/{bounty_id}/submit": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Submit bounty solution",
+        "operationId": "submit_bounty_route_rpc_bounty__bounty_id__submit_post",
+        "parameters": [
+          {
+            "name": "bounty_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bounty Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Submit Bounty Route Rpc Bounty  Bounty Id  Submit Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bounty/{bounty_id}/verify": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Verify bounty submission",
+        "operationId": "verify_bounty_route_rpc_bounty__bounty_id__verify_post",
+        "parameters": [
+          {
+            "name": "bounty_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bounty Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Verify Bounty Route Rpc Bounty  Bounty Id  Verify Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bounty/{bounty_id}/dispute": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Dispute bounty submission",
+        "operationId": "dispute_bounty_route_rpc_bounty__bounty_id__dispute_post",
+        "parameters": [
+          {
+            "name": "bounty_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bounty Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Dispute Bounty Route Rpc Bounty  Bounty Id  Dispute Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bounty/{bounty_id}/expire": {
+      "post": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Expire bounty and refund",
+        "operationId": "expire_bounty_route_rpc_bounty__bounty_id__expire_post",
+        "parameters": [
+          {
+            "name": "bounty_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bounty Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Expire Bounty Route Rpc Bounty  Bounty Id  Expire Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/bridge/lock": {
       "post": {
         "tags": [
@@ -8100,7 +8758,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised",
+            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released",
             "content": {
               "application/json": {
                 "schema": {
@@ -8173,7 +8831,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Escrow already in final state: {contract.state.value}",
             "content": {
               "application/json": {
                 "schema": {
