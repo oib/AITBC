@@ -1,9 +1,9 @@
 # Stuck TEE job escrow refund validation
 
-**Date:** 2026-08-21  
-**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
-**Gitea `main`:** `381cf5b17` — *fix(escrow): deterministic contract_id for loaded escrows*  
-**Job:** `febb20dde26342238196a3a99b57423e` (payment `a4a7348a869a46abb8ea9687c7a4b195`)  
+**Date:** 2026-08-21
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
+**Gitea `main`:** `381cf5b17` — *fix(escrow): deterministic contract_id for loaded escrows*
+**Job:** `febb20dde26342238196a3a99b57423e` (payment `a4a7348a869a46abb8ea9687c7a4b195`)
 
 ## What was validated
 
@@ -103,7 +103,7 @@ Hub working tree is dirty (`apps/marketplace/...` modified, untracked `website/f
 
 # Agent B P1 sprint live validation — 2026-08-22
 
-**Branch:** `feature/agent-b-p1-sprint` on `hub.aitbc`  
+**Branch:** `feature/agent-b-p1-sprint` on `hub.aitbc`
 **Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
 
 ## P1.2 — Web customer and shop dashboards
@@ -527,9 +527,9 @@ Live-validated on `aitbc3` and `hub.aitbc`:
 
 # Confidential TEE job live validation
 
-**Date:** 2026-08-21  
-**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
-**Gitea `main`:** `cc1907ee6` — *feat(cli,coordinator-api): TEE register/status and confidential job flags*  
+**Date:** 2026-08-21
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
+**Gitea `main`:** `cc1907ee6` — *feat(cli,coordinator-api): TEE register/status and confidential job flags*
 **Scenario:** `docs/scenarios/46_tee_confidential_jobs.md`
 
 ## What was validated
@@ -581,9 +581,9 @@ Result:
 
 # ZK proof for high-value jobs — live validation
 
-**Date:** 2026-08-21  
-**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
-**Gitea `main`:** `dd6a446e7` — *feat(cli): add aitbc zk command group*  
+**Date:** 2026-08-21
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
+**Gitea `main`:** `dd6a446e7` — *feat(cli): add aitbc zk command group*
 **Scenario:** `docs/scenarios/47_zk_high_value_jobs.md`
 
 ## What was validated
@@ -677,9 +677,9 @@ Job `6f0f890035fb46be9950cacacbd32288`:
 
 # Performance bonds for high-value jobs — live validation
 
-**Date:** 2026-08-21  
-**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
-**Gitea `main`:** `b21d418df` — *fix(auth): add performance-bond routes to security matrix*  
+**Date:** 2026-08-21
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
+**Gitea `main`:** `b21d418df` — *fix(auth): add performance-bond routes to security matrix*
 **Scenario:** `docs/scenarios/48_performance_bonds_high_value.md`
 
 ## What was validated
@@ -774,9 +774,9 @@ Result: `COMPLETED`, `payment_status: released`, `zk_status: verified`, `tee_sta
 
 # Auto-reinvest from released escrow — live validation
 
-**Date:** 2026-08-21  
-**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)  
-**Gitea `main`:** `21e4748fc` — *feat(coordinator,blockchain): trigger auto-reinvest on escrow release*  
+**Date:** 2026-08-21
+**Nodes:** `hub.aitbc` (hub/customer), `aitbc3` (shop/miner)
+**Gitea `main`:** `21e4748fc` — *feat(coordinator,blockchain): trigger auto-reinvest on escrow release*
 **Scenario:** `docs/scenarios/49_auto_reinvest_escrow.md`
 
 ## What was validated
@@ -1223,3 +1223,43 @@ Flipping `ENVIRONMENT=production` on hub today fails with four validation errors
 "ephemeral test secret" warning only appears in ad-hoc shells that do not source
 the env file. The two localhost validators look wrong for a single-host
 deployment rather than something to configure around.
+
+---
+
+# 2026-08-24 — escrow-lock, FK integrity, live validation
+
+**Date:** 2026-08-24
+**Nodes:** `hub.aitbc`, `aitbc3`
+**Gitea `main`:** `ba4c4cfbe` — *docs(tasklist): escrow-lock decision and implementation*
+
+## What changed
+
+1. **Escrow is now chain-backed for new contracts.**
+   - `Escrow` model gained `status`, `lock_tx_hash`, `refunded_at`, `refund_tx_hash` (migration `498540b266b4`).
+   - `/rpc/escrow/create` requires a buyer-signed `ESCROW_LOCK` transaction that moves the escrow amount from the buyer to the node wallet.
+   - `/rpc/escrow/{job_id}/release` only releases when `Escrow.status == 'locked'` and a real `ESCROW_RELEASE` transaction from the node wallet to the provider succeeds on-chain.
+   - Coordinator `PaymentService` builds and submits the lock tx, using a provided `buyer_lock_signature` or signing with `PAYMENT_BUYER_PRIVATE_KEY` for test/operator flows.
+
+2. **FK integrity now passes on both nodes.**
+   - Migration `d38eb9f3a80b` recreated five reputation-related tables without the incorrect FK constraints.
+   - Migration `46c9bffdf9c6` inserted the missing `account` row for the four chain escrow orphans.
+   - `PRAGMA foreign_key_check` is empty on hub `coordinator.db` and `chain.db`.
+
+3. **Historical unbacked payouts preserved.**
+   - 58 released escrows totalling ~173 AIT remain as recorded evidence; the new flow does not backfill them.
+
+## Validation results
+
+- `bash scripts/ci/mypy-precommit.sh` — 0 new errors
+- `python3 scripts/lint/no_float_money.py` — 0 violations
+- `bash scripts/ci/check-openapi-drift.sh` — 5 specs match
+- `python3 -m pytest apps/blockchain-node/tests/test_escrow_lock.py apps/coordinator-api/tests/test_settlement_lifecycle.py apps/coordinator-api/tests/test_integration_blockchain_payments.py` — 17 passed
+- Live health: `aitbc-blockchain-rpc`, `aitbc-coordinator-api`, `aitbc-marketplace` all return 200 on both nodes.
+- `python3 -m alembic upgrade head` applied to hub and shop `chain.db` successfully.
+- `sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db "PRAGMA foreign_key_check;"` returns empty.
+
+## Open work
+
+- V23-42 agent-stake / bounty RPC surface with real account locks (see plan `plan-83d5864bb52cf214.md` Phase 2).
+- `AITBC_WALLET_DIR` CLI helper if not already present in the codebase.
+- OpenAPI regen after the new staking/bounty routes land.
