@@ -1008,6 +1008,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   attempt with a false "replay attack" warning.
 - fix(consensus): `PoAProposer` also resets the replay cache at the start of
   each block proposal.
+- fix(consensus): `FAUCET` transactions are now recorded in a block the same
+  way as `MESSAGE`/`BRIDGE_RELEASE`/`BRIDGE_LOCK`: the pre-registered
+  transaction already updated the recipient account, so the proposer just sets
+  `block_height` instead of re-running the state transition. This stops the
+  "sender account not found for faucet" warnings and anchors the funding record.
 - fix(sync): WebSocket/push block imports on follower nodes now skip
   state-root validation, matching the bulk pull path. The hub proposer still
   computes state roots from stale in-memory state and needs a restart to use

@@ -480,7 +480,7 @@ class PoAProposer:
                             existing_tx_record
                             and existing_tx_record.status == "confirmed"
                             and existing_tx_record.block_height is None
-                            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_LOCK"}
+                            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_LOCK", "FAUCET"}
                         ):
                             existing_tx_record.block_height = next_height
                             existing_tx_record.timestamp = timestamp.isoformat()
@@ -488,7 +488,10 @@ class PoAProposer:
                             processed_txs.append(tx)
                             existing_tx_map[tx.tx_hash] = next_height
                             self._logger.info(
-                                "[PROPOSE] Included pre-registered MESSAGE tx %s in block %s", tx.tx_hash, next_height
+                                "[PROPOSE] Included pre-registered %s tx %s in block %s",
+                                tx_type,
+                                tx.tx_hash,
+                                next_height,
                             )
                             continue
                         sender_account = account_map.get(sender)
