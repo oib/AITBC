@@ -1024,6 +1024,14 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   NULL `block_height`. The previous `Transaction.block_height is None` was a
   Python `True` literal, so the query never returned any pre-registered
   `FAUCET`/`BRIDGE_REFUND`/`BRIDGE_LOCK` records and they were never anchored.
+- fix(state): `StateTransition` now treats `FAUCET`, `BRIDGE_RELEASE`, and
+  `BRIDGE_REFUND` as pre-registered credit transactions: they do not require a
+  sender account, do not debit a sender, and only credit the recipient. This
+  allows follower nodes to apply the same state change the hub RPC made when the
+  transaction was created.
+- fix(sync): `sync_block_import` no longer creates a zero-balance sender account
+  for `FAUCET`/`BRIDGE_RELEASE`/`BRIDGE_REFUND` before applying them, preventing
+  extra `faucet`/`bridge_*` accounts from polluting the follower state trie.
 - Quality gates: mypy clean, no float money, OpenAPI drift check, and
   `pytest apps/blockchain-node/tests` all pass.
 - fix(database): switch blockchain chain database from StaticPool to NullPool
