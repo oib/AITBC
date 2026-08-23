@@ -87,7 +87,7 @@ class ProposerSignatureValidator:
         # v0.7.5: if multi-validator consensus is enabled, verify block attestations
         # stored in block_metadata. At least multi_validator_min_attestations must
         # be valid signatures from the configured validator set.
-        if getattr(settings, "multi_validator_consensus_enabled", False):
+        if getattr(settings, "multi_validator_consensus_enabled", False) and getattr(settings, "validator_set", ""):
             valid, reason = self._validate_attestations(block_data)
             if not valid:
                 metrics_registry.increment("sync_signature_rejected_total")
