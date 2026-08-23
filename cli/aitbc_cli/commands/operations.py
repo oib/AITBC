@@ -1,5 +1,8 @@
 """
-General operations commands for AITBC CLI (marketplace, AI, agents)
+Legacy on-chain operations commands for AITBC CLI.
+
+Prefer the top-level groups: `aitbc ai`, `aitbc agent`, `aitbc governance`,
+and `aitbc market` for the coordinator-backed or service-backed paths.
 """
 
 import json
@@ -50,14 +53,16 @@ def _get_wallet_password(wallet_name: str) -> str:
 
 @click.group()
 def operations():
-    """General operations commands"""
+    """Legacy on-chain operations commands (hidden).
+
+Use `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` instead."""
     pass
 
 
 # Marketplace operations
 @operations.group()
 def marketplace():
-    """Marketplace operations"""
+    """Legacy on-chain marketplace operations. Prefer `aitbc market`."""
     pass
 
 
@@ -212,7 +217,7 @@ def create_listing(wallet_name: str, item_type: str, price: Decimal, description
 # AI operations
 @operations.group()
 def ai():
-    """AI operations"""
+    """Legacy AI operations. Prefer `aitbc ai`."""
     pass
 
 
@@ -312,7 +317,7 @@ def cancel(job_id: str | None):
 # Agent operations
 @operations.group()
 def agent():
-    """Agent operations"""
+    """Legacy agent operations. Prefer `aitbc agent`."""
     pass
 
 
@@ -462,7 +467,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
 # Governance operations
 @operations.group()
 def governance():
-    """Governance operations"""
+    """Legacy on-chain governance operations. Prefer `aitbc governance`."""
     pass
 
 

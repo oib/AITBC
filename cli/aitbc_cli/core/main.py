@@ -140,6 +140,12 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
     services.
 
+    COMMAND GROUP DISAMBIGUATION:
+    - Use `aitbc market` for GPU/software offers (coordinator-backed, miner-published).
+    - `aitbc marketplace` is a legacy on-chain marketplace and is hidden from this help.
+    - Use `aitbc governance` for service-backed proposals, voting, and execution.
+    - `aitbc operations governance` is a legacy on-chain RPC path and is hidden from this help.
+
     SYSTEM ARCHITECTURE COMMANDS:
     system          System management commands
     system architect    System architecture analysis
@@ -179,7 +185,8 @@ cli.add_command(start)
 cli.add_command(stop)
 cli.add_command(restart)
 cli.add_command(market, name="market")
-cli.add_command(marketplace, name="marketplace")  # Keep old marketplace for compatibility
+marketplace.hidden = True  # Legacy on-chain marketplace; prefer `aitbc market`
+cli.add_command(marketplace, name="marketplace")  # Legacy on-chain marketplace; kept for compatibility but hidden from help
 cli.add_command(chain, name="blockchain")
 cli.add_command(chain, name="chain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
@@ -215,6 +222,7 @@ cli.add_command(mining)
 cli.add_command(agent_msg, name="agent-msg")
 cli.add_command(workflow)
 cli.add_command(resource)
+operations.hidden = True  # Legacy on-chain operations; prefer top-level ai, agent, governance, market
 cli.add_command(operations)
 cli.add_command(simulate)
 cli.add_command(edge)
