@@ -17,6 +17,7 @@ from .gossip import create_backend, gossip_broker
 from .lease_tracker import lease_tracker
 from .logger import get_logger
 from .mempool import init_mempool
+from .metrics import sync_lag_blocks
 from .observability import register_exporters
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
@@ -669,6 +670,7 @@ class BlockchainNode:
                             remote_height = remote_data.get("height", 0)
 
                             gap = remote_height - local_height
+                            sync_lag_blocks.labels(chain_id=chain_id).set(max(gap, 0))
                             trigger = _pull_trigger(gap)
                             if trigger == "behind":
                                 logger.warning(
