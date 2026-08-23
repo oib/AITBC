@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterable
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -10,6 +12,34 @@ from aitbc.aitbc_logging import get_logger
 REGISTERED_EXPORTERS: list[str] = []
 _exporter_instances: dict[str, Any] = {}
 logger = get_logger(__name__)
+
+
+class _MetricsHandler(BaseHTTPRequestHandler):
+    """HTTP handler that merges prometheus_client and legacy metrics."""
+
+    def do_GET(self) -> None:
+        if self.path == "/metrics":
+            from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, generate_latest
+
+            from ..metrics import metrics_registry
+
+            default = generate_latest(REGISTRY)
+            legacy = metrics_registry.render_prometheus().encode()
+            if legacy.strip():
+                body = default + b"\n" + legacy
+            else:
+                body = default
+            self.send_response(200)
+            self.send_header("Content-Type", CONTENT_TYPE_LATEST)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format: str, *args: object) -> None:
+        logger.debug(format, *args)
 
 
 def register_exporters(exporters: Iterable[str]) -> None:
@@ -44,13 +74,13 @@ def _initialize_prometheus() -> None:
     try:
         import os
 
-        from prometheus_client import start_http_server
-
         port = int(os.environ.get("AITBC_NODE_METRICS_PORT", 9009))
-        start_http_server(port)
+        server = ThreadingHTTPServer(("", port), _MetricsHandler)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        _exporter_instances["prometheus"] = server
         logger.info("Prometheus exporter started on port %s", port)
-    except ImportError:
-        logger.warning("prometheus_client not installed, skipping Prometheus exporter")
     except Exception as e:
         logger.warning("Failed to start Prometheus exporter: %s", e)
 
