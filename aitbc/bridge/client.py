@@ -207,14 +207,22 @@ class BridgeClient:
         address: str,
         public_key: str,
         signature: str,
+        epoch: int = 0,
+        admin_address: str | None = None,
+        admin_signature: str | None = None,
     ) -> dict[str, Any]:
         """Register a validator for bridge operations."""
-        payload = {
+        payload: dict[str, Any] = {
             "chain_id": chain_id,
             "address": address,
             "public_key": public_key,
             "signature": signature,
+            "epoch": epoch,
         }
+        if admin_address:
+            payload["admin_address"] = admin_address
+        if admin_signature:
+            payload["admin_signature"] = admin_signature
         resp = await self._ensure_client().post("/bridge/validators/register", json=payload)
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
@@ -237,6 +245,23 @@ class BridgeClient:
     # ------------------------------------------------------------------
     # v0.7.2 §A4 — block header + oracle status RPC methods
     # ------------------------------------------------------------------
+
+    async def get_proof(
+        self,
+        transfer_id: str,
+        source_chain: str | None = None,
+        block_height: int = 1,
+        block_hash: str | None = None,
+    ) -> dict[str, Any]:
+        """Build a Merkle proof for a locked transfer from the source node."""
+        params: dict[str, Any] = {"block_height": block_height}
+        if source_chain:
+            params["source_chain"] = source_chain
+        if block_hash:
+            params["block_hash"] = block_hash
+        resp = await self._ensure_client().get(f"/bridge/transfer/{transfer_id}/proof", params=params)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
 
     async def get_block_header(self, chain_id: str, height: int) -> dict[str, Any]:
         """Get a remote chain block header stored by the bridge.
