@@ -44,6 +44,16 @@
 # tenseal or opentelemetry are missing, mypy degrades those imports to Any and the
 # 'type: ignore' comments covering them are reported as unused -- roughly 17 bogus
 # errors that would otherwise be baselined as real.
+#
+# aitbc/ was the same defect one layer down, and adding cli did not fix it. The
+# top-level package was not in APPS either, so whether it got checked depended on
+# whether it happened to be pip-installed on the host: aitbc3 has aitbc==0.10.18
+# with an aitbc.pth, so mypy resolved it in site-packages, called it third-party
+# and --ignore-missing-imports silenced it. hub has aitbc-cli and aitbc-shared but
+# no bare aitbc, so mypy resolved it from the working tree and checked it as
+# first-party. Same commit, same mypy 2.1.0, same ecdsa 0.19.2 -- two errors on one
+# host and none on the other. Naming the directory here settles it: an explicit
+# path is checked as first-party regardless of what pip has installed.
 
 set -euo pipefail
 
@@ -67,6 +77,7 @@ APPS=(
   apps/miner
   apps/zk-circuits
   cli
+  aitbc
 )
 
 set +e
