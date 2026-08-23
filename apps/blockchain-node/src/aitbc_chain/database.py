@@ -196,7 +196,7 @@ class DatabaseOperationValidator:
 _validator = DatabaseOperationValidator()
 
 # Session factory for the module-level engine (sessionmaker factory pattern).
-_session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False, class_=Session)
+_session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False)
 
 # Cache of session factories per chain_id (chain-specific engines are created
 # lazily by get_engine; reuse a sessionmaker once the engine exists).
@@ -208,7 +208,7 @@ def _get_session_factory(chain_id: str) -> sessionmaker:
     resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
     if resolved_chain_id not in _session_factories:
         engine = get_engine(chain_id)
-        _session_factories[resolved_chain_id] = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
+        _session_factories[resolved_chain_id] = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False)
     return _session_factories[resolved_chain_id]
 
 
