@@ -31,6 +31,10 @@ It contains installation and usage notes for the AITBC CLI and related technical
 
 ---
 
+## 🛡️ Validated command surface
+
+As of G8, the CLI only displays commands that map to the live-validated economic loop by default. Unvalidated commands are hidden from `aitbc --help` and will fail with a deprecation message if invoked directly. Use `aitbc --show-deprecated <command>` (or set `AITBC_CLI_SHOW_DEPRECATED=1`) to run hidden commands at your own risk.
+
 ## 🚀 **Quick Start**
 
 ### Installation
