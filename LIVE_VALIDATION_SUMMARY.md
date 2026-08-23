@@ -1107,136 +1107,119 @@ rows in total. `job_payments.amount` and `payment_escrows.amount` were already
   worth rotating.
 - 39 pre-existing FK violations on hub's reputation tables.
 
-## 2026-08-23 — OPEN FINDING: BlockchainService calls a chain API that does not exist
+## 2026-08-23 — OPEN DECISION (already diagnosed): the staking/bounty chain surface
 
-Found while asking whether the hub coordinator's `"env":"development"` health
-response mattered. It does not affect the database (see below), but the question
-led to `admin_api_keys`, and from there to a much larger gap.
+**This is not a new finding.** It was diagnosed on 2026-08-11 in `2b2d0d923`
+("repoint the chain client at endpoints that exist", AITBC-155 / V23-42) and is
+documented in the `BlockchainService` class docstring
+(`contexts/blockchain/services/blockchain.py`). It is recorded here because the
+decision it names is still open and is not tracked in any markdown — it lives
+only in a commit message and a docstring, which is how it came to be
+re-discovered from scratch today.
 
-### What prompted it
+### The answer to "was the staking/bounty surface ever intended to exist?"
 
-`/health` on hub reports `"env":"development"`. Loading the real hub environment
-with `ENVIRONMENT=production` in a throwaway process fails with four validation
-errors — the service would not start:
+No. Per V23-42, the twelve outbound URLs are *"near-copies of this app's own
+staking routes (`contexts/staking/routers/staking.py`) addressed to the node's
+host"*, and *"there are no bounty routes on the node at all"*. They were never a
+client for a planned chain API; they are a duplicate of the coordinator's own
+surface pointed at the wrong host.
 
-| gate | state | assessment |
-|---|---|---|
-| `client_api_keys`, `admin_api_keys` | empty | led to this finding |
-| `allow_origins` | 10 localhost origins | internal service ports; needs a decision |
-| `blockchain_rpc_url` | `http://localhost:8202` | correct for a single-host deployment; the validator assumes a distributed one |
-| `JWT_SECRET`, `MINER_API_KEYS` | **set and correct** | not a problem |
+That commit fixed what could be fixed and deliberately stopped there:
 
-The `JWT_SECRET not configured; using an ephemeral test secret` line that shows up
-when running alembic by hand is an artifact of ad-hoc shells that do not source
-`/etc/aitbc/aitbc-coordinator-api.env`. The running service logs no such warning.
+| call | disposition in `2b2d0d923` |
+|---|---|
+| `get_balance` | repointed to `GET /rpc/balance/{address}`; also fixed a response-key bug that would have reported every account empty |
+| `mint_tokens` | now raises `NotImplementedError` — the nearest real endpoint is the devnet faucet, and wiring it up *"turns a broken fake into a working one that credits real balance to anyone who asks"* |
+| the other 12 | **left unprefixed on purpose** — *"a prefix that makes a URL look resolvable is worse than one that plainly does not"* |
 
-### `ENVIRONMENT` does not affect the database
+Two tests pin client-to-node and mock-to-node correspondence, both built by
+importing `aitbc_chain` rather than by running a node or a mock. The commit notes
+the old `tests/fixtures/mock_blockchain_node.py` had been *"written to match the
+client rather than the server, so the two agreed with each other and neither
+agreed with the node."*
 
-Worth recording because it was assumed otherwise during this session.
+### Corrections to the first draft of this section
+
+An earlier version of this entry, written before the V23-42 history was found,
+got two things wrong. Both are corrected here.
+
+**"1 of 12 is fixed by adding the `/rpc` prefix" — wrong. It is 0 of 12.**
+`POST /rpc/staking/stake` does exist, but `rpc/staking.py:56` rejects any request
+without a staker signature (`403 Signature required for staking`), and this app
+has no access to an agent's staking key. It also expects `lock_days` while the
+coordinator sends `lock_period`. The prefix fixes nothing.
+
+**"Latent, not active — the calls fail loudly" — half wrong.**
+The *server log* does record an error: `AITBCHTTPClient.post` calls
+`raise_for_status()`, the caller catches `NetworkError` and logs it. But these are
+FastAPI background tasks, so the router has already returned 200/201 before the
+call fails. As the docstring puts it: *"a client that stakes or deploys a bounty
+is told it succeeded and nothing reaches the chain."* The failure is visible in
+the journal and invisible to the caller, which is the direction that matters.
+
+### Current exposure
+
+Unexercised, which is why it has caused no damage. On hub, no matching journal
+entries over 7 days and every related table is empty — `agent_stakes`,
+`bounty_integrations`, `bounty_stats`, `bounty_submission`, `bounty_submissions`,
+`bounty_task`, all 0 rows.
+
+The risk is first use, not present state. `contexts/staking/routers/staking.py:293`
+commits coordinator DB state and *then* queues the chain call:
+
+```python
+updated_stake = await staking_service.add_to_stake(...)          # local state committed
+background_tasks.add_task(blockchain_service.add_to_stake, ...)  # 404s, logged, dropped
+```
+
+so the first real staking request writes a coordinator-side stake with no on-chain
+counterpart and returns success — local state diverging from chain state, the same
+shape as the settlement drift fixed in `1b43ca3bd`.
+
+### The decision that is still open
+
+V23-42 names it precisely: *"what is needed is either the endpoints on the node or
+the removal of these calls — a design decision, not a rename."* Unchanged since
+2026-08-11. Either:
+
+- **build the surface on the chain node** (11 endpoints, plus a signing story for
+  `/rpc/staking/stake` that the coordinator cannot currently satisfy), and stop
+  committing local state before the chain call succeeds; or
+- **remove it** — delete the twelve methods and the `admin_api_keys` header
+  plumbing that goes with them, and make the coordinator's staking and bounty
+  routers either honest about being local-only or return 501.
+
+Worth tracking in `TASKLIST.md` so it stops being rediscovered.
+
+### Two adjacent notes from the same investigation
+
+**`admin_api_keys` is a dead parameter, not a security gap.** The chain RPC
+enforces no `X-Api-Key` anywhere — no middleware, no route dependency; the live
+OpenAPI lists only `HTTPBearer` under `securitySchemes` with global `security` of
+`none`. The empty list changes nothing. Coordinator-side admin routes fail closed
+(`admin.py:105`), which is the safe direction.
+
+**`ENVIRONMENT` does not affect the database.** Recorded because it was assumed
+otherwise earlier in this session.
 `DatabaseConfig.effective_url` (`packages/aitbc-shared/aitbc_shared/core/config.py:69`)
-never reads `ENVIRONMENT`. The path comes from `AITBC_DATA_DIR` (unset → `/var/lib/aitbc`)
+never reads it; the path comes from `AITBC_DATA_DIR` (unset → `/var/lib/aitbc`)
 and `db_filename`:
 
 ```
 ENVIRONMENT=development  -> sqlite:////var/lib/aitbc/data/coordinator.db
 ENVIRONMENT=production   -> sqlite:////var/lib/aitbc/data/coordinator.db
-ENVIRONMENT=staging      -> sqlite:////var/lib/aitbc/data/coordinator.db
 ```
 
-The same file also explains why the app ignored `DATABASE_URL`:
-`_load_legacy_database_url` only honours it when `DATABASE_ADAPTER` is *also* set
-and the two schemes agree — a deliberate guard so a stale `DATABASE_URL` cannot
-silently switch a running deployment to PostgreSQL. It worked as designed. Only
-alembic was bypassing it, which is what the 2026-08-23 migration work fixed.
+The same file explains why the app ignored `DATABASE_URL`:
+`_load_legacy_database_url` honours it only when `DATABASE_ADAPTER` is also set
+and the schemes agree — a deliberate guard so a stale `DATABASE_URL` cannot
+silently switch a running deployment to PostgreSQL. It worked as designed; only
+alembic bypassed it, which is what today's migration work fixed.
 
-### `admin_api_keys` is a dead parameter, not a live gap
-
-The chain RPC does not enforce `X-Api-Key` anywhere — no middleware, no route
-dependency, nothing in `apps/blockchain-node/src/aitbc_chain/rpc/`. The live
-OpenAPI lists only `HTTPBearer` under `securitySchemes` and global `security` is
-`none`. `/staking/*` routes carry `@rate_limit` and no auth. So the empty key in
-`settings.admin_api_keys` changes nothing: the header is ignored either way.
-
-Coordinator-side admin routes fail closed (`admin.py:105` tests
-`api_key not in settings.admin_api_keys`, always true when the list is empty),
-which is the safe direction.
-
-### The actual finding
-
-`contexts/blockchain/services/blockchain.py:29` states the rule:
-
-> the node mounts every RPC route under `/rpc`, so callers must include that
-> prefix; `settings.blockchain_rpc_url` is the bare origin
-
-The same file then breaks it on **all 12** of its call sites, which build
-`f"{self.rpc_url}/staking/..."` and `f"{self.rpc_url}/bounty/..."` with no
-prefix. The escrow path that works does it correctly
-(`payments.py:242` → `/rpc/escrow/{job_id}/release`).
-
-Proven read-only against the live hub RPC:
-
-```
-GET /rpc/staking/{addr}  -> http 200
-GET /staking/{addr}      -> http 404
-```
-
-The RPC logged the probe: `Client error: POST /staking/stake → 404`.
-
-But the prefix is only the surface. Checking all 12 targets against the live
-OpenAPI document:
-
-| outcome | count | endpoints |
-|---|---|---|
-| fixed by adding `/rpc` | 1 | `/staking/stake` |
-| **no such route even with the prefix** | 11 | `/staking/performance`, `/staking/stake/{id}/add`, `/staking/stake/{id}/unbond`, `/staking/stake/{id}/complete`, `/staking/agents/{id}/distribute`, `/staking/claim-rewards`, `/bounty/deploy`, `/bounty/{id}/submit`, `/bounty/{id}/verify`, `/bounty/{id}/dispute`, `/bounty/{id}/expire` |
-
-`BlockchainService` is written against a chain API that was never built. The chain
-node exposes exactly three staking routes: `POST /rpc/staking/stake`,
-`POST /rpc/staking/unstake`, `GET /rpc/staking/{address}`. There is no `/bounty`
-surface at all.
-
-### Current impact: latent, not active
-
-Two things keep this from being live damage today.
-
-The calls fail loudly. `AITBCHTTPClient.post` calls `raise_for_status()` and wraps
-the result in `NetworkError`; each caller catches it and logs
-`logger.error("Failed to ...")`. There is no false "created on-chain" success line.
-
-And nothing exercises them. No matching entries in the hub coordinator journal
-over 7 days, and every related table is empty: `agent_stakes`,
-`bounty_integrations`, `bounty_stats`, `bounty_submission`, `bounty_submissions`,
-`bounty_task` — all 0 rows.
-
-### The latent risk
-
-Same shape as the settlement drift fixed in `1b43ca3bd`.
-`contexts/staking/routers/staking.py:293` commits coordinator DB state first and
-*then* queues the chain call as a FastAPI background task:
-
-```python
-updated_stake = await staking_service.add_to_stake(...)      # local state committed
-background_tasks.add_task(blockchain_service.add_to_stake, ...)  # 404s, logged, dropped
-```
-
-The first real use of a staking route therefore writes a coordinator-side stake
-with no on-chain counterpart — local state diverging from chain state, silently
-as far as the caller is concerned.
-
-### Recommendation
-
-Do **not** fix the `/rpc` prefix alone. Landing 1 of 12 calls while the other 11
-still 404 buys almost nothing and makes the surface look healthier than it is.
-
-The decision to make first is whether `BlockchainService`'s staking and bounty
-surface is meant to exist:
-
-- **If yes** — it is a chain-node build-out (11 endpoints), and the coordinator
-  side should not commit local state before the chain call succeeds.
-- **If no** — delete it or mark it explicitly unimplemented so it stops looking
-  wired, and remove the `admin_api_keys` header plumbing that goes with it.
-
-This is unrelated to the `ENVIRONMENT` label and removes `admin_api_keys` from the
-list of reasons to change it. The remaining production-flip blockers are the two
-topology-dependent validators (localhost CORS, localhost RPC), which look wrong
-for a single-host deployment rather than something to configure around.
+Flipping `ENVIRONMENT=production` on hub today fails with four validation errors
+(`client_api_keys` and `admin_api_keys` empty, localhost CORS origins, localhost
+`blockchain_rpc_url`). `JWT_SECRET` and `MINER_API_KEYS` are set correctly — the
+"ephemeral test secret" warning only appears in ad-hoc shells that do not source
+the env file. The two localhost validators look wrong for a single-host
+deployment rather than something to configure around.
