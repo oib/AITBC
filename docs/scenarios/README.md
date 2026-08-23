@@ -92,11 +92,31 @@ These were originally v0.10.3 shop-node bug tickets (A3–A14, B5–B15). They a
 - Primary tool: `aitbc` (never the retired `aitbc-cli` / `aitbc-cli.sh`).
 - SDK extras import `aitbc_agent` (`from aitbc_agent import Agent, AgentIdentity, AgentCapabilities`).
 - JWT for coordinator calls: use `aitbc auth login --wallet <wallet-name>` to store a token, then run commands without `--api-key`. For scripts, `aitbc auth login --wallet <wallet-name>` followed by commands that read the stored credential. Do not scrape `/etc/aitbc/*.env` for `JWT_SECRET` in a scenario.
-- Label **live** vs **simulated** output. Several hub-only groups fall back to deterministic simulated data on a shop node.
+- Label **live** vs **simulated** output. Several hub-only groups fall back to deterministic simulated data on a shop node; see the table below.
 - No hermes / mock-training references.
 - Do not invent commands. If `aitbc <group> --help` does not list it, it is not in the play.
 
 ---
+
+## Live vs. simulated CLI output
+
+Several CLI groups are **hub-only services**. When the service is not reachable, the CLI falls back to deterministic simulated output and labels it `(Simulated)`. Scenarios must say so, and operators must not mistake simulated tables for live network state.
+
+| CLI group | Live source | Simulated fallback | Typical trigger |
+|-----------|-------------|-------------------|-----------------|
+| `aitbc ai` | coordinator (8203) | no | — |
+| `aitbc market` | coordinator / marketplace service | no | — |
+| `aitbc wallet` | wallet daemon (8108) | no | — |
+| `aitbc transactions` | blockchain RPC (8202) | no | — |
+| `aitbc bridge` | blockchain RPC | no | — |
+| `aitbc reputation` | coordinator reputation service | `(Simulated)` | coordinator not reachable |
+| `aitbc messaging` | messaging RPC | `(Simulated)` | messaging service not reachable |
+| `aitbc exchange-island` | exchange service (8106) | `(Simulated)` | exchange not reachable |
+| `aitbc ipfs` | local Kubo daemon | filesystem CID shim | Kubo daemon not running |
+| `aitbc tee launch` | local TEE runtime | `(Simulated)` | no TEE runtime present |
+| `aitbc simulate` | — | always simulated | explicit simulation |
+
+Scenario files that touch these groups include a note near the top. Live product-path scenarios (e.g. 34, 07, 48) produce real on-chain/coordinator data when the services are running.
 
 ## See Also
 
