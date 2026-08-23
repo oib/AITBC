@@ -102,6 +102,7 @@ class Block(ChainBase, table=True):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     tx_count: int = 0
     state_root: str | None = None
+    bridge_state_root: str | None = None
     block_metadata: str | None = Field(default=None)
 
     # Block header signature (v0.7.1) — secp256k1 signature over the block
@@ -142,6 +143,11 @@ class Block(ChainBase, table=True):
     @classmethod
     def _state_root_is_hex(cls, value: str | None) -> str | None:
         return _validate_optional_hex(value, "Block.state_root")
+
+    @field_validator("bridge_state_root", mode="before")
+    @classmethod
+    def _bridge_state_root_is_hex(cls, value: str | None) -> str | None:
+        return _validate_optional_hex(value, "Block.bridge_state_root")
 
 
 class Transaction(ChainBase, table=True):
@@ -353,7 +359,8 @@ class BridgeBlockHeader(ChainBase, table=True):
     hash: str = Field(index=True)
     parent_hash: str
     proposer: str  # proposer address
-    state_root: str  # state root at this block — used for Merkle proof verification
+    state_root: str  # account state root at this block
+    bridge_state_root: str = ""  # bridge event trie root at this block — used for Merkle proof verification
     signature: str = ""  # proposer signature (v0.7.1 block header signature)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     finality_confirmed: bool = False  # set when confirmation_count >= finality_blocks

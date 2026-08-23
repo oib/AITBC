@@ -77,7 +77,7 @@ class ProposerSignatureValidator:
         if signature:
             from aitbc.crypto.consensus_signing import verify_block_signature
 
-            if not verify_block_signature(block_hash, signature, proposer):
+            if not verify_block_signature(block_data, signature, proposer):
                 metrics_registry.increment("sync_signature_rejected_total")
                 return (False, "Invalid proposer signature")
         elif not self._trusted:
@@ -129,10 +129,6 @@ class ProposerSignatureValidator:
         if not isinstance(attestations, list) or len(attestations) < min_attestations:
             return (False, f"Insufficient attestations: {len(attestations)} < {min_attestations}")
 
-        block_hash = block_data.get("hash", "")
-        if not block_hash.startswith("0x"):
-            block_hash = f"0x{block_hash}"
-
         validator_set = self._load_validator_set() or self._trusted
         from aitbc.crypto.consensus_signing import verify_block_signature
 
@@ -144,7 +140,7 @@ class ProposerSignatureValidator:
                 continue
             if validator_set and validator.lower() not in {v.lower() for v in validator_set}:
                 continue
-            if verify_block_signature(block_hash, signature, validator):
+            if verify_block_signature(block_data, signature, validator):
                 valid_count += 1
 
         if valid_count < min_attestations:

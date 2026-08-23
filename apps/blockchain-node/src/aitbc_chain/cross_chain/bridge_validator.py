@@ -221,14 +221,20 @@ class BridgeValidatorMixin(BridgeBase):
             logger.warning("Proposer signature verification error: %s", e)
             return False
 
-    def _verify_threshold_signatures(self, proof: dict[str, Any]) -> bool:
-        """Verify proof signatures using M-of-N threshold (v0.7.1).
+    def _verify_threshold_signatures(self, proof: dict[str, Any], header: Any | None = None) -> bool:
+        """Verify proof signatures using M-of-N threshold (v0.7.1/v0.7.3).
+
+        When a ``header`` is provided, signatures are verified against the
+        canonical block header message (v0.7.3). Otherwise the proof fields
+        are used directly.
 
         When ``bridge_multisig_enabled`` is True, requires M-of-N validator
-        signatures. When False, falls back to single-signer verification
-        (backward-compatible with v0.7.0 proofs).
+        signatures. When False, falls back to single-signer verification.
         """
         multisig_enabled = getattr(settings, "bridge_multisig_enabled", False)
+        sig_required = getattr(settings, "bridge_block_signature_required", True)
+        if header is not None and sig_required:
+            return self._verify_header_threshold_signatures(proof, header, multisig_enabled)
         if not multisig_enabled:
             # Backward-compatible: use single-signer verification
             return self._verify_proposer_signature(proof)
@@ -265,7 +271,88 @@ class BridgeValidatorMixin(BridgeBase):
         # validators are registered with lowercase addresses)
         signers = [s.lower() for s in signers]
         threshold = getattr(settings, "bridge_multisig_threshold", 3)
-        meets, count, valid = check_threshold(signers, vset, threshold)
+        meets, count, _ = check_threshold(signers, vset, threshold)
+
+        if not meets:
+            logger.warning(
+                "Threshold not met: %d/%d valid signers (need %d) for chain %s",
+                count,
+                vset.total,
+                threshold,
+                source_chain,
+            )
+            return False
+
+        logger.debug("Threshold met: %d/%d valid signers for chain %s", count, vset.total, source_chain)
+        return True
+
+    def _verify_header_threshold_signatures(self, proof: dict[str, Any], header: Any, multisig_enabled: bool) -> bool:
+        """Verify block header signatures against the canonical header message.
+
+        Builds the canonical block header message from ``header``, recovers
+        signers from the proof's ``proposer_signature`` and
+        ``validator_signatures`` using ``aitbc.bridge.recover_all_signers``,
+        and checks the multi-sig threshold against the validator set.
+        """
+        from aitbc.bridge import build_verification_message, check_threshold, recover_all_signers
+
+        message = build_verification_message(header)
+        validator_signatures = proof.get("validator_signatures", [])
+        proposer_signature = proof.get("proposer_signature", "")
+
+        all_sigs = list(validator_signatures)
+        if proposer_signature and proposer_signature not in all_sigs:
+            all_sigs.append(proposer_signature)
+
+        signers = recover_all_signers(message, all_sigs)
+        source_chain = header.chain_id or proof.get("source_chain") or proof.get("chain_id")
+        if not source_chain:
+            logger.warning("Block header missing chain_id")
+            return False
+
+        if not multisig_enabled:
+            # Single-sig: at least one recovered signer must match the proposer.
+            if not signers:
+                logger.warning("No signers recovered from block header for chain=%s", source_chain)
+                return False
+            if header.proposer and header.proposer.lower() not in {s.lower() for s in signers}:
+                logger.warning(
+                    "Block header signer does not match proposer: expected %s",
+                    header.proposer,
+                )
+                return False
+
+            release_enabled = getattr(settings, "bridge_release_enabled", False)
+            try:
+                vset = self.get_validator_set(source_chain)
+            except Exception as e:
+                if release_enabled:
+                    logger.warning(
+                        "Validator set lookup failed for chain=%s (%s) with release enabled; rejecting proof",
+                        source_chain,
+                        e,
+                    )
+                    return False
+                vset = None
+
+            if vset is not None:
+                valid_addresses = {a.lower() for a in vset.addresses}
+                if not any(s.lower() in valid_addresses for s in signers):
+                    logger.warning("Proposer not in validator set for chain=%s", source_chain)
+                    return False
+            elif release_enabled:
+                logger.warning("No validator set registered for chain=%s and release enabled", source_chain)
+                return False
+
+            return True
+
+        vset = self.get_validator_set(source_chain)
+        if vset is None:
+            logger.warning("No validator set registered for chain: %s", source_chain)
+            return False
+
+        threshold = getattr(settings, "bridge_multisig_threshold", 3)
+        meets, count, _ = check_threshold(signers, vset, threshold)
 
         if not meets:
             logger.warning(

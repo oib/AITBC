@@ -225,12 +225,10 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             record = session.get(CrossChainTransfer, transfer.transfer_id)
             assert record is not None
 
-        # Sign the proof with a validator set member
+        # The bridge proof's proposer_signature is the source block header
+        # signature, which is already signed by the proposer/validator.
         proof_fields = _build_proof_fields(record, block_hash=block_hash)
-        proof_fields["proposer_signature"] = _sign_proof(
-            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            proposer.key.hex(),
-        )
+        proof_fields["proposer_signature"] = header_sig
 
         with patch("aitbc_chain.config.settings.bridge_multisig_enabled", False):
             result = bridge._validate_proof(proof_fields, record)
