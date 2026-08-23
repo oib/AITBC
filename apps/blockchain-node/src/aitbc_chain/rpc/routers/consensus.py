@@ -31,7 +31,14 @@ async def consensus_status_route(chain_id: str = "ait-hub") -> dict[str, Any]:
         from ...consensus.multi_validator_poa import get_consensus
 
         consensus = get_consensus(chain_id)
+        consensus.load_state()
         participants = consensus.get_consensus_participants()
+        if not participants:
+            return {
+                "mode": "PoA (single proposer)",
+                "multi_validator_enabled": False,
+                "chain_id": chain_id,
+            }
         fault_tolerance = max(1, len(participants) // 3)
         return {
             "mode": "MultiValidatorPoA + PBFT",
@@ -68,6 +75,9 @@ async def consensus_validators_route(chain_id: str = "ait-hub") -> dict[str, Any
         from ...consensus.multi_validator_poa import get_consensus
 
         consensus = get_consensus(chain_id)
+        consensus.load_state()
+        if not consensus.validators:
+            return {"validators": [], "chain_id": chain_id, "multi_validator_enabled": False}
         validators = [
             {
                 "address": addr,
@@ -99,6 +109,9 @@ async def consensus_slashing_history_route(chain_id: str = "ait-hub") -> dict[st
         from ...consensus.multi_validator_poa import get_consensus
 
         consensus = get_consensus(chain_id)
+        consensus.load_state()
+        if not consensus.validators:
+            return {"slashing_events": [], "chain_id": chain_id, "multi_validator_enabled": False}
         events = consensus.get_slashing_history()
         slashing_events = [
             {
