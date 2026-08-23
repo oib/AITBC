@@ -41,15 +41,22 @@ jobs:
         env:
           PYTHON: ./venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
-          WALLET_URL: http://127.0.0.1:1
-          BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: |
           ./venv/bin/python -m pytest -q \
             --deselect=apps/coordinator-api/tests/test_phase8_integration.py \
             --deselect=apps/coordinator-api/tests/test_zk_receipt.py \
             apps/coordinator-api/tests/test_*.py \
-            apps/blockchain-node/tests \
-            cli/tests
+            apps/blockchain-node/tests
+
+      - name: CLI tests
+        env:
+          WALLET_URL: http://127.0.0.1:1
+          BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
+        run: |
+          ./venv/bin/python -m pytest -q cli/tests
 
       - name: Live scenario dry-run
+        env:
+          WALLET_URL: http://127.0.0.1:1
+          BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: bash scripts/ci/live-scenario-dry-run.sh
