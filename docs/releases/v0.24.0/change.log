@@ -1061,3 +1061,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`.
   - Group docstrings and `cli/README.md` clarify that `aitbc market`, `aitbc ai`, `aitbc agent`, and `aitbc governance` are the preferred command groups.
   - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #15.
+- feat(ipfs): add `apps/ipfs/ipfs-daemon.py` Kubo log wrapper and update `aitbc-ipfs.service`
+  - Reformats Kubo go-log and libp2p logfmt output to the AITBC `[LEVEL] [component] message` journal style.
+  - Service runs the wrapper as `aitbc` user with `IPFS_PATH=/var/lib/aitbc/ipfs-daemon`.
