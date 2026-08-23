@@ -218,7 +218,6 @@ subscription_transport=websocket
 |----------|----------|---------|-------------|
 | `MONITORING_PORT` | No | `9000` | Monitoring service port |
 | `PROMETHEUS_PORT` | No | `9090` | Prometheus port |
-| `GRAFANA_PORT` | No | `3000` | Grafana port |
 
 ### Example blockchain.env (Hub Node - ait-mainnet)
 
@@ -287,7 +286,6 @@ WORKERS=1
 # Monitoring Configuration
 MONITORING_PORT=9000
 PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
 ```
 
 ### Example blockchain.env (Hub Node - ait-testnet)
@@ -356,7 +354,6 @@ WORKERS=1
 # Monitoring Configuration
 MONITORING_PORT=9000
 PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
 ```
 
 ---

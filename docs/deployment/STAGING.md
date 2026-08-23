@@ -35,7 +35,6 @@ staging.aitbc.example.com
 │   └── Test proposals
 └── Monitoring Stack
     ├── Prometheus (port 9090)
-    ├── Grafana (port 3000)
     └── Alertmanager (port 9093)
 ```
 
@@ -261,11 +260,8 @@ k6 run tests/load/test_coordinator.js --env STAGING_URL=http://localhost:8000
 Access staging metrics:
 
 ```bash
-# Prometheus UI
+# Prometheus UI and query API
 http://staging.aitbc.example.com:9090
-
-# Grafana dashboards
-http://staging.aitbc.example.com:3000
 ```
 
 ### Log Aggregation

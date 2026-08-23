@@ -147,7 +147,7 @@ class AgentOrchestrationDeployment:
             "health_checks": "enabled",
             "alerting": "enabled",
             "dashboard": "available",
-            "monitoring_tools": ["Prometheus", "Grafana", "Custom health monitoring"],
+            "monitoring_tools": ["Prometheus", "Custom health monitoring"],
             "alert_channels": ["email", "slack", "webhook"],
             "metrics_tracked": ["agent_execution_time", "gpu_utilization", "api_response_time", "error_rates", "trust_scores"],
         }

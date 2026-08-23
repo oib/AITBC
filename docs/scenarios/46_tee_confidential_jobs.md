@@ -11,7 +11,7 @@ releases escrow after a verified attestation is attached to the job receipt.
 - Coordinator API running on the hub (`aitbc-coordinator-api.service`).
 - Active `aitbc-miner` on a shop node that can execute Ollama jobs.
 - Customer wallet with enough AIT for payment (e.g. `genesis`).
-- `JWT_SECRET` exported or an existing client JWT for coordinator auth.
+- A funded customer wallet (e.g. `customer-wallet`) and `aitbc auth login`.
 
 ## Variables
 
@@ -28,11 +28,12 @@ MEASUREMENT="sha256:000000000000000000000000000000000000000000000000000000000000
 
 ```bash
 export COORDINATOR_API_URL=http://127.0.0.1:8203
-export CLIENT_JWT=$(JWT_SECRET=$(grep -h "JWT_SECRET=" /etc/aitbc/*.env | cut -d= -f2) \
-  /opt/aitbc/venv/bin/python3.13 -c \
-  "import sys; sys.path.insert(0, /opt/aitbc); from aitbc.auth import create_access_token; print(create_access_token(cli-client, client))")
+export WALLET=customer-wallet
 
-aitbc --api-key "$CLIENT_JWT" tee register enc-live-01 --agent-id hub-coordinator
+# Log in once with a funded customer wallet; subsequent commands use the stored token.
+aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
+
+aitbc tee register enc-live-01 --agent-id hub-coordinator
 ```
 
 Expected output:
@@ -50,7 +51,7 @@ Expected output:
 ## Step 2: Query the enclave registration
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" tee status enc-live-01
+aitbc tee status enc-live-01
 ```
 
 Expected output: the same registration record with `status: active`.
@@ -58,7 +59,7 @@ Expected output: the same registration record with `status: active`.
 ## Step 3: Submit a confidential TEE job
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai submit \
+aitbc ai submit \
   --prompt "Confidential TEE live validation" \
   --payment 1.0 \
   --wallet genesis \
@@ -91,7 +92,7 @@ The coordinator stored the TEE attestation referenced in the receipt:
 
 ```bash
 # The attestation id comes from the job receipt above, e.g. ta_a9bef0c722
-curl -s -H "Authorization: Bearer $CLIENT_JWT" \
+curl -s -H "Authorization: Bearer $(python3 -c "from aitbc_cli.auth import AuthManager; print(AuthManager().get_credential('client'))")" \
   http://127.0.0.1:8203/v1/tee/attestations/<tee_attestation_id>
 ```
 

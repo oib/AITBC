@@ -507,8 +507,8 @@ The system automatically scales down when:
 
 ## Monitoring Scaling Events
 
-### Grafana Dashboard
-- Access: http://<grafana-host>:3000
+### Prometheus Queries
+- Use `curl http://localhost:9090/api/v1/query?query=...` for metrics
 - Monitor: Node count, load metrics, response times
 
 ### Logs

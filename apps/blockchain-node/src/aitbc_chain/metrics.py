@@ -38,6 +38,19 @@ rpc_request_duration = Histogram(
 
 rpc_requests_total = Counter("blockchain_rpc_requests_total", "Total RPC requests", ["method", "status"])
 
+# PoA Broadcast / Subscriber Metrics
+poa_valid_subscribers = Gauge(
+    "blockchain_poa_valid_subscribers",
+    "Number of valid subscribers when a block is broadcast",
+    ["chain_id"],
+)
+
+poa_broadcast_skipped_total = Counter(
+    "blockchain_poa_broadcast_skipped_total",
+    "Blocks skipped because there were zero valid subscribers",
+    ["chain_id"],
+)
+
 # Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass  # noqa: E402
 from threading import Lock  # noqa: E402

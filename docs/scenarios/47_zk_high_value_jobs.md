@@ -25,11 +25,12 @@ PROVIDER=aitbc1a54b82312beb65d0e90c21717ea372396991fa36
 
 ```bash
 export COORDINATOR_API_URL=http://127.0.0.1:8203
-export CLIENT_JWT=$(JWT_SECRET=$(grep -h "JWT_SECRET=" /etc/aitbc/*.env | cut -d= -f2) \
-  /opt/aitbc/venv/bin/python3.13 -c \
-  "import sys; sys.path.insert(0, '/opt/aitbc'); from aitbc.auth import create_access_token; print(create_access_token('cli-client', 'client'))")
+export WALLET=customer-wallet
 
-aitbc --api-key "$CLIENT_JWT" zk health
+# Log in once with a funded customer wallet; subsequent commands use the stored token.
+aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
+
+aitbc zk health
 ```
 
 Expected output:
@@ -48,7 +49,7 @@ Expected output:
 ## Step 2: List available circuits
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" zk circuits
+aitbc zk circuits
 ```
 
 Expected output: `enabled: true` and the list of circuits the coordinator can use.
@@ -59,7 +60,7 @@ Either the default high-value threshold (10 AIT) triggers ZK automatically, or y
 can force it with `--zk-proof-required`:
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai submit \
+aitbc ai submit \
   --prompt "ZK high-value job validation" \
   --payment 5 \
   --zk-proof-required \
@@ -100,7 +101,7 @@ Expected result:
 ## Step 4: Re-verify the proof from the CLI
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" zk verify \
+aitbc zk verify \
   --job-id <job_id> \
   --coordinator-url http://127.0.0.1:8203
 ```
@@ -118,7 +119,7 @@ Expected output:
 ## Step 5: Inspect the job status
 
 ```bash
-aitbc --api-key "$CLIENT_JWT" ai status --job-id <job_id> --coordinator-url http://127.0.0.1:8203
+aitbc ai status --job-id <job_id> --coordinator-url http://127.0.0.1:8203
 ```
 
 Expected: `state: COMPLETED`, `payment_status: released`, `zk_status: verified`,

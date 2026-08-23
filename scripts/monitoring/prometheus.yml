@@ -1,21 +1,24 @@
 # Prometheus Configuration for AITBC Monitoring
+#
+# This is a sample configuration. The live file is /etc/prometheus/prometheus.yml
+# on the node that runs the central Prometheus instance (recommended: aitbc3).
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'aitbc-test'
-    environment: 'test'
+    cluster: 'aitbc'
+    environment: 'production'
 
 # Alertmanager configuration
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets: ['localhost:9093']
 
 # Load rules once and periodically evaluate them
 rule_files:
-  # - "alert_rules.yml"
+  - aitbc_rules.yml
 
 # Scrape configurations
 scrape_configs:
@@ -24,90 +27,60 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Coordinator API metrics
-  - job_name: 'coordinator-api'
+  # Node exporter on the central host
+  - job_name: 'node-exporter-local'
     static_configs:
-      - targets: ['localhost:8203']
-    metrics_path: '/metrics/'
-    scrape_interval: 15s
+      - targets: ['localhost:9100']
 
-  # Blockchain Node metrics. 8006 until V23-98, where nothing has ever listened -- the
-  # same fictional port the stale hyphenated health-check script claimed for this service.
-  # The RPC process is what exports the series, and it binds 8202.
-  - job_name: 'blockchain-node'
+  # aitbc3 (shop/follower) services
+  - job_name: 'aitbc3-blockchain-rpc'
     static_configs:
       - targets: ['localhost:8202']
+        labels:
+          node: aitbc3
+          service: blockchain-rpc
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  # Marketplace metrics
-  - job_name: 'marketplace'
+  - job_name: 'aitbc3-coordinator-api'
     static_configs:
-      - targets: ['localhost:8102']
-    metrics_path: '/metrics'
+      - targets: ['localhost:8203']
+        labels:
+          node: aitbc3
+          service: coordinator-api
+    metrics_path: '/prometheus'
     scrape_interval: 15s
 
-  # Pool Hub metrics — poolhub_miners_online and the match/reward counters.
-  # The gauge is only written when the count is actually known (V23-96), so a gap
-  # in this series means Pool Hub could not read it, not that the miners left.
-  - job_name: 'pool-hub'
-    static_configs:
-      - targets: ['localhost:8210']
-    metrics_path: '/metrics'
-    scrape_interval: 15s
-
-  # Trading metrics. Added in V23-98 with the health-check entry; of the six services
-  # that map was missing, these two are the ones that actually export /metrics --
-  # monitoring, explorer, gpu and edge all answer 404 there and are deliberately absent
-  # below rather than added as jobs that would scrape nothing.
-  - job_name: 'trading'
+  - job_name: 'aitbc3-marketplace'
     static_configs:
       - targets: ['localhost:8104']
+        labels:
+          node: aitbc3
+          service: marketplace
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  # Governance metrics
-  - job_name: 'governance'
+  # hub.aitbc (hub/customer) services
+  - job_name: 'hub-blockchain-rpc'
     static_configs:
-      - targets: ['localhost:8105']
+      - targets: ['hub.aitbc.bubuit.net:8202']
+        labels:
+          node: hub
+          service: blockchain-rpc
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  # Agent Coordinator metrics (disabled - no /metrics endpoint)
-  # - job_name: 'agent-coordinator'
-  #   static_configs:
-  #     - targets: ['localhost:9001']
-  #   metrics_path: '/metrics'
-  #   scrape_interval: 15s
-
-  # Edge API metrics (disabled - no /metrics endpoint)
-  # - job_name: 'edge-api'
-  #   static_configs:
-  #     - targets: ['localhost:8103']
-  #   metrics_path: '/metrics'
-  #   scrape_interval: 15s
-
-  # AI Service metrics (disabled - no /metrics endpoint)
-  # - job_name: 'ai-service'
-  #   static_configs:
-  #     - targets: ['localhost:8005']
-  #   metrics_path: '/metrics'
-  #   scrape_interval: 15s
-
-  # PostgreSQL metrics (using postgres_exporter)
-  - job_name: 'postgres'
+  - job_name: 'hub-coordinator-api'
     static_configs:
-      - targets: ['postgres-exporter:9187']
-    scrape_interval: 30s
+      - targets: ['hub.aitbc.bubuit.net:8203']
+        labels:
+          node: hub
+          service: coordinator-api
+    metrics_path: '/prometheus'
+    scrape_interval: 15s
 
-  # Redis metrics (using redis_exporter)
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis-exporter:9121']
-    scrape_interval: 30s
-
-  # Node exporter for system metrics
-  - job_name: 'node'
-    static_configs:
-      - targets: ['node-exporter:9100']
-    scrape_interval: 30s
+  # Optional: pool-hub, governance, trading when they expose /metrics
+  # - job_name: 'aitbc3-pool-hub'
+  #   static_configs:
+  #     - targets: ['localhost:8210']
+  #   metrics_path: '/metrics'
