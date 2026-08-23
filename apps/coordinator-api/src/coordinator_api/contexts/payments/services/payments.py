@@ -84,6 +84,17 @@ class PaymentService:
                 meta["provider_address"] = payment_data.provider_address
             if payment_data.auto_reinvest_pct is not None:
                 meta["auto_reinvest_pct"] = str(payment_data.auto_reinvest_pct)
+            # G1: the advertised terms, stored as strings beside the payee they name.
+            # Without them a released escrow records only the total, and there is no
+            # way to check afterwards that it matched the offer the buyer saw.
+            if payment_data.offer_id:
+                meta["offer_id"] = payment_data.offer_id
+            if payment_data.offer_unit_price is not None:
+                meta["offer_unit_price"] = str(payment_data.offer_unit_price)
+            if payment_data.offer_price_unit:
+                meta["offer_price_unit"] = payment_data.offer_price_unit
+            if payment_data.offer_quantity is not None:
+                meta["offer_quantity"] = str(payment_data.offer_quantity)
             payment = JobPayment(
                 job_id=job_id,
                 amount=payment_data.amount,

@@ -35,6 +35,28 @@ def same_address(left: str | None, right: str | None) -> bool:
     return canonical_address(left) == canonical_address(right)
 
 
+def looks_like_wallet_address(value: str | None) -> bool:
+    """Return True when this string is an address the chain could actually pay.
+
+    Marketplace offers carry a ``provider_address`` field that is not always an
+    address: live listings name ``aitbc-miner-1`` and ``aitbc3-provider`` there, and
+    the CLI has its own copy of this test for the same reason. Escrow settles to the
+    literal string it was given, so an offer that advertises a node id cannot price a
+    job -- catching that at submit time is the difference between a rejected request
+    and money locked to a payee that does not exist.
+
+    The canonical form is what recovery produces: ``0x`` followed by forty hex digits.
+    :func:`canonical_address` folds the legacy ``ait1``/``aitbc1`` spellings onto it,
+    so all three spellings of a real address pass and nothing else does.
+    """
+    if not value:
+        return False
+    canonical = canonical_address(value)
+    if not canonical.startswith("0x") or len(canonical) != 42:
+        return False
+    return all(character in "0123456789abcdef" for character in canonical[2:])
+
+
 def miner_wallet_address(miner: Any) -> str | None:
     """Return the payout address a miner registered, or None if it declared none."""
     capabilities = getattr(miner, "capabilities", None) or {}
@@ -44,4 +66,9 @@ def miner_wallet_address(miner: Any) -> str | None:
     return None
 
 
-__all__ = ["WALLET_CAPABILITY_KEY", "miner_wallet_address", "same_address"]
+__all__ = [
+    "WALLET_CAPABILITY_KEY",
+    "looks_like_wallet_address",
+    "miner_wallet_address",
+    "same_address",
+]

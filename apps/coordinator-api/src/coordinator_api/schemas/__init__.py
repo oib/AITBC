@@ -35,6 +35,12 @@ class JobPaymentCreate(BaseModel):
     auto_reinvest_pct: Decimal | None = Field(
         default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake"
     )
+    # G1: the quote this amount came from, kept so a settlement can be audited against
+    # what was advertised rather than only against what was charged.
+    offer_id: str | None = Field(default=None, description="Marketplace offer the amount was quoted from")
+    offer_unit_price: Decimal | None = Field(default=None, description="Advertised price of one unit")
+    offer_price_unit: str | None = Field(default=None, description="Unit the offer is priced in")
+    offer_quantity: Decimal | None = Field(default=None, description="Units bought at the advertised price")
 
     @field_validator("job_id")
     @classmethod
@@ -294,6 +300,15 @@ class JobCreate(BaseModel):
     payment_currency: str = brand_symbol  # Jobs paid with network tokens
     buyer_address: str | None = None  # Customer wallet address for escrow
     provider_address: str | None = None  # Provider wallet address for escrow
+    # G1: the marketplace listing this job is bought against. When set, the offer
+    # decides the price and the payee, and a payment_amount or provider_address that
+    # disagrees with it is refused rather than quietly preferred.
+    offer_id: str | None = Field(default=None, description="Marketplace offer this job is bought against")
+    offer_quantity: Decimal = Field(
+        default=Decimal("1"),
+        gt=Decimal("0"),
+        description="How many of the offer's price_unit are being bought",
+    )
 
 
 class JobView(BaseModel):
@@ -306,6 +321,11 @@ class JobView(BaseModel):
     error: str | None = None
     payment_id: str | None = None
     payment_status: str | None = None
+    # G1: the offer that priced and routed this job, surfaced so clients can audit it.
+    offer_id: str | None = None
+    offer_unit_price: Decimal | None = None
+    offer_price_unit: str | None = None
+    offer_quantity: Decimal | None = None
     zk_status: str | None = None
     payload: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
