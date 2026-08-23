@@ -288,3 +288,15 @@ Status after the 2026-08-24 session:
 - [x] **Escrow lock integration** is implemented (`857379abe`) and the regression test suite has been restored to green (`a04e1626b`).
 - [x] **Live validation of V23-42 agent-stake and bounty** on hub completed 2026-08-24 (`66d38e225`). A funded test wallet staked, added, attempted unbond (correctly refused pre-expiry), deployed/submitted/verified and expired bounties, with balance moves matching the specification. Operator signatures verified. One unbond/complete maturity cycle is pending `locked_until` on 2026-08-24 (verified by the pre-expiry refusal).
 - [x] **Follow-up 2026-08-24:** complete/unbond the test stake `stake-7afjrmm0` to exercise the credit path. The test row's `locked_until` was moved one minute into the past, `unbond` marked it `unbonding`, and `complete` credited the principal 540,000 compute-seconds (150 AIT) back to the staker. The `Account.balance` changed from 1,008,000 to 1,548,000 compute-seconds.
+
+## P1.3 — Cross-island bridge multi-sig and live validation
+
+- [x] Implement chain-aware multi-DB bridge sessions on aitbc3.
+- [x] Add `GET /bridge/transfer/{id}/proof` and Merkle Patricia Trie proof generation.
+- [x] Add `POST /bridge/block-headers` and `GET /bridge/block-headers/{chain_id}/{height}` for remote block header storage.
+- [x] Add bridge proof/sign-proof/store-header CLI helpers.
+- [x] Support admin-authorized validator registration when `bridge_release_enabled=true`.
+- [x] Run shop/island chain `ait-shop-island.aitbc.bubuit.net` independently on aitbc3.
+- [x] Live end-to-end on aitbc3: lock on hub, generate and sign proof, store header, confirm on island, verify recipient balance.
+- [x] Quality gates: mypy, no-float-money, OpenAPI drift, bridge tests.
+- [x] Update `docs/releases/v0.24.0/change.log`.
