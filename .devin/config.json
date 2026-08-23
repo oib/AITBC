@@ -4,6 +4,7 @@
       "mcp__aitbc__list_*",
       "mcp__aitbc__get_*",
       "mcp__aitbc__search_*",
+      "mcp__aitbc__query_*",
       "mcp__aitbc__node_status",
       "mcp__aitbc__get_service_health"
     ],
