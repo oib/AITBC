@@ -1260,6 +1260,63 @@ deployment rather than something to configure around.
 
 ## Open work
 
-- V23-42 agent-stake / bounty RPC surface with real account locks (see plan `plan-83d5864bb52cf214.md` Phase 2).
-- `AITBC_WALLET_DIR` CLI helper if not already present in the codebase.
-- OpenAPI regen after the new staking/bounty routes land.
+None. The V23-42 agent-stake / bounty surface, `AITBC_WALLET_DIR`, and OpenAPI regen were completed and live-validated in the same session.
+
+# 2026-08-24 — V23-42 agent-stake and bounty live validation
+
+**Date:** 2026-08-24
+**Node:** `hub.aitbc`
+**Gitea `main`:** `66d38e225`
+
+## What was validated
+
+A dedicated test wallet (`v23-42-test`, `ait1315733b7cb944f1d14e2af35388740cbb7bd2e93`) was funded with 700 AIT from the genesis wallet and the V23-42 agent-economy RPC surface was exercised end-to-end on the live hub blockchain RPC.
+
+### Agent staking
+
+| step | endpoint | amount | result |
+|---|---|---|---|
+| create | `POST /rpc/agent-staking/stake` | -100 AIT | `active`, `Account.balance` down 360,000 sec |
+| add | `POST /rpc/agent-staking/stake/{stake_id}/add` | -50 AIT | `amount` 540,000 sec, `Account.balance` down 180,000 sec |
+| unbond (pre-expiry) | `POST /rpc/agent-staking/stake/{stake_id}/unbond` | n/a | `400` "Lock period not expired" (correct) |
+| performance | `POST /rpc/agent-staking/performance` | n/a | memo stored, no balance move |
+| distribute | `POST /rpc/agent-staking/agents/{agent_wallet}/distribute` | n/a | memo stored, no balance move |
+| claim-rewards | `POST /rpc/agent-staking/claim-rewards` | n/a | memo stored, no balance move |
+
+`unbond` and `complete` could not be exercised to maturity because `lock_period=1` day (the minimum) makes the stake mature on 2026-08-24. The node correctly refused `unbond` before `locked_until`.
+
+### Bounties
+
+| step | endpoint | amount | result |
+|---|---|---|---|
+| deploy A | `POST /rpc/bounty/deploy` | -10 AIT | `active`, `Account.balance` down 36,000 sec |
+| submit A | `POST /rpc/bounty/{bounty_id}/submit` | n/a | submission `pending` |
+| verify A | `POST /rpc/bounty/{bounty_id}/verify` | +10 AIT to winner | `completed`, `payout` 36,000 sec |
+| deploy B | `POST /rpc/bounty/deploy` | -10 AIT | `active`, `Account.balance` down 36,000 sec |
+| expire B | `POST /rpc/bounty/{bounty_id}/expire` | +10 AIT refund | `expired`, `refunded` 36,000 sec |
+| dispute on completed A | `POST /rpc/bounty/{bounty_id}/dispute` | n/a | `400` "Cannot dispute a paid bounty" (correct) |
+
+### Balance checks
+
+- Staker balance: `2,520,000` sec → `1,008,000` sec (440 AIT), matching all debits, the add increment, the bounty B refund, and the absence of any move for memos.
+- Winner (`ait1fe2d63...`) balance increased by exactly 36,000 sec on verify.
+- Insufficient-balance request was rejected with `400` and the correct on-chain `Account.balance`.
+
+### Operator signature
+
+Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verified by the node against `AGENT_ECONOMICS_OPERATOR_ADDRESS`. The coordinator journal has no post-fix `NetworkError` / `Failed to create stake contract on-chain` entries for the new surface.
+
+### Verification
+
+- `mypy-precommit.sh` — 0
+- `no_float_money.py` — 0
+- `check-openapi-drift.sh` — passes
+- `pytest apps/blockchain-node/tests` — all green
+- `test_blockchain_client_paths.py` — 3 passed
+- `test_routers_bounty.py` — green
+- `journalctl -u aitbc-coordinator-api` — no new staking/bounty `NetworkError` entries
+
+## Notes
+
+- The test wallet private key and the operator signing key were kept in node env files; they were not committed or printed.
+- One unbond/complete maturity test remains for 2026-08-24; the node logic was verified by the pre-expiry refusal.
