@@ -4,7 +4,7 @@
 > enforced by code/sensors (shipped, load-bearing, default-on) but whose file
 > frontmatter still says `status: proposed`. The forward direction (accepted in
 > the record, file still `proposed`) is guarded by
-> [`scripts/adr-acceptance-drift.sh`](../scripts/adr-acceptance-drift.sh); this
+> `scripts/adr-acceptance-drift.sh`; this
 > list covers the direction that had **no sensor** before PILOT-52 / ABS-561.
 
 ## What this is

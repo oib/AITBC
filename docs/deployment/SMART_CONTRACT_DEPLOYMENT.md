@@ -19,7 +19,6 @@
 - **🔧 SETUP_PRODUCTION.md** - Production blockchain setup
 - **📋 [Advanced Deployment](../deployment/0_index.md)** - Advanced deployment topics
 - **📚 [Contracts Directory](../../contracts/)** - Contract source code
-- **🔄 [CI/CD Workflows](../../.gitea/workflows/deploy-testnet.yml)** - Deployment automation
 
 ---
 
