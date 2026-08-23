@@ -2,6 +2,7 @@
 
 import os
 import time
+from decimal import Decimal
 from typing import Any
 
 import click
@@ -167,6 +168,8 @@ def ai():
 @click.option("--currency", default=None, help="Payment currency (default: AITBC)")
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
+@click.option("--offer-id", help="Marketplace offer this job is bought against")
+@click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy (default: 1)")
 @click.option("--min-reputation", type=float, help="Minimum provider reputation score (0-1) required for this job")
 @click.option(
     "--zk-proof-required/--no-zk-proof-required", default=False, help="Require a ZK receipt proof before escrow release"
@@ -214,6 +217,8 @@ def submit(
     currency,
     buyer_address,
     provider_address,
+    offer_id,
+    offer_quantity,
     min_reputation,
     zk_proof_required,
     tee_attestation_required,
@@ -322,6 +327,10 @@ def submit(
         if min_bond_amount is not None:
             job_data["constraints"]["min_bond_amount"] = min_bond_amount
 
+        if offer_id:
+            job_data["offer_id"] = offer_id
+            if offer_quantity is not None:
+                job_data["offer_quantity"] = str(offer_quantity)
         if payment:
             job_data["payment_amount"] = payment
             job_data["payment_currency"] = currency or "AITBC"
