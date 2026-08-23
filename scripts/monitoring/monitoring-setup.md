@@ -21,7 +21,7 @@ Grafana is a human-facing rendering layer. None of the live incident investigati
 
 ### Core AITBC metrics
 
-The blockchain RPC exposes `/metrics` (and `/prometheus` on the coordinator API). Key series to watch:
+The blockchain node main process exposes `/metrics` on `AITBC_NODE_METRICS_PORT` (default `9009`). The RPC process and the coordinator API also expose `/metrics` (or `/prometheus`) on their normal ports. Key series to watch:
 
 - `blockchain_block_height` - current block height.
 - `blockchain_poa_valid_subscribers{chain_id}` - number of valid subscribers at block broadcast time.
@@ -120,6 +120,14 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9100']
 
+  # Blockchain node main process metrics (chain height, subscribers, broadcast skipped)
+  - job_name: 'aitbc3-blockchain-node'
+    static_configs:
+      - targets: ['localhost:9009']
+        labels:
+          node: aitbc3
+          service: blockchain-node
+
   - job_name: 'aitbc3-blockchain-rpc'
     static_configs:
       - targets: ['localhost:8202']
@@ -140,6 +148,13 @@ scrape_configs:
         labels:
           node: aitbc3
           service: marketplace
+
+  - job_name: 'hub-blockchain-node'
+    static_configs:
+      - targets: ['hub.aitbc.bubuit.net:9009']
+        labels:
+          node: hub
+          service: blockchain-node
 
   - job_name: 'hub-blockchain-rpc'
     static_configs:
@@ -166,7 +181,7 @@ Since `aitbc3` has more hardware than `hub`:
    - record: aitbc:block_interval_seconds:rate5m
      expr: 60 / rate(blockchain_block_height[5m])
    ```
-3. **Extend the `/metrics` endpoints.** Every long-lived service should export `up`, `process_*` (already present from `prometheus_client`) and domain-specific counters/gauges.
+3. **Expose process and chain metrics.** The blockchain node main process now serves `/metrics` on port `9009` via `AITBC_NODE_METRICS_PORT` and exports chain height, valid subscriber counts and broadcast-skip counters.
 4. **Promote operational log lines.** `BROADCAST SKIPPED` and similar events are now logged at `WARNING` and counted in `blockchain_poa_broadcast_skipped_total` so an agent sees both the event and the metric.
 5. **Run `prometheus-node-exporter` on every node.** System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion.
 6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly.
