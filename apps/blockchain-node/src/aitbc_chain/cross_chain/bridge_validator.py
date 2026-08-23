@@ -33,7 +33,7 @@ class BridgeValidatorMixin(BridgeBase):
         Called by the RPC endpoint ``POST /bridge/validators/register``.
         Replaces any existing registration for the same (chain_id, address, epoch).
         """
-        with self._session_factory() as session:
+        with self._session_for(chain_id) as session:
             # Check if validator already exists for this chain+address+epoch
             existing = session.exec(
                 select(BridgeValidator).where(
@@ -77,7 +77,7 @@ class BridgeValidatorMixin(BridgeBase):
         If epoch is None, loads the latest epoch for the chain.
         Returns the ValidatorSet, or None if no validators are registered.
         """
-        with self._session_factory() as session:
+        with self._session_for(chain_id) as session:
             query = select(BridgeValidator).where(BridgeValidator.chain_id == chain_id)
             if epoch is not None:
                 query = query.where(BridgeValidator.epoch == epoch)
@@ -290,7 +290,7 @@ class BridgeValidatorMixin(BridgeBase):
         grace_period = getattr(settings, "bridge_validator_set_grace_period", 7200)
         now = datetime.now(UTC)
 
-        with self._session_factory() as session:
+        with self._session_for(chain_id) as session:
             # Get the latest validator registration for this chain
             latest = session.exec(
                 select(BridgeValidator)
