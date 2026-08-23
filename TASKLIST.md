@@ -302,3 +302,4 @@ Status after the 2026-08-24 session:
 - [x] Update `docs/releases/v0.24.0/change.log`.
 - [x] Follow-up 2026-08-23: anchor `BRIDGE_RELEASE` transactions in island blocks and update source-chain transfer records on confirm.
 - [x] Follow-up 2026-08-23: fix hub→shop state-root mismatch and `Invalid nonce` warning by preventing follower-side source locks and anchoring `BRIDGE_LOCK` transactions in real hub blocks; live validate a 30-unit hub→island bridge with matching follower account state.
+- [x] Fix shop sync repeatedly requesting the island chain from the hub (HTTP 503).
