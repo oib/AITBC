@@ -1,2 +1,12 @@
 #!/bin/bash
-/opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"
+# Launch the CLI from the current repo's venv, a caller-provided PYTHON, or python3.
+set -e
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -x "$REPO_DIR/venv/bin/python" ]; then
+  PYTHON="$REPO_DIR/venv/bin/python"
+elif [ -n "${PYTHON:-}" ]; then
+  PYTHON="$PYTHON"
+else
+  PYTHON=python3
+fi
+exec "$PYTHON" -m aitbc_cli.core.main "$@"
