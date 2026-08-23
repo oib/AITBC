@@ -49,9 +49,10 @@ class BlockEventSubscriber:
 
             backend = create_backend(self.settings.gossip_backend, broadcast_url=self.settings.gossip_broadcast_url)
             self._broker = GossipBroker(backend)
-            self._subscription = await self._broker.subscribe("blocks", max_queue_size=100)
+            topic = f"blocks.{self.settings.chain_id}" if self.settings.chain_id else "blocks"
+            self._subscription = await self._broker.subscribe(topic, max_queue_size=100)
             gossip_subscribers_total.set(1)
-            logger.info("Successfully subscribed to blocks topic")
+            logger.info("Successfully subscribed to %s topic", topic)
         except ImportError as e:
             logger.error("Failed to import gossip broker: %s", e)
             logger.info("Using mock implementation for development")
