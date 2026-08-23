@@ -1105,3 +1105,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Adds `SyncLagHigh` and `MempoolFull` alerts.
   - Updates `RpcErrorsSpiking` to use the combined client/server error rate.
 - fix(metrics): remove stray `import re` that broke Python `from __future__` import ordering in `metrics.py`
+- fix(metrics): import subscription_messages_received_total in subscription_client
+- fix(metrics): add missing `re` import to `metrics.py` so the legacy
+  `MetricsRegistry.render_prometheus()` path does not raise `NameError` when
+  `/metrics` is scraped.
