@@ -1319,4 +1319,4 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
 ## Notes
 
 - The test wallet private key and the operator signing key were kept in node env files; they were not committed or printed.
-- One unbond/complete maturity test remains for 2026-08-24; the node logic was verified by the pre-expiry refusal.
+- One unbond/complete maturity test was completed immediately after this section by moving the test stake's `locked_until` one minute into the past and calling `POST /rpc/agent-staking/stake/{stake_id}/unbond` then `POST /rpc/agent-staking/stake/{stake_id}/complete`. `unbond` left the balance unchanged and marked the stake `unbonding`; `complete` credited the full principal (540,000 compute-seconds) and marked the stake `completed`. The staker `Account.balance` moved from 1,008,000 to 1,548,000 compute-seconds.
