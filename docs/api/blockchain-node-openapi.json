@@ -6423,6 +6423,104 @@
         }
       }
     },
+    "/rpc/bridge/transfer/{transfer_id}/proof": {
+      "get": {
+        "tags": [
+          "rpc",
+          "bridge"
+        ],
+        "summary": "Build bridge transfer proof",
+        "description": "Build a Merkle proof for a locked bridge transfer.",
+        "operationId": "get_bridge_proof_route_rpc_bridge_transfer__transfer_id__proof_get",
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          },
+          {
+            "name": "source_chain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Chain"
+            }
+          },
+          {
+            "name": "block_height",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Block Height"
+            }
+          },
+          {
+            "name": "block_hash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Block Hash"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Bridge Proof Route Rpc Bridge Transfer  Transfer Id  Proof Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/bridge/pending": {
       "get": {
         "tags": [
