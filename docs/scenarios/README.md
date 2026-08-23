@@ -163,4 +163,5 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 49 | [Auto-Reinvest from Released Escrow](./49_auto_reinvest_escrow.md) | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
 || 51 | [Multi-Validator PoA Soak](./51_multi_validator_poa_soak.md) | P1.4 multi-validator consensus soak before live enablement | `aitbc blockchain status`, `aitbc monitor metrics` |
 || 52 | [Wallet Key Mismatch Recovery](./52_wallet_key_mismatch.md) | Recover or deprecate a wallet whose key does not match its expected address | `aitbc wallet info`, `aitbc wallet import-wallet` |
+|| 53 | [Customer and Shop Dashboards](./53_dashboards.md) | P1.2 live customer/shop dashboards via `aitbc dashboard` | `aitbc dashboard customer`, `aitbc dashboard shop` |
 | 50 | [Default Whisper, FFmpeg, and Ollama Shop Offers](./50_default_shop_offers.md) | Shop auto-publishes default software offers and customers run jobs with `aitbc market` | `aitbc market` |

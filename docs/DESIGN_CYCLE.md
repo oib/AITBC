@@ -203,7 +203,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | # | Wish | Why |
 |---|------|-----|
 | P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Shipped: `min_reputation` constraint, higher-reputation dispatch preference, and `--min-reputation` CLI flag (commit `fdbd17f5c`). Closes step 8. |
-| P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Mock web UI is not a product |
+| P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Shipped for CLI — `aitbc dashboard customer` and `aitbc dashboard shop` query live coordinator, wallet daemon, GPU discovery, and marketplace services. Web UI mock is outside the CLI repo. |
 | P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | Shipped: `docs/features/2-bridge-cross-chain.md` and `docs/releases/STATUS.md` now explicitly state the live bridge is a trusted custodian with `bridge_release_enabled=False`, and that multi-sig/Merkle features are implemented but disabled by default. |
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Shipped — `MultiValidatorPoA` + PBFT are implemented and pass `test_multi_validator_poa_soak.py` (1000 rounds + partition). Live enablement is gated by `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in `blockchain.env`; operators must run [Scenario 51](./docs/scenarios/51_multi_validator_poa_soak.md) before flipping the flag. |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
