@@ -207,14 +207,22 @@ class BridgeClient:
         address: str,
         public_key: str,
         signature: str,
+        epoch: int = 0,
+        admin_address: str | None = None,
+        admin_signature: str | None = None,
     ) -> dict[str, Any]:
         """Register a validator for bridge operations."""
-        payload = {
+        payload: dict[str, Any] = {
             "chain_id": chain_id,
             "address": address,
             "public_key": public_key,
             "signature": signature,
+            "epoch": epoch,
         }
+        if admin_address:
+            payload["admin_address"] = admin_address
+        if admin_signature:
+            payload["admin_signature"] = admin_signature
         resp = await self._ensure_client().post("/bridge/validators/register", json=payload)
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
