@@ -160,8 +160,8 @@ python3 -m pytest apps/blockchain-node/tests/test_bond.py -q -o addopts=""
 
 ## Related Resources
 
-- [State transition code](../../../apps/blockchain-node/src/aitbc_chain/state/state_transition.py)
-- [Bond CLI](../../../cli/aitbc_cli/commands/bond.py)
+- [State transition code](../../apps/blockchain-node/src/aitbc_chain/state/state_transition.py)
+- [Bond CLI](../../cli/aitbc_cli/commands/bond.py)
 
 ---
 
