@@ -1393,6 +1393,36 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
    - `pytest apps/blockchain-node/tests/`: all green.
    - `check-openapi-drift.sh`: 5 specs match.
 
-4. **Remaining operational findings**
-   - Hub→shop state sync still logs `state_root mismatch` and a one-time `Invalid nonce for ait1a54...: expected 1503, got 1502` warning. These are recorded for later investigation and are not addressed by this change.
-   - The historical first bridge lock (`0x45e3cb856c9da0e...`) did not debit the source `ait19df8...` account due to the prior `expire_on_commit=True` session handling; that account has an extra 50-unit balance. This is a one-time data inconsistency on the live hub DB, not a reproducible code bug after `database.py` `expire_on_commit=False`.
+4. **Resolved operational findings**
+   - Hub→shop state sync state-root mismatch was caused by a follower-side `bridge/lock` writing source `Account` state that the upstream hub did not include, plus a faucet-created test account (`ait13ed...`) that existed only on the shop. Removing the local-only account and moving the lock operation to the hub producer eliminated the mismatch and the `Invalid nonce` warning.
+   - The source-account debit anomaly for new transfers is fixed by the commits below; only the historical pre-fix transfers (`0x45e3...`, `0x4bb3...`, `0x3b3b...`, `0x6eb4...`) remain as data archaeology.
+
+### Bridge source-chain locking and follower sync — 2026-08-23 follow-up
+
+**Date:** 2026-08-23  
+**Gitea `main`:** `2b033c1be` — *fix(bridge,consensus,state): real source-chain bridge locks and follower sync*
+
+1. **Code changes**
+   - `bridge_transfer.py`:
+     - `initiate_transfer` rejects source chains the node does not produce when `default_peer_rpc_url` is configured, preventing follower nodes from creating local source state that is later overwritten by upstream sync.
+     - When produced locally, the `BRIDGE_LOCK` `Transaction` is marked `confirmed` with `block_height=NULL` and a `bridge_lock` account is created; the proposer includes it in the next block.
+   - `consensus/poa.py`:
+     - The pre-registered transaction bypass now includes `BRIDGE_LOCK`, so source locks are anchored in real source blocks without double-debiting.
+   - `state/state_transition.py`:
+     - `BRIDGE_LOCK` is now a first-class transition: the `bridge_lock` recipient account is created lazily and the locked amount is transferred.
+   - `rpc/routers/bridge.py`:
+     - `POST /bridge/lock` no longer validates the target chain against `supported_chains`, allowing the hub to lock funds for an island target without requiring an island genesis block.
+
+2. **Live validation**
+   - Locked 30 units on `hub.aitbc` (`ait19df8...`) with target `ait-shop-island` using the hub `bridge/lock` endpoint.
+   - The `BRIDGE_LOCK` transaction was included in hub block 12240 (`0xbc85be0964a982272cc4da6660b052de28390d41bac566e8bccd48f9ef759d55`).
+   - `aitbc3` imported hub block 12240 and its `Account` table now matches the hub: `ait19df8...` balance 120, nonce 2.
+   - Proof was generated on the hub, block header stored on `aitbc3`, and confirm succeeded.
+   - The island release transaction was anchored in shop island block 40 (`551a7ee4a6f820a11d4c8961c7fc97076a0d2a40050dde7f16ea473f9cb796e6`).
+   - `journalctl` no longer reports state-root mismatch or invalid-nonce warnings for the hub sync.
+
+3. **Quality gates**
+   - `mypy` clean on `bridge_transfer.py`, `poa.py`, `state_transition.py`, and `rpc/routers/bridge.py`.
+   - `no_float_money.py`: 0 violations.
+   - `pytest apps/blockchain-node/tests -k bridge`: all green.
+   - `check-openapi-drift.sh`: 5 specs match.
