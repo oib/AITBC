@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -27,7 +28,7 @@ logger = get_logger(__name__)
 _brand = get_active_brand()
 
 # P2.1: high-value jobs require a verified ZK receipt proof before escrow release.
-_ZK_THRESHOLD_AIT = float(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
+_ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
@@ -43,13 +44,13 @@ def _parse_settled_at(value: object) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-def _zk_required_for_payment(payment_amount: float | None, job: Job | None) -> bool:
+def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
     """Return True when a job payment triggers the ZK-proof escrow gate."""
     if _ZK_THRESHOLD_AIT < 0:
         return False
     if job and job.constraints and job.constraints.get("zk_proof_required"):
         return True
-    amount = float(payment_amount or 0)
+    amount = payment_amount or Decimal("0")
     return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
 
 
@@ -214,7 +215,7 @@ class PaymentService:
         if payment.status != "escrowed":
             return False
         job = self.session.get(Job, job_id)
-        if _zk_required_for_payment(float(payment.amount) if payment.amount else None, job):
+        if _zk_required_for_payment(payment.amount if payment.amount else None, job):
             receipt = job.receipt if job else None
             if not receipt or receipt.get("zk_status") != "verified":
                 logger.error(

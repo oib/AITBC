@@ -1,4 +1,5 @@
 """Coordinator API router for provider performance bonds."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -6,8 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from ....auth import require_auth
@@ -25,8 +25,8 @@ router = APIRouter(prefix="/marketplace", tags=["marketplace-bonds"])
 
 class BondCreate(BaseModel):
     bond_id: str = Field(default_factory=lambda: "")
-    amount: str | float | int = Field(default="0.0")
-    required_amount: str | float | int = Field(default="0.0")
+    amount: str | int | Decimal = Field(default="0.0")
+    required_amount: str | int | Decimal = Field(default="0.0")
 
 
 class BondResponse(BaseModel):
@@ -85,7 +85,7 @@ async def create_bond(
     provider_id: str,
     body: BondCreate,
     session: Annotated[Session, Depends(get_session)],
-    user: dict[str, Any] = Depends(require_auth),
+    user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Create or top-up a provider performance bond record."""
     bond = set_provider_bond_status(
@@ -104,7 +104,7 @@ async def get_eligibility(
     request: Request,
     provider_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: dict[str, Any] = Depends(require_auth),
+    user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondStatusResponse:
     """Return whether a provider is eligible for high-value jobs."""
     statement = select(ProviderBond).where(ProviderBond.provider_id == provider_id)
@@ -133,7 +133,7 @@ async def get_bond_by_id(
     request: Request,
     bond_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: dict[str, Any] = Depends(require_auth),
+    user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Return a single bond record."""
     bond = session.get(ProviderBond, bond_id)
@@ -147,7 +147,7 @@ async def lock_bond(
     request: Request,
     provider_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: dict[str, Any] = Depends(require_auth),
+    user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Lock a provider's bond while a high-value job is in flight."""
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.LOCKED)
@@ -159,7 +159,7 @@ async def release_bond(
     request: Request,
     provider_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: dict[str, Any] = Depends(require_auth),
+    user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Release a locked bond back to active status."""
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.ACTIVE)
@@ -172,7 +172,7 @@ async def slash_bond(
     provider_id: str,
     body: BondAction,
     session: Annotated[Session, Depends(get_session)],
-    user: dict[str, Any] = Depends(require_auth),
+    user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Slash a provider's bond for misbehavior."""
     bond = set_provider_bond_status(

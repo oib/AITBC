@@ -166,7 +166,7 @@ class MatchingService:
             escrow_id = None
             job_id = None
             try:
-                task_payload = {
+                task_payload: dict[str, Any] = {
                     "task_data": {
                         "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
                         "offer_id": best_offer.id,
@@ -180,7 +180,7 @@ class MatchingService:
                     "payment": None,
                 }
                 if max_price is not None:
-                    task_payload["task_data"]["max_price"] = float(max_price)
+                    task_payload["task_data"]["max_price"] = str(max_price)
                 client = self._ensure_client()
                 resp = await client.post(
                     f"{settings.agent_coordinator_url}/tasks/submit",

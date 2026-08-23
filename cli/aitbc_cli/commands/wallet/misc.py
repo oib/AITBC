@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime
+from decimal import InvalidOperation
 from pathlib import Path
 
 import click
@@ -70,10 +71,10 @@ def rewards(ctx):
 @wallet.command()
 @click.argument("address")
 @click.option("--amount", default=3600000000, help="Amount to request from faucet in compute-seconds (default: 3600000000)")
-@click.option("--amount-ait", type=float, default=None, help="Amount to request from faucet in AIT (overrides --amount)")
+@click.option("--amount-ait", default=None, help="Amount to request from faucet in AIT (overrides --amount)")
 @click.option("--chain-id", help="Chain ID (defaults to node's chain)")
 @click.pass_context
-def fund(ctx, address: str, amount: int, amount_ait: float | None, chain_id: str):
+def fund(ctx, address: str, amount: int, amount_ait: str | None, chain_id: str):
     """Fund wallet using blockchain faucet"""
     import httpx
 
@@ -89,7 +90,13 @@ def fund(ctx, address: str, amount: int, amount_ait: float | None, chain_id: str
 
     # Convert AIT to compute-seconds if requested
     if amount_ait is not None:
-        amount = int(ait_to_seconds(amount_ait))
+        # Passed through as a string so ait_to_seconds parses it as a Decimal
+        # instead of a float that click already rounded.
+        try:
+            amount = int(ait_to_seconds(amount_ait))
+        except (InvalidOperation, ValueError):
+            error(f"Invalid --amount-ait: {amount_ait}")
+            return
 
     # Normalize address (accept 0x, aitbc1, ait1, or raw hex)
     try:
