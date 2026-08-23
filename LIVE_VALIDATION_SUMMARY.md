@@ -1444,3 +1444,24 @@ Every mutating request was signed with `AGENT_ECONOMICS_OPERATOR_KEY` and verifi
    - After restarting `aitbc-blockchain-node` on aitbc3, the logs now show `INFO  [aitbc_chain.main] Skipping sync for locally-produced chain ait-shop-island.aitbc.bubuit.net` instead of `Failed to fetch remote head`.
    - Hub sync continues normally for `ait-hub.aitbc.bubuit.net`.
    - Both `aitbc3` and `hub.aitbc` report `bridge/health` healthy.
+
+### GPU_MARKETPLACE block import / empty tx_hash fix — 2026-08-23
+
+**Date:** 2026-08-23  
+**Gitea `main`:** `fb338a07a` — *fix(sync): compute missing tx_hash from block broadcast content*
+
+1. **Problem**
+   - Logs on `aitbc3` showed:
+     ```
+     [WARNING] [aitbc_chain.state.state_transition] Replay attack detected: Transaction  already persisted
+     [ERROR] [aitbc_chain.subscription_client] Failed to import block 12249: UNIQUE constraint failed: transaction.chain_id, transaction.tx_hash
+     ```
+     The `tx_hash` field was an empty string in the `INSERT` parameters.
+   - Root cause: block broadcasts from the proposer carry the raw signed transaction content and did not include the pre-computed `tx_hash`.  `sync_block_import` defaulted to `tx_data.get("tx_hash", "")`, which produced empty hashes.  When another transaction with an empty hash was imported, it collided with the existing empty-hash row in the DB.
+
+2. **Fix**
+   - `apps/blockchain-node/src/aitbc_chain/sync_block_import.py` now imports `compute_tx_hash` from `mempool` and computes a non-empty `tx_hash` for every transaction that arrives without one.
+
+3. **Live result**
+   - After restarting `aitbc-blockchain-node` on `aitbc3`, GPU_MARKETPLACE transactions are now imported with full `tx_hash` values (e.g. `0x33644ebdb507cf6ff70af28ffe07b54c7d5e2c9e7e67b0c09d8b2c368592aebc`).
+   - No further `UNIQUE constraint failed` or `Replay attack detected` errors for block imports.
