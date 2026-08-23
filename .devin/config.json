@@ -13,7 +13,13 @@
       "mcp__aitbc__restart_node",
       "mcp__aitbc__run_cron_job",
       "mcp__aitbc__run_aitbc_command",
-      "mcp__aitbc__run_aitbc_cli"
+      "mcp__aitbc__run_aitbc_cli",
+      "mcp__aitbc__call_aitbc_http",
+      "mcp__aitbc__submit_ai_job",
+      "mcp__aitbc__send_aitbc_transaction",
+      "mcp__aitbc__create_performance_bond",
+      "mcp__aitbc__stake_aitbc",
+      "mcp__aitbc__unstake_aitbc"
     ],
     "deny": []
   }

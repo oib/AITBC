@@ -15,13 +15,18 @@ live nodes (`aitbc3` and `hub.aitbc`) through natural-language tool calls.
 | Cron jobs | `list_cron_jobs`, `run_cron_job` |
 | Logs | `get_service_logs` |
 | AITBC CLI pivot | `run_aitbc_cli`, `run_aitbc_command`, `list_aitbc_cli_group` |
-| Wallets | `list_wallets`, `get_wallet_balance`, `list_wallet_transactions` |
-| AI jobs | `list_ai_jobs`, `get_ai_job_status`, `get_ai_job_results` |
+| Wallets (read) | `list_wallets`, `get_wallet_balance`, `list_wallet_transactions` |
+| Wallets (mutate) | `send_aitbc_transaction`, `stake_aitbc`, `unstake_aitbc` |
+| AI jobs (read) | `list_ai_jobs`, `get_ai_job_status`, `get_ai_job_results` |
+| AI jobs (mutate) | `submit_ai_job` |
 | Marketplace | `list_market_offers`, `get_market_status` |
 | Nodes config | `list_aitbc_node_config`, `get_node_info` |
 | Accounts | `list_accounts`, `get_account` |
-| Bonds | `get_bond_status` |
+| Bonds (read) | `get_bond_status` |
+| Bonds (mutate) | `create_performance_bond` |
 | Transactions | `list_pending_transactions`, `get_transaction_status`, `search_transactions` |
+| HTTP / RPC pivot | `call_aitbc_http` |
+| Blockchain RPC | `get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`, `get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`, `get_blockchain_status` |
 | Version / auth | `get_aitbc_version`, `get_auth_status` |
 
 All destructive tools default to `dry_run=true` and require `confirm=true` before
@@ -96,7 +101,13 @@ Recommended `.devin/config.json`:
       "mcp__aitbc__restart_node",
       "mcp__aitbc__run_cron_job",
       "mcp__aitbc__run_aitbc_command",
-      "mcp__aitbc__run_aitbc_cli"
+      "mcp__aitbc__run_aitbc_cli",
+      "mcp__aitbc__call_aitbc_http",
+      "mcp__aitbc__submit_ai_job",
+      "mcp__aitbc__send_aitbc_transaction",
+      "mcp__aitbc__create_performance_bond",
+      "mcp__aitbc__stake_aitbc",
+      "mcp__aitbc__unstake_aitbc"
     ],
     "deny": []
   }
@@ -133,6 +144,35 @@ Examples of `run_aitbc_cli`:
 
 The installed CLI only exposes a validated subset of commands. Deprecated groups
 such as `chain` and `blockchain` are hidden and will be rejected.
+
+Examples of destructive CLI wrappers:
+
+- `submit_ai_job(prompt="...", wallet="genesis", model="llama3:8b")`
+- `send_aitbc_transaction(from_wallet="genesis", to_address="ait...", amount="0.1")`
+- `stake_aitbc(amount="1000", duration_days=30)`
+- `create_performance_bond(provider_id="aitbc3-provider", amount="500")`
+
+## HTTP / RPC pivot
+
+A second generic tool, `call_aitbc_http`, hits the local HTTP APIs on each node.
+It maps a service name to a base URL and builds a `curl` command.
+
+Examples:
+
+- service="blockchain-rpc", path="info"
+- service="blockchain-rpc", path="account/ait1..."
+- service="blockchain-rpc", path="transaction/0x..."
+- service="blockchain-rpc", path="blocks-range", params={"limit": "3"}
+- service="coordinator-api", path="v1/jobs", params={"limit": "10"}
+- service="blockchain-event-bridge", path="metrics/"
+
+Typed RPC tools are also provided for the most common blockchain paths:
+`get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`,
+`get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`,
+`get_blockchain_status`.
+
+Some endpoints (e.g. coordinator, marketplace, event bridge) may require
+authentication or be bound to a specific node.
 
 ## Running outside Devin
 
