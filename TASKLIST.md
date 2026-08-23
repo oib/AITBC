@@ -100,7 +100,7 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 
 - Live nodes: shop `aitbc3` and hub `hub.aitbc` are both on gitea `main` at `1fc83882a` (clean). Units that load `1d8ab0d40` were restarted 2026-08-23; health 200 on rpc/coord/marketplace.
 - `1d8ab0d40` cleared mypy-clean-apps (34 -> 0) and no-float-money (16 -> 0). Wire-visible: miner earnings `total/pending/paid_earnings` are strings; node release `reinvest_stake_id` is a string.
-- `openapi-drift` is still red (~1400 lines) and stays skipped until the V23-42 routes exist; then one `make openapi` review.
+- [x] **OpenAPI drift cleared 2026-08-23.** `make openapi` regenerated the five canonical specs; `scripts/ci/check-openapi-drift.sh` passes and the pre-commit hook is no longer skipped.
 - Shop live `chain.db` (`/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`) is at `c9a4f1e2b73d`, which already includes `b7f3c1a90d24`. The leftover stamp item is done.
 - Shop coordinator already has `ESCROW_RECONCILER_ENABLED=true` (same interval/min-age/batch as hub).
 - P1.1 Phase B shipped: `JobService.acquire_next_job` defers to higher-reputation online miners, enforces `Constraints.min_reputation`, and `aitbc ai submit` exposes `--min-reputation`.
@@ -191,7 +191,7 @@ Latest pushed commits (Agent B branch `feature/agent-b-p1-sprint` on `hub.aitbc`
 - [x] Should workspace notes live in the canonical repo? → yes, already pushed earlier.
 - [x] Who fixes shop chain sync / missing P2P on aitbc3? → fork reset done this session; P2P unit still missing (HTTPS pull is how the shop syncs).
 - [x] Who updates scenario 34 exchange + JWT snippets on gitea `main`? → commit `e8966aba1`.
-- [ ] **V23-42 / AITBC-155 — building the agent-stake / bounty chain surface.** Decision 2026-08-23: real locks + memos, hub operator key + user JWT address, chain-first coordinator writes. Not a `/rpc` prefix on the existing consensus stake route.
+- [x] **V23-42 / AITBC-155 — dedicated /rpc/agent-staking and /rpc/bounty surface.** 2026-08-23: node locks real balance; coordinator signs with hub operator key and calls chain first, persists second. Consensus /rpc/staking/stake untouched.
   - Twelve outbound calls in `contexts/blockchain/services/blockchain.py` target chain endpoints that do not exist. They are near-copies of *this app's own* staking routes addressed to the node's host; the node has no `/bounty` surface at all.
   - **0 of 12 are fixed by adding the `/rpc` prefix.** `POST /rpc/staking/stake` is the only one with a counterpart, and it returns `403 Signature required for staking` (`rpc/staking.py:56`) — the coordinator has no agent staking key — and expects `lock_days` where the coordinator sends `lock_period`. The URLs are left unprefixed deliberately: a prefix would imply they resolve.
   - Failure is invisible where it matters. The calls are FastAPI background tasks, so the router returns 200/201 before the 404 lands; the journal logs an error, the caller is told it succeeded.
