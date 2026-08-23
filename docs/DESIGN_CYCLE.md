@@ -222,7 +222,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Shipped: `aitbc market offer whisper/ffmpeg/ollama`, `aitbc market transcribe/process/run`, default miner offers, live-validated. |
 | P2.6 | Real IPFS daemon behind `aitbc ipfs` (today: `/var/lib/aitbc/ipfs`) | Shipped: local Kubo HTTP API with filesystem fallback, `aitbc ipfs upload/download/pin/list`, cross-node download validated. |
 | P2.7 | Compliance / plugin / white-label — only after P0/P1 | Shipped: `aitbc brand/plugin/compliance check/classify`, `--compliance-framework` gating, white-label plugins, scenario 43 and release changelog. |
-| P2.8 | Agent-stake / bounty economics with operator-signed on-chain locks | Shipped: `/rpc/agent-staking/*` and `/rpc/bounty/*` routes; real `Account.balance` debits/credits; operator signature auth; coordinator chain-first writes; live-validated 2026-08-24. |
+| P2.8 | Agent-stake / bounty economics with operator-signed on-chain locks | Shipped: `/rpc/agent-staking/*` and `/rpc/bounty/*` routes; real `Account.balance` debits/credits; operator signature auth; coordinator chain-first writes; create/add/unbond/complete and deploy/submit/verify/expire all live-validated 2026-08-24. |
 
 ---
 

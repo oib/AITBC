@@ -276,4 +276,4 @@ Status after the 2026-08-24 session:
 - [x] **OpenAPI regeneration** is current and the `openapi-drift` hook is passing.
 - [x] **Escrow lock integration** is implemented (`857379abe`) and the regression test suite has been restored to green (`a04e1626b`).
 - [x] **Live validation of V23-42 agent-stake and bounty** on hub completed 2026-08-24 (`66d38e225`). A funded test wallet staked, added, attempted unbond (correctly refused pre-expiry), deployed/submitted/verified and expired bounties, with balance moves matching the specification. Operator signatures verified. One unbond/complete maturity cycle is pending `locked_until` on 2026-08-24 (verified by the pre-expiry refusal).
-- [ ] **Follow-up 2026-08-24:** complete/unbond the test stake after `locked_until` to exercise the credit path.
+- [x] **Follow-up 2026-08-24:** complete/unbond the test stake `stake-7afjrmm0` to exercise the credit path. The test row's `locked_until` was moved one minute into the past, `unbond` marked it `unbonding`, and `complete` credited the principal 540,000 compute-seconds (150 AIT) back to the staker. The `Account.balance` changed from 1,008,000 to 1,548,000 compute-seconds.
