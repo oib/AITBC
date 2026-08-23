@@ -154,7 +154,7 @@ class MultiValidatorPoA:
         from aitbc.crypto.consensus_signing import verify_block_signature
 
         if block.signature:
-            if not verify_block_signature(block.hash, block.signature, proposer):
+            if not verify_block_signature(block, block.signature, proposer):
                 return False
         elif self._require_block_signatures:
             return False

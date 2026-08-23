@@ -26,7 +26,7 @@ from ..metrics import (
     poa_broadcast_skipped_total,
     poa_valid_subscribers,
 )
-from ..models import Account, Block
+from ..models import Account, Block, CrossChainTransfer
 from ..models import Transaction
 from ..base_models import _to_ait_address
 from ..state.pure_state_transition import (
@@ -199,40 +199,33 @@ class PoAProposer:
             self._logger.warning("MultiValidatorPoA returned no proposer for height %s", block_height)
         return self._config.proposer_id
 
-    def _sign_block_hash_for(self, proposer: str, block_hash: str) -> str:
-        """Sign a block hash with the private key of the given proposer."""
+    def _sign_block_hash_for(self, proposer: str, block: Block) -> str:
+        """Sign the canonical block header with the private key of the given proposer."""
         private_key = self._validator_keys.get(proposer) or getattr(settings, "proposer_key", None)
         if not private_key:
             self._logger.debug("No private key for proposer %s; block signature omitted", proposer)
             return ""
         try:
-            from eth_keys import keys
+            from aitbc.crypto.consensus_signing import sign_consensus_message
 
-            pk_hex = private_key.removeprefix("0x")
-            pk = keys.PrivateKey(bytes.fromhex(pk_hex))
-            msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
-            sig = pk.sign_msg_hash(msg_hash)
-            return sig.to_hex()
+            return sign_consensus_message(self._block_header_message(block), private_key)
         except Exception as e:
-            self._logger.warning("Failed to sign block hash for %s: %s", proposer, e)
+            self._logger.warning("Failed to sign block header for %s: %s", proposer, e)
             return ""
 
-    def _collect_attestations(self, block_hash: str, proposer: str) -> list[dict[str, str]]:
-        """Collect signatures from all local validators except the proposer."""
+    def _collect_attestations(self, block: Block) -> list[dict[str, str]]:
+        """Collect canonical header signatures from all local validators except the proposer."""
         attestations: list[dict[str, str]] = []
         if not self._validator_keys:
             return attestations
+        message = self._block_header_message(block)
         for address, private_key in self._validator_keys.items():
-            if address == proposer:
+            if address == block.proposer:
                 continue
             try:
-                from eth_keys import keys
+                from aitbc.crypto.consensus_signing import sign_consensus_message
 
-                pk_hex = private_key.removeprefix("0x")
-                pk = keys.PrivateKey(bytes.fromhex(pk_hex))
-                msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
-                sig = pk.sign_msg_hash(msg_hash)
-                attestations.append({"validator": address, "signature": sig.to_hex()})
+                attestations.append({"validator": address, "signature": sign_consensus_message(message, private_key)})
             except Exception as e:
                 self._logger.warning("Failed to collect attestation from %s: %s", address, e)
         return attestations
@@ -307,7 +300,7 @@ class PoAProposer:
     async def _propose_block(self) -> bool:
         from ..config import settings
         from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
-        from ..models import Account, Transaction
+        from ..models import Account, CrossChainTransfer, Transaction
 
         # Start a fresh per-block replay cache for this proposal.
         get_state_transition().reset_processed_cache()
@@ -606,13 +599,14 @@ class PoAProposer:
                     self._config.chain_id,
                 )
                 return False
-            block_hash = self._compute_block_hash(next_height, parent_hash, timestamp, processed_txs)
             # Compute state root from the full account state. The previous
             # "incremental" approach created a fresh trie per call but only
             # populated it with changed accounts — producing a wrong root that
             # excluded all other accounts. Since the trie is not persisted across
             # blocks, a full recompute is the only correct option.
             state_root = _compute_state_root(session, self._config.chain_id)
+            # v0.7.2: compute the bridge event trie root from BRIDGE_LOCK events.
+            bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id)
             # v0.7.5: Select the proposer for this block. In multi-validator
             # consensus the proposer is chosen by MultiValidatorPoA; otherwise the
             # configured proposer_id is used.
@@ -630,19 +624,11 @@ class PoAProposer:
                 )
                 return False
 
-            # v0.7.1: Sign the block hash with the proposer's private key.
-            # The signature proves the proposer authored this block and is
-            # used by bridge proof verification to tie proofs to signed blocks.
-            block_signature = self._sign_block_hash_for(proposer, block_hash)
-
-            # v0.7.5: collect attestations from other local validators and store
-            # them in block_metadata as JSON. The proposer signature remains the
-            # canonical block signature.
-            block_metadata: str | None = None
-            if self._multi_validator:
-                attestations = self._collect_attestations(block_hash, proposer)
-                if attestations:
-                    block_metadata = json.dumps({"attestations": attestations})
+            # v0.7.2: block hash binds chain, height, parent, time, txs,
+            # proposer, account state root, and bridge event trie root.
+            block_hash = self._compute_block_hash(
+                next_height, parent_hash, timestamp, processed_txs, proposer, state_root, bridge_state_root
+            )
 
             block = Block(
                 chain_id=self._config.chain_id,
@@ -653,9 +639,24 @@ class PoAProposer:
                 timestamp=timestamp,
                 tx_count=len(processed_txs),
                 state_root=state_root,
-                signature=block_signature,
-                block_metadata=block_metadata,
+                bridge_state_root=bridge_state_root,
+                signature="",
+                block_metadata=None,
             )
+
+            # v0.7.5: collect attestations from other local validators and store
+            # them in block_metadata as JSON. The proposer signature remains the
+            # canonical block signature.
+            block_metadata: str | None = None
+            if self._multi_validator:
+                attestations = self._collect_attestations(block)
+                if attestations:
+                    block_metadata = json.dumps({"attestations": attestations})
+            block.block_metadata = block_metadata
+
+            # v0.7.2: Sign the canonical block header so the same signature is
+            # valid for both PoA consensus and bridge proof verification.
+            block.signature = self._sign_block_hash_for(proposer, block)
             session.add(block)
             session.commit()
             # Invalidate the in-process block header cache for the new block
@@ -1122,19 +1123,82 @@ class PoAProposer:
         )
         return processed_txs, changed_addresses, True
 
+    def _compute_bridge_state_root(
+        self, session: Session, processed_txs: list[Any], chain_id: str
+    ) -> str:
+        """Build a Merkle trie from the BRIDGE_LOCK events in this block.
+
+        The trie key is the lock transfer ID and the value is the canonical
+        lock event string. The root hash becomes ``block.bridge_state_root``
+        and is used by bridge proofs to prove inclusion of a lock.
+        """
+        from ..state.merkle_patricia_trie import MerklePatriciaTrie
+
+        trie = MerklePatriciaTrie()
+        lock_txs = [tx for tx in processed_txs if (tx.content or {}).get("type", "").upper() == "BRIDGE_LOCK"]
+        if not lock_txs:
+            return "0x" + trie.get_root().hex()
+        transfer_ids = [tx.tx_hash for tx in lock_txs]
+        records = session.exec(
+            select(CrossChainTransfer).where(
+                CrossChainTransfer.source_chain == chain_id,
+                CrossChainTransfer.transfer_id.in_(transfer_ids),  # type: ignore[attr-defined]
+            )
+        ).all()
+        record_map = {r.transfer_id: r for r in records}
+        for tx in lock_txs:
+            record = record_map.get(tx.tx_hash)
+            if record is None:
+                value = f"lock:{tx.tx_hash}:0:unknown"
+            else:
+                value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
+            trie.put(tx.tx_hash.encode(), value.encode())
+        return "0x" + trie.get_root().hex()
+
+    def _block_header_message(self, block: Block) -> dict[str, Any]:
+        """Canonical header message that the bridge verifier signs/verifies."""
+        return {
+            "chain_id": block.chain_id,
+            "height": block.height,
+            "hash": block.hash,
+            "parent_hash": block.parent_hash,
+            "proposer": block.proposer,
+            "state_root": block.state_root or "",
+            "bridge_state_root": block.bridge_state_root or "",
+        }
+
     def _compute_block_hash(
-        self, height: int, parent_hash: str, timestamp: datetime, transactions: list[Any] | None = None
+        self,
+        height: int,
+        parent_hash: str,
+        timestamp: datetime,
+        transactions: list[Any] | None = None,
+        proposer: str = "",
+        state_root: str | None = None,
+        bridge_state_root: str | None = None,
     ) -> str:
         tx_hashes = []
         if transactions:
             tx_hashes = [tx.tx_hash for tx in transactions]
+        # v0.7.2: block hash binds the state roots and proposer so that bridge
+        # proofs can be anchored to a signed block header.
         payload = (
-            f"{self._config.chain_id}|{height}|{parent_hash}|{timestamp.isoformat()}|{'|'.join(sorted(tx_hashes))}".encode()
-        )
+            f"{self._config.chain_id}|{height}|{parent_hash}|{timestamp.isoformat()}"
+            f"|{'|'.join(sorted(tx_hashes))}"
+            f"|{proposer}"
+            f"|{state_root or ''}"
+            f"|{bridge_state_root or ''}"
+        ).encode()
         return "0x" + hashlib.sha256(payload).hexdigest()
 
-    def _sign_block_hash(self, block_hash: str) -> str:
-        """Sign a block hash with the proposer's private key (v0.7.1).
+    def _sign_block_hash(self, block: Block) -> str:
+        """Sign a block header with the proposer's private key (v0.7.2).
+
+        The signed message is the canonical-JSON encoding of the block header
+        fields that the bridge verifier expects (chain_id, height, hash,
+        parent_hash, proposer, state_root, bridge_state_root). This makes the
+        same signature verifiable by both PoA consensus and bridge proof
+        verification.
 
         Returns the hex signature, or empty string if no private key is
         configured (legacy mode — block signature verification skipped).
@@ -1146,16 +1210,12 @@ class PoAProposer:
             self._logger.debug("No proposer_key configured; block signature omitted")
             return ""
         try:
-            from eth_keys import keys
+            from aitbc.crypto.consensus_signing import sign_consensus_message
 
-            pk_hex = private_key.removeprefix("0x")
-            pk = keys.PrivateKey(bytes.fromhex(pk_hex))
-            # The block hash is a sha256 hex string; treat it as the message hash
-            msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
-            sig = pk.sign_msg_hash(msg_hash)
-            return sig.to_hex()
+            message = self._block_header_message(block)
+            return sign_consensus_message(message, private_key)
         except Exception as e:
-            self._logger.warning("Failed to sign block hash: %s", e)
+            self._logger.warning("Failed to sign block header: %s", e)
             return ""
 
     @staticmethod

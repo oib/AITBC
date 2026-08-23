@@ -110,72 +110,75 @@ def verify_consensus_message(
     if not signature:
         return False
     from .crypto import recover_signer
+    from .signature_recovery import canonical_address
 
     recovered = recover_signer(message, signature)
     if recovered is None:
         return False
-    return recovered.lower() == expected_sender.lower()
+    return canonical_address(recovered) == canonical_address(expected_sender)
 
 
 # ---------------------------------------------------------------------------
-# Block hash signing (raw hash + secp256k1)
+# Block header signing (canonical JSON + secp256k1)
 # ---------------------------------------------------------------------------
 
 
-def sign_block_hash(block_hash: str, private_key: str) -> str:
-    """Sign a block hash with a secp256k1 private key.
+def _block_header_message(block: Any) -> dict[str, Any]:
+    """Build the canonical block header message from a dict or Block object."""
+    def _get(name: str) -> Any:
+        if isinstance(block, dict):
+            return block.get(name)
+        return getattr(block, name, None)
 
-    The block hash (a SHA-256 hex string) is treated as a message hash
-    and signed directly with ``eth_keys.PrivateKey.sign_msg_hash()``.
-    This matches the pattern in ``poa.py:_sign_block_hash()`` — the
-    shared utility version so MultiValidatorPoA doesn't duplicate it.
+    return {
+        "chain_id": _get("chain_id") or "",
+        "height": _get("height") or 0,
+        "hash": _get("hash") or "",
+        "parent_hash": _get("parent_hash") or "",
+        "proposer": _get("proposer") or "",
+        "state_root": _get("state_root") or "",
+        "bridge_state_root": _get("bridge_state_root") or "",
+    }
 
-    Args:
-        block_hash: Hex-encoded block hash (with or without ``0x`` prefix).
-        private_key: Hex-encoded secp256k1 private key (with or without
-            ``0x`` prefix).
 
-    Returns:
-        65-byte hex signature string (``r‖s‖v``, no ``0x`` prefix).
+def sign_block_hash(block: Any, private_key: str) -> str:
+    """Sign a block header with a secp256k1 private key.
 
-    Raises:
-        ValueError: If signing fails (invalid key, invalid hash, etc.).
-        ImportError: If ``eth_keys`` is not installed.
+    v0.7.2: The signed message is the canonical-JSON encoding of the block
+    header fields (chain_id, height, hash, parent_hash, proposer, state_root,
+    bridge_state_root). This is the same format used by the bridge verifier.
+
+    For backward compatibility, if ``block`` is a plain hex string it is
+    treated as a legacy raw SHA-256 block hash and signed directly.
     """
-    try:
-        from eth_keys import keys
+    if isinstance(block, str):
+        try:
+            from eth_keys import keys
 
-        pk_hex = private_key.removeprefix("0x")
-        pk = keys.PrivateKey(bytes.fromhex(pk_hex))
-        msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
-        sig = pk.sign_msg_hash(msg_hash)
-        return sig.to_hex()
-    except ImportError:
-        raise ImportError("eth-keys is required for block signing. Install with: pip install eth-keys") from None
-    except Exception as e:
-        raise ValueError(f"Failed to sign block hash: {e}") from e
+            pk_hex = private_key.removeprefix("0x")
+            pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+            msg_hash = bytes.fromhex(block.removeprefix("0x"))
+            sig = pk.sign_msg_hash(msg_hash)
+            return sig.to_hex()
+        except ImportError:
+            raise ImportError("eth-keys is required for block signing. Install with: pip install eth-keys") from None
+        except Exception as e:
+            raise ValueError(f"Failed to sign block hash: {e}") from e
+
+    return sign_consensus_message(_block_header_message(block), private_key)
 
 
 def verify_block_signature(
-    block_hash: str,
+    block: Any,
     signature: str,
     expected_proposer: str,
 ) -> bool:
-    """Verify a block signature against an expected proposer address.
+    """Verify a block header signature against an expected proposer address.
 
-    This matches the pattern in ``poa.py:verify_block_signature()`` —
-    the shared utility version so MultiValidatorPoA's ``validate_block()``
-    (C1 fix) can call it without depending on ``apps/blockchain-node/``.
-
-    Args:
-        block_hash: Hex-encoded block hash (with or without ``0x`` prefix).
-        signature: 65-byte hex signature from ``sign_block_hash()``.
-        expected_proposer: The Ethereum address of the expected proposer.
-
-    Returns:
-        True if the signature is valid and recovers to
-        ``expected_proposer``. False if the signature is empty, invalid,
-        wrong length, or recovers to a different address.
+    v0.7.2: The signature is verified against the canonical-JSON encoding of
+    the block header fields. For backward compatibility, if ``block`` is a
+    plain hex string the signature is verified against the raw SHA-256 block
+    hash.
     """
     record_attempt("block")
     if not signature:
@@ -183,6 +186,25 @@ def verify_block_signature(
         return False
 
     from .signature_recovery import SignatureMalformed, recover_address, verify_signature
+
+    # Try the new canonical header format first.
+    if not isinstance(block, str):
+        try:
+            if verify_consensus_message(_block_header_message(block), signature, expected_proposer):
+                return True
+        except Exception:
+            pass
+
+    # Fall back to legacy raw block-hash signing.
+    if isinstance(block, str):
+        block_hash = block
+    elif isinstance(block, dict):
+        block_hash = block.get("hash", "")
+    else:
+        block_hash = getattr(block, "hash", "")
+    if not block_hash:
+        record_failure("block", ERROR)
+        return False
 
     try:
         msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
@@ -194,20 +216,11 @@ def verify_block_signature(
     try:
         valid = verify_signature(msg_hash, signature, expected_proposer)
     except SignatureMalformed as e:
-        # V23-04: a signature that cannot be parsed is an encoding fault or a bug, not a
-        # failed check. This path used to be indistinguishable from "recovered a different
-        # proposer", which is what let every correctly signed block be rejected in silence.
         logger.warning("Malformed block signature (encoding fault, not a failed check): %s", e)
         record_failure("block", UNPARSEABLE)
         return False
 
     if not valid:
-        # V23-52: "invalid signature" alone cannot distinguish a forged block from a
-        # proposer signing with a key that is not the identity it declares. The deployed
-        # hub did the latter for 12,000+ blocks -- every block well-formed, correctly
-        # signed, and rejected -- and telling the two apart meant recovering the address
-        # by hand. Both addresses are public, so naming them costs nothing and turns the
-        # next occurrence into one line of log. Same reasoning as the V23-04 branch above.
         try:
             recovered = recover_address(msg_hash, signature)
         except (SignatureMalformed, ValueError):

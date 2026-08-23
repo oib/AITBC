@@ -172,7 +172,8 @@ class BridgeBlockHeader:
     hash: str
     parent_hash: str
     proposer: str  # proposer address
-    state_root: str  # state root at this block
+    state_root: str  # account state root at this block
+    bridge_state_root: str = ""  # bridge event trie root — used for Merkle proof verification
     signature: str = ""  # proposer signature (v0.7.1 field)
     timestamp: datetime | None = None
     finality_confirmed: bool = False  # set when finality threshold met
