@@ -24,6 +24,7 @@ from ....config import settings
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
+from ..provider_binding import same_address
 
 logger = get_logger(__name__)
 _brand = get_active_brand()
@@ -199,9 +200,22 @@ class PaymentService:
         sign one using PAYMENT_BUYER_PRIVATE_KEY for test/operator flows.
         """
         buyer = buyer_address or os.getenv("PAYMENT_BUYER_ADDRESS") or os.getenv("GENESIS_ADDRESS")
-        provider = provider_address or os.getenv("PAYMENT_PROVIDER_ADDRESS") or buyer
+        # G2: there is deliberately no fallback to the buyer here. The chain pays the
+        # address named at escrow creation and no other -- rpc/escrow/{job_id}/release
+        # settles to the contract's agent_address -- so an escrow whose payee is the
+        # buyer refunds the work to whoever ordered it and leaves a real miner unpaid.
+        # With no provider named, no escrow is created; the payment then stays unsecured
+        # and _payment_blocks_dispatch keeps the job out of the queue.
+        provider = provider_address or os.getenv("PAYMENT_PROVIDER_ADDRESS")
         if not buyer or not provider:
             logger.warning("No buyer or provider address available for escrow; skipping payment")
+            return None
+        if same_address(buyer, provider):
+            logger.warning(
+                "Refusing escrow for job %s: the provider address is the buyer's own address (%s)",
+                payment.job_id,
+                provider,
+            )
             return None
 
         if not self._get_node_wallet_address():

@@ -326,6 +326,9 @@ class MinerRegister(BaseModel):
     capabilities: dict[str, Any]
     concurrency: int = 1
     region: str | None = None
+    # G2: the address escrow releases pay out to. A miner that declares none cannot
+    # be matched against an escrow's provider and so will not be given escrowed work.
+    wallet_address: str | None = Field(default=None, description="Payout wallet address for escrow releases")
 
 
 class MinerHeartbeat(BaseModel):
