@@ -173,6 +173,9 @@ Since `aitbc3` has more hardware than `hub`:
 6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly. On aitbc3 this is configured in `/etc/default/prometheus` as:
    ```
    ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
+   ``` On aitbc3 this is configured in `/etc/default/prometheus` as:
+   ```
+   ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
    ```
 7. **Use the Prometheus expression API for checks.** Example:
    ```bash
