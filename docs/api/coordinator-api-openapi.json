@@ -32405,6 +32405,42 @@
             "title": "Provider Address",
             "description": "Provider wallet address for escrow"
           },
+          "buyer_lock_signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Lock Signature",
+            "description": "Pre-signed ESCROW_LOCK transaction signature"
+          },
+          "buyer_lock_nonce": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Lock Nonce",
+            "description": "Nonce used in the ESCROW_LOCK transaction"
+          },
+          "buyer_lock_fee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Lock Fee",
+            "description": "Fee used in the ESCROW_LOCK transaction"
+          },
           "auto_reinvest_pct": {
             "anyOf": [
               {
