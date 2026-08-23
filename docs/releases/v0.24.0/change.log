@@ -1063,3 +1063,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   AITBC journal style (`[LEVEL] [component] caller: message: key=value`). This
   makes the IPFS service consistent with every other AITBC service.
 
+- docs(scenarios): add live-vs-simulated CLI output table and scenario notes
+  - `docs/scenarios/README.md` now lists which CLI groups can fall back to simulated output and why.
+  - Scenarios 04, 06, 11, 12, 27, 33, 34, and 42 include a `> **Live vs. simulated:**` note explaining live and simulated behavior.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #16.

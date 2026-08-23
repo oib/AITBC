@@ -25,6 +25,8 @@ breadcrumb: Home > Scenarios > Basic Trading
 
 ## Scenario Overview
 
+> **Live vs. simulated:** `aitbc exchange-island` commands are **live** when the exchange service (port 8106) is running. If the exchange is unreachable, the CLI returns `(Simulated)` orderbook/orders.
+
 This scenario demonstrates how to trade AIT against **ETH** on the island exchange via `aitbc exchange-island`. The live CLI pair set is `AIT/ETH` only (`SUPPORTED_PAIRS`). `buy` / `sell` / `cancel` need `/var/lib/aitbc/keystore/validator_keys.json`; `rates`, `orderbook`, and `orders` do not.
 
 ### Use Case

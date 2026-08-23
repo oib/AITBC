@@ -25,6 +25,8 @@ breadcrumb: Home > Scenarios > IPFS Storage
 
 ## Scenario Overview
 
+> **Live vs. simulated:** `aitbc ipfs` is **live** when the local Kubo daemon is running. If the daemon is down, the CLI stores/retrieves data through a local filesystem CID shim. Install the `aitbc-ipfs` service for live behavior.
+
 This scenario demonstrates how to store and retrieve content-addressed artifacts with the real `aitbc ipfs` group, then announce a CID for sale with `aitbc oracle`. The live implementation is a **filesystem-backed** IPFS-compatible surface (`/var/lib/aitbc/ipfs`), not a separate IPFS daemon. The `aitbc_agent` SDK wraps the same CLI.
 
 ### Use Case
