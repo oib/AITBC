@@ -979,3 +979,5 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
     release was anchored in shop island block 40.
 
 - fix(sync): avoid pulling locally-produced island chains from the default hub. The periodic sync task now resolves the sync source per chain and skips chains that fall back to the default peer and are in block_production_chains.  Live on aitbc3: no more HTTP 503 / Failed to fetch remote head for ait-shop-island; hub sync continues normally.
+
+- fix(sync): compute missing tx_hash from block broadcast content.  Block broadcasts from the proposer did not include tx_hash; sync_block_import now computes it, preventing empty-hash UNIQUE constraint failures and replay warnings on block import.
