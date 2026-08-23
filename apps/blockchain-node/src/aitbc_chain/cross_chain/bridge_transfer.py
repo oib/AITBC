@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlmodel import select
 
@@ -42,7 +42,7 @@ class BridgeTransferMixin(BridgeBase):
             raise ValueError(f"Amount {amount} exceeds bridge max lock amount {max_amount}")
 
         transfer_id = self._generate_transfer_id(source_chain, target_chain, sender, recipient, amount, int(time.time()))
-        with self._session_factory() as session:
+        with self._session_for(source_chain) as session:
             sender_account = session.get(Account, (source_chain, sender))
             if not sender_account:
                 raise ValueError(f"Sender account not found: {sender}")
@@ -112,16 +112,37 @@ class BridgeTransferMixin(BridgeBase):
             )
             return transfer
 
+    def _target_chain_from_proof(self, transfer_id: str, proof: dict[str, Any]) -> str:
+        """Determine the target chain for a confirm from the proof or record."""
+        # v0.7.3: Multi-chain bridge. The proof may carry an explicit target_chain.
+        target_chain: str | None = proof.get("target_chain")
+        if target_chain:
+            return target_chain
+        # Fall back to the default chain's transfer record, then the local chain.
+        with self._session_for() as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+            if record:
+                return record.target_chain
+        return str(getattr(settings, "chain_id", "") or "")
+
     def confirm_transfer(self, transfer_id: str, proof: dict[str, Any]) -> BridgeTransfer:
         """
         Confirm a cross-chain transfer on target chain.
 
-        Step 2: Validate proof and release funds on target chain
+        Step 2: Validate proof and release funds on target chain.
+        v0.7.3: If the transfer record does not yet exist on the target chain,
+        it is materialised from the proof (mint-and-release pattern for
+        cross-island bridges).
         """
         proof_hash = hashlib.sha256(json.dumps(proof, sort_keys=True).encode()).hexdigest()
         if proof_hash in self._processed_proofs:
             raise ValueError("Proof already processed (double-spend attempt)")
-        with self._session_factory() as session:
+
+        target_chain = self._target_chain_from_proof(transfer_id, proof)
+        if not target_chain:
+            raise ValueError("Cannot confirm: target chain not known (proof missing target_chain and no CHAIN_ID configured)")
+
+        with self._session_for(target_chain) as session:
             # Persistent replay protection: the in-memory set is lost on
             # restart; a recorded proof_hash is not.
             persisted_proof = session.exec(
@@ -131,7 +152,21 @@ class BridgeTransferMixin(BridgeBase):
                 raise ValueError("Proof already processed (double-spend attempt)")
             record = session.get(CrossChainTransfer, transfer_id)
             if not record:
-                raise ValueError(f"Transfer not found: {transfer_id}")
+                # v0.7.3: Target chain has not seen the lock yet; create a
+                # CrossChainTransfer from the proof so the release can proceed.
+                record = CrossChainTransfer(
+                    transfer_id=transfer_id,
+                    source_chain=proof.get("source_chain", ""),
+                    target_chain=target_chain,
+                    sender=proof.get("sender", ""),
+                    recipient=proof.get("recipient", ""),
+                    amount=int(proof.get("amount", 0)),
+                    asset=proof.get("asset", "native"),
+                    status="pending",
+                    source_tx_hash=proof.get("lock_tx_hash", transfer_id),
+                    lock_time=datetime.now(UTC),
+                )
+                session.add(record)
             if record.status != "pending":
                 raise ValueError(f"Transfer already processed: {record.status}")
             if not self._validate_proof(proof, record):
@@ -186,11 +221,11 @@ class BridgeTransferMixin(BridgeBase):
             )
             return transfer or self._build_transfer_from_record(record, proof)
 
-    def get_transfer(self, transfer_id: str) -> BridgeTransfer | None:
+    def get_transfer(self, transfer_id: str, chain_id: str | None = None) -> BridgeTransfer | None:
         """Get transfer by ID."""
         if transfer_id in self._pending_transfers:
             return self._pending_transfers[transfer_id]
-        with self._session_factory() as session:
+        with self._session_for(chain_id or str(getattr(settings, "chain_id", "") or "")) as session:
             record = session.get(CrossChainTransfer, transfer_id)
             if record:
                 return self._build_transfer_from_record(record)
@@ -198,7 +233,7 @@ class BridgeTransferMixin(BridgeBase):
 
     def list_pending_transfers(self, chain_id: str | None = None) -> list[BridgeTransfer]:
         """List all pending transfers."""
-        with self._session_factory() as session:
+        with self._session_for(chain_id or str(getattr(settings, "chain_id", "") or "")) as session:
             query = select(CrossChainTransfer).where(CrossChainTransfer.status == "pending")
             if chain_id:
                 query = query.where(
@@ -207,7 +242,7 @@ class BridgeTransferMixin(BridgeBase):
             records = session.exec(query).all()
             return [self._build_transfer_from_record(r) for r in records]
 
-    def refund_transfer(self, transfer_id: str, sender: str) -> BridgeTransfer:
+    def refund_transfer(self, transfer_id: str, sender: str, chain_id: str | None = None) -> BridgeTransfer:
         """Refund a pending bridge transfer — return locked funds to sender.
 
         Only transfers in 'pending' or 'locked' status can be refunded.
@@ -217,8 +252,10 @@ class BridgeTransferMixin(BridgeBase):
         The refund returns the locked amount (minus the fee already deducted at
         lock time) to the sender's balance. The fee is NOT refunded — it was
         consumed when the lock transaction was created.
+
+        v0.7.3: chain_id selects the source-chain DB.
         """
-        with self._session_factory() as session:
+        with self._session_for(chain_id or str(getattr(settings, "chain_id", "") or "")) as session:
             record = session.get(CrossChainTransfer, transfer_id)
             if not record:
                 raise ValueError(f"Transfer not found: {transfer_id}")
@@ -229,7 +266,7 @@ class BridgeTransferMixin(BridgeBase):
 
             refund_delay = getattr(settings, "bridge_refund_delay_seconds", 0)
             if refund_delay:
-                lock_time = record.lock_time or record.created_at
+                lock_time = record.lock_time or record.confirm_time or datetime.now(UTC)
                 elapsed = (datetime.now(UTC) - lock_time).total_seconds()
                 if elapsed < refund_delay:
                     raise ValueError(
@@ -296,7 +333,7 @@ class BridgeTransferMixin(BridgeBase):
         Returns a dict mapping chain_id → total locked amount for that chain.
         If ``chain_id`` is provided, returns a single-key dict for that chain.
         """
-        with self._session_factory() as session:
+        with self._session_for(chain_id or str(getattr(settings, "chain_id", "") or "")) as session:
             query = select(CrossChainTransfer).where(CrossChainTransfer.status.in_(["pending", "locked"]))  # type: ignore[attr-defined]
             if chain_id:
                 query = query.where(CrossChainTransfer.source_chain == chain_id)
