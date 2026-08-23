@@ -23,6 +23,8 @@ Grafana is a human-facing rendering layer. None of the live incident investigati
 
 The blockchain node main process exposes `/metrics` on `AITBC_NODE_METRICS_PORT` (default `9009`). The RPC process and the coordinator API also expose `/metrics` (or `/prometheus`) on their normal ports. Key series to watch:
 
+**Note on RPC metrics.** The RPC process imports Python modules that define node-only gauges such as `blockchain_block_height`, `blockchain_poa_valid_subscribers` and `blockchain_sync_lag_blocks`, but it does not update them. Those series are zero or stale on the RPC target, so `scripts/monitoring/prometheus.yml` drops them with `metric_relabel_configs` on the `aitbc3-blockchain-rpc` job. The canonical values are scraped from the node target on port `9009`.
+
 - `blockchain_block_height` - current block height.
 - `blockchain_poa_valid_subscribers{chain_id}` - number of valid subscribers at block broadcast time.
 - `blockchain_poa_broadcast_skipped_total{chain_id}` - blocks skipped because no subscribers were present.
@@ -168,7 +170,10 @@ Since `aitbc3` has more hardware than `hub`:
 3. **Expose process and chain metrics.** The blockchain node main process now serves `/metrics` on port `9009` via `AITBC_NODE_METRICS_PORT` and exports chain height, valid subscriber counts and broadcast-skip counters.
 4. **Promote operational log lines.** `BROADCAST SKIPPED` and similar events are now logged at `WARNING` and counted in `blockchain_poa_broadcast_skipped_total` so an agent sees both the event and the metric.
 5. **Run `prometheus-node-exporter` on every node.** System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion.
-6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly.
+6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly. On aitbc3 this is configured in `/etc/default/prometheus` as:
+   ```
+   ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
+   ```
 7. **Use the Prometheus expression API for checks.** Example:
    ```bash
    curl -s 'http://localhost:9090/api/v1/query?query=blockchain_poa_valid_subscribers'
