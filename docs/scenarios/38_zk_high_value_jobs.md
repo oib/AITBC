@@ -17,7 +17,7 @@ breadcrumb: Home > Scenarios > ZK High-Value Jobs
 ## See Also
 
 - **Previous Scenario**: [Scenario 37 On-Chain Performance Bonds](./37_performance_bonds.md)
-- **Feature Documentation**: [ZK Proof Service](../../../apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py)
+- **Feature Documentation**: [ZK Proof Service](../../apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py)
 
 ---
 
@@ -183,10 +183,10 @@ PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py
 
 ## Related Resources
 
-- [receipt_public circuit](../../../apps/zk-circuits/receipt_public.circom)
-- [ZK proof service](../../../apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py)
-- [Payment release gate](../../../apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py)
-- [Miner result submission](../../../apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py)
+- [receipt_public circuit](../../apps/zk-circuits/receipt_public.circom)
+- [ZK proof service](../../apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py)
+- [Payment release gate](../../apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py)
+- [Miner result submission](../../apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py)
 
 ---
 
