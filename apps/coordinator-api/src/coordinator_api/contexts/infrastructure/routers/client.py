@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -12,6 +13,8 @@ from aitbc.rate_limiting import rate_limit
 
 from ....auth import ClientDep
 from ....config import settings
+from ...marketplace.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
+from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService
 from ....custom_types import JobState
 from ....schemas import JobCreate, JobPaymentCreate, JobResult, JobView
@@ -22,6 +25,67 @@ from ....utils.cache import cached, get_cache_config
 logger = get_logger(__name__)
 router = APIRouter(tags=["client"])
 
+# G1: whether a priced job must name the offer it was bought against. Off by default
+# because the GPU purchase path and existing clients still price jobs directly; an
+# operator who wants every paid job to trace back to a published quote turns it on.
+_OFFER_REQUIRE = os.getenv("COORDINATOR_REQUIRE_OFFER", "false").lower() == "true"
+
+
+async def _apply_offer_quote(req: JobCreate) -> tuple[JobCreate, OfferQuote | None]:
+    """Bind a submission to the marketplace offer it names, or leave it untouched.
+
+    Returns the request to actually submit -- its price and payee taken from the offer
+    -- along with the quote, which the payment records so a settlement can later be
+    checked against what was advertised.
+
+    This runs before the job is created, so a submission that disagrees with the offer
+    is refused outright rather than leaving a queued job behind it.
+
+    Raises:
+        HTTPException: 400 when the offer cannot be bought or the submission
+            contradicts it, 503 when the offer registry could not be asked.
+    """
+    if not req.offer_id:
+        if _OFFER_REQUIRE and req.payment_amount and req.payment_amount > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="a priced job must name the offer_id it was bought against",
+            )
+        return req, None
+
+    try:
+        quote = await resolve_offer(req.offer_id, req.offer_quantity)
+    except OfferUnavailable as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except OfferLookupFailed as exc:
+        logger.warning("Offer %s could not be resolved: %s", req.offer_id, exc)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    # The offer decides who is paid. A caller may still name a provider, but only to
+    # say the same thing: silently preferring the offer would hide a client bug whose
+    # end state is money locked to the wrong wallet.
+    if req.provider_address and not same_address(req.provider_address, quote.provider_address):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"provider_address {req.provider_address} disagrees with offer "
+                f"{quote.offer_id}, which is sold by {quote.provider_address}"
+            ),
+        )
+
+    # And the offer decides the price. Under-funding leaves the provider short; over-
+    # funding is no kindness either, because release pays out the whole escrow.
+    if req.payment_amount is not None and req.payment_amount != quote.total:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"payment_amount {req.payment_amount} does not match the quote for offer {quote.offer_id}: {quote.describe()}"
+            ),
+        )
+
+    logger.info("Job priced against offer %s: %s payable to %s", quote.offer_id, quote.describe(), quote.provider_address)
+    return req.model_copy(update={"payment_amount": quote.total, "provider_address": quote.provider_address}), quote
+
 
 @router.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED, summary="Submit a job")
 @rate_limit(rate=50, per=60)
@@ -31,6 +95,7 @@ async def submit_job(
     session: Annotated[Session, Depends(get_session)],
     user: ClientDep,
 ) -> JobView:
+    req, quote = await _apply_offer_quote(req)
     service = JobService(session)
     job = service.create_job(user["sub"], req)
     if req.payment_amount and req.payment_amount > 0:
@@ -44,6 +109,10 @@ async def submit_job(
                 buyer_address=req.buyer_address,
                 provider_address=req.provider_address,
                 auto_reinvest_pct=req.constraints.auto_reinvest_pct if req.constraints else None,
+                offer_id=quote.offer_id if quote else None,
+                offer_unit_price=quote.unit_price if quote else None,
+                offer_price_unit=quote.price_unit if quote else None,
+                offer_quantity=quote.quantity if quote else None,
             )
             # V23-46: create_payment(client_id, job_id, payment_data). Passing (job.id,
             # payment_create) made client_id=job.id, job_id=payment_create, and left
