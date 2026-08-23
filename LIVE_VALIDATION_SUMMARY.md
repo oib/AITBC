@@ -1106,3 +1106,137 @@ rows in total. `job_payments.amount` and `payment_escrows.amount` were already
 - The Postgres DSN password was printed to a terminal during this session and is
   worth rotating.
 - 39 pre-existing FK violations on hub's reputation tables.
+
+## 2026-08-23 — OPEN FINDING: BlockchainService calls a chain API that does not exist
+
+Found while asking whether the hub coordinator's `"env":"development"` health
+response mattered. It does not affect the database (see below), but the question
+led to `admin_api_keys`, and from there to a much larger gap.
+
+### What prompted it
+
+`/health` on hub reports `"env":"development"`. Loading the real hub environment
+with `ENVIRONMENT=production` in a throwaway process fails with four validation
+errors — the service would not start:
+
+| gate | state | assessment |
+|---|---|---|
+| `client_api_keys`, `admin_api_keys` | empty | led to this finding |
+| `allow_origins` | 10 localhost origins | internal service ports; needs a decision |
+| `blockchain_rpc_url` | `http://localhost:8202` | correct for a single-host deployment; the validator assumes a distributed one |
+| `JWT_SECRET`, `MINER_API_KEYS` | **set and correct** | not a problem |
+
+The `JWT_SECRET not configured; using an ephemeral test secret` line that shows up
+when running alembic by hand is an artifact of ad-hoc shells that do not source
+`/etc/aitbc/aitbc-coordinator-api.env`. The running service logs no such warning.
+
+### `ENVIRONMENT` does not affect the database
+
+Worth recording because it was assumed otherwise during this session.
+`DatabaseConfig.effective_url` (`packages/aitbc-shared/aitbc_shared/core/config.py:69`)
+never reads `ENVIRONMENT`. The path comes from `AITBC_DATA_DIR` (unset → `/var/lib/aitbc`)
+and `db_filename`:
+
+```
+ENVIRONMENT=development  -> sqlite:////var/lib/aitbc/data/coordinator.db
+ENVIRONMENT=production   -> sqlite:////var/lib/aitbc/data/coordinator.db
+ENVIRONMENT=staging      -> sqlite:////var/lib/aitbc/data/coordinator.db
+```
+
+The same file also explains why the app ignored `DATABASE_URL`:
+`_load_legacy_database_url` only honours it when `DATABASE_ADAPTER` is *also* set
+and the two schemes agree — a deliberate guard so a stale `DATABASE_URL` cannot
+silently switch a running deployment to PostgreSQL. It worked as designed. Only
+alembic was bypassing it, which is what the 2026-08-23 migration work fixed.
+
+### `admin_api_keys` is a dead parameter, not a live gap
+
+The chain RPC does not enforce `X-Api-Key` anywhere — no middleware, no route
+dependency, nothing in `apps/blockchain-node/src/aitbc_chain/rpc/`. The live
+OpenAPI lists only `HTTPBearer` under `securitySchemes` and global `security` is
+`none`. `/staking/*` routes carry `@rate_limit` and no auth. So the empty key in
+`settings.admin_api_keys` changes nothing: the header is ignored either way.
+
+Coordinator-side admin routes fail closed (`admin.py:105` tests
+`api_key not in settings.admin_api_keys`, always true when the list is empty),
+which is the safe direction.
+
+### The actual finding
+
+`contexts/blockchain/services/blockchain.py:29` states the rule:
+
+> the node mounts every RPC route under `/rpc`, so callers must include that
+> prefix; `settings.blockchain_rpc_url` is the bare origin
+
+The same file then breaks it on **all 12** of its call sites, which build
+`f"{self.rpc_url}/staking/..."` and `f"{self.rpc_url}/bounty/..."` with no
+prefix. The escrow path that works does it correctly
+(`payments.py:242` → `/rpc/escrow/{job_id}/release`).
+
+Proven read-only against the live hub RPC:
+
+```
+GET /rpc/staking/{addr}  -> http 200
+GET /staking/{addr}      -> http 404
+```
+
+The RPC logged the probe: `Client error: POST /staking/stake → 404`.
+
+But the prefix is only the surface. Checking all 12 targets against the live
+OpenAPI document:
+
+| outcome | count | endpoints |
+|---|---|---|
+| fixed by adding `/rpc` | 1 | `/staking/stake` |
+| **no such route even with the prefix** | 11 | `/staking/performance`, `/staking/stake/{id}/add`, `/staking/stake/{id}/unbond`, `/staking/stake/{id}/complete`, `/staking/agents/{id}/distribute`, `/staking/claim-rewards`, `/bounty/deploy`, `/bounty/{id}/submit`, `/bounty/{id}/verify`, `/bounty/{id}/dispute`, `/bounty/{id}/expire` |
+
+`BlockchainService` is written against a chain API that was never built. The chain
+node exposes exactly three staking routes: `POST /rpc/staking/stake`,
+`POST /rpc/staking/unstake`, `GET /rpc/staking/{address}`. There is no `/bounty`
+surface at all.
+
+### Current impact: latent, not active
+
+Two things keep this from being live damage today.
+
+The calls fail loudly. `AITBCHTTPClient.post` calls `raise_for_status()` and wraps
+the result in `NetworkError`; each caller catches it and logs
+`logger.error("Failed to ...")`. There is no false "created on-chain" success line.
+
+And nothing exercises them. No matching entries in the hub coordinator journal
+over 7 days, and every related table is empty: `agent_stakes`,
+`bounty_integrations`, `bounty_stats`, `bounty_submission`, `bounty_submissions`,
+`bounty_task` — all 0 rows.
+
+### The latent risk
+
+Same shape as the settlement drift fixed in `1b43ca3bd`.
+`contexts/staking/routers/staking.py:293` commits coordinator DB state first and
+*then* queues the chain call as a FastAPI background task:
+
+```python
+updated_stake = await staking_service.add_to_stake(...)      # local state committed
+background_tasks.add_task(blockchain_service.add_to_stake, ...)  # 404s, logged, dropped
+```
+
+The first real use of a staking route therefore writes a coordinator-side stake
+with no on-chain counterpart — local state diverging from chain state, silently
+as far as the caller is concerned.
+
+### Recommendation
+
+Do **not** fix the `/rpc` prefix alone. Landing 1 of 12 calls while the other 11
+still 404 buys almost nothing and makes the surface look healthier than it is.
+
+The decision to make first is whether `BlockchainService`'s staking and bounty
+surface is meant to exist:
+
+- **If yes** — it is a chain-node build-out (11 endpoints), and the coordinator
+  side should not commit local state before the chain call succeeds.
+- **If no** — delete it or mark it explicitly unimplemented so it stops looking
+  wired, and remove the `admin_api_keys` header plumbing that goes with it.
+
+This is unrelated to the `ENVIRONMENT` label and removes `admin_api_keys` from the
+list of reasons to change it. The remaining production-flip blockers are the two
+topology-dependent validators (localhost CORS, localhost RPC), which look wrong
+for a single-host deployment rather than something to configure around.
