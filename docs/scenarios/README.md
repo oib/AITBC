@@ -161,4 +161,5 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
 || 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
 || 49 | [Auto-Reinvest from Released Escrow](./49_auto_reinvest_escrow.md) | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
+|| 51 | [Multi-Validator PoA Soak](./51_multi_validator_poa_soak.md) | P1.4 multi-validator consensus soak before live enablement | `aitbc blockchain status`, `aitbc monitor metrics` |
 | 50 | [Default Whisper, FFmpeg, and Ollama Shop Offers](./50_default_shop_offers.md) | Shop auto-publishes default software offers and customers run jobs with `aitbc market` | `aitbc market` |
