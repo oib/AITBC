@@ -10,7 +10,7 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | read-only reference, do not push release work here |
 | **aitbc3** | SSH `aitbc3` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
 | **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace |
-| **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | NOT the live repo; use only for notes, scripts and local experiments |
+| **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | NOT the live repo; use only for notes, scripts and local experiments. `/opt/aitbc` is a non-active clone: `data/` and `venv/` have been removed so it cannot be started as a node. |
 
 ## Where the full repo lives
 
@@ -22,7 +22,7 @@ The canonical, full AITBC repository is only on the two remote nodes:
 Both remotes point to gitea as `origin` and GitHub as `github`.
 
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
-`/opt/aitbc` on the IDE host has been reset to gitea `main` (`eec9f22ac`) and is clean. It is safe to read and run local verification, but still use `aitbc3` or `hub.aitbc` for any edits that affect live services or the gitea `main` branch. The stale `cli-canonical` (`a4472e97`) branch still exists in the Git history but is no longer on `main`.
+`/opt/aitbc` on the IDE host is a read-only clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. Use it only for reading code and running local static checks. All live work must be done on `aitbc3` or `hub.aitbc`.
 
 ## Using sshfs to edit the canonical repo from the IDE
 
