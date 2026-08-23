@@ -1031,10 +1031,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   transaction was created.
 - fix(sync): `sync_block_import` no longer creates a zero-balance sender account
 - perf(sync): initial resync bulk batch size now uses the full gap up to the
-- feat(ops): `aitbc-ipfs` now uses a Python wrapper (`apps/ipfs/ipfs-daemon.py`)
-  that runs `ipfs daemon` and reformats Kubo/go-log and logfmt output to the
-  AITBC journal style (`[LEVEL] [component] caller: message: key=value`). This
-  makes the IPFS service consistent with every other AITBC service.  configured `initial_sync_max_batch_size` instead of a conservative 500 + gap/20
+  configured `initial_sync_max_batch_size` instead of a conservative 500 + gap/20
   formula. This roughly halves resync time for large gaps.
   for `FAUCET`/`BRIDGE_RELEASE`/`BRIDGE_REFUND` before applying them, preventing
   extra `faucet`/`bridge_*` accounts from polluting the follower state trie.
@@ -1061,6 +1058,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`.
   - Group docstrings and `cli/README.md` clarify that `aitbc market`, `aitbc ai`, `aitbc agent`, and `aitbc governance` are the preferred command groups.
   - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #15.
-- feat(ipfs): add `apps/ipfs/ipfs-daemon.py` Kubo log wrapper and update `aitbc-ipfs.service`
-  - Reformats Kubo go-log and libp2p logfmt output to the AITBC `[LEVEL] [component] message` journal style.
-  - Service runs the wrapper as `aitbc` user with `IPFS_PATH=/var/lib/aitbc/ipfs-daemon`.
+- feat(ops): `aitbc-ipfs` now uses a Python wrapper (`apps/ipfs/ipfs-daemon.py`)
+  that runs `ipfs daemon` and reformats Kubo/go-log and logfmt output to the
+  AITBC journal style (`[LEVEL] [component] caller: message: key=value`). This
+  makes the IPFS service consistent with every other AITBC service.
+
