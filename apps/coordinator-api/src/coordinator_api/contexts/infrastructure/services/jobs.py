@@ -11,6 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc_shared import JobPayment
 
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
+from ...payments.acceptance import deadline_from
 from ...payments.provider_binding import miner_wallet_address, same_address
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
@@ -208,10 +209,13 @@ class JobService:
         offer_unit_price: Decimal | None = None
         offer_price_unit: str | None = None
         offer_quantity: Decimal | None = None
+        acceptance_deadline: datetime | None = None
         if job.payment_id:
             payment = self.session.get(JobPayment, job.payment_id)
             if payment and payment.meta_data:
                 meta = payment.meta_data
+                # G3: a held payment tells the customer how long they have to object.
+                acceptance_deadline = deadline_from(meta)
                 offer_id = meta.get("offer_id") or offer_id
                 offer_price_unit = meta.get("offer_price_unit") or offer_price_unit
                 raw_unit_price = meta.get("offer_unit_price")
@@ -248,6 +252,7 @@ class JobService:
             auto_reinvest_pct=(job.constraints or {}).get("auto_reinvest_pct"),
             reinvest_status=receipt.get("reinvest_status"),
             reinvest_stake_id=receipt.get("reinvest_stake_id"),
+            acceptance_deadline=acceptance_deadline,
         )
 
     def to_result(self, job: Job) -> JobResult:
