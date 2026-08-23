@@ -26,6 +26,15 @@ jobs:
                -r requirements-dev.txt" \
             --mode copy
 
+      - name: Re-link repo-local editable packages
+        run: |
+          /opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python -m pip install -q \
+            -e packages/aitbc-shared \
+            -e packages/py/aitbc-agent-core \
+            -e packages/py/aitbc-agent-sdk \
+            -e packages/py/aitbc-crypto \
+            -e packages/py/aitbc-sdk
+
       - name: MyPy clean apps
         run: |
           export PYTHON=/opt/gitea-runner/.cache/aitbc-venvs/job-venv/bin/python
