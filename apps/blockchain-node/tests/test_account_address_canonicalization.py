@@ -17,7 +17,7 @@ actually cost something:
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlmodel import Session, create_engine, select
 
 from aitbc_chain.metadata import chain_metadata
@@ -85,9 +85,9 @@ def test_the_same_account_cannot_be_stored_twice_under_two_spellings(session) ->
 
 def test_escrow_still_references_the_account_table(session) -> None:
     """`foreign_key=` passed to `Column` is read as a dialect option and silently dropped."""
-    targets = [str(fk.target_fullname) for fk in Escrow.__table__.foreign_keys]
+    targets = sorted(str(fk.target_fullname) for fk in Escrow.__table__.foreign_keys)
 
-    assert targets == ["account.address", "account.address"]
+    assert targets == ["account.address", "account.address", "account.chain_id", "account.chain_id"]
     for name in ("buyer", "provider"):
         column = Escrow.__table__.c[name]
         assert column.foreign_keys, f"{name} lost its foreign key"
@@ -95,6 +95,25 @@ def test_escrow_still_references_the_account_table(session) -> None:
         # The failure mode was silent: the constraint vanished into a dialect option
         # bucket rather than raising, so assert the bucket is empty too.
         assert not dict(column.dialect_options.get("foreign", {}) or {}).get("key")
+
+
+def test_escrow_foreign_keys_reference_the_whole_account_key(session) -> None:
+    """A reference to `account.address` alone is unusable: the key is `(chain_id, address)`.
+
+    SQLite does not complain when such a table is created -- it fails later, and it fails
+    globally: `PRAGMA foreign_key_check` reports "foreign key mismatch" and checks no table
+    in the database at all.
+    """
+    constraints = {c.name: c for c in Escrow.__table__.constraints if isinstance(c, ForeignKeyConstraint)}
+
+    assert set(constraints) == {"fk_escrow_buyer_account", "fk_escrow_provider_account"}
+    for name, local in (("fk_escrow_buyer_account", "buyer"), ("fk_escrow_provider_account", "provider")):
+        constraint = constraints[name]
+        assert [c.name for c in constraint.columns] == ["chain_id", local]
+        assert [e.column.name for e in constraint.elements] == ["chain_id", "address"]
+
+    account_key = [c.name for c in Account.__table__.primary_key.columns]
+    assert account_key == ["chain_id", "address"], "the escrow constraints track this key"
 
 
 # --- Through the state trie -------------------------------------------------------------

@@ -326,7 +326,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=message) from None
     try:
         with session_scope() as session:
-            escrow_record = Escrow(job_id=job_id, buyer=buyer, provider=provider, amount=int(amount_dec))
+            escrow_record = Escrow(
+                job_id=job_id, chain_id=_CHAIN_ID, buyer=buyer, provider=provider, amount=int(amount_dec)
+            )
             session.add(escrow_record)
             session.commit()
     except Exception as e:
