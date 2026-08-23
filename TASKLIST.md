@@ -273,5 +273,6 @@ Status after the 2026-08-24 session:
 - [x] **V23-42 agent-stake / bounty chain surface** is implemented and committed on gitea `main` (`f1b06e33c`). Routes, models, migration, operator signing and coordinator chain-first writes are all in place. The `test_blockchain_client_paths.py` ratchet passes and the full blockchain-node test suite is green.
 - [x] **`AITBC_WALLET_DIR` CLI helper** is implemented (`cli/aitbc_cli/utils/wallet_paths.py`) and used by the file-wallet sites.
 - [x] **OpenAPI regeneration** is current and the `openapi-drift` hook is passing.
-- [~] **Escrow lock integration** is implemented (`857379abe`) and the regression test suite has been restored to green (`a04e1626b`).
-- [ ] **Live validation of V23-42 agent-stake and bounty** on hub remains the one un-run box: a funded wallet must stake on an agent, add to the stake, unbond/complete after the lock period, and a bounty must be deployed, submitted, verified and expired with real balance movement.
+- [x] **Escrow lock integration** is implemented (`857379abe`) and the regression test suite has been restored to green (`a04e1626b`).
+- [x] **Live validation of V23-42 agent-stake and bounty** on hub completed 2026-08-24 (`66d38e225`). A funded test wallet staked, added, attempted unbond (correctly refused pre-expiry), deployed/submitted/verified and expired bounties, with balance moves matching the specification. Operator signatures verified. One unbond/complete maturity cycle is pending `locked_until` on 2026-08-24 (verified by the pre-expiry refusal).
+- [ ] **Follow-up 2026-08-24:** complete/unbond the test stake after `locked_until` to exercise the credit path.
