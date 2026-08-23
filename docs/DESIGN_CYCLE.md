@@ -176,7 +176,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 
 ### Docs / CLI honesty
 
-13. Architecture system-flow still shows `aitbc-cli.sh` and Tendermint 26657.
+13. ~~Architecture system-flow still shows `aitbc-cli.sh` and Tendermint 26657.~~ Fixed — `docs/architecture/1_system-flow.md` now reflects the live CLI → coordinator → miner → Ollama → escrow path, wallet-signed `aitbc auth login`, `ai submit --wait`, reputation dispatch, and the non-genesis settlement key.
 14. ~~`STATUS.md` escrow/bridge defaults disagree with the live paid-job path.~~ Fixed — `escrow_enabled` default is `True` in `config.py` and `STATUS.md`.
 15. Dual command groups confuse operators (`market`/`marketplace`, `governance`/`operations governance`).
 16. Many CLI groups simulate when the service is hub-only; scenarios must label **live vs simulated**.
@@ -209,7 +209,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Shipped: `aitbc node island join` now sets `aitbc:aitbc` 0600 on `island_credentials.json`; `aitbc market offer` error points to `node island join`. Closes step 11. |
 | P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Shipped: `propose -> vote -> close -> execute` validated end-to-end on hub; live parameter change recorded. |
-| P1.8 | Honest architecture rewrite of `1_system-flow.md` (CLI → coordinator 8203 → miner → Ollama 11434 → escrow) | Stale docs train the next agent wrong |
+| P1.8 | Honest architecture rewrite of `1_system-flow.md` (CLI → coordinator 8203 → miner → Ollama 11434 → escrow) | Shipped: `docs/architecture/1_system-flow.md` updated to the live v0.10.18 flow, `aitbc auth login`, `ai submit --wait`, reputation dispatch, and the `ESCROW_RELEASE_PRIVATE_KEY` signer. Closes step 13. |
 
 ### P2 — expand the product after the loop is closed
 

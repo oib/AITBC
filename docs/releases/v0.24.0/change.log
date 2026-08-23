@@ -1040,3 +1040,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - fix(cli): `aitbc node island join` now chowns `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` mode 0600 after writing, matching `aitbc node join`.
 - fix(cli): `aitbc market offer` error now points to `aitbc node island join` instead of the non-writing `aitbc edge island join`.
 - docs(design): mark P1.6 and operations gap #11 (island credential ownership) as fixed in `DESIGN_CYCLE.md`.
+- docs(architecture): rewrite `docs/architecture/1_system-flow.md` to the live v0.10.18 flow
+  - Documents `aitbc auth login`, `aitbc ai submit --wait`, reputation-aware dispatch, and the `ESCROW_RELEASE_PRIVATE_KEY` signer.
+  - Removes stale "not yet" notes for shipped P0.1, P0.6, P1.1, P1.5, and P0.3.
+  - Closes `DESIGN_CYCLE.md` P1.8 and operations gap #13.
