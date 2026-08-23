@@ -2,6 +2,9 @@
 
 ## Goal
 
+> **Live vs. simulated:** `aitbc ipfs` commands are **live** once the `aitbc-ipfs` Kubo daemon is running. If the daemon is not running, the CLI falls back to a local filesystem CID shim.
+
+
 Run a real Kubo IPFS daemon behind the canonical `aitbc ipfs` commands so
 content is added and retrieved using real CIDs, and two AITBC nodes can fetch
 content from each other.

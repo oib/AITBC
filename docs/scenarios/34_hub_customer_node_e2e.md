@@ -25,6 +25,8 @@ breadcrumb: Home > Scenarios > Hub↔Customer Node End-to-End
 
 ## Scenario Overview
 
+> **Live vs. simulated:** This is the live product path. `aitbc ai`, `aitbc market`, `aitbc wallet`, and `aitbc bridge` are **live** when the hub services are running. `aitbc exchange-island` and `aitbc reputation` steps may fall back to `(Simulated)` output if the exchange or reputation services are not reachable.
+
 This is the product path: a customer CLI on the hub (or a follower pointed at the hub) pays a shop miner for an Ollama job; escrow releases on-chain; the shop republishes a GPU software offer.
 
 Hub RPC/coordinator/exchange often bind `127.0.0.1`. Public access is nginx (`https://hub.aitbc.bubuit.net/…`) or an SSH tunnel — not raw LAN `:8202`. The CLI should use configured hub URLs (`HUB_DISCOVERY_URL` / `HUB_P2P_HOST` / `HUB_RPC_URL`), not hardcoded localhost (A6).
