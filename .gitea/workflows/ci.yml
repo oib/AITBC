@@ -18,12 +18,7 @@ jobs:
           bash scripts/ci/setup-python-venv.sh \
             --cache-root /opt/gitea-runner/.cache/aitbc-venvs \
             --venv-dir /opt/gitea-runner/.cache/aitbc-venvs/job-venv \
-            --extra-packages \
-              "packages/py/aitbc-agent-core \
-               packages/py/aitbc-agent-sdk \
-               packages/py/aitbc-crypto \
-               packages/py/aitbc-sdk \
-               -r requirements-dev.txt" \
+            --extra-packages "-r requirements-dev.txt" \
             --mode copy
 
       - name: MyPy clean apps

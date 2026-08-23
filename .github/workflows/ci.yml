@@ -26,11 +26,22 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv venv
-          ./venv/bin/pip install -q --upgrade pip setuptools wheel
+          ./venv/bin/python -m pip install -q --upgrade pip setuptools wheel
           if [ -f requirements.txt ]; then
-            ./venv/bin/pip install -q -r requirements.txt
+            ./venv/bin/python -m pip install -q -r requirements.txt
           fi
-          ./venv/bin/pip install -q -e .
+          ./venv/bin/python -m pip install -q -e .
+
+      - name: Install local packages
+        run: |
+          if [ -f requirements-dev.txt ]; then
+            ./venv/bin/python -m pip install -q -r requirements-dev.txt
+          fi
+          for pkg in packages/aitbc-shared packages/py/aitbc-agent-core packages/py/aitbc-agent-sdk packages/py/aitbc-crypto packages/py/aitbc-sdk; do
+            if [ -d "$pkg" ]; then
+              ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e "$pkg"
+            fi
+          done
 
       - name: MyPy clean apps
         run: bash scripts/ci/mypy-precommit.sh

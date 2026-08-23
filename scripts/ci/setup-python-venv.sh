@@ -160,15 +160,19 @@ esac
 
 source "$VENV_DIR/bin/activate"
 
-# Editable installs of repo-local packages (e.g. packages/aitbc-shared) are
-# recorded as the absolute path of the repo used to build the cache venv. When
-# that cache is copied/symlinked into a new runner workspace, the original path
-# no longer exists and the package cannot be imported. Reinstall from the
-# current repo so the local package resolves in this workspace.
-if [ -d "$REPO_DIR/packages/aitbc-shared" ]; then
-    if ! "$VENV_DIR/bin/pip" install -q --force-reinstall --no-deps -e "$REPO_DIR/packages/aitbc-shared" >/dev/null 2>&1; then
-        echo "⚠️  Could not reinstall aitbc-shared from $REPO_DIR/packages/aitbc-shared" >&2
+# Editable installs of repo-local packages (e.g. packages/aitbc-shared,
+# packages/py/aitbc-agent-core, etc.) are recorded as the absolute path of the
+# repo used to build the cache venv. When that cache is copied/symlinked into a
+# new runner workspace, the original path no longer exists and the package cannot
+# be imported. Reinstall from the current repo so local packages resolve.
+# Use `python -m pip` instead of the `pip` script because the copied venv's
+# `bin/pip` script still has a shebang pointing at the original cache python.
+for pkg_dir in "$REPO_DIR/packages/aitbc-shared" "$REPO_DIR"/packages/py/*; do
+    if [ -d "$pkg_dir" ] && [ -f "$pkg_dir/pyproject.toml" ]; then
+        if ! "$VENV_DIR/bin/python" -m pip install -q --force-reinstall --no-deps -e "$pkg_dir" >/dev/null 2>&1; then
+            echo "⚠️  Could not install local package from $pkg_dir" >&2
+        fi
     fi
-fi
+done
 
 echo "✅ Python environment ready from cache: $CACHE_KEY"
