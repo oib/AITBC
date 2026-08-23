@@ -24,6 +24,7 @@ from .state.pure_state_transition import (
     extract_read_write_sets,
 )
 from .state.state_transition import get_state_transition
+from .mempool import compute_tx_hash
 from .sync_base import SyncBase
 from .sync_validator import ImportResult
 
@@ -177,6 +178,13 @@ class BlockImportMixin(SyncBase):
                     norm["signature"] = ""
                 if "chain_id" not in norm:
                     norm["chain_id"] = self._chain_id
+                # Block broadcasts from the proposer carry the raw signed
+                # transaction content and do not include the pre-computed
+                # tx_hash.  Recompute it here so every downstream path
+                # (parallel/sequential, state transition, Transaction record)
+                # uses a consistent, non-empty hash.
+                if not norm.get("tx_hash"):
+                    norm["tx_hash"] = compute_tx_hash(norm)
                 normalized.append(norm)
             transactions = normalized
 
