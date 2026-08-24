@@ -114,8 +114,8 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 |-------|--------|
 | Multi-validator PoA / PBFT | Code present, default false; soak test added (1000 rounds + partition/PBFT). Single-proposer mode still active. |
 | Bridge merkle proofs / multi-sig | Implemented, production defaults false |
-| ZK circuits (`apps/zk-circuits`) | Ceremony keys exist; not in job verification |
-| TEE / confidential | CLI `aitbc tee`, `aitbc confidential` — not in job pipeline |
+| ZK circuits (`apps/zk-circuits`) | ~~Ceremony keys exist; not in job verification~~ Fixed — `receipt_public` Groth16 proof is required and verified for high-value jobs (§3 step 6, §7 P2.1), live-validated 2026-08-21. The circuit proves the miner's self-reported result fields hash consistently; it does not independently re-verify the underlying computation (circuits that could, `ml_inference`/`training_verification`, exist but are not wired into the job/escrow path). |
+| TEE / confidential | ~~CLI `aitbc tee`, `aitbc confidential` — not in job pipeline~~ Fixed — TEE attestation is required and verified for confidential jobs (§3 step 6, §7 P2.2). Identity-pinning landed 2026-08-24 (`QuoteGenerator` no longer derives a key from `enclave_id`; the coordinator pins verification to a registered `EnclaveIdentity`) plus stable signing-key plumbing (`aitbc tee attest --key-file` / `keygen`). Still partial in practice: no live miner has registered a stable enclave key yet, so registry-pinning has no live caller and no production traffic has exercised a real (non-coordinator-self-attested) quote. |
 | Agent SDK IPFS/oracle | Wraps `aitbc ipfs` / `aitbc oracle` |
 | Messaging | `aitbc messaging` often simulated on shop |
 | Bond / reinvest / economics / grants / plugin / platform / compliance | CLI groups exist; roadmap v0.11–v0.16 |
@@ -149,8 +149,15 @@ Duplicate CLI surfaces to be honest about:
 - `aitbc governance` vs `aitbc operations governance`
 - `aitbc ai` vs `aitbc operations ai`
 - `aitbc gpu` (local service) vs `aitbc gpu-onchain` vs `aitbc edge gpu`
+- `aitbc chain` vs `aitbc blockchain` — the *same* Click `Group` object registered twice under two top-level names (`cli/aitbc_cli/core/main.py`), not two implementations that happen to overlap. Found 2026-08-24; not yet collapsed to one name.
 
 Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `governance` for service status, `operations governance` only where the RPC vote path is required.
+
+### CLI discoverability gate (`--show-deprecated`) — flagged 2026-08-24, not fixed
+
+`cli/aitbc_cli/core/surface_policy.py` defines a `VALIDATED_COMMANDS` allowlist of 15 top-level groups (`account`, `ai`, `auth`, `bond`, `bridge`, `config`, `list`, `market`, `node`, `start`, `stop`, `restart`, `transactions`, `version`, `wallet`). Everything else — roughly 52 of 67 registered groups, including several this file calls "Done" or "live" above (`governance`, `pool-hub`, `mining`, `reputation`, `explorer`, `sync`, `network`, `ipfs`, `security`, `analytics`, `agent`, `agent-comm`, `exchange-island`, `reinvest`…) — refuses to run by default ("... is deprecated and not live-validated") unless the operator passes `--show-deprecated` first. The underlying services are unaffected: `aitbc --show-deprecated pool-hub status` returns real live JSON. Only default CLI discoverability is broken relative to this file's own scenario instructions.
+
+This gate landed the same day as (and after) most of the "Done" claims in §2–§4 were last written, so those sections are not wrong about what the software does — they are silent about a flag now required to reach it. `--show-deprecated` itself is documented in exactly one line of `docs/cli/README.md`, and not at all in this file, `README.md`, or `docs/scenarios/README.md`. Until someone either widens `VALIDATED_COMMANDS` or every scenario/doc that names a now-gated command is updated to say so, treat any "Done"/"live" claim in §2–§4 above as requiring `--show-deprecated` unless the command is in the allowlist above.
 
 ---
 
@@ -204,7 +211,7 @@ Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `
 |---|------|-----|
 | P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Shipped: `min_reputation` constraint, higher-reputation dispatch preference, and `--min-reputation` CLI flag (commit `fdbd17f5c`). Closes step 8. |
 | P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Shipped for CLI — `aitbc dashboard customer` and `aitbc dashboard shop` query live coordinator, wallet daemon, GPU discovery, and marketplace services. Web UI mock is outside the CLI repo. |
-| P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | Shipped: `docs/features/2-bridge-cross-chain.md` and `docs/releases/STATUS.md` now explicitly state the live bridge is a trusted custodian with `bridge_release_enabled=False`, and that multi-sig/Merkle features are implemented but disabled by default. |
+| P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | Shipped: `docs/features/2-bridge-cross-chain.md` and `docs/releases/STATUS.md` now explicitly state the live bridge is a trusted custodian with `bridge_release_enabled=False`, and that multi-sig/Merkle features are implemented but disabled by default. Multi-sig + Merkle-proof enforcement was live-tested end-to-end 2026-08-24 on real hub↔`aitbc3`-island transfers, including negative-path rejections (missing proof, threshold not met, invalid signatures) — see `docs/releases/STATUS.md` "Bridge multi-signature and Merkle enforcement". Production defaults are unchanged: `bridge_multisig_enabled`/`bridge_require_merkle_proof` were returned to `False` after the validation window. |
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Shipped — `MultiValidatorPoA` + PBFT are implemented and pass `test_multi_validator_poa_soak.py` (1000 rounds + partition). Live enablement is gated by `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in `blockchain.env`; operators must run [Scenario 51](./scenarios/51_multi_validator_poa_soak.md) before flipping the flag. |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Shipped: `aitbc node island join` now sets `aitbc:aitbc` 0600 on `island_credentials.json`; `aitbc market offer` error points to `node island join`. Closes step 11. |
