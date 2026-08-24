@@ -28,6 +28,13 @@ The Pool Hub SLA/billing query builder now emits the `is_not` operator correctly
 - `aitbc --output json` returns unwrapped machine-readable JSON.
 - `aitbc update` pulls the latest `main` and runs `scripts/deployment/update.sh` in one command.
 
+## Block-scoped pre-registered transactions
+
+- Added `block_scoped_preregistered_transactions` feature flag (default `False`).
+- `FAUCET`, `BRIDGE_LOCK`, `BRIDGE_RELEASE`, and `BRIDGE_REFUND` can now be queued in the mempool and applied only when a block is produced/imported.
+- When enabled, off-chain RPCs no longer credit/debit `Account` balances directly; `state_transition.apply_transaction` applies them at block time.
+- The default path remains unchanged until the flag is enabled and orphan records are cleaned.
+
 ## V23-92 follow-up — shop/follower nodes stop treating hub-only services as local
 
 `aitbc-exchange` (8106) and `aitbc-agent-coordinator` (8107) are hub-only. V23-92 already stopped coin-request notifications from defaulting to `localhost:8107`. The same default was still sitting in CLI config, pool-hub miner registration, and `health_check.sh`, so a shop node would report those units as down. Off-hub URLs now come from `HUB_DISCOVERY_URL` / `HUB_AGENT_URL` / `HUB_EXCHANGE_URL` in `/etc/aitbc/{blockchain,node}.env` (no baked-in hostname). `health_check.sh` now resolves the node role the same way `setup.sh` does and probes only that role's units and HTTP ports.

@@ -170,6 +170,9 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
         raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
     if amount > 36000000000:
         amount = 36000000000
+    from ..config import settings as chain_settings
+    from ..mempool import get_mempool
+
     with session_scope(chain_id) as session:
         account = session.get(Account, (chain_id, address))
         if not account:
@@ -179,31 +182,55 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
             _logger.info("Faucet auto-created account: %s", address)
         timestamp = datetime.now(UTC)
         tx_hash = hashlib.sha256(f"faucet:{address}:{amount}:{timestamp.isoformat()}:{uuid.uuid4()}".encode()).hexdigest()
-        account.balance += amount
-        session.add(account)
-        faucet_tx = Transaction(
-            chain_id=chain_id,
-            tx_hash=tx_hash,
-            sender="faucet",
-            recipient=address,
-            payload={"type": "FAUCET", "amount": amount, "reason": "test_funding"},
-            value=amount,
-            fee=0,
-            nonce=0,
-            timestamp=timestamp,
-            block_height=None,
-            status="confirmed",
-            type="FAUCET",
-        )
-        session.add(faucet_tx)
+        if not getattr(chain_settings, "block_scoped_preregistered_transactions", False):
+            account.balance += amount
+            session.add(account)
         session.commit()
+
+        if getattr(chain_settings, "block_scoped_preregistered_transactions", False):
+            mempool = get_mempool()
+            mempool.add(
+                {
+                    "from": "faucet",
+                    "to": address,
+                    "amount": amount,
+                    "fee": 0,
+                    "type": "FAUCET",
+                    "payload": {"type": "FAUCET", "amount": amount, "reason": "test_funding"},
+                    "nonce": 0,
+                    "timestamp": timestamp.isoformat(),
+                },
+                chain_id=chain_id,
+                tx_hash=tx_hash,
+            )
+
+        if not getattr(chain_settings, "block_scoped_preregistered_transactions", False):
+            with session_scope(chain_id) as tx_session:
+                faucet_tx = Transaction(
+                    chain_id=chain_id,
+                    tx_hash=tx_hash,
+                    sender="faucet",
+                    recipient=address,
+                    payload={"type": "FAUCET", "amount": amount, "reason": "test_funding"},
+                    value=amount,
+                    fee=0,
+                    nonce=0,
+                    timestamp=timestamp,
+                    block_height=None,
+                    status="confirmed",
+                    type="FAUCET",
+                )
+                tx_session.add(faucet_tx)
+                tx_session.commit()
         return {
             "success": True,
             "address": address,
             "amount": amount,
             "tx_hash": tx_hash,
             "chain_id": chain_id,
-            "message": "Faucet transaction completed",
+            "message": "Faucet transaction submitted to mempool"
+            if chain_settings.block_scoped_preregistered_transactions
+            else "Faucet transaction completed",
         }
 
 
