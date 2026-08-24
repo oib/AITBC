@@ -2886,7 +2886,7 @@
           "marketplace-bonds"
         ],
         "summary": "Create or update a provider bond",
-        "description": "Create or top-up a provider performance bond record.",
+        "description": "Create or top-up a provider performance bond record.\n\nThe bond's ``required_amount`` is raised to the global floor if the caller\nsupplies a smaller value, and the bond is left ``PENDING`` until the posted\n``amount`` meets that floor.",
         "operationId": "create_bond_v1_marketplace_providers__provider_id__bonds_post",
         "parameters": [
           {

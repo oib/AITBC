@@ -16,7 +16,7 @@ from ...payments.provider_binding import miner_wallet_address, same_address
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
-from ....contexts.marketplace.domain.provider_bond import is_provider_eligible
+from ....contexts.marketplace.domain.provider_bond import _default_bond_min_amount, is_provider_eligible
 
 logger = get_logger(__name__)
 
@@ -404,9 +404,18 @@ class JobService:
                 return False
 
         if _bond_required_for(job):
-            eligible = is_provider_eligible(self.session, miner.id)
+            min_bond = constraints.min_bond_amount if constraints.min_bond_amount is not None else _default_bond_min_amount()
+            if min_bond is not None and min_bond > 0:
+                eligible = is_provider_eligible(self.session, miner.id, min_amount=min_bond)
+            else:
+                eligible = is_provider_eligible(self.session, miner.id)
             if not eligible:
-                logger.info("Job %s requires a performance bond; miner %s is not eligible", job.id, miner.id)
+                logger.info(
+                    "Job %s requires a performance bond; miner %s is not eligible (min %s)",
+                    job.id,
+                    miner.id,
+                    min_bond,
+                )
                 return False
 
         return True

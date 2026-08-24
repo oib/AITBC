@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -46,33 +47,60 @@ class ProviderBond(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
 
 
-def is_provider_eligible(session: Session, provider_id: str) -> bool:
-    """Return True if the provider has an active or locked bond and no shortfall."""
+def _default_bond_min_amount() -> Decimal:
+    """Global floor for provider-bond eligibility."""
+    return Decimal(os.getenv("COORDINATOR_BOND_MIN_AMOUNT", "1"))
+
+
+def is_provider_eligible(
+    session: Session,
+    provider_id: str,
+    min_amount: Decimal | None = None,
+) -> bool:
+    """Return True if the provider has an active/locked bond that meets the floor.
+
+    If ``min_amount`` is not supplied, the provider's own ``required_amount`` is
+    used when set, otherwise the global ``COORDINATOR_BOND_MIN_AMOUNT`` floor.
+    """
     statement = select(ProviderBond).where(ProviderBond.provider_id == provider_id)
     bond = session.exec(statement).first()
     if bond is None:
         return False
-    return bond.status in {ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}
+    if bond.status not in {ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}:
+        return False
+    if min_amount is None:
+        if bond.required_amount and bond.required_amount > 0:
+            min_amount = bond.required_amount
+        else:
+            min_amount = _default_bond_min_amount()
+    return bond.amount >= min_amount
 
 
 def set_provider_bond_status(
     session: Session,
     provider_id: str,
     status: ProviderBondStatus,
-    amount: Decimal = Decimal("0.0"),
-    required_amount: Decimal = Decimal("0.0"),
+    amount: Decimal | None = None,
+    required_amount: Decimal | None = None,
     bond_id: str = "",
 ) -> ProviderBond:
-    """Upsert the bond status for a provider."""
+    """Upsert the bond status for a provider.
+
+    ``amount`` and ``required_amount`` are preserved when not explicitly
+    supplied, so lock/release/slash operations do not accidentally zero the bond.
+    """
     statement = select(ProviderBond).where(ProviderBond.provider_id == provider_id)
     bond = session.exec(statement).first()
     if bond is None:
         bond = ProviderBond(provider_id=provider_id)
         session.add(bond)
     bond.status = status.value if isinstance(status, ProviderBondStatus) else status
-    bond.amount = amount
-    bond.required_amount = required_amount
-    bond.bond_id = bond_id
+    if amount is not None:
+        bond.amount = amount
+    if required_amount is not None:
+        bond.required_amount = required_amount
+    if bond_id:
+        bond.bond_id = bond_id
     bond.updated_at = datetime.now(UTC)
     session.commit()
     session.refresh(bond)

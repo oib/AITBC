@@ -15,6 +15,7 @@ from ....storage import get_session
 from ..domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
+    _default_bond_min_amount,
     is_provider_eligible,
     set_provider_bond_status,
 )
@@ -87,13 +88,24 @@ async def create_bond(
     session: Annotated[Session, Depends(get_session)],
     user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
-    """Create or top-up a provider performance bond record."""
+    """Create or top-up a provider performance bond record.
+
+    The bond's ``required_amount`` is raised to the global floor if the caller
+    supplies a smaller value, and the bond is left ``PENDING`` until the posted
+    ``amount`` meets that floor.
+    """
+    amount = _to_decimal(body.amount)
+    required_amount = _to_decimal(body.required_amount)
+    floor = _default_bond_min_amount()
+    if required_amount < floor:
+        required_amount = floor
+    status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
     bond = set_provider_bond_status(
         session,
         provider_id,
-        ProviderBondStatus.ACTIVE,
-        amount=_to_decimal(body.amount),
-        required_amount=_to_decimal(body.required_amount),
+        status,
+        amount=amount,
+        required_amount=required_amount,
         bond_id=body.bond_id or f"bond-{provider_id}",
     )
     return _bond_response(bond)
