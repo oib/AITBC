@@ -127,7 +127,14 @@ def publish_default_offers(ollama_models: list[str]) -> None:
             if result.returncode == 0:
                 logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
             else:
-                logger.warning("Default offer %s/%s failed: %s", offer["service_type"], offer["model"], result.stderr[:200])
+                logger.warning(
+                    "Default offer %s/%s failed (rc=%s): stderr=%s stdout=%s",
+                    offer["service_type"],
+                    offer["model"],
+                    result.returncode,
+                    result.stderr[:500],
+                    result.stdout[:500],
+                )
         except Exception as e:
             logger.warning("Error publishing default offer %s/%s: %s", offer["service_type"], offer["model"], e)
 
@@ -679,7 +686,9 @@ async def main():
     last_heartbeat = 0.0
     last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
-    last_offer_publish = 0.0
+    # Set the initial publish time so the first loop iteration does not
+    # immediately re-publish all default offers (time.time() - 0 is >> 300s).
+    last_offer_publish = time.time()
     try:
         while True:
             current_time = time.time()
