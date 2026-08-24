@@ -67,6 +67,17 @@ VERIFICATION_DISABLED = (
     "whoever holds the setup secret forge proofs that verify."
 )
 
+#: Circuits that expose a "success" public output in addition to the Groth16 proof itself.
+#: The value is the index of that signal in the public-signals array, or ``-1`` to mean
+#: the last public signal (used when the success flag is appended after other public outputs).
+CIRCUIT_SUCCESS_SIGNALS: dict[str, int | None] = {
+    "ml_inference_verification": 0,  # output ``verified`` is the only public signal
+    "ml_training_verification": -1,  # ``training_complete`` is the last public signal
+    "modular_ml_components": -1,  # ``training_complete`` is the last public signal
+    "receipt_public": None,
+    "receipt_simple": None,
+}
+
 
 def _resolve_proving_key(circuits_dir: Path, circuit: str) -> Path | None:
     """Return the highest-numbered contribution for ``circuit``, or None if unusable.
@@ -430,7 +441,16 @@ class ZKProofService:
                         "error": result.stderr,
                     }
                 is_verified = result.stdout.strip() == "true"
-                return {"verified": is_verified, "computation_correct": is_verified, "privacy_preserved": is_verified}
+                success_index = CIRCUIT_SUCCESS_SIGNALS.get(circuit_name)
+                if is_verified and success_index is not None:
+                    if success_index == -1:
+                        success_value = public_signals[-1] if public_signals else None
+                    else:
+                        success_value = public_signals[success_index] if len(public_signals) > success_index else None
+                    computation_correct = success_value == "1"
+                else:
+                    computation_correct = is_verified
+                return {"verified": is_verified, "computation_correct": computation_correct, "privacy_preserved": is_verified}
             finally:
                 os.unlink(script_file)
         except Exception as e:
