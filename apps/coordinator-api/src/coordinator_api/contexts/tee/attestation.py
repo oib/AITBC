@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import binascii
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -28,6 +29,17 @@ class EnclaveStatus(StrEnum):
     PENDING = "pending"
     ACTIVE = "active"
     REVOKED = "revoked"
+
+
+class EnclaveOwnershipError(Exception):
+    """Raised when a caller tries to register/overwrite another agent's enclave identity.
+
+    Security fix (2026-08-24): ``register_enclave`` used to upsert
+    unconditionally, so any caller could re-register (and silently steal)
+    any ``enclave_id`` someone else already claimed -- which would have
+    defeated registry-pinned verification the moment it existed, since
+    pinning is only as good as who is allowed to set the pin.
+    """
 
 
 class TEEAttestation(SQLModel, table=True):
@@ -86,6 +98,15 @@ class TEEAttestationService:
 
         Expects ``quote_b64`` to be the base64-encoded JSON representation of
         an ``AttestationQuote``. Legacy raw quote blobs fail closed.
+
+        Security fix (2026-08-24): when ``expected_enclave_id`` has a
+        registered, non-revoked ``EnclaveIdentity``, the quote's signature
+        must additionally match that identity's public key -- otherwise
+        anyone holding *any* keypair could sign a self-consistent quote for
+        an enclave_id someone else already registered, and it would still
+        pass. Enclave IDs with no registration keep the pre-existing
+        self-consistency-only check; registering one is what upgrades it.
+        A revoked identity fails closed regardless of signature.
         """
         try:
             quote = AttestationQuote.from_base64(quote_b64)
@@ -95,11 +116,22 @@ class TEEAttestationService:
         if expected_enclave_id and quote.enclave_id != expected_enclave_id:
             return False
 
+        known_public_key: bytes | None = None
+        if expected_enclave_id:
+            identity = self.get_enclave(expected_enclave_id)
+            if identity is not None:
+                if identity.status == EnclaveStatus.REVOKED.value:
+                    return False
+                try:
+                    known_public_key = base64.b64decode(identity.public_key) if identity.public_key else None
+                except (binascii.Error, ValueError):
+                    known_public_key = None
+
         # The quote must be cryptographically signed and match the expected
         # measurement. Failing either means it is not a real quote path.
         expected = expected_measurement or expected_enclave_id
         verifier = AttestationVerifier(require_signature=True)
-        return verifier.verify(quote, expected_measurement=expected or None)
+        return verifier.verify(quote, expected_measurement=expected or None, known_public_key=known_public_key)
 
     def verify_and_store(self, enclave_id: str, quote: str, measurement: str = "") -> TEEAttestation:
         """Verify a quote and persist the result."""
@@ -128,12 +160,24 @@ class TEEAttestationService:
         agent_id: str = "",
         status: EnclaveStatus = EnclaveStatus.ACTIVE,
     ) -> EnclaveIdentity:
-        """Register or update an enclave identity."""
+        """Register or update an enclave identity.
+
+        Registration is owner-locked: once an enclave_id has been registered
+        with a given ``agent_id``, only that same ``agent_id`` may update it
+        (an identity with no ``agent_id`` on record yet is still adoptable,
+        so existing unlabeled registrations do not become permanently
+        frozen). This is what makes registry-pinned verification
+        (``_validate_quote``) mean anything -- without it, anyone could
+        re-register someone else's enclave_id with their own key and defeat
+        the pin.
+        """
         statement = select(EnclaveIdentity).where(EnclaveIdentity.enclave_id == enclave_id)
         identity = self.session.exec(statement).first()
         if identity is None:
             identity = EnclaveIdentity(enclave_id=enclave_id)
             self.session.add(identity)
+        elif identity.agent_id and agent_id and identity.agent_id != agent_id:
+            raise EnclaveOwnershipError(f"enclave_id {enclave_id!r} is already registered by a different agent")
         identity.public_key = public_key
         identity.agent_id = agent_id
         identity.status = status.value if isinstance(status, EnclaveStatus) else status

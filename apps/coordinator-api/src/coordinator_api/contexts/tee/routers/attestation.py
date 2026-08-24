@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from ....auth import AuthDep
 from ....storage import get_session
-from ..attestation import EnclaveIdentity, EnclaveStatus, TEEAttestation, TEEAttestationService
+from ..attestation import EnclaveIdentity, EnclaveOwnershipError, EnclaveStatus, TEEAttestation, TEEAttestationService
 
 router = APIRouter(tags=["tee"], prefix="/tee")
 
@@ -32,6 +33,9 @@ class EnclaveRegister(BaseModel):
 
     enclave_id: str
     public_key: str
+    # Security fix (2026-08-24): accepted for backward wire compatibility but
+    # no longer trusted -- ownership is derived from the authenticated
+    # caller (see register_enclave below), not from a client-supplied field.
     agent_id: str = ""
     status: str = "active"
 
@@ -61,18 +65,29 @@ def get_attestation(
 def register_enclave(
     payload: EnclaveRegister,
     service: Annotated[TEEAttestationService, Depends(_get_service)],
+    user: AuthDep,
 ) -> EnclaveIdentity:
-    """Register or update an enclave identity."""
+    """Register or update an enclave identity.
+
+    Security fix (2026-08-24): the registering identity is the authenticated
+    caller (``user["sub"]``), not the client-supplied ``payload.agent_id`` --
+    otherwise any caller could claim ownership of any enclave_id just by
+    naming themselves in the request body. ``register_enclave`` itself
+    refuses to hand an existing registration to a different owner.
+    """
     try:
         enclave_status = EnclaveStatus(payload.status)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status: {payload.status}") from exc
-    return service.register_enclave(
-        payload.enclave_id,
-        payload.public_key,
-        payload.agent_id,
-        status=enclave_status,
-    )
+    try:
+        return service.register_enclave(
+            payload.enclave_id,
+            payload.public_key,
+            user["sub"],
+            status=enclave_status,
+        )
+    except EnclaveOwnershipError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
 
 @router.get("/enclaves/{enclave_id}", response_model=EnclaveIdentity)
