@@ -51,6 +51,9 @@ class ProposerSignatureValidator:
 
         Returns (is_valid, reason).
         """
+        if not getattr(settings, "bridge_block_signature_required", True):
+            return (True, "Block signature verification disabled")
+
         proposer = block_data.get("proposer", "")
         block_hash = block_data.get("hash", "")
         if not proposer:
