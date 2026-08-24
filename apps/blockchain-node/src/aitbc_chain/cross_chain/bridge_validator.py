@@ -45,6 +45,7 @@ class BridgeValidatorMixin(BridgeBase):
             if existing:
                 existing.public_key = public_key
                 existing.is_active = True
+                existing.registered_at = datetime.now(UTC)
                 session.add(existing)
             else:
                 record = BridgeValidator(
