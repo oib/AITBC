@@ -13,7 +13,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up`
 - `bootstrap` — Bootstrap local development and configuration files.. Subcommands: `bootstrap-env`
 - `brand` — Show and manage white-label brand settings.. Subcommands: `list`, `show`
-- `bridge` — Cross-chain bridge management. Subcommands: `balance`, `confirm`, `health`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock`
+- `bridge` — Cross-chain bridge management. Subcommands: `attest`, `balance`, `confirm`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock`
 - `chain` — Multi-chain management commands. Subcommands: `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
 - `cluster` — Cluster management and operations. Subcommands: `balance`, `status`, `sync`
 - `coin-requests` — Manage coin transfer requests.. Subcommands: `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show`
