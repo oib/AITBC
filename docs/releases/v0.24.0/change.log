@@ -1195,3 +1195,37 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   and `docs/architecture/bridge-threat-model.md` with the live validation results,
   honest trust-custodian assessment, and the release-fence being returned to `false`.
 
+
+## Multi-key consensus live validation and single-proposer restoration (2026-08-24)
+
+- Activated  on  with a two-key
+   and .
+- Validated round-robin proposer rotation from block 13282 through 13378.
+- Verified every produced block carried the second validator signature and one
+  attestation while multi-key was active.
+- Decision: restored single PoA proposer by setting
+  on  and restarting .
+- Rationale: the two validator keys live on the same hub node, so multi-key rotation
+  does not provide BFT or decentralization; it adds operational surface without a
+  production benefit until a second independent validator node is deployed or PBFT
+  consensus is wired into the live path.
+- The  and second key remain in  for easy
+  re-enable.
+- Chain continues to produce blocks under single proposer .
+
+## Multi-key consensus live validation and single-proposer restoration (2026-08-24)
+
+- Activated `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` on `hub.aitbc` with a two-key
+  `VALIDATOR_SET` and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`.
+- Validated round-robin proposer rotation from block 13282 through 13378.
+- Verified every produced block carried the second validator signature and one
+  attestation while multi-key was active.
+- Decision: restored single PoA proposer by setting `MULTI_VALIDATOR_CONSENSUS_ENABLED=false`
+  on `hub.aitbc` and restarting `aitbc-blockchain-node`.
+- Rationale: the two validator keys live on the same hub node, so multi-key rotation
+  does not provide BFT or decentralization; it adds operational surface without a
+  production benefit until a second independent validator node is deployed or PBFT
+  consensus is wired into the live path.
+- The `VALIDATOR_SET` and second key remain in `/etc/aitbc/blockchain.env` for easy
+  re-enable.
+- Chain continues to produce blocks under single proposer `ait1fe2d63...`.
