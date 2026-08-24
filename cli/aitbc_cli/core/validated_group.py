@@ -74,6 +74,6 @@ class ValidatedGroup(click.Group):
             help_text = super().get_help(ctx)
             lines = help_text.splitlines()
             lines.append("")
-            lines.append("Unvalidated commands are hidden. Use --show-deprecated to see them.")
+            lines.append("Deprecated commands are hidden. Use --show-deprecated to invoke them.")
             return "\n".join(lines)
         return super().get_help(ctx)
