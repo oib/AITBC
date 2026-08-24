@@ -7,7 +7,7 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 | site | host / path | role | what to do here |
 |---|---|---|---|
 | **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` / `release/v0.24.0` |
-| **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | read-only reference, do not push release work here |
+| **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **aitbc3** | SSH `aitbc3` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
 | **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace |
 | **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | NOT the live repo; use only for notes, scripts and local experiments. `/opt/aitbc` is a non-active clone: `data/` and `venv/` have been removed so it cannot be started as a node. |
@@ -19,9 +19,11 @@ The canonical, full AITBC repository is only on the two remote nodes:
 - `aitbc3:/opt/aitbc`
 - `hub.aitbc:/opt/aitbc`
 
-Both remotes point to gitea as `origin` and GitHub as `github`.
+Both remotes point to gitea as `origin`. `github` should remain a read-only reference on live nodes; the GitHub mirror is maintained from the IDE host `/opt/aitbc` using a dedicated, non-shared token.
 
 > **Repository visibility note:** Gitea is the private, single-operator development repository. GitHub is the public mirror. AITBC software users other than the operator have no access to the Gitea instance, so deployment/setup scripts that must work for public users should continue to reference GitHub. Only the operator's live nodes and tooling should treat Gitea as the primary source of truth.
+>
+> **GitHub mirror policy (2026-08-24):** the public GitHub mirror is no longer pushed from `aitbc3` or `hub.aitbc`. The only node that holds the GitHub token is the IDE host, in `/opt/aitbc`. Live nodes pull/fetch from Gitea and may keep a `github` remote for reference, but must not store GitHub credentials or push to GitHub.
 
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
 `/opt/aitbc` on the IDE host is a read-only clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. Use it only for reading code and running local static checks. All live work must be done on `aitbc3` or `hub.aitbc`.
@@ -110,6 +112,23 @@ Use the mount only for file inspection and text editing. Always commit, push, an
    git fetch origin main:main
    ```
 
+## GitHub mirror workflow
+
+The GitHub public mirror is optional. To keep it in sync:
+
+1. Make sure the canonical gitea `main` is already pushed from `aitbc3` or `hub.aitbc`.
+2. On the IDE host `/opt/aitbc` only:
+   ```bash
+   cd /opt/aitbc
+   git fetch origin
+   git checkout main
+   git merge --ff-only origin/main
+   git push github HEAD:main
+   ```
+3. Never run `git push github` from `aitbc3` or `hub.aitbc`.
+
+The GitHub token lives in memory (`git credential.helper cache`) or a secure helper on the IDE host and is not persisted in the repo.
+
 ## Anti-confusion checks
 
 Before touching anything, confirm at least one of these is true:
@@ -138,8 +157,9 @@ On `aitbc3` and `hub.aitbc`:
 origin  http://gitea.bubuit.net:3000/oib/aitbc.git (fetch)
 origin  http://gitea.bubuit.net:3000/oib/aitbc.git (push)
 github  https://github.com/oib/AITBC.git (fetch)
-github  https://github.com/oib/AITBC.git (push)
 ```
+
+> `github` is **fetch-only** on live nodes. No GitHub token should be configured on `aitbc3` or `hub.aitbc`.
 
 On the IDE `/opt/aitbc` the remote names have been aligned with the remote nodes:
 
@@ -149,6 +169,8 @@ origin  https://gitea.bubuit.net/oib/AITBC.git (push)
 github  https://github.com/oib/AITBC.git (fetch)
 github  https://github.com/oib/AITBC.git (push)
 ```
+
+> `/opt/aitbc` is the only clone that should hold the GitHub token. Use a non-persistent `git credential` helper (e.g. `cache` with a short timeout) or a secure environment-based helper. Do not write the token into the URL or `/root/.git-credentials` on any node.
 
 `main` should track `origin/main` (gitea). If it does not, run:
 
@@ -160,7 +182,8 @@ git branch --set-upstream-to=origin/main main
 
 - Never commit tokens, private keys, wallet secrets, or API credentials to the repo.
 - `qa-cycle.py` now reads `GITEA_TOKEN` from the environment or `~/.gitea_token`, never from a file inside the repo.
-- If a secret is accidentally committed, rotate it immediately and scrub the file from git history with `git filter-repo` (or `git filter-branch` as fallback), then force-push from `aitbc3` or `hub.aitbc`.
+- Never store GitHub, Gitea, or other git tokens in `~/.git-credentials`, `git remote` URLs, or shell history on live nodes. Use `git credential.helper cache` with a short timeout, a secrets-manager-backed helper, or interactive entry only.
+- If a secret is accidentally committed or exposed, rotate it immediately and scrub the file from git history with `git filter-repo` (or `git filter-branch` as fallback), then force-push from `aitbc3` or `hub.aitbc`.
 
 ## When not to act
 
@@ -169,7 +192,11 @@ Do not, from the IDE host:
 - reset or force-push `main`
 - force-push or rewrite git history
 - assume `/opt/aitbc` is the same tree as `aitbc3` or `hub.aitbc`
-- use `/opt/aitbc` or `/home/oib/windsurf/aitbc` for live production commits
+- use `/opt/aitbc` or `/home/oib/windsurf/aitbc` for gitea production commits
+
+Do not, on `aitbc3` or `hub.aitbc`:
+- push to the `github` remote or store a GitHub token
+- store any git credential in `~/.git-credentials`
 
 ## Operational hints
 
