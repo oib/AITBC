@@ -1,4 +1,3 @@
-
 """Tests for automatic provider-bond slashing (G5).
 
 A bond is on-chain, but until now it could only be slashed by a manual admin call.
@@ -16,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from aitbc_shared import JobPayment
+from fastapi import HTTPException
 
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
@@ -224,3 +224,162 @@ async def test_sweeper_finds_stale_running_job(db_session, slash_env):
         instance.slash.assert_awaited_once()
         _, args, _ = instance.slash.mock_calls[0]
         assert args[1] == SlashingCondition.DOWNTIME
+
+
+# ---------------------------------------------------------------------------
+# D1: only an operator's ruling slashes. A rejection is a claim, not a finding.
+# ---------------------------------------------------------------------------
+
+
+def _disputable_job(db_session, miner):
+    """A bonded job whose escrow is sitting in the customer's acceptance window."""
+    job = _bonded_job(db_session, state="COMPLETED")
+    job.assigned_miner_id = miner.id
+    job.payment_status = "pending_acceptance"
+    payment = db_session.get(JobPayment, job.payment_id)
+    payment.status = "pending_acceptance"
+    payment.meta_data = {"acceptance_deadline": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}
+    db_session.add(job)
+    db_session.add(payment)
+    db_session.commit()
+    db_session.refresh(job)
+    return job
+
+
+@pytest.mark.asyncio
+async def test_customer_rejection_does_not_slash_the_bond(db_session, slash_env):
+    """Rejecting opens a dispute and leaves the bond alone (D1).
+
+    Slashing here would let a buyer burn half a provider's stake by typing a reason,
+    with no operator in the loop -- the mirror of the unilateral release the
+    acceptance window was built to remove.
+    """
+    from coordinator_api.contexts.infrastructure.routers.client import reject_job
+    from coordinator_api.schemas import JobRejection
+
+    miner = _miner(db_session)
+    job = _disputable_job(db_session, miner)
+    bond = _provider_bond(db_session, miner.id, amount="10")
+
+    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        view = await reject_job(
+            request=None,
+            job_id=job.id,
+            req=JobRejection(reason="the transcript is empty"),
+            session=db_session,
+            user={"sub": "client1"},
+        )
+
+    assert view.payment_status == "disputed"
+    mock_client.assert_not_called()
+    db_session.refresh(bond)
+    assert bond.amount == Decimal("10")
+    assert bond.status == ProviderBondStatus.ACTIVE.value
+
+
+@pytest.mark.asyncio
+async def test_operator_ruling_for_refund_slashes_the_bond(db_session, slash_env):
+    """The refund branch of the admin ruling is where the fraud slash lives."""
+    from coordinator_api.contexts.infrastructure.routers.admin import resolve_dispute
+    from coordinator_api.schemas import DisputeResolution
+
+    miner = _miner(db_session)
+    job = _disputable_job(db_session, miner)
+    job.payment_status = "disputed"
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="10")
+
+    with (
+        patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client,
+        patch(
+            "coordinator_api.contexts.payments.services.payments.PaymentService.refund_payment",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
+        client = mock_client.return_value
+        client.get.return_value = {"nonce": 1}
+        client.post.return_value = {"transaction_hash": "0xruled"}
+        result = await resolve_dispute(
+            request=None,
+            job_id=job.id,
+            req=DisputeResolution(outcome="refund", reason="output did not match the prompt"),
+            session=db_session,
+            user={"sub": "admin1"},
+        )
+
+    assert result["payment_status"] == "refunded"
+    db_session.refresh(bond)
+    assert bond.amount == Decimal("5")
+    assert bond.meta["slash_condition"] == "fraud"
+
+
+@pytest.mark.asyncio
+async def test_a_refund_that_does_not_settle_leaves_the_bond_intact(db_session, slash_env):
+    """A 502 keeps the ruling re-issuable, so the bond must not be spent on it."""
+    from coordinator_api.contexts.infrastructure.routers.admin import resolve_dispute
+    from coordinator_api.schemas import DisputeResolution
+
+    miner = _miner(db_session)
+    job = _disputable_job(db_session, miner)
+    job.payment_status = "disputed"
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="10")
+
+    with (
+        patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client,
+        patch(
+            "coordinator_api.contexts.payments.services.payments.PaymentService.refund_payment",
+            new=AsyncMock(return_value=False),
+        ),
+        pytest.raises(HTTPException) as exc,
+    ):
+        await resolve_dispute(
+            request=None,
+            job_id=job.id,
+            req=DisputeResolution(outcome="refund", reason="output did not match the prompt"),
+            session=db_session,
+            user={"sub": "admin1"},
+        )
+
+    assert exc.value.status_code == 502
+    mock_client.assert_not_called()
+    db_session.refresh(bond)
+    assert bond.amount == Decimal("10")
+    assert bond.status == ProviderBondStatus.ACTIVE.value
+
+
+@pytest.mark.asyncio
+async def test_operator_ruling_for_release_does_not_slash(db_session, slash_env):
+    """Ruling for the provider pays it and leaves its bond where it was."""
+    from coordinator_api.contexts.infrastructure.routers.admin import resolve_dispute
+    from coordinator_api.schemas import DisputeResolution
+
+    miner = _miner(db_session)
+    job = _disputable_job(db_session, miner)
+    job.payment_status = "disputed"
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="10")
+
+    with (
+        patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client,
+        patch(
+            "coordinator_api.contexts.payments.services.payments.PaymentService.release_payment",
+            new=AsyncMock(return_value=True),
+        ),
+    ):
+        result = await resolve_dispute(
+            request=None,
+            job_id=job.id,
+            req=DisputeResolution(outcome="release", reason="the result matches the prompt"),
+            session=db_session,
+            user={"sub": "admin1"},
+        )
+
+    assert result["payment_status"] == "released"
+    mock_client.assert_not_called()
+    db_session.refresh(bond)
+    assert bond.amount == Decimal("10")
+    assert bond.status == ProviderBondStatus.ACTIVE.value
