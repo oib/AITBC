@@ -159,6 +159,61 @@ class AttestationQuote:
         return cls.from_json(base64.b64decode(text).decode("utf-8"))
 
 
+def load_or_create_signing_key(path: str) -> bytes:
+    """Return a stable 32-byte signing seed at ``path``, creating one if missing.
+
+    Part 4 of the 2026-08-24 TEE fix: ``QuoteGenerator`` no longer derives a
+    key from ``enclave_id`` (see ``_resolve_signing_key`` below), and the
+    coordinator can now pin verification to a registered ``EnclaveIdentity``
+    -- but neither protects anything for a caller that signs with a fresh
+    random key on every call, since there is nothing stable to register.
+    This is the plumbing that gives ``aitbc tee attest`` / ``aitbc tee
+    keygen`` and the miner's ``build_tee_quote`` a signing identity that
+    survives process restarts, so its public key can actually be registered
+    once and pinned against.
+
+    The file holds the raw 32-byte seed and nothing else. Callers are
+    responsible for keeping it private -- anyone who reads it can sign as
+    this identity, same as any other private key.
+    """
+    try:
+        with open(path, "rb") as f:
+            key = f.read()
+    except FileNotFoundError:
+        key = os.urandom(32)
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            # Lost a race with a concurrent creator -- use what they wrote.
+            with open(path, "rb") as f:
+                return f.read()
+        with os.fdopen(fd, "wb") as f:
+            f.write(key)
+        return key
+    if len(key) != 32:
+        raise ValueError(f"Signing key file {path!r} does not hold a 32-byte seed (got {len(key)} bytes)")
+    return key
+
+
+def public_key_for_signing_key(signing_key: bytes) -> bytes:
+    """Return the raw Ed25519 public key that ``signing_key`` would sign quotes with.
+
+    Mirrors the derivation ``AttestationQuote.sign`` uses internally, so a
+    caller holding only key material (e.g. from ``load_or_create_signing_key``)
+    can learn what to register with ``aitbc tee register`` before ever
+    generating a quote.
+    """
+    seed = hashlib.sha256(signing_key).digest()
+    private_key = Ed25519PrivateKey.from_private_bytes(seed)
+    return private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+
+
 class QuoteGenerator:
     """Generate local attestation quotes for an enclave."""
 
