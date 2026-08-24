@@ -18,6 +18,10 @@ while [[ $# -gt 0 ]]; do
             SKIP_INTERACTIVE=true
             shift 2
             ;;
+        --remote)
+            AITBC_GIT_REMOTE="$2"
+            shift 2
+            ;;
         --node-id)
             NODE_ID="$2"
             shift 2
@@ -32,6 +36,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --open-island HUB_URL  Configure as follower to specified hub (non-interactive)"
             echo "  --node-id NODE_ID      Set node identity (required with --open-island)"
+            echo "  --remote URL           Git remote to clone from (default: canonical Gitea)"
             echo "  --force                Re-run full setup even if already installed"
             echo "  --help                 Show this help message"
             echo ""
@@ -338,11 +343,28 @@ clone_repo() {
         return 0
     fi
 
+    # Clone from canonical Gitea origin. GitHub is maintained only as a public mirror.
+    # Override with --remote <url> or the AITBC_GIT_REMOTE environment variable.
+    local git_remote="${AITBC_GIT_REMOTE:-https://gitea.bubuit.net/oib/AITBC.git}"
+
     # Clone repository
     cd /opt
-    git clone https://github.com/oib/AITBC.git aitbc || error "Failed to clone repository"
+    git clone "$git_remote" aitbc || error "Failed to clone repository"
 
     cd /opt/aitbc
+    # Add GitHub mirror as a second remote, but keep origin on the canonical source.
+    if ! git remote | grep -q '^github$'; then
+        git remote add github https://github.com/oib/AITBC.git 2>/dev/null || warning "Failed to add GitHub mirror (non-fatal)"
+    fi
+    # Never store tokens or passwords in the remote URL. If the user passed a
+    # credential-included URL via --remote, warn loudly so they can remove it and
+    # switch to git-credential-store / ~/.gitea_token / GITEA_TOKEN.
+    if git config --local --get remote.origin.url 2>/dev/null | grep -q '@'; then
+        warning "origin remote URL still contains credentials (user:token@host)."
+        warning "Remove them with: git remote set-url origin <URL-without-credentials>"
+        warning "Then provide the token via git credential helper or ~/.gitea_token."
+    fi
+
     success "Repository cloned successfully"
 }
 

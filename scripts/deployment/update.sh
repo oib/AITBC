@@ -33,8 +33,9 @@
 #   - /etc/aitbc/node.env and/or /etc/aitbc/blockchain.env present
 #
 # Git remote:
-#   Defaults to https://github.com/oib/AITBC.git (public repo).
-#   Override with --remote <url> or AITBC_GIT_REMOTE env var.
+#   Defaults to `origin` (which setup.sh sets to https://gitea.bubuit.net/oib/AITBC.git).
+#   GitHub is available as the `github` mirror; the canonical source is Gitea.
+#   Override with --remote <name|url> or AITBC_GIT_REMOTE env var.
 # ============================================================================
 
 set -u  # error on unset vars; do NOT use -e (we want to continue past soft failures)
@@ -55,8 +56,9 @@ LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
 RUN_MIGRATIONS_SCRIPT="$AITBC_ROOT/scripts/deployment/run-migrations.sh"
 
-# Public Git remote — pull from Gitea by default (matches the 'origin' remote
-# configured by setup.sh). Override with --remote <url> or AITBC_GIT_REMOTE.
+# Git remote to pull from. setup.sh points `origin` at the canonical Gitea repo
+# and adds `github` as a public mirror. Override with --remote <name|url> or
+# AITBC_GIT_REMOTE.
 GIT_REMOTE="${AITBC_GIT_REMOTE:-origin}"
 
 # Flags
