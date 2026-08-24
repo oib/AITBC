@@ -32,7 +32,7 @@ Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and m
 
 ● Live
 
-Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8016.
+Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8100.
 
 [Learn More →](../18_explorer/)
 
@@ -62,9 +62,9 @@ Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inf
 
 ### FHE Service
 
-● Live
+● Development
 
-Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support.
+Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support. Not yet wired into the production job pipeline.
 
 [Learn More →](../development/fhe-service.md)
 
@@ -76,13 +76,17 @@ Consumer GPU optimization with dynamic discovery, latency measurement, and edge-
 
 [Learn More →](edge_gpu_setup.md)
 
+### Pool Hub
+
+● Live
+
 Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.
 
 [Learn More →](../development/1_overview.md#pool-hub)
 
 ## Architecture Overview
 
-The AITBC platform consists of 7 core components working together to provide a complete AI blockchain computing solution:
+The AITBC platform consists of 8 core components working together to provide a complete AI blockchain computing solution:
 
 ### Infrastructure Layer
 
@@ -99,9 +103,9 @@ The AITBC platform consists of 7 core components working together to provide a c
 
 ### CLI & Tooling
 
-- **AITBC CLI** - 12 command groups, 90+ subcommands (165/165 tests passing)
-  - Client, miner, wallet, auth, blockchain, marketplace, admin, config, monitor, simulate, governance, plugin
-  - 141 unit tests + 24 integration tests (CLI → live coordinator)
+- **AITBC CLI** - 15 validated top-level command groups are shown by default (`aitbc --help`); 69 command groups are registered in total
+  - account, ai, auth, bond, bridge, config, list, market, node, restart, start, stop, transactions, version, wallet
+  - Hidden and unvalidated groups can be listed and run with `aitbc --show-deprecated`
   - CI/CD via GitHub Actions, man page, shell completion
 
 ## Component Interactions
