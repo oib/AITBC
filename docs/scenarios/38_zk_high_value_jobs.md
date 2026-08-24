@@ -167,7 +167,7 @@ curl -s http://localhost:8203/v1/jobs/<job-id>/result | python3 -c "import sys,j
 ### ZK service is healthy
 
 ```bash
-curl -s http://localhost:8203/v1/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
+curl -s http://localhost:8203/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)"
 ```
 
 ### Unit tests
