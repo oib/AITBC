@@ -87,3 +87,12 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 > **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. Cross-chain bridge HTLC settlement is also gated by this flag; operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
 >
 > **Bridge security defaults:** `bridge_release_enabled=False` means the live bridge still operates as a trusted custodian. Merkle-proof and multi-sig verification are implemented and covered by regression tests, but they are **disabled by default** and must be explicitly enabled for a trust-minimized configuration.
+
+## Trust root
+
+The current live deployment is a single-node, SQLite-backed proof-of-authority chain:
+
+- One `PoAProposer` produces every block and writes it to a local SQLite `chain.db`.
+- Followers (e.g. `aitbc3`) replay the hub's chain; the shop is not an independent consensus party.
+- `multi_validator_consensus_enabled` defaults to `False`; enabling it requires a non-empty `validator_set` and per-validator keys. The existing `MultiValidatorPoA + PBFT` soak test passed, but it has not been activated in production.
+- The coordinator will not create an on-chain escrow without a buyer-supplied `ESCROW_LOCK` signature. The `PAYMENT_BUYER_PRIVATE_KEY` fallback has been removed: the hub no longer signs the buyer's half of the escrow. In the default operator flow a priced job must be submitted with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee` (via `POST /v1/jobs` or `POST /v1/payments`), or the payment remains `pending`/`skipped` and the job is not dispatched.

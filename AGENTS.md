@@ -205,6 +205,15 @@ Recommended response:
 This is a data integrity / operator-recovery issue, not a CLI bug that can be
 fixed by code changes alone.
 
+## Trust root and operator limits
+
+Before changing consensus or escrow code, remember the current live shape:
+
+- The chain is one SQLite `chain.db` on the hub, produced by a single `PoAProposer`.
+- `multi_validator_consensus_enabled` defaults to `False` and the production env sets it to `false`. Multi-validator consensus is implemented and soak-tested, but it is not active in the default deployment.
+- The coordinator no longer signs the buyer's `ESCROW_LOCK` transaction. A priced job must reach the coordinator with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee`, or the payment stays `pending`/`skipped` and the job is not dispatched.
+- Treat any proposal that makes the hub hold the buyer's private key as a trust-root regression and refuse it.
+
 ## Use the AITBC MCP server
 
 When operating the live AITBC nodes, prefer the MCP server in `mcp-server/`
