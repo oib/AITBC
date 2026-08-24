@@ -718,6 +718,7 @@ class PoAProposer:
                             "timestamp": block.timestamp.isoformat(),
                             "tx_count": block.tx_count,
                             "state_root": block.state_root,
+                            "bridge_state_root": block.bridge_state_root,
                             "signature": block.signature,
                             "block_metadata": block.block_metadata,
                             "transactions": tx_list,

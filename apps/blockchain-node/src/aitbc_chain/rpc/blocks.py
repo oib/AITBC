@@ -124,6 +124,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
         "timestamp": block.timestamp.isoformat(),
         "tx_count": block.tx_count,
         "state_root": block.state_root,
+        "bridge_state_root": block.bridge_state_root,
         "signature": block.signature,
         "transactions": tx_list,
     }
@@ -141,6 +142,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
             "timestamp": block.timestamp.isoformat(),
             "tx_count": block.tx_count,
             "state_root": block.state_root,
+            "bridge_state_root": block.bridge_state_root,
             "signature": block.signature,
         },
         chain_id,
@@ -189,6 +191,7 @@ async def get_blocks_range(
                 "timestamp": b.timestamp.isoformat(),
                 "tx_count": b.tx_count,
                 "state_root": b.state_root,
+                "bridge_state_root": b.bridge_state_root,
                 "block_metadata": b.block_metadata,
                 # This is the endpoint peer sync pulls from, and the receiving
                 # validator authenticates the proposer from `signature`. Omitting it
