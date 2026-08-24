@@ -224,4 +224,16 @@ The provider-bond surface previously allowed an active/locked bond of any amount
 
 The deployed `ml_inference_verification` circuit in the coordinator tree used `verified <== 1 - (diff * diff)`, which computed a value but never constrained it. A non-zero difference could still make the equation true in the field, so the proof carried no correctness guarantee. The authoring tree in `apps/zk-circuits` had the correct `IsZero` implementation; it was promoted to the coordinator circuit directory, the r1cs/wasm and key material were regenerated, and `build-circuits.sh` now includes `ml_inference_verification` in its rebuild list. `zk_proofs.py` now decodes the per-circuit success public signal: for `ml_inference_verification` `public_signals[0]` must be `"1"`; for the training circuits the last public signal (`training_complete`) must be `"1"`. The new tests in `test_v2394_zk_circuit_constraints.py` cover a correct inference, a wrong inference with `verified == 0`, and a tampered public signal that breaks Groth16 verification.
 
-**Remaining gap:** the TEE decoding flag and the wiring into the dispatch gate for job acceptance are not yet done; the ZK proof now produces a reliable `computation_correct` answer, but no live job path consumes it.
+**Remaining gap:** the `computation_correct` signal is not yet wired into the job-acceptance gate that decides `pending_acceptance` → `release`. The ZK proof now detects a bad result, but it does not yet block payment, and the TEE decoding flag still needs to be wired as well. Smallest, most scoped remaining piece: route the existing `computation_correct` signal into whatever gate currently releases escrow.
+
+## Open design-review gaps (2026-08-25)
+
+These are the live-design verdicts that follow the economic-loop verification above.
+
+| Gap | Verdict | Notes |
+|---|---|---|
+| G3 — dispatch/acceptance-gate wiring | **OPEN, SMALLEST** | The ZK fix is live now, but `computation_correct` still is not wired into the job-acceptance path, so a bad result is correctly detected but not yet blocked. Hint: wire the existing signal into whatever gate currently decides `pending_acceptance` → `release`. |
+| G6 — settlement/trust-minimization | **OPEN, WORST** | No scoped fix yet. The 2026-08-24 live incident (real second validator, 20-minute stall, hand-rotated recovery key that is not in git) added a new open item on top: that key needs to go through a real, committed rotation process, and `PBFTConsensus` still is not wired into block production. Hint: start with getting the recovery key into git-tracked config properly — it is the more urgent half of G6 right now, ahead of the PBFT wiring itself. |
+| G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
+| Bridge — multi-sig/Merkle enforcement | **CORRECT-BUT-OFF** | Proven correct in testing, but the bridge is still switched off (`bridge_release_enabled=false`); no live path is exercising it. |
+| G8 — doc debt | **PRODUCT-CALL** | Mostly caught up (`STATUS.md`/`DESIGN_CYCLE.md` reconciled), but the `--show-deprecated` CLI gate hiding ~52 of 67 command groups is flagged, not fixed — a product call, not a coding one. |
