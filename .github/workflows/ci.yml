@@ -9,6 +9,11 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      # The API key manager creates a file lock at import time. On a fresh runner
+      # /var/lib/aitbc is not writable, so point it at /tmp.
+      API_KEY_STORAGE_PATH: /tmp/aitbc-ci-api-keys.json
+      PYTHON: ./venv/bin/python
     services:
       redis:
         image: redis:7
@@ -49,21 +54,16 @@ jobs:
           done
 
       - name: MyPy clean apps
-        env:
-          PYTHON: ./venv/bin/python
         run: bash scripts/ci/mypy-precommit.sh
 
       - name: No float money
         run: ./venv/bin/python scripts/lint/no_float_money.py
 
       - name: OpenAPI drift check
-        env:
-          PYTHON: ./venv/bin/python
         run: bash scripts/ci/check-openapi-drift.sh
 
       - name: Unit tests
         env:
-          PYTHON: ./venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
         run: |
           "$PYTHON" -m pytest -q \
