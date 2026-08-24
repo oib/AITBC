@@ -99,6 +99,7 @@ class BlockHeaderRequest(BaseModel):
     hash: str = Field(..., min_length=1, description="Block hash")
     proposer: str = Field(..., min_length=1, description="Block proposer address")
     state_root: str = Field(..., min_length=1, description="State root hash")
+    bridge_state_root: str | None = Field(default=None, description="Bridge state root hash")
     parent_hash: str | None = Field(default=None, description="Parent block hash")
     signature: str | None = Field(default=None, description="Block proposer signature")
     confirmation_count: int = Field(default=0, ge=0, description="Number of confirmations")
