@@ -353,7 +353,10 @@ class JobService:
         # D3: G1 binds the offer to a specific provider. A job quoted against one
         # provider's offer must not be satisfied by another miner, even if that
         # miner's general capabilities happen to match the customer's constraints.
-        if job.offer_id and job.provider_address:
+        if job.offer_id:
+            if not job.provider_address:
+                logger.info("Job %s (offer %s) has no quoted provider; refusing dispatch", job.id, job.offer_id)
+                return False
             wallet = miner_wallet_address(miner)
             if not wallet or not same_address(wallet, job.provider_address):
                 logger.info(
