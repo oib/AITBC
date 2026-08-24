@@ -533,7 +533,7 @@ async def list_miner_jobs(
                 pass
         jobs = service.list_jobs(assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
         return {
-            "jobs": [service.to_view(job) for job in jobs],
+            "jobs": service.to_views(jobs),
             "total": len(jobs),
             "limit": limit,
             "offset": offset,
