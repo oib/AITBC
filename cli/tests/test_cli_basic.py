@@ -76,7 +76,7 @@ class TestCLIConfiguration:
         assert CLI_BIN.exists()
         assert os.access(CLI_BIN, os.X_OK)
 
-    def test_explorer_command_deprecated(self):
-        result = run_cli("explorer")
+    def test_marketplace_command_deprecated(self):
+        result = run_cli("marketplace")
         assert result.returncode != 0
         assert "deprecated" in result.stderr

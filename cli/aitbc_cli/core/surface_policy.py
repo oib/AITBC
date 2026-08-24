@@ -1,27 +1,19 @@
 """Live-validated CLI surface allowlist (G8).
 
-A command group is only shown by default if it maps to a scenario that has been
-end-to-end validated on a live node. Everything else is hidden and can only be
-invoked with `aitbc --show-deprecated <command>`.
+Command groups are shown by default unless they are in the deprecated set.
+The deprecated groups are the legacy on-chain surfaces that the design cycle
+has replaced with top-level commands (`market` for GPU/software offers,
+`governance` for service-backed proposals, etc.). Everything else is exposed
+so that the default `aitbc --help` matches the documented CLI catalog.
+
+Use `aitbc --show-deprecated <command>` to invoke the legacy groups.
 """
 
 from __future__ import annotations
 
-# Top-level command groups that participate in the validated economic loop.
-VALIDATED_COMMANDS: set[str] = {
-    "account",
-    "ai",
-    "auth",
-    "bond",
-    "bridge",
-    "config",
-    "list",
-    "market",
-    "node",
-    "start",
-    "stop",
-    "restart",
-    "transactions",
-    "version",
-    "wallet",
+# Legacy / duplicated command groups kept for compatibility but hidden from the
+# default help surface.
+DEPRECATED_COMMANDS: set[str] = {
+    "marketplace",
+    "operations",
 }
