@@ -6,6 +6,8 @@ from contextlib import ExitStack
 from aitbc_chain.app import create_app
 from aitbc_chain.gossip import gossip_broker
 from fastapi.testclient import TestClient
+import pytest
+from starlette.websockets import WebSocketDisconnect
 
 
 def _publish(topic: str, message: dict) -> None:
@@ -159,8 +161,6 @@ def test_gossip_websocket_topic_isolation() -> None:
 def test_gossip_websocket_missing_topic_rejects() -> None:
     """The endpoint requires a topic query parameter."""
     with TestClient(create_app()) as client:
-        with client.websocket_connect("/rpc/gossip/ws") as websocket:
-            # FastAPI closes with 1008 when the topic is missing; the test client
-            # surface varies by version, so we just ensure the handshake fails
-            # instead of succeeding.
-            assert websocket is not None
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/rpc/gossip/ws"):
+                pass
