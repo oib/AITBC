@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 import hashlib
 import json
+import os
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -168,13 +169,27 @@ class QuoteGenerator:
     def _resolve_signing_key(self, enclave_id: str) -> bytes:
         """Return the Ed25519 signing key material for this enclave.
 
-        If the caller supplied a key, use it. Otherwise derive a deterministic
-        key from the enclave ID. In production the enclave itself holds the
-        private key; this derivation is a simulator-friendly stand-in.
+        If the caller supplied a key, use it -- this is how a real deployment
+        would pass in the enclave's actual hardware-rooted key, and it is how
+        a caller that wants a *stable* identity across calls (so it can be
+        pinned via ``EnclaveIdentity`` registration, see the coordinator's
+        ``tee`` context) should use this class.
+
+        Otherwise generate fresh random key material. Security fix
+        (2026-08-24): this used to derive a deterministic seed from
+        ``enclave_id`` alone. ``enclave_id`` is caller-supplied, public data
+        (it travels in job constraints and in the quote itself), so that
+        derivation let anyone who knew or guessed an enclave_id compute the
+        exact signing key a legitimate quote for it would use, and forge one
+        of their own -- with zero secret material. A quote signed with this
+        random fallback is still only self-consistent (see
+        ``AttestationQuote.verify_signature``), never pinned to a registered
+        identity on its own; callers that need continuity across calls must
+        supply ``signing_key`` explicitly.
         """
         if self.signing_key is not None:
             return self.signing_key
-        return (enclave_id or self.enclave_id or "default").encode()
+        return os.urandom(32)
 
     def generate(
         self,
@@ -224,8 +239,18 @@ class AttestationVerifier:
         self,
         quote: AttestationQuote,
         expected_measurement: str | None = None,
+        known_public_key: bytes | None = None,
     ) -> bool:
-        """Return True for a valid, non-expired quote matching the policy."""
+        """Return True for a valid, non-expired quote matching the policy.
+
+        ``known_public_key``, when supplied, pins verification to a
+        previously-registered identity: the quote's embedded public key must
+        match it exactly, not merely be internally self-consistent. Without
+        it, this only checks that the quote's signature matches the public
+        key carried in the quote itself -- which any holder of any keypair
+        can produce, so on its own it proves the quote was not altered in
+        transit, nothing about who signed it.
+        """
         if quote.status not in {AttestationStatus.VALID}:
             return False
         if quote.is_expired():
@@ -235,6 +260,8 @@ class AttestationVerifier:
         if self.require_signature and not quote.verify_signature():
             return False
         if not self.require_signature and quote.signature and not quote.verify_signature():
+            return False
+        if known_public_key is not None and quote.public_key != known_public_key:
             return False
         if expected_measurement is not None and quote.measurement != expected_measurement:
             return False
@@ -249,7 +276,8 @@ def verify_quote(
     *,
     expected_measurement: str | None = None,
     require_signature: bool = False,
+    known_public_key: bytes | None = None,
 ) -> bool:
     """Top-level helper to verify a quote."""
     verifier = AttestationVerifier(allowed_measurements, require_signature=require_signature)
-    return verifier.verify(quote, expected_measurement=expected_measurement)
+    return verifier.verify(quote, expected_measurement=expected_measurement, known_public_key=known_public_key)
