@@ -18,10 +18,14 @@ from typing import Any, cast
 import click
 import requests
 
-IPFS_DIR = Path("/var/lib/aitbc/ipfs")
-IPFS_DIR.mkdir(parents=True, exist_ok=True)
+IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR", "/var/lib/aitbc/ipfs"))
 IPFS_API = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5001")
 TIMEOUT = 120
+
+
+def _ensure_ipfs_dir() -> None:
+    """Create the IPFS directory on demand; imports must not fail on fresh runners."""
+    IPFS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _cid_for(data: bytes) -> str:
@@ -45,6 +49,7 @@ def _load_index() -> list[dict[str, Any]]:
 
 
 def _save_index(items: list[dict[str, Any]]) -> None:
+    _ensure_ipfs_dir()
     _index_path().write_text(json.dumps(items, indent=2))
 
 
@@ -80,6 +85,7 @@ def upload(ctx, file: str, pin: bool, name: str | None):
     """Upload a file to IPFS and return its CID."""
     file_path = Path(file)
     data = file_path.read_bytes()
+    _ensure_ipfs_dir()
 
     if _daemon_available():
         try:
@@ -108,7 +114,9 @@ def upload(ctx, file: str, pin: bool, name: str | None):
             )
             return
         except requests.RequestException as e:
-            click.echo(json.dumps({"success": False, "warning": f"Kubo upload failed: {e}; falling back to filesystem"}), err=True)
+            click.echo(
+                json.dumps({"success": False, "warning": f"Kubo upload failed: {e}; falling back to filesystem"}), err=True
+            )
 
     # Filesystem fallback
     cid = _cid_for(data)
@@ -140,7 +148,7 @@ def download(ctx, cid: str, output: str | None, wait: bool):
     """Download content by CID from the local Kubo daemon or filesystem fallback."""
     if _daemon_available():
         try:
-            for attempt in range(1, 60 if wait else 1):
+            for _attempt in range(1, 60 if wait else 1):
                 response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30)
                 if response.status_code == 200:
                     break
@@ -148,6 +156,7 @@ def download(ctx, cid: str, output: str | None, wait: bool):
                     response.raise_for_status()
                     break
                 import time
+
                 time.sleep(2)
             else:
                 response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30)
@@ -191,6 +200,7 @@ def pin(ctx, cid: str):
         except requests.RequestException as e:
             click.echo(json.dumps({"success": False, "warning": f"Kubo pin failed: {e}; using filesystem index"}), err=True)
 
+    _ensure_ipfs_dir()
     cid_path = _make_cid_path(cid)
     if not cid_path.exists():
         result = {"success": False, "error": f"CID not found: {cid}"}
@@ -231,16 +241,20 @@ def list_items(ctx):
                 if line:
                     try:
                         obj = json.loads(line.decode())
-                        items.append({
-                            "cid": obj.get("Cid") or obj.get("cid"),
-                            "type": obj.get("Type") or obj.get("type"),
-                        })
+                        items.append(
+                            {
+                                "cid": obj.get("Cid") or obj.get("cid"),
+                                "type": obj.get("Type") or obj.get("type"),
+                            }
+                        )
                     except json.JSONDecodeError:
                         continue
             click.echo(json.dumps({"success": True, "data": {"items": items}}))
             return
         except requests.RequestException as e:
-            click.echo(json.dumps({"success": False, "warning": f"Kubo pin list failed: {e}; using filesystem index"}), err=True)
+            click.echo(
+                json.dumps({"success": False, "warning": f"Kubo pin list failed: {e}; using filesystem index"}), err=True
+            )
 
     items = _load_index()
     click.echo(json.dumps({"success": True, "data": {"items": items}}))
