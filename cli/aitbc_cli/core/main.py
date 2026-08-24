@@ -17,7 +17,7 @@ if REPO_ROOT not in sys.path:
 
 import click
 from aitbc_cli.utils.http_client import get_logger
-from .surface_policy import VALIDATED_COMMANDS
+from .surface_policy import DEPRECATED_COMMANDS
 from .validated_group import ValidatedGroup
 from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
@@ -128,7 +128,7 @@ def version():
     click.echo("New Features: ✅")
 
 
-@click.group(cls=ValidatedGroup, validated_commands=VALIDATED_COMMANDS)
+@click.group(cls=ValidatedGroup, validated_commands=set())
 @click.version_option(version=__version__, prog_name="aitbc")
 @click.option("--url", default=None, help="Coordinator API URL (overrides config)")
 @click.option("--api-key", default=None, help="API key for authentication")
@@ -198,7 +198,6 @@ cli.add_command(market, name="market")
 marketplace.hidden = True  # Legacy on-chain marketplace; prefer `aitbc market`
 cli.add_command(marketplace, name="marketplace")  # Legacy on-chain marketplace; kept for compatibility but hidden from help
 cli.add_command(chain, name="blockchain")
-cli.add_command(chain, name="chain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
 cli.add_command(ai)  # AI job submission and inspection
 cli.add_command(analytics)  # Re-enabled - core.analytics exists
@@ -263,6 +262,11 @@ cli.add_command(coin_requests)
 cli.add_command(explorer)
 cli.add_command(trade)
 cli.add_command(agent_wallet, name="agent-wallet")
+
+# After all commands are registered, expose every top-level group except the
+# explicitly deprecated legacy groups. This avoids a hand-curated allowlist that
+# drifts out of sync with the documented CLI catalog.
+cli.validated_commands = set(cli.commands) - DEPRECATED_COMMANDS
 
 
 def main(argv=None):
