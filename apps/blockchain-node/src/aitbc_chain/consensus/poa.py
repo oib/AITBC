@@ -710,6 +710,16 @@ class PoAProposer:
             block_metadata: str | None = None
             if self._multi_validator:
                 attestations = await self._collect_attestations(block)
+                min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+                if min_attestations and len(attestations) < min_attestations:
+                    self._logger.warning(
+                        "Not enough attestations for multi-validator block %s: got %d, need %d",
+                        next_height,
+                        len(attestations),
+                        min_attestations,
+                    )
+                    session.rollback()
+                    return False
                 if attestations:
                     block_metadata = json.dumps({"attestations": attestations})
             block.block_metadata = block_metadata
