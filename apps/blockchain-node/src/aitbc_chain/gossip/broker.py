@@ -262,9 +262,19 @@ class WebsocketGossipBackend(GossipBackend):
     ``<base_url>?topic=<topic>&client_id=<id>``. Messages are JSON-encoded.
     Outgoing messages are tracked for a short time so that the broker-level
     echo caused by the server re-broadcasting is ignored.
+
+    v0.7.6+: publish() waits for the server echo (ack) before returning.
+    This detects silent ``CLOSE-WAIT`` sockets where the OS accepts the send()
+    but the peer is no longer reading, because the echo never comes back.
     """
 
-    def __init__(self, base_url: str, *, suppress_echo_ttl: float = 5.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        suppress_echo_ttl: float = 5.0,
+        ack_timeout: float = 10.0,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._client_id = uuid.uuid4().hex
         self._ssl_context: ssl.SSLContext | None = None
@@ -281,9 +291,19 @@ class WebsocketGossipBackend(GossipBackend):
         self._sent_lock = asyncio.Lock()
         self._reconnecting: set[str] = set()
         self._reconnect_backoff: dict[str, float] = {}
+        self._ack_timeout = ack_timeout
+        self._ack_events: dict[str, asyncio.Event] = {}
+        self._ack_lock = asyncio.Lock()
+        self._connect_locks: dict[str, asyncio.Lock] = {}
 
     async def start(self) -> None:
         self._running = True
+
+    def _connect_lock(self, topic: str) -> asyncio.Lock:
+        """Return a per-topic lock used to serialize connection work."""
+        if topic not in self._connect_locks:
+            self._connect_locks[topic] = asyncio.Lock()
+        return self._connect_locks[topic]
 
     def _is_websocket_open(self, ws: Any) -> bool:
         """Return True if a websockets connection is open.
@@ -300,7 +320,7 @@ class WebsocketGossipBackend(GossipBackend):
         return getattr(state, "name", None) == "OPEN" or state == 1
 
     def _compute_message_id(self, topic: str, message: Any) -> str:
-        """Compute a stable message identifier for echo suppression."""
+        """Compute a stable message identifier for echo suppression and ack matching."""
         if isinstance(message, dict):
             if "hash" in message:
                 return f"{topic}:{message['hash']}"
@@ -321,6 +341,13 @@ class WebsocketGossipBackend(GossipBackend):
 
     async def _is_echo(self, topic: str, message: Any) -> bool:
         msg_id = self._compute_message_id(topic, message)
+        # If we are waiting for an ack, the echo sets the event and is suppressed.
+        ack_event: asyncio.Event | None = None
+        async with self._ack_lock:
+            ack_event = self._ack_events.get(msg_id)
+        if ack_event is not None:
+            ack_event.set()
+            return True
         now = time.monotonic()
         async with self._sent_lock:
             if msg_id in self._sent_message_ids:
@@ -332,21 +359,26 @@ class WebsocketGossipBackend(GossipBackend):
         return False
 
     async def _ensure_connection(self, topic: str) -> None:
+        """Acquire the per-topic lock and open/reopen the websocket."""
+        async with self._connect_lock(topic):
+            await self._ensure_connection_unsafe(topic)
+
+    async def _ensure_connection_unsafe(self, topic: str) -> None:
         import websockets
 
         existing = self._websockets.get(topic)
         if existing is not None and self._is_websocket_open(existing):
             return
         if existing is not None:
-            await self._cleanup_websocket(topic)
+            await self._cleanup_websocket_unsafe(topic)
 
         url = f"{self._base_url}?topic={topic}&client_id={self._client_id}"
         try:
             ws = await websockets.connect(
                 url,
                 ssl=self._ssl_context,
-                ping_interval=120,
-                ping_timeout=60,
+                ping_interval=20,
+                ping_timeout=10,
             )
         except Exception as e:
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
@@ -396,16 +428,20 @@ class WebsocketGossipBackend(GossipBackend):
 
     async def _cleanup_websocket(self, topic: str) -> None:
         """Close the websocket and reader task but keep the subscriber queue."""
-        async with self._lock:
-            ws = self._websockets.pop(topic, None)
-            task = self._readers.pop(topic, None)
-        if task:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
+        async with self._connect_lock(topic):
+            await self._cleanup_websocket_unsafe(topic)
+
+    async def _cleanup_websocket_unsafe(self, topic: str) -> None:
+        """Close the websocket and reader task; caller must hold the connect lock."""
+        ws = self._websockets.pop(topic, None)
+        task = self._readers.pop(topic, None)
         if ws:
             with suppress(Exception):
                 await ws.close()
+        if task and task is not asyncio.current_task():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     def _schedule_reconnect(self, topic: str) -> None:
         from aitbc.aitbc_logging import get_logger
@@ -430,17 +466,14 @@ class WebsocketGossipBackend(GossipBackend):
         if self._ref_counts.get(topic, 0) <= 0:
             return
         try:
-            # Wait with exponential backoff (0.5, 1, 2, 4, ... up to 30s).
             delay = self._reconnect_backoff.get(topic, 0.5)
             logger.info("WebSocket gossip reconnect for %s after %ss", topic, delay)
             await asyncio.sleep(delay)
             if self._ref_counts.get(topic, 0) <= 0:
                 return
             await self._ensure_connection(topic)
-            # Successful connection: reset backoff.
             self._reconnect_backoff[topic] = 0.5
         except Exception as e:
-            # Double the delay, capped at 30s.
             current = self._reconnect_backoff.get(topic, 0.5)
             self._reconnect_backoff[topic] = min(current * 2, 30.0)
             logger.warning("WebSocket gossip reconnect failed for %s: %s", topic, e)
@@ -449,37 +482,59 @@ class WebsocketGossipBackend(GossipBackend):
             self._reconnecting.discard(topic)
 
     async def _cleanup(self, topic: str) -> None:
+        async with self._connect_lock(topic):
+            await self._cleanup_websocket_unsafe(topic)
         async with self._lock:
-            ws = self._websockets.pop(topic, None)
             self._queues.pop(topic, None)
-            task = self._readers.pop(topic, None)
-        if task:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-        if ws:
-            with suppress(Exception):
-                await ws.close()
+            self._ref_counts.pop(topic, None)
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._running:
             raise RuntimeError("Websocket backend not started")
-        await self._ensure_connection(topic)
-        await self._record_sent(topic, message)
-        ws = self._websockets[topic]
-        try:
-            await ws.send(json.dumps(message, default=str))
-        except Exception:
-            from aitbc.aitbc_logging import get_logger
+        await self._publish_with_ack(topic, message, retry=True)
 
-            logger = get_logger(__name__)
-            logger.warning("WebSocket gossip publish failed for %s; reconnecting and retrying", topic)
+    async def _publish_with_ack(
+        self,
+        topic: str,
+        message: Any,
+        *,
+        retry: bool,
+    ) -> None:
+        """Publish a message and wait for the server echo (ack).
+
+        If the ack does not arrive within ``_ack_timeout`` seconds the send is
+        considered lost, the connection is torn down and (for ``retry=True``)
+        the message is resent once.
+        """
+        from aitbc.aitbc_logging import get_logger
+
+        logger = get_logger(__name__)
+        msg_id = self._compute_message_id(topic, message)
+        ack_event = asyncio.Event()
+        async with self._ack_lock:
+            self._ack_events[msg_id] = ack_event
+        try:
+            async with self._connect_lock(topic):
+                await self._ensure_connection_unsafe(topic)
+                await self._record_sent(topic, message)
+                ws = self._websockets[topic]
+                await ws.send(json.dumps(message, default=str))
+                logger.debug("Published websocket message for %s; awaiting ack", topic)
+                await asyncio.wait_for(ack_event.wait(), timeout=self._ack_timeout)
+                logger.debug("Received ack for websocket message on %s", topic)
+        except Exception as e:
+            if not retry:
+                raise RuntimeError(f"WebSocket gossip publish/ack failed for {topic}: {e}") from e
+            logger.warning(
+                "WebSocket gossip publish/ack failed for %s (will retry once): %s",
+                topic,
+                e,
+            )
             await self._cleanup_websocket(topic)
-            await self._ensure_connection(topic)
-            ws = self._websockets[topic]
-            await self._record_sent(topic, message)
-            await ws.send(json.dumps(message, default=str))
-            logger.info("WebSocket gossip publish retry succeeded for %s", topic)
+            await self._publish_with_ack(topic, message, retry=False)
+        finally:
+            async with self._ack_lock:
+                self._ack_events.pop(msg_id, None)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._running:
