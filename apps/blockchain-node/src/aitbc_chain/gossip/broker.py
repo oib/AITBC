@@ -363,7 +363,49 @@ class WebsocketGossipBackend(GossipBackend):
 
             get_logger(__name__).warning("WebSocket gossip reader error for %s: %s", topic, e)
         finally:
-            await self._cleanup(topic)
+            keep_alive = self._running and self._ref_counts.get(topic, 0) > 0
+            if keep_alive:
+                await self._cleanup_websocket(topic)
+                self._schedule_reconnect(topic)
+            else:
+                await self._cleanup(topic)
+
+    async def _cleanup_websocket(self, topic: str) -> None:
+        """Close the websocket and reader task but keep the subscriber queue."""
+        async with self._lock:
+            ws = self._websockets.pop(topic, None)
+            task = self._readers.pop(topic, None)
+        if task:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        if ws:
+            with suppress(Exception):
+                await ws.close()
+
+    def _schedule_reconnect(self, topic: str) -> None:
+        from aitbc.aitbc_logging import get_logger
+
+        get_logger(__name__).info("Scheduling reconnect for websocket gossip topic %s", topic)
+        create_task_with_logging(
+            self._reconnect(topic),
+            name=f"ws-gossip-reconnect:{topic}",
+        )
+
+    async def _reconnect(self, topic: str) -> None:
+        """Reconnect a persistent subscriber topic with a short backoff."""
+        await asyncio.sleep(1.0)
+        if not self._running:
+            return
+        if self._ref_counts.get(topic, 0) <= 0:
+            return
+        try:
+            await self._ensure_connection(topic)
+        except Exception as e:
+            from aitbc.aitbc_logging import get_logger
+
+            get_logger(__name__).warning("WebSocket gossip reconnect failed for %s: %s", topic, e)
+            self._schedule_reconnect(topic)
 
     async def _cleanup(self, topic: str) -> None:
         async with self._lock:
@@ -391,7 +433,7 @@ class WebsocketGossipBackend(GossipBackend):
 
             logger = get_logger(__name__)
             logger.warning("WebSocket gossip publish failed for %s; reconnecting and retrying", topic)
-            await self._cleanup(topic)
+            await self._cleanup_websocket(topic)
             await self._ensure_connection(topic)
             ws = self._websockets[topic]
             await self._record_sent(topic, message)
