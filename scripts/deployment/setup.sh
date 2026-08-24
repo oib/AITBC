@@ -849,6 +849,8 @@ p2p_node_id=$P2P_NODE_ID
 gossip_backend=broadcast
 gossip_broadcast_url=redis://localhost:6379
 default_peer_rpc_url=http://127.0.0.1:8202
+BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true
+SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 EOF
         log "Created /etc/aitbc/blockchain.env with unique IDs"
     fi
@@ -914,6 +916,23 @@ EOF
     fi
 
     success "Node identities setup completed"
+}
+
+# Ensure new consensus-safety defaults are present in blockchain.env.
+# These are added only if the key does not already exist so an operator's
+# explicit choice is never overwritten.
+ensure_consensus_env_defaults() {
+    if [ ! -f "/etc/aitbc/blockchain.env" ]; then
+        return
+    fi
+    if ! grep -q "^BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=" /etc/aitbc/blockchain.env; then
+        echo "BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true" >> /etc/aitbc/blockchain.env
+        log "Added BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true to /etc/aitbc/blockchain.env"
+    fi
+    if ! grep -q "^SYNC_STATE_ROOT_VALIDATION_ENABLED=" /etc/aitbc/blockchain.env; then
+        echo "SYNC_STATE_ROOT_VALIDATION_ENABLED=true" >> /etc/aitbc/blockchain.env
+        log "Added SYNC_STATE_ROOT_VALIDATION_ENABLED=true to /etc/aitbc/blockchain.env"
+    fi
 }
 
 # Setup secure credentials
@@ -1432,6 +1451,7 @@ main() {
 
     echo "[STEP 7/12] Setting up node profiles..."
     setup_node_profiles
+    ensure_consensus_env_defaults
     echo "[STEP 7/12] ✓ Node profiles configured"
 
     echo "[STEP 8/12] Setting up node identities..."

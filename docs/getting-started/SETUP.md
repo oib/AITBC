@@ -1,7 +1,7 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-08-12
-**Version:** 2.0 (Split into topic-focused files)
+**Last Updated:** 2026-08-24
+**Version:** 2.1 (Canonical Gitea source, remote-installer confirmation)
 
 Quick reference guide for AITBC setup and onboarding.
 
@@ -88,13 +88,18 @@ sudo /opt/aitbc/scripts/deployment/setup.sh \
   --node-id <unique-node-id>
 ```
 
-Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the sync code appends `/rpc/head` at runtime. To re-run setup on an existing install, add `--force`.
+Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the sync code appends `/rpc/head` at runtime. To re-run setup on an existing install, add `--force`. To clone from a different Gitea/Git URL, add `--remote URL`.
 
 `setup.sh` now:
 
+- Clones from the canonical Gitea repo at `https://gitea.bubuit.net/oib/AITBC.git`.
+- Adds `https://github.com/oib/AITBC.git` only as a secondary `github` mirror.
+- Downloads any remote installer (NodeSource, etc.) to a temp file, prints its
+  line count and SHA-256, and requires operator confirmation before running it.
 - Sets `DEFAULT_PEER_RPC_URL` to the hub for follower profiles.
 - Creates missing `/etc/aitbc/<unit>.env` files required by `EnvironmentFile=/etc/aitbc/%N.env`.
 - Installs the `filelock` package if the selected profile omits it.
+- Handles `set -e` safely during service counting and PostgreSQL database checks.
 
 See [setup-reference.md](./setup-reference.md) for troubleshooting.
 

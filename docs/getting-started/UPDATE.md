@@ -1,6 +1,6 @@
 # AITBC Update Guide
 
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-08-24
 
 How to safely update an already-installed AITBC node after new code is
 merged to `main`. For first-time installation, see
@@ -36,12 +36,14 @@ sudo /opt/aitbc/scripts/deployment/update.sh
 That's it for the common case. The script:
 
 1. Backs up the node
-2. Pulls the latest code
+2. Pulls the latest code (canonical Gitea `origin`)
 3. Syncs the Python venv
 4. Relinks systemd unit files (role-aware)
-5. Restarts all running aitbc services
-6. Runs a health check
-7. Prints a summary with manual follow-up reminders
+5. Runs `daemon-reload` and enables services for this role
+6. Runs Alembic DB migrations for all linked apps with `run-migrations.sh`
+7. Restarts all running aitbc services
+8. Runs a health check
+9. Prints a summary with manual follow-up reminders
 
 ## Flags
 
@@ -50,7 +52,8 @@ That's it for the common case. The script:
 | `--no-pull` | Skip `git pull` (assume you already pulled manually) |
 | `--no-restart` | Sync venv + systemd only; do not restart services |
 | `--skip-backup` | Skip the pre-update backup (for quick dev iterations) |
-| `--remote URL` | Override git remote (default: `https://github.com/oib/AITBC.git`) |
+| `--no-migrate` | Skip Alembic DB migrations |
+| `--remote URL` | Override git remote (default: `origin` = `https://gitea.bubuit.net/oib/AITBC.git`) |
 | `-h`, `--help` | Print help and exit |
 
 ### Combinations
@@ -64,6 +67,9 @@ sudo /opt/aitbc/scripts/deployment/update.sh --no-restart
 
 # Quick dev iteration — skip backup and pull, just sync venv + restart
 sudo /opt/aitbc/scripts/deployment/update.sh --no-pull --skip-backup
+
+# Skip migrations (run them manually later)
+sudo /opt/aitbc/scripts/deployment/update.sh --no-migrate
 ```
 
 ## What the script does (step by step)
@@ -89,8 +95,10 @@ Skip with `--skip-backup` if you have a recent backup already.
 
 ### Step 1: git pull
 
-Fetches and merges from the public GitHub repo
-(`https://github.com/oib/AITBC.git`, branch `main`).
+Fetches and merges from the canonical Gitea repo
+(`https://gitea.bubuit.net/oib/AITBC.git`, branch `main`).
+GitHub (`https://github.com/oib/AITBC.git`) is available as the `github`
+remote and is treated as a read-only public mirror.
 
 - **Local changes detected?** The script stashes them with a timestamped
   message, pulls, then pops the stash. If the pop conflicts, the stash is
@@ -289,8 +297,10 @@ the forward and re-run the full install (e.g. to repair a broken node).
 
 ### `git fetch failed (network issue or bad remote)`
 
-The script fetches from `https://github.com/oib/AITBC.git` by default. If
-GitHub is unreachable or you want to use a different remote:
+The script fetches from `https://gitea.bubuit.net/oib/AITBC.git` (the
+`origin` remote) by default. GitHub is a public mirror at `github`
+(`https://github.com/oib/AITBC.git`). If the canonical Gitea host is
+unreachable or you want to use a different remote:
 
 ```bash
 sudo /opt/aitbc/scripts/deployment/update.sh --remote http://your-mirror/oib/aitbc.git
@@ -302,7 +312,7 @@ You have local commits that diverged from the remote `main`. Resolve manually:
 
 ```bash
 cd /opt/aitbc
-git fetch https://github.com/oib/AITBC.git main
+git fetch https://gitea.bubuit.net/oib/AITBC.git main
 git rebase FETCH_HEAD
 # or, if you want to keep your commits on top:
 git merge FETCH_HEAD
