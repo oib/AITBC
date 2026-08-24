@@ -7,12 +7,13 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `agent-comm` — Cross-chain agent communication commands. Subcommands: `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status`
 - `agent-msg` — Agent messaging commands (ping, send, receive, peers, request-coins).. Subcommands: `peers`, `ping`, `receive`, `request-coins`, `send`
 - `agent-wallet` — Agent-owned wallet, staking, and rebalancing commands.. Subcommands: `balance`, `rebalance`, `stake`
-- `ai` — AI job submission and inspection. Subcommands: `cancel`, `distribution-stats`, `jobs`, `results`, `service`, `stats`, `status`, `submit`
+- `ai` — AI job submission and inspection. Subcommands: `cancel`, `distribution-stats`, `jobs`, `refund`, `results`, `service`, `stats`, `status`, `submit`
 - `analytics` — Chain analytics and monitoring commands. Subcommands: `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary`
 - `blockchain` — Multi-chain management commands. Subcommands: `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
-- `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `status`, `top-up`
+- `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up`
 - `bootstrap` — Bootstrap local development and configuration files.. Subcommands: `bootstrap-env`
-- `bridge` — Cross-chain bridge management. Subcommands: `balance`, `confirm`, `health`, `lock`, `oracle-status`, `pending`, `register-validator`, `security-status`, `start`, `status`, `stop`, `unlock`
+- `brand` — Show and manage white-label brand settings.. Subcommands: `list`, `show`
+- `bridge` — Cross-chain bridge management. Subcommands: `balance`, `confirm`, `health`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock`
 - `chain` — Multi-chain management commands. Subcommands: `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
 - `cluster` — Cluster management and operations. Subcommands: `balance`, `status`, `sync`
 - `coin-requests` — Manage coin transfer requests.. Subcommands: `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show`
@@ -21,6 +22,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `config` — Manage CLI configuration. Subcommands: `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate`
 - `contract` — Smart contract operations. Subcommands: `call`, `deploy`
 - `crosschain` — Cross-chain trading operations. Subcommands: `bridge`, `bridge-status`, `pools`, `rates`, `stats`, `status`, `swap`, `swaps`
+- `dashboard` — Operational dashboards for customers and shops.. Subcommands: `customer`, `shop`
 - `deploy` — Deploy and manage white-label platform configurations.. Subcommands: `deploy-brand`
 - `developer` — Developer registry commands.. Subcommands: `list`, `register`
 - `economics` — Economic intelligence, modeling, and OpenClaw DAO governance.. Subcommands: `distributed`, `market`, `model`, `propose`, `status`, `vote`
@@ -29,7 +31,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `exchange-island` — Exchange commands for trading AIT against ETH on the island. Subcommands: `buy`, `cancel`, `orderbook`, `orders`, `rates`, `sell`
 - `explorer` — Blockchain Explorer commands - access blockchain data via Explorer API. Subcommands: `activity-timeline`, `block`, `block-by-hash`, `blocks-by-address`, `chain-head`, `chains`, `latest-blocks`, `network-stats`, `non-empty-blocks`, `provider-reputation`, `search-transactions`, `top-addresses`, `transaction`, `transaction-by-hash`
 - `genesis` — Genesis block and wallet generation commands. Subcommands: `info`, `init`, `sync-from-hub`, `verify`
-- `governance` — Governance operations — on-chain proposals, voting, and execution. Subcommands: `aggregate-votes`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote`
+- `governance` — Governance operations — on-chain proposals, voting, and execution. Subcommands: `aggregate-votes`, `close`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote`
 - `gpu` — Local GPU service commands for hardware management. Subcommands: `discover`, `list-gpus`, `register`, `unregister`, `update`
 - `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `list`, `query`, `register`
 - `grant` — DAO grant proposal commands.. Subcommands: `create`, `disburse`, `list`, `vote`
@@ -46,8 +48,9 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `oracle` — Local data oracle for agent data availability announcements.. Subcommands: `listings`, `store`
 - `performance` — Performance monitoring and optimization. Subcommands: `benchmark`, `optimize`, `tune`
 - `platform` — Scaffold white-label platform configurations.. Subcommands: `init-platform`
-- `plugin` — Scaffold and manage AITBC plugins.. Subcommands: `create`
+- `plugin` — Scaffold and manage AITBC plugins.. Subcommands: `create`, `list`, `load`
 - `pool-hub` — Pool hub management for SLA monitoring and billing. Subcommands: `sla`, `status`
+- `prometheus` — Query Prometheus and inspect scrape targets, rules, and alerts.. Subcommands: `alerts`, `check`, `query`, `rules`, `series`, `targets`
 - `reinvest` — Autonomous reinvestment and capacity planning commands.. Subcommands: `policy`, `simulate`
 - `reputation` — Reputation management commands. Subcommands: `create-profile`, `feedback`, `leaderboard`, `metrics`, `profile`, `trust-score`
 - `resource` — Manage agent resource allocations via coordinator-api. Subcommands: `allocate`, `optimize`
@@ -59,10 +62,11 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `stop` — Stop all AITBC services for the current (or selected) role
 - `sync` — Blockchain synchronization utilities. Subcommands: `bulk`, `status`
 - `system` — System management commands. Subcommands: `architect`, `audit`, `check`, `config`, `restart`, `status`
-- `tee` — Trusted Execution Environment (TEE) commands.. Subcommands: `attest`, `launch`, `verify`
+- `tee` — Trusted Execution Environment (TEE) commands.. Subcommands: `attest`, `launch`, `register`, `status`, `verify`
 - `trade` — Inter-chain trading operations. Subcommands: `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch`
 - `transactions` — Transaction management commands. Subcommands: `batch`, `estimate-fee`, `pending`, `search`, `send`, `status`
 - `update` — Pull the latest code and run scripts/deployment/update.sh.
 - `version` — Show version information
 - `wallet` — Manage your wallets and transactions. Subcommands: `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake`
 - `workflow` — Workflow management commands. Subcommands: `list`, `run`, `status`, `stop`
+- `zk` — Zero-knowledge proof commands.. Subcommands: `circuits`, `health`, `verify`
