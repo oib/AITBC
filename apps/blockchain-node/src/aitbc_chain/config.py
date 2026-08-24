@@ -284,6 +284,7 @@ class ChainSettings(BaseSettings):
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
     sync_state_root_validation_enabled: bool = True  # validate state roots on push/gossip block import
+    block_scoped_preregistered_transactions: bool = False  # apply FAUCET/BRIDGE_* Account changes only at block time
 
     # Automatic bulk sync settings
     auto_sync_enabled: bool = True  # enable automatic bulk sync when gap detected
