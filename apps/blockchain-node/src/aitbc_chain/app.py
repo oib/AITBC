@@ -255,6 +255,9 @@ def create_app() -> FastAPI:
         allow_headers=["Content-Type", "Authorization", "X-API-Key"],
     )
     app.include_router(rpc_router, prefix="/rpc", tags=["rpc"])
+    # Also mount the RPC router under /v1 so the public API examples
+    # (e.g. /v1/blocks/{height}) work against the blockchain node directly.
+    app.include_router(rpc_router, prefix="/v1", tags=["v1"])
     app.include_router(websocket_router, prefix="/rpc")
     app.include_router(escrow_router, prefix="/rpc")
     if marketplace_router:

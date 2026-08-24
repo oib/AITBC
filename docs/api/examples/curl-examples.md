@@ -147,7 +147,7 @@ curl -H "X-Api-Key: $API_KEY" \
 ```bash
 export BLOCKCHAIN_URL="http://localhost:8202"
 
-curl $BLOCKCHAIN_URL/v1/blocks/head
+curl $BLOCKCHAIN_URL/v1/head
 ```
 
 #### Get Block by Height
@@ -159,7 +159,7 @@ curl $BLOCKCHAIN_URL/v1/blocks/12345
 #### Get Block Range
 
 ```bash
-curl "$BLOCKCHAIN_URL/v1/blocks?from=12340&to=12350"
+curl "$BLOCKCHAIN_URL/v1/blocks-range?start=12340&end=12350"
 ```
 
 ### Transaction Operations
@@ -167,13 +167,13 @@ curl "$BLOCKCHAIN_URL/v1/blocks?from=12340&to=12350"
 #### Get Transaction
 
 ```bash
-curl $BLOCKCHAIN_URL/v1/transactions/{tx_hash}
+curl $BLOCKCHAIN_URL/v1/transaction/{tx_hash}
 ```
 
 #### Submit Transaction
 
 ```bash
-curl -X POST $BLOCKCHAIN_URL/v1/transactions \
+curl -X POST $BLOCKCHAIN_URL/v1/transaction \
   -H "Content-Type: application/json" \
   -d '{
     "from": "0x...",
