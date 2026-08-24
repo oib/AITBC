@@ -66,7 +66,7 @@ def _resolve_chain_id(bind: sa.engine.Connection) -> str:
     for table in ("block", "account"):
         try:
             found = bind.execute(
-                sa.text(f"SELECT chain_id FROM {table} GROUP BY chain_id ORDER BY count(*) DESC LIMIT 1")  # noqa: S608
+                sa.text(f"SELECT chain_id FROM {table} GROUP BY chain_id ORDER BY count(*) DESC LIMIT 1")  # nosec B608  # noqa: S608
             ).scalar()
         except sa.exc.DatabaseError:
             found = None
