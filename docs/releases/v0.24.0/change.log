@@ -1251,3 +1251,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Added `TestTheInferenceCircuitVerifiesCorrectness` in `test_v2394_zk_circuit_constraints.py`
   covering correct inference, wrong inference, and tampered public signals.
 - Verified `make test`, `make test-apps`, `make typecheck`, and `make no-float-money` pass.
+
+## Open design-review gaps (2026-08-25)
+
+- **G3 — dispatch/acceptance-gate wiring:** the ZK fix is live, but `computation_correct` is not yet wired into the job-acceptance gate, so a bad result is correctly detected but not yet blocked. Smallest remaining piece.
+- **G6 — settlement/trust-minimization:** worst verdict on the board. The 2026-08-24 two-validator stall and hand-rotated recovery key added a new open item: that key needs a real, committed rotation process; `PBFTConsensus` is still not wired into block production. The key-rotation half is more urgent than PBFT wiring.
+- **G5 — dispute-ruling paths:** reject and dispute-ruling are now live-proven, not just test-covered; residual gap is smaller than previously listed.
+- **Bridge — multi-sig/Merkle enforcement:** proven correct in testing, but `bridge_release_enabled=false` leaves no live path exercising it.
+- **G8 — doc debt:** `STATUS.md`/`DESIGN_CYCLE.md` are mostly caught up; the `--show-deprecated` CLI gate hiding ~52 of 67 groups is a product call, not a coding fix.
