@@ -24,39 +24,49 @@ jobs:
       - name: Install CLI package
         run: ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e cli
 
-      - name: MyPy clean apps
+      - name: Lint
+        continue-on-error: true
         run: |
           export PYTHON=./venv/bin/python
-          bash scripts/ci/mypy-precommit.sh
+          make lint
 
       - name: No float money
-        run: ./venv/bin/python scripts/lint/no_float_money.py
-
-      - name: OpenAPI drift check
         run: |
           export PYTHON=./venv/bin/python
-          bash scripts/ci/check-openapi-drift.sh
+          make no-float-money
+
+      - name: Typecheck
+        run: |
+          export PYTHON=./venv/bin/python
+          make typecheck
 
       - name: Unit tests
         env:
           PYTHON: ./venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
+        run: make test
+
+      - name: OpenAPI drift check
         run: |
-          ./venv/bin/python -m pytest -q \
-            --deselect=apps/coordinator-api/tests/test_phase8_integration.py \
-            --deselect=apps/coordinator-api/tests/test_zk_receipt.py \
-            apps/coordinator-api/tests/test_*.py \
-            apps/blockchain-node/tests
+          export PYTHON=./venv/bin/python
+          make openapi-check
+
+      - name: App tests
+        env:
+          PYTHON: ./venv/bin/python
+          PYTHONPATH: apps/blockchain-node/src
+        run: make test-apps
 
       - name: CLI tests
         env:
+          PYTHON: ./venv/bin/python
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
-        run: |
-          ./venv/bin/python -m pytest -q cli/tests
+        run: make test-cli
 
       - name: Live scenario dry-run
         env:
+          PYTHON: ./venv/bin/python
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
-        run: bash scripts/ci/live-scenario-dry-run.sh
+        run: make live-dry-run
