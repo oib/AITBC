@@ -279,6 +279,8 @@ class WebsocketGossipBackend(GossipBackend):
         self._echo_ttl = suppress_echo_ttl
         self._sent_message_ids: dict[str, float] = {}
         self._sent_lock = asyncio.Lock()
+        self._reconnecting: set[str] = set()
+        self._reconnect_backoff: dict[str, float] = {}
 
     async def start(self) -> None:
         self._running = True
@@ -329,8 +331,8 @@ class WebsocketGossipBackend(GossipBackend):
             ws = await websockets.connect(
                 url,
                 ssl=self._ssl_context,
-                ping_interval=20,
-                ping_timeout=10,
+                ping_interval=120,
+                ping_timeout=60,
             )
         except Exception as e:
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
@@ -339,6 +341,7 @@ class WebsocketGossipBackend(GossipBackend):
             self._reader(topic, ws),
             name=f"ws-gossip-reader:{topic}",
         )
+        self._reconnect_backoff[topic] = 0.5
 
     async def _reader(self, topic: str, ws: Any) -> None:
         import websockets
@@ -356,8 +359,15 @@ class WebsocketGossipBackend(GossipBackend):
                 queue = self._queues.get(topic)
                 if queue:
                     await queue.put(message)
-        except websockets.exceptions.ConnectionClosed:
-            pass
+        except websockets.exceptions.ConnectionClosed as exc:
+            from aitbc.aitbc_logging import get_logger
+
+            get_logger(__name__).info(
+                "WebSocket gossip connection closed for %s: code=%s reason=%s",
+                topic,
+                exc.code,
+                exc.reason,
+            )
         except Exception as e:
             from aitbc.aitbc_logging import get_logger
 
@@ -386,26 +396,43 @@ class WebsocketGossipBackend(GossipBackend):
     def _schedule_reconnect(self, topic: str) -> None:
         from aitbc.aitbc_logging import get_logger
 
+        if topic in self._reconnecting:
+            get_logger(__name__).debug("Reconnect already in progress for websocket gossip topic %s", topic)
+            return
         get_logger(__name__).info("Scheduling reconnect for websocket gossip topic %s", topic)
+        self._reconnecting.add(topic)
         create_task_with_logging(
             self._reconnect(topic),
             name=f"ws-gossip-reconnect:{topic}",
         )
 
     async def _reconnect(self, topic: str) -> None:
-        """Reconnect a persistent subscriber topic with a short backoff."""
-        await asyncio.sleep(1.0)
+        """Reconnect a persistent subscriber topic with exponential backoff."""
+        from aitbc.aitbc_logging import get_logger
+
+        logger = get_logger(__name__)
         if not self._running:
             return
         if self._ref_counts.get(topic, 0) <= 0:
             return
         try:
+            # Wait with exponential backoff (0.5, 1, 2, 4, ... up to 30s).
+            delay = self._reconnect_backoff.get(topic, 0.5)
+            logger.info("WebSocket gossip reconnect for %s after %ss", topic, delay)
+            await asyncio.sleep(delay)
+            if self._ref_counts.get(topic, 0) <= 0:
+                return
             await self._ensure_connection(topic)
+            # Successful connection: reset backoff.
+            self._reconnect_backoff[topic] = 0.5
         except Exception as e:
-            from aitbc.aitbc_logging import get_logger
-
-            get_logger(__name__).warning("WebSocket gossip reconnect failed for %s: %s", topic, e)
+            # Double the delay, capped at 30s.
+            current = self._reconnect_backoff.get(topic, 0.5)
+            self._reconnect_backoff[topic] = min(current * 2, 30.0)
+            logger.warning("WebSocket gossip reconnect failed for %s: %s", topic, e)
             self._schedule_reconnect(topic)
+        finally:
+            self._reconnecting.discard(topic)
 
     async def _cleanup(self, topic: str) -> None:
         async with self._lock:
