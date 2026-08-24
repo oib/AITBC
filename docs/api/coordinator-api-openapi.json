@@ -18496,17 +18496,35 @@
           "tee"
         ],
         "summary": "Register Enclave",
-        "description": "Register or update an enclave identity.",
+        "description": "Register or update an enclave identity.\n\nSecurity fix (2026-08-24): the registering identity is the authenticated\ncaller (``user[\"sub\"]``), not the client-supplied ``payload.agent_id`` --\notherwise any caller could claim ownership of any enclave_id just by\nnaming themselves in the request body. ``register_enclave`` itself\nrefuses to hand an existing registration to a different owner.",
         "operationId": "register_enclave_v1_tee_enclaves_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EnclaveRegister"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -18531,6 +18549,16 @@
           },
           "400": {
             "description": "Invalid status: {payload.status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
