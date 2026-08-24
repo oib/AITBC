@@ -71,7 +71,7 @@ class MultiValidatorPoA:
         self.consensus_attempts: int = 0
 
         # B3: block signature verification toggle
-        self._require_block_signatures: bool = True
+        self._require_block_signatures: bool = getattr(settings, "bridge_block_signature_required", True)
 
         # B4: slashing manager (imported here to avoid circular import at module load)
         from .slashing import SlashingManager
