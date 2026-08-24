@@ -213,3 +213,9 @@ Job `6a20fdb7aedf4abb8e8218c5e3cd893a` ran end-to-end on live hub/aitbc balances
 | Release | Sweeper releases on expiry. | Provider wallet went from *Account not found* to **3510** compute-seconds. |
 
 **Limitation (updated 2026-08-24):** the accept-by-expiry branch above was exercised on live traffic first. The reject and operator dispute-ruling branch has since also been proven live and end-to-end, separately (jobs `4b1ddf2d…`, `17b801d7…`; on-chain `BOND_SLASH` tx `0x40c37dd0…` confirmed at block 13102) — see D1 in "Closed design-cycle findings" above. Both branches of the acceptance window are now live-verified, not test-only.
+
+## Performance bond floor (2026-08-24)
+
+The provider-bond surface previously allowed an active/locked bond of any amount to satisfy any high-value job. `JobService._satisfies_constraints` now reads `job.constraints.min_bond_amount` and rejects a miner whose `ProviderBond.amount` is below that floor. `is_provider_eligible` checks the same `min_amount` and falls back to the provider's own `required_amount` or a global `COORDINATOR_BOND_MIN_AMOUNT` default (1 AIT). The `POST /marketplace/providers/{id}/bonds` endpoint raises the supplied `required_amount` to the global floor and leaves under-funded bonds in `PENDING` until they are topped up. This makes the slash/stake mechanism economically meaningful: a job can no longer be taken by a provider whose posted bond is trivial compared with the job's value.
+
+**Remaining gap:** the floor is a scalar amount, not a percentage of `payment_amount`, and it does not yet distinguish per-job risk classes. The ZK/TEE result-verification paths discussed in the 2026-08-24 analysis still require a non-vacuous ZK constraint and a deterministic decoding flag before they can be wired into the dispatch gate.
