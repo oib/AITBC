@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import ssl
 import time
+import uuid
 import warnings
 from collections import OrderedDict, defaultdict
 from collections.abc import Callable
@@ -253,6 +255,167 @@ class BroadcastGossipBackend(GossipBackend):
             self._running = False
 
 
+class WebsocketGossipBackend(GossipBackend):
+    """Cross-node gossip over a WebSocket (wss) connection.
+
+    Each topic is multiplexed over its own WebSocket to the endpoint
+    ``<base_url>?topic=<topic>&client_id=<id>``. Messages are JSON-encoded.
+    Outgoing messages are tracked for a short time so that the broker-level
+    echo caused by the server re-broadcasting is ignored.
+    """
+
+    def __init__(self, base_url: str, *, suppress_echo_ttl: float = 5.0) -> None:
+        self._base_url = base_url.rstrip("/")
+        self._client_id = uuid.uuid4().hex
+        self._ssl_context: ssl.SSLContext | None = None
+        if self._base_url.startswith("wss://"):
+            self._ssl_context = ssl.create_default_context()
+        self._websockets: dict[str, Any] = {}
+        self._queues: dict[str, asyncio.Queue[Any]] = {}
+        self._readers: dict[str, asyncio.Task[None]] = {}
+        self._ref_counts: dict[str, int] = {}
+        self._lock = asyncio.Lock()
+        self._running = False
+        self._echo_ttl = suppress_echo_ttl
+        self._sent_message_ids: dict[str, float] = {}
+        self._sent_lock = asyncio.Lock()
+
+    async def start(self) -> None:
+        self._running = True
+
+    def _compute_message_id(self, topic: str, message: Any) -> str:
+        """Compute a stable message identifier for echo suppression."""
+        if isinstance(message, dict):
+            if "hash" in message:
+                return f"{topic}:{message['hash']}"
+            if "id" in message:
+                return f"{topic}:{message['id']}"
+        payload = json.dumps(message, sort_keys=True, default=str)
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return f"{topic}:{digest}"
+
+    async def _record_sent(self, topic: str, message: Any) -> None:
+        msg_id = self._compute_message_id(topic, message)
+        now = time.monotonic()
+        async with self._sent_lock:
+            self._sent_message_ids[msg_id] = now
+            for k, ts in list(self._sent_message_ids.items()):
+                if now - ts > self._echo_ttl:
+                    del self._sent_message_ids[k]
+
+    async def _is_echo(self, topic: str, message: Any) -> bool:
+        msg_id = self._compute_message_id(topic, message)
+        now = time.monotonic()
+        async with self._sent_lock:
+            if msg_id in self._sent_message_ids:
+                self._sent_message_ids[msg_id] = now
+                return True
+            for k, ts in list(self._sent_message_ids.items()):
+                if now - ts > self._echo_ttl:
+                    del self._sent_message_ids[k]
+        return False
+
+    async def _ensure_connection(self, topic: str) -> None:
+        if topic in self._websockets:
+            return
+        import websockets
+
+        url = f"{self._base_url}?topic={topic}&client_id={self._client_id}"
+        try:
+            ws = await websockets.connect(url, ssl=self._ssl_context)
+        except Exception as e:
+            raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
+        self._websockets[topic] = ws
+        self._readers[topic] = create_task_with_logging(
+            self._reader(topic, ws),
+            name=f"ws-gossip-reader:{topic}",
+        )
+
+    async def _reader(self, topic: str, ws: Any) -> None:
+        import websockets
+
+        try:
+            async for raw in ws:
+                if not raw:
+                    continue
+                try:
+                    message = json.loads(raw)
+                except Exception:
+                    continue
+                if await self._is_echo(topic, message):
+                    continue
+                queue = self._queues.get(topic)
+                if queue:
+                    await queue.put(message)
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        except Exception as e:
+            from aitbc.aitbc_logging import get_logger
+
+            get_logger(__name__).warning("WebSocket gossip reader error for %s: %s", topic, e)
+        finally:
+            await self._cleanup(topic)
+
+    async def _cleanup(self, topic: str) -> None:
+        async with self._lock:
+            ws = self._websockets.pop(topic, None)
+            self._queues.pop(topic, None)
+            task = self._readers.pop(topic, None)
+        if task:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        if ws:
+            with suppress(Exception):
+                await ws.close()
+
+    async def publish(self, topic: str, message: Any) -> None:
+        if not self._running:
+            raise RuntimeError("Websocket backend not started")
+        await self._ensure_connection(topic)
+        await self._record_sent(topic, message)
+        ws = self._websockets[topic]
+        try:
+            await ws.send(json.dumps(message, default=str))
+        except Exception as e:
+            from aitbc.aitbc_logging import get_logger
+
+            get_logger(__name__).warning("WebSocket gossip publish error for %s: %s", topic, e)
+            await self._cleanup(topic)
+            raise
+
+    async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
+        if not self._running:
+            raise RuntimeError("Websocket backend not started")
+        await self._ensure_connection(topic)
+        async with self._lock:
+            self._ref_counts[topic] = self._ref_counts.get(topic, 0) + 1
+            if topic not in self._queues:
+                self._queues[topic] = asyncio.Queue(maxsize=max_queue_size)
+            queue = self._queues[topic]
+
+        def _unsubscribe() -> None:
+            create_task_with_logging(
+                self._do_unsubscribe(topic),
+                name=f"ws-gossip-unsub:{topic}",
+            )
+
+        return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
+
+    async def _do_unsubscribe(self, topic: str) -> None:
+        async with self._lock:
+            self._ref_counts[topic] = max(0, self._ref_counts.get(topic, 0) - 1)
+            if self._ref_counts.get(topic, 0) > 0:
+                return
+        await self._cleanup(topic)
+
+    async def shutdown(self) -> None:
+        self._running = False
+        topics = list(self._websockets.keys())
+        for topic in topics:
+            await self._cleanup(topic)
+
+
 class GossipBroker:
     def __init__(self, backend: GossipBackend) -> None:
         self._backend = backend
@@ -449,7 +612,12 @@ class _InProcessBroadcast:
             await queue.put(message)
 
 
-def create_backend(backend_type: str, *, broadcast_url: str | None = None) -> GossipBackend:
+def create_backend(
+    backend_type: str,
+    *,
+    broadcast_url: str | None = None,
+    websocket_url: str | None = None,
+) -> GossipBackend:
     backend = backend_type.lower()
     if backend in {"memory", "inmemory", "local"}:
         return InMemoryGossipBackend()
@@ -457,6 +625,10 @@ def create_backend(backend_type: str, *, broadcast_url: str | None = None) -> Go
         if not broadcast_url:
             raise ValueError("Broadcast backend requires a gossip_broadcast_url setting")
         return BroadcastGossipBackend(broadcast_url)
+    if backend in {"websocket", "wss", "ws"}:
+        if not websocket_url:
+            raise ValueError("Websocket backend requires a gossip_websocket_url setting")
+        return WebsocketGossipBackend(websocket_url)
     raise ValueError(f"Unsupported gossip backend '{backend_type}'")
 
 
