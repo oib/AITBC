@@ -20,6 +20,7 @@ import json
 import logging
 import logging.handlers
 import os
+import re
 import sys
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -231,6 +232,36 @@ def configure_uvicorn_logging() -> None:
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
+_HTTPX_STATUS_RE = re.compile(r'"HTTP/\d+(?:\.\d+)? (\d{3})[^"]*"')
+
+
+class _HttpxStatusFilter(logging.Filter):
+    """Upgrade httpx request logs to WARNING/ERROR when the response is an error."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        match = _HTTPX_STATUS_RE.search(msg)
+        if match:
+            try:
+                status = int(match.group(1))
+            except ValueError:
+                return True
+            if status >= 500:
+                record.levelno = logging.ERROR
+                record.levelname = "ERROR"
+            elif status >= 400:
+                record.levelno = logging.WARNING
+                record.levelname = "WARNING"
+        return True
+
+
+def configure_httpx_logging() -> None:
+    """Add a filter so httpx logs 4xx at WARNING and 5xx at ERROR."""
+    httpx_logger = logging.getLogger("httpx")
+    if not any(isinstance(f, _HttpxStatusFilter) for f in httpx_logger.filters):
+        httpx_logger.addFilter(_HttpxStatusFilter())
+
+
 def configure_logging(
     level: str = "INFO",
     service_name: str | None = None,
@@ -242,6 +273,7 @@ def configure_logging(
     module docstring. This took a `structured` flag that has never been read.
     """
     configure_uvicorn_logging()
+    configure_httpx_logging()
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, level.upper()))
 
