@@ -88,12 +88,13 @@ sudo /opt/aitbc/scripts/deployment/setup.sh \
   --node-id <unique-node-id>
 ```
 
-Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the sync code appends `/rpc/head` at runtime. To re-run setup on an existing install, add `--force`. To clone from a different Gitea/Git URL, add `--remote URL`.
+Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the sync code appends `/rpc/head` at runtime. To re-run setup on an existing install, add `--force`. To clone from a specific URL, add `--remote URL`. To clone from the canonical operator Gitea repo, add `--gitea` (or `--gitea https://your-gitea.example.com/oib/aitbc.git` for a private instance).
 
 `setup.sh` now:
 
-- Clones from the canonical Gitea repo at `https://gitea.bubuit.net/oib/AITBC.git`.
-- Adds `https://github.com/oib/AITBC.git` only as a secondary `github` mirror.
+- Defaults to the public GitHub mirror `https://github.com/oib/AITBC.git` so new installations work without access to the private Gitea.
+- Clones from the canonical Gitea repo with `--gitea` (default: `https://gitea.bubuit.net/oib/AITBC.git`) for operator nodes.
+- Adds both `github` and `gitea` named remotes so either can be used later.
 - Downloads any remote installer (NodeSource, etc.) to a temp file, prints its
   line count and SHA-256, and requires operator confirmation before running it.
 - Sets `DEFAULT_PEER_RPC_URL` to the hub for follower profiles.

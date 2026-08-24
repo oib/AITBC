@@ -26,6 +26,7 @@
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-restart  # skip service restart
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-migrate  # skip DB migrations
 #   sudo /opt/aitbc/scripts/deployment/update.sh --skip-backup # skip pre-update backup
+#   sudo /opt/aitbc/scripts/deployment/update.sh --gitea       # pull from the canonical Gitea repo
 #   sudo /opt/aitbc/scripts/deployment/update.sh --remote URL  # override git remote
 #
 # Prerequisites:
@@ -33,9 +34,11 @@
 #   - /etc/aitbc/node.env and/or /etc/aitbc/blockchain.env present
 #
 # Git remote:
-#   Defaults to `origin` (which setup.sh sets to https://gitea.bubuit.net/oib/AITBC.git).
-#   GitHub is available as the `github` mirror; the canonical source is Gitea.
-#   Override with --remote <name|url> or AITBC_GIT_REMOTE env var.
+#   Defaults to `origin` (which setup.sh sets to the public GitHub mirror by default,
+#   or to the canonical Gitea URL when --gitea is used).
+#   GitHub is `github`; the canonical Gitea source is `gitea` (or `origin` when --gitea
+#   was used for the initial clone).
+#   Override with --gitea, --remote <name|url>, or AITBC_GIT_REMOTE env var.
 # ============================================================================
 
 set -u  # error on unset vars; do NOT use -e (we want to continue past soft failures)
@@ -56,10 +59,15 @@ LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
 RUN_MIGRATIONS_SCRIPT="$AITBC_ROOT/scripts/deployment/run-migrations.sh"
 
-# Git remote to pull from. setup.sh points `origin` at the canonical Gitea repo
-# and adds `github` as a public mirror. Override with --remote <name|url> or
-# AITBC_GIT_REMOTE.
+# Public mirror and canonical Gitea source.
+GITHUB_REMOTE="https://github.com/oib/AITBC.git"
+GITEA_REMOTE="https://gitea.bubuit.net/oib/AITBC.git"
+
+# Git remote to pull from. setup.sh sets `origin` to whichever source was used
+# (GitHub by default, or Gitea with --gitea). Override with --gitea, --remote
+# <name|url>, or AITBC_GIT_REMOTE.
 GIT_REMOTE="${AITBC_GIT_REMOTE:-origin}"
+GITEA_REMOTE_ARG=""
 
 # Flags
 DO_PULL=true
@@ -99,6 +107,8 @@ detect_gpu() {
 # Parse arguments
 # ----------------------------------------------------------------------------
 parse_args() {
+    local use_gitea=false
+
     while [ $# -gt 0 ]; do
         case "$1" in
             --no-pull)    DO_PULL=false; shift ;;
@@ -106,6 +116,16 @@ parse_args() {
             --no-migrate) DO_MIGRATE=false; shift ;;
             --skip-backup) DO_BACKUP=false; shift ;;
             --remote)     GIT_REMOTE="$2"; shift 2 ;;
+            --gitea)
+                use_gitea=true
+                if [ $# -gt 1 ] && [[ "$2" != --* ]]; then
+                    GITEA_REMOTE_ARG="$2"
+                    shift 2
+                else
+                    GITEA_REMOTE_ARG=""
+                    shift
+                fi
+                ;;
             -h|--help)
                 sed -n '3,25p' "$0"
                 exit 0
@@ -116,6 +136,12 @@ parse_args() {
                 ;;
         esac
     done
+
+    # If --gitea was given and no --remote override was provided, use the Gitea source.
+    # --remote is detected by the fact that GIT_REMOTE would no longer equal the default.
+    if [ "$use_gitea" = true ] && [ "$GIT_REMOTE" = "${AITBC_GIT_REMOTE:-origin}" ]; then
+        GIT_REMOTE="${GITEA_REMOTE_ARG:-$GITEA_REMOTE}"
+    fi
 }
 
 # ----------------------------------------------------------------------------
@@ -262,7 +288,7 @@ do_git_pull() {
     # Fetch first, then merge — works with URL directly (no remote ref needed)
     if ! git fetch "$GIT_REMOTE" main 2>/dev/null; then
         error "git fetch failed (network issue or bad remote: $GIT_REMOTE)"
-        error "Check the URL or override with --remote <url> or AITBC_GIT_REMOTE env var"
+        error "Check the URL or override with --gitea, --remote <url>, or AITBC_GIT_REMOTE env var"
         return 1
     fi
 
