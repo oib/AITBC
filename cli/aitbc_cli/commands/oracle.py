@@ -8,6 +8,7 @@ available data sets.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -16,10 +17,14 @@ from typing import Any, cast
 
 import click
 
-ORACLE_DIR = Path("/var/lib/aitbc/oracle")
-ORACLE_DIR.mkdir(parents=True, exist_ok=True)
+ORACLE_DIR = Path(os.environ.get("AITBC_ORACLE_DIR", "/var/lib/aitbc/oracle"))
+IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR", "/var/lib/aitbc/ipfs"))
 LISTINGS_FILE = ORACLE_DIR / "listings.json"
-IPFS_DIR = Path("/var/lib/aitbc/ipfs")
+
+
+def _ensure_oracle_dir() -> None:
+    """Create the oracle directory on demand; imports must not fail on fresh runners."""
+    ORACLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _load_listings() -> list[dict[str, Any]]:
@@ -32,6 +37,7 @@ def _load_listings() -> list[dict[str, Any]]:
 
 
 def _save_listings(listings: list[dict[str, Any]]) -> None:
+    _ensure_oracle_dir()
     LISTINGS_FILE.write_text(json.dumps(listings, indent=2))
 
 
