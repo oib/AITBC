@@ -353,7 +353,11 @@ class BlockchainNode:
                                 session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),
                                 chain_id=chain_id_param,
                             )
-                            res = sync.import_block(block_data, transactions=block_data.get("transactions"))
+                            res = sync.import_block(
+                                block_data,
+                                transactions=block_data.get("transactions"),
+                                skip_state_root_validation=not settings.sync_state_root_validation_enabled,
+                            )
                             logger.info("Import result: accepted=%s, reason=%s", res.accepted, res.reason)
                             if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
                                 try:
@@ -383,7 +387,9 @@ class BlockchainNode:
                                                     )
                                                     last_bulk_sync_time = current_time
                                                     res = sync.import_block(
-                                                        block_data, transactions=block_data.get("transactions")
+                                                        block_data,
+                                                        transactions=block_data.get("transactions"),
+                                                        skip_state_root_validation=not settings.sync_state_root_validation_enabled,
                                                     )
                                                     logger.info(
                                                         "Retry import result: accepted=%s, reason=%s", res.accepted, res.reason
