@@ -32,9 +32,9 @@ NODE_MODULES="${NODE_MODULES:-$REPO_ROOT/apps/zk-circuits/node_modules}"
 SNARKJS="${SNARKJS:-$NODE_MODULES/.bin/snarkjs}"
 PTAU="${PTAU:-$CIRCUITS_DIR/pot12_final.ptau}"
 
-# Only the two ML training circuits. receipt_simple and ml_inference_verification are built
-# the same way, but rebuilding them would invalidate keys nothing in this change touches.
-CIRCUITS=(ml_training_verification modular_ml_components)
+# All three ML circuits. receipt_simple is also built the same way, but its artifacts
+# are not changed by this fix and are left out to avoid invalidating its current key.
+CIRCUITS=(ml_inference_verification ml_training_verification modular_ml_components)
 
 # Library templates that no `main` instantiates. circom only compiles what is reachable from
 # main, so an uninstantiated template is never checked at all -- which is how
