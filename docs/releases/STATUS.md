@@ -99,6 +99,13 @@ The current live deployment is a single-node, SQLite-backed proof-of-authority c
 - `multi_validator_consensus_enabled` defaults to `False`; enabling it requires a non-empty `validator_set` and per-validator keys. The existing `MultiValidatorPoA + PBFT` soak test passed, but it has not been activated in production.
 - The coordinator will not create an on-chain escrow without a buyer-supplied `ESCROW_LOCK` signature. The `PAYMENT_BUYER_PRIVATE_KEY` fallback has been removed: the hub no longer signs the buyer's half of the escrow. In the default operator flow a priced job must be submitted with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee` (via `POST /v1/jobs` or `POST /v1/payments`), or the payment remains `pending`/`skipped` and the job is not dispatched.
 
+## Continuous integration
+
+- **Gitea Actions runner active:** the runner at `gitea-runner` is active and pulls `.gitea/workflows/ci.yml` on push to `main`.
+- **Workflow uses `make`:** `ci.yml` now invokes `make lint`, `make no-float-money`, `make typecheck`, `make test`, `make test-apps`, `make test-cli`, `make live-dry-run` and `make openapi-check`, so the gates match the `Makefile` and are reproducible both locally and on the runner.
+- **Ruff is present but not yet gating:** `make lint` runs `ruff check . --exit-zero` to report the existing backlog without failing the build; the remaining findings must be fixed before ruff can be made a hard gate.
+- **README badge fixed:** the old GitHub Actions badge (which pointed to a non-existent workflow) was replaced with a Gitea Actions badge.
+
 ## Economic loop verification
 
 | Property | Verdict | Notes |

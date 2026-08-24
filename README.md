@@ -2,7 +2,7 @@
 
 ![AITBC Logo](website/AITBC.svg)
 
-[![CI](https://github.com/oib/aitbc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/oib/aitbc/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/badge/Gitea%20Actions-CI-blue)](https://gitea.bubuit.net/oib/aitbc/actions)
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
