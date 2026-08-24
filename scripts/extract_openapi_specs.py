@@ -31,6 +31,10 @@ os.environ.setdefault("WALLET_BIND_PORT", "8108")
 # two people generating specs on one host would have written keys into each other's. The
 # wallet app only has to be able to construct its settings here; nothing reads this back.
 os.environ.setdefault("WALLET_DIR", tempfile.mkdtemp(prefix="aitbc-openapi-wallet-"))
+# The API key manager creates a file lock alongside its storage path. On a fresh CI runner
+# /var/lib/aitbc does not exist and is not writable, so point it at a temp directory.
+api_keys_dir = tempfile.mkdtemp(prefix="aitbc-openapi-apikeys-")
+os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(api_keys_dir, "api_keys.json"))
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
