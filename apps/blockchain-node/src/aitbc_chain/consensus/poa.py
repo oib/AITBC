@@ -568,6 +568,49 @@ class PoAProposer:
                                 next_height,
                             )
                             continue
+
+                        # v0.24.2: Block-scoped pre-registered credits (FAUCET, BRIDGE_RELEASE,
+                        # BRIDGE_REFUND) have a magic sender and should be applied now, not earlier.
+                        if getattr(settings, "block_scoped_preregistered_transactions", False) and tx_type in {
+                            "FAUCET",
+                            "BRIDGE_RELEASE",
+                            "BRIDGE_REFUND",
+                        }:
+                            nested = session.begin_nested()
+                            state_transition = get_state_transition()
+                            tx_data_for_transition = tx.content.copy()
+                            tx_data_for_transition["nonce"] = 0
+                            tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
+                            success, error_msg = state_transition.apply_transaction(
+                                session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
+                            )
+                            if not success:
+                                nested.rollback()
+                                self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
+                                continue
+                            original_payload = tx.content.get("payload", {})
+                            transaction = Transaction(
+                                chain_id=self._config.chain_id,
+                                tx_hash=tx.tx_hash,
+                                sender=tx_data.get("from", ""),
+                                recipient=tx_data.get("to", ""),
+                                payload=original_payload,
+                                value=value,
+                                fee=fee,
+                                nonce=0,
+                                timestamp=timestamp.isoformat(),
+                                block_height=next_height,
+                                status="confirmed",
+                                type=tx_type,
+                            )
+                            session.add(transaction)
+                            nested.commit()
+                            changed_addresses.add(recipient)
+                            existing_tx_map[tx.tx_hash] = next_height
+                            processed_txs.append(tx)
+                            self._logger.info("[PROPOSE] Successfully applied credit tx %s", tx.tx_hash)
+                            continue
+
                         sender_account = account_map.get(sender)
                         if not sender_account:
                             self._logger.warning(

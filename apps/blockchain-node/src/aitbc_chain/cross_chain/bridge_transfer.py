@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 from sqlmodel import select
 
@@ -49,9 +49,13 @@ class BridgeTransferMixin(BridgeBase):
         # guard is skipped when there is no upstream RPC to follow.
         has_peer = bool(getattr(settings, "default_peer_rpc_url", None))
         if has_peer:
-            local_chains = [c.strip() for c in (getattr(settings, "block_production_chains", "") or "").split(",") if c.strip()]
+            local_chains = [
+                c.strip() for c in (getattr(settings, "block_production_chains", "") or "").split(",") if c.strip()
+            ]
             if source_chain not in local_chains:
-                raise ValueError(f"Source chain {source_chain} is not produced by this node; initiate the lock on the source chain producer")
+                raise ValueError(
+                    f"Source chain {source_chain} is not produced by this node; initiate the lock on the source chain producer"
+                )
 
         transfer_id = self._generate_transfer_id(source_chain, target_chain, sender, recipient, amount, int(time.time()))
         with self._session_for(source_chain) as session:
@@ -62,10 +66,12 @@ class BridgeTransferMixin(BridgeBase):
             total_deduction = amount + fee
             if sender_account.balance < total_deduction:
                 raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
-            sender_account.balance -= total_deduction
             lock_nonce = sender_account.nonce
-            sender_account.nonce += 1
-            session.add(sender_account)
+            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
+            if not block_scoped:
+                sender_account.balance -= total_deduction
+                sender_account.nonce += 1
+                session.add(sender_account)
 
             # v0.7.3: put the bridge lock in the mempool so the next block
             # produced by this node will include it and anchor the event in a
@@ -92,29 +98,30 @@ class BridgeTransferMixin(BridgeBase):
                 tx_hash=transfer_id,
             )
 
-            lock_tx = Transaction(
-                chain_id=source_chain,
-                tx_hash=transfer_id,
-                sender=sender,
-                recipient="bridge_lock",
-                payload={
-                    "type": "BRIDGE_LOCK",
-                    "transfer_id": transfer_id,
-                    "target_chain": target_chain,
-                    "target_recipient": recipient,
-                    "amount": amount,
-                    "fee": fee,
-                    "asset": asset,
-                },
-                value=amount,
-                fee=fee,
-                nonce=lock_nonce,
-                timestamp=timestamp,
-                block_height=None,
-                status="confirmed",
-                type="BRIDGE_LOCK",
-            )
-            session.add(lock_tx)
+            if not block_scoped:
+                lock_tx = Transaction(
+                    chain_id=source_chain,
+                    tx_hash=transfer_id,
+                    sender=sender,
+                    recipient="bridge_lock",
+                    payload={
+                        "type": "BRIDGE_LOCK",
+                        "transfer_id": transfer_id,
+                        "target_chain": target_chain,
+                        "target_recipient": recipient,
+                        "amount": amount,
+                        "fee": fee,
+                        "asset": asset,
+                    },
+                    value=amount,
+                    fee=fee,
+                    nonce=lock_nonce,
+                    timestamp=timestamp,
+                    block_height=None,
+                    status="confirmed",
+                    type="BRIDGE_LOCK",
+                )
+                session.add(lock_tx)
             transfer_record = CrossChainTransfer(
                 transfer_id=transfer_id,
                 source_chain=source_chain,
@@ -209,48 +216,77 @@ class BridgeTransferMixin(BridgeBase):
                 raise ValueError(f"Transfer already processed: {record.status}")
             if not self._validate_proof(proof, record):
                 raise ValueError("Invalid transfer proof")
-            recipient_account = session.get(Account, (record.target_chain, record.recipient))
-            if not recipient_account:
-                recipient_account = Account(chain_id=record.target_chain, address=record.recipient, balance=0, nonce=0)
+            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
+            if not block_scoped:
+                recipient_account = session.get(Account, (record.target_chain, record.recipient))
+                if not recipient_account:
+                    recipient_account = Account(chain_id=record.target_chain, address=record.recipient, balance=0, nonce=0)
+                    session.add(recipient_account)
+                recipient_account.balance += record.amount
+                release_nonce = recipient_account.nonce
+                recipient_account.nonce += 1
                 session.add(recipient_account)
-            recipient_account.balance += record.amount
-            release_nonce = recipient_account.nonce
-            recipient_account.nonce += 1
-            session.add(recipient_account)
-            # Create a bridge release account with enough balance to satisfy
-            # the MESSAGE state transition (fee=0, value=0).  The recipient
-            # is already credited here; the block proposer will record the
-            # MESSAGE in a block and advance the bridge release nonce.
-            bridge_release_addr = "bridge_release"
-            bridge_release_account = session.get(Account, (record.target_chain, bridge_release_addr))
-            if not bridge_release_account:
-                bridge_release_account = Account(chain_id=record.target_chain, address=bridge_release_addr, balance=record.amount, nonce=0)
-                session.add(bridge_release_account)
-            release_nonce = bridge_release_account.nonce
+                # Create a bridge release account with enough balance to satisfy
+                # the MESSAGE state transition (fee=0, value=0).  The recipient
+                # is already credited here; the block proposer will record the
+                # MESSAGE in a block and advance the bridge release nonce.
+                bridge_release_addr = "bridge_release"
+                bridge_release_account = session.get(Account, (record.target_chain, bridge_release_addr))
+                if not bridge_release_account:
+                    bridge_release_account = Account(
+                        chain_id=record.target_chain, address=bridge_release_addr, balance=record.amount, nonce=0
+                    )
+                    session.add(bridge_release_account)
+                release_nonce = bridge_release_account.nonce
+            else:
+                release_nonce = 0
             target_tx_hash = hashlib.sha256(f"{transfer_id}:{record.target_chain}:{int(time.time())}".encode()).hexdigest()
-            release_tx = Transaction(
-                chain_id=record.target_chain,
-                tx_hash=target_tx_hash,
-                sender=bridge_release_addr,
-                recipient=record.recipient,
-                payload={
-                    "type": "BRIDGE_RELEASE",
-                    "transfer_id": transfer_id,
-                    "source_chain": record.source_chain,
-                    "source_sender": record.sender,
-                    "amount": record.amount,
-                    "asset": record.asset,
-                    "proof": proof_hash,
-                },
-                value=0,
-                fee=0,
-                nonce=release_nonce,
-                timestamp=datetime.now(UTC),
-                block_height=None,
-                status="confirmed",
-                type="BRIDGE_RELEASE",
-            )
-            session.add(release_tx)
+            if not block_scoped:
+                release_tx = Transaction(
+                    chain_id=record.target_chain,
+                    tx_hash=target_tx_hash,
+                    sender="bridge_release",
+                    recipient=record.recipient,
+                    payload={
+                        "type": "BRIDGE_RELEASE",
+                        "transfer_id": transfer_id,
+                        "source_chain": record.source_chain,
+                        "source_sender": record.sender,
+                        "amount": record.amount,
+                        "asset": record.asset,
+                        "proof": proof_hash,
+                    },
+                    value=0,
+                    fee=0,
+                    nonce=release_nonce,
+                    timestamp=datetime.now(UTC),
+                    block_height=None,
+                    status="confirmed",
+                    type="BRIDGE_RELEASE",
+                )
+                session.add(release_tx)
+            if block_scoped:
+                from ..mempool import get_mempool
+
+                mempool = get_mempool()
+                mempool.add(
+                    {
+                        "from": "bridge_release",
+                        "to": record.recipient,
+                        "amount": record.amount,
+                        "fee": 0,
+                        "type": "BRIDGE_RELEASE",
+                        "transfer_id": transfer_id,
+                        "source_chain": record.source_chain,
+                        "source_sender": record.sender,
+                        "asset": record.asset,
+                        "proof": proof_hash,
+                        "nonce": release_nonce,
+                        "timestamp": record.confirm_time or datetime.now(UTC),
+                    },
+                    chain_id=record.target_chain,
+                    tx_hash=target_tx_hash,
+                )
             record.status = "completed"
             record.target_tx_hash = target_tx_hash
             record.proof_hash = proof_hash
@@ -331,47 +367,68 @@ class BridgeTransferMixin(BridgeBase):
                 lock_time = record.lock_time or record.confirm_time or datetime.now(UTC)
                 elapsed = (datetime.now(UTC) - lock_time).total_seconds()
                 if elapsed < refund_delay:
-                    raise ValueError(
-                        f"Refund not allowed yet: {elapsed:.0f}s since lock, "
-                        f"minimum delay is {refund_delay}s"
-                    )
+                    raise ValueError(f"Refund not allowed yet: {elapsed:.0f}s since lock, minimum delay is {refund_delay}s")
 
             # Return the locked amount to the sender (fee was already deducted at lock time)
-            sender_account = session.get(Account, (record.source_chain, record.sender))
-            if not sender_account:
-                sender_account = Account(chain_id=record.source_chain, address=record.sender, balance=0, nonce=0)
+            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
+            if not block_scoped:
+                sender_account = session.get(Account, (record.source_chain, record.sender))
+                if not sender_account:
+                    sender_account = Account(chain_id=record.source_chain, address=record.sender, balance=0, nonce=0)
+                    session.add(sender_account)
+                sender_account.balance += record.amount
+                refund_nonce = sender_account.nonce
+                sender_account.nonce += 1
                 session.add(sender_account)
-            sender_account.balance += record.amount
-            refund_nonce = sender_account.nonce
-            sender_account.nonce += 1
-            session.add(sender_account)
+            else:
+                refund_nonce = 0
 
             # Create a BRIDGE_REFUND transaction record
             refund_tx_hash = hashlib.sha256(
                 f"{transfer_id}:refund:{record.source_chain}:{int(time.time())}".encode()
             ).hexdigest()
-            refund_tx = Transaction(
-                chain_id=record.source_chain,
-                tx_hash=refund_tx_hash,
-                sender="bridge_refund",
-                recipient=record.sender,
-                payload={
-                    "type": "BRIDGE_REFUND",
-                    "transfer_id": transfer_id,
-                    "target_chain": record.target_chain,
-                    "amount": record.amount,
-                    "asset": record.asset,
-                },
-                value=record.amount,
-                fee=0,
-                nonce=refund_nonce,
-                timestamp=datetime.now(UTC),
-                block_height=None,
-                status="confirmed",
-                type="BRIDGE_REFUND",
-            )
-            session.add(refund_tx)
+            if not block_scoped:
+                refund_tx = Transaction(
+                    chain_id=record.source_chain,
+                    tx_hash=refund_tx_hash,
+                    sender="bridge_refund",
+                    recipient=record.sender,
+                    payload={
+                        "type": "BRIDGE_REFUND",
+                        "transfer_id": transfer_id,
+                        "target_chain": record.target_chain,
+                        "amount": record.amount,
+                        "asset": record.asset,
+                    },
+                    value=record.amount,
+                    fee=0,
+                    nonce=refund_nonce,
+                    timestamp=datetime.now(UTC),
+                    block_height=None,
+                    status="confirmed",
+                    type="BRIDGE_REFUND",
+                )
+                session.add(refund_tx)
+            if block_scoped:
+                from ..mempool import get_mempool
 
+                mempool = get_mempool()
+                mempool.add(
+                    {
+                        "from": "bridge_refund",
+                        "to": record.sender,
+                        "amount": record.amount,
+                        "fee": 0,
+                        "type": "BRIDGE_REFUND",
+                        "transfer_id": transfer_id,
+                        "target_chain": record.target_chain,
+                        "asset": record.asset,
+                        "nonce": refund_nonce,
+                        "timestamp": datetime.now(UTC),
+                    },
+                    chain_id=record.source_chain,
+                    tx_hash=refund_tx_hash,
+                )
             record.status = "refunded"
             session.add(record)
             session.commit()
@@ -543,9 +600,7 @@ class BridgeTransferMixin(BridgeBase):
                 try:
                     metadata = json.loads(block.block_metadata)
                     validator_signatures = [
-                        a.get("signature", "")
-                        for a in metadata.get("attestations", [])
-                        if a.get("signature")
+                        a.get("signature", "") for a in metadata.get("attestations", []) if a.get("signature")
                     ]
                 except Exception:
                     validator_signatures = []
