@@ -6,17 +6,21 @@ from pathlib import Path
 os.environ.setdefault("AITBC_SKIP_ENV_FILES", "1")
 
 REPO = Path(__file__).resolve().parent
-if str(REPO) not in sys.path:
-    sys.path.insert(0, str(REPO))
 
 # Ensure the repo-root aitbc package wins over packages/py/aitbc-core/src/aitbc
-# when the test conftest has put the package source trees first.
-for _src in (REPO / "packages" / "py").glob("*/src"):
-    try:
-        sys.path.remove(str(_src))
-    except ValueError:
-        pass
-sys.path.insert(0, str(REPO))
+# when the test conftest has put the package source trees first.  Moving the repo
+# root to the front is enough on its own.
+#
+# Do not "help" this along by removing packages/py/*/src from sys.path.  Those
+# entries come from .pth files in site-packages, so nothing ever puts them back,
+# and this module is imported at collection time by tests/test_cli_docs_sync.py --
+# which meant every test collected afterwards lost aitbc_sdk, aitbc_agent_core,
+# aitbc_agent_sdk and aitbc_crypto, aborting the whole root suite with
+# ModuleNotFoundError collection errors.
+_repo = str(REPO)
+if _repo in sys.path:
+    sys.path.remove(_repo)
+sys.path.insert(0, _repo)
 
 import click  # noqa: E402
 
@@ -37,6 +41,7 @@ def normalize_token(t):
     if re.match(r"^[a-z0-9_*-]+$", t) and len(t) > 1:
         return t
     return None
+
 
 def is_generic(cell):
     """Return True if the key subcommands cell is generic prose, not a specific list."""

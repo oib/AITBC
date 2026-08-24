@@ -8,6 +8,7 @@ Targets the four biggest coverage gaps:
 - message_storage.py
 """
 
+import importlib.machinery
 import importlib.util
 import sys
 from pathlib import Path
@@ -17,16 +18,57 @@ import pytest
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "apps" / "agent-coordinator" / "src"
 
+# Everything here is loaded under this private root rather than under ``agent_app``
+# itself, to avoid colliding with the app namespace.
+_ROOT_PKG = "agent_coordinator_isolated"
+
+
+def _ensure_package(name: str, path: Path):
+    """Register an empty package named ``name`` that searches ``path`` for submodules."""
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.machinery.ModuleSpec(name, None, is_package=True)
+    spec.submodule_search_locations = [str(path)]
+    pkg = importlib.util.module_from_spec(spec)
+    sys.modules[name] = pkg
+    parent, _, child = name.rpartition(".")
+    if parent:
+        setattr(sys.modules[parent], child, pkg)
+    return pkg
+
 
 def _load_module(module_name: str, rel_path: str):
-    """Load a module directly from its file path to avoid app-namespace conflicts."""
-    full_name = f"agent_coordinator_{module_name}"
-    if full_name in sys.modules:
-        return sys.modules[full_name]
-    spec = importlib.util.spec_from_file_location(full_name, SRC_ROOT / rel_path)
+    """Load a module from its file path to avoid app-namespace conflicts.
+
+    A bare ``spec_from_file_location`` gives the module no parent package, so the
+    first relative import inside it -- ``from . import public_keys`` in
+    message_encryption.py -- dies with "attempted relative import with no known
+    parent package" and takes the whole module down at collection time.  Mirroring
+    the file's real directory chain as packages under ``_ROOT_PKG`` gives those
+    imports somewhere to resolve while still keeping ``agent_app`` itself free.
+    """
+    flat_name = f"agent_coordinator_{module_name}"
+    if flat_name in sys.modules:
+        return sys.modules[flat_name]
+
+    rel = Path(rel_path)
+    pkg_name = _ROOT_PKG
+    pkg_path = SRC_ROOT
+    _ensure_package(pkg_name, pkg_path)
+    for part in rel.parent.parts:
+        pkg_path = pkg_path / part
+        pkg_name = f"{pkg_name}.{part}"
+        _ensure_package(pkg_name, pkg_path)
+
+    full_name = f"{pkg_name}.{rel.stem}"
+    spec = importlib.util.spec_from_file_location(full_name, SRC_ROOT / rel)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = mod
+    # The tests reach into these modules by the short name (see the patch target in
+    # test_get_encryptor_singleton), so keep that name bound to the same object.
+    sys.modules[flat_name] = mod
     spec.loader.exec_module(mod)
+    setattr(sys.modules[pkg_name], rel.stem, mod)
     return mod
 
 
