@@ -156,3 +156,45 @@ class TestTheModularCircuitValidatesAtAll:
         oversized = [["1048576", "1", "1", "1"], *UNIT_GRADIENTS[1:]]
 
         assert await service.generate_proof("modular_ml_components", modular_inputs(GOOD_LR, gradients=oversized)) is None
+
+
+def inference_inputs(x: str, w: str, b: str, expected: str) -> dict[str, str]:
+    return {"x": x, "w": w, "b": b, "expected": expected}
+
+
+class TestTheInferenceCircuitVerifiesCorrectness:
+    """V23-94 follow-up: ``ml_inference_verification`` had ``verified <== 1 - diff*diff``,
+    which is 1 at diff == 0 but is not enforced by an ``===`` constraint and accepts many
+    non-zero diffs in the field. It was replaced with ``IsZero``.
+
+    A correct proof with ``expected == x*w+b`` must have public signal ``verified == 1``;
+    an incorrect proof must have ``verified == 0``.  The verifier must decode the public
+    success signal, not just check Groth16 validity.
+    """
+
+    async def test_a_correct_inference_proves_and_is_computationally_correct(self, service):
+        proof = await service.generate_proof("ml_inference_verification", inference_inputs("1", "2", "3", "5"))
+        assert proof is not None, "correct inference (1*2+3 == 5) must be provable"
+        assert proof["public_signals"] == ["1"]
+
+        result = await service.verify_proof(proof["proof"], proof["public_signals"], circuit_name="ml_inference_verification")
+        assert result["verified"] is True
+        assert result["computation_correct"] is True
+
+    async def test_a_wrong_inference_is_not_computationally_correct(self, service):
+        proof = await service.generate_proof("ml_inference_verification", inference_inputs("1", "2", "3", "10"))
+        assert proof is not None, "the circuit must still be able to compute an incorrect result"
+        assert proof["public_signals"] == ["0"], "mismatched expected output must set verified=0"
+
+        result = await service.verify_proof(proof["proof"], proof["public_signals"], circuit_name="ml_inference_verification")
+        assert result["verified"] is True, "Groth16 proof is valid even though the statement is false"
+        assert result["computation_correct"] is False, "verifier must read the public success signal"
+
+    async def test_tampering_with_public_signals_breaks_verification(self, service):
+        proof = await service.generate_proof("ml_inference_verification", inference_inputs("1", "2", "3", "10"))
+        assert proof is not None
+
+        # A prover cannot flip the success bit and still have a valid Groth16 proof.
+        result = await service.verify_proof(proof["proof"], ["1"], circuit_name="ml_inference_verification")
+        assert result["verified"] is False
+        assert result["computation_correct"] is False
