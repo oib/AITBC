@@ -11,7 +11,6 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-import json
 import os
 
 from aitbc.aitbc_logging import get_logger
@@ -146,15 +145,6 @@ class PaymentService:
             logger.error("Failed to create payment: %s", e)
             raise
 
-    def _compute_lock_tx_signing_hash(self, tx: dict[str, Any]) -> str:
-        """Compute the keccak hash used by the blockchain for transaction signatures."""
-        from eth_utils import keccak
-
-        has_amount = "amount" in tx
-        tx_for_sign = {k: v for k, v in tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
-        canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
-        return "0x" + keccak(canonical).hex()
-
     def _get_chain_id(self) -> str:
         return os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
@@ -216,8 +206,8 @@ class PaymentService:
         """Create an escrow for token payments using the blockchain escrow contract.
 
         Requires a buyer-signed ESCROW_LOCK transaction so the on-chain contract is
-        backed by real funds.  If a pre-signed lock is not supplied, the service will
-        sign one using PAYMENT_BUYER_PRIVATE_KEY for test/operator flows.
+        backed by real funds. The hub never signs on behalf of the buyer; without a
+        pre-signed lock, no escrow is created.
         """
         buyer = buyer_address or os.getenv("PAYMENT_BUYER_ADDRESS") or os.getenv("GENESIS_ADDRESS")
         # G2: there is deliberately no fallback to the buyer here. The chain pays the
@@ -252,14 +242,11 @@ class PaymentService:
             if payment_data.buyer_lock_signature:
                 lock_tx["signature"] = payment_data.buyer_lock_signature
             else:
-                buyer_private_key = os.getenv("PAYMENT_BUYER_PRIVATE_KEY")
-                if not buyer_private_key:
-                    logger.warning("No buyer lock signature or PAYMENT_BUYER_PRIVATE_KEY; skipping payment")
-                    return None
-                from aitbc.crypto.crypto import sign_transaction_hash
-
-                signing_hash = self._compute_lock_tx_signing_hash(lock_tx)
-                lock_tx["signature"] = sign_transaction_hash(signing_hash, buyer_private_key)
+                logger.warning(
+                    "No buyer lock signature supplied for job %s; the hub will not sign on behalf of the buyer",
+                    payment.job_id,
+                )
+                return None
 
             client = AITBCHTTPClient(timeout=10.0)
             response = client.post(
