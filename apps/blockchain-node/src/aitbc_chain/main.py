@@ -412,7 +412,11 @@ class BlockchainNode:
             "Starting blockchain node", extra={"supported_chains": getattr(settings, "supported_chains", settings.chain_id)}
         )
         register_exporters(["prometheus"])
-        backend = create_backend(settings.gossip_backend, broadcast_url=settings.gossip_broadcast_url)
+        backend = create_backend(
+            settings.gossip_backend,
+            broadcast_url=settings.gossip_broadcast_url,
+            websocket_url=settings.gossip_websocket_url,
+        )
         logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")

@@ -29,6 +29,55 @@ async def _stream_topic(topic: str, websocket: WebSocket) -> None:
         subscription.close()
 
 
+@router.websocket("/gossip/ws")
+async def gossip_websocket(websocket: WebSocket) -> None:
+    """Bidirectional WebSocket gossip for arbitrary topics.
+
+    Clients connect with ``?topic=<topic>`` and exchange raw JSON messages.
+    The server bridges those messages into the node's ``gossip_broker``
+    (usually Redis on the hub), so remote followers can publish and subscribe
+    to arbitrary gossip channels over the existing /rpc WSS path.
+    """
+    topic = websocket.query_params.get("topic")
+    if not topic:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    logger.info("WebSocket gossip subscriber connected: topic=%s", topic)
+    subscription = await gossip_broker.subscribe(topic, max_queue_size=1000)
+    try:
+
+        async def _forward_broker_to_client() -> None:
+            async for message in subscription:
+                try:
+                    await websocket.send_json(message)
+                except Exception:
+                    break
+
+        async def _forward_client_to_broker() -> None:
+            while True:
+                try:
+                    data = await websocket.receive_json()
+                    await gossip_broker.publish(topic, data)
+                except WebSocketDisconnect:
+                    break
+                except Exception as e:
+                    logger.warning("Error receiving gossip message for %s: %s", topic, e)
+                    break
+
+        await asyncio.gather(_forward_broker_to_client(), _forward_client_to_broker())
+    except WebSocketDisconnect:
+        logger.info("WebSocket gossip subscriber disconnected: topic=%s", topic)
+    except Exception as e:
+        logger.error("WebSocket gossip error for topic %s: %s", topic, e)
+    finally:
+        subscription.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
 @router.websocket("/blocks")
 async def blocks_stream(websocket: WebSocket) -> None:
     await websocket.accept()
