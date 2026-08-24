@@ -14,6 +14,7 @@ jobs:
       # /var/lib/aitbc is not writable, so point it at /tmp.
       API_KEY_STORAGE_PATH: /tmp/aitbc-ci-api-keys.json
       AITBC_IPFS_DIR: /tmp/aitbc-ci-ipfs
+      AITBC_ORACLE_DIR: /tmp/aitbc-ci-oracle
       PYTHON: ./venv/bin/python
     services:
       redis:
