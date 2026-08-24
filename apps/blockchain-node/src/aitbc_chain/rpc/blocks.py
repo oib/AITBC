@@ -184,6 +184,7 @@ async def get_blocks_range(
         result_blocks = []
         for b in blocks:
             block_data = {
+                "chain_id": b.chain_id,
                 "height": b.height,
                 "hash": b.hash,
                 "parent_hash": b.parent_hash,
