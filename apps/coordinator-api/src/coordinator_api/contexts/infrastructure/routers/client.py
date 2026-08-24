@@ -251,7 +251,7 @@ async def list_jobs(
     if job_type:
         filters["job_type"] = job_type  # type: ignore[assignment]
     jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
-    return {"items": [service.to_view(job) for job in jobs], "total": len(jobs), "limit": limit, "offset": offset}
+    return {"items": service.to_views(jobs), "total": len(jobs), "limit": limit, "offset": offset}
 
 
 @router.get("/jobs/history", summary="Get job history")
@@ -281,7 +281,7 @@ async def get_job_history(
     try:
         jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
         return {
-            "items": [service.to_view(job) for job in jobs],
+            "items": service.to_views(jobs),
             "total": len(jobs),
             "limit": limit,
             "offset": offset,
