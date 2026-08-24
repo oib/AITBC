@@ -285,6 +285,20 @@ class WebsocketGossipBackend(GossipBackend):
     async def start(self) -> None:
         self._running = True
 
+    def _is_websocket_open(self, ws: Any) -> bool:
+        """Return True if a websockets connection is open.
+
+        websockets >=14 replaced the ``open`` property with a ``state``
+        attribute.  Check both so we work on the version in the venv.
+        """
+        if getattr(ws, "open", False):
+            return True
+        state = getattr(ws, "state", None)
+        if state is None:
+            return False
+        # state may be an enum or an integer (State.OPEN == 1)
+        return getattr(state, "name", None) == "OPEN" or state == 1
+
     def _compute_message_id(self, topic: str, message: Any) -> str:
         """Compute a stable message identifier for echo suppression."""
         if isinstance(message, dict):
@@ -321,10 +335,10 @@ class WebsocketGossipBackend(GossipBackend):
         import websockets
 
         existing = self._websockets.get(topic)
-        if existing is not None and getattr(existing, "open", False):
+        if existing is not None and self._is_websocket_open(existing):
             return
         if existing is not None:
-            await self._cleanup(topic)
+            await self._cleanup_websocket(topic)
 
         url = f"{self._base_url}?topic={topic}&client_id={self._client_id}"
         try:
