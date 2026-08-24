@@ -552,6 +552,15 @@ class BlockchainNode:
                 )
         else:
             logger.warning("Unknown blockchain_mode: %s, defaulting to follower behavior", settings.blockchain_mode)
+
+        # v0.7.6: multi-validator nodes can fall behind after restarts. Keep
+        # periodic sync active so a validator can catch up from a peer before
+        # it is selected as the next proposer.
+        if settings.blockchain_mode != "follower" and settings.periodic_sync_enabled:
+            self._task_registry.create_task(
+                lambda sc=None: self._periodic_sync_task(None),  # type: ignore[misc]
+                name="periodic_sync",
+            )
         # Settlement timeout monitor: refunds escrows stuck in non-terminal
         # states (incl. any that timed out while the node was down).
         if settings.escrow_enabled:
@@ -620,7 +629,7 @@ class BlockchainNode:
             return True
         if not self._sync_source_resolver.is_fallback_source(chain_id):
             return False
-        if chain_id in self._block_production_chains():
+        if chain_id in self._block_production_chains() and not getattr(settings, "multi_validator_consensus_enabled", False):
             logger.info("Skipping sync for locally-produced chain %s (no remote source configured)", chain_id)
             return True
         return False
