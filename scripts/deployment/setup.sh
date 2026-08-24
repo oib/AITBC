@@ -5,11 +5,19 @@
 
 set -e
 
+# Public mirror and canonical Gitea source.
+# Default setup uses the public GitHub mirror; use --gitea (or --gitea <url>)
+# for the canonical operator source.
+GITHUB_REMOTE="https://github.com/oib/AITBC.git"
+GITEA_REMOTE="https://gitea.bubuit.net/oib/AITBC.git"
+
 # Parse command line arguments
 OPEN_ISLAND_HUB=""
 NODE_ID=""
 SKIP_INTERACTIVE=false
 FORCE_SETUP=false
+USE_GITEA=false
+GITEA_REMOTE_ARG=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -21,6 +29,17 @@ while [[ $# -gt 0 ]]; do
         --remote)
             AITBC_GIT_REMOTE="$2"
             shift 2
+            ;;
+        --gitea)
+            USE_GITEA=true
+            # --gitea may be followed by a custom URL, or by another flag.
+            if [ $# -gt 1 ] && [[ "$2" != --* ]]; then
+                GITEA_REMOTE_ARG="$2"
+                shift 2
+            else
+                GITEA_REMOTE_ARG=""
+                shift
+            fi
             ;;
         --node-id)
             NODE_ID="$2"
@@ -36,12 +55,15 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --open-island HUB_URL  Configure as follower to specified hub (non-interactive)"
             echo "  --node-id NODE_ID      Set node identity (required with --open-island)"
-            echo "  --remote URL           Git remote to clone from (default: canonical Gitea)"
+            echo "  --gitea [URL]          Clone/pull from the canonical Gitea repo (default: $GITEA_REMOTE)"
+            echo "  --remote URL           Git remote to clone from (overrides --gitea and the default)"
             echo "  --force                Re-run full setup even if already installed"
             echo "  --help                 Show this help message"
             echo ""
-            echo "Example:"
+            echo "Examples:"
             echo "  $0 --open-island https://hub.aitbc.bubuit.net --node-id my-node"
+            echo "  $0 --gitea"
+            echo "  $0 --gitea https://gitea.example.com/oib/aitbc.git"
             exit 0
             ;;
         *)
@@ -343,18 +365,37 @@ clone_repo() {
         return 0
     fi
 
-    # Clone from canonical Gitea origin. GitHub is maintained only as a public mirror.
-    # Override with --remote <url> or the AITBC_GIT_REMOTE environment variable.
-    local git_remote="${AITBC_GIT_REMOTE:-https://gitea.bubuit.net/oib/AITBC.git}"
+    # Default to the public GitHub mirror so the public setup path works
+    # without access to the private Gitea. Use --gitea or AITBC_GIT_REMOTE
+    # to pull from the canonical operator source.
+    local git_remote="$GITHUB_REMOTE"
+    if [ "$USE_GITEA" = true ]; then
+        git_remote="${GITEA_REMOTE_ARG:-$GITEA_REMOTE}"
+    fi
+    git_remote="${AITBC_GIT_REMOTE:-$git_remote}"
 
     # Clone repository
     cd /opt
     git clone "$git_remote" aitbc || error "Failed to clone repository"
 
     cd /opt/aitbc
-    # Add GitHub mirror as a second remote, but keep origin on the canonical source.
+    # Ensure both the canonical Gitea and the GitHub public mirror are available
+    # as named remotes, whichever one was used as the clone source.
+    local origin_url
+    origin_url=$(git config --local --get remote.origin.url 2>/dev/null || echo "")
+
     if ! git remote | grep -q '^github$'; then
-        git remote add github https://github.com/oib/AITBC.git 2>/dev/null || warning "Failed to add GitHub mirror (non-fatal)"
+        git remote add github "$GITHUB_REMOTE" 2>/dev/null || warning "Failed to add GitHub mirror (non-fatal)"
+    fi
+    if ! git remote | grep -q '^gitea$'; then
+        # Add a `gitea` named remote only if origin is not already the canonical Gitea URL.
+        case "$origin_url" in
+            *gitea.bubuit.net/oib/aitbc*|*gitea.bubuit.net/oib/AITBC*)
+                ;;
+            *)
+                git remote add gitea "$GITEA_REMOTE" 2>/dev/null || warning "Failed to add Gitea remote (non-fatal)"
+                ;;
+        esac
     fi
     # Never store tokens or passwords in the remote URL. If the user passed a
     # credential-included URL via --remote, warn loudly so they can remove it and
