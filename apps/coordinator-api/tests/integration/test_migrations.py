@@ -16,13 +16,16 @@ from pathlib import Path
 import pytest
 
 _COORDINATOR_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = _COORDINATOR_ROOT.parent.parent
 
 
 def _run_alembic(tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]:
     db_path = tmp_path / "test_migrations.db"
     env = os.environ.copy()
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
-    env["PYTHONPATH"] = str(_COORDINATOR_ROOT / "src")
+    # The repo root is needed so `import aitbc` resolves; `coordinator_api.src` is
+    # needed for the alembic env itself.
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
     # Ensure app settings can boot inside the subprocess without a real audit dir
     env.setdefault("AUDIT_LOG_DIR", str(tmp_path / "audit"))
     env.setdefault("TEST_MODE", "true")
