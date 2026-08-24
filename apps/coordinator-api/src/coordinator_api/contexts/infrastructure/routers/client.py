@@ -385,6 +385,13 @@ async def reject_job(
     unilaterally would be the mirror of the provider releasing it unilaterally, which
     is the imbalance the acceptance window exists to remove -- so the payment moves to
     "disputed" and an operator or arbiter settles it either way.
+
+    For the same reason it does not slash the provider's bond. A rejection is a claim,
+    not a finding: the customer has asserted the result is bad, and nobody has yet
+    checked. Burning half a bond on that assertion would hand the buyer a punishment
+    the seller has no symmetric answer to, which is the exact power this endpoint was
+    written to withhold. The fraud slash belongs to the refund branch of
+    POST /v1/admin/disputes/{job_id}/resolve, where an operator has actually ruled.
     """
     service = JobService(session)
     try:
@@ -403,10 +410,4 @@ async def reject_job(
     session.commit()
     session.refresh(job)
     logger.info("Client %s rejected job %s: %s", user["sub"], job.id, req.reason)
-
-    # G5: a customer rejection is fraud-level evidence against a bonded provider.
-    if job.constraints and job.constraints.get("bond_required"):
-        from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
-        await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
-
     return service.to_view(job)  # type: ignore[no-any-return]

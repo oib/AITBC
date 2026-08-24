@@ -824,7 +824,7 @@
           "client"
         ],
         "summary": "Reject a result and open a dispute",
-        "description": "Refuse the delivered result. The escrow stays locked pending a ruling (G3).\n\nRejecting does not refund on its own. A customer who could take the money back\nunilaterally would be the mirror of the provider releasing it unilaterally, which\nis the imbalance the acceptance window exists to remove -- so the payment moves to\n\"disputed\" and an operator or arbiter settles it either way.",
+        "description": "Refuse the delivered result. The escrow stays locked pending a ruling (G3).\n\nRejecting does not refund on its own. A customer who could take the money back\nunilaterally would be the mirror of the provider releasing it unilaterally, which\nis the imbalance the acceptance window exists to remove -- so the payment moves to\n\"disputed\" and an operator or arbiter settles it either way.\n\nFor the same reason it does not slash the provider's bond. A rejection is a claim,\nnot a finding: the customer has asserted the result is bad, and nobody has yet\nchecked. Burning half a bond on that assertion would hand the buyer a punishment\nthe seller has no symmetric answer to, which is the exact power this endpoint was\nwritten to withhold. The fraud slash belongs to the refund branch of\nPOST /v1/admin/disputes/{job_id}/resolve, where an operator has actually ruled.",
         "operationId": "reject_job_v1_jobs__job_id__reject_post",
         "parameters": [
           {

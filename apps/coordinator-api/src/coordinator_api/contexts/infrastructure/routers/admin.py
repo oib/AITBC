@@ -326,16 +326,20 @@ async def resolve_dispute(
     if req.outcome == "refund":
         settled = await payment_service.refund_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
         resolved_status = "refunded"
-        # G5: an arbiter ruling against the provider is a fraud slash for bonded jobs.
-        if job.constraints and job.constraints.get("bond_required"):
-            from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
-            await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
     else:
         settled = await payment_service.release_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
         resolved_status = "released"
     if not settled:
         # Left disputed: the escrow is still funded and the ruling can be re-issued.
         raise HTTPException(status_code=502, detail=f"the {req.outcome} did not settle on-chain; the payment stays disputed")
+    # G5/D1: this is the only place a dispute slashes a bond -- an operator has ruled
+    # against the provider and the refund has actually settled. Slashing before the
+    # settlement check would burn the bond for a refund that never happened, and the
+    # ruling stays re-issuable on a 502, so the order matters.
+    if req.outcome == "refund" and job.constraints and job.constraints.get("bond_required"):
+        from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+
+        await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
     job.payment_status = resolved_status
     session.add(job)
     session.commit()
