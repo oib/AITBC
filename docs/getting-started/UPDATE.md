@@ -36,7 +36,7 @@ sudo /opt/aitbc/scripts/deployment/update.sh
 That's it for the common case. The script:
 
 1. Backs up the node
-2. Pulls the latest code (canonical Gitea `origin`)
+2. Pulls the latest code from `origin` (GitHub by default, or Gitea when the node was set up with `--gitea`)
 3. Syncs the Python venv
 4. Relinks systemd unit files (role-aware)
 5. Runs `daemon-reload` and enables services for this role
@@ -53,7 +53,8 @@ That's it for the common case. The script:
 | `--no-restart` | Sync venv + systemd only; do not restart services |
 | `--skip-backup` | Skip the pre-update backup (for quick dev iterations) |
 | `--no-migrate` | Skip Alembic DB migrations |
-| `--remote URL` | Override git remote (default: `origin` = `https://gitea.bubuit.net/oib/AITBC.git`) |
+| `--gitea [URL]` | Pull from the canonical Gitea repo (default: `https://gitea.bubuit.net/oib/AITBC.git`) |
+| `--remote URL` | Override git remote (default: `origin`) |
 | `-h`, `--help` | Print help and exit |
 
 ### Combinations
@@ -95,10 +96,10 @@ Skip with `--skip-backup` if you have a recent backup already.
 
 ### Step 1: git pull
 
-Fetches and merges from the canonical Gitea repo
-(`https://gitea.bubuit.net/oib/AITBC.git`, branch `main`).
-GitHub (`https://github.com/oib/AITBC.git`) is available as the `github`
-remote and is treated as a read-only public mirror.
+Fetches and merges from `origin` (GitHub by default, or Gitea when the node was
+set up with `--gitea`). The canonical Gitea URL is `https://gitea.bubuit.net/oib/AITBC.git`
+and is also available as the `gitea` remote. GitHub (`https://github.com/oib/AITBC.git`)
+is available as the `github` remote and is the public mirror.
 
 - **Local changes detected?** The script stashes them with a timestamped
   message, pulls, then pops the stash. If the pop conflicts, the stash is
@@ -108,12 +109,14 @@ remote and is treated as a read-only public mirror.
 - **No changes?** Prints "Already up to date" and skips venv/systemd
   work if `--no-restart` is also set.
 
-To pull from a different remote (e.g. a private mirror), use:
+To pull from the canonical Gitea source, use:
 
 ```bash
-sudo /opt/aitbc/scripts/deployment/update.sh --remote http://gitea.example.com/oib/aitbc.git
+sudo /opt/aitbc/scripts/deployment/update.sh --gitea
+# or a custom Gitea instance:
+sudo /opt/aitbc/scripts/deployment/update.sh --gitea http://gitea.example.com/oib/aitbc.git
 # or via env var:
-sudo AITBC_GIT_REMOTE=http://gitea.example.com/oib/aitbc.git /opt/aitbc/scripts/deployment/update.sh
+sudo AITBC_GIT_REMOTE=https://gitea.bubuit.net/oib/AITBC.git /opt/aitbc/scripts/deployment/update.sh
 ```
 
 ### Step 2: Sync Python venv
@@ -297,12 +300,15 @@ the forward and re-run the full install (e.g. to repair a broken node).
 
 ### `git fetch failed (network issue or bad remote)`
 
-The script fetches from `https://gitea.bubuit.net/oib/AITBC.git` (the
-`origin` remote) by default. GitHub is a public mirror at `github`
-(`https://github.com/oib/AITBC.git`). If the canonical Gitea host is
+The script fetches from `origin` by default (GitHub if the node was set up
+publicly, or Gitea if it was set up with `--gitea`). GitHub is available as the
+`github` remote and Gitea as the `gitea` remote. If the canonical Gitea host is
 unreachable or you want to use a different remote:
 
 ```bash
+# Use the canonical Gitea source
+sudo /opt/aitbc/scripts/deployment/update.sh --gitea
+# Use a custom mirror
 sudo /opt/aitbc/scripts/deployment/update.sh --remote http://your-mirror/oib/aitbc.git
 ```
 
