@@ -1,4 +1,3 @@
-
 """Live-validated CLI surface allowlist (G8).
 
 A command group is only shown by default if it maps to a scenario that has been
@@ -14,6 +13,7 @@ VALIDATED_COMMANDS: set[str] = {
     "ai",
     "auth",
     "bond",
+    "bridge",
     "config",
     "list",
     "market",
