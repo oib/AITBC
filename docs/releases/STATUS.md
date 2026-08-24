@@ -98,3 +98,11 @@ The current live deployment is a single-node, SQLite-backed proof-of-authority c
 - Followers (e.g. `aitbc3`) replay the hub's chain; the shop is not an independent consensus party.
 - `multi_validator_consensus_enabled` defaults to `False`; enabling it requires a non-empty `validator_set` and per-validator keys. The existing `MultiValidatorPoA + PBFT` soak test passed, but it has not been activated in production.
 - The coordinator will not create an on-chain escrow without a buyer-supplied `ESCROW_LOCK` signature. The `PAYMENT_BUYER_PRIVATE_KEY` fallback has been removed: the hub no longer signs the buyer's half of the escrow. In the default operator flow a priced job must be submitted with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee` (via `POST /v1/jobs` or `POST /v1/payments`), or the payment remains `pending`/`skipped` and the job is not dispatched.
+
+## Economic loop verification
+
+| Property | Verdict | Notes |
+|---|---|---|
+| The result is verifiable | **FORMALLY** | ZK and TEE gates block escrow release on high-value/confidential jobs (`_zk_required_for`, `_tee_required_for` in `apps/coordinator-api/.../routers/miner.py`; `zk_status != "verified"` / `tee_status != "verified"` blocks release). The proof/attestation is generated from data supplied by the party being paid (the miner's result/receipt or TEE quote), so formal correctness of the proof does not by itself guarantee correctness of the underlying computation. |
+| A bad provider loses something | **HOLDS, UNTESTED LIVE** | `ProviderBond` slashing conditions `downtime` (10%), `bad_result` (30%) and `fraud` (50%) are implemented in `apps/coordinator-api/.../marketplace/services/bond_slashing.py` (G5). The fraud slash is gated on an operator ruling via `POST /v1/admin/disputes/{job_id}/resolve` with `outcome=refund` (D1). Downtime and bad-result slashing have regression tests, but no live slash has fired on the network yet. |
+| Settlement is trust-minimised | **DOES NOT HOLD** | The live chain has one `PoAProposer` writing to a local SQLite `chain.db`; `multi_validator_consensus_enabled` defaults to `False`. Hub-held keys remain on both sides of the operator flow (single operator controls deposit/payout paths), so settlement remains custodian until multi-validator consensus and a bridge multi-sig are activated and a soak test is completed. |
