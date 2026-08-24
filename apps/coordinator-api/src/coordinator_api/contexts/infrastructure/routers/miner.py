@@ -190,10 +190,21 @@ async def _attach_tee_attestation(
                 quote_b64 = quote.to_base64()
                 attestation = service.verify_and_store(auto_enclave_id, quote_b64, measurement=auto_enclave_id)
                 if attestation.status == "verified":
-                    receipt["tee_status"] = "verified"
+                    # Security fix (2026-08-24): this quote was generated
+                    # *and* signed by the coordinator itself -- no enclave or
+                    # miner was involved, so unlike the other two branches
+                    # above it proves nothing about where the job actually
+                    # ran. Label it distinctly instead of reusing "verified"
+                    # for both; the release gate below still treats it as
+                    # sufficient, matching today's behavior.
+                    receipt["tee_status"] = "auto_attested"
                     receipt["tee_attestation_id"] = attestation.id
                     receipt["tee_quote"] = quote_b64
-                    logger.info("Auto-generated TEE attestation for job %s: %s", job.id, attestation.id)
+                    logger.info(
+                        "Coordinator self-attested TEE quote for job %s (no real enclave involved): %s",
+                        job.id,
+                        attestation.id,
+                    )
                 else:
                     logger.error("Auto-generated TEE attestation for job %s was rejected", job.id)
                     receipt["tee_status"] = "auto_generation_rejected"
@@ -381,7 +392,11 @@ async def submit_result(
         # P2.1: high-value jobs only release when a verified ZK proof is present.
         if _tee_required_for(job):
             tee_status = (receipt or {}).get("tee_status")
-            if tee_status != "verified":
+            # "auto_attested" is the coordinator's own self-signed fallback
+            # quote (see _attach_tee_attestation) -- no real enclave is
+            # involved, so it still clears the release gate (unchanged
+            # behavior) but is recorded as distinct from a real quote.
+            if tee_status not in {"verified", "auto_attested"}:
                 error_message = f"TEE attestation required before escrow release (status: {tee_status})"
                 # v0.14.3: force the failure state and error to the database with an
                 # explicit update. The ORM object can become stale across the async
