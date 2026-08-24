@@ -97,6 +97,10 @@ The current live deployment is a single-node, SQLite-backed proof-of-authority c
 - One `PoAProposer` produces every block and writes it to a local SQLite `chain.db`.
 - Followers (e.g. `aitbc3`) replay the hub's chain; the shop is not an independent consensus party.
 - `multi_validator_consensus_enabled` defaults to `False`; enabling it requires a non-empty `validator_set` and per-validator keys. The existing `MultiValidatorPoA + PBFT` soak test passed, but it has not been activated in production.
+
+- Live env on `hub.aitbc` (`/etc/aitbc/blockchain.env`): `PROPOSER_ID=ait1fe2d63fe87db282083b9159e5857cac788af9e03`, `MULTI_VALIDATOR_CONSENSUS_ENABLED=false`, `VALIDATOR_SET` contains two entries, and `MULTI_VALIDATOR_MIN_ATTESTATIONS=2`. The `VALIDATOR_KEYS` are present in `node.env` but are only used when the toggle is `true`.
+- `aitbc3` runs with `PROPOSER_ID=0x2b212528b2bf4339ac06dda50f8751c46e6c2fd4` (derived `ait12b21...`) and `MULTI_VALIDATOR_CONSENSUS_ENABLED=false`; it does not propose blocks.
+- The `MultiValidatorPoA` implementation in `poa.py` selects proposers round-robin and collects attestations only from **local** `validator_keys`; there is no remote attestation/gossip protocol. `PBFTConsensus` in `pbft.py` is not wired into the block production path. With the default `multi_validator_min_attestations=2` and a two-validator set, a block can collect at most one local attestation, so the two-validator configuration cannot produce valid blocks unless the threshold is lowered or a third validator is added.
 - The coordinator will not create an on-chain escrow without a buyer-supplied `ESCROW_LOCK` signature. The `PAYMENT_BUYER_PRIVATE_KEY` fallback has been removed: the hub no longer signs the buyer's half of the escrow. In the default operator flow a priced job must be submitted with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee` (via `POST /v1/jobs` or `POST /v1/payments`), or the payment remains `pending`/`skipped` and the job is not dispatched.
 
 ## Continuous integration
