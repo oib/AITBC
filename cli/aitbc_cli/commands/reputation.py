@@ -50,13 +50,13 @@ def _reputation_level(score: float) -> str:
 
 def _hash_float(parts, low: float = 0.0, high: float = 1.0, decimals: int = 2) -> float:
     content = ":".join(str(p) for p in parts)
-    normalized = int(hashlib.md5(content.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    normalized = int(hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()[:8], 16) / 0xFFFFFFFF
     return round(low + normalized * (high - low), decimals)
 
 
 def _hash_int(parts, low: int, high: int) -> int:
     content = ":".join(str(p) for p in parts)
-    normalized = int(hashlib.md5(content.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    normalized = int(hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()[:8], 16) / 0xFFFFFFFF
     return int(low + normalized * (high - low))
 
 
@@ -103,7 +103,7 @@ def _simulated_leaderboard(category: str, limit: int, region: str | None) -> lis
         seed = ("reputation", "leaderboard", category, str(limit), region_key, str(i))
         trust = _hash_float(seed + ("trust",), 250.0, 990.0, 2)
         tx = _hash_int(seed + ("tx",), 10, 20000)
-        agent_id = f"sim-agent-{i:04d}-{hashlib.md5(':'.join(seed).encode()).hexdigest()[:8]}"
+        agent_id = f"sim-agent-{i:04d}-{hashlib.md5(':'.join(seed).encode(), usedforsecurity=False).hexdigest()[:8]}"
         entries.append(
             {
                 "rank": i,
