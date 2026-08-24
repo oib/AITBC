@@ -66,7 +66,8 @@ def _daemon_available() -> bool:
 
 
 def _api_post(path: str, **kwargs: Any) -> requests.Response:
-    return requests.post(f"{IPFS_API}{path}", timeout=kwargs.pop("timeout", TIMEOUT), **kwargs)
+    timeout = kwargs.pop("timeout", TIMEOUT)
+    return requests.post(f"{IPFS_API}{path}", timeout=timeout, **kwargs)
 
 
 @click.group()
