@@ -40,8 +40,9 @@ trap 'rm -rf "$tmp"' EXIT
 # The apps are chatty on the way up -- missing zk verification keys, a duplicate operation id
 # -- and none of it is this check's business. Held back unless generation actually fails,
 # where it is the only thing that explains why.
-if ! "$PYTHON" scripts/extract_openapi_specs.py --output-dir "$tmp" >/dev/null 2>"$tmp/.stderr"; then
+if ! "$PYTHON" scripts/extract_openapi_specs.py --output-dir "$tmp" >"$tmp/.stdout" 2>"$tmp/.stderr"; then
   echo "Could not generate the specs, so drift could not be checked:" >&2
+  cat "$tmp/.stdout" >&2
   cat "$tmp/.stderr" >&2
   exit 1
 fi
