@@ -98,9 +98,11 @@ Use the mount only for file inspection and text editing. Always commit, push, an
 4. Edit, then commit and push to gitea:
    ```bash
    git add <file>
-   git commit --no-verify -m "type(scope): description"
+   git commit -m "type(scope): description"
    git push origin HEAD:main
    ```
+
+   Do **not** use `--no-verify` to skip the pre-commit gates. The same checks run on Gitea and GitHub CI, and bypassing them locally only moves the failure to the server. In an environment with no hooks installed, `git commit` without `--no-verify` is harmless.
 5. Fast-forward the local `main` ref if you need it in sync:
    ```bash
    git fetch origin main:main
