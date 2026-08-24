@@ -141,6 +141,13 @@ class JobService:
         if req.payment_amount and req.payment_amount > 0:
             job.payment_amount = req.payment_amount
             job.payment_token = req.payment_currency
+        # G1/D3: a job bought against an offer is bound to that offer's provider,
+        # not just to the price. Keep the quoted terms on the job so dispatch
+        # matching can consult them without a payment lookup.
+        if req.offer_id:
+            job.offer_id = req.offer_id
+        if req.provider_address:
+            job.provider_address = req.provider_address
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
@@ -202,7 +209,12 @@ class JobService:
         self.session.refresh(job)
         return job
 
-    def to_view(self, job: Job) -> JobView:
+    def _payment_for(self, job: Job) -> JobPayment | None:
+        if not job.payment_id:
+            return None
+        return self.session.get(JobPayment, job.payment_id)
+
+    def _build_view(self, job: Job, payment: JobPayment | None) -> JobView:
         receipt = job.receipt or {}
         zk_proof = receipt.get("zk_proof") or {}
         offer_id: str | None = None
@@ -210,26 +222,24 @@ class JobService:
         offer_price_unit: str | None = None
         offer_quantity: Decimal | None = None
         acceptance_deadline: datetime | None = None
-        if job.payment_id:
-            payment = self.session.get(JobPayment, job.payment_id)
-            if payment and payment.meta_data:
-                meta = payment.meta_data
-                # G3: a held payment tells the customer how long they have to object.
-                acceptance_deadline = deadline_from(meta)
-                offer_id = meta.get("offer_id") or offer_id
-                offer_price_unit = meta.get("offer_price_unit") or offer_price_unit
-                raw_unit_price = meta.get("offer_unit_price")
-                if raw_unit_price:
-                    try:
-                        offer_unit_price = Decimal(str(raw_unit_price))
-                    except (InvalidOperation, TypeError, ValueError):
-                        pass
-                raw_quantity = meta.get("offer_quantity")
-                if raw_quantity:
-                    try:
-                        offer_quantity = Decimal(str(raw_quantity))
-                    except (InvalidOperation, TypeError, ValueError):
-                        pass
+        if payment and payment.meta_data:
+            meta = payment.meta_data
+            # G3: a held payment tells the customer how long they have to object.
+            acceptance_deadline = deadline_from(meta)
+            offer_id = meta.get("offer_id") or offer_id
+            offer_price_unit = meta.get("offer_price_unit") or offer_price_unit
+            raw_unit_price = meta.get("offer_unit_price")
+            if raw_unit_price:
+                try:
+                    offer_unit_price = Decimal(str(raw_unit_price))
+                except (InvalidOperation, TypeError, ValueError):
+                    pass
+            raw_quantity = meta.get("offer_quantity")
+            if raw_quantity:
+                try:
+                    offer_quantity = Decimal(str(raw_quantity))
+                except (InvalidOperation, TypeError, ValueError):
+                    pass
         return JobView(
             job_id=job.id,
             state=job.state,
@@ -254,6 +264,19 @@ class JobService:
             reinvest_stake_id=receipt.get("reinvest_stake_id"),
             acceptance_deadline=acceptance_deadline,
         )
+
+    def to_view(self, job: Job) -> JobView:
+        return self._build_view(job, self._payment_for(job))
+
+    def to_views(self, jobs: list[Job]) -> list[JobView]:
+        # D4: batch-load JobPayment once for the whole list instead of one
+        # session.get(JobPayment, ...) per job.
+        payment_ids = [job.payment_id for job in jobs if job.payment_id]
+        payments: dict[str, JobPayment] = {}
+        if payment_ids:
+            statement = select(JobPayment).where(JobPayment.id.in_(payment_ids))  # type: ignore[attr-defined]
+            payments = {p.id: p for p in self.session.execute(statement).scalars().all()}
+        return [self._build_view(job, payments.get(job.payment_id) if job.payment_id else None) for job in jobs]
 
     def to_result(self, job: Job) -> JobResult:
         return JobResult(result=job.result, receipt=job.receipt)
@@ -326,6 +349,21 @@ class JobService:
             return True
         constraints = Constraints(**job.constraints)
         capabilities = miner.capabilities or {}
+
+        # D3: G1 binds the offer to a specific provider. A job quoted against one
+        # provider's offer must not be satisfied by another miner, even if that
+        # miner's general capabilities happen to match the customer's constraints.
+        if job.offer_id and job.provider_address:
+            wallet = miner_wallet_address(miner)
+            if not wallet or not same_address(wallet, job.provider_address):
+                logger.info(
+                    "Job %s (offer %s) is bound to provider %s; miner %s does not match",
+                    job.id,
+                    job.offer_id,
+                    job.provider_address,
+                    miner.id,
+                )
+                return False
         if constraints.region and constraints.region != miner.region:
             return False
         gpu_specs = capabilities.get("gpus", []) or []
