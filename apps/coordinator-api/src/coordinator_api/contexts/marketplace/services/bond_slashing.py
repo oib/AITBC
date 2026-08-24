@@ -206,7 +206,7 @@ class BondSlashingService:
     async def _get_nonce(self, address: str) -> int:
         try:
             client = AITBCHTTPClient(timeout=5.0)
-            r = client.get(f"{self.blockchain_rpc_url}/accounts/{address}")
+            r = client.get(f"{self.blockchain_rpc_url}/rpc/accounts/{address}")
             if isinstance(r, dict):
                 return int(r.get("nonce", 0))
             if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
