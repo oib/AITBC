@@ -78,7 +78,6 @@ NON_SPEC_HEALTH_PATHS: dict[int, set[str]] = {
 # grow while that decision is outstanding; 9090 and 9093 are Prometheus and Alertmanager,
 # whose real liveness path is /-/healthy.
 UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
-    (3001, "/api/health"),
     (8000, "/health"),
     (8000, "/v1/health"),
     (8001, "/api/health"),

@@ -3,7 +3,13 @@ Tests for multi-modal fusion neural modules
 """
 
 import pytest
-import torch
+
+try:
+    import torch
+except ImportError:
+    torch = None
+
+pytestmark = pytest.mark.skipif(torch is None, reason="torch not installed")
 
 
 @pytest.mark.unit

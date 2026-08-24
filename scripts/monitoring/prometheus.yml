@@ -34,6 +34,12 @@ scrape_configs:
 
   # aitbc3 (shop/follower) services
   # The blockchain node main process exposes chain-level metrics on AITBC_NODE_METRICS_PORT.
+  - job_name: 'blockchain-node'
+    static_configs:
+      - targets: ['localhost:8202']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
   - job_name: 'aitbc3-blockchain-node'
     static_configs:
       - targets: ['127.0.0.1:9009']
@@ -43,21 +49,23 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  - job_name: 'aitbc3-blockchain-rpc'
+  - job_name: 'trading'
     static_configs:
-      - targets: ['127.0.0.1:8202']
-        labels:
-          node: aitbc3
-          service: blockchain-rpc
+      - targets: ['localhost:8104']
     metrics_path: '/metrics'
     scrape_interval: 15s
-    metric_relabel_configs:
-      # The RPC process loads Python modules that define node-only gauges, but it does
-      # not update them. Drop the stale zero-valued series; the canonical values are
-      # scraped from the aitbc3-blockchain-node target on port 9009.
-      - source_labels: [__name__]
-        regex: 'blockchain_block_height|blockchain_poa_valid_subscribers|blockchain_poa_broadcast_skipped_total|blockchain_sync_lag_blocks|blockchain_subscription_.*'
-        action: drop
+
+  - job_name: 'governance'
+    static_configs:
+      - targets: ['localhost:8105']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  - job_name: 'pool-hub'
+    static_configs:
+      - targets: ['localhost:8210']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
 
   # Coordinator API and marketplace only run on the hub node by default.
   # - job_name: 'aitbc3-coordinator-api'
