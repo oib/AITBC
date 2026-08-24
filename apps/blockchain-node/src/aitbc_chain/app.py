@@ -126,7 +126,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         min_fee=settings.min_fee,
     )
     _app_logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
-    _backend = create_backend(settings.gossip_backend, broadcast_url=settings.gossip_broadcast_url)
+    _backend = create_backend(
+        settings.gossip_backend,
+        broadcast_url=settings.gossip_broadcast_url,
+        websocket_url=settings.gossip_websocket_url,
+    )
     await gossip_broker.set_backend(_backend)
 
     try:
