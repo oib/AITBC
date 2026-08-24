@@ -315,6 +315,7 @@ class ChainSettings(BaseSettings):
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: str | None = os.getenv("GOSSIP_BROADCAST_URL", "redis://127.0.0.1:6379")
+    gossip_websocket_url: str | None = None  # wss://host/rpc/gossip/ws for WebsocketGossipBackend
     default_peer_rpc_url: str | None = None  # HTTP RPC URL of default peer for bulk sync
 
     # Cross-site synchronization settings
