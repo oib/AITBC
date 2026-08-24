@@ -54,6 +54,55 @@ def _derive_address(private_key_hex: str) -> str:
     return str(pk.public_key.to_checksum_address())
 
 
+def _sign_header(private_key_hex: str, header_fields: dict[str, Any]) -> str:
+    """Sign a block header with the canonical verification message."""
+    sign_fields = {
+        "chain_id": header_fields["chain_id"],
+        "height": header_fields["height"],
+        "hash": header_fields["hash"],
+        "parent_hash": header_fields.get("parent_hash") or "0x" + "00" * 32,
+        "proposer": header_fields["proposer"],
+        "state_root": header_fields["state_root"],
+        "bridge_state_root": header_fields.get("bridge_state_root") or "",
+    }
+    return _sign_dict(private_key_hex, sign_fields)
+
+
+async def _fetch_block_header(rpc_url: str, height: int | None, chain_id: str | None) -> dict[str, Any]:
+    """Fetch a block header from the source RPC.
+
+    If height is None, the current head height is resolved first.
+    If chain_id is None, the source node's default chain is used.
+    Returns only the header fields (no transactions).
+    """
+    async with httpx.AsyncClient(base_url=rpc_url, timeout=30.0) as client:
+        if height is None:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            resp = await client.get("/height", params=params)
+            resp.raise_for_status()
+            height = resp.json().get("height", 0)
+
+        params = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        resp = await client.get(f"/blocks/{height}", params=params)
+        resp.raise_for_status()
+        block = resp.json()
+
+    return {
+        "chain_id": block["chain_id"],
+        "height": block["height"],
+        "hash": block["hash"],
+        "parent_hash": block.get("parent_hash") or "0x" + "00" * 32,
+        "proposer": block["proposer"],
+        "state_root": block["state_root"],
+        "bridge_state_root": block.get("bridge_state_root", ""),
+        "signature": block.get("signature", ""),
+    }
+
+
 _EVENT_BRIDGE_URL = os.getenv("EVENT_BRIDGE_URL", "http://127.0.0.1:8205")
 _SERVICE_NAME = "aitbc-blockchain-event-bridge"
 
@@ -577,3 +626,100 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Stored Block Header")
     except Exception as e:
         abort(ctx, f"Failed to store block header: {e}", from_exception=e)
+
+
+@bridge.command(name="ingest-header")
+@click.option("--source-rpc", default="http://localhost:8202/rpc", help="RPC URL of the source chain node")
+@click.option(
+    "--target-rpc", default="http://localhost:8202/rpc", help="RPC URL to store the header on (defaults to localhost)"
+)
+@click.option("--height", default=None, type=int, help="Block height to ingest (default: latest)")
+@click.option("--chain-id", default=None, help="Source chain ID (default: source node's default)")
+@click.option("--re-sign/--no-re-sign", default=False, help="Replace the source signature with a local validator signature")
+@click.option("--private-key", default=None, help="Private key hex for re-signing (requires --re-sign)")
+@click.option("--proposer", default=None, help="Proposer address for the new signature (defaults to address of --private-key)")
+@click.option("--output", "-o", default=None, type=click.Path(), help="Write the stored header to a JSON file")
+@click.pass_context
+def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, private_key, proposer, output):
+    """Fetch a block header from a source node and store it as a bridge header.
+
+    By default the source's own proposer signature is forwarded. With --re-sign,
+    the operator can replace it with a signature from a local validator key.
+    """
+
+    if re_sign:
+        if not private_key:
+            abort(ctx, "--private-key is required when --re-sign is set")
+        proposer = proposer or _derive_address(private_key)
+
+    async def _ingest():
+        header = await _fetch_block_header(source_rpc, height, chain_id)
+
+        if re_sign:
+            header["proposer"] = proposer
+            header["signature"] = _sign_header(private_key, header)
+
+        if output:
+            Path(output).write_text(json.dumps(header, indent=2, sort_keys=True))
+
+        client = _get_bridge_client(target_rpc)
+        async with client:
+            return await client.store_block_header(header)
+
+    try:
+        result = asyncio.run(_ingest())
+        output(result, ctx.obj.get("output_format", "table"), title="Ingested Block Header")
+    except Exception as e:
+        abort(ctx, f"Failed to ingest block header: {e}", from_exception=e)
+
+
+@bridge.command(name="attest")
+@click.option("--header-file", type=click.Path(exists=True), help="JSON file with a block header to attest")
+@click.option("--source-rpc", default=None, help="RPC URL to fetch the block from (alternative to --header-file)")
+@click.option("--height", default=None, type=int, help="Block height to fetch from source")
+@click.option("--chain-id", default=None, help="Chain ID for the block")
+@click.option("--private-key", required=True, help="Validator private key hex to sign with")
+@click.option("--proposer", default=None, help="Proposer/validator address (defaults to derived address)")
+@click.option("--target-rpc", default="http://localhost:8202/rpc", help="RPC URL to store the attested header on")
+@click.option("--output", "-o", default=None, type=click.Path(), help="Write the attested header to a JSON file")
+@click.pass_context
+def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer, target_rpc, output):
+    """Sign a block header as a bridge validator and store it as a bridge header."""
+    proposer = proposer or _derive_address(private_key)
+
+    async def _attest():
+        if header_file:
+            header = json.loads(Path(header_file).read_text())
+        elif source_rpc:
+            header = await _fetch_block_header(source_rpc, height, chain_id)
+        else:
+            abort(ctx, "Either --header-file or --source-rpc is required")
+
+        # Canonicalize the fields we need for signing and storage
+        header_fields = {
+            "chain_id": header.get("chain_id"),
+            "height": header.get("height"),
+            "hash": header.get("hash"),
+            "parent_hash": header.get("parent_hash") or "0x" + "00" * 32,
+            "proposer": proposer,
+            "state_root": header.get("state_root", ""),
+            "bridge_state_root": header.get("bridge_state_root", ""),
+        }
+        for field in ("chain_id", "height", "hash"):
+            if not header_fields[field]:
+                abort(ctx, f"Header missing required field: {field}")
+
+        header_fields["signature"] = _sign_header(private_key, header_fields)
+
+        if output:
+            Path(output).write_text(json.dumps(header_fields, indent=2, sort_keys=True))
+
+        client = _get_bridge_client(target_rpc)
+        async with client:
+            return await client.store_block_header(header_fields)
+
+    try:
+        result = asyncio.run(_attest())
+        output(result, ctx.obj.get("output_format", "table"), title="Attested Block Header")
+    except Exception as e:
+        abort(ctx, f"Failed to attest block header: {e}", from_exception=e)
