@@ -12,6 +12,8 @@ from .attestation import (
     AttestationStatus,
     AttestationVerifier,
     QuoteGenerator,
+    load_or_create_signing_key,
+    public_key_for_signing_key,
     verify_quote,
 )
 from .benchmark import TEEBenchmark, TEEBenchmarkResult
@@ -54,6 +56,8 @@ __all__ = [
     "SessionState",
     "VerificationMode",
     "ZKProof",
+    "load_or_create_signing_key",
+    "public_key_for_signing_key",
     "seal",
     "unseal",
     "verify_quote",

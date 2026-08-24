@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import base64
 import os
 
 import click
 
-from aitbc.tee import AttestationQuote, AttestationVerifier, Enclave, EnclaveConfig, QuoteGenerator
+from aitbc.tee import (
+    AttestationQuote,
+    AttestationVerifier,
+    Enclave,
+    EnclaveConfig,
+    QuoteGenerator,
+    load_or_create_signing_key,
+    public_key_for_signing_key,
+)
 from aitbc.tee.verification import DualVerificationPolicy, VerificationMode, verify_with_policy
 
 from typing import Any
@@ -59,11 +68,20 @@ def tee():
 @tee.command()
 @click.argument("enclave-id")
 @click.option("--measurement", default="", help="Expected enclave measurement")
+@click.option(
+    "--key-file",
+    default="",
+    envvar="AITBC_TEE_KEY_FILE",
+    help="Path to a stable signing key (see 'aitbc tee keygen'). Without this, each "
+    "call signs with a fresh random key, so there is nothing stable here for "
+    "'aitbc tee register' to pin against.",
+)
 @click.pass_context
-def attest(ctx, enclave_id: str, measurement: str):
+def attest(ctx, enclave_id: str, measurement: str, key_file: str):
     """Generate a signed attestation quote for an enclave and submit it."""
     try:
-        generator = QuoteGenerator(enclave_id)
+        signing_key = load_or_create_signing_key(key_file) if key_file else None
+        generator = QuoteGenerator(enclave_id, signing_key=signing_key)
         quote_id = f"tee-{enclave_id}-{datetime.now(UTC).isoformat()}"
         quote = generator.generate(quote_id=quote_id, enclave_id=enclave_id, measurement=measurement)
         quote_b64 = quote.to_base64()
@@ -91,6 +109,36 @@ def attest(ctx, enclave_id: str, measurement: str):
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error generating attestation for {enclave_id}: {e}", from_exception=e)
+
+
+@tee.command()
+@click.option(
+    "--key-file",
+    required=True,
+    envvar="AITBC_TEE_KEY_FILE",
+    help="Path to create (or read) a stable signing key at.",
+)
+@click.pass_context
+def keygen(ctx, key_file: str):
+    """Create a stable TEE signing key if one doesn't exist, and print its public key.
+
+    Part 4 of the 2026-08-24 TEE fix: pairs with 'aitbc tee attest --key-file'
+    and the miner's TEE_SIGNING_KEY_FILE. The printed public key is what
+    'aitbc tee register' pins verification to. Safe to re-run: an existing
+    key file is left untouched, only its public key is printed again.
+    """
+    try:
+        existed = os.path.exists(key_file)
+        seed = load_or_create_signing_key(key_file)
+        pub = public_key_for_signing_key(seed)
+        result = {
+            "key_file": key_file,
+            "public_key": base64.b64encode(pub).decode("ascii"),
+            "created": not existed,
+        }
+        output(result, ctx.obj.get("output_format", "table"), title="TEE Signing Key")
+    except Exception as e:
+        abort(ctx, f"Error generating key at {key_file}: {e}", from_exception=e)
 
 
 @tee.command()
