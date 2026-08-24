@@ -29,7 +29,6 @@ from ..logger import get_logger
 from ..metrics import (
     block_height,
     metrics_registry,
-    poa_broadcast_skipped_total,
     poa_valid_subscribers,
 )
 from ..models import Account, Block, CrossChainTransfer
@@ -747,34 +746,30 @@ class PoAProposer:
                 self._logger.info(
                     "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
                 )
-                if subscriber_count > 0:
-                    await gossip_broker.publish(
-                        gossip_topic,
-                        {
-                            "chain_id": self._config.chain_id,
-                            "height": block.height,
-                            "hash": block.hash,
-                            "parent_hash": block.parent_hash,
-                            "proposer": block.proposer,
-                            "timestamp": block.timestamp.isoformat(),
-                            "tx_count": block.tx_count,
-                            "state_root": block.state_root,
-                            "bridge_state_root": block.bridge_state_root,
-                            "signature": block.signature,
-                            "block_metadata": block.block_metadata,
-                            "transactions": tx_list,
-                        },
-                    )
-                    self._logger.info(
-                        "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
-                    )
-                else:
-                    poa_broadcast_skipped_total.labels(chain_id=self._config.chain_id).inc()
-                    self._logger.warning(
-                        "[BROADCAST SKIPPED] block=%s, chain=%s, no valid subscribers",
-                        block.height,
-                        self._config.chain_id,
-                    )
+                # v0.7.6: always publish to gossip_broker; the backend (Redis on
+                # hub, WSS on remote validators) is responsible for fan-out.
+                # Leases are still logged as a metric but do not gate block
+                # propagation now that multiple validators may produce.
+                await gossip_broker.publish(
+                    gossip_topic,
+                    {
+                        "chain_id": self._config.chain_id,
+                        "height": block.height,
+                        "hash": block.hash,
+                        "parent_hash": block.parent_hash,
+                        "proposer": block.proposer,
+                        "timestamp": block.timestamp.isoformat(),
+                        "tx_count": block.tx_count,
+                        "state_root": block.state_root,
+                        "bridge_state_root": block.bridge_state_root,
+                        "signature": block.signature,
+                        "block_metadata": block.block_metadata,
+                        "transactions": tx_list,
+                    },
+                )
+                self._logger.info(
+                    "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
+                )
             except Exception as e:
                 self._logger.error("Failed to broadcast block %s: %s", block.height, e)
         return True
