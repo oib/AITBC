@@ -6,7 +6,7 @@
 # This script creates all PostgreSQL databases and users required for AITBC services
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -191,7 +191,7 @@ fi
 
 echo ""
 echo -e "${BLUE}=== Database Summary ===${NC}"
-sudo -u postgres psql -c "\l" | grep aitbc
+sudo -u postgres psql -c "\l" | grep aitbc || true
 
 echo ""
 echo -e "${GREEN}=== Setup Complete ===${NC}"
@@ -226,3 +226,4 @@ if [[ "$1" == "--remote-configure" ]]; then
     network_cidr=${2:-10.1.223.0/24}
     configure_remote_connections "$network_cidr"
 fi
+true

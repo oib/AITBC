@@ -1352,7 +1352,7 @@ start_services() {
     local active_count=0
     for svc in "${services[@]}"; do
         if systemctl is-active --quiet "$svc" 2>/dev/null; then
-            ((active_count++))
+            active_count=$((active_count + 1))
         fi
     done
     log "Services active: ${active_count}/${#services[@]}"
