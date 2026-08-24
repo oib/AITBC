@@ -134,17 +134,26 @@ aitbc bond appeal <bond-id> --reason "dispute"
 
 - `aitbc bond create` `POST`s to `/v1/marketplace/providers/{provider_id}/bonds`
   and creates a `ProviderBond` record with `status: active`.
+- `aitbc bond create` `POST`s to `/v1/marketplace/providers/{provider_id}/bonds`
+  and creates a `ProviderBond` record. If the posted `amount` is below the
+  global floor (`COORDINATOR_BOND_MIN_AMOUNT`, default 1 AIT) or the supplied
+  `required_amount`, the bond is left in `PENDING` until it is topped up.
 - `aitbc bond status` `GET`s `/v1/marketplace/providers/{provider_id}/eligibility`
-  and returns `eligible: true` only when the bond is `active` or `locked`.
+  and returns `eligible: true` only when the bond is `active` or `locked` and
+  its `amount` is at least the required floor.
 - `aitbc ai submit --bond-required` sets `job.constraints.bond_required = true`.
 - `aitbc ai submit --min-bond-amount` sets `job.constraints.min_bond_amount`.
 - The coordinator's `JobService._satisfies_constraints` checks
-  `is_provider_eligible(session, miner.id)` for any job that either:
+  `is_provider_eligible(session, miner.id, min_amount=...)` for any job that
+  either:
   - has `bond_required: true`,
   - is above `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD` (default 10 AIT), or
   - has `COORDINATOR_BOND_REQUIRE=true`.
-- If the miner has no active/locked bond, the job is skipped and stays in the
-  queue until a bonded provider comes online.
+- The `min_amount` passed to `is_provider_eligible` is
+  `job.constraints.min_bond_amount` when set, otherwise the global
+  `COORDINATOR_BOND_MIN_AMOUNT` floor.
+- If the miner's bond is below the floor, the job is skipped and stays in the
+  queue until a bonded provider with enough stake comes online.
 
 ## Validation
 

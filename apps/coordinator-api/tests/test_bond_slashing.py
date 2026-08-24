@@ -20,7 +20,13 @@ from fastapi import HTTPException
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
 from coordinator_api.contexts.infrastructure.services.miners import MinerService
-from coordinator_api.contexts.marketplace.domain.provider_bond import ProviderBond, ProviderBondStatus
+from coordinator_api.contexts.marketplace.domain.provider_bond import (
+    ProviderBond,
+    ProviderBondStatus,
+    is_provider_eligible,
+    set_provider_bond_status,
+)
+from sqlmodel import select
 from coordinator_api.contexts.marketplace.services.bond_slash_sweeper import BondSlashSweeper
 from coordinator_api.contexts.marketplace.services.bond_slashing import (
     SlashingCondition,
@@ -275,6 +281,80 @@ async def test_customer_rejection_does_not_slash_the_bond(db_session, slash_env)
     db_session.refresh(bond)
     assert bond.amount == Decimal("10")
     assert bond.status == ProviderBondStatus.ACTIVE.value
+
+
+# ---------------------------------------------------------------------------
+# Bond-floor enforcement (G3 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_is_provider_eligible_requires_active_or_locked_status(db_session):
+    assert is_provider_eligible(db_session, "unknown") is False
+    _provider_bond(db_session, "miner1", amount="10")
+    assert is_provider_eligible(db_session, "miner1") is True
+
+    bond = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "miner1")).first()
+    bond.status = ProviderBondStatus.SHORTFALL.value
+    db_session.add(bond)
+    db_session.commit()
+    assert is_provider_eligible(db_session, "miner1") is False
+
+
+def test_is_provider_eligible_checks_amount_against_min_amount(db_session):
+    _provider_bond(db_session, "miner1", amount="10")
+    assert is_provider_eligible(db_session, "miner1", min_amount=Decimal("5")) is True
+    assert is_provider_eligible(db_session, "miner1", min_amount=Decimal("15")) is False
+
+
+def test_is_provider_eligible_uses_required_amount_as_floor(db_session):
+    bond = _provider_bond(db_session, "miner1", amount="3")
+    bond.required_amount = Decimal("5")
+    db_session.add(bond)
+    db_session.commit()
+    assert is_provider_eligible(db_session, "miner1") is False
+
+    bond.amount = Decimal("6")
+    db_session.add(bond)
+    db_session.commit()
+    assert is_provider_eligible(db_session, "miner1") is True
+
+
+def test_set_provider_bond_status_preserves_amount_and_required_amount(db_session):
+    _provider_bond(db_session, "miner1", amount="10")
+    set_provider_bond_status(db_session, "miner1", ProviderBondStatus.LOCKED)
+    bond = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "miner1")).first()
+    assert bond.status == ProviderBondStatus.LOCKED.value
+    assert bond.amount == Decimal("10")
+    assert bond.required_amount == Decimal("5")
+
+
+def test_job_service_filters_providers_below_bond_floor(db_session, monkeypatch):
+    monkeypatch.setenv("COORDINATOR_BOND_MIN_AMOUNT", "5")
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    bond = _provider_bond(db_session, miner.id, amount="2")
+    assert JobService(db_session)._satisfies_constraints(job, miner) is False
+
+    bond.amount = Decimal("10")
+    db_session.add(bond)
+    db_session.commit()
+    assert JobService(db_session)._satisfies_constraints(job, miner) is True
+
+
+def test_job_service_uses_constraints_min_bond_amount(db_session, monkeypatch):
+    monkeypatch.setenv("COORDINATOR_BOND_MIN_AMOUNT", "1")
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.constraints = {"bond_required": True, "min_bond_amount": "15"}
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="10")
+    assert JobService(db_session)._satisfies_constraints(job, miner) is False
+
+    bond.amount = Decimal("20")
+    db_session.add(bond)
+    db_session.commit()
+    assert JobService(db_session)._satisfies_constraints(job, miner) is True
 
 
 @pytest.mark.asyncio
