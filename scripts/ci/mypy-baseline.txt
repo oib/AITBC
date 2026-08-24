@@ -1,7 +1,4 @@
 aitbc/wallet/confidential.py: error: Unused "type: ignore" comment  [unused-ignore]
-apps/blockchain-node/src/aitbc_chain/observability/exporters.py: error: Unused "type: ignore" comment  [unused-ignore]
-apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/services/advanced_rl/engine.py: error: Unused "type: ignore" comment  [unused-ignore]
-apps/coordinator-api/src/coordinator_api/contexts/multimodal/services/multi_modal_fusion/fusion_engine.py: error: Unused "type: ignore" comment  [unused-ignore]
 cli/aitbc_cli/auth/__init__.py: error: Returning Any from function declared to return "str | None"  [no-any-return]
 cli/aitbc_cli/commands/ai.py: error: Argument 3 to "_wait_for_job" has incompatible type "Any | None"; expected "str"  [arg-type]
 cli/aitbc_cli/commands/ai.py: error: Unsupported target for indexed assignment ("object")  [index]

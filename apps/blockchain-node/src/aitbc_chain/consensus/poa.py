@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import traceback
 import hashlib
@@ -7,7 +8,10 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .multi_validator_poa import MultiValidatorPoA
 
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -118,7 +122,13 @@ class PoAProposer:
     and signing the block.
     """
 
-    def __init__(self, *, config: ProposerConfig, session_factory: Callable[[], AbstractContextManager[Session]]) -> None:
+    def __init__(
+        self,
+        *,
+        config: ProposerConfig,
+        session_factory: Callable[[], AbstractContextManager[Session]],
+        consensus: MultiValidatorPoA | None = None,
+    ) -> None:
         self._config = config
         self._session_factory = session_factory
         self._logger = get_logger(__name__)
@@ -126,14 +136,24 @@ class PoAProposer:
         self._task: asyncio.Task[None] | None = None
         self._last_proposer_id: str | None = None
         self._last_block_timestamp: datetime | None = None
-        self._multi_validator = None
+        self._multi_validator: MultiValidatorPoA | None = consensus
         self._validator_keys: dict[str, str] = {}
-        if getattr(settings, "multi_validator_consensus_enabled", False) and getattr(settings, "validator_set", ""):
-            from .multi_validator_poa import get_consensus
-
-            self._multi_validator = get_consensus(self._config.chain_id)
+        if self._multi_validator is not None:
             self._load_validator_set()
             self._load_validator_keys()
+        elif self._multi_validator is None and getattr(settings, "multi_validator_consensus_enabled", False):
+            if getattr(settings, "validator_set", ""):
+                from .multi_validator_poa import get_consensus
+
+                self._multi_validator = get_consensus(self._config.chain_id)
+                self._load_validator_set()
+                self._load_validator_keys()
+            else:
+                self._logger.warning(
+                    "multi_validator_consensus_enabled is True but validator_set is empty; "
+                    "falling back to single proposer for chain %s",
+                    self._config.chain_id,
+                )
 
     def _fetch_chain_head(self) -> Block | None:
         """Fetch the current chain head block from the database."""
@@ -1123,9 +1143,7 @@ class PoAProposer:
         )
         return processed_txs, changed_addresses, True
 
-    def _compute_bridge_state_root(
-        self, session: Session, processed_txs: list[Any], chain_id: str
-    ) -> str:
+    def _compute_bridge_state_root(self, session: Session, processed_txs: list[Any], chain_id: str) -> str:
         """Build a Merkle trie from the BRIDGE_LOCK events in this block.
 
         The trie key is the lock transfer ID and the value is the canonical
