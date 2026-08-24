@@ -106,31 +106,42 @@ if [ "$STATUS" -gt 1 ]; then
 fi
 
 # Strip line numbers so the baseline does not churn when unrelated code moves.
-normalize() { grep -E "(error:|warning:)" | sed 's/:[0-9]*:\( error:\| warning:\)/:\1/' | sort; }
+# Sort in the C locale so comm can compare the baseline and current output cleanly.
+normalize() { grep -E "(error:|warning:)" | sed 's/:[0-9]*:\( error:\| warning:\)/:\1/' | LC_ALL=C sort -u; }
 
 CURRENT=$(echo "$OUTPUT" | normalize || true)
 
 if [ "${1:-}" = "--update" ]; then
-    echo "$CURRENT" > "$BASELINE"
+    export LC_ALL=C
+    echo "$CURRENT" | sort -u > "$BASELINE"
     echo "✅ MyPy baseline updated: $(grep -c . < "$BASELINE") known error(s)"
     exit 0
 fi
 
 touch "$BASELINE"
-NEW=$(comm -13 "$BASELINE" <(echo "$CURRENT") || true)
+
+# `comm` requires both inputs sorted in the same locale. The baseline is committed and may
+# not be sorted, and the current output is sorted above.
+SORTED_BASELINE=$(mktemp)
+export LC_ALL=C
+sort -u "$BASELINE" > "$SORTED_BASELINE"
+
+NEW=$(comm -13 "$SORTED_BASELINE" <(echo "$CURRENT") || true)
 
 if [ -n "$NEW" ]; then
     echo "❌ MyPy: new type errors (not in $BASELINE):"
     echo "$NEW" | head -20
     echo ""
     echo "Fix them, or if one is genuinely pre-existing: bash $0 --update"
+    rm -f "$SORTED_BASELINE"
     exit 1
 fi
 
-FIXED=$(comm -23 "$BASELINE" <(echo "$CURRENT") || true)
+FIXED=$(comm -23 "$SORTED_BASELINE" <(echo "$CURRENT") || true)
 if [ -n "$FIXED" ]; then
     echo "ℹ️  $(echo "$FIXED" | grep -c .) baselined error(s) no longer present. Tighten it: bash $0 --update"
 fi
 
+rm -f "$SORTED_BASELINE"
 echo "✅ MyPy: no new type errors ($(grep -c . < "$BASELINE") known, see $BASELINE)"
 exit 0
