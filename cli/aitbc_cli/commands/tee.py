@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-import base64
 import os
 
 import click
@@ -193,17 +192,33 @@ def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, 
 
 @tee.command()
 @click.argument("enclave-id")
-@click.option("--public-key", help="Public key for the enclave (auto-generated if omitted)")
-@click.option("--agent-id", default="", help="Agent / miner ID that owns the enclave")
+@click.option("--public-key", default="", help="Base64-encoded Ed25519 public key for the enclave")
+@click.option(
+    "--agent-id",
+    default="",
+    help="Deprecated: ownership is derived from your authenticated identity, this flag is ignored server-side",
+)
 @click.pass_context
 def register(ctx, enclave_id: str, public_key: str, agent_id: str):
-    """Register a TEE enclave identity with the coordinator."""
+    """Register a TEE enclave identity with the coordinator.
+
+    Security fix (2026-08-24): this used to fabricate a random placeholder
+    key when --public-key was omitted. Once the coordinator pins future
+    quotes to whatever key is registered here, a placeholder with no
+    matching private key would permanently lock out real attestations for
+    this enclave_id -- so this now requires the real public key instead.
+    """
     try:
         client = _api_client(ctx)
         if client is None:
             abort(ctx, "Coordinator API URL not configured")
         if not public_key:
-            public_key = base64.b64encode(os.urandom(32)).decode("ascii")
+            abort(
+                ctx,
+                "Provide --public-key with the enclave's real public key. A random "
+                "placeholder would not match any key 'aitbc tee attest' actually signs "
+                "with, so it would make verification for this enclave_id fail from then on.",
+            )
         result = client.post(
             "/v1/tee/enclaves",
             json={
