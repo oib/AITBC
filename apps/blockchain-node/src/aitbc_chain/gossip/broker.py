@@ -316,13 +316,22 @@ class WebsocketGossipBackend(GossipBackend):
         return False
 
     async def _ensure_connection(self, topic: str) -> None:
-        if topic in self._websockets:
-            return
         import websockets
+
+        existing = self._websockets.get(topic)
+        if existing is not None and getattr(existing, "open", False):
+            return
+        if existing is not None:
+            await self._cleanup(topic)
 
         url = f"{self._base_url}?topic={topic}&client_id={self._client_id}"
         try:
-            ws = await websockets.connect(url, ssl=self._ssl_context)
+            ws = await websockets.connect(
+                url,
+                ssl=self._ssl_context,
+                ping_interval=20,
+                ping_timeout=10,
+            )
         except Exception as e:
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
         self._websockets[topic] = ws
@@ -377,12 +386,17 @@ class WebsocketGossipBackend(GossipBackend):
         ws = self._websockets[topic]
         try:
             await ws.send(json.dumps(message, default=str))
-        except Exception as e:
+        except Exception:
             from aitbc.aitbc_logging import get_logger
 
-            get_logger(__name__).warning("WebSocket gossip publish error for %s: %s", topic, e)
+            logger = get_logger(__name__)
+            logger.warning("WebSocket gossip publish failed for %s; reconnecting and retrying", topic)
             await self._cleanup(topic)
-            raise
+            await self._ensure_connection(topic)
+            ws = self._websockets[topic]
+            await self._record_sent(topic, message)
+            await ws.send(json.dumps(message, default=str))
+            logger.info("WebSocket gossip publish retry succeeded for %s", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._running:
