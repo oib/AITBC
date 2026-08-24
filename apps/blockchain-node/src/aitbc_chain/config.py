@@ -562,6 +562,8 @@ class ChainSettings(BaseSettings):
     # Minimum number of attestations required in block_metadata for a multi-validator
     # block to be accepted during sync (in addition to the proposer signature).
     multi_validator_min_attestations: int = 2  # G6: require at least 2 validator attestations when multi-validator is active
+    # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
+    multi_validator_attestation_timeout_seconds: float = 1.0
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
     # set this to False explicitly.
     pbft_require_signatures: bool = True
