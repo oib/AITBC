@@ -22,6 +22,8 @@ from aitbc.tee import (
     TEEError,
     ChannelMessage,
     TEESession,
+    load_or_create_signing_key,
+    public_key_for_signing_key,
     seal,
     unseal,
     verify_quote,
@@ -297,3 +299,53 @@ def test_quote_verifier_rejects_tampered_measurement() -> None:
     quote = generator.generate(quote_id="q1", enclave_id="enc-1", measurement="measurement-1")
     quote.measurement = "measurement-2"
     assert AttestationVerifier({"measurement-2"}, require_signature=True).verify(quote) is False
+
+
+# Part 4 (2026-08-24): stable-key plumbing for aitbc tee attest / keygen and
+# the miner's build_tee_quote, so a caller can give the coordinator a
+# public key worth pinning verification to.
+
+
+def test_load_or_create_signing_key_creates_a_32_byte_file(tmp_path) -> None:
+    path = str(tmp_path / "enclave.key")
+    key = load_or_create_signing_key(path)
+    assert len(key) == 32
+    with open(path, "rb") as f:
+        assert f.read() == key
+
+
+def test_load_or_create_signing_key_is_stable_across_calls(tmp_path) -> None:
+    path = str(tmp_path / "enclave.key")
+    first = load_or_create_signing_key(path)
+    second = load_or_create_signing_key(path)
+    assert first == second
+
+
+def test_load_or_create_signing_key_creates_parent_directories(tmp_path) -> None:
+    path = str(tmp_path / "nested" / "dir" / "enclave.key")
+    key = load_or_create_signing_key(path)
+    assert len(key) == 32
+
+
+def test_load_or_create_signing_key_rejects_wrong_length_file(tmp_path) -> None:
+    path = tmp_path / "bad.key"
+    path.write_bytes(b"too short")
+    with pytest.raises(ValueError):
+        load_or_create_signing_key(str(path))
+
+
+def test_stable_key_file_gives_quotes_a_stable_pinnable_identity(tmp_path) -> None:
+    """The point of Part 4: a stable key file lets the *coordinator* pin a key."""
+    path = str(tmp_path / "enclave.key")
+    key_a = load_or_create_signing_key(path)
+    key_b = load_or_create_signing_key(path)
+    quote_a = QuoteGenerator("enc-x", signing_key=key_a).generate(quote_id="a", enclave_id="enc-x", measurement="m")
+    quote_b = QuoteGenerator("enc-x", signing_key=key_b).generate(quote_id="b", enclave_id="enc-x", measurement="m")
+    assert quote_a.public_key == quote_b.public_key
+
+
+def test_public_key_for_signing_key_matches_what_a_quote_actually_signs_with() -> None:
+    key = b"a fixed 32-byte secret only I hold"
+    predicted = public_key_for_signing_key(key)
+    quote = QuoteGenerator("enc-y", signing_key=key).generate(quote_id="q", enclave_id="enc-y", measurement="m")
+    assert predicted == quote.public_key

@@ -412,7 +412,7 @@ def build_tee_quote(job):
     if not (constraints.get("tee_attestation_required") or constraints.get("tee_enclave_id")):
         return None
     try:
-        from aitbc.tee import QuoteGenerator
+        from aitbc.tee import QuoteGenerator, load_or_create_signing_key
 
         enclave_id = str(
             constraints.get("tee_enclave_id")
@@ -421,7 +421,14 @@ def build_tee_quote(job):
         )
         job_id = job.get("job_id", "unknown-job")
         quote_id = f"tee-{job_id}-{enclave_id}-{datetime.now(UTC).isoformat()}"
-        quote = QuoteGenerator(enclave_id).generate(
+        # Security fix (2026-08-24), part 4: without TEE_SIGNING_KEY_FILE this
+        # still signs with a fresh random key every call, same as before --
+        # harmless today since nothing is registered to pin against, but it
+        # means 'aitbc tee register' only protects future quotes once this is
+        # set to a persistent path (see 'aitbc tee keygen').
+        key_path = os.getenv("TEE_SIGNING_KEY_FILE", "")
+        signing_key = load_or_create_signing_key(key_path) if key_path else None
+        quote = QuoteGenerator(enclave_id, signing_key=signing_key).generate(
             quote_id=quote_id, enclave_id=enclave_id, measurement=enclave_id, report_data=job_id.encode()
         )
         return quote.to_base64()
