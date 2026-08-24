@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "d38eb9f3a80b"
@@ -97,6 +97,11 @@ def _recreate_without_fks(table_name: str, connection: sa.Connection) -> None:
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        # Offline SQL generation has no live database to introspect, and the
+        # current SQLModel definitions already create these tables without the
+        # incorrect foreign keys, so there is nothing to emit here.
+        return
     bind = op.get_bind()
     for table in TABLES:
         _recreate_without_fks(table, bind)

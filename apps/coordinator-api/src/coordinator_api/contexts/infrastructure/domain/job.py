@@ -56,6 +56,13 @@ class Job(SQLModel, table=True):
     cross_chain_refund_id: str | None = Field(default=None)
     cross_chain_refund_status: str | None = Field(default=None, max_length=20)
 
+    # G1: the quoted offer that priced and routed this job. Keeping these on the
+    # job makes dispatch matching independent of payment state, so a job quoted
+    # against one provider's offer cannot be executed by another just because it
+    # happens to match the customer's capability constraints.
+    offer_id: str | None = Field(default=None, index=True)
+    provider_address: str | None = Field(default=None, index=True)
+
     # Completion tracking
     completed_at: datetime | None = Field(default=None)
 
