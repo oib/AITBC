@@ -12,6 +12,7 @@ from aitbc.sync import SyncSourceResolver
 
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
+from .consensus.multi_validator_poa import get_consensus
 from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
 from .lease_tracker import lease_tracker
@@ -212,12 +213,36 @@ class BlockchainNode:
             default_peer_rpc_url=settings.default_peer_rpc_url,
         )
 
+    def _create_proposer(self, chain_id: str) -> PoAProposer:
+        """Explicitly select and instantiate the block proposer for a chain.
+
+        If multi-validator consensus is enabled and a validator_set is configured,
+        the PoAProposer is given a MultiValidatorPoA engine. Otherwise it runs as
+        a single proposer. The choice is logged at the top level so it is not
+        hidden inside PoAProposer.
+        """
+        config = self._proposer_config(chain_id)
+        consensus = None
+        if settings.multi_validator_consensus_enabled and settings.validator_set:
+            consensus = get_consensus(chain_id)
+            logger.info("Multi-validator consensus selected for chain %s", chain_id)
+        elif settings.multi_validator_consensus_enabled:
+            logger.warning(
+                "multi_validator_consensus_enabled is True but validator_set is empty; "
+                "falling back to single proposer for chain %s",
+                chain_id,
+            )
+        else:
+            logger.info("Single PoA proposer selected for chain %s", chain_id)
+        return PoAProposer(
+            config=config,
+            session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc]
+            consensus=consensus,
+        )
+
     async def _ensure_genesis_for_chains(self) -> None:
         for chain_id in self._supported_chains():
-            proposer = PoAProposer(
-                config=self._proposer_config(chain_id),
-                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc]
-            )
+            proposer = self._create_proposer(chain_id)
             await proposer._ensure_genesis_block()
 
     async def _bootstrap_genesis_for_follower(self) -> None:
@@ -565,10 +590,7 @@ class BlockchainNode:
             if chain_id in self._proposers:
                 continue
 
-            proposer = PoAProposer(
-                config=self._proposer_config(chain_id),
-                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc]
-            )
+            proposer = self._create_proposer(chain_id)
             self._proposers[chain_id] = proposer
             self._task_registry.create_task(proposer.start, name=f"proposer_{chain_id}")
 
