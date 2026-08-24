@@ -427,6 +427,23 @@ enable_services() {
 }
 
 # ----------------------------------------------------------------------------
+# Step 4b: Ensure consensus-safety env defaults
+# ----------------------------------------------------------------------------
+ensure_consensus_env_defaults() {
+    if [ ! -f "$BLOCKCHAIN_ENV_FILE" ]; then
+        return
+    fi
+    if ! grep -q "^BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=" "$BLOCKCHAIN_ENV_FILE"; then
+        echo "BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true" >> "$BLOCKCHAIN_ENV_FILE"
+        log "Added BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true to $BLOCKCHAIN_ENV_FILE"
+    fi
+    if ! grep -q "^SYNC_STATE_ROOT_VALIDATION_ENABLED=" "$BLOCKCHAIN_ENV_FILE"; then
+        echo "SYNC_STATE_ROOT_VALIDATION_ENABLED=true" >> "$BLOCKCHAIN_ENV_FILE"
+        log "Added SYNC_STATE_ROOT_VALIDATION_ENABLED=true to $BLOCKCHAIN_ENV_FILE"
+    fi
+}
+
+# ----------------------------------------------------------------------------
 # Step 5: Run Alembic DB migrations for all services with alembic.ini
 #
 # The logic lives in run-migrations.sh so that deploy.sh, which installs a node from
@@ -589,6 +606,7 @@ main() {
     sync_venv
     relink_systemd
     enable_services
+    ensure_consensus_env_defaults
 
     if [ "$DO_MIGRATE" = "true" ]; then
         run_migrations || exit 1
