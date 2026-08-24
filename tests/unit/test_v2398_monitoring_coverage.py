@@ -226,7 +226,17 @@ def test_a_unit_this_host_does_not_have_is_skipped_not_failed(stub_host: Path, t
 
 def test_a_service_that_is_installed_and_down_still_fails(stub_host: Path, tmp_path: Path) -> None:
     """The skip must not become a way to pass by being absent everywhere."""
-    result = _run(stub_host, tmp_path, "endpoints", INSTALLED="aitbc-pool-hub", DOWN_PORTS="8210")
+    # aitbc-pool-hub is shop-only; run in the shop role so the endpoint is actually probed.
+    result = _run(
+        stub_host,
+        tmp_path,
+        "endpoints",
+        INSTALLED="aitbc-pool-hub",
+        DOWN_PORTS="8210",
+        BLOCKCHAIN_MODE="follower",
+        MARKET_ROLE="shop",
+        HARDWARE_PROFILE="gpu",
+    )
 
     assert result.returncode == 1
     assert "aitbc-pool-hub endpoint is unhealthy" in result.stdout
@@ -236,12 +246,16 @@ def test_an_inactive_service_is_a_warning_not_an_error(stub_host: Path, tmp_path
     """check_service_status draws a three-way distinction — running, failed, inactive — and
     returns 0, 1, 2 for them.  Every call site was `|| TOTAL_ERRORS=...`, and `||` fires on
     any non-zero, so it collapsed back to two and the warning path was unreachable."""
+    # aitbc-pool-hub is shop-only; run in the shop role so the service is actually checked.
     result = _run(
         stub_host,
         tmp_path,
         "services",
         INSTALLED="aitbc-pool-hub",
         INACTIVE="aitbc-pool-hub",
+        BLOCKCHAIN_MODE="follower",
+        MARKET_ROLE="shop",
+        HARDWARE_PROFILE="gpu",
     )
 
     assert "aitbc-pool-hub is inactive" in result.stdout
