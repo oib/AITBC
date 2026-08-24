@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-24
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -87,6 +87,8 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 > **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. Cross-chain bridge HTLC settlement is also gated by this flag; operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
 >
 > **Bridge security defaults:** `bridge_release_enabled=False` means the live bridge still operates as a trusted custodian. Merkle-proof and multi-sig verification are implemented and covered by regression tests, but they are **disabled by default** and must be explicitly enabled for a trust-minimized configuration.
+>
+> **Bridge trust model — verified and documented:** the bridge is trust-minimised in design; custodian mode is the honest default; Merkle and multi-sig verification are implemented and off by default. This is documented in `docs/security/bridge-custodian.md` and labelled clearly for operators.
 
 ## Trust root
 
