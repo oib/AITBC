@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .multi_validator_poa import MultiValidatorPoA
 
+from .remote_attestation import RemoteAttestationService
+
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -33,6 +35,7 @@ from ..metrics import (
 from ..models import Account, Block, CrossChainTransfer
 from ..models import Transaction
 from ..base_models import _to_ait_address
+from aitbc.crypto.signature_recovery import canonical_address
 from ..state.pure_state_transition import (
     StateDelta,
     apply_delta_to_map,
@@ -138,6 +141,7 @@ class PoAProposer:
         self._last_block_timestamp: datetime | None = None
         self._multi_validator: MultiValidatorPoA | None = consensus
         self._validator_keys: dict[str, str] = {}
+        self._remote_attestation: RemoteAttestationService | None = None
         if self._multi_validator is not None:
             self._load_validator_set()
             self._load_validator_keys()
@@ -154,6 +158,13 @@ class PoAProposer:
                     "falling back to single proposer for chain %s",
                     self._config.chain_id,
                 )
+        if self._multi_validator is not None and self._validator_keys:
+            self._remote_attestation = RemoteAttestationService(self._config.chain_id, self._validator_keys)
+            self._logger.info(
+                "Remote attestation service initialized for chain %s with %s local key(s)",
+                self._config.chain_id,
+                len(self._validator_keys),
+            )
 
     def _fetch_chain_head(self) -> Block | None:
         """Fetch the current chain head block from the database."""
@@ -233,21 +244,45 @@ class PoAProposer:
             self._logger.warning("Failed to sign block header for %s: %s", proposer, e)
             return ""
 
-    def _collect_attestations(self, block: Block) -> list[dict[str, str]]:
-        """Collect canonical header signatures from all local validators except the proposer."""
-        attestations: list[dict[str, str]] = []
-        if not self._validator_keys:
-            return attestations
-        message = self._block_header_message(block)
-        for address, private_key in self._validator_keys.items():
-            if address == block.proposer:
-                continue
-            try:
-                from aitbc.crypto.consensus_signing import sign_consensus_message
+    async def _collect_attestations(self, block: Block) -> list[dict[str, str]]:
+        """Collect canonical header signatures from local and remote validators.
 
-                attestations.append({"validator": address, "signature": sign_consensus_message(message, private_key)})
-            except Exception as e:
-                self._logger.warning("Failed to collect attestation from %s: %s", address, e)
+        Local attestations are produced immediately. Remote attestations are
+        requested over the gossip broker and collected up to the configured
+        timeout. Duplicates are de-duplicated by validator address.
+        """
+        attestations: list[dict[str, str]] = []
+        seen: set[str] = set()
+
+        if self._validator_keys:
+            message = self._block_header_message(block)
+            for address, private_key in self._validator_keys.items():
+                if canonical_address(address) == canonical_address(block.proposer):
+                    continue
+                try:
+                    from aitbc.crypto.consensus_signing import sign_consensus_message
+
+                    signature = sign_consensus_message(message, private_key)
+                    attestations.append({"validator": address, "signature": signature})
+                    seen.add(canonical_address(address))
+                except Exception as e:
+                    self._logger.warning("Failed to collect attestation from %s: %s", address, e)
+
+        if self._remote_attestation is not None:
+            min_remote = max(0, getattr(settings, "multi_validator_min_attestations", 0) - len(attestations))
+            if min_remote > 0 or getattr(settings, "multi_validator_min_attestations", 0) > 0:
+                try:
+                    remote = await self._remote_attestation.collect_attestations(block, min_remote)
+                    for att in remote:
+                        addr = canonical_address(att["validator"])
+                        if addr not in seen:
+                            attestations.append(att)
+                            seen.add(addr)
+                        else:
+                            self._logger.debug("Dropping duplicate remote attestation from %s", att["validator"])
+                except Exception as e:
+                    self._logger.warning("Failed to collect remote attestations: %s", e)
+
         return attestations
 
     async def start(self) -> None:
@@ -264,6 +299,9 @@ class PoAProposer:
         if head is not None:
             self._last_block_timestamp = head.timestamp
             self._logger.info("Initialized last block timestamp from head", extra={"height": head.height})
+        if self._remote_attestation is not None:
+            await self._remote_attestation.start()
+            self._logger.info("Remote attestation listener started for chain %s", self._config.chain_id)
         self._stop_event.clear()
         self._task = create_task_with_logging(self._run_loop(), name="poa_proposer_loop")
 
@@ -274,6 +312,9 @@ class PoAProposer:
         self._stop_event.set()
         await self._task
         self._task = None
+        if self._remote_attestation is not None:
+            await self._remote_attestation.stop()
+            self._logger.info("Remote attestation listener stopped for chain %s", self._config.chain_id)
 
     async def _run_loop(self) -> None:
         await asyncio.sleep(self._config.interval_seconds)
@@ -669,7 +710,7 @@ class PoAProposer:
             # canonical block signature.
             block_metadata: str | None = None
             if self._multi_validator:
-                attestations = self._collect_attestations(block)
+                attestations = await self._collect_attestations(block)
                 if attestations:
                     block_metadata = json.dumps({"attestations": attestations})
             block.block_metadata = block_metadata
