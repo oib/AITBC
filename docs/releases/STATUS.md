@@ -113,3 +113,25 @@ The current live deployment is a single-node, SQLite-backed proof-of-authority c
 | The result is verifiable | **FORMALLY** | ZK and TEE gates block escrow release on high-value/confidential jobs (`_zk_required_for`, `_tee_required_for` in `apps/coordinator-api/.../routers/miner.py`; `zk_status != "verified"` / `tee_status != "verified"` blocks release). The proof/attestation is generated from data supplied by the party being paid (the miner's result/receipt or TEE quote), so formal correctness of the proof does not by itself guarantee correctness of the underlying computation. |
 | A bad provider loses something | **HOLDS, UNTESTED LIVE** | `ProviderBond` slashing conditions `downtime` (10%), `bad_result` (30%) and `fraud` (50%) are implemented in `apps/coordinator-api/.../marketplace/services/bond_slashing.py` (G5). The fraud slash is gated on an operator ruling via `POST /v1/admin/disputes/{job_id}/resolve` with `outcome=refund` (D1). Downtime and bad-result slashing have regression tests, but no live slash has fired on the network yet. |
 | Settlement is trust-minimised | **DOES NOT HOLD** | The live chain has one `PoAProposer` writing to a local SQLite `chain.db`; `multi_validator_consensus_enabled` defaults to `False`. Hub-held keys remain on both sides of the operator flow (single operator controls deposit/payout paths), so settlement remains custodian until multi-validator consensus and a bridge multi-sig are activated and a soak test is completed. |
+
+## Closed design-cycle findings
+
+| Finding | Root cause | Fix | Status |
+|---|---|---|---|
+| D2 | G2 and G3 were enforced in code but inert in production. The visible half was `aitbc-miner-1` having no `wallet_address`; the hidden half was `POST /v1/payments` falling through the route security matrix to `AuthLevel.DENY` because `fnmatch("/v1/payments", "/v1/payments/*")` is `False`. | `MINER_WALLET_ADDRESS` set on `aitbc3` and registered in `capabilities`; bare `/v1/payments` (CLIENT) and `/v1/blocks` (CLIENT) entries added to `security_matrix.py`; `test_route_security_matrix.py` added. | **Closed 2026-08-24** — commit `870c109e9`, live on hub.aitbc. |
+| D5 | Blockchain router proxy handlers imported `coordinator_api.contexts.blockchain.config` (does not exist) instead of `....config`. The import is function-local, so `except NetworkError` did not catch `ImportError` and every proxy route answered 500. | Imports corrected in all six handlers; block routes now return 404 for missing heights and 502 for unreachable nodes; transaction route now calls `/rpc/transaction/{hash}`; `test_blockchain_block_routes.py` added. | **Closed 2026-08-24** — commit `39b510c`, live on hub.aitbc. |
+
+## Live economic-loop validation
+
+Job `6a20fdb7aedf4abb8e8218c5e3cd893a` ran end-to-end on live hub/aitbc balances:
+
+| Stage | Finding | Result |
+|---|---|---|
+| G4 | Unpriced/unsuccessful escrow should not dispatch. | Job stayed `QUEUED` and unassigned for 45s of live miner polling. |
+| Escrow | Buyer-signed `ESCROW_LOCK` debits real funds. | 201 `escrowed`; buyer 4636 → 1000 (3600 compute-seconds + 36 fee debited on-chain). |
+| G2 | Payee must be the worker's wallet. | Dispatched to `aitbc-miner-1` within 5s, the wallet the escrow named. |
+| Execution | GPU inference runs. | `llama3.2:3b` via Ollama, 71.7s. |
+| G3 | Result opens an acceptance window instead of releasing. | Job moved to `COMPLETED` / `pending_acceptance`; provider unpaid; 300s per-job window honoured. |
+| Release | Sweeper releases on expiry. | Provider wallet went from *Account not found* to **3510** compute-seconds. |
+
+**Limitation:** only the accept-by-expiry branch was exercised on live traffic. The reject and operator dispute-ruling branches remain test-verified only.
