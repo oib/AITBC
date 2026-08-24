@@ -422,6 +422,21 @@ class PoAProposer:
                 head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
                 interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
             timestamp = datetime.now(UTC)
+            # v0.7.6: Determine the intended proposer before draining the mempool
+            # or touching account state. This prevents a node from consuming
+            # transactions, creating Transaction records, or mutating balances
+            # when it is not this validator's turn to propose.
+            proposer = self._select_proposer(next_height)
+            if not proposer:
+                self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
+                return False
+            if self._multi_validator and proposer not in self._validator_keys:
+                self._logger.info(
+                    "[PROPOSE] Selected proposer %s is not a local key, skipping proposal at height %s",
+                    proposer,
+                    next_height,
+                )
+                return False
             max_txs = self._config.max_txs_per_block
             max_bytes = self._config.max_block_size_bytes
             pending_txs = list(mempool.drain(max_txs, max_bytes, self._config.chain_id))
@@ -667,23 +682,9 @@ class PoAProposer:
             state_root = _compute_state_root(session, self._config.chain_id)
             # v0.7.2: compute the bridge event trie root from BRIDGE_LOCK events.
             bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id)
-            # v0.7.5: Select the proposer for this block. In multi-validator
-            # consensus the proposer is chosen by MultiValidatorPoA; otherwise the
-            # configured proposer_id is used.
-            proposer = self._select_proposer(next_height)
-            if not proposer:
-                self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
-                return False
-
-            # If the selected proposer is not a key we control, skip the block.
-            if self._multi_validator and proposer not in self._validator_keys:
-                self._logger.info(
-                    "[PROPOSE] Selected proposer %s is not a local key, skipping proposal at height %s",
-                    proposer,
-                    next_height,
-                )
-                return False
-
+            # The proposer was already selected at the top of this function before
+            # draining the mempool, so transactions are only applied when this node
+            # is actually the selected validator.
             # v0.7.2: block hash binds chain, height, parent, time, txs,
             # proposer, account state root, and bridge event trie root.
             block_hash = self._compute_block_hash(

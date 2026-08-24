@@ -126,14 +126,19 @@ class MultiValidatorPoA:
 
     def select_proposer(self, block_height: int) -> str | None:
         """Select proposer for the current block using round-robin"""
-        active_validators = [
-            v for v in self.validators.values() if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
-        ]
+        active_validators = sorted(
+            (
+                v
+                for v in self.validators.values()
+                if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
+            ),
+            key=lambda v: v.address,
+        )
 
         if not active_validators:
             return None
 
-        # Round-robin selection
+        # Round-robin selection on a deterministic, globally-consistent order.
         proposer_index = block_height % len(active_validators)
         return active_validators[proposer_index].address
 
