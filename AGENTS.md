@@ -21,6 +21,8 @@ The canonical, full AITBC repository is only on the two remote nodes:
 
 Both remotes point to gitea as `origin` and GitHub as `github`.
 
+> **Repository visibility note:** Gitea is the private, single-operator development repository. GitHub is the public mirror. AITBC software users other than the operator have no access to the Gitea instance, so deployment/setup scripts that must work for public users should continue to reference GitHub. Only the operator's live nodes and tooling should treat Gitea as the primary source of truth.
+
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
 `/opt/aitbc` on the IDE host is a read-only clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. Use it only for reading code and running local static checks. All live work must be done on `aitbc3` or `hub.aitbc`.
 
@@ -102,7 +104,7 @@ Use the mount only for file inspection and text editing. Always commit, push, an
    git push origin HEAD:main
    ```
 
-   Do **not** use `--no-verify` to skip the pre-commit gates. The same checks run on Gitea and GitHub CI, and bypassing them locally only moves the failure to the server. In an environment with no hooks installed, `git commit` without `--no-verify` is harmless.
+   Do **not** use `--no-verify` to skip the pre-commit gates. The same checks run on Gitea and GitHub CI, and bypassing them locally only moves the failure to the server.
 5. Fast-forward the local `main` ref if you need it in sync:
    ```bash
    git fetch origin main:main
@@ -206,15 +208,6 @@ Recommended response:
 
 This is a data integrity / operator-recovery issue, not a CLI bug that can be
 fixed by code changes alone.
-
-## Trust root and operator limits
-
-Before changing consensus or escrow code, remember the current live shape:
-
-- The chain is one SQLite `chain.db` on the hub, produced by a single `PoAProposer`.
-- `multi_validator_consensus_enabled` defaults to `False` and the production env sets it to `false`. Multi-validator consensus is implemented and soak-tested, but it is not active in the default deployment.
-- The coordinator no longer signs the buyer's `ESCROW_LOCK` transaction. A priced job must reach the coordinator with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee`, or the payment stays `pending`/`skipped` and the job is not dispatched.
-- Treat any proposal that makes the hub hold the buyer's private key as a trust-root regression and refuse it.
 
 ## Use the AITBC MCP server
 
