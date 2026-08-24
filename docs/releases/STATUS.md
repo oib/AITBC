@@ -59,6 +59,7 @@
 | v0.16.2 | Platform Builder Tooling (Phase 2) | 🚧 Planned | SDK, SDK reference docs, white-label/plugin architecture |
 | v0.17.0 | Accessibility & Theme Engine | 🚧 Planned | Light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
+| v0.24.0 | Hub node development special | ✅ Complete | Live two-node paid jobs, bridge multi-sig/Merkle validation, single-proposer restoration after multi-key PoA test |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 
 ## Security Audit Summary
