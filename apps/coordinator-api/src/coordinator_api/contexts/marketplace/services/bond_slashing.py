@@ -1,4 +1,3 @@
-
 """Automatic provider-bond slashing (G5).
 
 The on-chain `BOND_SLASH` transaction is already implemented in the blockchain node,
@@ -200,6 +199,7 @@ class BondSlashingService:
                 "bond_id": bond_id,
                 "provider": provider,
                 "amount": slash_amount,
+                "to": self.bond_burn_address,
             },
         }
 
