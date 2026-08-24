@@ -9,6 +9,10 @@ on:
 jobs:
   ci:
     runs-on: debian
+    env:
+      # The API key manager creates a file lock at import time. On a fresh runner
+      # /var/lib/aitbc is not writable, so point it at /tmp.
+      API_KEY_STORAGE_PATH: /tmp/aitbc-ci-api-keys.json
     steps:
       - name: Checkout
         uses: actions/checkout@v4
