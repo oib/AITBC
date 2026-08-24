@@ -117,6 +117,57 @@ Honest assessment: this is **local multi-key proposer rotation** on a single hub
 
 - The coordinator will not create an on-chain escrow without a buyer-supplied `ESCROW_LOCK` signature. The `PAYMENT_BUYER_PRIVATE_KEY` fallback has been removed: the hub no longer signs the buyer's half of the escrow. In the default operator flow a priced job must be submitted with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee` (via `POST /v1/jobs` or `POST /v1/payments`), or the payment remains `pending`/`skipped` and the job is not dispatched.
 
+## Bridge multi-signature and Merkle enforcement — 2026-08-24
+
+The cross-island bridge was activated with multi-signature and Merkle-proof enforcement on `hub.aitbc` and `aitbc3`.
+
+Configuration (`/etc/aitbc/blockchain.env` on both nodes):
+
+- `BRIDGE_RELEASE_ENABLED=true` was set during the validation window and then returned to `false`.
+- `BRIDGE_MULTISIG_ENABLED=true`
+- `BRIDGE_REQUIRE_MERKLE_PROOF=true`
+- `BRIDGE_MULTISIG_THRESHOLD=2`
+- `BRIDGE_MULTISIG_VALIDATORS=2`
+- `BRIDGE_ADMIN_ADDRESSES=0xfe2d63fe87db282083b9159e5857cac788af9e03`
+- `BRIDGE_SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net,ait-shop-island.aitbc.bubuit.net`
+
+Validator set (`POST /rpc/bridge/validators/register`):
+
+- Two bridge validators were registered on `ait-hub.aitbc.bubuit.net` for both the hub and the shop node:
+  - `0xffbda3398a7b1e016fddd509834b07dc8f4034e6`
+  - `0xfe2d63fe87db282083b9159e5857cac788af9e03`
+- A 2-of-2 threshold was enforced for proof confirmation.
+
+Live validation performed:
+
+1. Lock 1 compute-second on `ait-hub.aitbc.bubuit.net` → target `ait-shop-island.aitbc.bubuit.net`.
+2. Anchor the lock in a real block with a non-zero `bridge_state_root`.
+3. Build a Merkle inclusion proof (`GET /rpc/bridge/transfer/{id}/proof`).
+4. Store the source block header on the target node (`POST /rpc/bridge/block-headers`) with an admin signature.
+5. Confirm the transfer on `ait-shop-island` (`POST /rpc/bridge/confirm`) with:
+   - a valid confirmer signature,
+   - the block proposer signature,
+   - a validator attestation signature,
+   - the Merkle inclusion proof.
+6. Verify the recipient balance increased on `ait-shop-island`.
+
+Negative cases validated:
+
+- Confirm with an empty `merkle_proof` → rejected (`400 Invalid transfer proof`).
+- Confirm with only the proposer signature (threshold 2 not met) → rejected (`400 Invalid transfer proof`).
+- Confirm with an invalid confirmer signature → rejected (`403 Invalid confirmer signature`).
+- `POST /rpc/bridge/block-headers` with an invalid admin signature → rejected (`403 Invalid or unauthorized bridge admin signature`).
+
+Bugs found and fixed during validation:
+
+- `BlockHeaderRequest` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py` was missing the `bridge_state_root` field, so ingested headers could not be used for Merkle proof verification. Added the field.
+- `BridgeValidatorMixin.register_validator` did not update `registered_at` on re-registration, causing `_check_validator_set_freshness` to reject otherwise valid validator sets. Updated `registered_at` to the current UTC time on re-registration.
+
+After validation, `BRIDGE_RELEASE_ENABLED` was returned to `false` on both nodes. The live bridge is therefore back in trusted-custodian mode, but multi-signature and Merkle-proof enforcement remain configured and active in the code path (`bridge_multisig_enabled=true`, `bridge_require_merkle_proof=true`). Re-enabling releases requires setting `BRIDGE_RELEASE_ENABLED=true` and ensuring a fresh, non-stale validator set and block headers are ingested.
+
+Honest assessment: the cryptographic enforcement was successfully activated and live-validated on real 1-compute-second hub→island transfers. The live cross-island bridge remains trust-minimised in design, but the release path is currently fenced off (`bridge_release_enabled=false`) to prevent unvalidated production releases.
+
+
 ## Continuous integration
 
 - **Gitea Actions runner active:** the runner at `gitea-runner` is active and pulls `.gitea/workflows/ci.yml` on push to `main`.
