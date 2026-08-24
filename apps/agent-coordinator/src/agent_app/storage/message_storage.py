@@ -165,9 +165,11 @@ class MessageStorage:
     async def _sqlite_get_by_field(self, field: str, value: str, limit: int, offset: int) -> list[dict[str, Any]]:
         if not self.sqlite_conn:
             return []
+        if field not in {"sender", "receiver"}:
+            raise ValueError(f"invalid message query field: {field}")
         try:
             cursor = await self.sqlite_conn.execute(
-                f"SELECT data FROM messages WHERE {field} = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+                f"SELECT data FROM messages WHERE {field} = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?",  # nosec B608
                 (value, limit, offset),
             )
             rows = await cursor.fetchall()

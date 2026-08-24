@@ -86,7 +86,7 @@ def _recreate_without_fks(table_name: str, connection: sa.Connection) -> None:
 
     # Create the cleaned table and copy the data.
     connection.execute(sa.text(cleaned_sql))
-    connection.execute(sa.text(f'INSERT INTO "{table_name}" SELECT * FROM "{table_name}_old"'))
+    connection.execute(sa.text(f'INSERT INTO "{table_name}" SELECT * FROM "{table_name}_old"'))  # nosec B608
 
     # Recreate the indexes.
     for sql in index_sqls:

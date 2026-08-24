@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
+import urllib.parse
 
 from datetime import UTC, datetime
 from typing import Any
@@ -261,9 +261,7 @@ def register_miner():
     if MINER_WALLET_ADDRESS:
         register_data["wallet_address"] = MINER_WALLET_ADDRESS
     else:
-        logger.warning(
-            "MINER_WALLET_ADDRESS is not set; the coordinator will not assign escrowed (paid) jobs to this miner"
-        )
+        logger.warning("MINER_WALLET_ADDRESS is not set; the coordinator will not assign escrowed (paid) jobs to this miner")
     headers = {"X-Api-Key": AUTH_TOKEN, "X-Miner-ID": MINER_ID, "Content-Type": "application/json"}
     try:
         client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=10)
@@ -435,7 +433,14 @@ def build_tee_quote(job):
 def _download_media(url: str, dest: str) -> None:
     """Download an audio/video file from a URL to a local path."""
     try:
-        urllib.request.urlretrieve(url, dest)
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError(f"unsupported URL scheme: {parsed.scheme}")
+        with requests.get(url, timeout=30, stream=True) as resp:
+            resp.raise_for_status()
+            with open(dest, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
     except Exception as e:
         raise Exception(f"Failed to download media from {url}: {e}") from e
 
