@@ -105,6 +105,9 @@ def extract_openapi_spec(app_config: dict) -> dict | None:
         return enrich(spec, app)
     except Exception as e:
         print(f"Error extracting spec from {app_config['name']}: {e}")
+        import traceback
+
+        traceback.print_exc()
         return None
 
 
