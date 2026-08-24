@@ -1148,3 +1148,50 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Restored `aitbc3` follower sync to the hub chain.
 - Documented honest assessment: this is local multi-key rotation, not independent distributed consensus.
 - Fixed coordinator nonce routes in `payments.py` and `bond_slashing.py` to use `/rpc/accounts/{address}`.
+
+## P1 Phase 3 — Bridge multi-signature and Merkle enforcement live validation (2026-08-24)
+
+- fix(bridge): add `bridge_state_root` to `BlockHeaderRequest`
+  - `POST /rpc/bridge/block-headers` now carries the bridge event trie root so
+    `store_block_header` can persist it and Merkle proof verification can succeed.
+  - Without this field ingested headers had an empty bridge state root and
+    `_validate_proof` rejected every real proof.
+
+- fix(bridge): refresh `registered_at` when re-registering an existing bridge validator
+  - `BridgeValidatorMixin.register_validator` now sets `existing.registered_at =
+    datetime.now(UTC)` on re-registration.
+  - Previously the validator-set freshness check treated re-registered sets as
+    stale because the timestamp never advanced.
+
+- ops(bridge): live activation of multi-signature and Merkle-proof enforcement
+  - `/etc/aitbc/blockchain.env` on `hub.aitbc` and `aitbc3` set:
+    - `BRIDGE_RELEASE_ENABLED=true` during validation, then `false`
+    - `BRIDGE_MULTISIG_ENABLED=true`
+    - `BRIDGE_REQUIRE_MERKLE_PROOF=true`
+    - `BRIDGE_MULTISIG_THRESHOLD=2`
+    - `BRIDGE_MULTISIG_VALIDATORS=2`
+    - `BRIDGE_ADMIN_ADDRESSES=0xfe2d63fe87db282083b9159e5857cac788af9e03`
+    - `BRIDGE_SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net,ait-shop-island.aitbc.bubuit.net`
+  - Two bridge validators registered for `ait-hub.aitbc.bubuit.net` on both nodes.
+
+- live(bridge): end-to-end hub-to-island transfers with 2-of-2 multi-sig and Merkle proof
+  - Lock 1 compute-second on `ait-hub.aitbc.bubuit.net` to `ait-shop-island.aitbc.bubuit.net`.
+  - Wait for the `BRIDGE_LOCK` transaction to be anchored in a hub block with a non-zero
+    `bridge_state_root`.
+  - Build a Merkle inclusion proof with `GET /rpc/bridge/transfer/{id}/proof`.
+  - Store the hub block header on `aitbc3` with an admin-signed
+    `POST /rpc/bridge/block-headers` request.
+  - Confirm on `ait-shop-island` with `POST /rpc/bridge/confirm` using the confirmer
+    signature, block proposer signature, validator attestation, and Merkle proof.
+  - Verified the recipient balance increased on `ait-shop-island`.
+
+- live(bridge): negative-case validation
+  - Missing `merkle_proof` → `400 Invalid transfer proof`.
+  - Insufficient validator signatures (proposer only, threshold 2) → `400 Invalid transfer proof`.
+  - Invalid confirmer signature → `403 Invalid confirmer signature`.
+  - Block-header ingestion with invalid admin signature → `403 Invalid or unauthorized bridge admin signature`.
+
+- docs(bridge): updated `docs/releases/STATUS.md`, `docs/features/2-bridge-cross-chain.md`,
+  and `docs/architecture/bridge-threat-model.md` with the live validation results,
+  honest trust-custodian assessment, and the release-fence being returned to `false`.
+
