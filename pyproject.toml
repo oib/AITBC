@@ -391,6 +391,13 @@ pythonpath = [
     ".",
     "apps/api-gateway/src",
     "apps/blockchain-event-bridge/src",
+    # Without this the whole of apps/blockchain-node/tests is uncollectable -- its
+    # conftest imports aitbc_chain at module scope -- and the two tests in
+    # apps/coordinator-api/tests/test_blockchain_client_paths.py that check this
+    # app's URLs against the node's real route table error out instead of running.
+    # They are the tests that would have caught /rpc/transactions/{hash}, a path
+    # the node does not serve. mypy_path has carried this entry all along.
+    "apps/blockchain-node/src",
     "apps/coordinator-api/src",
     "apps/agent-coordinator/src",
     "apps/ai-engine/src",
