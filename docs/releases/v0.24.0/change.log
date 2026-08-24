@@ -1236,3 +1236,18 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - The `VALIDATOR_SET` and second key remain in `/etc/aitbc/blockchain.env` for easy
   re-enable.
 - Chain continues to produce blocks under single proposer `ait1fe2d63...`.
+
+## ML inference ZK constraint fix (2026-08-24)
+
+- Promoted the authoring-tree `IsZero` implementation of `ml_inference_verification.circom`
+  into the coordinator circuit directory.
+- Regenerated `ml_inference_verification.r1cs`, `.wasm`, `_0000.zkey`, `_0001.zkey` and
+  `verification_key.json` on `hub.aitbc`.
+- `scripts/zk/build-circuits.sh` now includes `ml_inference_verification` in its rebuild list.
+- `zk_proofs.py` now decodes the per-circuit success public signal:
+  - `ml_inference_verification`: `public_signals[0]` must be `"1"`.
+  - `ml_training_verification` and `modular_ml_components`: last public signal must be `"1"`.
+  - Receipt circuits: `computation_correct` follows Groth16 verification.
+- Added `TestTheInferenceCircuitVerifiesCorrectness` in `test_v2394_zk_circuit_constraints.py`
+  covering correct inference, wrong inference, and tampered public signals.
+- Verified `make test`, `make test-apps`, `make typecheck`, and `make no-float-money` pass.
