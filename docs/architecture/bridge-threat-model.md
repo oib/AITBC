@@ -53,6 +53,8 @@ Layer 13: Proof chain (v0.9.0 B3) ✅ — tamper-evident proof chain (lock → v
 
 **Status**: ✅ Mitigated when the cryptographic flags are enabled. With default settings (`bridge_release_enabled=False`, `bridge_multisig_enabled=False`, `bridge_require_merkle_proof=False`) the bridge relies on the operator's release authorization and is effectively a trusted custodian. Bug #3 (proposer signature not checked against validator set) fixed in audit. Bug #4 (Merkle proof silently skipped) fixed with enforcement flag.
 
+Live validation (2026-08-24): the flags were activated with a 2-of-2 bridge validator set, and real hub->island transfers were confirmed with Merkle inclusion proofs and block-header signatures. Missing Merkle proofs, insufficient signatures, and invalid confirmer/admin signatures were rejected. Two field defects were fixed during validation: `BlockHeaderRequest` missing `bridge_state_root` and `register_validator` not refreshing `registered_at`. The release fence was re-disabled after validation, so the default deployment remains trusted-custodian.
+
 ### 3.2 Signature Replay (Cross-Chain / Cross-Transfer)
 
 **Vector**: Attacker reuses a valid proof on a different chain or for a different transfer.
