@@ -292,7 +292,8 @@ class ChainSettings(BaseSettings):
     sync_managed_externally: bool = False
     sync_manager_use_gossip: bool = True
     sync_manager_use_subscription: bool = False
-    sync_manager_poll_interval: float = 5.0
+    sync_manager_poll_interval: float = 15.0
+    sync_manager_synced_poll_interval: float = 30.0
     sync_manager_state_sync_interval: float = 300.0
     sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."
     state_sync_max_gap: int = 10
