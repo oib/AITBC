@@ -53,9 +53,9 @@ def _get_wallet_password(wallet_name: str) -> str:
 
 @click.group()
 def operations():
-    """Legacy on-chain operations commands (hidden).
+    """Legacy on-chain operations commands (compatibility).
 
-Use `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` instead."""
+    Use `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` instead."""
     pass
 
 
