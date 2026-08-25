@@ -1,5 +1,7 @@
 aitbc/wallet/confidential.py: error: Unused "type: ignore" comment  [unused-ignore]
 apps/blockchain-node/src/aitbc_chain/observability/exporters.py: error: Unused "type: ignore" comment  [unused-ignore]
+apps/blockchain-node/src/aitbc_chain/rpc/routers/core.py: error: Returning Any from function declared to return "list[dict[str, Any]]"  [no-any-return]
+apps/blockchain-node/src/aitbc_chain/rpc/routers/core.py: error: Unused "type: ignore" comment  [unused-ignore]
 apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/services/advanced_rl/engine.py: error: Unused "type: ignore" comment  [unused-ignore]
 apps/coordinator-api/src/coordinator_api/contexts/multimodal/services/multi_modal_fusion/fusion_engine.py: error: Unused "type: ignore" comment  [unused-ignore]
 cli/aitbc_cli/auth/__init__.py: error: Returning Any from function declared to return "str | None"  [no-any-return]
