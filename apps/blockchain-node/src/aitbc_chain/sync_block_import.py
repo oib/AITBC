@@ -129,9 +129,7 @@ class BlockImportMixin(SyncBase):
                         reason = str(append_exc).lower()
                         if "unique" in reason and "constraint" in reason:
                             metrics_registry.increment("sync_blocks_duplicate_total")
-                            logger.warning(
-                                "Concurrent block import: height %s already inserted, treating as duplicate", height
-                            )
+                            logger.info("Concurrent block import: height %s already inserted, treating as duplicate", height)
                             return self._make_import_result(
                                 accepted=False,
                                 height=height,
