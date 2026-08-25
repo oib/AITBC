@@ -54,8 +54,8 @@ class JobPaymentCreate(BaseModel):
     @classmethod
     def validate_amount(cls, v: Decimal) -> Decimal:
         """Validate and round payment amount"""
-        if v < Decimal("0.01"):
-            raise ValueError("Minimum payment amount is 0.01 AITBC")
+        if v < Decimal("0.0001"):
+            raise ValueError("Minimum payment amount is 0.0001 AITBC")
         return round(v, 8)  # Prevent floating point precision issues
 
     @field_validator("currency")
