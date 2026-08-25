@@ -439,6 +439,14 @@ class PoAProposer:
                 parent_hash = head.hash
                 head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
                 interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
+                if interval_seconds < self._config.interval_seconds:
+                    self._logger.debug(
+                        "[PROPOSE] Skipping block proposal: too soon after last block (chain=%s, elapsed=%ss, interval=%ss)",
+                        self._config.chain_id,
+                        interval_seconds,
+                        self._config.interval_seconds,
+                    )
+                    return False
             timestamp = datetime.now(UTC)
             # v0.7.6: Determine the intended proposer before draining the mempool
             # or touching account state. This prevents a node from consuming
