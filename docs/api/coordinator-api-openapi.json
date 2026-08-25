@@ -18401,7 +18401,7 @@
           "tee"
         ],
         "summary": "Submit Attestation",
-        "description": "Submit and verify a TEE attestation quote.",
+        "description": "Submit and verify a TEE attestation quote.\n\nBy default the endpoint records self-consistent quotes as\n``self_consistent`` (``registered=False``). Callers that need a real\ntrust root must use the job release path, which calls\n``verify_and_store(..., require_registered=True)``.",
         "operationId": "submit_attestation_v1_tee_attestations_post",
         "requestBody": {
           "content": {
@@ -31236,6 +31236,13 @@
             "title": "Status",
             "default": "pending"
           },
+          "allowed_measurements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Measurements"
+          },
           "meta": {
             "additionalProperties": true,
             "type": "object",
@@ -31275,6 +31282,14 @@
             "type": "string",
             "title": "Status",
             "default": "active"
+          },
+          "allowed_measurements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Measurements",
+            "default": []
           }
         },
         "type": "object",
@@ -36637,6 +36652,11 @@
             "maxLength": 20,
             "title": "Status",
             "default": "pending"
+          },
+          "registered": {
+            "type": "boolean",
+            "title": "Registered",
+            "default": false
           },
           "meta": {
             "additionalProperties": true,

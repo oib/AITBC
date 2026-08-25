@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import base64
 import binascii
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, text
+from sqlalchemy import JSON, Boolean, Column, text
 from sqlmodel import Field, Session, SQLModel, select
 
 from aitbc.tee.attestation import AttestationQuote, AttestationVerifier
@@ -19,6 +20,7 @@ class TEEAttestationStatus(StrEnum):
 
     PENDING = "pending"
     VERIFIED = "verified"
+    SELF_CONSISTENT = "self_consistent"
     REJECTED = "rejected"
     EXPIRED = "expired"
 
@@ -42,6 +44,15 @@ class EnclaveOwnershipError(Exception):
     """
 
 
+@dataclass
+class QuoteValidationResult:
+    """Result of ``_validate_quote``."""
+
+    valid: bool
+    registered: bool
+    reason: str | None = None
+
+
 class TEEAttestation(SQLModel, table=True):
     """Stored result of a remote attestation verification."""
 
@@ -53,6 +64,7 @@ class TEEAttestation(SQLModel, table=True):
     quote: str = Field(default="")
     measurement: str = Field(default="", max_length=255, index=True)
     status: str = Field(default=TEEAttestationStatus.PENDING.value, max_length=20, index=True)
+    registered: bool = Field(default=False, sa_column=Column(Boolean, nullable=False, server_default=text("0")))
     meta: dict = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
@@ -72,6 +84,10 @@ class EnclaveIdentity(SQLModel, table=True):
     public_key: str = Field(default="", max_length=1024)
     agent_id: str = Field(default="", max_length=255, index=True)
     status: str = Field(default=EnclaveStatus.PENDING.value, max_length=20, index=True)
+    allowed_measurements: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False, server_default=text("'[]'")),
+    )
     meta: dict = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
@@ -83,66 +99,99 @@ class EnclaveIdentity(SQLModel, table=True):
 class TEEAttestationService:
     """Service that records and verifies remote attestation quotes.
 
-    v0.14.3: Quotes are now parsed as self-contained signed documents and
-    verified with the public key embedded in the quote. Unparseable or
-    unsigned quotes are rejected, enforcing a real quote path before escrow
-    release. A real deployment still needs a platform-specific quote library
-    (SGX/TDX/SEV), but the policy and signature checks are real.
+    v0.14.4: Quotes are verified against pre-registered ``EnclaveIdentity``
+    rows when one exists for the enclave_id. The quote's embedded public key
+    must match the registered public key, and the quote's measurement must be
+    on the enclave's allowlist. Unregistered quotes are still recorded but are
+    marked ``self_consistent`` rather than ``verified``; callers that need a
+    real trust root (e.g. escrow release) must request ``require_registered``.
     """
 
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def _validate_quote(self, quote_b64: str, expected_measurement: str, expected_enclave_id: str) -> bool:
-        """Return True for a valid, signed, non-expired quote.
+    def _validate_quote(
+        self,
+        quote_b64: str,
+        expected_measurement: str,
+        expected_enclave_id: str,
+        *,
+        require_registered: bool = False,
+    ) -> QuoteValidationResult:
+        """Return a QuoteValidationResult for a quote.
 
         Expects ``quote_b64`` to be the base64-encoded JSON representation of
         an ``AttestationQuote``. Legacy raw quote blobs fail closed.
-
-        Security fix (2026-08-24): when ``expected_enclave_id`` has a
-        registered, non-revoked ``EnclaveIdentity``, the quote's signature
-        must additionally match that identity's public key -- otherwise
-        anyone holding *any* keypair could sign a self-consistent quote for
-        an enclave_id someone else already registered, and it would still
-        pass. Enclave IDs with no registration keep the pre-existing
-        self-consistency-only check; registering one is what upgrades it.
-        A revoked identity fails closed regardless of signature.
         """
         try:
             quote = AttestationQuote.from_base64(quote_b64)
         except (binascii.Error, ValueError, KeyError, TypeError):
-            return False
+            return QuoteValidationResult(False, False, "unparseable")
 
         if expected_enclave_id and quote.enclave_id != expected_enclave_id:
-            return False
+            return QuoteValidationResult(False, False, "enclave_id_mismatch")
 
         known_public_key: bytes | None = None
-        if expected_enclave_id:
-            identity = self.get_enclave(expected_enclave_id)
-            if identity is not None:
-                if identity.status == EnclaveStatus.REVOKED.value:
-                    return False
+        allowed_measurements: set[str] | None = None
+        identity = self.get_enclave(expected_enclave_id) if expected_enclave_id else None
+        if identity is not None:
+            if identity.status == EnclaveStatus.REVOKED.value:
+                return QuoteValidationResult(False, False, "revoked")
+            if identity.public_key:
                 try:
-                    known_public_key = base64.b64decode(identity.public_key) if identity.public_key else None
+                    known_public_key = base64.b64decode(identity.public_key)
                 except (binascii.Error, ValueError):
-                    known_public_key = None
+                    return QuoteValidationResult(False, False, "invalid_registered_public_key")
+            if identity.allowed_measurements:
+                allowed_measurements = set(identity.allowed_measurements)
+            else:
+                # No explicit allowlist: the expected measurement itself is the
+                # only allowed value, so a registered enclave cannot be reused
+                # for a measurement the operator has not named.
+                allowed_measurements = {expected_measurement} if expected_measurement else None
 
-        # The quote must be cryptographically signed and match the expected
-        # measurement. Failing either means it is not a real quote path.
         expected = expected_measurement or expected_enclave_id
-        verifier = AttestationVerifier(require_signature=True)
-        return verifier.verify(quote, expected_measurement=expected or None, known_public_key=known_public_key)
+        verifier = AttestationVerifier(allowed_measurements=allowed_measurements, require_signature=True)
+        passes = verifier.verify(
+            quote,
+            expected_measurement=expected or None,
+            known_public_key=known_public_key,
+        )
+        if not passes:
+            return QuoteValidationResult(False, False, "signature_or_measurement_failed")
 
-    def verify_and_store(self, enclave_id: str, quote: str, measurement: str = "") -> TEEAttestation:
+        if identity is not None:
+            return QuoteValidationResult(True, True, "registered")
+
+        if require_registered:
+            return QuoteValidationResult(False, False, "unregistered")
+
+        return QuoteValidationResult(True, False, "self_consistent")
+
+    def verify_and_store(
+        self,
+        enclave_id: str,
+        quote: str,
+        measurement: str = "",
+        *,
+        require_registered: bool = False,
+    ) -> TEEAttestation:
         """Verify a quote and persist the result."""
         expected_measurement = measurement or enclave_id
-        is_valid = self._validate_quote(quote, expected_measurement, enclave_id)
+        result = self._validate_quote(quote, expected_measurement, enclave_id, require_registered=require_registered)
+        if result.valid and result.registered:
+            status = TEEAttestationStatus.VERIFIED.value
+        elif result.valid:
+            status = TEEAttestationStatus.SELF_CONSISTENT.value
+        else:
+            status = TEEAttestationStatus.REJECTED.value
         attestation = TEEAttestation(
             enclave_id=enclave_id,
             quote=quote,
             measurement=expected_measurement,
-            status=TEEAttestationStatus.VERIFIED.value if is_valid else TEEAttestationStatus.REJECTED.value,
-            verified_at=datetime.now(UTC) if is_valid else None,
+            status=status,
+            registered=result.registered,
+            verified_at=datetime.now(UTC) if result.valid else None,
         )
         self.session.add(attestation)
         self.session.commit()
@@ -159,17 +208,16 @@ class TEEAttestationService:
         public_key: str,
         agent_id: str = "",
         status: EnclaveStatus = EnclaveStatus.ACTIVE,
+        *,
+        allowed_measurements: list[str] | None = None,
     ) -> EnclaveIdentity:
         """Register or update an enclave identity.
 
         Registration is owner-locked: once an enclave_id has been registered
-        with a given ``agent_id``, only that same ``agent_id`` may update it
-        (an identity with no ``agent_id`` on record yet is still adoptable,
-        so existing unlabeled registrations do not become permanently
-        frozen). This is what makes registry-pinned verification
-        (``_validate_quote``) mean anything -- without it, anyone could
-        re-register someone else's enclave_id with their own key and defeat
-        the pin.
+        with a given ``agent_id``, only that same ``agent_id`` may update it.
+        The ``allowed_measurements`` list restricts which quote measurements
+        this enclave may attest; if empty, the expected measurement passed at
+        verification time is the only allowed value.
         """
         statement = select(EnclaveIdentity).where(EnclaveIdentity.enclave_id == enclave_id)
         identity = self.session.exec(statement).first()
@@ -181,6 +229,8 @@ class TEEAttestationService:
         identity.public_key = public_key
         identity.agent_id = agent_id
         identity.status = status.value if isinstance(status, EnclaveStatus) else status
+        if allowed_measurements is not None:
+            identity.allowed_measurements = list(allowed_measurements)
         identity.updated_at = datetime.now(UTC)
         self.session.commit()
         self.session.refresh(identity)
