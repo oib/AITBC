@@ -300,6 +300,9 @@ class JobCreate(BaseModel):
     payment_currency: str = brand_symbol  # Jobs paid with network tokens
     buyer_address: str | None = None  # Customer wallet address for escrow
     provider_address: str | None = None  # Provider wallet address for escrow
+    buyer_lock_signature: str | None = None  # Pre-signed ESCROW_LOCK transaction signature
+    buyer_lock_nonce: int | None = None  # Nonce used in the ESCROW_LOCK transaction
+    buyer_lock_fee: int | None = None  # Fee used in the ESCROW_LOCK transaction
     # G1: the marketplace listing this job is bought against. When set, the offer
     # decides the price and the payee, and a payment_amount or provider_address that
     # disagrees with it is refused rather than quietly preferred.
@@ -327,6 +330,10 @@ class JobView(BaseModel):
     offer_price_unit: str | None = None
     offer_quantity: Decimal | None = None
     zk_status: str | None = None
+    payment_amount: Decimal | None = None
+    payment_token: str | None = None
+    provider_address: str | None = None
+    buyer_address: str | None = None
     payload: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     zk_proof_id: str | None = None
