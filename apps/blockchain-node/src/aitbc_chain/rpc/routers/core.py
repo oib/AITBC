@@ -49,6 +49,18 @@ async def get_genesis_allocations_route(request: Request, chain_id: str | None =
     return await get_genesis_allocations(request, chain_id)  # type: ignore[no-any-return]
 
 
+
+@router.get("/chain/head", summary="Get current chain head (compatibility alias)")
+@rate_limit(rate=200, per=60)
+async def get_chain_head_alias_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Get current chain head (alias for /head). Logs caller to identify stale clients."""
+    _logger.info(
+        "Chain head alias called: path=%s client=%s user_agent=%s",
+        request.url.path,
+        request.client.host if request.client else "unknown",
+        request.headers.get("user-agent", "unknown"),
+    )
+    return await get_head(request, chain_id)  # type: ignore[no-any-return]
 @router.get("/head", summary="Get current chain head")
 @rate_limit(rate=200, per=60)
 async def get_head_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
