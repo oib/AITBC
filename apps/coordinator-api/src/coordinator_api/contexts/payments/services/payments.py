@@ -388,11 +388,13 @@ class PaymentService:
         job = self.session.get(Job, job_id)
         if _zk_required_for_payment(payment.amount if payment.amount else None, job):
             receipt = job.receipt if job else None
-            if not receipt or receipt.get("zk_status") != "verified":
+            if not receipt or receipt.get("zk_status") != "verified" or receipt.get("computation_correct") is False:
                 logger.error(
-                    "Escrow release blocked for job %s payment %s: verified ZK receipt proof required",
+                    "Escrow release blocked for job %s payment %s: verified ZK receipt proof with correct computation required (zk_status=%s, computation_correct=%s)",
                     job_id,
                     payment_id,
+                    receipt.get("zk_status") if receipt else None,
+                    receipt.get("computation_correct") if receipt else None,
                 )
                 return False
         try:
