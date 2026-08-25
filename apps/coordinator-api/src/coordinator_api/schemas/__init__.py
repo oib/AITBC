@@ -334,6 +334,7 @@ class JobView(BaseModel):
     payment_token: str | None = None
     provider_address: str | None = None
     buyer_address: str | None = None
+    node_wallet_address: str | None = None
     payload: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     zk_proof_id: str | None = None

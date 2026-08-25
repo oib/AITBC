@@ -256,6 +256,7 @@ class JobService:
             payment_token=job.payment_token,
             provider_address=job.provider_address,
             buyer_address=(payment.meta_data or {}).get("buyer_address") if payment else None,
+            node_wallet_address=self.payment_service._get_node_wallet_address() or None,
             offer_id=offer_id,
             offer_unit_price=offer_unit_price,
             offer_price_unit=offer_price_unit,

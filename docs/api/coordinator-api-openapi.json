@@ -33300,6 +33300,17 @@
             ],
             "title": "Buyer Address"
           },
+          "node_wallet_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Wallet Address"
+          },
           "payload": {
             "anyOf": [
               {
