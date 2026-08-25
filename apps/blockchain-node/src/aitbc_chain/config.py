@@ -283,7 +283,19 @@ class ChainSettings(BaseSettings):
 
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
+    # ISO-8601 timestamp; if in the future, signature validation is temporarily disabled.
+    sync_validate_signatures_skip_until: str = ""
     sync_state_root_validation_enabled: bool = True  # validate state roots on push/gossip block import
+
+    # SyncManager settings (v0.11.0)
+    sync_manager_enabled: bool = False
+    sync_managed_externally: bool = False
+    sync_manager_use_gossip: bool = True
+    sync_manager_use_subscription: bool = False
+    sync_manager_poll_interval: float = 5.0
+    sync_manager_state_sync_interval: float = 300.0
+    sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."
+    state_sync_max_gap: int = 10
     block_scoped_preregistered_transactions: bool = False  # apply FAUCET/BRIDGE_* Account changes only at block time
 
     # Automatic bulk sync settings
@@ -597,6 +609,20 @@ class ChainSettings(BaseSettings):
     escrow_htlc_enabled: bool = True  # use HTLC contract for escrow
     escrow_htlc_contract_address: str = ""  # deployed CrossChainAtomicSwap.sol
     escrow_large_trade_threshold: int = 10000  # trades above this use large timeout
+
+    @model_validator(mode="after")
+    def _resolve_validate_signatures(self) -> ChainSettings:
+        """If SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL is a future timestamp, disable validation."""
+        if not self.sync_validate_signatures or not self.sync_validate_signatures_skip_until:
+            return self
+        try:
+            from datetime import UTC, datetime
+
+            if datetime.now(UTC) < datetime.fromisoformat(self.sync_validate_signatures_skip_until):
+                self.sync_validate_signatures = False
+        except ValueError:
+            pass
+        return self
 
 
 settings = ChainSettings()

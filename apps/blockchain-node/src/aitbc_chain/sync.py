@@ -160,3 +160,16 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
             else:
                 logger.warning("No source URL available for auto re-sync")
         return False
+
+    def get_local_height(self) -> int:
+        """Return the highest block height we currently hold, or -1."""
+        with self._session_factory() as session:
+            from sqlalchemy import text
+            from sqlmodel import select
+
+            from .base_models import Block
+
+            local_block = session.exec(
+                select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+            ).first()
+        return local_block.height if local_block else -1
