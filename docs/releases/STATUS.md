@@ -87,9 +87,9 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 
 > **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. Cross-chain bridge HTLC settlement is also gated by this flag; operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
 >
-> **Bridge security defaults:** `bridge_release_enabled=False` means the live bridge still operates as a trusted custodian. Merkle-proof and multi-sig verification are implemented and covered by regression tests, but they are **disabled by default** and must be explicitly enabled for a trust-minimized configuration.
+> **Bridge security defaults (2026-08-25):** `bridge_release_enabled` is now `True` live on `hub.aitbc` and `aitbc3`; `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, and `require_merkle_proof: true`. However, a live consensus stall prevents safe confirmations: see the Open design-review gaps table and the bridge/live-validation section below.
 >
-> **Bridge trust model — verified and documented:** the bridge is trust-minimised in design; custodian mode is the honest default; Merkle and multi-sig verification are implemented and off by default. This is documented in `docs/security/bridge-custodian.md` and labelled clearly for operators.
+> **Bridge trust model — verified and documented (2026-08-25):** Merkle and multi-sig verification are implemented and live-enabled on `hub.aitbc` / `aitbc3`. Custodian mode remains the honest fallback. Bridge `confirm` should not be invoked while the two-validator chain is stalled; the safe path is to clear the consensus stall first. See `docs/security/bridge-custodian.md`.
 
 ## Trust root
 
@@ -224,7 +224,7 @@ The provider-bond surface previously allowed an active/locked bond of any amount
 
 The deployed `ml_inference_verification` circuit in the coordinator tree used `verified <== 1 - (diff * diff)`, which computed a value but never constrained it. A non-zero difference could still make the equation true in the field, so the proof carried no correctness guarantee. The authoring tree in `apps/zk-circuits` had the correct `IsZero` implementation; it was promoted to the coordinator circuit directory, the r1cs/wasm and key material were regenerated, and `build-circuits.sh` now includes `ml_inference_verification` in its rebuild list. `zk_proofs.py` now decodes the per-circuit success public signal: for `ml_inference_verification` `public_signals[0]` must be `"1"`; for the training circuits the last public signal (`training_complete`) must be `"1"`. The new tests in `test_v2394_zk_circuit_constraints.py` cover a correct inference, a wrong inference with `verified == 0`, and a tampered public signal that breaks Groth16 verification.
 
-**Remaining gap:** the `computation_correct` signal is not yet wired into the job-acceptance gate that decides `pending_acceptance` → `release`. The ZK proof now detects a bad result, but it does not yet block payment, and the TEE decoding flag still needs to be wired as well. Smallest, most scoped remaining piece: route the existing `computation_correct` signal into whatever gate currently releases escrow.
+**Closed (2026-08-25):** the `computation_correct` signal is wired into `_attach_zk_proof` and `PaymentService.release_payment`; the function fails closed before the blockchain client is invoked. The TEE decoding flag remains unconnected and is now the only remaining piece in this path.
 
 ## Open design-review gaps (2026-08-25)
 
@@ -232,8 +232,32 @@ These are the live-design verdicts that follow the economic-loop verification ab
 
 | Gap | Verdict | Notes |
 |---|---|---|
-| G3 — dispatch/acceptance-gate wiring | **TEST-VERIFIED, PENDING RESTART** | `computation_correct` is now wired into `_attach_zk_proof` and `PaymentService.release_payment`; a false value sets `zk_status="computation_incorrect"` and blocks escrow release. Tests in `test_zk_computation_correct_gate.py` pass. The fix is not yet loaded live; it requires an `aitbc-coordinator-api` restart. |
+| G3 — dispatch/acceptance-gate wiring | **LIVE** | `computation_correct` is wired and loaded; `aitbc-coordinator-api` on `hub.aitbc` was restarted and `/proc/<pid>/environ` confirms `BRIDGE_RELEASE_ENABLED=true`. A false value stamps `zk_status="computation_incorrect"` and `release_payment` fails closed before touching the blockchain client. |
 | G6 — settlement/trust-minimization | **PARTIALLY CLOSED** | The rotation process is now committed: `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. `PBFTConsensus` wiring and true BFT/fault tolerance remain open and are a larger architectural task. |
 | G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
-| Bridge — multi-sig/Merkle enforcement | **ENABLED FOR VALIDATION** | `BRIDGE_RELEASE_ENABLED=true` is now live on `hub.aitbc` and `aitbc3`. `aitbc bridge security-status` reports `release_enabled: true` and `trusted_custodian: false`. A controlled live validation run (confirm/release of a pending transfer) is pending operator-provided confirmer credentials. |
+| Bridge — multi-sig/Merkle enforcement | **ENABLED, VALIDATION PAUSED** | `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`. `aitbc bridge security-status` reports `release_enabled: true` and `trusted_custodian: false`. A controlled `confirm`/`release` run is **not safe** right now: `hub.aitbc` and `aitbc1` are one block apart (`/rpc/height` returns 14547 vs 14548, both 7.5+ hours old), the same proposer-turn-gate stall signature from the 2026-08-24 G6 incident. `confirm_transfer` would synchronously credit the recipient and mark the transfer `completed` without verifying the release is sealed in a produced block, so running it during the stall would create a divergence. |
 | G8 — doc debt | **CLOSED** | The `--show-deprecated` gate has been removed: `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py` are deleted, `main.py` no longer filters the help surface, and all top-level groups including `marketplace` and `operations` appear in `aitbc --help` by default. |
+
+## Live consensus stall and bridge-validation hold (2026-08-25)
+
+Independent verification confirmed the bridge release flag is live, but the
+underlying two-validator chain is currently stalled:
+
+- `hub.aitbc` `/rpc/height` returns `14547`.
+- `aitbc1` `/rpc/height` returns `14548`.
+- Both `head` timestamps are 7.5+ hours old and match the 2026-08-24 incident
+  signature (proposer-turn gate vetoing the forced heartbeat).
+- `hub.aitbc` `/proc/<pid>/environ` for `aitbc-coordinator-api` now reads
+  `BRIDGE_RELEASE_ENABLED=true` after an explicit post-config-edit restart.
+
+Because `confirm_transfer` credits the recipient synchronously and marks the
+source `CrossChainTransfer` `completed` without checking that a
+`BRIDGE_RELEASE` transaction is sealed in a produced block, running any
+`aitbc bridge confirm` while the chain is stalled would report success while
+silently diverging from on-chain history. The 5 pending transfers (including 4
+self-sends from the bridge admin and 1 external 30-unit transfer) should remain
+pending until the stall clears and `hub.aitbc` / `aitbc1` advance together.
+
+The root-cause work (nginx WebSocket upgrade headers for the `aitbc1` gossip
+path and correcting hub's self-referential `default_source` sync source) is the
+same G6 follow-up identified on 2026-08-24 and is still open.
