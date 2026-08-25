@@ -33,10 +33,10 @@ def _marketplace_client() -> AITBCHTTPClient:
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def marketplace(ctx, chain_id: str | None):
-    """Legacy global chain marketplace commands (cross-chain offers, bridge, on-chain listings).
+    """Global chain marketplace commands (cross-chain offers, bridge, on-chain listings).
 
-Prefer `aitbc market` for GPU/software offers (miner-published, coordinator-backed).
-"""
+    For GPU/software offers published by shop miners, use `aitbc market` instead.
+    """
     ctx.ensure_object(dict)
 
     # Handle chain_id with auto-detection
