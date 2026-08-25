@@ -29,6 +29,7 @@ from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
 from ...infrastructure.services.receipts import ReceiptService
 from ...zk_applications.services.zk_proofs import zk_proof_service
+from ...zk_applications.services import model_registry
 from ....storage import get_session
 from ...tee.attestation import TEEAttestationService, TEEAttestationStatus
 
@@ -84,11 +85,14 @@ def _tee_required_for(job: Any) -> bool:
 
 
 async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Generate and attach a receipt_public Groth16 proof when required.
+    """Generate and attach a model-execution proof when required.
 
-    Always stores a boolean ``computation_correct`` so the acceptance gate can
-    fail-closed on both missing and explicitly-false values. For non-ZK jobs the
-    value is ``True``. For any ZK failure path it is ``False``.
+    v0.14.4: a high-value/ZK job must prove model execution via a
+    ``receipt_model`` Groth16 proof. The ``receipt_public`` proof is still
+    generated as a receipt-binding artifact, but it does not set
+    ``computation_correct``. ``computation_correct`` is only True when the
+    model-execution proof verifies and its public signals match the
+    coordinator-derived expected hashes.
     """
     if not receipt:
         return receipt
@@ -101,48 +105,68 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
         receipt["zk_status"] = "service_unavailable"
         receipt["computation_correct"] = False
         return receipt
-    try:
-        receipt_model = Receipt(
-            receiptId=receipt.get("receipt_id", ""),
-            miner=receipt.get("provider", ""),
-            coordinator=receipt.get("coordinator", ""),
-            issuedAt=datetime.fromtimestamp(receipt.get("completed_at", 0), tz=UTC),
-            status=receipt.get("status", "completed"),
-            payload=receipt,
+
+    # Model-execution proof is the new gate. If the job does not name a
+    # supported deterministic model, it cannot release.
+    model_id = model_registry.resolve_model_id(job, result)
+    if not model_id or model_registry.get_model(model_id) is None:
+        logger.warning(
+            "ZK-required job %s does not specify a supported model (got %r); blocking release",
+            job.id,
+            model_id,
         )
-        job_result = JobResult(result=result or {})
-        proof = await zk_proof_service.generate_receipt_proof(receipt_model, job_result)
-        if not proof:
-            logger.error("Failed to generate ZK proof for job %s", job.id)
+        receipt["zk_status"] = "unsupported_model"
+        receipt["computation_correct"] = False
+        return receipt
+
+    try:
+        model_proof = await zk_proof_service.generate_model_proof(job, result)
+        if not model_proof:
+            logger.error("Failed to generate model-execution proof for job %s", job.id)
             receipt["zk_status"] = "generation_failed"
             receipt["computation_correct"] = False
             return receipt
-        # Inline verification so the receipt only stores a verified proof.
-        verify_result = await zk_proof_service.verify_proof(
-            proof["proof"], proof["public_signals"], circuit_name=proof.get("circuit", "receipt_public")
+
+        model = model_registry.get_model(model_id)
+        inputs = model_registry.compute_public_inputs(job, result, model)
+        expected_public = model_registry.expected_public_signals(inputs["public_inputs"])
+
+        verify_result = await zk_proof_service.verify_model_proof(
+            model_proof["proof"], model_proof["public_signals"], expected_public
         )
-        if not verify_result.get("verified"):
-            logger.error("ZK proof did not verify for job %s: %s", job.id, verify_result.get("error"))
-            receipt["zk_status"] = f"verification_failed: {verify_result.get('error', 'unknown')}"
+        if not verify_result.get("computation_correct"):
+            logger.error(
+                "Model-execution proof for job %s is not computation_correct: %s",
+                job.id,
+                verify_result.get("error", "unknown"),
+            )
+            receipt["zk_status"] = verify_result.get("error") or "computation_incorrect"
             receipt["computation_correct"] = False
             return receipt
 
-        computation_correct = verify_result.get("computation_correct", verify_result.get("verified"))
-        if computation_correct is None:
-            computation_correct = True
-        if not computation_correct:
-            logger.error(
-                "ZK proof verified for job %s but computation_correct is false; blocking acceptance",
-                job.id,
+        # Optional: also bind the receipt with a receipt_public proof, but do
+        # not let it influence computation_correct.
+        try:
+            receipt_model = Receipt(
+                receiptId=receipt.get("receipt_id", ""),
+                miner=receipt.get("provider", ""),
+                coordinator=receipt.get("coordinator", ""),
+                issuedAt=datetime.fromtimestamp(receipt.get("completed_at", 0), tz=UTC),
+                status=receipt.get("status", "completed"),
+                payload=receipt,
             )
-            receipt["computation_correct"] = False
-            receipt["zk_status"] = "computation_incorrect"
-            return receipt
+            job_result = JobResult(result=result or {})
+            binding_proof = await zk_proof_service.generate_receipt_proof(receipt_model, job_result)
+        except Exception as bind_err:
+            logger.warning("Receipt binding proof for job %s failed (non-fatal): %s", job.id, bind_err)
+            binding_proof = None
 
         receipt["computation_correct"] = True
-        receipt["zk_proof"] = proof
+        receipt["zk_proof"] = model_proof
         receipt["zk_status"] = "verified"
-        logger.info("ZK receipt proof generated and verified for job %s", job.id)
+        if binding_proof:
+            receipt["receipt_binding_proof"] = binding_proof
+        logger.info("Model-execution proof generated and verified for job %s", job.id)
     except Exception as e:
         logger.error("Error generating ZK proof for job %s: %s", job.id, e)
         receipt["zk_status"] = f"error: {e}"
