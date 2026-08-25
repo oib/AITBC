@@ -17,8 +17,6 @@ if REPO_ROOT not in sys.path:
 
 import click
 from aitbc_cli.utils.http_client import get_logger
-from .surface_policy import DEPRECATED_COMMANDS
-from .validated_group import ValidatedGroup
 from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.agent_wallet import agent_wallet
@@ -128,7 +126,7 @@ def version():
     click.echo("New Features: ✅")
 
 
-@click.group(cls=ValidatedGroup, validated_commands=set())
+@click.group()
 @click.version_option(version=__version__, prog_name="aitbc")
 @click.option("--url", default=None, help="Coordinator API URL (overrides config)")
 @click.option("--api-key", default=None, help="API key for authentication")
@@ -136,14 +134,8 @@ def version():
 @click.option("--output", default="table", type=click.Choice(["table", "json", "yaml", "csv"]), help="Output format")
 @click.option("--verbose", "-v", count=True, help="Increase verbosity (can be used multiple times)")
 @click.option("--debug", is_flag=True, help="Enable debug mode")
-@click.option(
-    "--show-deprecated",
-    is_flag=True,
-    hidden=True,
-    help="Show and run unvalidated commands (use at your own risk)",
-)
 @click.pass_context
-def cli(ctx, url, api_key, chain_id, output, verbose, debug, show_deprecated):
+def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     """AITBC CLI - Command Line Interface for AITBC Network
 
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
@@ -151,9 +143,9 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug, show_deprecated):
 
     COMMAND GROUP DISAMBIGUATION:
     - Use `aitbc market` for GPU/software offers (coordinator-backed, miner-published).
-    - `aitbc marketplace` is a legacy on-chain marketplace and is hidden from this help.
+    - `aitbc marketplace` is a legacy on-chain marketplace; prefer `aitbc market`.
     - Use `aitbc governance` for service-backed proposals, voting, and execution.
-    - `aitbc operations governance` is a legacy on-chain RPC path and is hidden from this help.
+    - `aitbc operations governance` is a legacy on-chain RPC path; prefer `aitbc governance`.
 
     SYSTEM ARCHITECTURE COMMANDS:
     system          System management commands
@@ -175,7 +167,6 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug, show_deprecated):
     ctx.obj["output_format"] = output
     ctx.obj["verbose"] = verbose
     ctx.obj["debug"] = debug
-    ctx.obj["show_deprecated"] = show_deprecated
 
     # Load the configuration object once and share it with all subcommands.
     # Commands that need fresh data (e.g., after a config set) can call
@@ -195,8 +186,7 @@ cli.add_command(start)
 cli.add_command(stop)
 cli.add_command(restart)
 cli.add_command(market, name="market")
-marketplace.hidden = True  # Legacy on-chain marketplace; prefer `aitbc market`
-cli.add_command(marketplace, name="marketplace")  # Legacy on-chain marketplace; kept for compatibility but hidden from help
+cli.add_command(marketplace, name="marketplace")  # Legacy on-chain marketplace; kept for compatibility
 cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
 cli.add_command(ai)  # AI job submission and inspection
@@ -232,7 +222,6 @@ cli.add_command(mining)
 cli.add_command(agent_msg, name="agent-msg")
 cli.add_command(workflow)
 cli.add_command(resource)
-operations.hidden = True  # Legacy on-chain operations; prefer top-level ai, agent, governance, market
 cli.add_command(operations)
 cli.add_command(simulate)
 cli.add_command(edge)
@@ -263,10 +252,8 @@ cli.add_command(explorer)
 cli.add_command(trade)
 cli.add_command(agent_wallet, name="agent-wallet")
 
-# After all commands are registered, expose every top-level group except the
-# explicitly deprecated legacy groups. This avoids a hand-curated allowlist that
-# drifts out of sync with the documented CLI catalog.
-cli.validated_commands = set(cli.commands) - DEPRECATED_COMMANDS
+# All top-level command groups are exposed by default. Legacy groups remain
+# available for compatibility; their help texts note the preferred replacement.
 
 
 def main(argv=None):

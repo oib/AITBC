@@ -78,7 +78,7 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 
 | Flag | Default | Production Recommendation |
 |------|---------|--------------------------|
-| `bridge_release_enabled` | `False` | **Trusted-custodian mode by default** — operator release path. Set to `True` only after a multi-sig validator set and Merkle proof ingestion are operational. |
+| `bridge_release_enabled` | `True` (live since 2026-08-25) | **Trust-minimized mode** on `hub.aitbc` and `aitbc3`: `release_enabled=true`, `multisig_enabled=true`, `require_merkle_proof=true`. Fresh deployments should keep `False` until a multi-sig validator set and Merkle proof ingestion are operational. |
 | `bridge_multisig_enabled` | `False` | Enable for multi-validator networks |
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
@@ -233,7 +233,7 @@ These are the live-design verdicts that follow the economic-loop verification ab
 | Gap | Verdict | Notes |
 |---|---|---|
 | G3 — dispatch/acceptance-gate wiring | **TEST-VERIFIED, PENDING RESTART** | `computation_correct` is now wired into `_attach_zk_proof` and `PaymentService.release_payment`; a false value sets `zk_status="computation_incorrect"` and blocks escrow release. Tests in `test_zk_computation_correct_gate.py` pass. The fix is not yet loaded live; it requires an `aitbc-coordinator-api` restart. |
-| G6 — settlement/trust-minimization | **OPEN, WORST** | No scoped fix yet. The 2026-08-24 live incident (real second validator, 20-minute stall, hand-rotated recovery key that is not in git) added a new open item on top: that key needs to go through a real, committed rotation process, and `PBFTConsensus` still is not wired into block production. Hint: start with getting the recovery key into git-tracked config properly — it is the more urgent half of G6 right now, ahead of the PBFT wiring itself. |
+| G6 — settlement/trust-minimization | **PARTIALLY CLOSED** | The rotation process is now committed: `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. `PBFTConsensus` wiring and true BFT/fault tolerance remain open and are a larger architectural task. |
 | G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
-| Bridge — multi-sig/Merkle enforcement | **CORRECT-BUT-OFF** | Proven correct in testing, but the bridge is still switched off (`bridge_release_enabled=false`); no live path is exercising it. |
-| G8 — doc debt | **PRODUCT-CALL** | Mostly caught up (`STATUS.md`/`DESIGN_CYCLE.md` reconciled), but the `--show-deprecated` CLI gate hiding ~52 of 67 command groups is flagged, not fixed — a product call, not a coding one. |
+| Bridge — multi-sig/Merkle enforcement | **ENABLED FOR VALIDATION** | `BRIDGE_RELEASE_ENABLED=true` is now live on `hub.aitbc` and `aitbc3`. `aitbc bridge security-status` reports `release_enabled: true` and `trusted_custodian: false`. A controlled live validation run (confirm/release of a pending transfer) is pending operator-provided confirmer credentials. |
+| G8 — doc debt | **CLOSED** | The `--show-deprecated` gate has been removed: `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py` are deleted, `main.py` no longer filters the help surface, and all top-level groups including `marketplace` and `operations` appear in `aitbc --help` by default. |
