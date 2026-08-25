@@ -89,8 +89,17 @@ class ProposerSignatureValidator:
 
         # v0.7.5: if multi-validator consensus is enabled, verify block attestations
         # stored in block_metadata. At least multi_validator_min_attestations must
-        # be valid signatures from the configured validator set.
+        # be valid signatures from the configured validator set. Pre-multi-validator
+        # blocks (proposer is not in the configured validator set) are accepted
+        # without attestation checks so the chain can sync historical single-proposer
+        # eras while enforcing the new rules for current validator-set blocks.
         if getattr(settings, "multi_validator_consensus_enabled", False) and getattr(settings, "validator_set", ""):
+            validator_set = self._load_validator_set()
+            from aitbc.crypto.signature_recovery import canonical_address
+
+            proposer_canonical = canonical_address(proposer)
+            if not any(canonical_address(v) == proposer_canonical for v in validator_set):
+                return (True, "Pre-multi-validator block: proposer not in validator set")
             valid, reason = self._validate_attestations(block_data)
             if not valid:
                 metrics_registry.increment("sync_signature_rejected_total")
@@ -134,14 +143,16 @@ class ProposerSignatureValidator:
 
         validator_set = self._load_validator_set() or self._trusted
         from aitbc.crypto.consensus_signing import verify_block_signature
+        from aitbc.crypto.signature_recovery import canonical_address
 
         valid_count = 0
+        validator_canonical = {canonical_address(v) for v in validator_set}
         for att in attestations:
             validator = att.get("validator", "")
             signature = att.get("signature", "")
             if not validator or not signature:
                 continue
-            if validator_set and validator.lower() not in {v.lower() for v in validator_set}:
+            if validator_canonical and canonical_address(validator) not in validator_canonical:
                 continue
             if verify_block_signature(block_data, signature, validator):
                 valid_count += 1
