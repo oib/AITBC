@@ -231,7 +231,7 @@ async def test_gossip_transport_receives():
         "signature": "",
         "timestamp": 0.0,
     }
-    pbft.handle_incoming_message(msg_data)
+    await pbft.handle_incoming_message(msg_data)
     key = "1:0"
     assert key in pbft.state.prepared_messages
     assert len(pbft.state.prepared_messages[key]) == 1
@@ -246,7 +246,7 @@ async def test_gossip_transport_receives():
         "signature": "",
         "timestamp": 0.0,
     }
-    pbft.handle_incoming_message(pp_data)
+    await pbft.handle_incoming_message(pp_data)
     assert "2:0" in pbft.state.pre_prepare_messages
 
     # Simulate an incoming commit message
@@ -259,10 +259,53 @@ async def test_gossip_transport_receives():
         "signature": "",
         "timestamp": 0.0,
     }
-    pbft.handle_incoming_message(commit_data)
+    await pbft.handle_incoming_message(commit_data)
     assert key in pbft.state.committed_messages
     assert len(pbft.state.committed_messages[key]) == 1
 
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+@pytest.mark.asyncio
+async def test_four_validator_round():
+    """A full PBFT round with 4 validators in memory reaches commit."""
+    from eth_keys import keys
+    import secrets
+
+    class Network:
+        def __init__(self, nodes):
+            self.nodes = nodes
+
+        async def publish(self, topic, msg_data):
+            for node in self.nodes:
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    # 4 independent validators
+    validators: list[tuple[str, str, PBFTConsensus]] = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        addr = pk.public_key.to_checksum_address()
+        validators.append((addr, pk.to_hex(), None))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-round")
+    for addr, _, _ in validators:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    net = Network([])
+    for i, (addr, pk_hex, _) in enumerate(validators):
+        node = PBFTConsensus(shared_consensus, private_key=pk_hex, chain_id="test-pbft-round", local_validator=addr)
+        node.set_gossip_backend(net)
+        validators[i] = (addr, pk_hex, node)
+        net.nodes.append(node)
+
+    proposer_addr, _, proposer = validators[0]
+    block_hash = "0x" + secrets.token_hex(32)
+    result = await proposer.propose_and_wait(proposer_addr, block_hash, timeout=5.0)
+    assert result is True
+
+    key = f"{proposer.state.current_sequence}:{proposer.state.current_view}"
+    assert len(proposer.state.committed_messages.get(key, [])) >= proposer.required_messages
