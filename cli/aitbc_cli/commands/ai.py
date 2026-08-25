@@ -2,7 +2,16 @@
 
 import os
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import json
+
+from aitbc.crypto.crypto import sign_transaction_hash
+from aitbc.crypto.signature_recovery import canonical_address
+from eth_utils import keccak
+
+from ..utils.wallet import decrypt_private_key
+from ..utils.wallet_paths import wallet_dir
+
 from typing import Any
 
 import click
@@ -47,6 +56,162 @@ def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     if url.endswith("/v1"):
         url = url[:-3]
     return url
+
+
+def _canonical_address_or_abort(ctx, address: str | None, label: str) -> str:
+    if not address:
+        abort(ctx, f"{label} address is required")
+    try:
+        return canonical_address(address)
+    except Exception as e:
+        abort(ctx, f"Invalid {label} address {address}: {e}")
+
+
+def _load_wallet(ctx, wallet: str | None, password: str | None):
+    if not wallet:
+        return None, None
+    wallet_path = wallet_dir() / f"{wallet}.json"
+    if not wallet_path.exists():
+        abort(ctx, f"Wallet not found: {wallet_path}")
+    try:
+        with open(wallet_path) as f:
+            data = json.load(f)
+    except Exception as e:
+        abort(ctx, f"Failed to load wallet {wallet}: {e}")
+    address = data.get("address")
+    if not address:
+        abort(ctx, f"Wallet {wallet} has no address")
+    private_key = data.get("private_key")
+    if isinstance(private_key, dict):
+        if not password:
+            abort(ctx, f"Wallet {wallet} is encrypted; --password required")
+        try:
+            private_key = decrypt_private_key(wallet_path, password)
+        except Exception as e:
+            abort(ctx, f"Failed to decrypt wallet {wallet}: {e}")
+    elif not isinstance(private_key, str) or not private_key:
+        abort(ctx, f"Wallet {wallet} has no usable private key")
+    return address, private_key
+
+
+def _get_rpc_client(rpc_url: str) -> AITBCHTTPClient:
+    return AITBCHTTPClient(base_url=rpc_url, timeout=10)
+
+
+def _get_node_wallet(ctx, rpc_url: str) -> str:
+    client = _get_rpc_client(rpc_url)
+    try:
+        health = client.get("/health")
+    except NetworkError as e:
+        abort(ctx, f"Cannot reach blockchain RPC at {rpc_url}: {e}")
+    proposer_id = health.get("proposer_id")
+    if not proposer_id:
+        abort(ctx, "Blockchain RPC /health did not return proposer_id (node wallet)")
+    return _canonical_address_or_abort(ctx, proposer_id, "node wallet")
+
+
+def _get_buyer_nonce(ctx, rpc_url: str, buyer: str) -> int:
+    client = _get_rpc_client(rpc_url)
+    try:
+        account = client.get(f"/rpc/account/{buyer}")
+    except NetworkError:
+        return 0
+    except Exception:
+        return 0
+    return int(account.get("nonce", 0))
+
+
+def _ait_to_seconds(amount_ait: Decimal) -> int:
+    seconds = int(amount_ait * 3600)
+    return seconds if seconds > 0 else int(amount_ait)
+
+
+def _build_escrow_lock_tx(
+    job_id: str,
+    buyer: str,
+    provider: str,
+    node_wallet: str,
+    amount_ait: Decimal,
+    nonce: int,
+    fee: int | None = None,
+    chain_id: str = "ait-hub.aitbc.bubuit.net",
+) -> dict[str, Any]:
+    amount_seconds = _ait_to_seconds(amount_ait)
+    if fee is None:
+        fee = max(36, amount_seconds // 100)
+    return {
+        "from": buyer,
+        "to": node_wallet,
+        "amount": amount_seconds,
+        "fee": fee,
+        "nonce": nonce,
+        "type": "ESCROW_LOCK",
+        "chain_id": chain_id,
+        "payload": {
+            "action": "escrow_lock",
+            "job_id": job_id,
+            "provider": provider,
+        },
+    }
+
+
+def _sign_escrow_lock_tx(lock_tx: dict[str, Any], private_key: str) -> str:
+    has_amount = "amount" in lock_tx
+    tx_for_sign = {k: v for k, v in lock_tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
+    canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
+    tx_hash = "0x" + keccak(canonical).hex()
+    return sign_transaction_hash(tx_hash, private_key)
+
+
+def _create_escrow_payment(
+    ctx,
+    coord_http_client: AITBCHTTPClient,
+    rpc_url: str,
+    job_id: str,
+    amount,
+    token: str,
+    buyer_address: str,
+    provider_address: str,
+    private_key: str,
+    chain_id: str | None,
+    offer_id: str | None,
+    offer_quantity: Decimal | None,
+) -> dict[str, Any]:
+    buyer_canon = _canonical_address_or_abort(ctx, buyer_address, "buyer")
+    provider_canon = _canonical_address_or_abort(ctx, provider_address, "provider")
+    node_wallet = _get_node_wallet(ctx, rpc_url)
+    nonce = _get_buyer_nonce(ctx, rpc_url, buyer_canon)
+    try:
+        amount_ait = Decimal(str(amount))
+    except InvalidOperation:
+        abort(ctx, f"Invalid payment amount: {amount}")
+    lock_tx = _build_escrow_lock_tx(
+        job_id,
+        buyer_canon,
+        provider_canon,
+        node_wallet,
+        amount_ait,
+        nonce,
+        chain_id=chain_id or "ait-hub.aitbc.bubuit.net",
+    )
+    signature = _sign_escrow_lock_tx(lock_tx, private_key)
+    payload: dict[str, Any] = {
+        "job_id": job_id,
+        "amount": str(amount_ait),
+        "currency": token,
+        "payment_method": "aitbc_token",
+        "buyer_address": buyer_canon,
+        "provider_address": provider_canon,
+        "buyer_lock_signature": signature,
+        "buyer_lock_nonce": nonce,
+        "buyer_lock_fee": lock_tx["fee"],
+        "escrow_timeout_seconds": 3600,
+    }
+    if offer_id:
+        payload["offer_id"] = offer_id
+    if offer_quantity is not None:
+        payload["offer_quantity"] = str(offer_quantity)
+    return coord_http_client.post("/v1/payments", json=payload)
 
 
 def _wait_for_job(
@@ -255,13 +420,15 @@ def submit(
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        # Get RPC URL
-        _ = rpc_url or config.blockchain_rpc_url
+        rpc_url = rpc_url or config.blockchain_rpc_url or "http://localhost:8202"
+        if not rpc_url:
+            abort(ctx, "RPC URL not configured")
 
-        # Get password
         if password_file:
             with open(password_file) as f:
-                _ = f.read().strip()
+                password = f.read().strip() or password
+
+        wallet_address, private_key = _load_wallet(ctx, wallet, password)
 
         # Prepare job data in the JobCreate shape expected by coordinator-api
         job_type = job_type or "inference"
@@ -337,11 +504,20 @@ def submit(
                 job_data["offer_quantity"] = str(offer_quantity)
         if acceptance_window is not None:
             job_data["constraints"]["acceptance_window_seconds"] = acceptance_window
-        if payment:
-            job_data["payment_amount"] = payment
+
+        if payment or offer_id:
+            if not buyer_address and wallet_address:
+                buyer_address = wallet_address
+            if not buyer_address:
+                abort(
+                    ctx, "buyer_address is required for paid jobs: set --wallet, --buyer-address, or CUSTOMER_WALLET_ADDRESS"
+                )
+            job_data["buyer_address"] = buyer_address
+            if payment:
+                job_data["payment_amount"] = str(Decimal(str(payment)))
             job_data["payment_currency"] = currency or "AITBC"
-            job_data["buyer_address"] = buyer_address or os.environ.get("CUSTOMER_WALLET_ADDRESS")
-            job_data["provider_address"] = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
+            if provider_address or os.environ.get("SHOP_WALLET_ADDRESS"):
+                job_data["provider_address"] = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
 
         # Submit to coordinator
         headers = _auth_headers(ctx)
@@ -351,6 +527,26 @@ def submit(
         job_id = result.get("job_id")
         payment_id = result.get("payment_id")
         success(f"Job submitted: {job_id}")
+
+        # If the coordinator priced the job but did not secure an escrow, sign the
+        # ESCROW_LOCK tx and create the payment in a second step.
+        if not payment_id and result.get("payment_amount") and private_key:
+            payment_result = _create_escrow_payment(
+                ctx,
+                http_client,
+                rpc_url,
+                job_id,
+                result.get("payment_amount"),
+                result.get("payment_token") or currency or "AITBC",
+                buyer_address,
+                result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or "",
+                private_key,
+                chain_id or config.chain_id,
+                offer_id,
+                offer_quantity,
+            )
+            payment_id = payment_result.get("payment_id")
+            success(f"Escrow secured: {payment_id}")
 
         if not wait:
             output(result, ctx.obj.get("output_format", format))
