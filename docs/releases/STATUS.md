@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-25
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -111,6 +111,28 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 `MULTI_VALIDATOR_CONSENSUS_ENABLED` was flipped on with `aitbc1` as a genuinely independent second validator (not the earlier same-node experiment described below). The chain stalled: hub stuck at height 13490 and `aitbc1` at 13491, no new block on either host for 21+ minutes. A same-day restart of `aitbc-blockchain-node.service` on both hosts did not recover it. Root cause, code-confirmed: (1) hub's gossip backend is Redis, host-local only, while `aitbc1`'s is WebSocket, and `aitbc1`'s WS handshake to hub failed with HTTP 502 because hub's nginx `/rpc/` block was missing `Upgrade`/`Connection: upgrade` headers; (2) hub's periodic HTTP sync pulled from itself (`default_source=http://hub.aitbc.bubuit.net`), so it could structurally never learn `aitbc1`'s head; (3) the "Forcing heartbeat block" fallback logged unconditionally but was immediately vetoed by the proposer-turn gate on the node whose turn it wasn't, so it could not break the deadlock.
 
 Recovery was performed by rotating the validator keypair to the current `VALIDATOR_SET` above and restarting the service (16:15–16:16 CEST); blocks resumed rotating cleanly shortly after. The gossip-backend mismatch and self-referential sync source that caused the stall were not fixed in code — the key rotation worked around the symptom, not the root cause, so the same class of stall can recur. Fixing it for real means: adding `Upgrade`/`Connection: upgrade` to hub's nginx `/rpc/` block, and pointing hub's periodic sync `default_source` at `aitbc1` instead of itself.
+### Consensus stall recurrence and recovery — 2026-08-25
+
+The same stall class recurred at height 14547/14548: `aitbc1` produced block 14548 but hub could not learn it because `hub.aitbc`'s `default_peer_rpc_url` was still `http://hub.aitbc.bubuit.net` (itself), and the `aitbc1` reverse proxy was not publicly reachable.
+
+Recovery steps:
+
+1. Updated `aitbc1`'s active nginx site (`aitbc-loadbalancer`) to proxy `/rpc` to the blockchain node on `127.0.0.1:8202` instead of the dead `8006` backend.
+2. Enabled the reverse proxy on the `at1` Incus host for `node1.aitbc.bubuit.net`, terminating TLS and forwarding to the `aitbc1` container.
+3. Set `hub.aitbc` `default_peer_rpc_url=https://node1.aitbc.bubuit.net` in `/etc/aitbc/blockchain.env`.
+4. Restarted both `aitbc-blockchain-node` services. Hub pulled block 14548 from `aitbc1` and both heads converged at 14550.
+5. Verified the chain advances every ~60s with round-robin proposers and each block carrying a valid cross-validator attestation in `block_metadata`.
+
+Current live topology:
+
+- `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`
+- `VALIDATOR_SET` = `ait1Eb9F1F86FA4D6cacb4d97E0766679E602977e95F` (hub) and `ait178046b9677c724FdF0af59c58439d67B210AD71b` (`aitbc1`)
+- `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` (restored)
+- Hub's `default_peer_rpc_url` = `https://node1.aitbc.bubuit.net`
+- `aitbc1`'s `gossip_websocket_url` = `wss://hub.aitbc.bubuit.net/rpc/gossip/ws`
+
+**Residual gaps:** `PBFTConsensus` is still not wired into block production, so a two-validator, `min-attestations=1` setup remains non-BFT and can stall if either validator is unreachable. `aitbc3` remains a passive follower, not a validator.
+
 
 ### Earlier, superseded: local multi-key validation — 2026-08-24 (morning)
 
@@ -166,9 +188,9 @@ Bugs found and fixed during validation:
 - `BlockHeaderRequest` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py` was missing the `bridge_state_root` field, so ingested headers could not be used for Merkle proof verification. Added the field.
 - `BridgeValidatorMixin.register_validator` did not update `registered_at` on re-registration, causing `_check_validator_set_freshness` to reject otherwise valid validator sets. Updated `registered_at` to the current UTC time on re-registration.
 
-After validation, `BRIDGE_RELEASE_ENABLED` was returned to `false` on both nodes. The live bridge is therefore back in trusted-custodian mode, but multi-signature and Merkle-proof enforcement remain configured and active in the code path (`bridge_multisig_enabled=true`, `bridge_require_merkle_proof=true`). Re-enabling releases requires setting `BRIDGE_RELEASE_ENABLED=true` and ensuring a fresh, non-stale validator set and block headers are ingested.
+`BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`; `aitbc1` (validator/follower) still has `BRIDGE_RELEASE_ENABLED=false`. Multi-signature and Merkle-proof enforcement remain configured and active in the code path. Five bridge transfers remain pending; no `aitbc bridge confirm` is run while the chain was stalled, and confirmation requires explicit authorization only after consensus is verified robust and transaction-sealing prerequisites are met.
 
-Honest assessment: the cryptographic enforcement was successfully activated and live-validated on real 1-compute-second hub→island transfers. The live cross-island bridge remains trust-minimised in design, but the release path is currently fenced off (`bridge_release_enabled=false`) to prevent unvalidated production releases.
+Honest assessment: the cryptographic enforcement was successfully activated and live-validated on real 1-compute-second hub→island transfers. The live cross-island bridge remains trust-minimised in design. The release path is enabled (`bridge_release_enabled=true`) on the hub/shop nodes, but the validator `aitbc1` is not yet configured for release, and the five pending transfers have not been confirmed pending a stable consensus and explicit authorization.
 
 
 ## Continuous integration
@@ -184,7 +206,7 @@ Honest assessment: the cryptographic enforcement was successfully activated and 
 |---|---|---|
 | The result is verifiable | **FORMALLY** | ZK and TEE gates block escrow release on high-value/confidential jobs (`_zk_required_for`, `_tee_required_for` in `apps/coordinator-api/.../routers/miner.py`; `zk_status != "verified"` / `tee_status != "verified"` blocks release). The proof/attestation is generated from data supplied by the party being paid (the miner's result/receipt or TEE quote), so formal correctness of the proof does not by itself guarantee correctness of the underlying computation. |
 | A bad provider loses something | **HOLDS, LIVE TESTED** | A 50% `fraud` slash was exercised end-to-end in a previous session (operator dispute `refund` -> on-chain `BOND_SLASH` tx -> coordinator metadata updated). The `BondSlashingService` nonce lookup was also corrected to use the blockchain RPC `/rpc/accounts/{address}` endpoint (`fbb1fa54d`). |
-| Settlement is trust-minimised | **DOES NOT HOLD (topology improved, not yet proven robust)** | `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` with a real second, independently-keyed host (`aitbc1`) is live as of 2026-08-24 (see "Trust root" above) — an improvement over the earlier single-node setup. But the same day demonstrated real fragility: the two-validator chain stalled for 20+ minutes on a gossip-backend mismatch, a restart did not fix it, and recovery required a manual, untracked validator-key rotation rather than an automated or BFT-tolerant path. `PBFTConsensus` is still not wired in, and either of the two validators being unreachable can still stall block production. Bridge multi-sig/Merkle enforcement is implemented and was live-tested today, but `bridge_release_enabled` remains `False` (trusted-custodian default). Settlement is meaningfully less centralized than before, but not yet trust-minimised in a way this pass can certify as robust. |
+| Settlement is trust-minimised | **PARTIALLY HOLDS (live two-validator consensus recovered, not BFT)** | `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` with a real second, independently-keyed host (`aitbc1`) is live and recovered from the 2026-08-25 stall after fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. Blocks 14548+ advance every ~60s with round-robin proposers and valid cross-validator attestations in `block_metadata`. `PBFTConsensus` is still not wired into production, and a two-validator, `min-attestations=1` setup can still stall if one validator is unreachable, so fault tolerance is not yet proven. Bridge multi-sig/Merkle enforcement is implemented and was live-tested; `bridge_release_enabled=true` on `hub.aitbc`/`aitbc3` but `aitbc1` (validator) still has `false`. Settlement is meaningfully less centralized than before, but not yet trust-minimised in a way this pass can certify as robust. |
 
 ## Closed design-cycle findings
 
