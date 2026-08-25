@@ -118,6 +118,18 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
             logger.error("ZK proof did not verify for job %s: %s", job.id, verify_result.get("error"))
             receipt["zk_status"] = f"verification_failed: {verify_result.get('error', 'unknown')}"
             return receipt
+
+        computation_correct = verify_result.get("computation_correct", verify_result.get("verified", False))
+        if not computation_correct:
+            logger.error(
+                "ZK proof verified for job %s but computation_correct is false; blocking acceptance",
+                job.id,
+            )
+            receipt["computation_correct"] = False
+            receipt["zk_status"] = "computation_incorrect"
+            return receipt
+
+        receipt["computation_correct"] = True
         receipt["zk_proof"] = proof
         receipt["zk_status"] = "verified"
         logger.info("ZK receipt proof generated and verified for job %s", job.id)
@@ -283,12 +295,12 @@ def _attach_reinvest_info(session: Session, job: Job, receipt: dict[str, Any] | 
         logger.warning("Could not attach reinvestment info to receipt: %s", e)
 
 
-
 async def _maybe_slash_bond(session: Session, job: Job, condition: str, evidence: str) -> None:
     """G5: slash the miner's bond when a bonded job fails verification."""
     if not (job.constraints and job.constraints.get("bond_required")):
         return
     from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+
     await BondSlashingService(session).slash(job, SlashingCondition(condition), evidence)
 
 
@@ -498,9 +510,7 @@ async def submit_failure(
         from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
 
         if job.constraints and job.constraints.get("bond_required"):
-            await BondSlashingService(session).slash(
-                job, SlashingCondition.BAD_RESULT, req.error_message
-            )
+            await BondSlashingService(session).slash(job, SlashingCondition.BAD_RESULT, req.error_message)
 
         # Record the failure in the reputation service.
         try:
