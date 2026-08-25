@@ -30,8 +30,7 @@ from ....contexts.reputation.services.reputation_service import ReputationServic
 from ...infrastructure.services.receipts import ReceiptService
 from ...zk_applications.services.zk_proofs import zk_proof_service
 from ....storage import get_session
-from ...tee.attestation import TEEAttestationService
-from aitbc.tee import QuoteGenerator
+from ...tee.attestation import TEEAttestationService, TEEAttestationStatus
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
@@ -157,7 +156,12 @@ async def _attach_tee_attestation(
     req: Any,
     session: Any,
 ) -> dict[str, Any] | None:
-    """Verify or store a TEE attestation when the job requires one."""
+    """Verify or store a TEE attestation when the job requires one.
+
+    v0.14.4: TEE-gated jobs require a pre-registered, active enclave.
+    The coordinator no longer auto-generates self-attested quotes; an
+    absent or unregistered quote is a failure and triggers a refund.
+    """
     if not receipt:
         return receipt
     if not _tee_required_for(job):
@@ -174,67 +178,36 @@ async def _attach_tee_attestation(
             attestation = service.get_attestation(req.tee_attestation_id)
             if not attestation:
                 receipt["tee_status"] = "attestation_not_found"
-            elif attestation.status != "verified":
+            elif attestation.status != TEEAttestationStatus.VERIFIED.value:
+                # v0.14.4: only VERIFIED (registered) attestations count.
                 receipt["tee_status"] = "attestation_not_verified"
             elif enclave_id and attestation.enclave_id != enclave_id:
                 receipt["tee_status"] = "enclave_mismatch"
             elif expected_measurement and attestation.measurement != expected_measurement:
                 receipt["tee_status"] = "measurement_mismatch"
+            elif not attestation.registered:
+                receipt["tee_status"] = "unregistered_enclave"
             else:
                 receipt["tee_status"] = "verified"
                 receipt["tee_attestation_id"] = attestation.id
         elif req.tee_quote:
             attestation = service.verify_and_store(
-                enclave_id or "unknown", req.tee_quote, measurement=expected_measurement or ""
+                enclave_id or "unknown",
+                req.tee_quote,
+                measurement=expected_measurement or "",
+                require_registered=True,
             )
-            if attestation.status != "verified":
-                receipt["tee_status"] = "attestation_rejected"
-            elif enclave_id and attestation.measurement and attestation.measurement != enclave_id:
-                receipt["tee_status"] = "enclave_mismatch"
-            else:
+            if attestation.status == TEEAttestationStatus.VERIFIED.value:
                 receipt["tee_status"] = "verified"
                 receipt["tee_attestation_id"] = attestation.id
                 logger.info("TEE attestation verified for job %s: %s", job.id, attestation.id)
+            elif attestation.status == TEEAttestationStatus.SELF_CONSISTENT.value:
+                receipt["tee_status"] = "unregistered_enclave"
+            else:
+                receipt["tee_status"] = "attestation_rejected"
         else:
-            # v0.14.3: for high-value / confidential jobs, generate and verify a
-            # TEE quote automatically when the miner did not provide one. This
-            # mirrors the ZK auto-generation path and ensures --tee-attestation-
-            # required actually reaches the release gate instead of defaulting to
-            # a stuck refund.
-            try:
-                auto_enclave_id = enclave_id or f"high-value-{job.id}"
-                quote_id = f"tee-{job.id}-{auto_enclave_id}-{datetime.now(UTC).isoformat()}"
-                generator = QuoteGenerator(auto_enclave_id)
-                quote = generator.generate(
-                    quote_id=quote_id,
-                    enclave_id=auto_enclave_id,
-                    measurement=auto_enclave_id,
-                    report_data=job.id.encode(),
-                )
-                quote_b64 = quote.to_base64()
-                attestation = service.verify_and_store(auto_enclave_id, quote_b64, measurement=auto_enclave_id)
-                if attestation.status == "verified":
-                    # Security fix (2026-08-24): this quote was generated
-                    # *and* signed by the coordinator itself -- no enclave or
-                    # miner was involved, so unlike the other two branches
-                    # above it proves nothing about where the job actually
-                    # ran. Label it distinctly instead of reusing "verified"
-                    # for both; the release gate below still treats it as
-                    # sufficient, matching today's behavior.
-                    receipt["tee_status"] = "auto_attested"
-                    receipt["tee_attestation_id"] = attestation.id
-                    receipt["tee_quote"] = quote_b64
-                    logger.info(
-                        "Coordinator self-attested TEE quote for job %s (no real enclave involved): %s",
-                        job.id,
-                        attestation.id,
-                    )
-                else:
-                    logger.error("Auto-generated TEE attestation for job %s was rejected", job.id)
-                    receipt["tee_status"] = "auto_generation_rejected"
-            except Exception as e:
-                logger.error("Error auto-generating TEE attestation for job %s: %s", job.id, e)
-                receipt["tee_status"] = f"auto_generation_error: {e}"
+            receipt["tee_status"] = "tee_quote_missing"
+            logger.error("TEE attestation required but no quote supplied for job %s", job.id)
     except Exception as e:
         logger.error("Error verifying TEE attestation for job %s: %s", job.id, e)
         receipt["tee_status"] = f"error: {e}"
