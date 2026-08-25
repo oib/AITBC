@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .multi_validator_poa import MultiValidatorPoA
 
+from .pbft import PBFTConsensus
 from .remote_attestation import RemoteAttestationService
 
 from sqlalchemy import text
@@ -157,6 +158,23 @@ class PoAProposer:
                     "falling back to single proposer for chain %s",
                     self._config.chain_id,
                 )
+        self._pbft_consensus: PBFTConsensus | None = None
+        if settings.pbft_consensus_enabled and self._multi_validator is not None and self._validator_keys:
+            self._pbft_consensus = PBFTConsensus(
+                self._multi_validator,
+                private_key=settings.proposer_key or "",
+                chain_id=self._config.chain_id,
+                local_validator=self._config.proposer_id,
+            )
+            from ..gossip import gossip_broker
+
+            self._pbft_consensus.set_gossip_backend(gossip_broker)
+            self._logger.info(
+                "PBFT consensus initialized for chain %s with local validator %s",
+                self._config.chain_id,
+                self._config.proposer_id,
+            )
+
         if self._multi_validator is not None and self._validator_keys:
             self._remote_attestation = RemoteAttestationService(self._config.chain_id, self._validator_keys)
             self._logger.info(
@@ -748,10 +766,28 @@ class PoAProposer:
                 block_metadata=None,
             )
 
+            # v0.7.7: if PBFT is enabled, run the full consensus round before
+            # writing the block. The block hash is the digest of the proposed
+            # block and the certificate is stored in block_metadata.
+            if self._pbft_consensus:
+                pbft_ok = await self._pbft_consensus.propose_and_wait(
+                    proposer,
+                    block_hash,
+                    timeout=getattr(settings, "pbft_view_change_timeout", 30),
+                )
+                if not pbft_ok:
+                    self._logger.warning(
+                        "PBFT consensus failed for block %s on chain %s; skipping proposal",
+                        next_height,
+                        self._config.chain_id,
+                    )
+                    session.rollback()
+                    return False
+
             # v0.7.5: collect attestations from other local validators and store
             # them in block_metadata as JSON. The proposer signature remains the
             # canonical block signature.
-            block_metadata: str | None = None
+            metadata_dict: dict[str, Any] = {}
             if self._multi_validator:
                 attestations = await self._collect_attestations(block)
                 min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
@@ -765,8 +801,14 @@ class PoAProposer:
                     session.rollback()
                     return False
                 if attestations:
-                    block_metadata = json.dumps({"attestations": attestations})
-            block.block_metadata = block_metadata
+                    metadata_dict["attestations"] = attestations
+
+            if self._pbft_consensus:
+                pbft_certificate = self._pbft_consensus.get_certificate(block_hash)
+                if pbft_certificate:
+                    metadata_dict["pbft_certificate"] = pbft_certificate
+
+            block.block_metadata = json.dumps(metadata_dict) if metadata_dict else None
 
             # v0.7.2: Sign the canonical block header so the same signature is
             # valid for both PoA consensus and bridge proof verification.
@@ -1360,3 +1402,8 @@ class PoAProposer:
                 return False
         except Exception:
             return False
+
+    @property
+    def pbft_consensus(self) -> PBFTConsensus | None:
+        """Return the PBFT consensus instance for this proposer, if any."""
+        return self._pbft_consensus
