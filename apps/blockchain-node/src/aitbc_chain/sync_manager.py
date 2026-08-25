@@ -213,11 +213,16 @@ class SyncManager:
                 height = block_data.get("height", 0)
                 if not state.chain_sync:
                     continue
-                result = state.chain_sync.import_block(
-                    block_data,
-                    transactions=block_data.get("transactions"),
-                    skip_state_root_validation=False,
-                )
+                try:
+                    result = state.chain_sync.import_block(
+                        block_data,
+                        transactions=block_data.get("transactions"),
+                        skip_state_root_validation=False,
+                    )
+                except Exception as import_exc:
+                    logger.warning("Gossip import raised exception at height %s: %s", height, import_exc)
+                    logger.debug("Gossip import traceback", exc_info=True)
+                    continue
                 if result.accepted:
                     state.last_push_at = time.time()
                     state.last_local_height = height
