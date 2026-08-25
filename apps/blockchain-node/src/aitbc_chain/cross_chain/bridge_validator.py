@@ -110,10 +110,15 @@ class BridgeValidatorMixin(BridgeBase):
                 )
                 for r in records
             ]
+            # v0.7.2: derive the M-of-N threshold from live settings so the
+            # validator set metadata matches the policy actually enforced by
+            # _verify_threshold_signatures. ``total`` is the real N.
+            threshold = getattr(settings, "bridge_multisig_threshold", 3)
             vset = ValidatorSet(
                 chain_id=chain_id,
                 epoch=epoch,
                 validators=validators,
+                threshold=threshold,
                 total=len(validators),
             )
             # Update the in-memory registry
