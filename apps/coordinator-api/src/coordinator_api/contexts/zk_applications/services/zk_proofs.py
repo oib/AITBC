@@ -14,6 +14,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 
 from ....schemas import JobResult, Receipt
+from .model_registry import compute_public_inputs, get_model, resolve_model_id
 from .zkey_header import ZKeyFormatError, read_zkey_contribution_count, read_zkey_header
 
 logger = get_logger(__name__)
@@ -238,6 +239,11 @@ class ZKProofService:
         configured = os.getenv("COORDINATOR_ZK_CIRCUITS_DIR")
         self.circuits_dir = circuits_dir or (Path(configured) if configured else Path(__file__).parent.parent / "zk-circuits")
         self.circuits = {
+            "receipt_model": {
+                "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_model"),
+                "wasm_path": self.circuits_dir / "receipt_model_js" / "receipt_model.wasm",
+                "vkey_path": self.circuits_dir / "receipt_model_js" / "verification_key.json",
+            },
             "receipt_public": {
                 "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_public"),
                 "wasm_path": self.circuits_dir / "receipt_public_js" / "receipt_public.wasm",
@@ -371,6 +377,83 @@ class ZKProofService:
             logger.error("Failed to generate %s proof: %s", circuit_name, e)
             return None
 
+    async def generate_model_proof(
+        self,
+        job: Any,
+        result: Any,
+    ) -> dict[str, Any] | None:
+        """Generate a receipt_model proof for a supported deterministic model.
+
+        Returns None if no model is identified, if the model is not in the
+        supported registry, or if the receipt_model circuit is not available.
+        """
+        model_id = resolve_model_id(job, result)
+        if not model_id:
+            logger.warning("No model_id in job/result; cannot generate receipt_model proof")
+            return None
+        model = get_model(model_id)
+        if model is None:
+            logger.warning("Model %r is not in the supported model registry", model_id)
+            return None
+        if "receipt_model" not in self.available_circuits:
+            logger.error("receipt_model circuit is not available")
+            return None
+
+        inputs = compute_public_inputs(job, result, model)
+        circuit = self.available_circuits["receipt_model"]
+        try:
+            proof_data = await self._generate_proof_generic(
+                inputs["public_inputs"],
+                inputs["private_inputs"],
+                circuit["wasm_path"],
+                circuit["zkey_path"],
+                circuit["vkey_path"],
+            )
+            return {
+                "proof": proof_data["proof"],
+                "public_signals": proof_data["publicSignals"],
+                "circuit": "receipt_model",
+                "circuit_hash": await self._get_circuit_hash("receipt_model"),
+                "model_id": model.model_id,
+                "model_name": model.name,
+            }
+        except Exception as e:
+            logger.error("Failed to generate receipt_model proof: %s", e)
+            return None
+
+    async def verify_model_proof(
+        self,
+        proof: dict[str, Any],
+        public_signals: list[str],
+        expected_public: list[str],
+    ) -> dict[str, Any]:
+        """Verify a receipt_model proof and confirm public-signal binding.
+
+        A proof only counts as ``computation_correct`` if it verifies *and*
+        its public signals equal the coordinator-derived expected values. This
+        prevents a miner from generating a proof for an arbitrary input/model/output.
+        """
+        verify_result = await self.verify_proof(proof, public_signals, circuit_name="receipt_model")
+        if not verify_result.get("verified"):
+            return {**verify_result, "computation_correct": False}
+        if public_signals != expected_public:
+            logger.error(
+                "receipt_model public signals do not match expected: got %s, want %s",
+                public_signals,
+                expected_public,
+            )
+            return {
+                "verified": True,
+                "computation_correct": False,
+                "privacy_preserved": True,
+                "error": "public_signal_mismatch",
+            }
+        return {
+            "verified": True,
+            "computation_correct": True,
+            "privacy_preserved": True,
+        }
+
     async def verify_proof(
         self,
         proof: dict[str, Any],
@@ -449,7 +532,13 @@ class ZKProofService:
                         success_value = public_signals[success_index] if len(public_signals) > success_index else None
                     computation_correct = success_value == "1"
                 else:
-                    computation_correct = is_verified
+                    # No success signal: a verified Groth16 proof only shows that the
+                    # statement selected by the public inputs is internally consistent.
+                    # It does not, on its own, show that the statement is the one the
+                    # coordinator wanted (e.g. receipt_public only proves hash
+                    # consistency; receipt_model needs public-signal binding in
+                    # verify_model_proof).
+                    computation_correct = False
                 return {"verified": is_verified, "computation_correct": computation_correct, "privacy_preserved": is_verified}
             finally:
                 os.unlink(script_file)
@@ -619,16 +708,15 @@ class ZKProofService:
         finally:
             os.unlink(inputs_file)
 
-    async def _get_circuit_hash(self) -> str:
+    async def _get_circuit_hash(self, circuit_name: str | None = None) -> str:
         """Get hash of current circuit for verification.
 
-        Hashes the proving key of RECEIPT_CIRCUIT — the same circuit _generate_proof
-        uses — so the proof's circuit_hash identifies that circuit, not whichever
-        one happened to sort first.
+        Hashes the proving key of ``circuit_name`` (default ``RECEIPT_CIRCUIT``) so
+        the proof's circuit_hash identifies that circuit.
         """
         import hashlib
 
-        circuit = self.available_circuits.get(RECEIPT_CIRCUIT)
+        circuit = self.available_circuits.get(circuit_name or RECEIPT_CIRCUIT)
         if circuit is None:
             return ""
         zkey_path = circuit["zkey_path"]

@@ -27,6 +27,11 @@ repos:
         exclude: apps/blockchain-node/observability/
       - id: check-added-large-files
         args: ['--maxkb=1000']
+        # Generated circom witness calculators (*.wasm) are 2-3 MB binaries and
+        # are already excluded from whitespace normalisation above. Size-gating
+        # them would block shipping new ZK circuit artifacts, so they are
+        # exempted from this check.
+        exclude: \.wasm$
       - id: check-json
       # Kept, but it only inspects files while git is mid-merge -- see
       # scripts/ci/check-merge-markers.py, which runs on every commit. This one catches the
