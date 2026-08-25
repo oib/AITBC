@@ -2070,6 +2070,59 @@
         }
       }
     },
+    "/rpc/chain/head": {
+      "get": {
+        "tags": [
+          "rpc",
+          "core"
+        ],
+        "summary": "Get current chain head (compatibility alias)",
+        "description": "Get current chain head (alias for /head). Logs caller to identify stale clients.",
+        "operationId": "get_chain_head_alias_route_rpc_chain_head_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Chain Head Alias Route Rpc Chain Head Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/head": {
       "get": {
         "tags": [
@@ -10763,6 +10816,59 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Genesis Allocations Route V1 Genesis Allocations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chain/head": {
+      "get": {
+        "tags": [
+          "v1",
+          "core"
+        ],
+        "summary": "Get current chain head (compatibility alias)",
+        "description": "Get current chain head (alias for /head). Logs caller to identify stale clients.",
+        "operationId": "get_chain_head_alias_route_v1_chain_head_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Chain Head Alias Route V1 Chain Head Get"
                 }
               }
             }
