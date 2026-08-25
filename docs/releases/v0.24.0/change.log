@@ -1310,3 +1310,25 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   security-status` reports `release_enabled: true`, `multisig_enabled: true`,
   `require_merkle_proof: true`, and `trusted_custodian: false`. A controlled
   confirm/release validation run is pending operator-provided confirmer credentials.
+
+## Bridge release enabled; live consensus stall blocks confirmations (2026-08-25)
+
+- `BRIDGE_RELEASE_ENABLED=true` is now live on `hub.aitbc` and `aitbc3`; the
+  `aitbc-coordinator-api` service on hub was restarted after the env edit, and
+  `/proc/<pid>/environ` confirms the flag is loaded.
+- `aitbc bridge security-status` reports `release_enabled: true`,
+  `multisig_enabled: true`, `require_merkle_proof: true`,
+  `trusted_custodian: false`.
+- Independent verification found the two-validator chain stalled:
+  - `hub.aitbc` `/rpc/height` = 14547
+  - `aitbc1` `/rpc/height` = 14548
+  - Both heads are 7.5+ hours old.
+- Because `confirm_transfer` credits the recipient synchronously without
+  verifying that the `BRIDGE_RELEASE` transaction is sealed in a produced block,
+  any `aitbc bridge confirm` during the stall would succeed at the RPC layer but
+  diverge from chain history.
+- STATUS.md updated: bridge gap now "ENABLED, VALIDATION PAUSED"; stale
+  `bridge_release_enabled=false` prose corrected; new live consensus stall
+  section added.
+- No bridge `confirm`/`release` validation run is performed or scheduled until
+  the consensus stall clears and both validators produce matching heads.
