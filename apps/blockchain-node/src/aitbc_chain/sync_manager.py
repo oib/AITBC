@@ -285,7 +285,7 @@ class SyncManager:
         state.last_local_height = state.chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
 
-        if gap > getattr(settings, "auto_sync_threshold", 10):
+        if gap > getattr(settings, "auto_sync_threshold", 10) or state.mode == SyncMode.CATCH_UP:
             state.mode = SyncMode.CATCH_UP
             state.bulk_task = create_task_with_logging(
                 self._bulk_pull(chain_id, source_url),
