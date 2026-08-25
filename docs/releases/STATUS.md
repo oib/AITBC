@@ -232,7 +232,7 @@ These are the live-design verdicts that follow the economic-loop verification ab
 
 | Gap | Verdict | Notes |
 |---|---|---|
-| G3 — dispatch/acceptance-gate wiring | **OPEN, SMALLEST** | The ZK fix is live now, but `computation_correct` still is not wired into the job-acceptance path, so a bad result is correctly detected but not yet blocked. Hint: wire the existing signal into whatever gate currently decides `pending_acceptance` → `release`. |
+| G3 — dispatch/acceptance-gate wiring | **TEST-VERIFIED, PENDING RESTART** | `computation_correct` is now wired into `_attach_zk_proof` and `PaymentService.release_payment`; a false value sets `zk_status="computation_incorrect"` and blocks escrow release. Tests in `test_zk_computation_correct_gate.py` pass. The fix is not yet loaded live; it requires an `aitbc-coordinator-api` restart. |
 | G6 — settlement/trust-minimization | **OPEN, WORST** | No scoped fix yet. The 2026-08-24 live incident (real second validator, 20-minute stall, hand-rotated recovery key that is not in git) added a new open item on top: that key needs to go through a real, committed rotation process, and `PBFTConsensus` still is not wired into block production. Hint: start with getting the recovery key into git-tracked config properly — it is the more urgent half of G6 right now, ahead of the PBFT wiring itself. |
 | G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
 | Bridge — multi-sig/Merkle enforcement | **CORRECT-BUT-OFF** | Proven correct in testing, but the bridge is still switched off (`bridge_release_enabled=false`); no live path is exercising it. |
