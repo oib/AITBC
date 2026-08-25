@@ -502,11 +502,11 @@ class ChainSettings(BaseSettings):
     # Parallel processing (v0.6.1). Feature flag for parallel transaction
     # validation via dependency analysis. Default off for safety — enable with
     # PARALLEL_TX_VALIDATION=true. PARALLEL_WORKERS sets the thread pool size
-    # for parallel tx validation (default 4). CONFLICT_THRESHOLD is the fraction
+    # for parallel tx validation (default: CPU count, capped at 16). CONFLICT_THRESHOLD is the fraction
     # of conflicting transactions above which the proposer falls back to
     # sequential validation (default 0.5 = 50%).
     parallel_tx_validation: bool = False  # Feature flag — default off for safety
-    parallel_workers: int = 4  # Thread pool size for parallel tx validation
+    parallel_workers: int = max(2, min(16, os.cpu_count() or 4))  # Thread pool size for parallel tx validation
     conflict_threshold: float = 0.5  # Fall back to sequential if >50% of txs conflict
 
     # Gossip protocol (v0.6.2). Protocol version advertises the message
