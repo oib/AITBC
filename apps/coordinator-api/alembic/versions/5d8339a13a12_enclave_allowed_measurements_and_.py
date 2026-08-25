@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -21,23 +22,29 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Add allowed_measurements to enclave_identity and registered to tee_attestation."""
-    op.add_column(
-        "enclave_identity",
-        sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
-    )
-    op.add_column(
-        "tee_attestation",
-        sa.Column("registered", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-    )
+    bind = op.get_bind()
+    existing_tee_cols = {c["name"] for c in inspect(bind).get_columns("tee_attestation")}
+    existing_enclave_cols = {c["name"] for c in inspect(bind).get_columns("enclave_identity")}
+
+    if "allowed_measurements" not in existing_enclave_cols:
+        op.add_column(
+            "enclave_identity",
+            sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("[]")),
+        )
+    if "registered" not in existing_tee_cols:
+        op.add_column(
+            "tee_attestation",
+            sa.Column("registered", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        )
     # Backfill existing attestations: mark as registered only when an ACTIVE
     # EnclaveIdentity exists for the same enclave_id.
     op.execute(
         """
         UPDATE tee_attestation
-        SET registered = 1
-        WHERE status != 'rejected'
+        SET registered = true
+        WHERE status != rejected
           AND enclave_id IN (
-              SELECT enclave_id FROM enclave_identity WHERE status = 'active'
+              SELECT enclave_id FROM enclave_identity WHERE status = active
           )
         """
     )
