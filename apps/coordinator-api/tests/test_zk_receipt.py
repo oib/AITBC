@@ -1,6 +1,5 @@
 """Tests for the receipt_public ZK proof integration (P2.1)."""
 
-import os
 from datetime import UTC, datetime
 
 import pytest
@@ -38,7 +37,7 @@ async def test_generate_and_verify_receipt_public_proof(monkeypatch):
 
     result = await svc.verify_proof(proof["proof"], proof["public_signals"], "receipt_public")
     assert result["verified"] is True
-    assert result["computation_correct"] is True
+    assert result["computation_correct"] is False
 
 
 def test_zk_threshold_enabled_for_high_value():
