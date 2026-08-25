@@ -1255,10 +1255,10 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 ## Open design-review gaps (2026-08-25)
 
 - **G3 — dispatch/acceptance-gate wiring:** the ZK fix is live, but `computation_correct` is not yet wired into the job-acceptance gate, so a bad result is correctly detected but not yet blocked. Smallest remaining piece.
-- **G6 — settlement/trust-minimization:** worst verdict on the board. The 2026-08-24 two-validator stall and hand-rotated recovery key added a new open item: that key needs a real, committed rotation process; `PBFTConsensus` is still not wired into block production. The key-rotation half is more urgent than PBFT wiring.
+- **G6 — settlement/trust-minimization:** the two-validator consensus stall recovered 2026-08-25 after fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy; a validator key-rotation runbook now exists. `PBFTConsensus` is still not wired into production, so the live two-validator, `min-attestations=1` setup is not BFT and can still stall if one validator is unreachable.
 - **G5 — dispute-ruling paths:** reject and dispute-ruling are now live-proven, not just test-covered; residual gap is smaller than previously listed.
-- **Bridge — multi-sig/Merkle enforcement:** proven correct in testing, but `bridge_release_enabled=false` leaves no live path exercising it.
-- **G8 — doc debt:** `STATUS.md`/`DESIGN_CYCLE.md` are mostly caught up; the `--show-deprecated` CLI gate hiding ~52 of 67 groups is a product call, not a coding fix.
+- **Bridge — multi-sig/Merkle enforcement:** multi-sig/Merkle verification is live-enabled on `hub.aitbc` and `aitbc3` (`bridge_release_enabled=true`, `multisig_enabled=true`, `require_merkle_proof=true`); `aitbc1` (validator/follower) still has `bridge_release_enabled=false`. Five bridge transfers remain pending and no `aitbc bridge confirm` has been run.
+- **G8 — CLI surface gate removed, consolidation still open:** the `--show-deprecated` visibility gate was removed, so `aitbc --help` now shows all 67 top-level groups (tests pass). The underlying command overlaps (`market` / `marketplace` / `operations marketplace`, `governance` / `operations governance`) remain unconsolidated and are only smoke-tested via `--help`; the G8 closure is for visibility, not consolidation.
 
 ## Doc-sync verification and follow-up (2026-08-25)
 
@@ -1303,6 +1303,11 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   short help notes the preferred replacement group.
 - Updated `cli/tests/test_cli_surface.py`, `test_cli_basic.py`, and
   `test_cli_comprehensive.py` to match the unified surface.
+- **Residual (honest):** removing the gate does not consolidate the overlapping
+  groups. `market`, `marketplace`, and `operations marketplace` still hit different
+  backends; `governance` and `operations governance` are likewise unconsolidated.
+  G8 is closed for the visibility gate; the command consolidation underneath is
+  still open.
 
 ### Bridge status
 
@@ -1311,27 +1316,24 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   `require_merkle_proof: true`, and `trusted_custodian: false`. A controlled
   confirm/release validation run is pending operator-provided confirmer credentials.
 
-## Bridge release enabled; live consensus stall blocks confirmations (2026-08-25)
+## Bridge release enabled; consensus recovered; confirmations remain pending (2026-08-25)
 
-- `BRIDGE_RELEASE_ENABLED=true` is now live on `hub.aitbc` and `aitbc3`; the
+- `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`; the
   `aitbc-coordinator-api` service on hub was restarted after the env edit, and
   `/proc/<pid>/environ` confirms the flag is loaded.
 - `aitbc bridge security-status` reports `release_enabled: true`,
   `multisig_enabled: true`, `require_merkle_proof: true`,
   `trusted_custodian: false`.
-- Independent verification found the two-validator chain stalled:
-  - `hub.aitbc` `/rpc/height` = 14547
-  - `aitbc1` `/rpc/height` = 14548
-  - Both heads are 7.5+ hours old.
-- Because `confirm_transfer` credits the recipient synchronously without
-  verifying that the `BRIDGE_RELEASE` transaction is sealed in a produced block,
-  any `aitbc bridge confirm` during the stall would succeed at the RPC layer but
-  diverge from chain history.
-- STATUS.md updated: bridge gap now "ENABLED, VALIDATION PAUSED"; stale
-  `bridge_release_enabled=false` prose corrected; new live consensus stall
-  section added.
-- No bridge `confirm`/`release` validation run is performed or scheduled until
-  the consensus stall clears and both validators produce matching heads.
+- The two-validator chain **recovered** after fixing `hub.aitbc`'s sync source to
+  `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse
+  proxy. All three live nodes now advance every ~60s with matching heads (e.g.
+  height 14588) and each produced block carries valid cross-validator
+  `block_metadata`.
+- `aitbc1` still has `BRIDGE_RELEASE_ENABLED=false`. Five bridge transfers
+  remain pending. `confirm_transfer` credits the recipient synchronously without
+  verifying the `BRIDGE_RELEASE` transaction is sealed in a produced block, so no
+  `aitbc bridge confirm` is run without explicit authorization after consensus is
+  verified robust and transaction-sealing prerequisites are proven.
 
 ## Consensus recovery — 2026-08-25
 

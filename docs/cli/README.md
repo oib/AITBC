@@ -31,9 +31,11 @@ It contains installation and usage notes for the AITBC CLI and related technical
 
 ---
 
-## 🛡️ Validated command surface
+## 🛡️ Command surface
 
-As of G8, the CLI only displays commands that map to the live-validated economic loop by default. Unvalidated commands are hidden from `aitbc --help` and will fail with a deprecation message if invoked directly. Use `aitbc --show-deprecated <command>` (or set `AITBC_CLI_SHOW_DEPRECATED=1`) to run hidden commands at your own risk.
+As of G8, the CLI no longer hides any command groups behind a `--show-deprecated` gate; `aitbc --help` displays all documented groups (including `marketplace` and `operations`). The gate files (`validated_group.py`, `surface_policy.py`) were removed and the CLI tests were updated to enforce the unhidden surface.
+
+Honest caveat: removing the visibility gate does not consolidate the overlapping command groups. `market`, `marketplace`, and `operations marketplace` remain separate surfaces targeting different backends; `governance` and `operations governance` are likewise unconsolidated. The G8 work restored visibility; the underlying command consolidation is still open.
 
 ## 🚀 **Quick Start**
 
