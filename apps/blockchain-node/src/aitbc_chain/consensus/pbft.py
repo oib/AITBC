@@ -17,10 +17,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
 from ..config import settings
 from .multi_validator_poa import MultiValidatorPoA
+
+logger = get_logger(__name__)
 
 
 class PBFTPhase(Enum):
@@ -46,6 +49,7 @@ class PBFTMessage:
     digest: str
     signature: str
     timestamp: float
+    block_hash: str = ""
 
 
 @dataclass
@@ -60,7 +64,9 @@ class PBFTState:
 class PBFTConsensus:
     """PBFT consensus implementation"""
 
-    def __init__(self, consensus: MultiValidatorPoA, private_key: str = "", chain_id: str = "ait-hub"):
+    def __init__(
+        self, consensus: MultiValidatorPoA, private_key: str = "", chain_id: str = "ait-hub", local_validator: str = ""
+    ):
         if not settings.multi_validator_consensus_enabled:
             raise RuntimeError(
                 "PBFTConsensus is not yet activated. "
@@ -69,14 +75,19 @@ class PBFTConsensus:
         self.consensus = consensus
         self._private_key = private_key
         self._chain_id = chain_id
+        self._local_validator = local_validator
         self._gossip_backend: Any = None
         self._consensus_timer: asyncio.Task[None] | None = None
         self._view_change_count = 0
+        self._message_event = asyncio.Event()
+        self._local_prepared: set[str] = set()
+        self._local_committed: set[str] = set()
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
         self.fault_tolerance = max(1, len(consensus.get_consensus_participants()) // 3)
         self.required_messages = 2 * self.fault_tolerance + 1
+        self._on_execute: Any = None
 
     def get_message_digest(self, block_hash: str, sequence: int, view: int) -> str:
         """Generate message digest for PBFT"""
@@ -102,6 +113,7 @@ class PBFTConsensus:
             digest=digest,
             signature="",
             timestamp=time.time(),
+            block_hash=block_hash,
         )
         # B6: sign the pre-prepare message with the sender's private key
         self._sign_message(message)
@@ -112,6 +124,53 @@ class PBFTConsensus:
 
         # Broadcast to all validators
         await self._broadcast_message(message)
+
+        self._message_event.set()
+        return True
+
+    async def propose_and_wait(self, proposer: str, block_hash: str, timeout: float | None = None) -> bool:
+        """Run the full PBFT proposal pipeline for the local proposer.
+
+        Waits for a prepare quorum and then a commit quorum before returning.
+        The caller writes the block only when this returns True.
+        """
+        if not self._local_validator:
+            self._local_validator = proposer
+        # Capture the sequence/view before pre-prepare broadcasts trigger commits
+        pre_prepare_sequence = self.state.current_sequence + 1
+        pre_prepare_view = self.state.current_view
+        key = f"{pre_prepare_sequence}:{pre_prepare_view}"
+        await self.pre_prepare_phase(proposer, block_hash)
+        pre_prepare_msg = self.state.pre_prepare_messages.get(key)
+        if not pre_prepare_msg:
+            return False
+
+        # Send our own prepare; it will trigger a local commit once a prepare quorum forms
+        await self.prepare_phase(self._local_validator, pre_prepare_msg)
+
+        # Wait for enough prepares (other validators respond via handle_incoming_message)
+        deadline = time.time() + timeout if timeout else None
+        while len(self.state.prepared_messages.get(key, [])) < self.required_messages:
+            if deadline and time.time() > deadline:
+                logger.warning("PBFT prepare quorum timeout for key %s", key)
+                return False
+            self._message_event.clear()
+            try:
+                await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
+            except asyncio.TimeoutError:
+                pass
+
+        # Wait for enough commits
+        while len(self.state.committed_messages.get(key, [])) < self.required_messages:
+            if deadline and time.time() > deadline:
+                logger.warning("PBFT commit quorum timeout for key %s", key)
+                return False
+            self._message_event.clear()
+            try:
+                await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
+            except asyncio.TimeoutError:
+                pass
+
         return True
 
     async def prepare_phase(self, validator: str, pre_prepare_msg: PBFTMessage) -> bool:
@@ -125,6 +184,12 @@ class PBFTConsensus:
         if key not in self.state.pre_prepare_messages:
             return False
 
+        # Only the local validator sends one prepare per key
+        if validator == self._local_validator:
+            if key in self._local_prepared:
+                return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
+            self._local_prepared.add(key)
+
         # Create prepare message
         prepare_msg = PBFTMessage(
             message_type=PBFTMessageType.PREPARE,
@@ -134,6 +199,7 @@ class PBFTConsensus:
             digest=pre_prepare_msg.digest,
             signature="",
             timestamp=time.time(),
+            block_hash=pre_prepare_msg.block_hash,
         )
         # B6: sign the prepare message with the sender's private key
         self._sign_message(prepare_msg)
@@ -146,8 +212,14 @@ class PBFTConsensus:
         # Broadcast prepare message
         await self._broadcast_message(prepare_msg)
 
-        # Check if we have enough prepare messages
-        return len(self.state.prepared_messages[key]) >= self.required_messages
+        self._message_event.set()
+
+        # Check if we have enough prepare messages and trigger commit
+        if len(self.state.prepared_messages[key]) >= self.required_messages:
+            if self._local_validator:
+                await self._maybe_send_commit(key)
+            return True
+        return False
 
     async def commit_phase(self, validator: str, prepare_msg: PBFTMessage) -> bool:
         """Phase 3: Commit"""
@@ -156,6 +228,11 @@ class PBFTConsensus:
             return False
 
         key = f"{prepare_msg.sequence_number}:{prepare_msg.view_number}"
+
+        if validator == self._local_validator:
+            if key in self._local_committed:
+                return len(self.state.committed_messages.get(key, [])) >= self.required_messages
+            self._local_committed.add(key)
 
         # Create commit message
         commit_msg = PBFTMessage(
@@ -166,6 +243,7 @@ class PBFTConsensus:
             digest=prepare_msg.digest,
             signature="",
             timestamp=time.time(),
+            block_hash=prepare_msg.block_hash,
         )
         # B6: sign the commit message with the sender's private key
         self._sign_message(commit_msg)
@@ -177,6 +255,8 @@ class PBFTConsensus:
 
         # Broadcast commit message
         await self._broadcast_message(commit_msg)
+
+        self._message_event.set()
 
         # Check if we have enough commit messages
         if len(self.state.committed_messages[key]) >= self.required_messages:
@@ -198,19 +278,42 @@ class PBFTConsensus:
         # Clean up old messages
         self._cleanup_messages(sequence)
 
+        # Notify the block production path that consensus is complete
+        if self._on_execute:
+            try:
+                pp = self.state.pre_prepare_messages.get(key)
+                if pp:
+                    await self._on_execute(pp.block_hash, self.state.committed_messages.get(key, []))
+            except Exception:
+                logger.exception("PBFT on_execute callback failed for key %s", key)
+
         return True
 
+    def set_on_execute(self, callback: Any) -> None:
+        """Set the callback executed when a commit quorum is reached.
+
+        The callback receives the block hash and the list of commit messages.
+        """
+        self._on_execute = callback
+
+    async def _maybe_send_commit(self, key: str) -> bool:
+        """Send a local commit message if we have a prepare quorum and have not yet committed."""
+        prepared = self.state.prepared_messages.get(key, [])
+        if len(prepared) < self.required_messages:
+            return False
+        if key in self._local_committed:
+            return True
+
+        # Use any prepare message to derive the commit fields
+        base = prepared[0]
+        return await self.commit_phase(self._local_validator, base)
+
     async def _broadcast_message(self, message: PBFTMessage) -> None:
-        """Broadcast message to all validators"""
-        validators = self.consensus.get_consensus_participants()
+        """Broadcast message once to the shared gossip topic."""
+        await self._send_to_validator(message)
 
-        for validator in validators:
-            if validator != message.sender:
-                # In real implementation, this would send over network
-                await self._send_to_validator(validator, message)
-
-    async def _send_to_validator(self, validator: str, message: PBFTMessage) -> None:
-        """Send message to specific validator via gossip backend."""
+    async def _send_to_validator(self, message: PBFTMessage) -> None:
+        """Send message to the shared gossip backend; subscribers deliver to each validator."""
         if self._gossip_backend is None:
             return  # no-op when no gossip backend is set (for testing)
         topic = f"pbft.{message.message_type.value}.{self._chain_id}"
@@ -222,6 +325,7 @@ class PBFTConsensus:
             "digest": message.digest,
             "signature": message.signature,
             "timestamp": message.timestamp,
+            "block_hash": message.block_hash,
         }
         await self._gossip_backend.publish(topic, msg_data)
 
@@ -306,12 +410,13 @@ class PBFTConsensus:
         """Set the gossip backend used for broadcasting PBFT messages."""
         self._gossip_backend = backend
 
-    def handle_incoming_message(self, message_data: dict[str, Any]) -> None:
+    async def handle_incoming_message(self, message_data: dict[str, Any]) -> None:
         """Handle an incoming gossip message (B7/C5).
 
         Reconstructs a :class:`PBFTMessage` from the dict, verifies its
         signature, and routes it to the appropriate phase handler based
-        on ``message_type``.
+        on ``message_type``. When enough prepare or commit messages are
+        collected, it triggers the next PBFT phase for the local validator.
         """
         try:
             message = PBFTMessage(
@@ -322,6 +427,7 @@ class PBFTConsensus:
                 digest=message_data["digest"],
                 signature=message_data.get("signature", ""),
                 timestamp=message_data.get("timestamp", time.time()),
+                block_hash=message_data.get("block_hash", ""),
             )
         except (KeyError, ValueError):
             return  # malformed message — drop
@@ -330,20 +436,29 @@ class PBFTConsensus:
         if not self._verify_message_signature(message):
             return
 
+        key = f"{message.sequence_number}:{message.view_number}"
+
         # Route to the appropriate phase handler
         if message.message_type == PBFTMessageType.PRE_PREPARE:
-            key = f"{message.sequence_number}:{message.view_number}"
             self.state.pre_prepare_messages[key] = message
+            self._message_event.set()
+            # As a validator, respond with a prepare for this pre-prepare
+            if self._local_validator and message.sender != self._local_validator and key not in self._local_prepared:
+                await self.prepare_phase(self._local_validator, message)
         elif message.message_type == PBFTMessageType.PREPARE:
-            key = f"{message.sequence_number}:{message.view_number}"
             if key not in self.state.prepared_messages:
                 self.state.prepared_messages[key] = []
             self.state.prepared_messages[key].append(message)
+            self._message_event.set()
+            if self._local_validator:
+                await self._maybe_send_commit(key)
         elif message.message_type == PBFTMessageType.COMMIT:
-            key = f"{message.sequence_number}:{message.view_number}"
             if key not in self.state.committed_messages:
                 self.state.committed_messages[key] = []
             self.state.committed_messages[key].append(message)
+            self._message_event.set()
+            if len(self.state.committed_messages[key]) >= self.required_messages:
+                await self.execute_phase(key)
 
     # ------------------------------------------------------------------
     # B10: View change fixes (H4 + H6)
