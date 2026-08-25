@@ -128,6 +128,11 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
             return receipt
 
         model = model_registry.get_model(model_id)
+        if not model:
+            logger.error("No model circuit registered for %s; cannot verify job %s", model_id, job.id)
+            receipt["zk_status"] = "unsupported_model"
+            receipt["computation_correct"] = False
+            return receipt
         inputs = model_registry.compute_public_inputs(job, result, model)
         expected_public = model_registry.expected_public_signals(inputs["public_inputs"])
 

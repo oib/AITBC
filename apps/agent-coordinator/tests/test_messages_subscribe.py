@@ -1,6 +1,7 @@
 """
 Tests for agent messaging REST subscribe/unsubscribe and WebSocket restore.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,9 +45,7 @@ def fake_connection_manager():
 
 
 @pytest.fixture
-def client(
-    monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager
-):
+def client(monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager):
     """TestClient with messaging dependencies patched."""
     os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
     monkeypatch.setattr(messages_router, "state", MagicMock(message_storage=fake_storage))
@@ -57,9 +56,7 @@ def client(
 class TestMessageSubscribe:
     """POST /api/v1/agent/messages/subscribe persists and activates subscriptions."""
 
-    def test_subscribe_persists_and_activates_online_agent(
-        self, client, fake_storage, fake_connection_manager
-    ):
+    def test_subscribe_persists_and_activates_online_agent(self, client, fake_storage, fake_connection_manager):
         """An online agent is both persisted and subscribed in memory."""
         fake_connection_manager.active_connections["agent-a"] = MagicMock()
 
@@ -74,16 +71,12 @@ class TestMessageSubscribe:
         assert data["agent_id"] == "agent-a"
         assert data["topic"] == "jobs"
 
-        fake_storage.add_subscription.assert_called_once_with(
-            "agent-a", "jobs", {"min_priority": "high"}
-        )
+        fake_storage.add_subscription.assert_called_once_with("agent-a", "jobs", {"min_priority": "high"})
         assert "agent-a" in fake_connection_manager.agent_topics
         assert "jobs" in fake_connection_manager.agent_topics["agent-a"]
         assert "agent-a" in fake_connection_manager.topic_subscriptions["jobs"]
 
-    def test_subscribe_persists_offline_agent(
-        self, client, fake_storage, fake_connection_manager
-    ):
+    def test_subscribe_persists_offline_agent(self, client, fake_storage, fake_connection_manager):
         """An offline agent is persisted but not activated in memory."""
         response = client.post(
             "/api/v1/agent/messages/subscribe",
@@ -103,9 +96,7 @@ class TestMessageSubscribe:
         )
         assert response.status_code == 503
 
-    def test_unsubscribe_removes_and_deactivates(
-        self, client, fake_storage, fake_connection_manager
-    ):
+    def test_unsubscribe_removes_and_deactivates(self, client, fake_storage, fake_connection_manager):
         """Unsubscribe removes from Redis and from in-memory topics."""
         fake_connection_manager.active_connections["agent-a"] = MagicMock()
         asyncio.run(fake_connection_manager.subscribe("agent-a", "jobs"))

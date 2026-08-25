@@ -56,7 +56,7 @@ def _host_from(raw: str | None) -> str | None:
     host = raw.strip()
     for prefix in ("https://", "http://"):
         if host.startswith(prefix):
-            host = host[len(prefix):]
+            host = host[len(prefix) :]
             break
     return host.split("/", 1)[0].rstrip("/") or None
 
@@ -71,6 +71,7 @@ def hub_discovery_host() -> str | None:
     """
     raw = _raw_env_value("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_RPC_URL")
     return _host_from(raw)
+
 
 def hub_service_url(path: str) -> str | None:
     """``https://<hub>/<path>`` when a hub host is configured, else None."""

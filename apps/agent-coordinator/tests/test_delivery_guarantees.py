@@ -4,6 +4,7 @@ Delivery-guarantee tests for agent messaging:
 - idempotent sends by message_id
 - SQLite fallback when Redis is unavailable
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -45,9 +46,7 @@ def fake_connection_manager():
 
 
 @pytest.fixture
-def client(
-    monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager
-):
+def client(monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager):
     """TestClient with messaging dependencies patched."""
     os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
     monkeypatch.setattr(messages_router, "state", MagicMock(message_storage=fake_storage))

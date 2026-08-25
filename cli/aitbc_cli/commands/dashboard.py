@@ -9,8 +9,7 @@ from typing import Any
 import click
 
 from ..auth import AuthManager
-from ..config import get_config
-from ..utils import error, info, output, success, warning
+from ..utils import error, info, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)

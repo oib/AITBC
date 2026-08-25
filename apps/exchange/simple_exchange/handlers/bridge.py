@@ -131,7 +131,9 @@ class BridgeMixin:
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
-    def _verify_bridge_withdrawal_signatures(self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]]) -> tuple[bool, int]:
+    def _verify_bridge_withdrawal_signatures(
+        self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]]
+    ) -> tuple[bool, int]:
         """Verify 2-of-n multi-sig signatures for an AIT→ETH bridge withdrawal."""
         signers = {s.strip().lower() for s in bridge_config.signers}
         threshold = bridge_config.multisig_threshold
@@ -295,7 +297,6 @@ class BridgeMixin:
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
-
     def handle_cross_chain_rates(self):
         """GET /cross-chain/rates or /v1/cross-chain/rates."""
         import sys
@@ -314,25 +315,29 @@ class BridgeMixin:
             if eth_usd and ait_usd and eth_usd.price > 0:
                 rates["AITBC::ETH"] = float(round(ait_usd.price / eth_usd.price, 8))
 
-            self.send_json_response({  # type: ignore[attr-defined]
-                "rates": rates,
-                "custodian": bridge_config.custodian,
-                "multisig_enabled": bridge_config.multisig_enabled,
-                "multisig_threshold": bridge_config.multisig_threshold,
-                "multisig_signers_count": len(bridge_config.signers),
-                "require_merkle_proof": False,
-                "note": "Bridge is operating in trusted-custodian mode; rates are indicative only.",
-            })
+            self.send_json_response(
+                {  # type: ignore[attr-defined]
+                    "rates": rates,
+                    "custodian": bridge_config.custodian,
+                    "multisig_enabled": bridge_config.multisig_enabled,
+                    "multisig_threshold": bridge_config.multisig_threshold,
+                    "multisig_signers_count": len(bridge_config.signers),
+                    "require_merkle_proof": False,
+                    "note": "Bridge is operating in trusted-custodian mode; rates are indicative only.",
+                }
+            )
         except Exception:
-            self.send_json_response({  # type: ignore[attr-defined]
-                "rates": {},
-                "custodian": bridge_config.custodian,
-                "multisig_enabled": bridge_config.multisig_enabled,
-                "multisig_threshold": bridge_config.multisig_threshold,
-                "multisig_signers_count": len(bridge_config.signers),
-                "require_merkle_proof": False,
-                "note": "Bridge is operating in trusted-custodian mode; rate feed unavailable.",
-            })
+            self.send_json_response(
+                {  # type: ignore[attr-defined]
+                    "rates": {},
+                    "custodian": bridge_config.custodian,
+                    "multisig_enabled": bridge_config.multisig_enabled,
+                    "multisig_threshold": bridge_config.multisig_threshold,
+                    "multisig_signers_count": len(bridge_config.signers),
+                    "require_merkle_proof": False,
+                    "note": "Bridge is operating in trusted-custodian mode; rate feed unavailable.",
+                }
+            )
 
     def handle_bridge_estimate(self):
         """POST /v1/bridge/estimate — estimate AIT amount for ETH"""

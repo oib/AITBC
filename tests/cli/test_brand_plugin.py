@@ -2,7 +2,6 @@
 
 import json
 import re
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -109,4 +108,3 @@ def test_brand_show_uses_active_plugin(tmp_path, runner, monkeypatch):
     data = _parse_json_output(result.output)
     assert data["name"] == "CustomBrand"
     assert data["source"] == "custom"
-
