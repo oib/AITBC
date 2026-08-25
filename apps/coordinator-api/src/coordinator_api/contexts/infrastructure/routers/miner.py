@@ -85,15 +85,22 @@ def _tee_required_for(job: Any) -> bool:
 
 
 async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Generate and attach a receipt_public Groth16 proof when required."""
+    """Generate and attach a receipt_public Groth16 proof when required.
+
+    Always stores a boolean ``computation_correct`` so the acceptance gate can
+    fail-closed on both missing and explicitly-false values. For non-ZK jobs the
+    value is ``True``. For any ZK failure path it is ``False``.
+    """
     if not receipt:
         return receipt
     if not _zk_required_for(job):
         receipt["zk_status"] = "not_required"
+        receipt["computation_correct"] = True
         return receipt
     if not zk_proof_service.is_enabled():
         logger.warning("ZK proof required for job %s but ZK service is not enabled", job.id)
         receipt["zk_status"] = "service_unavailable"
+        receipt["computation_correct"] = False
         return receipt
     try:
         receipt_model = Receipt(
@@ -109,6 +116,7 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
         if not proof:
             logger.error("Failed to generate ZK proof for job %s", job.id)
             receipt["zk_status"] = "generation_failed"
+            receipt["computation_correct"] = False
             return receipt
         # Inline verification so the receipt only stores a verified proof.
         verify_result = await zk_proof_service.verify_proof(
@@ -117,9 +125,12 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
         if not verify_result.get("verified"):
             logger.error("ZK proof did not verify for job %s: %s", job.id, verify_result.get("error"))
             receipt["zk_status"] = f"verification_failed: {verify_result.get('error', 'unknown')}"
+            receipt["computation_correct"] = False
             return receipt
 
-        computation_correct = verify_result.get("computation_correct", verify_result.get("verified", False))
+        computation_correct = verify_result.get("computation_correct", verify_result.get("verified"))
+        if computation_correct is None:
+            computation_correct = True
         if not computation_correct:
             logger.error(
                 "ZK proof verified for job %s but computation_correct is false; blocking acceptance",
@@ -136,6 +147,7 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
     except Exception as e:
         logger.error("Error generating ZK proof for job %s: %s", job.id, e)
         receipt["zk_status"] = f"error: {e}"
+        receipt["computation_correct"] = False
     return receipt
 
 
