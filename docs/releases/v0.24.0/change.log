@@ -1339,11 +1339,6 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 
 - **Stall state:** `hub.aitbc` `/rpc/height` = 14547; `aitbc1` `/rpc/height` = 14548; both heads 7.5+ hours old. `hub.aitbc` logs showed `Selected proposer ... is not a local key, skipping proposal at height 14548` and periodic sync pulling from itself.
 - **Root cause:**
-  1. `hub.aitbc` `default_peer_rpc_url` was `http://hub.aitbc.bubuit.net` (self-reference), so it could never learn `aitbc1`s head over HTTP.
-## Consensus recovery — 2026-08-25
-
-- **Stall state:** `hub.aitbc` `/rpc/height` = 14547; `aitbc1` `/rpc/height` = 14548; both heads 7.5+ hours old. `hub.aitbc` logs showed `Selected proposer ... is not a local key, skipping proposal at height 14548` and periodic sync pulling from itself.
-- **Root cause:**
   1. `hub.aitbc` `default_peer_rpc_url` was `http://hub.aitbc.bubuit.net` (self-reference), so it could never learn `aitbc1`'s head over HTTP.
   2. `aitbc1` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
   3. The `at1` Incus host reverse proxy for `aitbc1.bubuit.net`/`node1.aitbc.bubuit.net` was not enabled in sites-enabled.
@@ -1356,8 +1351,8 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `hub.aitbc` pulled block 14548 from `aitbc1` over HTTPS; both heads converged at height 14550 with identical hashes.
   - The chain now advances every ~60s with `MultiValidatorPoA` round-robin selection; blocks 14563+ carry `block_metadata` with a valid cross-validator attestation signature (e.g. 14563 from `ait1Eb9F...` attested by `ait178046...`; 14564 from `ait178046...` attested by `ait1Eb9F...`).
   - `hub.aitbc` and `aitbc1` report the same head height and hash.
+  - Extended independent verification (heights 14592–14612, 15 consecutive blocks) ran `verify_block_signature()` live on all three nodes; every proposer and attestation signature validated, with attestations exclusively from the non-proposing validator.
 - **Residual:**
   - `PBFTConsensus` is still not wired into production block production. A two-validator, `min-attestations=1` topology is not BFT and can stall if one validator is unreachable.
   - `aitbc3` remains a passive follower, not a validator.
   - `aitbc1` `BRIDGE_RELEASE_ENABLED=false` remains; the five pending bridge transfers are still pending and no `aitbc bridge confirm` was executed.
-  - Certbot reported a conflicting redirect directive for `aitbc3.aitbc.bubuit.net` when installing the certificate on `at1`; `node1.aitbc.bubuit.net` works but the certbot error should be cleaned up.
