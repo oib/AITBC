@@ -20,6 +20,7 @@ from .utils import get_chain_id, verify_admin_signature, verify_request_signatur
 
 _logger = get_logger(__name__)
 
+
 def _update_bridge_metrics(bridge: Any) -> None:
     """Set Prometheus bridge health gauges from the live bridge state."""
     if bridge is None:
@@ -45,7 +46,6 @@ def _update_bridge_metrics(bridge: Any) -> None:
     for chain_id in all_chains:
         bridge_pending_transfers.labels(chain_id=chain_id).set(pending_by_chain.get(chain_id, 0))
         bridge_total_locked_amount.labels(chain_id=chain_id, token="default").set(int(balances.get(chain_id, 0)))
-
 
 
 @rate_limit(rate=20, per=60)

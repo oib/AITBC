@@ -58,7 +58,7 @@ def test_withdraw_without_signers_is_allowed_when_no_policy(handler):
 def test_withdraw_requires_threshold_signatures(handler, signer_pair):
     private, public = signer_pair
     signer_address = public.to_address()
-    message = f"BRIDGE_WITHDRAW:{signer_address}:1.0".encode("utf-8")
+    message = f"BRIDGE_WITHDRAW:{signer_address}:1.0".encode()
     signature = private.sign_msg(message)
 
     with _patch_bridge_config((signer_address,), 1):
@@ -82,7 +82,7 @@ def test_withdraw_rejects_forbidden_signatures(handler, signer_pair):
         pytest.skip(f"eth_keys not installed: {e}")
     # Use a different private key that is not in the configured signer set.
     other_private = keys.PrivateKey(b"\x02" * 32)
-    message = f"BRIDGE_WITHDRAW:{other_address}:1.0".encode("utf-8")
+    message = f"BRIDGE_WITHDRAW:{other_address}:1.0".encode()
     signature = other_private.sign_msg(message)
 
     with _patch_bridge_config((signer_address,), 1):
@@ -98,7 +98,7 @@ def test_withdraw_rejects_forbidden_signatures(handler, signer_pair):
 def test_withdraw_requires_configured_threshold(handler, signer_pair):
     private, public = signer_pair
     signer_address = public.to_address()
-    message = f"BRIDGE_WITHDRAW:{signer_address}:1.0".encode("utf-8")
+    message = f"BRIDGE_WITHDRAW:{signer_address}:1.0".encode()
     signature = private.sign_msg(message)
 
     with _patch_bridge_config((signer_address,), 2):

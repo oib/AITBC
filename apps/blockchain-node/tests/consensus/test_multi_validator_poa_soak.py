@@ -32,7 +32,7 @@ def test_round_robin_soak_distribution() -> None:
     consensus = _make_consensus(n)
     addresses = [f"0x{i:040x}" for i in range(n)]
 
-    counts = {addr: 0 for addr in addresses}
+    counts = dict.fromkeys(addresses, 0)
     for height in range(1000):
         proposer = consensus.select_proposer(height)
         assert proposer is not None, f"No proposer at height {height}"
@@ -69,10 +69,12 @@ def test_proposer_rotation_with_validator_changes() -> None:
 
     # While 4 validators were active, every selected proposer should be active.
     assert added_addr in counts_after_add
-    for addr in ["0x0000000000000000000000000000000000000000",
-                 "0x0000000000000000000000000000000000000001",
-                 "0x0000000000000000000000000000000000000002",
-                 added_addr]:
+    for addr in [
+        "0x0000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000002",
+        added_addr,
+    ]:
         assert counts_after_add.get(addr, 0) > 0, f"{addr} was never selected while active"
 
     # After removing the first original, only the other two originals + the added

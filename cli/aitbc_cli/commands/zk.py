@@ -1,4 +1,5 @@
 """Zero-knowledge proof commands for the AITBC CLI."""
+
 from __future__ import annotations
 
 import base64
@@ -18,12 +19,7 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError
 def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     """Return the coordinator base URL without a trailing /v1 path."""
     config = get_config()
-    url = (
-        coordinator_url
-        or ctx.obj.get("url")
-        or config.coordinator_api_url
-        or os.getenv("COORDINATOR_API_URL", "")
-    )
+    url = coordinator_url or ctx.obj.get("url") or config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return ""
     url = url.rstrip("/")
@@ -72,7 +68,7 @@ def zk():
 @click.pass_context
 def circuits(ctx, coordinator_url: str | None, format: str):
     """List available ZK circuits and verification status."""
-    config = get_config()
+    get_config()
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
@@ -106,7 +102,7 @@ def verify(
     format: str,
 ):
     """Verify a ZK proof against the coordinator."""
-    config = get_config()
+    get_config()
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
@@ -153,7 +149,7 @@ def verify(
 @click.pass_context
 def health(ctx, coordinator_url: str | None, format: str):
     """Check ZK proof service health."""
-    config = get_config()
+    get_config()
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:

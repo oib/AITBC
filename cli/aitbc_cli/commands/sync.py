@@ -165,7 +165,7 @@ def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
         hub_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         try:
             hub_head = hub_client.get("/rpc/head", params=head_params)
-            hub_info = hub_client.get("/rpc/network-info")
+            hub_client.get("/rpc/network-info")
         except NetworkError:
             hub_status = {
                 "height": "N/A",

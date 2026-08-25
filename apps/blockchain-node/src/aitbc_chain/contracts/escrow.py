@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 async def _aitbc_chain_session_scope():
     from ..database import session_scope
+
     return session_scope
 
 
@@ -183,14 +184,16 @@ class EscrowManager:
             return
         try:
             from sqlmodel import select
+
             with session_scope() as session:
                 records = session.exec(
-                    select(EscrowRecord).where(
-                        EscrowRecord.released_at == None, EscrowRecord.refunded_at == None
-                    )
+                    select(EscrowRecord).where(EscrowRecord.released_at is None, EscrowRecord.refunded_at is None)
                 ).all()
                 for record in records:
-                    contract_id = "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
+                    contract_id = (
+                        "escrow_"
+                        + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
+                    )
                     if contract_id in self.escrow_contracts:
                         continue
                     amount = Decimal(str(record.amount))
@@ -205,7 +208,12 @@ class EscrowManager:
                         expires_at=record.created_at.timestamp() + self.max_contract_duration,
                         state=EscrowState.FUNDED,
                         milestones=[
-                            {"milestone_id": "milestone_1", "description": "Complete job", "amount": amount, "completed": False}
+                            {
+                                "milestone_id": "milestone_1",
+                                "description": "Complete job",
+                                "amount": amount,
+                                "completed": False,
+                            }
                         ],
                         current_milestone=0,
                         dispute_reason=None,
@@ -236,7 +244,9 @@ class EscrowManager:
                 record = session.get(EscrowRecord, job_id)
                 if not record:
                     return None
-                contract_id = "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
+                contract_id = (
+                    "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
+                )
                 amount = Decimal(str(record.amount))
                 state = EscrowState.FUNDED
                 if record.released_at:
@@ -254,7 +264,12 @@ class EscrowManager:
                     expires_at=record.created_at.timestamp() + self.max_contract_duration,
                     state=state,
                     milestones=[
-                        {"milestone_id": "milestone_1", "description": "Complete job", "amount": amount, "completed": state == EscrowState.RELEASED}
+                        {
+                            "milestone_id": "milestone_1",
+                            "description": "Complete job",
+                            "amount": amount,
+                            "completed": state == EscrowState.RELEASED,
+                        }
                     ],
                     current_milestone=0,
                     dispute_reason=None,
