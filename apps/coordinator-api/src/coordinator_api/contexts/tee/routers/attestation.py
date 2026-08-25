@@ -38,6 +38,7 @@ class EnclaveRegister(BaseModel):
     # caller (see register_enclave below), not from a client-supplied field.
     agent_id: str = ""
     status: str = "active"
+    allowed_measurements: list[str] = []
 
 
 @router.post("/attestations", response_model=TEEAttestation, status_code=status.HTTP_201_CREATED)
@@ -45,7 +46,13 @@ def submit_attestation(
     payload: AttestationSubmit,
     service: Annotated[TEEAttestationService, Depends(_get_service)],
 ) -> TEEAttestation:
-    """Submit and verify a TEE attestation quote."""
+    """Submit and verify a TEE attestation quote.
+
+    By default the endpoint records self-consistent quotes as
+    ``self_consistent`` (``registered=False``). Callers that need a real
+    trust root must use the job release path, which calls
+    ``verify_and_store(..., require_registered=True)``.
+    """
     return service.verify_and_store(payload.enclave_id, payload.quote, payload.measurement)
 
 
@@ -85,6 +92,7 @@ def register_enclave(
             payload.public_key,
             user["sub"],
             status=enclave_status,
+            allowed_measurements=payload.allowed_measurements,
         )
     except EnclaveOwnershipError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
