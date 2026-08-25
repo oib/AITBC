@@ -285,7 +285,7 @@ class SyncManager:
         state.last_local_height = state.chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
 
-        if gap > getattr(settings, "auto_sync_threshold", 10):
+        if gap > getattr(settings, "auto_sync_threshold", 10) or state.mode == SyncMode.CATCH_UP:
             state.mode = SyncMode.CATCH_UP
             state.bulk_task = create_task_with_logging(
                 self._bulk_pull(chain_id, source_url),
@@ -308,6 +308,8 @@ class SyncManager:
                 logger.warning("State sync failed for %s: %s", chain_id, e)
             state.mode = SyncMode.SYNCED
 
+        if gap == 0:
+            return getattr(settings, "sync_manager_synced_poll_interval", 30.0)
         return poll
 
     async def _bulk_pull(self, chain_id: str, source_url: str) -> int:
