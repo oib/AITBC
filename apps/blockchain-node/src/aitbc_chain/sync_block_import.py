@@ -275,13 +275,18 @@ class BlockImportMixin(SyncBase):
                 # Fall back to sequential if too many transactions conflict.
                 if groups and graph.conflict_rate() <= settings.conflict_threshold:
                     # Batch-fetch all sender/recipient accounts into account_map.
+                    # Pre-create any missing accounts with zero balance so that
+                    # `compute_state_delta` does not fail on followers that have
+                    # not yet replayed the blocks that created those accounts.
                     unique_addresses: set[str] = set()
                     for tx_data in transactions:
-                        sender_addr = _to_ait_address(tx_data.get("from", ""))
-                        recipient_addr = _to_ait_address(tx_data.get("to", ""))
-                        if sender_addr:
+                        raw_from = tx_data.get("from", "")
+                        raw_to = tx_data.get("to", "")
+                        sender_addr = _to_ait_address(raw_from)
+                        recipient_addr = _to_ait_address(raw_to)
+                        if sender_addr and raw_from not in {"faucet", "bridge_release", "bridge_refund"}:
                             unique_addresses.add(sender_addr)
-                        if recipient_addr:
+                        if recipient_addr and raw_to != "bridge_lock":
                             unique_addresses.add(recipient_addr)
                     account_map: dict[str, Account] = {}
                     if unique_addresses:
@@ -292,6 +297,12 @@ class BlockImportMixin(SyncBase):
                             )
                         ).all()
                         account_map = {acc.address: acc for acc in existing_accounts}
+                    for addr in unique_addresses:
+                        if addr not in account_map:
+                            acct = Account(chain_id=self._chain_id, address=addr, balance=0, nonce=0)
+                            session.add(acct)
+                            session.flush()
+                            account_map[acct.address] = acct
                     # Batch-fetch tx hashes already in the DB (duplicate detection).
                     existing_tx_hashes: set[str] = set()
                     all_tx_hashes = [tx_data.get("tx_hash", "") for tx_data in transactions]
