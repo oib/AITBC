@@ -170,7 +170,7 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 3. No automatic provider reinvestment or performance bonds (CLI shells only).
 4. Fee market is fixed; dynamic pricing was deprecated in v0.5.0.
 5. ~~Hub pool does not see shop miners (`miners_online: 0`).~~ Fixed — shop miner heartbeats to hub pool hub.
-6. ~~Result verification is “coordinator says COMPLETED”, not ZK/TEE.~~ Fixed — ZK proof required for high-value jobs; TEE attestation required for confidential jobs.
+6. Result verification is improved but still not fully independent: `receipt_model` proves a committed deterministic model executed on a committed input and produced a committed output, and `computation_correct` is only `True` when the proof's public signals match coordinator-derived values. `receipt_public` does not imply computation correctness. TEE requires a registered enclave from an owner-locked allowlist and rejects `auto_attested` / unregistered / self-consistent quotes for release. No independent manufacturer attestation root or open-ended model-semantic proof yet. Was: ~~Result verification is “coordinator says COMPLETED”, not ZK/TEE.~~
 
 ### Operations / trust
 
@@ -242,4 +242,4 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 
 ---
 
-*Last updated: 2026-08-24 (P1.1, P1.5, P1.7, P2.1–P2.8 shipped; V23-42 agent-stake/bounty live-validated; pool-hub, escrow, and dispatch table refreshed)*
+*Last updated: 2026-08-25 (TEE enclave allowlist and `receipt_model` ZK model-execution proof live; P1.1, P1.5, P1.7, P2.1–P2.8 shipped; V23-42 agent-stake/bounty live-validated; pool-hub, escrow, and dispatch table refreshed)*
