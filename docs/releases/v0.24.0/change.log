@@ -1356,3 +1356,86 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `PBFTConsensus` is still not wired into production block production. A two-validator, `min-attestations=1` topology is not BFT and can stall if one validator is unreachable.
   - `aitbc3` remains a passive follower, not a validator.
   - `aitbc1` `BRIDGE_RELEASE_ENABLED=false` remains; the five pending bridge transfers are still pending and no `aitbc bridge confirm` was executed.
+
+## TEE and ZK verification hardening (2026-08-25)
+
+### TEE
+
+- Add  to  and  to .
+-  now returns a
+  distinguishing  (registered enclave, matching public key and
+  measurement),  (unregistered but cryptographically signed),
+  and .
+-  supports ; the job-release path uses it.
+- Removed the coordinator  quote fallback from .
+- A TEE-gated job now releases escrow only when  and
+  the attestation is .
+- Added alembic migration  and updated .
+- Live: deployed to  and ;  restarted.
+
+### ZK
+
+- Added  and built artifacts (, ,
+  ) using a phase-2 contribution on the gitea runner.
+-  public signals are , , ,
+  and ; it proves a committed deterministic model executed on a
+  committed input to produce a committed output. It does not prove semantic
+  correctness of open-ended text.
+- Added  with one supported deterministic model ().
+- Extended  with  and ;
+   returns  only when the proof
+  verifies *and* its public signals match the coordinator-derived expected values.
+-  remains a receipt-binding artifact; it no longer sets
+   on its own.
+- Updated : ZK-required jobs must specify a supported model;
+  unsupported models fail closed with  and
+  .
+- Added  and updated
+   to reflect that  verification does not
+  imply computation correctness.
+- Updated  to exempt generated  binaries from
+  the large-file size gate.
+- Live: circuit artifacts and coordinator code pushed to Gitea from ;
+  deployment to  is pending recovery of the hub node.
+
+
+## TEE and ZK verification hardening (2026-08-25)
+
+### TEE
+
+- Add `allowed_measurements` to `EnclaveIdentity` and `registered` to `TEEAttestation`.
+- `TEEAttestationService._validate_quote` now returns a `QuoteValidationResult`
+  distinguishing `verified` (registered enclave, matching public key and
+  measurement), `self_consistent` (unregistered but cryptographically signed),
+  and `rejected`.
+- `verify_and_store` supports `require_registered`; the job-release path uses it.
+- Removed the coordinator `auto_attested` quote fallback from `_attach_tee_attestation`.
+- A TEE-gated job now releases escrow only when `tee_status == "verified"` and
+  the attestation is `registered`.
+- Added alembic migration `5d8339a13a12` and updated `test_v024_tee_verification_trust.py`.
+- Live: deployed to `hub.aitbc` and `aitbc3`; `aitbc-coordinator-api` restarted.
+
+### ZK
+
+- Added `receipt_model.circom` and built artifacts (`_0001.zkey`, `.wasm`,
+  `verification_key.json`) using a phase-2 contribution on the gitea runner.
+- `receipt_model` public signals are `input_hash`, `model_hash`, `output_hash`,
+  and `model_id`; it proves a committed deterministic model executed on a
+  committed input to produce a committed output. It does not prove semantic
+  correctness of open-ended text.
+- Added `model_registry.py` with one supported deterministic model (`linear-1`).
+- Extended `ZKProofService` with `generate_model_proof` and `verify_model_proof`;
+  `verify_model_proof` returns `computation_correct=True` only when the proof
+  verifies *and* its public signals match the coordinator-derived expected values.
+- `receipt_public` remains a receipt-binding artifact; it no longer sets
+  `computation_correct` on its own.
+- Updated `_attach_zk_proof`: ZK-required jobs must specify a supported model;
+  unsupported models fail closed with `computation_correct=False` and
+  `zk_status="unsupported_model"`.
+- Added `apps/coordinator-api/tests/test_receipt_model.py` and updated
+  `test_zk_receipt.py` to reflect that `receipt_public` verification does not
+  imply computation correctness.
+- Updated `.pre-commit-config.yaml` to exempt generated `.wasm` binaries from
+  the large-file size gate.
+- Live: circuit artifacts and coordinator code pushed to Gitea from `aitbc3`;
+  deployment to `hub.aitbc` is pending recovery of the hub node.
