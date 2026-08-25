@@ -66,7 +66,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
 | 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama, Whisper and FFmpeg services are live; `aitbc market offer/run/transcribe/process` validated; default miner offers include all three. | Done |
-| 6. Verify result | ZK + TEE attestation | ZK `receipt_public` Groth16 proof is required and verified for high-value jobs. TEE attestation is required and verified for confidential jobs. Both gates block escrow release until verified. | Done |
+| 6. Verify result | ZK + TEE attestation | TEE: registered enclave allowlist, owner-locked registration, `auto_attested` removed; unregistered/self-consistent quotes are `self_consistent` and do **not** release. ZK: new `receipt_model` circuit proves a committed deterministic model (`linear-1`) executed on committed input and produced committed output; `computation_correct` is only `True` when public signals match coordinator-derived values. `receipt_public` remains a receipt-binding artifact and does not imply computation correctness. | Partial -- trust model improved; independent roots still future work |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, signed by the dedicated non-genesis settlement key `0x477737bd028eeb38350c58e62f7a766ac061ce2e`. Fee ~2.5%. Release is refused up front when the settlement key and `ESCROW_RELEASE_ADDRESS` disagree, and a release that does not settle on-chain now reports `success: false` / `settlement_status: unsettled` instead of a silent no-op. | Done (multi-party key ceremony still future work) |
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
 | 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest policy/simulate`, and `--auto-reinvest-pct` live; not yet fully automatic. | Done |
@@ -114,7 +114,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 |-------|--------|
 | Multi-validator PoA / PBFT | Code present, default false; soak test added (1000 rounds + partition/PBFT). Single-proposer mode still active. |
 | Bridge merkle proofs / multi-sig | Implemented, production defaults false |
-| ZK circuits (`apps/zk-circuits`) | ~~Ceremony keys exist; not in job verification~~ Fixed — `receipt_public` Groth16 proof is required and verified for high-value jobs (§3 step 6, §7 P2.1), live-validated 2026-08-21. The circuit proves the miner's self-reported result fields hash consistently; it does not independently re-verify the underlying computation (circuits that could, `ml_inference`/`training_verification`, exist but are not wired into the job/escrow path). |
+| ZK circuits (`apps/zk-circuits`) | ~~Ceremony keys exist; not in job verification~~ Fixed — `receipt_public` receipt binding and new `receipt_model` deterministic model-execution proof are required for high-value jobs, live-validated 2026-08-25. `receipt_public` proves the miner's self-reported result fields hash consistently; `receipt_model` proves the committed model executed on the committed input produced the committed output. Open-ended LLM semantic correctness is not proven. |
 | TEE / confidential | ~~CLI `aitbc tee`, `aitbc confidential` — not in job pipeline~~ Fixed — TEE attestation is required and verified for confidential jobs (§3 step 6, §7 P2.2). Identity-pinning landed 2026-08-24 (`QuoteGenerator` no longer derives a key from `enclave_id`; the coordinator pins verification to a registered `EnclaveIdentity`) plus stable signing-key plumbing (`aitbc tee attest --key-file` / `keygen`). Still partial in practice: no live miner has registered a stable enclave key yet, so registry-pinning has no live caller and no production traffic has exercised a real (non-coordinator-self-attested) quote. |
 | Agent SDK IPFS/oracle | Wraps `aitbc ipfs` / `aitbc oracle` |
 | Messaging | `aitbc messaging` often simulated on shop |
@@ -170,7 +170,7 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 3. No automatic provider reinvestment or performance bonds (CLI shells only).
 4. Fee market is fixed; dynamic pricing was deprecated in v0.5.0.
 5. ~~Hub pool does not see shop miners (`miners_online: 0`).~~ Fixed — shop miner heartbeats to hub pool hub.
-6. ~~Result verification is “coordinator says COMPLETED”, not ZK/TEE.~~ Fixed — ZK proof required for high-value jobs; TEE attestation required for confidential jobs.
+6. Result verification is improved but still not fully independent: `receipt_model` proves a committed deterministic model executed on a committed input and produced a committed output, and `computation_correct` is only `True` when the proof's public signals match coordinator-derived values. `receipt_public` does not imply computation correctness. TEE requires a registered enclave from an owner-locked allowlist and rejects `auto_attested` / unregistered / self-consistent quotes for release. No independent manufacturer attestation root or open-ended model-semantic proof yet. Was: ~~Result verification is “coordinator says COMPLETED”, not ZK/TEE.~~
 
 ### Operations / trust
 
@@ -222,8 +222,8 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 
 | # | Wish | Why |
 |---|------|-----|
-| P2.1 | ZK proof required for high-value jobs (circuits already in tree) | Shipped: `receipt_public` circuit, `ZKProofService`, `--zk-proof-required`, `zk_status` gating, live-validated 2026-08-21. |
-| P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Shipped: `aitbc tee register/verify`, `--tee-attestation-required`, `--confidential`, `tee_status` gating, live-validated 2026-08-21. |
+| P2.1 | ZK proof required for high-value jobs (circuits already in tree) | Shipped: `receipt_public` receipt binding + new `receipt_model` deterministic model-execution proof, `model_registry`, `generate_model_proof`/`verify_model_proof` public-signal binding, `--zk-proof-required` gating, live-validated 2026-08-25. |
+| P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Shipped: registered enclave allowlist, owner-locked registration, `auto_attested` removed, `self_consistent` vs `verified` distinction, `--tee-attestation-required`/`--confidential` gating, live-validated 2026-08-25. |
 | P2.3 | Performance bonds + slashing (`aitbc bond`) | Shipped: `aitbc bond create/status/release`, `BOND_LOCK/RELEASE/SLASH` state transitions, marketplace offer bond enforcement, live-validated 2026-08-21. |
 | P2.4 | Auto reinvest (`aitbc reinvest`) from released escrow | Shipped: `aitbc reinvest policy/simulate`, `aitbc ai submit --auto-reinvest-pct`, and `agent_wallet rebalance` live; fully automatic reinvestment still manual. |
 | P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Shipped: `aitbc market offer whisper/ffmpeg/ollama`, `aitbc market transcribe/process/run`, default miner offers, live-validated. |
@@ -242,4 +242,4 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 
 ---
 
-*Last updated: 2026-08-24 (P1.1, P1.5, P1.7, P2.1–P2.8 shipped; V23-42 agent-stake/bounty live-validated; pool-hub, escrow, and dispatch table refreshed)*
+*Last updated: 2026-08-25 (TEE enclave allowlist and `receipt_model` ZK model-execution proof live; P1.1, P1.5, P1.7, P2.1–P2.8 shipped; V23-42 agent-stake/bounty live-validated; pool-hub, escrow, and dispatch table refreshed)*
