@@ -255,31 +255,31 @@ These are the live-design verdicts that follow the economic-loop verification ab
 | Gap | Verdict | Notes |
 |---|---|---|
 | G3 — dispatch/acceptance-gate wiring | **LIVE** | `computation_correct` is wired and loaded; `aitbc-coordinator-api` on `hub.aitbc` was restarted and `/proc/<pid>/environ` confirms `BRIDGE_RELEASE_ENABLED=true`. A false value stamps `zk_status="computation_incorrect"` and `release_payment` fails closed before touching the blockchain client. |
-| G6 — settlement/trust-minimization | **PARTIALLY CLOSED** | The rotation process is now committed: `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. `PBFTConsensus` wiring and true BFT/fault tolerance remain open and are a larger architectural task. |
+| G6 — settlement/trust-minimization | **PARTIALLY CLOSED** | The rotation process is now committed: `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. The two-validator stall that recurred on 2026-08-25 was recovered by fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. `PBFTConsensus` wiring and true BFT/fault tolerance remain open. |
 | G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
-| Bridge — multi-sig/Merkle enforcement | **ENABLED, VALIDATION PAUSED** | `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`. `aitbc bridge security-status` reports `release_enabled: true` and `trusted_custodian: false`. A controlled `confirm`/`release` run is **not safe** right now: `hub.aitbc` and `aitbc1` are one block apart (`/rpc/height` returns 14547 vs 14548, both 7.5+ hours old), the same proposer-turn-gate stall signature from the 2026-08-24 G6 incident. `confirm_transfer` would synchronously credit the recipient and mark the transfer `completed` without verifying the release is sealed in a produced block, so running it during the stall would create a divergence. |
-| G8 — doc debt | **CLOSED** | The `--show-deprecated` gate has been removed: `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py` are deleted, `main.py` no longer filters the help surface, and all top-level groups including `marketplace` and `operations` appear in `aitbc --help` by default. |
+| Bridge — multi-sig/Merkle enforcement | **ENABLED, VALIDATION PAUSED** | `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`. `aitbc bridge security-status` reports `release_enabled: true` and `trusted_custodian: false`. The two-validator chain has recovered (e.g. matching head at height 14588) and is advancing every ~60s with valid `block_metadata`. `aitbc1` still has `BRIDGE_RELEASE_ENABLED=false`. Five bridge transfers remain pending; no `aitbc bridge confirm` is performed without explicit authorization. |
+| G8 — doc debt | **PARTIALLY CLOSED** | The `--show-deprecated` visibility gate is removed: `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py` are deleted, `main.py` no longer filters the help surface, and all top-level groups including `marketplace` and `operations` appear in `aitbc --help` by default. The underlying command overlaps (`market` / `marketplace` / `operations marketplace`, `governance` / `operations governance`) remain unconsolidated and are only smoke-tested via `--help`; the G8 closure is for visibility, not consolidation. |
 
-## Live consensus stall and bridge-validation hold (2026-08-25)
+## Consensus recovery and bridge-validation hold (2026-08-25)
 
-Independent verification confirmed the bridge release flag is live, but the
-underlying two-validator chain is currently stalled:
+Independent verification confirmed the bridge release flag is live and the
+two-validator chain recovered:
 
-- `hub.aitbc` `/rpc/height` returns `14547`.
-- `aitbc1` `/rpc/height` returns `14548`.
-- Both `head` timestamps are 7.5+ hours old and match the 2026-08-24 incident
-  signature (proposer-turn gate vetoing the forced heartbeat).
-- `hub.aitbc` `/proc/<pid>/environ` for `aitbc-coordinator-api` now reads
+- `hub.aitbc` `/proc/<pid>/environ` for `aitbc-coordinator-api` reads
   `BRIDGE_RELEASE_ENABLED=true` after an explicit post-config-edit restart.
+- The `default_peer_rpc_url` on `hub.aitbc` was changed to
+  `https://node1.aitbc.bubuit.net` and the `aitbc1` reverse proxy was enabled on
+  the `at1` Incus host.
+- After restarting both blockchain nodes, hub pulled block 14548 from `aitbc1`
+  and the chain resumed advancing with round-robin proposers.
+- `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` was restored. All three live nodes
+  (`hub.aitbc`, `aitbc1`, `aitbc3`) now report the same head height and hash
+  (e.g. `14588`) and every produced block carries a valid cross-validator
+  attestation in `block_metadata`.
 
-Because `confirm_transfer` credits the recipient synchronously and marks the
-source `CrossChainTransfer` `completed` without checking that a
-`BRIDGE_RELEASE` transaction is sealed in a produced block, running any
-`aitbc bridge confirm` while the chain is stalled would report success while
-silently diverging from on-chain history. The 5 pending transfers (including 4
-self-sends from the bridge admin and 1 external 30-unit transfer) should remain
-pending until the stall clears and `hub.aitbc` / `aitbc1` advance together.
-
-The root-cause work (nginx WebSocket upgrade headers for the `aitbc1` gossip
-path and correcting hub's self-referential `default_source` sync source) is the
-same G6 follow-up identified on 2026-08-24 and is still open.
+`confirm_transfer` still credits the recipient synchronously and marks the
+source `CrossChainTransfer` `completed` without checking that a `BRIDGE_RELEASE`
+transaction is sealed in a produced block. The 5 pending transfers remain
+pending; `aitbc bridge confirm` is not run without explicit authorization. The
+larger root cause — `PBFTConsensus` not wired into production and a
+`min-attestations=1` two-validator set being non-BFT — is still open.
