@@ -1,9 +1,6 @@
 """Model registry and public-input helpers for the receipt_model ZK circuit.
 
-The receipt_model circuit proves that a committed model, applied to a
-committed input, produced a committed output. It does not prove semantic
-truth of an open-ended response; it only proves that the output came from the
-claimed deterministic computation.
+The receipt_model circuit proves a deterministic model execution.
 """
 
 from __future__ import annotations
@@ -21,10 +18,7 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
-# bn128 field prime
 _BN128_FQ = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-
-# snarkjs/poseidon-lite live under the top-level zk-circuits node_modules.
 _ZK_CIRCUITS_NODE_MODULES = Path(os.getenv("COORDINATOR_SNARKJS_NODE_PATH", "/opt/aitbc/apps/zk-circuits/node_modules"))
 
 
@@ -67,17 +61,11 @@ def _poseidon(inputs: list[int]) -> int:
 def hash_to_field(value: Any) -> int:
     """Deterministically map an arbitrary value to a bn128 field element."""
     raw = str(value) if value is not None else "0"
-    # 32 hex chars = 128 bits, comfortably below the 254-bit field prime.
     return int(hashlib.sha256(raw.encode()).hexdigest()[:32], 16)
 
 
 def text_to_field_array(text: str, n: int) -> list[int]:
-    """Map a string to ``n`` field elements in a stable, collision-resistant way.
-
-    The first element is derived from the whole string; subsequent elements are
-    derived from the suffix after the previous chunk, so the mapping is not a
-    trivial projection and different lengths produce different sequences.
-    """
+    """Map a string to ``n`` field elements."""
     if not isinstance(text, str):
         text = str(text)
     out: list[int] = []
@@ -94,7 +82,6 @@ def float_to_field(value: float) -> int:
     """Encode a scalar as a field element."""
     if not isinstance(value, int | float):
         value = float(str(value))
-    # Scale by 1_000_000 to preserve 6 decimal digits, then reduce modulo the field prime.
     scaled = int(round(value * 1_000_000))
     return scaled % _BN128_FQ
 
@@ -103,34 +90,27 @@ def float_to_field(value: float) -> int:
 class ModelCircuit:
     """A deterministic model that has a receipt_model circuit."""
 
-    # Stable string identifier used by jobs/offers (e.g. "linear-1").
     name: str
-    # The public model_id field in the circuit (currently 0 for simple linear).
     model_id: int
-    # Shape parameters matching the receipt_model circuit instance.
     input_len: int
     output_len: int
     weight_len: int
-    # The model weights as field elements.
     weights: list[int]
-    # Precomputed Poseidon hash of the weights (the public model_hash).
-    model_hash: int
-    # Human-readable scope note.
     scope: str = ""
 
     def compute_output(self, input_values: list[int]) -> list[int]:
-        """Compute the deterministic output for this model.
-
-        The simple linear model is out[i] = in[i] * weight + bias.
-        """
+        """Compute the deterministic output for this model."""
         if len(input_values) != self.output_len:
             raise ValueError(f"input length {len(input_values)} != expected {self.output_len}")
         weight = self.weights[0]
         bias = self.weights[1]
         return [(in_val * weight + bias) % _BN128_FQ for in_val in input_values]
 
+    def get_model_hash(self) -> int:
+        """Compute/return the Poseidon hash of the model weights."""
+        return _poseidon(self.weights)
 
-# Deterministic, circuit-representable models. General LLM inference is not here.
+
 _LINEAR_WEIGHT = float_to_field(2.0)
 _LINEAR_BIAS = float_to_field(1.0)
 LINEAR_MODEL = ModelCircuit(
@@ -140,7 +120,6 @@ LINEAR_MODEL = ModelCircuit(
     output_len=4,
     weight_len=2,
     weights=[_LINEAR_WEIGHT, _LINEAR_BIAS],
-    model_hash=_poseidon([_LINEAR_WEIGHT, _LINEAR_BIAS]),
     scope="simple element-wise linear model",
 )
 
@@ -156,7 +135,6 @@ def get_model(model_id: str | int | None) -> ModelCircuit | None:
     model_id = str(model_id)
     if model_id in MODEL_CIRCUITS:
         return MODEL_CIRCUITS[model_id]
-    # Also accept the numeric model_id as a string.
     for m in MODEL_CIRCUITS.values():
         if str(m.model_id) == model_id:
             return m
@@ -164,12 +142,7 @@ def get_model(model_id: str | int | None) -> ModelCircuit | None:
 
 
 def resolve_model_id(job: Any, result: Any) -> str | None:
-    """Extract the model identifier from a job and result.
-
-    The model can be named in the job payload, in the job constraints, or in
-    the result metadata. If none of those are present, the job is not a
-    supported model-execution job.
-    """
+    """Extract the model identifier from a job and result."""
     if job and job.payload:
         if job.payload.get("model"):
             return str(job.payload["model"])
@@ -195,18 +168,7 @@ def compute_public_inputs(
     result: Any,
     model: ModelCircuit,
 ) -> dict[str, Any]:
-    """Return the public inputs and private witness for a receipt_model proof.
-
-    Public inputs:
-      - input_hash:  Poseidon hash of the job input values.
-      - model_hash:  Poseidon hash of the model weights.
-      - output_hash: Poseidon hash of the model output values.
-      - model_id:    the circuit model identifier.
-
-    Private inputs:
-      - input_values, weights, output_values.
-    """
-    # Derive input and output from the job/result text.
+    """Return the public inputs and private witness for a receipt_model proof."""
     input_text = ""
     if job and job.payload:
         input_text = str(job.payload.get("prompt", job.payload.get("input", "")))
@@ -216,13 +178,10 @@ def compute_public_inputs(
         str(result)
 
     input_values = text_to_field_array(input_text, model.input_len)
-    output_values_from_model = model.compute_output(input_values)
-    # The submitted output is hashed; the circuit will only verify if the
-    # claimed output equals the model output for the given input and weights.
-    output_values = output_values_from_model
+    output_values = model.compute_output(input_values)
 
     input_hash = _poseidon(input_values)
-    model_hash = model.model_hash
+    model_hash = model.get_model_hash()
     output_hash = _poseidon(output_values)
 
     return {
@@ -241,11 +200,7 @@ def compute_public_inputs(
 
 
 def expected_public_signals(public_inputs: dict[str, Any]) -> list[str]:
-    """Return the ordered public signals expected from a receipt_model proof.
-
-    The circuit declares public [input_hash, model_hash, output_hash, model_id],
-    and snarkjs returns public signals in that order.
-    """
+    """Return the ordered public signals expected from a receipt_model proof."""
     return [
         str(public_inputs["input_hash"]),
         str(public_inputs["model_hash"]),
