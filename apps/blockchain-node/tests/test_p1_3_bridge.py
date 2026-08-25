@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -129,15 +128,11 @@ class TestP1_3Bridge:
             patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
             patch("aitbc_chain.config.settings.bridge_block_signature_required", True),
         ):
-            transfer = bridge.initiate_transfer(
-                source_chain, target_chain, sender, recipient, 10_000
-            )
+            transfer = bridge.initiate_transfer(source_chain, target_chain, sender, recipient, 10_000)
             assert transfer.status == BridgeStatus.locked
 
             # Build and persist the signed source block with bridge_state_root.
-            block, _signature = _build_and_sign_block(
-                bridge, source_chain, proposer, 1, transfer
-            )
+            block, _signature = _build_and_sign_block(bridge, source_chain, proposer, 1, transfer)
 
             # Store the corresponding bridge block header for proof verification.
             bridge.store_block_header(
@@ -194,19 +189,13 @@ class TestP1_3Bridge:
             session.commit()
 
         with patch("aitbc_chain.config.settings.bridge_release_enabled", False):
-            transfer = bridge.initiate_transfer(
-                source_chain, target_chain, sender, recipient, 5_000
-            )
+            transfer = bridge.initiate_transfer(source_chain, target_chain, sender, recipient, 5_000)
 
-            block, _signature = _build_and_sign_block(
-                bridge, source_chain, proposer, 1, transfer
-            )
+            block, _signature = _build_and_sign_block(bridge, source_chain, proposer, 1, transfer)
 
         # Tamper with the bridge state root on the stored block.
         with bridge._session_factory() as session:
-            stored = session.exec(
-                select(Block).where(Block.chain_id == source_chain, Block.height == block.height)
-            ).first()
+            stored = session.exec(select(Block).where(Block.chain_id == source_chain, Block.height == block.height)).first()
             assert stored is not None
             stored.bridge_state_root = "0x" + "ff" * 32
             session.add(stored)

@@ -9,7 +9,6 @@ from pathlib import Path
 
 import click
 
-from aitbc_agent_core.branding import BrandSettings
 from aitbc_agent_core.plugins import PluginManager
 
 from ..utils import output, success
@@ -17,10 +16,10 @@ from ..utils import output, success
 
 def _default_roles() -> dict[str, str]:
     return {
-        "Provider": f"{name}-provider" if "name" in locals() else "provider",
-        "Consumer": f"{name}-consumer" if "name" in locals() else "consumer",
-        "Validator": f"{name}-validator" if "name" in locals() else "validator",
-        "Arbiter": f"{name}-arbiter" if "name" in locals() else "arbiter",
+        "Provider": "provider",
+        "Consumer": "consumer",
+        "Validator": "validator",
+        "Arbiter": "arbiter",
     }
 
 
@@ -87,7 +86,10 @@ identity_method = "did:{name}"
 
     if ctx.obj.get("output") == "table":
         success(f"Plugin '{name}' created at {plugin_file}")
-    output({"plugin_path": str(plugin_file), "manifest_path": str(manifest_path), "manifest": manifest}, ctx.obj.get("output", "table"))
+    output(
+        {"plugin_path": str(plugin_file), "manifest_path": str(manifest_path), "manifest": manifest},
+        ctx.obj.get("output", "table"),
+    )
 
 
 @plugin.command("list")

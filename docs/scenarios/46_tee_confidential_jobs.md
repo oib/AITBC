@@ -137,4 +137,3 @@ Expected response:
 - If the miner cannot produce a valid attestation, the job fails and escrow
   can be refunded with `aitbc ai refund <job_id>` or
   `aitbc market escrow refund <job_id>` (see Scenario 44).
-

@@ -3,6 +3,7 @@
 Provides /v1/auth/nonce and /v1/login so the CLI ``aitbc auth login`` can
 obtain a client JWT by signing a nonce with a wallet's private key.
 """
+
 from __future__ import annotations
 
 import secrets
@@ -87,7 +88,7 @@ async def auth_login(request: Request, data: dict[str, Any]) -> dict[str, Any]:
         valid = verify_signature(msg_hash, signature, wallet_address)
     except SignatureMalformed as e:
         logger.warning("Malformed login signature from %s: %s", wallet_address, e)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature format")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid signature format") from e
 
     if not valid:
         logger.warning("Invalid login signature from %s", wallet_address)

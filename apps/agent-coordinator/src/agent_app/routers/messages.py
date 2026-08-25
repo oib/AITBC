@@ -168,11 +168,7 @@ async def get_inbox(
             return {"agent_id": agent_id, "messages": [], "count": 0, "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, limit, 0)
         if unread_only:
-            messages = [
-                m
-                for m in messages
-                if not m.get("read", False) and m.get("status", "pending") != "read"
-            ]
+            messages = [m for m in messages if not m.get("read", False) and m.get("status", "pending") != "read"]
         return {"agent_id": agent_id, "messages": messages, "count": len(messages), "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting inbox: %s", e)

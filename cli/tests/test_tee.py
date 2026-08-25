@@ -161,9 +161,7 @@ def test_tee_attest_with_key_file_is_stable_across_calls(tmp_path, runner, mock_
         )
         assert result.exit_code == 0
 
-    quotes = [
-        AttestationQuote.from_base64(call.kwargs["json"]["quote"]) for call in mock_client.post.call_args_list
-    ]
+    quotes = [AttestationQuote.from_base64(call.kwargs["json"]["quote"]) for call in mock_client.post.call_args_list]
     assert quotes[0].public_key == quotes[1].public_key
 
 

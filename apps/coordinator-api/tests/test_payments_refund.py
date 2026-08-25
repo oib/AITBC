@@ -1,6 +1,7 @@
 """
 Regression tests for PaymentService refund idempotency.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -90,9 +91,7 @@ class TestPaymentServiceRefund:
         assert payment.status == "refunded"
         assert payment.refund_transaction_hash == "0xalreadyrefunded"
 
-        escrow = payment_session.exec(
-            select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)
-        ).one()
+        escrow = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).one()
         assert escrow.is_refunded is True
 
     @patch("coordinator_api.contexts.payments.services.payments.AITBCHTTPClient")

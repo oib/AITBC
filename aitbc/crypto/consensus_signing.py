@@ -125,6 +125,7 @@ def verify_consensus_message(
 
 def _block_header_message(block: Any) -> dict[str, Any]:
     """Build the canonical block header message from a dict or Block object."""
+
     def _get(name: str) -> Any:
         if isinstance(block, dict):
             return block.get(name)

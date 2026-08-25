@@ -1,6 +1,7 @@
 """
 Unit tests for the `aitbc agent-msg` command group.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -34,7 +35,9 @@ def mock_client():
         "count": 1,
     }
     with patch("aitbc_cli.commands.agent.AITBCHTTPClient", return_value=client):
-        with patch("aitbc_cli.commands.agent.get_config", return_value=MagicMock(agent_coordinator_url="http://localhost:8107")):
+        with patch(
+            "aitbc_cli.commands.agent.get_config", return_value=MagicMock(agent_coordinator_url="http://localhost:8107")
+        ):
             yield client
 
 

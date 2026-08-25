@@ -214,9 +214,7 @@ class MessageEncryptor:
             message_json = aesgcm.decrypt(encrypted_msg.nonce, encrypted_msg.ciphertext, None)
             sender_public_key_bytes = self.get_public_key(encrypted_msg.sender_id)
             if sender_public_key_bytes:
-                sender_public_key = serialization.load_pem_public_key(
-                    sender_public_key_bytes, backend=default_backend()
-                )
+                sender_public_key = serialization.load_pem_public_key(sender_public_key_bytes, backend=default_backend())
                 try:
                     if not isinstance(sender_public_key, RSAPublicKey):
                         raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
@@ -244,9 +242,7 @@ class MessageEncryptor:
             if not sender_public_key_bytes:
                 logger.error("No public key for sender %s", sender_id)
                 return False
-            sender_public_key = serialization.load_pem_public_key(
-                sender_public_key_bytes, backend=default_backend()
-            )
+            sender_public_key = serialization.load_pem_public_key(sender_public_key_bytes, backend=default_backend())
             if not isinstance(sender_public_key, RSAPublicKey):
                 raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
             sender_public_key.verify(

@@ -14,7 +14,7 @@ from typing import Any
 import click
 import httpx
 
-from ..utils import error, output, success, warning
+from ..utils import error, output, success
 from ..utils.http_client import get_logger
 
 logger = get_logger(__name__)
@@ -145,10 +145,7 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
             for alert in raw:
                 if alert.get("state") != "firing":
                     continue
-                alert_id = (
-                    f"{alert.get('labels', {}).get('alertname')}"
-                    f"{json.dumps(alert.get('labels', {}), sort_keys=True)}"
-                )
+                alert_id = f"{alert.get('labels', {}).get('alertname')}{json.dumps(alert.get('labels', {}), sort_keys=True)}"
                 if alert_id not in seen:
                     seen.add(alert_id)
                     if emit:

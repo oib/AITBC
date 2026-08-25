@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from decimal import Decimal
 from typing import Any
 
 import click
@@ -23,12 +22,7 @@ def _looks_like_jwt(token: str) -> bool:
 def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     """Return the coordinator base URL without a trailing /v1 path."""
     config = get_config()
-    url = (
-        coordinator_url
-        or ctx.obj.get("url")
-        or config.coordinator_api_url
-        or os.getenv("COORDINATOR_API_URL", "")
-    )
+    url = coordinator_url or ctx.obj.get("url") or config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return ""
     url = url.rstrip("/")

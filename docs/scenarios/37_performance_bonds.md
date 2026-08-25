@@ -1,9 +1,9 @@
 # Scenario 37: On-Chain Performance Bonds
 
-**Level**: Intermediate  
-**Prerequisites**: Scenario 01 Wallet Basics, Scenario 07 AI Job Submission  
-**Estimated Time**: 15 minutes  
-**Last Updated**: 2026-08-21  
+**Level**: Intermediate
+**Prerequisites**: Scenario 01 Wallet Basics, Scenario 07 AI Job Submission
+**Estimated Time**: 15 minutes
+**Last Updated**: 2026-08-21
 **Version**: 1.0
 
 ## Navigation Path
@@ -165,5 +165,5 @@ python3 -m pytest apps/blockchain-node/tests/test_bond.py -q -o addopts=""
 
 ---
 
-*Last updated: 2026-08-21*  
+*Last updated: 2026-08-21*
 *Version: 1.0*

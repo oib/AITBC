@@ -106,8 +106,6 @@ def escrow_release(ctx, job_id: str):
         raise click.Abort() from e
 
 
-
-
 def _coordinator_base_url(ctx) -> str:
     """Return coordinator base URL with any trailing /v1 stripped."""
     url = ctx.obj.get("url")
@@ -182,6 +180,7 @@ def escrow_refund(ctx, job_id: str, reason: str):
     except Exception as e:
         error(f"Error refunding escrow: {e}")
         raise click.Abort() from e
+
 
 @escrow.command(name="status")
 @click.argument("job_id")

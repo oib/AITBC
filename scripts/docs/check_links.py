@@ -57,9 +57,31 @@ EXCLUDED_DOC_DIRS = ("docs/archive/",)
 # (09ff3b7fe, c6e961ae6). Only extensions that name a file living in this repo belong here.
 SOURCE_SUFFIXES = frozenset(
     {
-        ".py", ".sh", ".sol", ".circom", ".yml", ".yaml", ".toml", ".json",
-        ".ts", ".tsx", ".js", ".jsx", ".cfg", ".ini", ".txt", ".sql",
-        ".rs", ".go", ".html", ".css", ".conf", ".service", ".env", ".lock", ".proto",
+        ".py",
+        ".sh",
+        ".sol",
+        ".circom",
+        ".yml",
+        ".yaml",
+        ".toml",
+        ".json",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".cfg",
+        ".ini",
+        ".txt",
+        ".sql",
+        ".rs",
+        ".go",
+        ".html",
+        ".css",
+        ".conf",
+        ".service",
+        ".env",
+        ".lock",
+        ".proto",
     }
 )
 

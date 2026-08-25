@@ -14,7 +14,6 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
-from decimal import Decimal
 
 from pydantic import Field
 

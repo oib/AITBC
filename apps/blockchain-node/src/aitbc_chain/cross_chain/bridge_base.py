@@ -21,6 +21,7 @@ class BridgeBase(Protocol):
     _processed_proofs: set[str]
 
     def _session_for(self, chain_id: str = "") -> AbstractContextManager[Session]: ...
+
     _validator_registry: ValidatorSetRegistry
     _validator_cache_loaded: set[tuple[str, int]]
     _oracle: Any

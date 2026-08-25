@@ -52,9 +52,12 @@ DEFAULT_HOST = os.getenv("AITBC_MCP_DEFAULT_HOST", "hub.aitbc")
 # Conservative SSH options: no interactive prompts, time out quickly, accept a
 # new host key on first connection (the host can later be pinned via Devin).
 SSH_OPTS = [
-    "-o", "BatchMode=yes",
-    "-o", "ConnectTimeout=10",
-    "-o", "StrictHostKeyChecking=accept-new",
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
 ]
 
 AITBC_CLI = "/opt/aitbc/venv/bin/aitbc"
@@ -112,6 +115,7 @@ ALL_HTTP_SERVICES = set(ALL_SERVICE_BASES)
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _host_for_role(role: str | None, host: str | None = None) -> str:
     """Resolve the SSH host for a node role or an explicit host."""
@@ -329,10 +333,12 @@ def _aitbc_cli_read_tool(
     """Helper for read-only aitbc CLI tools."""
     target = _host_for_role(role, host)
     if group not in ALL_AITBC_GROUPS:
-        return _json({
-            "error": f"unknown aitbc group: {group}",
-            "allowed_groups": sorted(ALL_AITBC_GROUPS),
-        })
+        return _json(
+            {
+                "error": f"unknown aitbc group: {group}",
+                "allowed_groups": sorted(ALL_AITBC_GROUPS),
+            }
+        )
     return _json(_run_aitbc_cli(target, group, subcommand, args, options, "json", timeout))
 
 
@@ -393,10 +399,12 @@ def _http_read_tool(
     """Helper for read-only HTTP tools."""
     target = _host_for_role(role, host)
     if service not in ALL_HTTP_SERVICES:
-        return _json({
-            "error": f"unknown HTTP service: {service}",
-            "known_services": sorted(ALL_HTTP_SERVICES),
-        })
+        return _json(
+            {
+                "error": f"unknown HTTP service: {service}",
+                "known_services": sorted(ALL_HTTP_SERVICES),
+            }
+        )
     return _json(_run_http(target, service, path, "GET", params, None, timeout))
 
 
@@ -432,25 +440,25 @@ def _require_confirm(
 # Read-only tools
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_nodes() -> str:
     """List the AITBC nodes and roles this MCP server can reach."""
-    return _json({
-        "nodes": [
-            {"role": "hub", "host": ROLE_HOSTS["hub"], "site": "hub/customer node"},
-            {"role": "customer", "host": ROLE_HOSTS["customer"], "site": "hub/customer node"},
-            {"role": "shop", "host": ROLE_HOSTS["shop"], "site": "shop/follower node"},
-            {"role": "follower", "host": ROLE_HOSTS["follower"], "site": "shop/follower node"},
-        ],
-        "environment": {
-            "default_host": DEFAULT_HOST,
-            "ssh_user": SSH_USER or "(current user)",
-        },
-        "note": (
-            "Connections use passwordless SSH. "
-            "Set AITBC_MCP_SSH_USER and AITBC_MCP_DEFAULT_HOST in the MCP env."
-        ),
-    })
+    return _json(
+        {
+            "nodes": [
+                {"role": "hub", "host": ROLE_HOSTS["hub"], "site": "hub/customer node"},
+                {"role": "customer", "host": ROLE_HOSTS["customer"], "site": "hub/customer node"},
+                {"role": "shop", "host": ROLE_HOSTS["shop"], "site": "shop/follower node"},
+                {"role": "follower", "host": ROLE_HOSTS["follower"], "site": "shop/follower node"},
+            ],
+            "environment": {
+                "default_host": DEFAULT_HOST,
+                "ssh_user": SSH_USER or "(current user)",
+            },
+            "note": ("Connections use passwordless SSH. Set AITBC_MCP_SSH_USER and AITBC_MCP_DEFAULT_HOST in the MCP env."),
+        }
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -473,17 +481,17 @@ def node_status(
     if service:
         command = (
             f"bash -c 'state=$(systemctl is-active {service} 2>/dev/null || true); "
-            f"[ -n \"$state\" ] || state=unknown; "
+            f'[ -n "$state" ] || state=unknown; '
             f"props=$(systemctl show {service} --property=ActiveState,SubState,LoadState,MainPID 2>/dev/null); "
-            f"printf \"%s\\t%s\\n%s\\n\" \"{service}\" \"$state\" \"$props\"'"
+            f'printf "%s\\t%s\\n%s\\n" "{service}" "$state" "$props"\''
         )
     else:
         command = (
             "bash -c 'source /opt/aitbc/scripts/monitoring/health_check.sh >/dev/null 2>&1; "
             "for svc in ${ROLE_SERVICES[@]}; do "
             "state=$(systemctl is-active $svc 2>/dev/null || true); "
-            "[ -n \"$state\" ] || state=unknown; "
-            "printf \"%s\\t%s\\n\" \"$svc\" \"$state\"; "
+            '[ -n "$state" ] || state=unknown; '
+            'printf "%s\\t%s\\n" "$svc" "$state"; '
             "done'"
         )
     return _json(_run_remote(target, command, timeout=30))
@@ -517,9 +525,9 @@ def get_service_health(
         "bash -c 'source /opt/aitbc/scripts/monitoring/health_check.sh >/dev/null 2>&1; "
         "for svc in ${ROLE_SERVICES[@]}; do "
         "  url=${ALL_SERVICE_ENDPOINTS[$svc]:-}; "
-        "  [ -z \"$url\" ] && continue; "
-        "  code=$(curl -sf -o /dev/null -w \"%{http_code}\" \"$url\" 2>/dev/null || true); [ -z \"$code\" ] && code=000; "
-        "  printf \"%s\\t%s\\n\" \"$svc\" \"$code\"; "
+        '  [ -z "$url" ] && continue; '
+        '  code=$(curl -sf -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || true); [ -z "$code" ] && code=000; '
+        '  printf "%s\\t%s\\n" "$svc" "$code"; '
         "done'"
     )
     return _json(_run_remote(target, script, timeout=30))
@@ -575,10 +583,10 @@ def get_trigger_status(
     """Get blockchain event bridge trigger and action metrics."""
     target = _host_for_role(role, host)
     command = (
-        "bash -c 'echo \"=== service status ===\"; "
+        'bash -c \'echo "=== service status ==="; '
         "systemctl is-active aitbc-blockchain-event-bridge 2>/dev/null || true; "
-        "echo \"=== bridge metrics ===\"; "
-        "curl -sfL http://localhost:8205/metrics/ 2>/dev/null | grep -E \"^bridge_(actions|events)_\" | head -50'"
+        'echo "=== bridge metrics ==="; '
+        'curl -sfL http://localhost:8205/metrics/ 2>/dev/null | grep -E "^bridge_(actions|events)_" | head -50\''
     )
     return _json(_run_remote(target, command, timeout=20))
 
@@ -586,16 +594,18 @@ def get_trigger_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_rebalance_triggers() -> str:
     """List the agent/economic rebalancing trigger types and action types."""
-    return _json({
-        "rebalancing_triggers": ["threshold", "schedule", "opportunity"],
-        "rebalance_action_types": ["buy", "sell", "transfer", "stake", "reinvest", "hold"],
-        "constraint_types": ["max_exposure", "min_liquidity", "diversification", "min_reinvest_amount"],
-        "note": (
-            "For a concrete rebalance plan, fetch an agent's holdings and "
-            "ReinvestmentPolicy from the coordinator API or wallet and use the "
-            "Rebalancer class in aitbc.agent_economics.rebalance."
-        ),
-    })
+    return _json(
+        {
+            "rebalancing_triggers": ["threshold", "schedule", "opportunity"],
+            "rebalance_action_types": ["buy", "sell", "transfer", "stake", "reinvest", "hold"],
+            "constraint_types": ["max_exposure", "min_liquidity", "diversification", "min_reinvest_amount"],
+            "note": (
+                "For a concrete rebalance plan, fetch an agent's holdings and "
+                "ReinvestmentPolicy from the coordinator API or wallet and use the "
+                "Rebalancer class in aitbc.agent_economics.rebalance."
+            ),
+        }
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -612,14 +622,14 @@ def list_cron_jobs(
     """List cron jobs for the AITBC user and /etc/cron.d entries."""
     target = _host_for_role(role, host)
     command = (
-        "bash -c 'echo \"=== user crontab ===\"; "
-        "(crontab -l 2>/dev/null) || echo \"no user crontab\"; "
-        "echo \"=== /etc/cron.d ===\"; "
+        'bash -c \'echo "=== user crontab ==="; '
+        '(crontab -l 2>/dev/null) || echo "no user crontab"; '
+        'echo "=== /etc/cron.d ==="; '
         "ls -1 /etc/cron.d/aitbc* 2>/dev/null || true; "
         "for f in /etc/cron.d/aitbc*; do "
-        "  [ -f \"$f\" ] || continue; "
-        "  echo \"--- $f ---\"; "
-        "  cat \"$f\"; "
+        '  [ -f "$f" ] || continue; '
+        '  echo "--- $f ---"; '
+        '  cat "$f"; '
         "done'"
     )
     return _json(_run_remote(target, command, timeout=20))
@@ -628,6 +638,7 @@ def list_cron_jobs(
 # ---------------------------------------------------------------------------
 # Destructive tools (dry-run by default)
 # ---------------------------------------------------------------------------
+
 
 def _control_node(
     action: str,
@@ -740,11 +751,13 @@ def run_cron_job(
     """Manually run an AITBC cron/script job on the selected node."""
     target = _host_for_role(role, host)
     if not _is_allowed_script(script_path):
-        return _json({
-            "error": "script path not allowed",
-            "path": script_path,
-            "allowed_prefixes": ALLOWED_SCRIPT_PREFIXES,
-        })
+        return _json(
+            {
+                "error": "script path not allowed",
+                "path": script_path,
+                "allowed_prefixes": ALLOWED_SCRIPT_PREFIXES,
+            }
+        )
 
     real_command = f"bash {shlex.quote(script_path)}"
     guard = _require_confirm(dry_run, confirm, real_command)
@@ -802,6 +815,7 @@ def run_aitbc_command(
 # ---------------------------------------------------------------------------
 # AITBC CLI pivot tools
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def run_aitbc_cli(
@@ -861,10 +875,12 @@ def run_aitbc_cli(
     """
     target = _host_for_role(role, host)
     if group not in ALL_AITBC_GROUPS:
-        return _json({
-            "error": f"unknown aitbc group: {group}",
-            "allowed_groups": sorted(ALL_AITBC_GROUPS),
-        })
+        return _json(
+            {
+                "error": f"unknown aitbc group: {group}",
+                "allowed_groups": sorted(ALL_AITBC_GROUPS),
+            }
+        )
 
     command = _build_aitbc_cli_command(group, subcommand, args, options, output_format)
     destructive = _is_aitbc_subcommand_destructive(subcommand)
@@ -873,14 +889,13 @@ def run_aitbc_cli(
         return _json(_build_dry_run("Set dry_run=false to execute.", command))
 
     if destructive and not confirm:
-        return _json({
-            "error": "Confirmation required",
-            "command": command,
-            "note": (
-                "This aitbc subcommand may mutate state. "
-                "Pass dry_run=false and confirm=true to execute."
-            ),
-        })
+        return _json(
+            {
+                "error": "Confirmation required",
+                "command": command,
+                "note": ("This aitbc subcommand may mutate state. Pass dry_run=false and confirm=true to execute."),
+            }
+        )
 
     return _json(_run_aitbc_cli(target, group, subcommand, args, options, output_format, timeout))
 
@@ -903,10 +918,12 @@ def list_aitbc_cli_group(
     """Show the help output for a live aitbc CLI group."""
     target = _host_for_role(role, host)
     if group not in ALL_AITBC_GROUPS:
-        return _json({
-            "error": f"unknown aitbc group: {group}",
-            "allowed_groups": sorted(ALL_AITBC_GROUPS),
-        })
+        return _json(
+            {
+                "error": f"unknown aitbc group: {group}",
+                "allowed_groups": sorted(ALL_AITBC_GROUPS),
+            }
+        )
     return _json(_run_remote(target, f"{AITBC_CLI} {shlex.quote(group)} --help"))
 
 
@@ -1285,6 +1302,7 @@ def get_service_logs(
 # HTTP / RPC pivot tools
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def call_aitbc_http(
     service: Annotated[
@@ -1341,10 +1359,12 @@ def call_aitbc_http(
     """
     target = _host_for_role(role, host)
     if service not in ALL_HTTP_SERVICES:
-        return _json({
-            "error": f"unknown HTTP service: {service}",
-            "known_services": sorted(ALL_HTTP_SERVICES),
-        })
+        return _json(
+            {
+                "error": f"unknown HTTP service: {service}",
+                "known_services": sorted(ALL_HTTP_SERVICES),
+            }
+        )
 
     base = ALL_SERVICE_BASES[service]
     url = _build_http_url(base, path, params)
@@ -1361,11 +1381,13 @@ def call_aitbc_http(
         return _json(_build_dry_run("Set dry_run=false to execute.", command))
 
     if method != "GET" and not confirm:
-        return _json({
-            "error": "Confirmation required",
-            "command": command,
-            "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
-        })
+        return _json(
+            {
+                "error": "Confirmation required",
+                "command": command,
+                "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
+            }
+        )
 
     return _json(_run_http(target, service, path, method, params, body, timeout))
 
@@ -1544,6 +1566,7 @@ def get_blockchain_status(
 # ---------------------------------------------------------------------------
 # Mutating aitbc CLI wrappers
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def submit_ai_job(
@@ -1822,6 +1845,7 @@ def unstake_aitbc(
 # ---------------------------------------------------------------------------
 # Additional blockchain RPC router tools
 # ---------------------------------------------------------------------------
+
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def query_blockchain_transactions(

@@ -1,10 +1,10 @@
 """
 Tests for protocol-driven send/broadcast and the REST broadcast route.
 """
+
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from unittest.mock import AsyncMock, MagicMock
 
@@ -51,9 +51,7 @@ def client(monkeypatch, tmp_path, messaging_app, fake_connection_manager):
     os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
 
     # Wire the protocol layer to our fake connection manager.
-    monkeypatch.setattr(
-        communication_module, "get_connection_manager", lambda: fake_connection_manager
-    )
+    monkeypatch.setattr(communication_module, "get_connection_manager", lambda: fake_connection_manager)
 
     # Build a real CommunicationManager with a broadcast protocol.
     from agent_app.protocols.communication import CommunicationManager, create_protocol
@@ -66,9 +64,7 @@ def client(monkeypatch, tmp_path, messaging_app, fake_connection_manager):
     state.message_storage = MagicMock()
     state.message_storage.store_message = AsyncMock(return_value=True)
     state.agent_registry = MagicMock()
-    state.agent_registry.discover_agents = AsyncMock(
-        return_value=[FakeAgent("agent-1"), FakeAgent("agent-2")]
-    )
+    state.agent_registry.discover_agents = AsyncMock(return_value=[FakeAgent("agent-1"), FakeAgent("agent-2")])
     state.communication_manager = comm_manager
 
     monkeypatch.setattr(messages_router, "state", state)
@@ -87,9 +83,7 @@ class TestCommunicationProtocol:
             Priority,
         )
 
-        monkeypatch.setattr(
-            communication_module, "get_connection_manager", lambda: fake_connection_manager
-        )
+        monkeypatch.setattr(communication_module, "get_connection_manager", lambda: fake_connection_manager)
 
         protocol = CommunicationProtocol("agent-001")
         message = AgentMessage(
@@ -117,9 +111,7 @@ class TestCommunicationProtocol:
             Priority,
         )
 
-        monkeypatch.setattr(
-            communication_module, "get_connection_manager", lambda: fake_connection_manager
-        )
+        monkeypatch.setattr(communication_module, "get_connection_manager", lambda: fake_connection_manager)
 
         protocol = CommunicationProtocol("agent-001")
         message = AgentMessage(
@@ -140,9 +132,7 @@ class TestCommunicationProtocol:
         """If send_personal_message returns False, the message is queued."""
         fake_connection_manager.send_personal_message = AsyncMock(return_value=False)
 
-        monkeypatch.setattr(
-            communication_module, "get_connection_manager", lambda: fake_connection_manager
-        )
+        monkeypatch.setattr(communication_module, "get_connection_manager", lambda: fake_connection_manager)
 
         from agent_app.protocols.communication import (
             AgentMessage,

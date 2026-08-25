@@ -44,9 +44,7 @@ class StateSyncMixin(SyncBase):
         divergence, peer_height = await self.peer_head_divergence(source_url)
         with self._session_factory() as session:
             local_block = session.exec(
-                select(Block)
-                .where(Block.chain_id == self._chain_id)
-                .order_by(desc(Block.height))  # type: ignore[arg-type]
+                select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height))  # type: ignore[arg-type]
             ).first()
             local_height = local_block.height if local_block else 0
         if peer_height - local_height > max_gap:
@@ -58,7 +56,13 @@ class StateSyncMixin(SyncBase):
                 max_gap,
                 extra={"chain_id": self._chain_id, "local_head": local_height, "remote_head": peer_height},
             )
-            return {"synced": 0, "skipped": True, "reason": "large gap", "local_head": local_height, "remote_head": peer_height}
+            return {
+                "synced": 0,
+                "skipped": True,
+                "reason": "large gap",
+                "local_head": local_height,
+                "remote_head": peer_height,
+            }
         if divergence is not None:
             report_divergence(self._chain_id, divergence)
             self._logger.error(
