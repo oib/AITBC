@@ -141,6 +141,7 @@ class JobService:
         if req.payment_amount and req.payment_amount > 0:
             job.payment_amount = req.payment_amount
             job.payment_token = req.payment_currency
+            job.payment_status = "pending"
         # G1/D3: a job bought against an offer is bound to that offer's provider,
         # not just to the price. Keep the quoted terms on the job so dispatch
         # matching can consult them without a payment lookup.
