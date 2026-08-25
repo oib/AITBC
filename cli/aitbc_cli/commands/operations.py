@@ -51,18 +51,23 @@ def _get_wallet_password(wallet_name: str) -> str:
     return getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
 
 
-@click.group()
+@click.group(hidden=True, deprecated=True)
 def operations():
-    """Legacy on-chain operations commands (compatibility).
+    """Deprecated legacy on-chain operations commands.
 
-    Use `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` instead."""
+    Use `aitbc marketplace` for on-chain marketplace operations and
+    `aitbc governance` for governance operations. This group will be removed
+    in a future release."""
     pass
 
 
 # Marketplace operations
-@operations.group()
+@operations.group(deprecated=True)
 def marketplace():
-    """Legacy on-chain marketplace operations. Prefer `aitbc market`."""
+    """Deprecated on-chain marketplace operations subgroup.
+
+    Use `aitbc marketplace` directly. This subgroup will be removed in a
+    future release."""
     pass
 
 
@@ -465,9 +470,12 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
 
 
 # Governance operations
-@operations.group()
+@operations.group(deprecated=True)
 def governance():
-    """Legacy on-chain governance operations. Prefer `aitbc governance`."""
+    """Deprecated on-chain governance operations subgroup.
+
+    Use `aitbc governance` directly. This subgroup will be removed in a future
+    release."""
     pass
 
 

@@ -138,14 +138,14 @@ def version():
 def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     """AITBC CLI - Command Line Interface for AITBC Network
 
-    Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
+    Manage jobs, mining, wallets, blockchain tasks, marketplaces, and AI
     services.
 
     COMMAND GROUP DISAMBIGUATION:
-    - Use `aitbc market` for GPU/software offers (coordinator-backed, miner-published).
-    - `aitbc marketplace` is a legacy on-chain marketplace; prefer `aitbc market`.
-    - Use `aitbc governance` for service-backed proposals, voting, and execution.
-    - `aitbc operations governance` is a legacy on-chain RPC path; prefer `aitbc governance`.
+    - `aitbc market` — GPU/software offers (coordinator-backed, miner-published).
+    - `aitbc marketplace` — global chain marketplace (cross-chain offers, bridge, on-chain listings).
+    - `aitbc governance` — service-backed proposals, voting, and execution.
+    - `aitbc operations` and `aitbc operations <subgroup>` are deprecated; use the groups above.
 
     SYSTEM ARCHITECTURE COMMANDS:
     system          System management commands
@@ -252,8 +252,8 @@ cli.add_command(explorer)
 cli.add_command(trade)
 cli.add_command(agent_wallet, name="agent-wallet")
 
-# All top-level command groups are exposed by default. Legacy groups remain
-# available for compatibility; their help texts note the preferred replacement.
+# Canonical top-level command groups are exposed by default. Legacy `operations`
+# and its subgroups are hidden from default `--help` and marked deprecated.
 
 
 def main(argv=None):

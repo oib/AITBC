@@ -174,7 +174,10 @@ def get_next_nonce() -> int:
 
 @click.group()
 def market():
-    """GPU and software marketplace offers (miner-published, coordinator-backed)."""
+    """GPU and software marketplace offers (miner-published, coordinator-backed).
+
+    For global cross-chain listings and bridge operations, use `aitbc marketplace`.
+    """
     pass
 
 
