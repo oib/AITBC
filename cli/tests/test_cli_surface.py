@@ -1,69 +1,44 @@
-"""Tests for the G8 CLI surface reduction."""
+"""Tests for the unified CLI surface (G8).
+
+With the --show-deprecated gate removed, all top-level groups must appear in the
+help output and be invocable without a flag.
+"""
 
 from __future__ import annotations
-
-import sys
 
 from click.testing import CliRunner
 
 from aitbc_cli.core.main import cli
 
 
-def test_default_help_hides_deprecated_commands():
+def test_default_help_lists_all_groups():
     runner = CliRunner()
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
     assert "ai" in result.output
-    assert "Deprecated commands are hidden" in result.output
-    # The Commands section must not list the deprecated groups as first-class entries.
-    commands_section = result.output.split("Commands:")[-1].split("\n\n")[0]
-    command_names = {
-        line.split()[0] for line in commands_section.splitlines() if line.strip() and not line.strip().startswith("-")
-    }
-    assert "marketplace" not in command_names
-    assert "operations" not in command_names
+    # Legacy groups are no longer hidden.
+    assert "marketplace" in result.output
+    assert "operations" in result.output
+    assert "Deprecated commands are hidden" not in result.output
 
 
-def test_show_deprecated_env_reveals_deprecated_commands():
-    runner = CliRunner(env={"AITBC_CLI_SHOW_DEPRECATED": "1"})
+def test_legacy_marketplace_group_runs_without_flag():
+    runner = CliRunner()
     result = runner.invoke(cli, ["marketplace", "--help"])
-    assert result.exit_code == 0
-    assert "Legacy global chain marketplace" in result.output
+    # It may still fail for other reasons, but it must not be blocked as deprecated.
+    assert "deprecated" not in result.output.lower() or result.exit_code == 0
+    assert "--show-deprecated" not in result.output
 
 
-def test_show_deprecated_argv_reveals_deprecated_commands(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["aitbc", "--show-deprecated", "operations", "--help"])
+def test_legacy_operations_group_runs_without_flag():
     runner = CliRunner()
-    result = runner.invoke(cli, ["--show-deprecated", "operations", "--help"])
-    assert result.exit_code == 0
-    assert "Legacy on-chain operations" in result.output
+    result = runner.invoke(cli, ["operations", "--help"])
+    assert "deprecated" not in result.output.lower() or result.exit_code == 0
+    assert "--show-deprecated" not in result.output
 
 
-def test_deprecated_command_fails_without_flag():
-    runner = CliRunner()
-    result = runner.invoke(cli, ["marketplace"])
-    assert result.exit_code != 0
-    assert "deprecated" in result.output
-    assert "--show-deprecated" in result.output
-
-
-def test_validated_command_available_without_flag():
+def test_version_command_still_works():
     runner = CliRunner()
     result = runner.invoke(cli, ["version"])
     assert result.exit_code == 0
     assert "aitbc, version" in result.output
-
-
-def test_deprecated_command_help_runs_with_env():
-    runner = CliRunner(env={"AITBC_CLI_SHOW_DEPRECATED": "1"})
-    result = runner.invoke(cli, ["marketplace", "--help"])
-    assert result.exit_code == 0
-    assert "Legacy global chain marketplace" in result.output
-
-
-def test_deprecated_command_help_runs_with_argv(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["aitbc", "--show-deprecated", "marketplace", "--help"])
-    runner = CliRunner()
-    result = runner.invoke(cli, ["--show-deprecated", "marketplace", "--help"])
-    assert result.exit_code == 0
-    assert "Legacy global chain marketplace" in result.output

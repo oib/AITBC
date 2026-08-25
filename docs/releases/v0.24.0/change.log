@@ -1280,3 +1280,33 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   `computation_correct=True` (pass), `computation_correct=False` (blocked in attach and in release),
   and the `release_payment` path.
 - Live enablement requires restarting `aitbc-coordinator-api` on `hub.aitbc`.
+
+## G6 / G8 — validator key rotation process and CLI surface gate removal (2026-08-25)
+
+### G6
+
+- Added `docs/operations/validator-key-rotation.md` defining a live-key-free
+  validator and recovery key rotation runbook.
+- Added `docs/operations/validator-key-rotation.env.example` as the git-tracked
+  template; real values are loaded from host-local `/etc/aitbc` or an external
+  secrets manager at runtime.
+- The runbook explicitly forbids committing private keys to git and cross-references
+  `docs/operations/SECRET_ROTATION.md` and `docs/operations/SECRET_ROTATION_LOG.md`.
+- The larger `PBFTConsensus` wiring and genuine BFT/fault tolerance remain open.
+
+### G8
+
+- Removed `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py`.
+- `cli/aitbc_cli/core/main.py` no longer uses a validated-command allowlist and no
+  longer accepts `--show-deprecated`.
+- `marketplace` and `operations` are no longer hidden from `aitbc --help`; their
+  short help notes the preferred replacement group.
+- Updated `cli/tests/test_cli_surface.py`, `test_cli_basic.py`, and
+  `test_cli_comprehensive.py` to match the unified surface.
+
+### Bridge status
+
+- `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`. `aitbc bridge
+  security-status` reports `release_enabled: true`, `multisig_enabled: true`,
+  `require_merkle_proof: true`, and `trusted_custodian: false`. A controlled
+  confirm/release validation run is pending operator-provided confirmer credentials.
