@@ -64,7 +64,7 @@ class TEEAttestation(SQLModel, table=True):
     quote: str = Field(default="")
     measurement: str = Field(default="", max_length=255, index=True)
     status: str = Field(default=TEEAttestationStatus.PENDING.value, max_length=20, index=True)
-    registered: bool = Field(default=False, sa_column=Column(Boolean, nullable=False, server_default=text("0")))
+    registered: bool = Field(default=False, sa_column=Column(Boolean, nullable=False, server_default=text("false")))
     meta: dict = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
