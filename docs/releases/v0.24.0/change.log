@@ -1439,3 +1439,16 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   the large-file size gate.
 - Live: circuit artifacts and coordinator code pushed to Gitea from `aitbc3`;
   deployment to `hub.aitbc` is pending recovery of the hub node.
+
+
+## ZK live service validation and aitbc3 startup fix (2026-08-25)
+
+- Live `_attach_zk_proof` on `hub.aitbc` and `aitbc3`:
+  - ZK-required job with `model: "llama3.2:3b"` correctly returns
+    `zk_status="unsupported_model"` and `computation_correct=False`.
+  - ZK-required job with `model: "linear-1"` returns `zk_status="verified"`,
+    `computation_correct=True`, and a `receipt_model` Groth16 proof.
+- Fixed `aitbc3` `aitbc-coordinator-api` startup crash caused by
+  `model_registry` calling `node`/Poseidon at module import time.
+  `model_hash` is now computed lazily via `ModelCircuit.get_model_hash()`.
+- Both coordinators now restart cleanly and `/health` returns 200.
