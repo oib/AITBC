@@ -308,6 +308,8 @@ class SyncManager:
                 logger.warning("State sync failed for %s: %s", chain_id, e)
             state.mode = SyncMode.SYNCED
 
+        if gap == 0:
+            return getattr(settings, "sync_manager_synced_poll_interval", 30.0)
         return poll
 
     async def _bulk_pull(self, chain_id: str, source_url: str) -> int:
