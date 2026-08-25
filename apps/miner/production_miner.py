@@ -558,8 +558,17 @@ def _execute_inference(job, available_models):
             raise Exception("No models available in Ollama")
     logger.info("Running inference on GPU with model: %s", model)
     start_time = time.time()
-    ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=60)
-    ollama_response = ollama_client.post("/api/generate", json={"model": model, "prompt": prompt, "stream": False})
+    ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=180)
+    ollama_payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "num_predict": 24,
+            "temperature": 0.7,
+        },
+    }
+    ollama_response = ollama_client.post("/api/generate", json=ollama_payload)
     if ollama_response:
         result = ollama_response
         output = result.get("response", "")
@@ -716,7 +725,9 @@ async def main():
             if current_time - last_poll >= 3:
                 job = poll_for_jobs()
                 if job:
-                    execute_job(job, models)
+                    # Run the blocking, potentially slow model execution in a
+                    # worker thread so heartbeats and the next poll continue.
+                    asyncio.create_task(asyncio.to_thread(execute_job, job, models))
                 last_poll = current_time
             await asyncio.sleep(1)
     except KeyboardInterrupt:
