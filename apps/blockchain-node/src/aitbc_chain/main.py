@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json
 import os
 from collections.abc import AsyncIterator, Callable
@@ -411,6 +412,40 @@ class BlockchainNode:
                 )
             except Exception as e:
                 logger.error("Failed to subscribe to blocks.%s: %s", chain_id, e)
+
+            # v0.7.7: Subscribe to PBFT gossip topics for each chain that has PBFT enabled.
+            proposer = self._proposers.get(chain_id)
+            if proposer and proposer.pbft_consensus:
+                for phase in ("pre_prepare", "prepare", "commit"):
+                    pbft_topic = f"pbft.{phase}.{chain_id}"
+                    try:
+                        pbft_sub = await gossip_broker.subscribe(pbft_topic)
+                        logger.info("Successfully subscribed to %s topic", pbft_topic)
+
+                        async def process_pbft(
+                            topic_param: str = pbft_topic,
+                            sub_param: Any = pbft_sub,
+                            pbft: Any = proposer.pbft_consensus,
+                        ) -> None:
+                            logger.info("PBFT gossip task started for %s", topic_param)
+                            while True:
+                                try:
+                                    msg = await sub_param.queue.get()
+                                    if isinstance(msg, str):
+                                        import json
+
+                                        msg = json.loads(msg)
+                                    await pbft.handle_incoming_message(msg)
+                                except Exception as exc:
+                                    logger.error("Error processing PBFT message from %s: %s", topic_param, exc)
+
+                        self._task_registry.create_task(
+                            functools.partial(process_pbft, pbft_topic, pbft_sub, proposer.pbft_consensus),
+                            name=f"gossip_pbft_{phase}_{chain_id}",
+                        )
+                    except Exception as e:
+                        logger.error("Failed to subscribe to %s: %s", pbft_topic, e)
+
         logger.info("Gossip subscribers setup completed")
 
     async def start(self) -> None:

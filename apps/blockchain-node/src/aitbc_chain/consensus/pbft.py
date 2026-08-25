@@ -51,6 +51,18 @@ class PBFTMessage:
     timestamp: float
     block_hash: str = ""
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "message_type": self.message_type.value,
+            "sender": self.sender,
+            "view_number": self.view_number,
+            "sequence_number": self.sequence_number,
+            "digest": self.digest,
+            "signature": self.signature,
+            "timestamp": self.timestamp,
+            "block_hash": self.block_hash,
+        }
+
 
 @dataclass
 class PBFTState:
@@ -288,6 +300,19 @@ class PBFTConsensus:
                 logger.exception("PBFT on_execute callback failed for key %s", key)
 
         return True
+
+    def get_certificate(self, block_hash: str, view: int | None = None) -> list[dict[str, Any]]:
+        """Return the commit certificate for a completed PBFT round."""
+        v = view if view is not None else self.state.current_view
+        for _key, messages in self.state.committed_messages.items():
+            if not messages:
+                continue
+            if messages[0].view_number == v and any(m.block_hash == block_hash for m in messages):
+                return [m.to_dict() for m in messages if m.block_hash == block_hash]
+        key = f"{self.state.current_sequence}:{v}"
+        if key in self.state.committed_messages:
+            return [m.to_dict() for m in self.state.committed_messages[key] if m.block_hash == block_hash]
+        return []
 
     def set_on_execute(self, callback: Any) -> None:
         """Set the callback executed when a commit quorum is reached.
