@@ -48,7 +48,6 @@ class BlockImportMixin(SyncBase):
             sync_failures_total.labels(chain_id=self._chain_id, reason=reason).inc()
         return result
 
-
     def import_block(
         self,
         block_data: dict[str, Any],
@@ -100,7 +99,9 @@ class BlockImportMixin(SyncBase):
             ).first()
             if existing:
                 metrics_registry.increment("sync_blocks_duplicate_total")
-                return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason="Block already exists")
+                return self._make_import_result(
+                    accepted=False, height=height, block_hash=block_hash, reason="Block already exists"
+                )
             our_head = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
             ).first()
@@ -223,6 +224,7 @@ class BlockImportMixin(SyncBase):
             timestamp=timestamp,
             tx_count=tx_count,
             state_root=block_data.get("state_root"),
+            bridge_state_root=block_data.get("bridge_state_root"),
             # Persist the signature this block was just validated against. Dropping
             # it made the check single-use: the block verified once on the way in and
             # was then stored unsigned, so this node could never re-serve proof of who
