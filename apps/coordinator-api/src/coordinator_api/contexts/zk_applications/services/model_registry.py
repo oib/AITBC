@@ -64,7 +64,7 @@ def hash_to_field(value: Any) -> int:
     return int(hashlib.sha256(raw.encode()).hexdigest()[:32], 16)
 
 
-def text_to_field_array(text: str, n: int) -> list[int]:
+def text_to_field_array(text: Any, n: int) -> list[int]:
     """Map a string to ``n`` field elements."""
     if not isinstance(text, str):
         text = str(text)
@@ -78,7 +78,7 @@ def text_to_field_array(text: str, n: int) -> list[int]:
     return out
 
 
-def float_to_field(value: float) -> int:
+def float_to_field(value: Any) -> int:
     """Encode a scalar as a field element."""
     if not isinstance(value, int | float):
         value = float(str(value))

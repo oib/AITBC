@@ -24,9 +24,7 @@ def _factory(jobs):
 
 
 def _job(job_id="job-1", payment_id="pay-1"):
-    return SimpleNamespace(
-        id=job_id, client_id="client-1", payment_id=payment_id, payment_status="escrowed"
-    )
+    return SimpleNamespace(id=job_id, client_id="client-1", payment_id=payment_id, payment_status="escrowed")
 
 
 def test_disabled_unless_explicitly_enabled(monkeypatch):

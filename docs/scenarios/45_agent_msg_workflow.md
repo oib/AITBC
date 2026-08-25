@@ -1,9 +1,9 @@
 # Agent-Message Workflow (`agent-msg`)
 
-**Level**: Beginner  
-**Prerequisites**: [Scenario 04 — Messaging Basics](./04_messaging_basics.md), `aitbc` CLI on `$PATH`  
-**Estimated Time**: 15 minutes  
-**Last Updated**: 2026-08-21  
+**Level**: Beginner
+**Prerequisites**: [Scenario 04 — Messaging Basics](./04_messaging_basics.md), `aitbc` CLI on `$PATH`
+**Estimated Time**: 15 minutes
+**Last Updated**: 2026-08-21
 **Version**: 1.0
 
 ## Navigation Path

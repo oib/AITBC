@@ -100,4 +100,3 @@ computation is correct before escrow release.
   `zk_proof_id: 9c780c45716ee8e2925ae7d922fffbc21cfc4546486d5f8ff217dcdff96376dc`
 - CLI `aitbc zk verify --job-id cba4ceaddc194491b0822f0c4c3fb4b1` returned
   `verified: true`.
-

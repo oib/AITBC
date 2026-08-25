@@ -1,8 +1,8 @@
 """Tests for the Agent Coordinator public key exchange endpoints."""
+
 from __future__ import annotations
 
 import base64
-from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives import serialization

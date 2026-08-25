@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -56,6 +55,7 @@ def test_bond_lock_records_bond_and_moves_funds(session):
     chain_id = "ait-test"
     private_key = "0x" + "11" * 32
     from aitbc.crypto.crypto import derive_ethereum_address
+
     provider_addr = derive_ethereum_address(private_key)
 
     escrow = _BOND_ESCROW_ADDRESS
@@ -95,6 +95,7 @@ def test_bond_release_after_lock_expired(session):
     chain_id = "ait-test"
     private_key = "0x" + "11" * 32
     from aitbc.crypto.crypto import derive_ethereum_address
+
     provider_addr = derive_ethereum_address(private_key)
     escrow = _BOND_ESCROW_ADDRESS
 
