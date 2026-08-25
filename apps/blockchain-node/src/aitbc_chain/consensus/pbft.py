@@ -302,17 +302,22 @@ class PBFTConsensus:
         return True
 
     def get_certificate(self, block_hash: str, view: int | None = None) -> list[dict[str, Any]]:
-        """Return the commit certificate for a completed PBFT round."""
-        v = view if view is not None else self.state.current_view
-        for _key, messages in self.state.committed_messages.items():
-            if not messages:
+        """Return the commit certificate for a completed PBFT round.\n\n        Searches across all views and sequences for commit messages matching\n        the requested block hash, so a certificate is still retrievable after\n        a view change during the proposal round.\n"""
+        certificate = []
+        for messages in self.state.committed_messages.values():
+            for m in messages:
+                if m.block_hash == block_hash:
+                    certificate.append(m.to_dict())
+        # De-duplicate by sender to keep certificates compact.
+        seen: set[str] = set()
+        deduped: list[dict[str, Any]] = []
+        for msg in certificate:
+            sender = msg.get("sender", "")
+            if sender and sender in seen:
                 continue
-            if messages[0].view_number == v and any(m.block_hash == block_hash for m in messages):
-                return [m.to_dict() for m in messages if m.block_hash == block_hash]
-        key = f"{self.state.current_sequence}:{v}"
-        if key in self.state.committed_messages:
-            return [m.to_dict() for m in self.state.committed_messages[key] if m.block_hash == block_hash]
-        return []
+            seen.add(sender)
+            deduped.append(msg)
+        return deduped
 
     def set_on_execute(self, callback: Any) -> None:
         """Set the callback executed when a commit quorum is reached.
@@ -473,6 +478,8 @@ class PBFTConsensus:
         elif message.message_type == PBFTMessageType.PREPARE:
             if key not in self.state.prepared_messages:
                 self.state.prepared_messages[key] = []
+            if any(m.sender == message.sender for m in self.state.prepared_messages[key]):
+                return  # ignore duplicate prepare from same sender
             self.state.prepared_messages[key].append(message)
             self._message_event.set()
             if self._local_validator:
@@ -480,6 +487,8 @@ class PBFTConsensus:
         elif message.message_type == PBFTMessageType.COMMIT:
             if key not in self.state.committed_messages:
                 self.state.committed_messages[key] = []
+            if any(m.sender == message.sender for m in self.state.committed_messages[key]):
+                return  # ignore duplicate commit from same sender
             self.state.committed_messages[key].append(message)
             self._message_event.set()
             if len(self.state.committed_messages[key]) >= self.required_messages:
