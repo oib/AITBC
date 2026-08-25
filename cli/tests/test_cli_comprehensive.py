@@ -1,4 +1,5 @@
 import pytest
+
 #!/usr/bin/env python3
 """Comprehensive tests for the unified AITBC CLI hierarchy."""
 
@@ -24,7 +25,8 @@ def run_cli(*args):
     )
 
 
-pytestmark = pytest.mark.skip("Unvalidated CLI surface hidden by G8; use --show-deprecated to access these commands")
+pytestmark = pytest.mark.skipif(False, reason="G8 gate removed")
+
 
 class TestSimulateCommand:
     """Test the nested simulate command family."""
