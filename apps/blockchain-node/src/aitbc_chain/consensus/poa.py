@@ -457,7 +457,7 @@ class PoAProposer:
                 self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
                 return False
             if self._multi_validator and proposer not in self._validator_keys:
-                self._logger.info(
+                self._logger.warning(
                     "[PROPOSE] Selected proposer %s is not a local key, skipping proposal at height %s",
                     proposer,
                     next_height,
