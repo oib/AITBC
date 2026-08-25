@@ -127,6 +127,7 @@ def _ait_to_seconds(amount_ait: Decimal) -> int:
 
 
 def _build_escrow_lock_tx(
+    ctx,
     job_id: str,
     buyer: str,
     provider: str,
@@ -136,6 +137,10 @@ def _build_escrow_lock_tx(
     fee: int | None = None,
     chain_id: str = "ait-hub.aitbc.bubuit.net",
 ) -> dict[str, Any]:
+    try:
+        node_wallet = canonical_address(node_wallet)
+    except Exception as e:
+        abort(ctx, f"Invalid node wallet address {node_wallet}: {e}")
     amount_seconds = _ait_to_seconds(amount_ait)
     if fee is None:
         fee = max(36, amount_seconds // 100)
@@ -173,19 +178,20 @@ def _create_escrow_payment(
     buyer_address: str,
     provider_address: str,
     private_key: str,
+    node_wallet: str,
     chain_id: str | None,
     offer_id: str | None,
     offer_quantity: Decimal | None,
 ) -> dict[str, Any]:
     buyer_canon = _canonical_address_or_abort(ctx, buyer_address, "buyer")
     provider_canon = _canonical_address_or_abort(ctx, provider_address, "provider")
-    node_wallet = _get_node_wallet(ctx, rpc_url)
     nonce = _get_buyer_nonce(ctx, rpc_url, buyer_canon)
     try:
         amount_ait = Decimal(str(amount))
     except InvalidOperation:
         abort(ctx, f"Invalid payment amount: {amount}")
     lock_tx = _build_escrow_lock_tx(
+        ctx,
         job_id,
         buyer_canon,
         provider_canon,
@@ -531,6 +537,8 @@ def submit(
         # If the coordinator priced the job but did not secure an escrow, sign the
         # ESCROW_LOCK tx and create the payment in a second step.
         if not payment_id and result.get("payment_amount") and private_key:
+            if not result.get("node_wallet_address"):
+                abort(ctx, "coordinator did not return node_wallet_address; cannot build ESCROW_LOCK")
             payment_result = _create_escrow_payment(
                 ctx,
                 http_client,
@@ -541,6 +549,7 @@ def submit(
                 buyer_address,
                 result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or "",
                 private_key,
+                result.get("node_wallet_address"),
                 chain_id or config.chain_id,
                 offer_id,
                 offer_quantity,
