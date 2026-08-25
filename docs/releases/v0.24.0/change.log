@@ -1269,3 +1269,14 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Closed two operational loose ends identified during verification:
   - `aitbc1` was one commit behind; ran `git pull` to fast-forward it to `main`.
   - `aitbc3` venv had `pre-commit==4.2.0`; reinstalled `pre-commit==4.5.1` to match the project lockfile.
+
+## G3 — computation_correct wired into escrow release (2026-08-25)
+
+- `_attach_zk_proof` records `computation_correct` from `zk_proof_service.verify_proof` and sets
+  `zk_status` to `computation_incorrect` when the proof is valid but the result is wrong.
+- `PaymentService.release_payment` refuses to release escrow when `computation_correct` is `False`,
+  closing the gate for `pending_acceptance -> release`.
+- Added `apps/coordinator-api/tests/test_zk_computation_correct_gate.py` with four tests covering
+  `computation_correct=True` (pass), `computation_correct=False` (blocked in attach and in release),
+  and the `release_payment` path.
+- Live enablement requires restarting `aitbc-coordinator-api` on `hub.aitbc`.
