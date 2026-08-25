@@ -49,7 +49,6 @@ async def get_genesis_allocations_route(request: Request, chain_id: str | None =
     return await get_genesis_allocations(request, chain_id)  # type: ignore[no-any-return]
 
 
-
 @router.get("/chain/head", summary="Get current chain head (compatibility alias)")
 @rate_limit(rate=200, per=60)
 async def get_chain_head_alias_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
@@ -61,6 +60,8 @@ async def get_chain_head_alias_route(request: Request, chain_id: str | None = No
         request.headers.get("user-agent", "unknown"),
     )
     return await get_head(request, chain_id)  # type: ignore[no-any-return]
+
+
 @router.get("/head", summary="Get current chain head")
 @rate_limit(rate=200, per=60)
 async def get_head_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
@@ -243,7 +244,9 @@ async def query_transactions_route(
     job_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
-    return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id, address, job_id)  # type: ignore[no-any-return]
+    return await query_transactions(
+        request, transaction_type, island_id, pair, status, order_id, limit, chain_id, address, job_id
+    )  # type: ignore[no-any-return]
 
 
 @router.get("/transaction/{tx_hash}", summary="Get one transaction by hash")

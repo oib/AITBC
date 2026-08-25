@@ -1,4 +1,3 @@
-
 """Periodically check for provider-bond slash conditions (G5).
 
 Scans in-flight bonded jobs. If a miner's heartbeat is older than the configured
@@ -97,7 +96,10 @@ class BondSlashSweeper:
                     logger.error("Bond slash sweep raised for job %s: %s", job.id, e)
         logger.debug(
             "Bond slash sweep complete: stale=%s slashed=%s failed=%s skipped=%s",
-            counts["stale"], counts["slashed"], counts["failed"], counts["skipped"],
+            counts["stale"],
+            counts["slashed"],
+            counts["failed"],
+            counts["skipped"],
         )
         return counts
 

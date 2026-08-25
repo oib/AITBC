@@ -7,7 +7,6 @@ endpoints under /rpc/bond.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -28,9 +27,7 @@ _logger = get_logger(__name__)
 async def get_bond(request: Request, bond_id: str, chain_id: str | None = None) -> dict[str, Any]:
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
-        bond = session.exec(
-            select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)
-        ).first()
+        bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
         if not bond:
             raise HTTPException(status_code=404, detail=f"Bond not found: {bond_id}")
         return {
@@ -52,9 +49,7 @@ async def get_bond(request: Request, bond_id: str, chain_id: str | None = None) 
 async def list_bonds(request: Request, provider: str, chain_id: str | None = None) -> dict[str, Any]:
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
-        bonds = session.exec(
-            select(Bond).where(Bond.chain_id == chain_id, Bond.provider == canonical_address(provider))
-        ).all()
+        bonds = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.provider == canonical_address(provider))).all()
         return {
             "success": True,
             "provider": provider,

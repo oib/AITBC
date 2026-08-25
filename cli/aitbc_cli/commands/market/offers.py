@@ -190,7 +190,9 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                                 if len(offer.get("public_endpoint", "")) > 30
                                 else offer.get("public_endpoint", "N/A"),
                                 "Status": offer.get("status", "unknown"),
-                                "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust" if offer.get("trust_score") is not None else f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
+                                "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust"
+                                if offer.get("trust_score") is not None
+                                else f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
                             }
                         )
 

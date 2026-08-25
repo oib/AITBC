@@ -14,7 +14,7 @@ from ..base_models import _to_ait_address
 from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
-from ..mempool import compute_tx_hash, get_mempool
+from ..mempool import get_mempool
 from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
 from .utils import get_chain_id, sign_transaction_data, validate_chain_id, verify_request_signature
 
@@ -443,7 +443,9 @@ async def execute_governance_proposal(
     if not executor_key:
         raise HTTPException(status_code=403, detail="No governance executor key configured on this node")
 
-    executor_address = executor_address or getattr(settings, "genesis_address", None) or getattr(settings, "proposer_id", None) or ""
+    executor_address = (
+        executor_address or getattr(settings, "genesis_address", None) or getattr(settings, "proposer_id", None) or ""
+    )
     if not executor_address:
         raise HTTPException(status_code=403, detail="No governance executor address configured on this node")
 

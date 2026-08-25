@@ -61,6 +61,7 @@ def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
 def _canonical_address_or_abort(ctx, address: str | None, label: str) -> str:
     if not address:
         abort(ctx, f"{label} address is required")
+    assert address is not None
     try:
         return canonical_address(address)
     except Exception as e:
@@ -85,6 +86,7 @@ def _load_wallet(ctx, wallet: str | None, password: str | None):
     if isinstance(private_key, dict):
         if not password:
             abort(ctx, f"Wallet {wallet} is encrypted; --password required")
+        assert password is not None
         try:
             private_key = decrypt_private_key(wallet_path, password)
         except Exception as e:
@@ -537,19 +539,24 @@ def submit(
         # If the coordinator priced the job but did not secure an escrow, sign the
         # ESCROW_LOCK tx and create the payment in a second step.
         if not payment_id and result.get("payment_amount") and private_key:
-            if not result.get("node_wallet_address"):
+            node_wallet_addr = result.get("node_wallet_address")
+            if not node_wallet_addr:
                 abort(ctx, "coordinator did not return node_wallet_address; cannot build ESCROW_LOCK")
+            payment_amount = result.get("payment_amount")
+            if payment_amount is None:
+                abort(ctx, "coordinator did not return payment_amount")
+            payment_token = str(result.get("payment_token") or currency or "AITBC")
             payment_result = _create_escrow_payment(
                 ctx,
                 http_client,
                 rpc_url,
                 job_id,
-                result.get("payment_amount"),
-                result.get("payment_token") or currency or "AITBC",
+                str(payment_amount),
+                payment_token,
                 buyer_address,
-                result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or "",
+                str(result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or ""),
                 private_key,
-                result.get("node_wallet_address"),
+                str(node_wallet_addr),
                 chain_id or config.chain_id,
                 offer_id,
                 offer_quantity,

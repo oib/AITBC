@@ -50,7 +50,7 @@ class DatabaseConfig(BaseSettings):
             return data
 
         url = data.get("url")
-        adapter = data.get("adapter")
+        data.get("adapter")
         env_url = data.get("DATABASE_URL") or os.environ.get("DATABASE_URL")
         env_adapter = data.get("DATABASE_ADAPTER") or os.environ.get("DATABASE_ADAPTER")
 
@@ -60,7 +60,7 @@ class DatabaseConfig(BaseSettings):
             if scheme == requested:
                 # SQLAlchemy dialect is ``postgresql``, not ``postgres``.
                 if scheme == "postgresql" and not env_url.startswith("postgresql://"):
-                    env_url = "postgresql" + env_url[env_url.index("://"):]
+                    env_url = "postgresql" + env_url[env_url.index("://") :]
                 data["url"] = env_url
                 data["adapter"] = requested
         return data

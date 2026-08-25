@@ -60,10 +60,7 @@ class BridgeConfig:
             "multisig_signers_count": len(self.signers),
             "safe_address": self.safe_address or None,
             "message": self.status_message,
-            "note": (
-                "Withdrawals (AIT -> ETH) are currently disabled. "
-                "Only ETH deposits to AIT are supported."
-            ),
+            "note": ("Withdrawals (AIT -> ETH) are currently disabled. Only ETH deposits to AIT are supported."),
         }
 
 
@@ -83,7 +80,6 @@ def _load_bridge_config() -> BridgeConfig:
     if os.getenv("AITBC_SKIP_ENV_FILES") != "1":
         try:
             from dotenv import load_dotenv
-
 
             # Best-effort load of an exchange-specific env file.  The operator
             # may set BRIDGE_ENV_FILE; otherwise we try the service env file.
@@ -122,12 +118,9 @@ def _load_bridge_config() -> BridgeConfig:
     return BridgeConfig(
         bridge_eth_address=os.getenv("BRIDGE_ETH_ADDRESS", ""),
         bridge_contract_address=os.getenv("BRIDGE_CONTRACT_ADDRESS", ""),
-        deposit_enabled=os.getenv("BRIDGE_DEPOSIT_ENABLED", "true").lower()
-        in ("1", "true", "yes"),
-        withdraw_enabled=os.getenv("BRIDGE_WITHDRAW_ENABLED", "false").lower()
-        in ("1", "true", "yes"),
-        custodian=os.getenv("BRIDGE_CUSTODIAN_MODE", "true").lower()
-        in ("1", "true", "yes"),
+        deposit_enabled=os.getenv("BRIDGE_DEPOSIT_ENABLED", "true").lower() in ("1", "true", "yes"),
+        withdraw_enabled=os.getenv("BRIDGE_WITHDRAW_ENABLED", "false").lower() in ("1", "true", "yes"),
+        custodian=os.getenv("BRIDGE_CUSTODIAN_MODE", "true").lower() in ("1", "true", "yes"),
         multisig_enabled=multisig_enabled,
         multisig_threshold=threshold,
         signers=signers,

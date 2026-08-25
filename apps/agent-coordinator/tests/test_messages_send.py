@@ -1,6 +1,7 @@
 """
 Regression tests for agent messaging REST send with WebSocket first delivery.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,9 +42,7 @@ def fake_connection_manager():
 
 
 @pytest.fixture
-def client(
-    monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager
-):
+def client(monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager):
     """TestClient with messaging dependencies patched."""
     os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
     monkeypatch.setattr(messages_router, "state", MagicMock(message_storage=fake_storage))
@@ -89,9 +88,7 @@ class TestMessageSend:
         assert stored_data["recipient"] == "agent-b"
         assert stored_data["priority"] == "high"
 
-    def test_send_falls_back_to_storage_when_recipient_offline(
-        self, client, fake_storage, fake_connection_manager
-    ):
+    def test_send_falls_back_to_storage_when_recipient_offline(self, client, fake_storage, fake_connection_manager):
         """When recipient is not connected, message is still stored."""
         fake_connection_manager.send_personal_message.return_value = False
 

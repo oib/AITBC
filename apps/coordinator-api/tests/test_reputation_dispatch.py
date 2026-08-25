@@ -69,7 +69,7 @@ def test_min_reputation_blocks_low_reputation_miner(db_session, job_service):
 def test_high_reputation_miner_at_capacity_allows_lower_miner(db_session, job_service):
     """A higher-reputation miner that is at capacity is skipped, letting a lower-rep miner in."""
     low = _make_miner(db_session, "miner_low", 0.2)
-    high = _make_miner(db_session, "miner_high", 0.9, concurrency=1, inflight=1)
+    _make_miner(db_session, "miner_high", 0.9, concurrency=1, inflight=1)
     job = _make_job(job_service, constraints=Constraints(min_reputation=0.1))
 
     # High-rep miner is full, so low-rep miner gets the job.

@@ -1,4 +1,5 @@
 """Unit tests for the aitbc zk command group."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

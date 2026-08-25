@@ -79,7 +79,9 @@ class WalletDaemonClient:
     def is_available(self) -> bool:
         """Check if wallet daemon is available and responsive"""
         try:
-            client = AITBCHTTPClient(base_url=self.base_url, timeout=2, max_retries=0, headers={"Content-Type": "application/json"})
+            client = AITBCHTTPClient(
+                base_url=self.base_url, timeout=2, max_retries=0, headers={"Content-Type": "application/json"}
+            )
             client.get("/health")
             return True
         except NetworkError:

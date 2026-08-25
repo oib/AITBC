@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import production_miner
-import pytest
 
 from aitbc.tee import AttestationQuote
 
