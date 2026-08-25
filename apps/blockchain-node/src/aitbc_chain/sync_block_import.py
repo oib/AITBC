@@ -120,10 +120,31 @@ class BlockImportMixin(SyncBase):
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
                 if parent_exists or (height == 0 and parent_hash == "0x00"):
-                    result = self._append_block(session, block_data, transactions, skip_state_root_validation)
-                    duration = time.perf_counter() - start
-                    metrics_registry.observe("sync_import_duration_seconds", duration)
-                    return result
+                    try:
+                        result = self._append_block(session, block_data, transactions, skip_state_root_validation)
+                        duration = time.perf_counter() - start
+                        metrics_registry.observe("sync_import_duration_seconds", duration)
+                        return result
+                    except Exception as append_exc:
+                        reason = str(append_exc).lower()
+                        if "unique" in reason and "constraint" in reason:
+                            metrics_registry.increment("sync_blocks_duplicate_total")
+                            logger.warning(
+                                "Concurrent block import: height %s already inserted, treating as duplicate", height
+                            )
+                            return self._make_import_result(
+                                accepted=False,
+                                height=height,
+                                block_hash=block_hash,
+                                reason="Block already exists (concurrent import)",
+                            )
+                        logger.exception("Append block failed for height %s", height)
+                        return self._make_import_result(
+                            accepted=False,
+                            height=height,
+                            block_hash=block_hash,
+                            reason=f"Append block failed: {append_exc}",
+                        )
                 # Peer is one height ahead but the parent is not our tip: a fork
                 # where the peer is *ahead* of us. `_resolve_fork` only runs when
                 # height <= our_height, so this used to fall through to
