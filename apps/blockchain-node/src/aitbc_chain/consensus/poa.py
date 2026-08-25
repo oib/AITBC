@@ -384,6 +384,22 @@ class PoAProposer:
         get_state_transition().reset_processed_cache()
 
         mempool = get_mempool_instance()
+
+        # If we are not the selected proposer for the next block, skip quietly.
+        # This prevents follower nodes from repeatedly forcing heartbeat blocks,
+        # draining the mempool, and recomputing state roots when they cannot sign.
+        head = self._fetch_chain_head()
+        next_height = (head.height + 1) if head is not None else 0
+        proposer = self._select_proposer(next_height)
+        if self._multi_validator and proposer and proposer not in self._validator_keys:
+            self._logger.debug(
+                "[PROPOSE] Proposer %s for height %s is not a local key, skipping quietly (chain=%s)",
+                proposer,
+                next_height,
+                self._config.chain_id,
+            )
+            return False
+
         block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
         max_empty_block_interval = getattr(settings, "max_empty_block_interval", 60)
         if block_generation_mode in ["mempool-only", "hybrid"]:
