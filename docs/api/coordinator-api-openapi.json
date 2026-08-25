@@ -33255,6 +33255,51 @@
             ],
             "title": "Zk Status"
           },
+          "payment_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Amount"
+          },
+          "payment_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Token"
+          },
+          "provider_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Address"
+          },
+          "buyer_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Address"
+          },
           "payload": {
             "anyOf": [
               {
@@ -38387,6 +38432,39 @@
               }
             ],
             "title": "Provider Address"
+          },
+          "buyer_lock_signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Lock Signature"
+          },
+          "buyer_lock_nonce": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Lock Nonce"
+          },
+          "buyer_lock_fee": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Lock Fee"
           },
           "offer_id": {
             "anyOf": [

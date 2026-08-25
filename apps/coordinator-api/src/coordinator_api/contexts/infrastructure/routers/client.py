@@ -100,45 +100,57 @@ async def submit_job(
     service = JobService(session)
     job = service.create_job(user["sub"], req)
     if req.payment_amount and req.payment_amount > 0:
-        try:
-            payment_service = PaymentService(session)
-            payment_create = JobPaymentCreate(
-                job_id=job.id,
-                amount=req.payment_amount,
-                currency=req.payment_currency,
-                payment_method="aitbc_token",
-                buyer_address=req.buyer_address,
-                provider_address=req.provider_address,
-                auto_reinvest_pct=req.constraints.auto_reinvest_pct if req.constraints else None,
-                offer_id=quote.offer_id if quote else None,
-                offer_unit_price=quote.unit_price if quote else None,
-                offer_price_unit=quote.price_unit if quote else None,
-                offer_quantity=quote.quantity if quote else None,
-            )
-            # V23-46: create_payment(client_id, job_id, payment_data). Passing (job.id,
-            # payment_create) made client_id=job.id, job_id=payment_create, and left
-            # payment_data unfilled -- a TypeError, swallowed by the except below.
-            payment = await payment_service.create_payment(user["sub"], job.id, payment_create)
-            job.payment_id = payment.id
-            job.payment_status = payment.status
-            session.commit()
-            session.refresh(job)
-            logger.info("Payment created for job %s: %s", job.id, payment.id)
-        except Exception as e:
-            # Rollback any partial payment changes before marking as skipped.
-            # This prevents orphaned payment records from a partially-successful create_payment.
-            session.rollback()
-            session.refresh(job)
-            # The job is still created so the client can retry the escrow against it,
-            # but it will not be dispatched while payment_status is "skipped" (G4).
-            logger.warning(
-                "Payment creation failed for job %s; it will not be dispatched until payment is secured: %s",
+        if req.buyer_lock_signature:
+            # One-step submission: the client has already signed the ESCROW_LOCK tx.
+            try:
+                payment_service = PaymentService(session)
+                payment_create = JobPaymentCreate(
+                    job_id=job.id,
+                    amount=req.payment_amount,
+                    currency=req.payment_currency,
+                    payment_method="aitbc_token",
+                    buyer_address=req.buyer_address,
+                    provider_address=req.provider_address,
+                    buyer_lock_signature=req.buyer_lock_signature,
+                    buyer_lock_nonce=req.buyer_lock_nonce,
+                    buyer_lock_fee=req.buyer_lock_fee,
+                    auto_reinvest_pct=req.constraints.auto_reinvest_pct if req.constraints else None,
+                    offer_id=quote.offer_id if quote else None,
+                    offer_unit_price=quote.unit_price if quote else None,
+                    offer_price_unit=quote.price_unit if quote else None,
+                    offer_quantity=quote.quantity if quote else None,
+                )
+                # V23-46: create_payment(client_id, job_id, payment_data). Passing (job.id,
+                # payment_create) made client_id=job.id, job_id=payment_create, and left
+                # payment_data unfilled -- a TypeError, swallowed by the except below.
+                payment = await payment_service.create_payment(user["sub"], job.id, payment_create)
+                job.payment_id = payment.id
+                job.payment_status = payment.status
+                session.commit()
+                session.refresh(job)
+                logger.info("Payment created for job %s: %s", job.id, payment.id)
+            except Exception as e:
+                # Rollback any partial payment changes before marking as skipped.
+                # This prevents orphaned payment records from a partially-successful create_payment.
+                session.rollback()
+                session.refresh(job)
+                # The job is still created so the client can retry the escrow against it,
+                # but it will not be dispatched while payment_status is "skipped" (G4).
+                logger.warning(
+                    "Payment creation failed for job %s; it will not be dispatched until payment is secured: %s",
+                    job.id,
+                    e,
+                )
+                job.payment_status = "skipped"
+                session.commit()
+                session.refresh(job)
+        else:
+            # Two-step submission: the job is created with quoted terms but no escrow yet.
+            # The client must call POST /v1/payments with a signed ESCROW_LOCK to secure it.
+            logger.info(
+                "Job %s created without escrow lock; call POST /v1/payments with buyer_lock_signature to dispatch",
                 job.id,
-                e,
             )
-            job.payment_status = "skipped"
-            session.commit()
-            session.refresh(job)
     return service.to_view(job)  # type: ignore[no-any-return]
 
 
