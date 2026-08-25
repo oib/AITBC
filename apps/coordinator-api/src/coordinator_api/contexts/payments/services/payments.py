@@ -20,6 +20,7 @@ from aitbc.network import AITBCHTTPClient
 from aitbc_agent_core import get_active_brand
 
 from ....config import settings
+from aitbc.crypto.signature_recovery import canonical_address
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
@@ -181,6 +182,10 @@ class PaymentService:
         node_wallet = self._get_node_wallet_address()
         if not node_wallet:
             raise ValueError("NODE_WALLET_ADDRESS or GENESIS_WALLET_ADDRESS not configured")
+        try:
+            node_wallet = canonical_address(node_wallet)
+        except Exception as e:
+            raise ValueError(f"Invalid node wallet address {node_wallet}: {e}") from e
         return {
             "from": buyer,
             "to": node_wallet,
@@ -217,6 +222,18 @@ class PaymentService:
         # With no provider named, no escrow is created; the payment then stays unsecured
         # and _payment_blocks_dispatch keeps the job out of the queue.
         provider = provider_address or os.getenv("PAYMENT_PROVIDER_ADDRESS")
+        if buyer:
+            try:
+                buyer = canonical_address(buyer)
+            except Exception:
+                logger.warning("Invalid buyer address for escrow: %s", buyer)
+                return None
+        if provider:
+            try:
+                provider = canonical_address(provider)
+            except Exception:
+                logger.warning("Invalid provider address for escrow: %s", provider)
+                return None
         if not buyer or not provider:
             logger.warning("No buyer or provider address available for escrow; skipping payment")
             return None
