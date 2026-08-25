@@ -33,7 +33,7 @@ generate_password() {
 setup_database() {
     local db_name=$1
     local db_user=$2
-    local db_password=$3
+    local db_password="${3:-}"
 
     # Generate a secure password if not provided
     if [ -z "$db_password" ]; then
@@ -222,7 +222,7 @@ echo "  Example: $0 --remote-configure 10.1.223.0/24"
 echo ""
 
 # Handle optional remote configuration
-if [[ "$1" == "--remote-configure" ]]; then
+if [[ -n "${1:-}" && "$1" == "--remote-configure" ]]; then
     network_cidr=${2:-10.1.223.0/24}
     configure_remote_connections "$network_cidr"
 fi
