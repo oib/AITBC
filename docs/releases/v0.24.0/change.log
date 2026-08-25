@@ -1259,3 +1259,13 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - **G5 — dispute-ruling paths:** reject and dispute-ruling are now live-proven, not just test-covered; residual gap is smaller than previously listed.
 - **Bridge — multi-sig/Merkle enforcement:** proven correct in testing, but `bridge_release_enabled=false` leaves no live path exercising it.
 - **G8 — doc debt:** `STATUS.md`/`DESIGN_CYCLE.md` are mostly caught up; the `--show-deprecated` CLI gate hiding ~52 of 67 groups is a product call, not a coding fix.
+
+## Doc-sync verification and follow-up (2026-08-25)
+
+- Verified the `docs/releases/STATUS.md` and `docs/releases/v0.24.0/change.log` updates from commit `31ab0d797` on `hub.aitbc`:
+  - `git blame` confirms the added lines trace to that commit.
+  - The `Open design-review gaps` table is a genuine 5-row table and its content matches the rest of `STATUS.md`.
+  - Independent inspection of the live payment-release code confirms it still gates on `receipt_public.verified` for high-value jobs, not on `computation_correct`, so the G3 remaining gap is accurate.
+- Closed two operational loose ends identified during verification:
+  - `aitbc1` was one commit behind; ran `git pull` to fast-forward it to `main`.
+  - `aitbc3` venv had `pre-commit==4.2.0`; reinstalled `pre-commit==4.5.1` to match the project lockfile.
