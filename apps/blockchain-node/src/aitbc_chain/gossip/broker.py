@@ -525,7 +525,7 @@ class WebsocketGossipBackend(GossipBackend):
         except Exception as e:
             if not retry:
                 raise RuntimeError(f"WebSocket gossip publish/ack failed for {topic}: {e}") from e
-            logger.warning(
+            logger.info(
                 "WebSocket gossip publish/ack failed for %s (will retry once): %s",
                 topic,
                 e,
