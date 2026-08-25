@@ -344,6 +344,36 @@ class TestChainSyncAppend:
         assert "Divergent chain" in result.reason
         assert "Unhandled" not in result.reason
 
+    def test_bridge_state_root_preserved_on_import(self, session_factory):
+        """bridge_state_root from a P2P broadcast must survive the DB write (v0.7.6)."""
+        sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
+        blocks = _seed_chain(session_factory, count=2, chain_id="test")
+        last = blocks[-1]
+
+        ts = datetime(2026, 1, 1, 0, 0, 2)
+        bh = _make_block_hash("test", 2, last["hash"], ts)
+        bridge_root = "0x" + "cd" * 32
+        result = sync.import_block(
+            {
+                "height": 2,
+                "hash": bh,
+                "parent_hash": last["hash"],
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+                "state_root": "0x" + "ab" * 32,
+                "bridge_state_root": bridge_root,
+                "signature": "0x" + "01" * 65,
+                "block_metadata": None,
+            },
+            skip_state_root_validation=True,
+        )
+        assert result.accepted is True
+
+        with session_factory() as session:
+            stored = session.exec(select(Block).where(Block.hash == bh)).first()
+            assert stored is not None
+            assert stored.bridge_state_root == bridge_root
+
 
 class TestChainSyncBulkImport:
     def test_append_with_transactions(self, session_factory):
