@@ -146,6 +146,13 @@ class ProposerSignatureValidator:
         except json.JSONDecodeError as e:
             return (False, f"Invalid block_metadata JSON: {e}")
 
+        # v0.7.7: PBFT blocks store a commit certificate in block_metadata instead
+        # of the older attestations list. A PBFT commit is equivalent to an
+        # attestation: it is a signature over the block hash from a validator.
+        pbft_certificate = metadata.get("pbft_certificate")
+        if isinstance(pbft_certificate, list):
+            return self._validate_pbft_certificate(block_data, pbft_certificate)
+
         attestations = metadata.get("attestations", [])
         if not isinstance(attestations, list) or len(attestations) < min_attestations:
             return (False, f"Insufficient attestations: {len(attestations)} < {min_attestations}")
@@ -169,3 +176,61 @@ class ProposerSignatureValidator:
         if valid_count < min_attestations:
             return (False, f"Only {valid_count} valid attestations, need {min_attestations}")
         return (True, f"{valid_count} valid attestations")
+
+    def _validate_pbft_certificate(
+        self,
+        block_data: dict[str, Any],
+        certificate: list[dict[str, Any]],
+    ) -> tuple[bool, str]:
+        """Validate a PBFT commit certificate stored in block_metadata."""
+        import hashlib
+
+        from aitbc.crypto.consensus_signing import verify_consensus_message
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+        validator_set = self._load_validator_set() or self._trusted
+        validator_canonical = {canonical_address(v) for v in validator_set}
+
+        block_hash = block_data.get("hash", "")
+        block_height = block_data.get("height", 0)
+
+        valid_count = 0
+        seen = set()
+        for commit in certificate:
+            if not isinstance(commit, dict) or commit.get("message_type") != "commit":
+                continue
+            sender = commit.get("sender", "")
+            signature = commit.get("signature", "")
+            view_number = commit.get("view_number")
+            sequence_number = commit.get("sequence_number")
+            digest = commit.get("digest", "")
+            commit_block_hash = commit.get("block_hash", "")
+            if not sender or not signature or view_number is None or sequence_number is None or not digest:
+                continue
+            if commit_block_hash and commit_block_hash != block_hash:
+                continue
+            if sequence_number != block_height:
+                continue
+            expected_digest = hashlib.sha256(f"{block_hash}:{sequence_number}:{view_number}".encode()).hexdigest()
+            if digest.lower() != expected_digest.lower():
+                continue
+            if validator_canonical and canonical_address(sender) not in validator_canonical:
+                continue
+            sender_canonical = canonical_address(sender)
+            if sender_canonical in seen:
+                continue
+            msg_data = {
+                "message_type": commit.get("message_type"),
+                "sender": sender,
+                "view_number": view_number,
+                "sequence_number": sequence_number,
+                "digest": digest,
+            }
+            if verify_consensus_message(msg_data, signature, sender):
+                valid_count += 1
+                seen.add(sender_canonical)
+
+        if valid_count < min_attestations:
+            return (False, f"Only {valid_count} valid PBFT commits, need {min_attestations}")
+        return (True, f"{valid_count} valid PBFT commits")
