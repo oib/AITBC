@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import socket
 from collections import Counter
 from typing import Any
 
@@ -10,7 +11,9 @@ import click
 
 from ..auth import AuthManager
 from ..utils import error, info, output, success
+from ..utils.address import to_canonical
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from aitbc.utils import format_ait
 
 logger = get_logger(__name__)
 
@@ -68,6 +71,88 @@ def _safe_post(client: AITBCHTTPClient, path: str, json: dict[str, Any] | None =
         return None
 
 
+def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int, int, str]:
+    """Return on-chain balance, nonce and chain_id for an address (any accepted spelling)."""
+    try:
+        canon = to_canonical(address)
+        client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        data = client.get(f"/rpc/account/{canon}") or {}
+        return int(data.get("balance", 0)), int(data.get("nonce", 0)), data.get("chain_id", chain_id)
+    except Exception:
+        logger.debug("Blockchain balance query failed for %s", address, exc_info=True)
+        return 0, 0, chain_id
+
+
+def _live_wallet_balance(
+    wallet_client: AITBCHTTPClient,
+    wallet_id: str,
+    address: str,
+    chain_id: str,
+    blockchain_rpc_url: str,
+) -> dict[str, Any]:
+    """Return wallet balance, preferring the daemon and falling back to the blockchain RPC."""
+    balance: Any = "N/A"
+    fallback = False
+    try:
+        balance_data = wallet_client.get(f"/v1/chains/{chain_id}/wallets/{wallet_id}/balance") or {}
+        balance = balance_data.get("balance", "N/A")
+    except Exception:
+        fallback = True
+    if balance in (None, "N/A", ""):
+        fallback = True
+    if fallback:
+        balance, _, _ = _blockchain_balance(blockchain_rpc_url, address, chain_id)
+    balance_ait = format_ait(balance) if not isinstance(balance, str) or balance not in ("N/A", "") else "N/A"
+    return {"balance": balance, "balance_ait": balance_ait}
+
+
+def _escrow_payment_status(blockchain_rpc_url: str, job_id: str) -> str | None:
+    """Query on-chain escrow state and map it to a payment_status string."""
+    try:
+        client = AITBCHTTPClient(base_url=blockchain_rpc_url, timeout=10)
+        data = client.get(f"/rpc/escrow/{job_id}") or {}
+        state = (data.get("state") or data.get("status") or "").lower()
+        mapping = {
+            "created": "escrowed",
+            "funded": "escrowed",
+            "locked": "escrowed",
+            "job_started": "escrowed",
+            "job_completed": "escrowed",
+            "released": "released",
+            "refunded": "refunded",
+        }
+        return mapping.get(state)
+    except Exception:
+        logger.debug("Escrow payment status query failed for %s", job_id, exc_info=True)
+        return None
+
+
+def _enrich_jobs_with_escrow(jobs: list[Any], blockchain_rpc_url: str) -> None:
+    """Override coordinator payment_status with on-chain escrow state when available."""
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        job_id = job.get("job_id") or job.get("id")
+        if not job_id:
+            continue
+        ps = _escrow_payment_status(blockchain_rpc_url, job_id)
+        if ps:
+            job["payment_status"] = ps
+
+
+def _model_for_job(job: dict[str, Any]) -> str:
+    """Extract the model name from a job record."""
+    payload = job.get("payload") or {}
+    result = job.get("result") or {}
+    return (
+        result.get("model")
+        or payload.get("model")
+        or (result.get("result") or {}).get("model")
+        or (result.get("receipt") or {}).get("model")
+        or "N/A"
+    )
+
+
 @click.group()
 def dashboard():
     """Operational dashboards for customers and shops."""
@@ -82,6 +167,7 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
     """Customer dashboard: jobs, payments, and wallets."""
     try:
         config = ctx.obj["config"]
+        blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
         coord_client = _client(ctx, timeout=15)
 
         jobs_data = _safe_get(coord_client, "/v1/jobs", {"limit": limit}) or {}
@@ -92,6 +178,8 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
         else:
             jobs = []
 
+        _enrich_jobs_with_escrow(jobs, blockchain_rpc_url)
+
         state_counts: Counter = Counter()
         payment_counts: Counter = Counter()
         recent_jobs: list[dict[str, Any]] = []
@@ -100,15 +188,6 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
                 continue
             state_counts[job.get("state", "UNKNOWN")] += 1
             payment_counts[job.get("payment_status", "unknown")] += 1
-            payload = job.get("payload") or {}
-            result = job.get("result") or {}
-            model = (
-                result.get("model")
-                or payload.get("model")
-                or (result.get("result") or {}).get("model")
-                or (result.get("receipt") or {}).get("model")
-                or "N/A"
-            )
             requested_at = job.get("requested_at") or job.get("created_at")
             created = str(requested_at)[:19] if requested_at else "N/A"
             recent_jobs.append(
@@ -116,12 +195,11 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
                     "Job ID": job.get("job_id", job.get("id", "N/A")),
                     "State": job.get("state", "N/A"),
                     "Payment": job.get("payment_status", "N/A"),
-                    "Model": model,
+                    "Model": _model_for_job(job),
                     "Created": created,
                 }
             )
 
-        wallets_data: dict[str, Any] = {}
         wallet_balances: list[dict[str, Any]] = []
         try:
             wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10)
@@ -132,16 +210,15 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
                 if not isinstance(wallet, dict):
                     continue
                 wallet_id = wallet.get("wallet_id", "N/A")
-                try:
-                    balance_data = wallet_client.get(f"/v1/chains/{chain_id}/wallets/{wallet_id}/balance") or {}
-                    balance = balance_data.get("balance", "N/A")
-                except Exception:
-                    balance = "N/A"
+                address = wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A")
+                canonical = to_canonical(address)
+                bal_info = _live_wallet_balance(wallet_client, wallet_id, address, chain_id, blockchain_rpc_url)
                 wallet_balances.append(
                     {
                         "Wallet": wallet_id,
-                        "Address": wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A"),
-                        "Balance": balance,
+                        "Address": address,
+                        "Canonical": canonical,
+                        "Balance AIT": bal_info["balance_ait"],
                     }
                 )
         except NetworkError as e:
@@ -177,9 +254,8 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
 def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
     """Shop dashboard: miners, GPUs, offers, jobs, and earnings."""
     try:
-        import socket
-
         config = ctx.obj["config"]
+        blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
         if not miner_id:
             miner_id = os.environ.get("NODE_ID") or socket.gethostname() or getattr(config, "node_id", "") or "unknown"
 
@@ -201,6 +277,8 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
             if earnings_resp:
                 miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}
 
+        _enrich_jobs_with_escrow(miner_jobs, blockchain_rpc_url)
+
         # GPUs on this node
         gpu_data: dict[str, Any] = {}
         try:
@@ -210,7 +288,6 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
             logger.warning("GPU service unavailable: %s", e)
 
         # Marketplace offers published by this shop
-        offers_data: dict[str, Any] = {}
         offer_rows: list[dict[str, Any]] = []
         try:
             market_client = AITBCHTTPClient(
@@ -247,16 +324,15 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 if not isinstance(wallet, dict):
                     continue
                 wallet_id = wallet.get("wallet_id", "N/A")
-                try:
-                    balance_data = wallet_client.get(f"/v1/chains/{chain_id}/wallets/{wallet_id}/balance") or {}
-                    balance = balance_data.get("balance", "N/A")
-                except Exception:
-                    balance = "N/A"
+                address = wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A")
+                canonical = to_canonical(address)
+                bal_info = _live_wallet_balance(wallet_client, wallet_id, address, chain_id, blockchain_rpc_url)
                 wallet_balances.append(
                     {
                         "Wallet": wallet_id,
-                        "Address": wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A"),
-                        "Balance": balance,
+                        "Address": address,
+                        "Canonical": canonical,
+                        "Balance AIT": bal_info["balance_ait"],
                     }
                 )
         except NetworkError as e:
