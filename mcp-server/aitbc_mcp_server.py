@@ -208,8 +208,14 @@ ALL_AITBC_GROUPS = {
     "ai",
     "auth",
     "bond",
+    "bridge",
     "config",
     "dashboard",
+    "exchange",
+    "exchange-island",
+    "explorer",
+    "gpu",
+    "governance",
     "ipfs",
     "list",
     "market",
@@ -230,6 +236,7 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "submit",
     "cancel",
     "refund",
+    "accept",
     "create",
     "delete",
     "send",
@@ -241,6 +248,7 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "restore",
     "backup",
     "propose",
+    "vote",
     "execute",
     "start",
     "stop",
@@ -251,6 +259,10 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "transcribe",
     "buy",
     "sell",
+    "trade",
+    "order",
+    "deposit",
+    "withdraw",
     "deploy",
     "update",
     "multisig-propose",
@@ -260,6 +272,8 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "rate",
     "publish",
     "register",
+    "unregister",
+    "bind",
     "escrow",
     "appeal",
     "lock",
@@ -303,7 +317,7 @@ def _build_aitbc_cli_command(
     for key, value in (options or {}).items():
         if not _safe_option_key(key):
             raise ValueError(f"invalid option key: {key}")
-        if value is None:
+        if value is None or value == "":
             tokens.append(f"--{key}")
         else:
             tokens.append(f"--{key}={shlex.quote(str(value))}")
@@ -846,8 +860,8 @@ def run_aitbc_cli(
         Field(description="Positional arguments for the subcommand."),
     ] = None,
     options: Annotated[
-        dict[str, str] | None,
-        Field(description="Options as --key=value. Use an empty string value for boolean flags."),
+        dict[str, str | None] | None,
+        Field(description="Options as --key=value. Use null for boolean flags."),
     ] = None,
     output_format: Annotated[
         Literal["json", "yaml", "csv", "table"],
@@ -1921,6 +1935,68 @@ def pay_for_ai_job(
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "ai", "pay", None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def manage_ai_job(
+    action: Annotated[
+        Literal["accept", "cancel", "refund"],
+        Field(description="Action to perform: accept a completed job, cancel a queued job, or refund a job."),
+    ],
+    job_id: Annotated[
+        str,
+        Field(description="Job ID to manage."),
+    ],
+    wallet: Annotated[
+        str | None,
+        Field(description="Wallet name (only used for cancel)."),
+    ] = None,
+    refund: Annotated[
+        bool,
+        Field(description="For cancel, also refund the escrowed payment."),
+    ] = False,
+    reason: Annotated[
+        str,
+        Field(description="Reason for cancel or refund."),
+    ] = "buyer_requested",
+    coordinator_url: Annotated[
+        str | None,
+        Field(description="Override coordinator URL."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Accept, cancel or refund an AI job through the aitbc CLI."""
+    options: dict[str, str | None] = {"job-id": job_id}
+    if action == "cancel" and wallet is not None:
+        options["wallet"] = wallet
+    if action == "cancel" and refund:
+        options["refund"] = None
+    if action in {"cancel", "refund"}:
+        options["reason"] = reason
+    if coordinator_url is not None:
+        options["coordinator-url"] = coordinator_url
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("ai", action, None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "ai", action, None, options, "json"))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
