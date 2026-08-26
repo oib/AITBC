@@ -1463,3 +1463,15 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   by `ai cancel --refund` as a blockchain refund fallback.
 - Live: pushed to Gitea, pulled on `hub.aitbc` and `aitbc3`;
   `aitbc dashboard customer`/`shop` show canonical addresses and formatted AIT balances.
+
+## Phase 4 — Agent and discovery UX (2026-08-26)
+
+- `aitbc agent status [AGENT_ID]` now defaults to the single local agent and
+  lists local candidates when multiple agents exist.
+- `aitbc agent inbox` now defaults to the single local agent when `--agent-id` is omitted.
+- `aitbc agent discover agents` probes the coordinator first and prints a clear
+  `sudo systemctl start aitbc-agent-coordinator` message when the service is down.
+- `get_agent_status` now queries the coordinator and distinguishes a reachable
+  coordinator that does not know the agent ("not registered") from an unreachable one.
+- Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
+  `aitbc agent status` without an agent_id resolves to the local default.
