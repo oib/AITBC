@@ -14,8 +14,10 @@ import click
 
 from ...config import get_config
 from ...utils import error, info, output, success, warning
+from ...utils.address import to_canonical
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.island_credentials import load_island_credentials
+from ...utils.wallet_loader import load_wallet_for_payment
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -172,13 +174,43 @@ def get_next_nonce() -> int:
     return get_account_nonce(wallet_address, chain_id)
 
 
+def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str | None, str]:
+    """Resolve the wallet used by market commands.
+
+    Priority: group-level --wallet / --wallet-path, then environment, then
+    configuration.  Returns ``(address, private_key_or_none, wallet_name)``.
+    """
+    wallet_name = ctx.obj.get("market_wallet")
+    wallet_path = ctx.obj.get("market_wallet_path")
+    password = ctx.obj.get("market_password")
+    return load_wallet_for_payment(
+        ctx,
+        wallet_name=wallet_name,
+        wallet_path=wallet_path,
+        password=password,
+        require_private_key=require_private_key,
+    )
+
+
 @click.group()
-def market():
+@click.option("--wallet", "market_wallet", help="Wallet name for market payments")
+@click.option("--wallet-path", "market_wallet_path", help="Direct wallet file path (overrides --wallet)")
+@click.option("--password", "market_password", help="Wallet password")
+@click.option("--password-file", "market_password_file", type=click.Path(exists=True), help="Wallet password file")
+@click.pass_context
+def market(ctx, market_wallet, market_wallet_path, market_password, market_password_file):
     """GPU and software marketplace offers (miner-published, coordinator-backed).
 
     For global cross-chain listings and bridge operations, use `aitbc marketplace`.
     """
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["market_wallet"] = market_wallet
+    ctx.obj["market_wallet_path"] = market_wallet_path
+    ctx.obj["market_password"] = market_password
+
+    if market_password_file:
+        with open(market_password_file) as f:
+            ctx.obj["market_password"] = f.read().strip() or market_password
 
 
 # Import submodules to register all commands
