@@ -923,7 +923,7 @@ def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordin
                     logger.warning("Coordinator refund after cancel failed: %s", e)
             if not refund_result:
                 # Fallback to on-chain escrow refund.
-                from ..market.escrow import refund_escrow
+                from .market.escrow import refund_escrow
 
                 refund_result = refund_escrow(ctx, job_id, reason)
             if isinstance(result, dict):
