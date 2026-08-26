@@ -31,6 +31,32 @@ from ..utils.error_handling import abort
 logger = get_logger(__name__)
 
 
+def _resolve_join_rpc_url(hub: str, rpc_url: str | None) -> str:
+    """Return the RPC base URL to use for the island join request.
+
+    If --rpc-url is given, use it.  Otherwise prefer the configured
+    blockchain_rpc_url.  As a last resort, fall back to 127.0.0.1:8202 when
+    the hub resolves to a local address, because the blockchain RPC service
+    binds to localhost by default.
+    """
+    if rpc_url:
+        return rpc_url.rstrip("/")
+
+    config = get_config()
+    if config.blockchain_rpc_url:
+        return config.blockchain_rpc_url.rstrip("/")
+
+    try:
+        hub_ip = socket.gethostbyname(hub)
+    except socket.gaierror:
+        hub_ip = ""
+
+    if hub_ip in ("127.0.0.1", "::1", "localhost"):
+        return "http://127.0.0.1:8202"
+
+    return f"http://{hub}:8202"
+
+
 @click.group()
 def node():
     """Node management commands"""
@@ -456,8 +482,9 @@ def create(ctx, island_id, island_name, chain_id):
 @click.argument("chain_id")
 @click.option("--hub", default="hub.aitbc.bubuit.net", help="Hub domain name to connect to")
 @click.option("--is-hub", is_flag=True, help="Register this node as a hub for the island")
+@click.option("--rpc-url", default=None, help="RPC base URL for the join request (defaults to config.blockchain_rpc_url)")
 @click.pass_context
-def join(ctx, island_id, island_name, chain_id, hub, is_hub):
+def join(ctx, island_id, island_name, chain_id, hub, is_hub, rpc_url):
     """Join an existing island via the hub's HTTP RPC endpoint."""
     try:
         # Get public key from keystore
@@ -478,17 +505,16 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
             abort(ctx, "No public key found in keystore")
 
         # Resolve hub domain and build the RPC URL.
-        hub_ip = socket.gethostbyname(hub)
-        click.echo(f"Connecting to hub {hub} ({hub_ip}:8202)...")
+        rpc_base = _resolve_join_rpc_url(hub, rpc_url)
+        click.echo(f"Connecting to hub {hub} (RPC {rpc_base})...")
 
         config = get_config()
-        rpc_url = f"http://{hub}:8202"
-        client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        client = AITBCHTTPClient(base_url=rpc_base, timeout=10)
 
         payload_chain_id = chain_id or config.chain_id
         try:
             response = client.post(
-                "/rpc/islands/join",
+                "/islands/join" if rpc_base.endswith("/rpc") else "/rpc/islands/join",
                 json={
                     "island_id": island_id,
                     "island_name": island_name,
@@ -508,7 +534,7 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
         # Prefer RPC endpoint from response; fall back to the URL we used.
         credentials = response.get("credentials") or {}
         if not credentials.get("rpc_endpoint"):
-            credentials["rpc_endpoint"] = f"{rpc_url}/rpc"
+            credentials["rpc_endpoint"] = f"{rpc_base}/rpc" if not rpc_base.endswith("/rpc") else rpc_base
 
         # Store credentials locally
         credentials_path = "/var/lib/aitbc/island_credentials.json"
