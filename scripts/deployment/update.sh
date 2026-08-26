@@ -622,7 +622,7 @@ ensure_gossip_defaults() {
 # sets `set -euo pipefail`, which this script refuses on purpose (see line 40).
 # ----------------------------------------------------------------------------
 run_migrations() {
-    log "Step 5: Running Alembic DB migrations..."
+    log "Step 5: Running Alembic DB migrations and verifying schemas..."
     AITBC_ROOT="$AITBC_ROOT" VENV_DIR="$VENV_DIR" "$RUN_MIGRATIONS_SCRIPT"
 }
 

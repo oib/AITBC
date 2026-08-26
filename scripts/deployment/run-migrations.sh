@@ -202,9 +202,36 @@ run_migrations() {
     return 0
 }
 
+
+verify_schemas() {
+    log "Step 5b: Verifying live DB schemas against code models..."
+    local script="$AITBC_ROOT/scripts/utils/verify-db-schema.py"
+    if [ ! -f "$script" ]; then
+        warning "Schema verification script not found: $script"
+        return 0
+    fi
+
+    local verify_out
+    if ! verify_out=$(PYTHONPATH="$AITBC_ROOT" "$VENV_DIR/bin/python" "$script" --all 2>&1); then
+        error "DB schema verification failed:"
+        echo "$verify_out" | sed 's/^/    /' >&2
+        error "Run '$script --all --repair' to add missing nullable columns"
+        return 1
+    fi
+
+    success "DB schema verification passed"
+    if [ -n "$verify_out" ]; then
+        echo "$verify_out" | sed 's/^/    /'
+    fi
+    return 0
+}
+
 main() {
     local exit_code=0
     run_migrations || exit_code=$?
+    if [ "$exit_code" -eq 0 ]; then
+        verify_schemas || exit_code=$?
+    fi
     agent_print_followup
     return $exit_code
 }
