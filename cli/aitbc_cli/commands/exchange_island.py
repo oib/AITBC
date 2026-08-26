@@ -15,6 +15,7 @@ import click
 
 from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import abort
+from ..utils.wallet_loader import load_wallet_for_payment
 
 # Import shared modules
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -37,6 +38,81 @@ def safe_load_credentials():
         error(f"Island credentials not found: {e}")
         error("Run 'aitbc node island join' to join an island first")
         return None
+
+
+def _sign_exchange_tx(tx_data: dict[str, Any], private_key: str) -> str:
+    """Sign an exchange transaction the same way the blockchain RPC verifies it."""
+    from eth_keys import keys
+    from eth_utils import keccak
+
+    has_amount = "amount" in tx_data
+    tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature" and not (has_amount and k == "value")}
+    message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
+    msg_hash = keccak(message)
+    pk_hex = private_key.removeprefix("0x")
+    pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+    sig = pk.sign_msg_hash(msg_hash)
+    return sig.to_hex()
+
+
+def _build_exchange_tx(
+    ctx,
+    side: str,
+    ait_amount: Decimal,
+    quote_currency: str,
+    price: Decimal | None,
+    wallet_name: str | None,
+    password: str | None,
+) -> tuple[dict[str, Any], str, AITBCHTTPClient] | None:
+    """Build a signed EXCHANGE transaction, returning the tx dict and an HTTP client."""
+    credentials = safe_load_credentials()
+    if not credentials:
+        return None
+    rpc_endpoint = get_rpc_endpoint()
+    chain_id = get_chain_id()
+    island_id = get_island_id()
+
+    address, private_key, _wallet_name = load_wallet_for_payment(ctx, wallet_name, password=password)
+    if not private_key:
+        abort(ctx, f"Wallet '{_wallet_name}' has no usable private key; use a file wallet with --wallet")
+        return None
+
+    http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+    account = http_client.get(f"/account/{address}", params={"chain_id": chain_id})
+    nonce = account.get("nonce", 0)
+
+    pair = f"AIT/{quote_currency}"
+    order_id = f"exchange_{side}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{address}{ait_amount}{quote_currency}'.encode()).hexdigest()[:8]}"
+
+    order_payload: dict[str, Any] = {
+        "action": side,
+        "order_id": order_id,
+        "user_id": address,
+        "pair": pair,
+        "side": side,
+        "amount": str(ait_amount),
+        "status": "open",
+        "island_id": island_id,
+        "chain_id": chain_id,
+        "created_at": datetime.now().isoformat(),
+    }
+    if side == "buy" and price:
+        order_payload["max_price"] = str(price)
+    if side == "sell" and price:
+        order_payload["min_price"] = str(price)
+
+    tx_data: dict[str, Any] = {
+        "from": address,
+        "to": address,
+        "amount": 0,
+        "fee": 36,
+        "nonce": nonce,
+        "type": "EXCHANGE",
+        "chain_id": chain_id,
+        "payload": order_payload,
+    }
+    tx_data["signature"] = _sign_exchange_tx(tx_data, private_key)
+    return tx_data, order_id, http_client
 
 
 def _hash_float(parts, low: float = 0.0, high: float = 1.0, decimals: int = 8) -> float:
@@ -165,69 +241,22 @@ def exchange_island():
 @click.argument("ait_amount", type=DECIMAL)
 @click.argument("quote_currency", type=click.Choice(["ETH"]))
 @click.option("--max-price", type=DECIMAL, help="Maximum price to pay per AIT")
+@click.option("--wallet", default=None, help="Wallet name or file path for signing")
+@click.option("--password", default=None, help="Wallet encryption password")
 @click.pass_context
-def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None):
+def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None, wallet: str | None, password: str | None):
     """Buy AIT with ETH"""
     try:
         if ait_amount <= 0:
             abort(ctx, "AIT amount must be greater than 0")
 
-        # Load island credentials
-        credentials = safe_load_credentials()
-        if not credentials:
+        built = _build_exchange_tx(ctx, "buy", ait_amount, quote_currency, max_price, wallet, password)
+        if built is None:
             return
-        rpc_endpoint = get_rpc_endpoint()
-        chain_id = get_chain_id()
-        island_id = get_island_id()
+        tx_data, order_id, http_client = built
 
-        # Get user node ID
-        hostname = socket.gethostname()
-        local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
-
-        # Get public key for node ID generation
-        keystore_path = KEYSTORE_PATH
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                public_key_pem = None
-                for _key_id, key_data in keys.items():
-                    public_key_pem = key_data.get("public_key_pem")
-                    break
-                if public_key_pem:
-                    content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
-                    user_id = hashlib.sha256(content.encode()).hexdigest()
-                else:
-                    abort(ctx, "No public key found in keystore")
-        else:
-            abort(ctx, f"Keystore not found at {keystore_path}")
-
-        pair = f"AIT/{quote_currency}"
-
-        # Generate order ID
-        order_id = f"exchange_buy_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{user_id}{ait_amount}{quote_currency}'.encode()).hexdigest()[:8]}"
-
-        # Create buy order transaction
-        buy_order_data = {
-            "type": "exchange",
-            "action": "buy",
-            "order_id": order_id,
-            "user_id": user_id,
-            "pair": pair,
-            "side": "buy",
-            # not-money: wire format, POSTed to the node's /transaction endpoint
-            "amount": float(ait_amount),
-            "max_price": float(max_price) if max_price else None,
-            "status": "open",
-            "island_id": island_id,
-            "chain_id": chain_id,
-            "created_at": datetime.now().isoformat(),
-        }
-
-        # Submit transaction to blockchain
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            _ = http_client.post("/transaction", json=buy_order_data)
+            response = http_client.post("/transaction", json=tx_data)
             success("Buy order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Buying {ait_amount} AIT with {quote_currency}")
@@ -237,15 +266,16 @@ def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None
 
             order_info = {
                 "Order ID": order_id,
-                "Pair": pair,
+                "Pair": tx_data["payload"]["pair"],
                 "Side": "BUY",
                 "Amount": f"{ait_amount} AIT",
                 "Max Price": f"{max_price:.8f} {quote_currency}/AIT" if max_price else "Market",
                 "Status": "open",
-                "User": user_id[:16] + "...",
-                "Island": island_id[:16] + "...",
+                "User": tx_data["from"][:16] + "...",
+                "Island": tx_data["payload"]["island_id"][:16] + "...",
             }
             output(order_info, ctx.obj.get("output_format", "table"))
+            output(response, ctx.obj.get("output_format", "table"), title="Transaction")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
         except Exception as e:
@@ -259,69 +289,22 @@ def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None
 @click.argument("ait_amount", type=DECIMAL)
 @click.argument("quote_currency", type=click.Choice(["ETH"]))
 @click.option("--min-price", type=DECIMAL, help="Minimum price to accept per AIT")
+@click.option("--wallet", default=None, help="Wallet name or file path for signing")
+@click.option("--password", default=None, help="Wallet encryption password")
 @click.pass_context
-def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | None):
+def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | None, wallet: str | None, password: str | None):
     """Sell AIT for ETH"""
     try:
         if ait_amount <= 0:
             abort(ctx, "AIT amount must be greater than 0")
 
-        # Load island credentials
-        credentials = safe_load_credentials()
-        if not credentials:
+        built = _build_exchange_tx(ctx, "sell", ait_amount, quote_currency, min_price, wallet, password)
+        if built is None:
             return
-        rpc_endpoint = get_rpc_endpoint()
-        chain_id = get_chain_id()
-        island_id = get_island_id()
+        tx_data, order_id, http_client = built
 
-        # Get user node ID
-        hostname = socket.gethostname()
-        local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
-
-        # Get public key for node ID generation
-        keystore_path = KEYSTORE_PATH
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                public_key_pem = None
-                for _key_id, key_data in keys.items():
-                    public_key_pem = key_data.get("public_key_pem")
-                    break
-                if public_key_pem:
-                    content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
-                    user_id = hashlib.sha256(content.encode()).hexdigest()
-                else:
-                    abort(ctx, "No public key found in keystore")
-        else:
-            abort(ctx, f"Keystore not found at {keystore_path}")
-
-        pair = f"AIT/{quote_currency}"
-
-        # Generate order ID
-        order_id = f"exchange_sell_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{user_id}{ait_amount}{quote_currency}'.encode()).hexdigest()[:8]}"
-
-        # Create sell order transaction
-        sell_order_data = {
-            "type": "exchange",
-            "action": "sell",
-            "order_id": order_id,
-            "user_id": user_id,
-            "pair": pair,
-            "side": "sell",
-            # not-money: wire format, POSTed to the node's /transaction endpoint
-            "amount": float(ait_amount),
-            "min_price": float(min_price) if min_price else None,
-            "status": "open",
-            "island_id": island_id,
-            "chain_id": chain_id,
-            "created_at": datetime.now().isoformat(),
-        }
-
-        # Submit transaction to blockchain
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            _ = http_client.post("/transaction", json=sell_order_data)
+            response = http_client.post("/transaction", json=tx_data)
             success("Sell order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Selling {ait_amount} AIT for {quote_currency}")
@@ -331,15 +314,16 @@ def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | Non
 
             order_info = {
                 "Order ID": order_id,
-                "Pair": pair,
+                "Pair": tx_data["payload"]["pair"],
                 "Side": "SELL",
                 "Amount": f"{ait_amount} AIT",
                 "Min Price": f"{min_price:.8f} {quote_currency}/AIT" if min_price else "Market",
                 "Status": "open",
-                "User": user_id[:16] + "...",
-                "Island": island_id[:16] + "...",
+                "User": tx_data["from"][:16] + "...",
+                "Island": tx_data["payload"]["island_id"][:16] + "...",
             }
             output(order_info, ctx.obj.get("output_format", "table"))
+            output(response, ctx.obj.get("output_format", "table"), title="Transaction")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
     except Exception as e:
@@ -392,7 +376,7 @@ def orderbook(ctx, pair: str, limit: int):
         # Sort buy orders by price descending (highest first)
         buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)
         # Sort sell orders by price ascending (lowest first)
-        sell_orders.sort(key=lambda x: x.get("min_price", float("inf")))
+        sell_orders.sort(key=lambda x: x.get("min_price", None))
 
         if not buy_orders and not sell_orders:
             info(f"No open orders for {pair}")
@@ -474,16 +458,16 @@ def rates(ctx):
 
             # Get best bid and ask
             best_bid = max([o.get("max_price", 0) for o in buy_orders]) if buy_orders else 0  # type: ignore[attr-defined]
-            best_ask = min([o.get("min_price", float("inf")) for o in sell_orders]) if sell_orders else 0  # type: ignore[attr-defined]
+            best_ask = min([o.get("min_price", None) for o in sell_orders]) if sell_orders else 0  # type: ignore[attr-defined]
 
             # Calculate mid price
-            mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float("inf") else 0
+            mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < None else 0
 
             rates_data.append(
                 {
                     "Pair": pair,
                     "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
-                    "Best Ask": f"{best_ask:.8f}" if best_ask < float("inf") else "N/A",
+                    "Best Ask": f"{best_ask:.8f}" if best_ask < None else "N/A",
                     "Mid Price": f"{mid_price:.8f}" if mid_price > 0 else "N/A",
                     "Buy Orders": len(buy_orders),
                     "Sell Orders": len(sell_orders),
