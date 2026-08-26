@@ -1517,3 +1517,19 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - `aitbc ipfs rentals` lists recorded rentals.
 - `aitbc ipfs unpin <rental_id>` unpins a CID and can optionally request an
   escrow refund with `--refund`.
+
+## AITBC MCP server update (2026-08-26)
+
+- Expanded `ALL_AITBC_GROUPS` to include the newly shipped Phase 6 CLI groups:
+  `agent`, `dashboard`, `ipfs`, `marketplace`, and `system`.
+- Updated `ALL_SERVICE_ENDPOINTS` and `ALL_SERVICE_BASES` with the new
+  island IPFS (`aitbc-island-ipfs`), Whisper (`aitbc-whisper`), FFmpeg
+  (`aitbc-ffmpeg`), and Ollama (`ollama`) endpoints.
+- Added typed MCP tools wrapping the new daily-use commands:
+  - `check_aitbc_system_health`
+  - `list_aitbc_ipfs_rentals`
+  - `list_aitbc_ipfs_pins`
+  - `get_aitbc_agent_status`
+  - `get_aitbc_agent_inbox`
+  - `get_aitbc_dashboard_customer`
+  - `get_aitbc_dashboard_shop`
