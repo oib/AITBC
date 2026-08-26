@@ -12,7 +12,7 @@ import click
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.address import to_eip55
-from ...utils.http_client import AITBCHTTPClient
+from ...utils.http_client import AITBCHTTPClient, NetworkError
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from aitbc.utils import ait_to_seconds, format_ait
@@ -362,6 +362,14 @@ def balance(ctx, name: str | None):
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
         account_data = http_client.get(f"/rpc/account/{canonical}")
+    except NetworkError as e:
+        # An unfunded wallet will have no on-chain account yet; treat that as a
+        # zero balance instead of an error.
+        if "404" in str(e) or "Not Found" in str(e):
+            account_data = {"balance": 0, "nonce": 0}
+        else:
+            error(f"Failed to query balance for {canonical}: {e}")
+            raise click.Abort() from e
     except Exception as e:
         error(f"Failed to query balance for {canonical}: {e}")
         raise click.Abort() from e
