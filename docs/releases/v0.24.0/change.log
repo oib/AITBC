@@ -1535,3 +1535,9 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `get_aitbc_dashboard_shop`
 - fix(miner,coordinator): aitbc-miner heartbeats now report status: ONLINE so the coordinator counts it in the online pool; coordinator dispatch and online-count now ignore miners whose last heartbeat is older than COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS (default 5 min)
 - fix(miner): map marketplace/CLI job types (ollama, llama, whisper, ffmpeg) to the worker inference/transcribe/reencode handlers
+- feat(mcp): add manage_ai_job tool for accept/cancel/refund AI jobs
+- fix(mcp): run_aitbc_cli options now accept null for boolean flags
+- feat(mcp): whitelist bridge, exchange, exchange-island, explorer, gpu, governance CLI groups
+- feat(coordinator): add background StaleMinerReaper to mark stale ONLINE miners OFFLINE
+- ops(hub): create island credentials and validate exchange-island orderbook/rates
+- ops(hub): stop orphaned aitbc-pool-hub process (canonical pool-hub remains on aitbc3)
