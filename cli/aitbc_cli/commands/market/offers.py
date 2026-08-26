@@ -19,7 +19,7 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
-from . import get_chain_id, get_island_id, get_next_nonce, get_wallet_address, market, safe_load_credentials
+from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, market, safe_load_credentials
 from .escrow import _get_blockchain_rpc_url
 
 
@@ -334,13 +334,13 @@ def cancel(ctx, order_id: str):
         chain_id = get_chain_id()
         island_id = get_island_id()
 
-        wallet_address = get_wallet_address()
+        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
         cancel_data = {
             "from": wallet_address,
             "to": "0x0000000000000000000000000000000000000000",
             "amount": 0,
             "fee": 36,
-            "nonce": get_next_nonce(),
+            "nonce": get_next_nonce(wallet_address),
             "type": "GPU_MARKETPLACE",
             "chain_id": chain_id,
             "payload": {
@@ -528,7 +528,7 @@ def offer(
         config = get_config()
         chain_id = get_chain_id()
         island_id = get_island_id()
-        wallet_address = get_wallet_address()
+        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         # Auto-detect deployment type from model name suffix
         is_cloud = model_or_variant.endswith(":cloud")
@@ -689,7 +689,7 @@ def offer(
             "to": "0x0000000000000000000000000000000000000000",
             "amount": 0,
             "fee": 36,
-            "nonce": get_next_nonce(),
+            "nonce": get_next_nonce(wallet_address),
             "type": "GPU_MARKETPLACE",
             "chain_id": chain_id,
             "payload": {
