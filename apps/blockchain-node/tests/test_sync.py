@@ -1,6 +1,8 @@
 """Tests for chain synchronization, conflict resolution, and signature validation."""
 
 import hashlib
+import json
+import time
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
@@ -217,6 +219,125 @@ class TestProposerSignatureValidator:
         assert "node-x" in v.trusted_proposers
         v.remove_trusted("node-x")
         assert "node-x" not in v.trusted_proposers
+
+    def test_pbft_certificate_block_accepted(self, monkeypatch):
+        """A multi-validator block carrying a PBFT commit certificate is accepted."""
+        from eth_account import Account as EthAccount
+
+        from aitbc.crypto.consensus_signing import sign_block_hash, sign_consensus_message
+
+        proposer = EthAccount.create()
+        validator = EthAccount.create()
+        proposer_addr = proposer.address
+        validator_addr = validator.address
+        validator_set = json.dumps([{"address": proposer_addr}, {"address": validator_addr}])
+
+        monkeypatch.setattr(sync_settings, "multi_validator_consensus_enabled", True)
+        monkeypatch.setattr(sync_settings, "multi_validator_min_attestations", 1)
+        monkeypatch.setattr(sync_settings, "validator_set", validator_set)
+
+        ts = datetime.now(UTC)
+        chain_id = "test"
+        height = 1
+        block_hash = _make_block_hash(chain_id, height, "0x00", ts)
+        state_root = "0x" + "11" * 32
+        bridge_state_root = "0x" + "22" * 32
+
+        block_header = {
+            "chain_id": chain_id,
+            "height": height,
+            "hash": block_hash,
+            "parent_hash": "0x00",
+            "proposer": proposer_addr,
+            "state_root": state_root,
+            "bridge_state_root": bridge_state_root,
+        }
+        proposer_signature = sign_block_hash(block_header, proposer.key.hex())
+
+        view_number = 0
+        sequence_number = height
+        digest = hashlib.sha256(f"{block_hash}:{sequence_number}:{view_number}".encode()).hexdigest()
+        commit_msg = {
+            "message_type": "commit",
+            "sender": validator_addr,
+            "view_number": view_number,
+            "sequence_number": sequence_number,
+            "digest": digest,
+        }
+        commit_signature = sign_consensus_message(commit_msg, validator.key.hex())
+        certificate = [
+            {
+                "message_type": "commit",
+                "sender": validator_addr,
+                "view_number": view_number,
+                "sequence_number": sequence_number,
+                "digest": digest,
+                "signature": commit_signature,
+                "timestamp": time.time(),
+                "block_hash": block_hash,
+            }
+        ]
+        block_metadata = json.dumps({"pbft_certificate": certificate})
+
+        block_data = {
+            "height": height,
+            "hash": block_hash,
+            "parent_hash": "0x00",
+            "proposer": proposer_addr,
+            "timestamp": ts.isoformat(),
+            "chain_id": chain_id,
+            "state_root": state_root,
+            "bridge_state_root": bridge_state_root,
+            "signature": proposer_signature,
+            "block_metadata": block_metadata,
+        }
+
+        v = ProposerSignatureValidator()
+        ok, reason = v.validate_block_signature(block_data)
+        assert ok is True, reason
+
+    def test_pbft_certificate_with_insufficient_commits_rejected(self, monkeypatch):
+        """A PBFT block with fewer valid commits than required is rejected."""
+        from eth_account import Account as EthAccount
+
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        proposer = EthAccount.create()
+        proposer_addr = proposer.address
+        validator_set = json.dumps([{"address": proposer_addr}])
+
+        monkeypatch.setattr(sync_settings, "multi_validator_consensus_enabled", True)
+        monkeypatch.setattr(sync_settings, "multi_validator_min_attestations", 2)
+        monkeypatch.setattr(sync_settings, "validator_set", validator_set)
+
+        ts = datetime.now(UTC)
+        chain_id = "test"
+        height = 1
+        block_hash = _make_block_hash(chain_id, height, "0x00", ts)
+
+        block_header = {
+            "chain_id": chain_id,
+            "height": height,
+            "hash": block_hash,
+            "parent_hash": "0x00",
+            "proposer": proposer_addr,
+            "state_root": "0x" + "11" * 32,
+            "bridge_state_root": "0x" + "22" * 32,
+        }
+        proposer_signature = sign_block_hash(block_header, proposer.key.hex())
+
+        block_metadata = json.dumps({"pbft_certificate": []})
+        block_data = {
+            **block_header,
+            "timestamp": ts.isoformat(),
+            "signature": proposer_signature,
+            "block_metadata": block_metadata,
+        }
+
+        v = ProposerSignatureValidator()
+        ok, reason = v.validate_block_signature(block_data)
+        assert ok is False
+        assert "0 valid PBFT commits" in reason
 
     def test_missing_required_field(self):
         v = ProposerSignatureValidator()
