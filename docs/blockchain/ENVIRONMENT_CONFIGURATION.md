@@ -418,6 +418,29 @@ manager, or a secrets store. Do not put it behind a URL.
 Rotate if the file was ever fetched over HTTP, or if you deployed a hub whose values came
 from a published example.
 
+---
+
+## coordinator.env / Stale Miner Reaper Reference
+
+**Location:** `/etc/aitbc/coordinator.env` or `apps/coordinator-api/.env.example`
+**Purpose:** Control the background reaper that marks miners with stale heartbeats as `OFFLINE`.
+
+### Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COORDINATOR_STALE_MINER_REAPER_ENABLED` | `true` | Start the reaper at coordinator startup. Set to `false` to disable. |
+| `COORDINATOR_STALE_MINER_REAPER_INTERVAL_SECONDS` | `60` | Seconds between sweeps. |
+| `COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS` | `300` | A miner whose `last_heartbeat` is older than this is marked `OFFLINE` and its `inflight` count is reset. |
+
+### Example
+
+```bash
+COORDINATOR_STALE_MINER_REAPER_ENABLED=true
+COORDINATOR_STALE_MINER_REAPER_INTERVAL_SECONDS=60
+COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS=300
+```
+
 ```bash
 # 1. On the hub: generate replacements (as above), keeping the old file for step 3
 # 2. Distribute to every node running wallet / agent-coordinator / event-bridge
