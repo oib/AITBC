@@ -147,7 +147,9 @@ def _get_wallet_dir() -> Path:
     """Resolve the wallet directory from env or default."""
     from pathlib import Path
 
-    return Path(os.getenv("AITBC_WALLET_DIR") or os.getenv("WALLET_DIR") or os.path.expanduser("~/.aitbc/wallets"))
+    from ..utils.wallet_paths import wallet_dir as get_wallet_dir
+
+    return Path(get_wallet_dir())
 
 
 def _load_private_key(wallet_name: str, password: str = "") -> str:

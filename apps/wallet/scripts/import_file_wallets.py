@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 
 WALLET_DAEMON_URL = os.getenv("WALLET_DAEMON_URL", "http://localhost:8108")
-WALLET_DIR = Path(os.getenv("WALLET_DIR", os.path.expanduser("~/.aitbc/wallets")))
+WALLET_DIR = Path(os.getenv("WALLET_DIR") or os.getenv("AITBC_WALLET_DIR") or "/var/lib/aitbc/wallets")
 IMPORT_PASSWORD = os.getenv("WALLET_IMPORT_PASSWORD")
 if not IMPORT_PASSWORD:
     print("ERROR: WALLET_IMPORT_PASSWORD environment variable must be set")

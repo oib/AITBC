@@ -1,33 +1,55 @@
 """Resolve the CLI file-wallet directory.
 
-Service wallets on a hub node live under ``/var/lib/aitbc/wallets``, not the
-invoking user's home. ``aitbc auth login`` already honoured ``AITBC_WALLET_DIR``
-for that case; every other file-wallet lookup now goes through here too.
+Service wallets on a node live under ``/var/lib/aitbc/wallets``.  The default
+for a normal user is still ``~/.aitbc/wallets``.  The service users
+(``aitbc`` and ``aitbc-wallet``) resolve to ``/var/lib/aitbc/wallets`` even when
+their interactive ``$HOME`` is ``/home/aitbc`` or similar, so services and
+operator shells share one standard.
 """
 
 from __future__ import annotations
 
 import os
+import pwd
 from pathlib import Path
 
-# Common service directories used when the standard user wallet dir does not
-# contain a requested wallet.  The first existing, explicit ``AITBC_WALLET_DIR``
-# or the standard ``~/.aitbc/wallets`` are always tried first.
-_SERVICE_WALLET_DIRS = ["/var/lib/aitbc/wallets", "/var/lib/aitbc/.aitbc/wallets"]
+# Service directories searched in addition to the configured wallet_dir.
+# The old ``/var/lib/aitbc/.aitbc/wallets`` path is no longer supported.
+_SERVICE_WALLET_DIRS = ["/var/lib/aitbc/wallets"]
+
+
+def _default_wallet_dir() -> Path:
+    """Return the default wallet directory for the current user.
+
+    * ``AITBC_WALLET_DIR`` always wins.
+    * The ``aitbc`` and ``aitbc-wallet`` system accounts always use
+      ``/var/lib/aitbc/wallets``.
+    * Any other account keeps the original ``~/.aitbc/wallets`` default.
+    """
+    home = Path.home()
+    if home == Path("/var/lib/aitbc"):
+        return home / "wallets"
+    try:
+        user = pwd.getpwuid(os.getuid()).pw_name
+    except (KeyError, OSError):
+        user = ""
+    if user in ("aitbc", "aitbc-wallet"):
+        return Path("/var/lib/aitbc/wallets")
+    return home / ".aitbc" / "wallets"
 
 
 def wallet_dir(override: Path | str | None = None) -> Path:
     """Return the directory that holds ``<name>.json`` file wallets.
 
-    Precedence: explicit *override*, then ``AITBC_WALLET_DIR``, then
-    ``~/.aitbc/wallets``.
+    Precedence: explicit *override*, then ``AITBC_WALLET_DIR``, then the
+    default home-based wallet directory.
     """
     if override is not None:
         return Path(override)
     env = os.getenv("AITBC_WALLET_DIR")
     if env:
         return Path(env)
-    return Path.home() / ".aitbc" / "wallets"
+    return _default_wallet_dir()
 
 
 def wallet_search_dirs() -> list[Path]:
