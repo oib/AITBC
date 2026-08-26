@@ -907,7 +907,21 @@ def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordin
             abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=_auth_headers(ctx))
-        result = http_client.post(f"/v1/jobs/{job_id}/cancel")
+        try:
+            result = http_client.post(f"/v1/jobs/{job_id}/cancel")
+        except NetworkError as e:
+            if "409" in str(e) or "Conflict" in str(e):
+                logger.warning("Job %s was already cancelled; using current status for refund", job_id)
+                result = None
+            else:
+                raise
+
+        if result is None:
+            try:
+                result = http_client.get(f"/v1/jobs/{job_id}") or {}
+            except Exception as e:
+                logger.warning("Could not fetch job status after cancel: %s", e)
+                result = {}
 
         payment_status = result.get("payment_status", "") if isinstance(result, dict) else ""
         if refund and payment_status in ("escrowed", "pending", "pending_acceptance"):
