@@ -2,11 +2,16 @@
 Island-related RPC endpoints.
 """
 
+import json
+import os
+import socket
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 from pydantic import BaseModel
 
+from ..config import settings
 from ..logger import get_logger
 from ..network.island_manager import get_island_manager
 
@@ -28,8 +33,12 @@ class JoinIslandResponse(BaseModel):
 
     success: bool
     island_id: str
+    island_name: str
+    island_chain_id: str
     status: str
     message: str
+    credentials: dict[str, Any]
+    members: list[dict[str, Any]]
 
 
 class LeaveIslandRequest(BaseModel):
@@ -63,33 +72,117 @@ class BridgeRequestResponse(BaseModel):
     message: str
 
 
+def _build_join_credentials(island_id: str, island_name: str, island_chain_id: str) -> dict[str, Any]:
+    """Build the credentials block returned to a joining node."""
+    hub_host = settings.hub_discovery_url or socket.gethostname()
+    rpc_port = os.getenv("RPC_PORT", "8202")
+    credentials: dict[str, Any] = {
+        "chain_id": island_chain_id,
+        "island_id": island_id,
+        "island_name": island_name,
+        "rpc_endpoint": f"http://{hub_host}:{rpc_port}/rpc",
+    }
+
+    # Optionally include genesis metadata if we can find a local genesis file.
+    data_dir = Path("/var/lib/aitbc/data")
+    genesis_candidates = [
+        data_dir / settings.chain_id / "genesis.json",
+        data_dir / island_chain_id / "genesis.json",
+        data_dir / "genesis.json",
+    ]
+    for genesis_path in genesis_candidates:
+        if genesis_path.exists():
+            try:
+                with open(genesis_path) as f:
+                    genesis_data = json.load(f)
+                blocks = genesis_data.get("blocks", [])
+                if blocks:
+                    credentials["genesis_block_hash"] = blocks[0].get("hash", "")
+            except (OSError, json.JSONDecodeError):
+                pass
+            break
+
+    keystore_path = Path("/var/lib/aitbc/keystore/validator_keys.json")
+    if keystore_path.exists():
+        try:
+            with open(keystore_path) as f:
+                keys = json.load(f)
+            for key_id in keys:
+                credentials["genesis_address"] = key_id
+                break
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return credentials
+
+
+def _island_members(island_manager: Any, island_id: str) -> list[dict[str, Any]]:
+    """Return known members of an island as simple dicts."""
+    members: list[dict[str, Any]] = []
+    island = island_manager.get_island_info(island_id)
+    if island is not None and island.is_hub:
+        members.append(
+            {
+                "node_id": island_manager.local_node_id,
+                "is_hub": True,
+                "address": "127.0.0.1",
+                "port": 7070,
+            }
+        )
+    for peer_id in island_manager.island_peers.get(island_id, set()):
+        members.append({"node_id": peer_id, "is_hub": False})
+    return members
+
+
 async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
     """
     Join an island for edge compute operations.
     Calls IslandManager.join_island to register the node as a member of the specified island.
+    Returns full island credentials and is idempotent: if the island is already joined,
+    success is still true and the response contains the existing membership details.
     """
     island_manager = get_island_manager()
     if island_manager is None:
         raise HTTPException(status_code=503, detail="Island manager not available")
 
-    success = island_manager.join_island(
+    # Idempotent join: try to register, but still return the island info if already a member.
+    joined = island_manager.join_island(
         island_id=request.island_id, island_name=request.island_name, chain_id=request.chain_id, is_hub=request.is_hub
     )
 
-    if success:
-        return JoinIslandResponse(
-            success=True,
-            island_id=request.island_id,
-            status="joined",
-            message=f"Successfully joined island {request.island_id}",
-        )
-    else:
+    island = island_manager.get_island_info(request.island_id)
+    if island is None:
+        # The join failed and the island is unknown.
         return JoinIslandResponse(
             success=False,
             island_id=request.island_id,
+            island_name=request.island_name,
+            island_chain_id=request.island_id,
             status="failed",
-            message=f"Failed to join island {request.island_id} (may already be a member)",
+            message=f"Island {request.island_id} is not known on this hub",
+            credentials={},
+            members=[],
         )
+
+    chain_id = island.chain_id or (request.chain_id if isinstance(request.chain_id, str) else request.chain_id[0])
+    credentials = _build_join_credentials(island.island_id, island.island_name, chain_id)
+    members = _island_members(island_manager, island.island_id)
+
+    status = "joined" if joined else "already_member"
+    message = (
+        f"Successfully joined island {island.island_name}" if joined else f"Already a member of island {island.island_name}"
+    )
+
+    return JoinIslandResponse(
+        success=True,
+        island_id=island.island_id,
+        island_name=island.island_name,
+        island_chain_id=chain_id,
+        status=status,
+        message=message,
+        credentials=credentials,
+        members=members,
+    )
 
 
 async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
