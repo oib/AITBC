@@ -33,7 +33,7 @@ esac
 if [ ! -x "$POETRY" ]; then
     echo "Bootstrapping Poetry into $POETRY_VENV ..."
     python3 -m venv "$POETRY_VENV"
-    "$POETRY_VENV/bin/pip" install -q "poetry==1.8.3" poetry-plugin-export
+    "$POETRY_VENV/bin/pip" install -q "poetry>=2.4.1,<3" poetry-plugin-export
 fi
 
 mkdir -p "$REPO_ROOT/.requirements"
