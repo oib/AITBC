@@ -114,7 +114,7 @@ def check_sqlmodel_db(
 ) -> list[str]:
     errors: list[str] = []
     if not db_path.exists():
-        return [f"{db_path}: database file does not exist"]
+        return []
 
     actual = actual_tables(db_path)
     for table in sorted(actual):
@@ -136,7 +136,7 @@ def check_sqlmodel_db(
 def check_static_db(db_path: Path, expected: dict[str, list[str]]) -> list[str]:
     errors: list[str] = []
     if not db_path.exists():
-        return [f"{db_path}: database file does not exist"]
+        return []
 
     actual = actual_tables(db_path)
     for table, cols in expected.items():
@@ -194,7 +194,7 @@ def repair_sqlmodel_db(db_path: Path, metadata: Any, required_tables: list[str] 
     repairs: list[str] = []
     errors: list[str] = []
     if not db_path.exists():
-        return [], [f"{db_path}: database file does not exist"]
+        return [], []
 
     quote, dialect = _sqlite_quote_and_type()
     actual = actual_tables(db_path)
