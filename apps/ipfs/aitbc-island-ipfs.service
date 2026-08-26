@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Island IPFS Daemon (private swarm)
-After=network.target
+After=network.target aitbc-coordinator-api.service
+Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
@@ -13,7 +14,6 @@ Environment="ISLAND_IPFS_API_PORT=5002"
 Environment="ISLAND_IPFS_GATEWAY_PORT=8081"
 Environment="ISLAND_IPFS_SWARM_PORT=4002"
 Environment="ISLAND_IPFS_BOOTSTRAP="
-Environment="IPFS_TELEMETRY=off"
 EnvironmentFile=-/etc/aitbc/%N.env
 WorkingDirectory=/opt/aitbc/apps/ipfs
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/island_ipfs_daemon.py

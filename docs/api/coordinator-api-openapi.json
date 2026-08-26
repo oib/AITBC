@@ -8954,6 +8954,70 @@
         }
       }
     },
+    "/v1/ipfs/island/swarm-key": {
+      "post": {
+        "tags": [
+          "ipfs"
+        ],
+        "summary": "Get Island Swarm Key",
+        "description": "Return the private IPFS swarm key for an island to a paid, verified member.",
+        "operationId": "get_island_swarm_key_v1_ipfs_island_swarm_key_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IslandSwarmKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Island Swarm Key V1 Ipfs Island Swarm Key Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/payments": {
       "post": {
         "tags": [
@@ -33139,6 +33203,40 @@
         ],
         "title": "IdentityStatus",
         "description": "Agent identity status enumeration"
+      },
+      "IslandSwarmKeyRequest": {
+        "properties": {
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id"
+          },
+          "island_id": {
+            "type": "string",
+            "title": "Island Id"
+          },
+          "member_address": {
+            "type": "string",
+            "title": "Member Address"
+          },
+          "nonce": {
+            "type": "string",
+            "title": "Nonce"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chain_id",
+          "island_id",
+          "member_address",
+          "nonce",
+          "signature"
+        ],
+        "title": "IslandSwarmKeyRequest",
+        "description": "Request model for retrieving an island's private IPFS swarm key."
       },
       "JobCompletionRequest": {
         "properties": {

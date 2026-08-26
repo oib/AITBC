@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from ....config import settings
 from ..services.ipfs_service import IPFSService
+from ..services.island_ipfs_access import get_member_swarm_key
 
 router = APIRouter()
 
@@ -50,6 +51,16 @@ class IPFSDeleteRequest(BaseModel):
     """Request model for IPFS delete"""
 
     cid: str
+
+
+class IslandSwarmKeyRequest(BaseModel):
+    """Request model for retrieving an island's private IPFS swarm key."""
+
+    chain_id: str
+    island_id: str
+    member_address: str
+    nonce: str
+    signature: str
 
 
 # Singleton IPFS service instance
@@ -283,3 +294,25 @@ async def health_check() -> dict[str, Any]:
             "service": "ipfs-storage",
             "message": f"IPFS service error: {str(e)}",
         }
+
+
+@router.post("/island/swarm-key")
+async def get_island_swarm_key(request: IslandSwarmKeyRequest) -> dict[str, Any]:
+    """Return the private IPFS swarm key for an island to a paid, verified member."""
+    try:
+        result = get_member_swarm_key(
+            chain_id=request.chain_id,
+            island_id=request.island_id,
+            member_address=request.member_address,
+            nonce=request.nonce,
+            signature=request.signature,
+        )
+        return {"success": True, **result}
+    except PermissionError as e:
+        logging.getLogger(__name__).warning(
+            "Swarm-key request denied for %s on %s: %s", request.member_address, request.island_id, e
+        )
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except Exception as e:
+        logging.getLogger(__name__).exception("Unhandled exception in swarm-key endpoint")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
