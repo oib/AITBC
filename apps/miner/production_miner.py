@@ -526,6 +526,16 @@ def execute_job(job, available_models):
     payload = job.get("payload", {})
     logger.info("Executing job %s: %s", job_id, payload)
     job_type = payload.get("type")
+    # Marketplace/CLI may submit plugin-style types; map them to the worker's
+    # canonical task handlers.
+    _TYPE_ALIASES = {
+        "ollama": "inference",
+        "llama": "inference",
+        "whisper": "transcribe",
+        "ffmpeg": "reencode",
+    }
+    if job_type in _TYPE_ALIASES:
+        job_type = _TYPE_ALIASES[job_type]
     if job_type is None and "model" in payload and ("prompt" in payload):
         job_type = "inference"
 
