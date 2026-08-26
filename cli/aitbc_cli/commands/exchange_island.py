@@ -91,6 +91,7 @@ def _build_exchange_tx(
         "pair": pair,
         "side": side,
         "amount": str(ait_amount),
+        "to": address,
         "status": "open",
         "island_id": island_id,
         "chain_id": chain_id,
