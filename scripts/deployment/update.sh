@@ -374,10 +374,21 @@ sync_venv() {
 
     # Refresh editable local packages so imports like aitbc_agent_core resolve
     # even when install-profiles.sh falls back to requirements.txt.
+    # Include packages/aitbc-shared as well as packages/py/*.
+    local pkg_dirs=()
+    if [ -d "$AITBC_ROOT/packages/aitbc-shared" ]; then
+        pkg_dirs+=("$AITBC_ROOT/packages/aitbc-shared")
+    fi
     if [ -d "$AITBC_ROOT/packages/py" ]; then
-        log "Installing local packages from packages/py..."
         for pkg in "$AITBC_ROOT/packages/py"/*/; do
             [ -f "$pkg/pyproject.toml" ] || continue
+            pkg_dirs+=("$pkg")
+        done
+    fi
+
+    if [ "${#pkg_dirs[@]}" -gt 0 ]; then
+        log "Installing repo-local packages..."
+        for pkg in "${pkg_dirs[@]}"; do
             # shellcheck disable=SC2015
             pip install -e "$pkg" --quiet 2>/dev/null \
                 && success "Installed $(basename "$pkg")" \
@@ -453,7 +464,59 @@ enable_services() {
 }
 
 # ----------------------------------------------------------------------------
-# Step 4b: Ensure consensus-safety env defaults
+# Step 4a: Ensure shared and per-service env files exist
+# ----------------------------------------------------------------------------
+ensure_env_files() {
+    log "Step 4a: Ensuring AITBC environment files exist..."
+    mkdir -p /etc/aitbc
+
+    local unit base env_file
+    for unit in /etc/systemd/system/aitbc-*.service /etc/systemd/system/aitbc-*.timer; do
+        [ -e "$unit" ] || continue
+        base=$(basename "$unit")
+        base="${base%.service}"
+        base="${base%.timer}"
+        env_file="/etc/aitbc/${base}.env"
+        if [ ! -f "$env_file" ]; then
+            touch "$env_file"
+            chmod 644 "$env_file"
+            log "Created missing per-service env file: $env_file"
+        fi
+    done
+
+    for common in "$NODE_ENV_FILE" "$BLOCKCHAIN_ENV_FILE"; do
+        if [ ! -f "$common" ]; then
+            touch "$common"
+            chmod 644 "$common"
+            log "Created missing shared env file: $common"
+        fi
+    done
+    success "Environment files verified"
+}
+
+# ----------------------------------------------------------------------------
+# Step 4b: Update /usr/local/bin/aitbc wrapper if it is stale
+# ----------------------------------------------------------------------------
+ensure_aitbc_wrapper() {
+    log "Step 4b: Ensuring aitbc CLI wrapper is up to date..."
+    local wrapper="/usr/local/bin/aitbc"
+    local expected='#!/bin/sh
+set -e
+. /opt/aitbc/venv/bin/activate
+exec aitbc "$@"'
+
+    if [ -f "$wrapper" ] && diff -q <(printf '%s\n' "$expected") "$wrapper" >/dev/null 2>&1; then
+        log "aitbc wrapper already up to date"
+        return 0
+    fi
+
+    printf '%s\n' "$expected" > "$wrapper"
+    chmod +x "$wrapper"
+    success "Updated aitbc wrapper at $wrapper"
+}
+
+# ----------------------------------------------------------------------------
+# Step 4c: Ensure consensus-safety env defaults
 # ----------------------------------------------------------------------------
 ensure_consensus_env_defaults() {
     if [ ! -f "$BLOCKCHAIN_ENV_FILE" ]; then
@@ -466,6 +529,58 @@ ensure_consensus_env_defaults() {
     if ! grep -q "^SYNC_STATE_ROOT_VALIDATION_ENABLED=" "$BLOCKCHAIN_ENV_FILE"; then
         echo "SYNC_STATE_ROOT_VALIDATION_ENABLED=true" >> "$BLOCKCHAIN_ENV_FILE"
         log "Added SYNC_STATE_ROOT_VALIDATION_ENABLED=true to $BLOCKCHAIN_ENV_FILE"
+    fi
+}
+
+# ----------------------------------------------------------------------------
+# Step 4d: Ensure gossip/subscription transport defaults
+# ----------------------------------------------------------------------------
+ensure_gossip_defaults() {
+    if [ ! -f "$BLOCKCHAIN_ENV_FILE" ]; then
+        return
+    fi
+
+    if ! grep -q "^subscription_enabled=" "$BLOCKCHAIN_ENV_FILE"; then
+        echo "subscription_enabled=true" >> "$BLOCKCHAIN_ENV_FILE"
+        log "Added subscription_enabled=true to $BLOCKCHAIN_ENV_FILE"
+    fi
+    if ! grep -q "^subscription_transport=" "$BLOCKCHAIN_ENV_FILE"; then
+        echo "subscription_transport=websocket" >> "$BLOCKCHAIN_ENV_FILE"
+        log "Added subscription_transport=websocket to $BLOCKCHAIN_ENV_FILE"
+    fi
+
+    local blockchain_mode=""
+    if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
+        blockchain_mode=$(grep "^BLOCKCHAIN_MODE=" "$BLOCKCHAIN_ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
+    fi
+    blockchain_mode="${blockchain_mode:-follower}"
+
+    if [ "$blockchain_mode" = "hub" ]; then
+        if ! grep -q "^gossip_backend=" "$BLOCKCHAIN_ENV_FILE"; then
+            echo "gossip_backend=redis" >> "$BLOCKCHAIN_ENV_FILE"
+            log "Added gossip_backend=redis to $BLOCKCHAIN_ENV_FILE"
+        fi
+        if ! grep -q "^gossip_broadcast_url=" "$BLOCKCHAIN_ENV_FILE"; then
+            echo "gossip_broadcast_url=redis://localhost:6379" >> "$BLOCKCHAIN_ENV_FILE"
+            log "Added gossip_broadcast_url to $BLOCKCHAIN_ENV_FILE"
+        fi
+    else
+        if ! grep -q "^gossip_backend=" "$BLOCKCHAIN_ENV_FILE"; then
+            echo "gossip_backend=websocket" >> "$BLOCKCHAIN_ENV_FILE"
+            log "Added gossip_backend=websocket to $BLOCKCHAIN_ENV_FILE"
+        fi
+        if ! grep -q "^gossip_websocket_url=" "$BLOCKCHAIN_ENV_FILE"; then
+            # Derive from default_peer_rpc_url if present, else assume local.
+            local hub_url
+            hub_url=$(grep "^default_peer_rpc_url=" "$BLOCKCHAIN_ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
+            if [ -n "$hub_url" ] && [ "$hub_url" != "http://127.0.0.1:8202" ]; then
+                hub_url="$(printf '%s' "$hub_url" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
+            else
+                hub_url="wss://hub.aitbc.bubuit.net/rpc/gossip/ws"
+            fi
+            echo "gossip_websocket_url=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
+            log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"
+        fi
     fi
 }
 
@@ -632,7 +747,10 @@ main() {
     sync_venv
     relink_systemd
     enable_services
+    ensure_env_files
+    ensure_aitbc_wrapper
     ensure_consensus_env_defaults
+    ensure_gossip_defaults
 
     if [ "$DO_MIGRATE" = "true" ]; then
         run_migrations || exit 1
