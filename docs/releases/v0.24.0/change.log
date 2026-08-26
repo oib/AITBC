@@ -1505,3 +1505,15 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   below the listing fee (36 compute-seconds / 0.01 AIT).
 - Output respects `--format` and supports table/json/yaml/csv via the standard
   `OUTPUT_FORMAT_OPTION`.
+
+## Phase 6.2 — `aitbc ipfs host` paid pinning (2026-08-26)
+
+- New `aitbc ipfs host <offer_id_or_plugin_id> <cid_or_file> --days N`.
+  - Resolves an IPFS marketplace offer by `plugin_id` or `offer_id`.
+  - Verifies `service_type == "ipfs"` and `price_unit == "per_day"`.
+  - Uploads a file to the local Kubo API if a path is given, or uses the CID as-is.
+  - Locks escrow for `price * days` using the wallet specified by `--wallet`.
+  - Pins the CID on the local IPFS daemon and records the rental.
+- `aitbc ipfs rentals` lists recorded rentals.
+- `aitbc ipfs unpin <rental_id>` unpins a CID and can optionally request an
+  escrow refund with `--refund`.
