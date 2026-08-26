@@ -30,6 +30,11 @@ KEYSTORE_PATH = "/var/lib/aitbc/keystore/validator_keys.json"
 SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 
 
+def _as_decimal(value: Any) -> Decimal:
+    """Convert a stored order quantity or price to Decimal without using float()."""
+    return Decimal(str(value))
+
+
 def safe_load_credentials():
     """Load island credentials with graceful error handling"""
     try:
@@ -362,6 +367,9 @@ def orderbook(ctx, pair: str, limit: int):
         except NetworkError:
             transactions = _simulated_orderbook_transactions(pair, limit)
 
+        def _order_payload(order: dict[str, Any]) -> dict[str, Any]:
+            return order.get("payload") or order
+
         # Separate buy and sell orders
         buy_orders = []
         sell_orders = []
@@ -369,15 +377,16 @@ def orderbook(ctx, pair: str, limit: int):
         for order in transactions:
             if not isinstance(order, dict):
                 continue
-            if order.get("side") == "buy":
-                buy_orders.append(order)
-            elif order.get("side") == "sell":
-                sell_orders.append(order)
+            payload = _order_payload(order)
+            if payload.get("side") == "buy":
+                buy_orders.append(payload)
+            elif payload.get("side") == "sell":
+                sell_orders.append(payload)
 
         # Sort buy orders by price descending (highest first)
-        buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)
+        buy_orders.sort(key=lambda x: _as_decimal(x.get("max_price", 0)), reverse=True)
         # Sort sell orders by price ascending (lowest first)
-        sell_orders.sort(key=lambda x: x.get("min_price", None))
+        sell_orders.sort(key=lambda x: _as_decimal(x.get("min_price", 0)))
 
         if not buy_orders and not sell_orders:
             info(f"No open orders for {pair}")
@@ -389,9 +398,9 @@ def orderbook(ctx, pair: str, limit: int):
             for order in sell_orders[:limit]:
                 asks_data.append(
                     {
-                        "Price": f"{order.get('min_price', 0):.8f}",
-                        "Amount": f"{order.get('amount', 0):.4f} AIT",
-                        "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                        "Price": f"{_as_decimal(order.get('min_price', 0)):.8f}",
+                        "Amount": f"{_as_decimal(order.get('amount', 0)):.4f} AIT",
+                        "Total": f"{_as_decimal(order.get('min_price', 0)) * _as_decimal(order.get('amount', 0)):.8f} {pair.split('/')[1]}",
                         "User": order.get("user_id", "")[:16] + "...",
                         "Order": order.get("order_id", "")[:16] + "...",
                     }
@@ -405,9 +414,9 @@ def orderbook(ctx, pair: str, limit: int):
             for order in buy_orders[:limit]:
                 bids_data.append(
                     {
-                        "Price": f"{order.get('max_price', 0):.8f}",
-                        "Amount": f"{order.get('amount', 0):.4f} AIT",
-                        "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                        "Price": f"{_as_decimal(order.get('max_price', 0)):.8f}",
+                        "Amount": f"{_as_decimal(order.get('amount', 0)):.4f} AIT",
+                        "Total": f"{_as_decimal(order.get('max_price', 0)) * _as_decimal(order.get('amount', 0)):.8f} {pair.split('/')[1]}",
                         "User": order.get("user_id", "")[:16] + "...",
                         "Order": order.get("order_id", "")[:16] + "...",
                     }
@@ -417,8 +426,8 @@ def orderbook(ctx, pair: str, limit: int):
 
         # Calculate spread if both exist
         if sell_orders and buy_orders:
-            best_ask = sell_orders[0].get("min_price", 0)
-            best_bid = buy_orders[0].get("max_price", 0)
+            best_ask = _as_decimal(sell_orders[0].get("min_price", 0))
+            best_bid = _as_decimal(buy_orders[0].get("max_price", 0))
             spread = best_ask - best_bid
             if best_bid > 0:
                 spread_pct = (spread / best_bid) * 100
@@ -454,21 +463,21 @@ def rates(ctx):
                 orders = _simulated_orders_for_pair(pair, 100)
 
             # Calculate rates from order book
-            buy_orders = [o for o in orders if o.get("side") == "buy"]  # type: ignore[attr-defined]
-            sell_orders = [o for o in orders if o.get("side") == "sell"]  # type: ignore[attr-defined]
+            buy_orders = [o.get("payload", o) for o in orders if (o.get("payload") or o).get("side") == "buy"]
+            sell_orders = [o.get("payload", o) for o in orders if (o.get("payload") or o).get("side") == "sell"]
 
             # Get best bid and ask
-            best_bid = max([o.get("max_price", 0) for o in buy_orders]) if buy_orders else 0  # type: ignore[attr-defined]
-            best_ask = min([o.get("min_price", None) for o in sell_orders]) if sell_orders else 0  # type: ignore[attr-defined]
+            best_bid = max([_as_decimal(o.get("max_price", 0)) for o in buy_orders]) if buy_orders else Decimal(0)
+            best_ask = min([_as_decimal(o.get("min_price", 0)) for o in sell_orders]) if sell_orders else Decimal(0)
 
             # Calculate mid price
-            mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < None else 0
+            mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask > 0 else Decimal(0)
 
             rates_data.append(
                 {
                     "Pair": pair,
                     "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
-                    "Best Ask": f"{best_ask:.8f}" if best_ask < None else "N/A",
+                    "Best Ask": f"{best_ask:.8f}" if best_ask > 0 else "N/A",
                     "Mid Price": f"{mid_price:.8f}" if mid_price > 0 else "N/A",
                     "Buy Orders": len(buy_orders),
                     "Sell Orders": len(sell_orders),
@@ -518,18 +527,22 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
         # Format output
         orders_data = []
         for order in orders:
+            payload = order.get("payload") or order
+            amount = _as_decimal(payload.get("amount", 0))
+            raw_price = payload.get("max_price") or payload.get("min_price")
+            price = _as_decimal(raw_price) if raw_price else Decimal(0)
             orders_data.append(
                 {
-                    "Order ID": order.get("order_id", "")[:20] + "...",  # type: ignore[attr-defined]
-                    "Pair": order.get("pair"),  # type: ignore[attr-defined]
-                    "Side": order.get("side", "").upper(),  # type: ignore[attr-defined]
-                    "Amount": f"{order.get('amount', 0):.4f} AIT",  # type: ignore[attr-defined]
-                    "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}"  # type: ignore[attr-defined]
-                    if order.get("max_price") or order.get("min_price")  # type: ignore[attr-defined]
+                    "Order ID": payload.get("order_id", "")[:20] + "...",  # type: ignore[attr-defined]
+                    "Pair": payload.get("pair"),  # type: ignore[attr-defined]
+                    "Side": payload.get("side", "").upper(),  # type: ignore[attr-defined]
+                    "Amount": f"{amount:.4f} AIT",  # type: ignore[attr-defined]
+                    "Price": f"{price:.8f}"  # type: ignore[attr-defined]
+                    if raw_price
                     else "Market",
-                    "Status": order.get("status"),  # type: ignore[attr-defined]
-                    "User": order.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
-                    "Created": order.get("created_at", "")[:19],  # type: ignore[attr-defined]
+                    "Status": payload.get("status"),  # type: ignore[attr-defined]
+                    "User": payload.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
+                    "Created": payload.get("created_at", "")[:19],  # type: ignore[attr-defined]
                 }
             )
 
