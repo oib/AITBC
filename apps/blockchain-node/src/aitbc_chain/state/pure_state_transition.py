@@ -20,9 +20,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlmodel import Session, select
-from sqlalchemy import text
+from sqlalchemy import func, text
 
-from ..base_models import _to_ait_address
+from ..base_models import Block, IPFSSubscription, _to_ait_address
 from ..models import Account, Receipt
 
 
@@ -46,6 +46,8 @@ class StateDelta:
     # For RECEIPT_CLAIM: the receipt_id and minted_amount (if claimed)
     receipt_id: str | None = None
     minted_amount: int | None = None
+    # For IPFS_SUBSCRIPTION: subscription record to be written to the DB
+    ipfs_subscription: dict[str, Any] | None = None
 
 
 def _determine_tx_type(tx_data: dict[str, Any]) -> str:
@@ -194,6 +196,77 @@ def compute_state_delta(
             tx_hash=tx_hash,
         )
 
+    # IPFS_SUBSCRIPTION: payload must contain island subscription terms
+    if tx_type == "IPFS_SUBSCRIPTION":
+        payload = tx_data.get("payload", {}) or {}
+        if isinstance(payload, str):
+            try:
+                import json
+
+                payload = json.loads(payload)
+            except Exception:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error="IPFS_SUBSCRIPTION payload is not valid JSON",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+        if not payload.get("island_id"):
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error="IPFS_SUBSCRIPTION payload must include island_id",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+        duration_blocks = payload.get("duration_blocks")
+        if not isinstance(duration_blocks, int) or duration_blocks <= 0:
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error="IPFS_SUBSCRIPTION payload must include positive duration_blocks",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+        quota_bytes = payload.get("quota_bytes")
+        if not isinstance(quota_bytes, int) or quota_bytes < 0:
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error="IPFS_SUBSCRIPTION payload must include non-negative quota_bytes",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+        if value <= 0:
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error="IPFS_SUBSCRIPTION requires value > 0",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+
     # Calculate total cost
     if tx_type == "MESSAGE":
         total_cost = fee
@@ -247,6 +320,22 @@ def compute_state_delta(
         tx_type=tx_type,
         tx_hash=tx_hash,
     )
+
+    # IPFS_SUBSCRIPTION: capture subscription terms for apply_deltas_to_db
+    if tx_type == "IPFS_SUBSCRIPTION":
+        payload = tx_data.get("payload", {}) or {}
+        if isinstance(payload, str):
+            try:
+                import json
+
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        delta.ipfs_subscription = {
+            "island_id": payload.get("island_id"),
+            "duration_blocks": payload.get("duration_blocks", 0),
+            "quota_bytes": payload.get("quota_bytes", 0),
+        }
 
     # RECEIPT_CLAIM: note the receipt_id for later DB processing
     # (receipt validation requires DB access, so we just record it here)
@@ -399,6 +488,47 @@ def apply_deltas_to_db(
 
                 receipt.claimed_at = datetime.now(UTC)
 
+    # Handle IPFS_SUBSCRIPTION deltas
+    for delta in successful:
+        if delta.tx_type == "IPFS_SUBSCRIPTION" and delta.ipfs_subscription:
+            island_id = delta.ipfs_subscription.get("island_id")
+            duration_blocks = delta.ipfs_subscription.get("duration_blocks", 0)
+            quota_bytes = delta.ipfs_subscription.get("quota_bytes", 0)
+            if not island_id or not isinstance(duration_blocks, int) or duration_blocks <= 0:
+                continue
+            current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
+            expires_at_block = current_height + duration_blocks
+            existing = session.exec(
+                select(IPFSSubscription).where(
+                    IPFSSubscription.chain_id == chain_id,
+                    IPFSSubscription.island_id == island_id,
+                    IPFSSubscription.member_address == delta.sender,
+                )
+            ).first()
+            from datetime import UTC, datetime
+
+            now = datetime.now(UTC)
+            if existing:
+                existing.expires_at_block = max(existing.expires_at_block, expires_at_block)
+                existing.quota_bytes += quota_bytes
+                existing.updated_tx_hash = delta.tx_hash
+                existing.updated_at = now
+            else:
+                session.add(
+                    IPFSSubscription(
+                        chain_id=chain_id,
+                        island_id=island_id,
+                        member_address=delta.sender,
+                        expires_at_block=expires_at_block,
+                        quota_bytes=quota_bytes,
+                        used_bytes=0,
+                        created_tx_hash=delta.tx_hash,
+                        updated_tx_hash=delta.tx_hash,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+
     session.flush()
 
 
@@ -431,5 +561,20 @@ def extract_read_write_sets(tx_data: dict[str, Any]) -> tuple[frozenset[str], fr
         if receipt_id:
             # Receipt is an additional read dependency
             read_set.add(f"receipt:{receipt_id}")
+
+    if tx_type == "IPFS_SUBSCRIPTION":
+        payload = tx_data.get("payload", {}) or {}
+        if isinstance(payload, str):
+            try:
+                import json
+
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        island_id = payload.get("island_id")
+        if island_id:
+            # Subscription table is an additional read/write dependency
+            read_set.add(f"ipfs_subscription:{island_id}:{sender}")
+            write_set.add(f"ipfs_subscription:{island_id}:{sender}")
 
     return frozenset(read_set), frozenset(write_set)

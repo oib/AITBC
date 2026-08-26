@@ -23,6 +23,7 @@ from .base_models import (  # noqa: F401
     Block,
     Bond,
     Escrow,
+    IPFSSubscription,
     Receipt,
     SmartContract,
     Transaction,
