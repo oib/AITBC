@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .address import to_canonical
 from .error_handling import abort
-from .wallet_paths import wallet_dir as resolve_wallet_dir
+from .wallet_paths import find_wallet_file, wallet_dir as resolve_wallet_dir
 
 
 def _resolve_wallet_name_and_path(
@@ -68,10 +68,15 @@ def load_wallet_for_payment(
     must sign transactions should set ``require_private_key=True`` and will
     abort with a clear error if the key is not available.
     """
-    name, path = _resolve_wallet_name_and_path(wallet_name, wallet_path)
+    name, _ = _resolve_wallet_name_and_path(wallet_name, wallet_path)
     password = _resolve_password(name, password)
 
-    if not path.exists():
+    # Search configured and service wallet directories.
+    if wallet_path:
+        path = Path(wallet_path)
+    else:
+        path = find_wallet_file(name)
+    if path is None:
         # If the file wallet is missing, try the wallet daemon
         from ..config import get_config
         from .dual_mode_wallet_adapter import DualModeWalletAdapter
