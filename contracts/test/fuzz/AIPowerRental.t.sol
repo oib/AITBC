@@ -49,9 +49,22 @@ contract AIPowerRentalFuzzTest is Test {
         rental.startRental(agreementId);
         vm.stopPrank();
 
-        AIPowerRental.RentalAgreement memory agreement = rental.getRentalAgreement(agreementId);
-        assertEq(agreement.endTime, agreement.startTime + duration);
-        assertEq(uint8(agreement.status), uint8(AIPowerRental.RentalStatus.Active));
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            uint256 startTime,
+            uint256 endTime,
+            ,
+            AIPowerRental.RentalStatus status,
+            ,
+            ,
+
+        ) = rental.getRentalAgreement(agreementId);
+        assertEq(endTime, startTime + duration);
+        assertEq(uint8(status), uint8(AIPowerRental.RentalStatus.Active));
     }
 }
 
@@ -125,9 +138,22 @@ contract AIPowerRentalProtectedTest is Test {
         rental.startRental(agreementId);
         vm.stopPrank();
 
-        AIPowerRental.RentalAgreement memory agreement = rental.getRentalAgreement(agreementId);
-        assertEq(uint8(agreement.status), uint8(AIPowerRental.RentalStatus.Active));
-        assertEq(agreement.price, price);
+        (
+            ,
+            ,
+            ,
+            ,
+            uint256 agreementPrice,
+            ,
+            ,
+            ,
+            AIPowerRental.RentalStatus status,
+            ,
+            ,
+
+        ) = rental.getRentalAgreement(agreementId);
+        assertEq(uint8(status), uint8(AIPowerRental.RentalStatus.Active));
+        assertEq(agreementPrice, price);
 
         AIPowerRental.RentalEnergyTerms memory terms = rental.getRentalEnergyTerms(agreementId);
         assertTrue(terms.isProtected);
@@ -413,8 +439,21 @@ contract AIPowerRentalPinnedFloorTest is Test {
         rental.startRental(agreementId);
         vm.stopPrank();
 
-        AIPowerRental.RentalAgreement memory agreement = rental.getRentalAgreement(agreementId);
-        assertEq(uint8(agreement.status), uint8(AIPowerRental.RentalStatus.Active));
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            AIPowerRental.RentalStatus status,
+            ,
+            ,
+
+        ) = rental.getRentalAgreement(agreementId);
+        assertEq(uint8(status), uint8(AIPowerRental.RentalStatus.Active));
     }
 
     function test_StartRentalRevertsOnInsufficientBalance() public {
