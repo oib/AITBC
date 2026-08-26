@@ -75,12 +75,12 @@ class BridgeRequestResponse(BaseModel):
 def _build_join_credentials(island_id: str, island_name: str, island_chain_id: str) -> dict[str, Any]:
     """Build the credentials block returned to a joining node."""
     hub_host = settings.hub_discovery_url or socket.gethostname()
-    rpc_port = os.getenv("RPC_PORT", "8202")
+    public_rpc = os.getenv("RPC_PUBLIC_ENDPOINT", f"http://{hub_host}/rpc")
     credentials: dict[str, Any] = {
         "chain_id": island_chain_id,
         "island_id": island_id,
         "island_name": island_name,
-        "rpc_endpoint": f"http://{hub_host}:{rpc_port}/rpc",
+        "rpc_endpoint": public_rpc,
     }
 
     # Optionally include genesis metadata if we can find a local genesis file.
