@@ -28,6 +28,10 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - `test_blockchain_final.py` - Final blockchain tests
 - `test_integration_simple.py` - Simple integration tests
 
+**E2E Test Files:**
+
+- `tests/e2e/test_marketplace_escrow.py` - End-to-end marketplace offer, booking, and escrow lock/release (v0.7.x)
+
 **Scenario Scripts Location:** `/opt/aitbc/scripts/workflow/` and `/opt/aitbc/dev/testing/tests/`
 
 **Updated Scenario Scripts:**
@@ -42,8 +46,8 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 1. **Mock Clients:** Most integration tests use mock clients rather than real services
 2. **Service Dependencies:** Tests require running services (blockchain, plugin registry, whisper, marketplace)
-3. **No True E2E:** Tests don't span full user journeys from registration to completion
-4. **Environment Setup:** No dedicated E2E test environment configuration
+3. **Partial E2E Coverage:** The `tests/e2e/test_marketplace_escrow.py` suite now exercises a full marketplace → escrow journey, but other user journeys remain integration-level
+4. **Environment Setup:** E2E tests rely on running services and environment variables; see `tests/e2e/test_marketplace_escrow.py` docstring
 5. **Test Data:** No comprehensive test data fixtures for E2E scenarios
 
 ## Test Scenarios
@@ -239,6 +243,52 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - Agent coordinator running (port 8080)
 - Redis running
 - Agent daemon running
+
+### 8. Marketplace Escrow E2E
+
+**Objective:** Verify the full marketplace → job → escrow → miner → release flow through the live coordinator, marketplace, and blockchain services using pytest.
+
+**Steps:**
+
+1. Health-check the coordinator, marketplace, and blockchain RPC services
+2. Register a software-service offer via `POST /v1/marketplace/offer`
+3. Create a job bound to that offer via `POST /v1/jobs`
+4. Fund the test buyer via `POST /rpc/faucet` and poll until the balance is on-chain
+5. Sign an `ESCROW_LOCK` transaction and create the payment/escrow via `POST /v1/payments`
+6. Register a miner via `POST /v1/miners/register`
+7. Poll for job assignment and submit a result via `POST /v1/miners/{job_id}/result`
+8. Wait for the job to reach `COMPLETED` and accept the job via `POST /v1/jobs/{job_id}/accept`
+9. Verify the on-chain escrow state is `released`
+
+**Success Criteria:**
+
+- `tests/e2e/test_marketplace_escrow.py` passes or, if the node is not configured to settle escrow, skips cleanly at the release step
+- Software offer registration is retrievable by `plugin_id`
+- Job creation returns `state == QUEUED` and a quoted `payment_amount`
+- Buyer account is funded through the faucet after one block
+- Payment/escrow creation returns `status == "escrowed"`
+- Miner receives and completes the job
+- Job acceptance triggers an on-chain `ESCROW_RELEASE` and reaches `payment_status == "released"`
+- On-chain escrow state is `released`
+
+**Prerequisites:**
+
+- Coordinator API running (default `http://localhost:8203`)
+- Marketplace service running (default `http://localhost:8102`)
+- Blockchain RPC node running (default `http://localhost:8080`)
+- Block production enabled on the blockchain node
+- `E2E_NODE_WALLET_ADDRESS` (or `NODE_WALLET_ADDRESS` / `GENESIS_WALLET_ADDRESS`) set for escrow tests
+- `JWT_SECRET` or pre-created `E2E_CLIENT_TOKEN` and `E2E_MINER_TOKEN` for coordinator auth
+- Faucet endpoint available to fund the test buyer wallet
+- Settlement key configured on the blockchain node for escrow release (`ESCROW_RELEASE_PRIVATE_KEY` or `GENESIS_WALLET_PRIVATE_KEY`)
+
+**Execution:**
+
+```bash
+E2E_NODE_WALLET_ADDRESS=ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  BLOCKCHAIN_URL=http://localhost:8202 \
+  pytest tests/e2e/test_marketplace_escrow.py -v -m e2e --timeout=300
+```
 
 ## Risks and Mitigations
 

@@ -288,6 +288,19 @@ journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c jo
 journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed || true
 ```
 
+Marketplace and escrow automated e2e validation:
+
+```bash
+# Run against a node where both marketplace and blockchain RPC are up.
+# Set E2E_NODE_WALLET_ADDRESS to the node wallet that receives escrow locks.
+E2E_NODE_WALLET_ADDRESS=ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
+  BLOCKCHAIN_URL=http://localhost:8202 \
+  JWT_SECRET=<coordinator-jwt-secret> \
+  pytest tests/e2e/test_marketplace_escrow.py -v -m e2e --timeout=300
+```
+
+This suite exercises the same marketplace offer, booking, and escrow lock/release endpoints the product path uses. Tests that require the node wallet or on-chain settlement are skipped automatically when those are not configured.
+
 Auth and ZK validation:
 
 ```bash
@@ -305,5 +318,5 @@ aitbc zk verify --job-id "$ZK_JOB_ID"
 
 ---
 
-*Last updated: 2026-08-21*
-*Version: 1.4*
+*Last updated: 2026-08-26*
+*Version: 1.6*

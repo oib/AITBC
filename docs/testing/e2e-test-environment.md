@@ -88,8 +88,8 @@ COORDINATOR_URL=http://localhost:8203
 CLIENT_API_KEY=test-api-key
 ADMIN_API_KEY=test-admin-key
 
-# Blockchain
-BLOCKCHAIN_URL=http://localhost:8080
+# Blockchain (default RPC port is 8202)
+BLOCKCHAIN_URL=http://localhost:8202
 BLOCKCHAIN_DATA_DIR=/tmp/blockchain-test
 
 # Wallet
@@ -212,6 +212,39 @@ REDIS_URL=redis://localhost:6379/0
 - Increase wait times in tests
 - Implement retries for flaky operations
 - Check for race conditions
+
+## Marketplace Escrow Flow Tests
+
+The marketplace escrow E2E test (`tests/e2e/test_marketplace_escrow.py`) exercises a complete offer -> purchase -> escrow lock -> job execution -> release lifecycle. In addition to the variables above, set:
+
+```bash
+# Buyer wallet that funds the escrow (must have a real private key)
+E2E_BUYER_PRIVATE_KEY=0x...
+
+# Provider/miner wallet that receives the escrow payout
+E2E_PROVIDER_PRIVATE_KEY=0x...
+
+# Blockchain node wallet that receives the ESCROW_LOCK funds
+E2E_NODE_WALLET_ADDRESS=0x...
+
+# Optional: override the chain_id used in the ESCROW_LOCK transaction
+E2E_CHAIN_ID=ait-hub.aitbc.bubuit.net
+
+# Client JWT for coordinator client routes, or a JWT secret to mint one
+E2E_CLIENT_TOKEN=eyJ...
+# or
+JWT_SECRET=at-least-32-characters-long
+
+# Miner authentication: a configured miner API key, an existing miner JWT,
+# or a JWT secret to mint a miner JWT
+E2E_MINER_API_KEY=miner-api-key-1
+# or
+E2E_MINER_TOKEN=eyJ...
+# or
+JWT_SECRET=...
+```
+
+When `JWT_SECRET` is used instead of a pre-generated token, the tests mint short-lived access tokens with the buyer address as the client subject and `e2e-test-miner` as the miner subject, so the coordinator must accept tokens signed with the same secret.
 
 ## See Also
 
