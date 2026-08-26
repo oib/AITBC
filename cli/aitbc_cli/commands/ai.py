@@ -1,5 +1,6 @@
 """AI job submission and inspection commands for AITBC CLI"""
 
+import builtins
 import os
 import time
 from decimal import Decimal, InvalidOperation
@@ -22,7 +23,7 @@ from aitbc.compliance.policies import (
 )
 
 from ..config import get_config
-from ..utils import output, success
+from ..utils import output, success, warning
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -584,6 +585,112 @@ def submit(
         abort(ctx, f"Error submitting job: {e}", from_exception=e)
 
 
+@ai.command(name="pay")
+@click.option("--job-id", required=True, help="Job ID to pay for")
+@click.option("--wallet", required=True, help="Wallet name to sign the escrow lock")
+@click.option("--buyer-address", help="Override buyer/customer address")
+@click.option("--provider-address", help="Override provider address")
+@click.option("--offer-id", help="Marketplace offer this job is bought against")
+@click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy")
+@click.option("--currency", default=None, help="Payment currency (default: AITBC)")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--rpc-url", help="Blockchain RPC URL")
+@click.option("--chain-id", help="Chain ID")
+@click.option("--password", help="Wallet password")
+@click.option("--password-file", type=click.Path(exists=True), help="Password file")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def pay(
+    ctx,
+    job_id,
+    wallet,
+    buyer_address,
+    provider_address,
+    offer_id,
+    offer_quantity,
+    currency,
+    coordinator_url,
+    rpc_url,
+    chain_id,
+    password,
+    password_file,
+    format,
+):
+    """Create an escrow payment for an existing job (two-step payment flow)."""
+    config = get_config()
+
+    try:
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
+
+        rpc_url = rpc_url or config.blockchain_rpc_url or "http://localhost:8202"
+        if not rpc_url:
+            abort(ctx, "RPC URL not configured")
+
+        if password_file:
+            with open(password_file) as f:
+                password = f.read().strip() or password
+
+        wallet_address, private_key = _load_wallet(ctx, wallet, password)
+        if not private_key:
+            abort(ctx, f"Wallet {wallet} has no usable private key")
+
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+
+        job = http_client.get(f"/v1/jobs/{job_id}")
+        if not isinstance(job, dict) or not job.get("job_id"):
+            abort(ctx, f"Job {job_id} not found")
+
+        if job.get("payment_id") and job.get("payment_status") not in ("pending", "skipped", None):
+            abort(ctx, f"Job {job_id} already has payment_status={job.get('payment_status')}; not creating a second payment")
+
+        payment_amount = job.get("payment_amount")
+        if payment_amount is None:
+            abort(ctx, "Job has no payment_amount; it may not be a paid job")
+
+        node_wallet_addr = job.get("node_wallet_address") or _get_node_wallet(ctx, rpc_url)
+        if not node_wallet_addr:
+            abort(ctx, "Cannot determine node wallet address for ESCROW_LOCK")
+
+        buyer_address = buyer_address or job.get("buyer_address") or wallet_address
+        if not buyer_address:
+            abort(ctx, "buyer_address is required: set --buyer-address, --wallet, or ensure the job has one")
+
+        provider_address = provider_address or job.get("provider_address") or os.environ.get("SHOP_WALLET_ADDRESS")
+        if not provider_address:
+            abort(ctx, "provider_address is required: set --provider-address or ensure the job has one")
+
+        offer_id = offer_id or job.get("offer_id")
+        if offer_quantity is None:
+            offer_quantity = job.get("offer_quantity")
+
+        payment_result = _create_escrow_payment(
+            ctx,
+            http_client,
+            rpc_url,
+            job_id,
+            str(payment_amount),
+            currency or job.get("payment_token") or "AITBC",
+            buyer_address,
+            provider_address,
+            private_key,
+            str(node_wallet_addr),
+            chain_id or config.chain_id,
+            offer_id,
+            Decimal(str(offer_quantity)) if offer_quantity is not None else None,
+        )
+
+        success(f"Escrow secured: {payment_result.get('payment_id')}")
+        output(payment_result, ctx.obj.get("output_format", format))
+
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error paying for job: {e}", from_exception=e)
+
+
 @ai.command()
 @click.option("--limit", type=int, default=10, help="Limit results")
 @click.option("--status", help="Filter by status")
@@ -677,6 +784,67 @@ def refund(ctx, job_id, reason, coordinator_url):
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error refunding job: {e}", from_exception=e)
+
+
+@ai.command(name="refund-sweep")
+@click.option("--limit", type=int, default=100, help="Maximum completed jobs to inspect")
+@click.option("--reason", default="buyer_requested", help="Reason for refund")
+@click.option("--dry-run", is_flag=True, help="Count candidates without refunding")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
+    """Refund all client-owned jobs stuck in escrowed/pending_acceptance with failed ZK."""
+    get_config()
+
+    try:
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
+
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+
+        result = http_client.get("/v1/jobs", params={"status": "COMPLETED", "limit": limit})
+        jobs = result.get("items") if isinstance(result, dict) else result
+        if not isinstance(jobs, builtins.list):
+            abort(ctx, "Unexpected response listing jobs")
+        assert jobs is not None
+
+        counts = {"candidates": 0, "refunded": 0, "failed": 0}
+        for job in jobs:
+            payment_status = job.get("payment_status")
+            if payment_status not in ("escrowed", "pending_acceptance"):
+                continue
+            if job.get("zk_status") == "verified":
+                continue
+            payment_id = job.get("payment_id")
+            job_id = job.get("job_id")
+            if not payment_id or not job_id:
+                continue
+            counts["candidates"] += 1
+            if dry_run:
+                continue
+            try:
+                http_client.post(
+                    f"/v1/payments/{payment_id}/refund",
+                    json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
+                )
+                counts["refunded"] += 1
+                success(f"Refunded payment {payment_id} for job {job_id}")
+            except NetworkError as e:
+                counts["failed"] += 1
+                warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
+            except Exception as e:
+                counts["failed"] += 1
+                warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
+
+        output(counts, ctx.obj.get("output_format", format), title="ZK refund sweep")
+
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error running refund sweep: {e}", from_exception=e)
 
 
 @ai.group()

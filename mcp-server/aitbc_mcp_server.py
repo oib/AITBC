@@ -25,6 +25,7 @@ import os
 import re
 import shlex
 import subprocess
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
 
@@ -1602,6 +1603,54 @@ def submit_ai_job(
         float | None,
         Field(description="Minimum provider reputation (0-1).", ge=0, le=1),
     ] = None,
+    buyer_address: Annotated[
+        str | None,
+        Field(description="Customer wallet address for escrow."),
+    ] = None,
+    provider_address: Annotated[
+        str | None,
+        Field(description="Provider wallet address for escrow."),
+    ] = None,
+    offer_quantity: Annotated[
+        str | None,
+        Field(description="How many of the offer's price units to buy."),
+    ] = None,
+    acceptance_window: Annotated[
+        int | None,
+        Field(description="Seconds after completion before payment auto-releases.", ge=0),
+    ] = None,
+    zk_proof_required: Annotated[
+        bool,
+        Field(description="Require a ZK receipt proof before escrow release."),
+    ] = False,
+    tee_attestation_required: Annotated[
+        bool,
+        Field(description="Require a TEE attestation before escrow release."),
+    ] = False,
+    tee_enclave_id: Annotated[
+        str | None,
+        Field(description="Required TEE enclave identity."),
+    ] = None,
+    confidential: Annotated[
+        bool,
+        Field(description="Mark this job as confidential (requires a TEE attestation)."),
+    ] = False,
+    enclave_measurement: Annotated[
+        str | None,
+        Field(description="Required enclave measurement for a confidential job."),
+    ] = None,
+    auto_reinvest_pct: Annotated[
+        float | None,
+        Field(description="Percentage of released payment to auto-stake as reinvestment.", ge=0, le=100),
+    ] = None,
+    bond_required: Annotated[
+        bool,
+        Field(description="Require the provider to have an active performance bond."),
+    ] = False,
+    min_bond_amount: Annotated[
+        Decimal | None,
+        Field(description="Minimum bond amount required for provider eligibility.", ge=Decimal("0")),
+    ] = None,
     wait: Annotated[
         bool,
         Field(description="Wait for the job to reach a terminal state."),
@@ -1641,6 +1690,30 @@ def submit_ai_job(
         options["offer-id"] = offer_id
     if min_reputation is not None:
         options["min-reputation"] = str(min_reputation)
+    if buyer_address is not None:
+        options["buyer-address"] = buyer_address
+    if provider_address is not None:
+        options["provider-address"] = provider_address
+    if offer_quantity is not None:
+        options["offer-quantity"] = offer_quantity
+    if acceptance_window is not None:
+        options["acceptance-window"] = str(acceptance_window)
+    if zk_proof_required:
+        options["zk-proof-required"] = None
+    if tee_attestation_required:
+        options["tee-attestation-required"] = None
+    if tee_enclave_id is not None:
+        options["tee-enclave-id"] = tee_enclave_id
+    if confidential:
+        options["confidential"] = None
+    if enclave_measurement is not None:
+        options["enclave-measurement"] = enclave_measurement
+    if auto_reinvest_pct is not None:
+        options["auto-reinvest-pct"] = str(auto_reinvest_pct)
+    if bond_required:
+        options["bond-required"] = None
+    if min_bond_amount is not None:
+        options["min-bond-amount"] = str(min_bond_amount)
     if wait:
         options["wait"] = None
     if timeout is not None:
@@ -1652,6 +1725,122 @@ def submit_ai_job(
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "ai", "submit", None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def pay_for_ai_job(
+    job_id: Annotated[
+        str,
+        Field(description="Job ID to pay for."),
+    ],
+    wallet: Annotated[
+        str,
+        Field(description="Wallet name to sign the escrow lock."),
+    ],
+    buyer_address: Annotated[
+        str | None,
+        Field(description="Override buyer/customer address."),
+    ] = None,
+    provider_address: Annotated[
+        str | None,
+        Field(description="Override provider address."),
+    ] = None,
+    currency: Annotated[
+        str,
+        Field(description="Payment currency."),
+    ] = "AITBC",
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Create an escrow payment for an existing job (two-step payment flow)."""
+    options: dict[str, str | None] = {"job-id": job_id, "wallet": wallet, "currency": currency}
+    if buyer_address is not None:
+        options["buyer-address"] = buyer_address
+    if provider_address is not None:
+        options["provider-address"] = provider_address
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("ai", "pay", None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "ai", "pay", None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_zk_refund_sweep_candidates(
+    limit: Annotated[
+        int,
+        Field(description="Maximum completed jobs to inspect.", ge=1),
+    ] = 100,
+    reason: Annotated[
+        str,
+        Field(description="Refund reason used for reporting."),
+    ] = "buyer_requested",
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List completed jobs that the ZK refund sweep would refund (dry run)."""
+    options: dict[str, str | None] = {"dry-run": None, "limit": str(limit), "reason": reason}
+    target = _host_for_role(role, host)
+    return _json(_run_aitbc_cli(target, "ai", "refund-sweep", None, options, "json", timeout=120))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def run_zk_refund_sweep(
+    limit: Annotated[
+        int,
+        Field(description="Maximum completed jobs to inspect.", ge=1),
+    ] = 100,
+    reason: Annotated[
+        str,
+        Field(description="Refund reason."),
+    ] = "buyer_requested",
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Run the client-side ZK refund sweep for failed ZK escrows."""
+    options: dict[str, str | None] = {"limit": str(limit), "reason": reason}
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("ai", "refund-sweep", None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "ai", "refund-sweep", None, options, "json", timeout=120))
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
