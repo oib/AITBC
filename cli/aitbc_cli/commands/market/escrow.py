@@ -93,7 +93,7 @@ def _escrow_create(
                 "buyer": buyer,
                 "provider": provider,
                 "amount": str(amount) if amount else "0",
-                "lock_tx": lock_tx,
+                "lock_tx": {**lock_tx, "signature": signature},
                 "lock_signature": signature,
             },
         )
