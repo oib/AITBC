@@ -218,6 +218,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)")
 
+        # P2.1: refund escrows for jobs whose ZK receipt could not be verified.
+        # This is what breaks the steady-state loop where a failed proof leaves
+        # funds escrowed forever because `release_payment` keeps refusing.
+        from .contexts.payments.services.zk_refund_sweeper import (
+            ZkRefundSweeper,
+            zk_refund_sweeper_enabled,
+        )
+
+        if zk_refund_sweeper_enabled():
+            await task_manager.start_task("zk_refund_sweeper", ZkRefundSweeper().run_forever)
+            logger.info("ZK refund sweeper enabled")
+        else:
+            logger.info("ZK refund sweeper disabled (set COORDINATOR_ZK_REFUND_SWEEP_ENABLED=true to enable)")
+
         # G3: release escrow once a customer's acceptance window expires. Not opt-in
         # the way the reconciler is: the reconciler re-drives payouts that should
         # already have happened, while this one performs the release the window
