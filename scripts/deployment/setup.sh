@@ -98,6 +98,50 @@ fi
 # shellcheck disable=SC1090
 source "$DEPLOY_COMMON_PATH"
 
+# Load the agent follow-up helper, with the same curl fallback.
+AGENT_FOLLOWUP_PATH="$SCRIPT_DIR/../utils/agent_followup.sh"
+AGENT_FOLLOWUP_TEMP=""
+if [ ! -f "$AGENT_FOLLOWUP_PATH" ]; then
+    AGENT_FOLLOWUP_TEMP="$(mktemp)"
+    if curl -fsSL "https://raw.githubusercontent.com/oib/AITBC/main/scripts/utils/agent_followup.sh" -o "$AGENT_FOLLOWUP_TEMP" 2>/dev/null; then
+        AGENT_FOLLOWUP_PATH="$AGENT_FOLLOWUP_TEMP"
+        # shellcheck disable=SC2064
+        trap "rm -f \"$DEPLOY_COMMON_TEMP\" \"$AGENT_FOLLOWUP_TEMP\"" EXIT
+    else
+        rm -f "$AGENT_FOLLOWUP_TEMP"
+        AGENT_FOLLOWUP_PATH=""
+    fi
+fi
+
+if [ -n "$AGENT_FOLLOWUP_PATH" ] && [ -f "$AGENT_FOLLOWUP_PATH" ]; then
+    # shellcheck disable=SC1090
+    source "$AGENT_FOLLOWUP_PATH"
+    agent_followup_init
+
+    # Record warnings/errors so the end-of-run summary can ask the agent to investigate.
+    __setup_warning() {
+        agent_record_warning "$*"
+        echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] ⚠${NC} $*" >&2
+    }
+    __setup_error() {
+        agent_record_error "$*"
+        echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ✗${NC} $*" >&2
+        agent_print_followup
+        exit 1
+    }
+    warning() { __setup_warning "$@"; }
+    error()   { __setup_error "$@"; }
+
+    # Catch any set -e / command failures that did not go through the error() function.
+    __setup_err_trap() {
+        local exit_code=$?
+        agent_record_error "Command failed: $BASH_COMMAND (exit $exit_code)"
+    }
+    trap '__setup_err_trap' ERR
+    # Ensure the follow-up block is printed whenever the script exits, even early.
+    trap 'agent_print_followup' EXIT
+fi
+
 HEALTH_CHECK_SCRIPT="/opt/aitbc/scripts/monitoring/health_check.sh"
 LEGACY_HEALTH_CHECK_PATH="/opt/aitbc/health-check.sh"
 
@@ -1655,6 +1699,8 @@ main() {
     echo "    # Enable SSL: certbot --nginx -d YOUR_DOMAIN"
     echo ""
     echo "  See: /opt/aitbc/examples/nginx/README.md for full instructions"
+
+    agent_print_followup
 }
 
 # Run main function

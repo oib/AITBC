@@ -87,6 +87,35 @@ success() { echo -e "${GREEN}[$(date +'%H:%M:%S')] ✓${NC} $*"; }
 warning() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $*" >&2; }
 error()   { echo -e "${RED}[$(date +'%H:%M:%S')] ✗${NC} $*" >&2; }
 
+# Record warnings/errors for an end-of-run agent follow-up block.
+__update_agent_followup_path="$AITBC_ROOT/scripts/utils/agent_followup.sh"
+if [ -f "$__update_agent_followup_path" ]; then
+    # shellcheck disable=SC1090
+    source "$__update_agent_followup_path"
+    agent_followup_init
+
+    __update_warning() {
+        agent_record_warning "$*"
+        echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $*" >&2
+    }
+    __update_error() {
+        agent_record_error "$*"
+        echo -e "${RED}[$(date +'%H:%M:%S')] ✗${NC} $*" >&2
+    }
+    warning() { __update_warning "$@"; }
+    error()   { __update_error "$@"; }
+
+    # update.sh intentionally does not use set -e, so catch explicit exit(1) paths.
+    __update_exit_trap() {
+        local exit_code=$?
+        if [ "$exit_code" -ne 0 ]; then
+            agent_record_error "update.sh exited with code $exit_code"
+            agent_print_followup
+        fi
+    }
+    trap '__update_exit_trap' EXIT
+fi
+
 # Detect if an NVIDIA GPU is present and accessible via nvidia-smi.
 # Sets DETECTED_HARDWARE to "gpu" or "nogpu".
 # Sets GPU_NAME and GPU_COUNT if a GPU is detected.
@@ -767,6 +796,8 @@ main() {
 
     print_summary
     success "Update finished"
+
+    agent_print_followup
 }
 
 main "$@"
