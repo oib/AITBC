@@ -347,7 +347,7 @@ def orderbook(ctx, pair: str, limit: int):
 
         # Query blockchain for exchange orders
         params = {
-            "transaction_type": "exchange",
+            "transaction_type": "EXCHANGE",
             "island_id": island_id,
             "pair": pair,
             "status": "open",
@@ -445,7 +445,7 @@ def rates(ctx):
         rates_data = []
 
         for pair in SUPPORTED_PAIRS:
-            params = {"transaction_type": "exchange", "island_id": island_id, "pair": pair, "status": "open", "limit": 100}
+            params = {"transaction_type": "EXCHANGE", "island_id": island_id, "pair": pair, "status": "open", "limit": 100}
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             try:
@@ -497,7 +497,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
         island_id = get_island_id()
 
         # Query blockchain for exchange orders
-        params = {"transaction_type": "exchange", "island_id": island_id}
+        params = {"transaction_type": "EXCHANGE", "island_id": island_id}
         if user:
             params["user_id"] = user
         if status:
