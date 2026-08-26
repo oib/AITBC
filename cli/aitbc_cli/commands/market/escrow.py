@@ -10,7 +10,7 @@ import click
 
 from ...auth import AuthManager
 from ...config import get_config
-from ...utils import error, output, success, warning
+from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient, get_logger
 
 # Initialize logger
@@ -47,9 +47,43 @@ def _get_blockchain_rpc_url(config) -> str:
     return url
 
 
-def _escrow_create(job_id: str, buyer: str, provider: str, amount: Decimal | None, config) -> str | None:
-    """Create escrow on local blockchain node. Returns contract_id or None."""
+def _escrow_create(
+    ctx,
+    job_id: str,
+    buyer: str,
+    provider: str,
+    amount: Decimal | None,
+    config,
+    private_key: str | None = None,
+) -> str | None:
+    """Create an on-chain escrow for a paid job.
+
+    If ``private_key`` is provided, the ESCROW_LOCK transaction is signed by
+    the buyer and the blockchain RPC can settle it on-chain.  Without it, the
+    helper aborts because the chain refuses to lock escrow without a buyer
+    signature.
+    """
+    from ...utils.escrow import create_signed_escrow_lock
+
+    if not private_key:
+        error("Escrow creation requires a buyer-signed transaction. Use --wallet to select a wallet with a private key.")
+        raise click.Abort()
+
     rpc_url = _get_blockchain_rpc_url(config)
+    try:
+        lock_tx, signature = create_signed_escrow_lock(
+            ctx,
+            rpc_url,
+            job_id,
+            buyer,
+            provider,
+            amount or Decimal("0"),
+            private_key,
+        )
+    except Exception as e:
+        error(f"Failed to build escrow lock transaction: {e}")
+        raise click.Abort() from e
+
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post(
@@ -58,10 +92,9 @@ def _escrow_create(job_id: str, buyer: str, provider: str, amount: Decimal | Non
                 "job_id": job_id,
                 "buyer": buyer,
                 "provider": provider,
-                # A string, not float(): the node parses this back with Decimal(str(amount))
-                # (escrow_routes.create_escrow), so sending a float threw away digits the
-                # receiver then preserved faithfully.
                 "amount": str(amount) if amount else "0",
+                "lock_tx": lock_tx,
+                "lock_signature": signature,
             },
         )
         contract_id = result.get("contract_id") if isinstance(result, dict) else None
@@ -69,8 +102,8 @@ def _escrow_create(job_id: str, buyer: str, provider: str, amount: Decimal | Non
             success(f"Escrow created: contract_id={contract_id}")
         return contract_id
     except Exception as e:
-        warning(f"Escrow creation skipped (non-fatal): {e}")
-        return None
+        error(f"Escrow creation failed: {e}")
+        raise click.Abort() from e
 
 
 @escrow.command(name="release")
@@ -219,22 +252,23 @@ def escrow_status(ctx, job_id: str):
 @click.argument("buyer")
 @click.argument("provider")
 @click.argument("amount", required=False)
+@click.option("--wallet", "wallet_name", help="Wallet name to sign the escrow lock")
+@click.option("--password", help="Wallet password")
 @click.pass_context
-def escrow_create_cmd(ctx, job_id, buyer, provider, amount):
+def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, password):
     """Create an on-chain escrow for a job"""
     try:
         from decimal import Decimal as _Decimal
         from ...utils.money import wallet_amount
+        from ...utils.wallet_loader import load_wallet_for_payment
 
         config = get_config()
         amt = _Decimal(wallet_amount(amount)) if amount is not None else None
-        contract_id = _escrow_create(job_id, buyer, provider, amt, config)
-        if contract_id:
-            output(
-                {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider},
-                ctx.obj.get("output_format", "table"),
-            )
-        else:
-            error("Failed to create escrow")
+        _, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet_name, password=password)
+        contract_id = _escrow_create(ctx, job_id, buyer, provider, amt, config, private_key=private_key)
+        output(
+            {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider},
+            ctx.obj.get("output_format", "table"),
+        )
     except Exception as e:
         error(f"Error creating escrow: {e}")
