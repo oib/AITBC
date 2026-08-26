@@ -760,16 +760,77 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     // View functions
 
     /**
-     * @dev Gets rental agreement details
+     * @dev Gets rental agreement details (core fields).
      * @param _agreementId ID of the agreement
+     *
+     * §5.6: the full RentalAgreement struct has 13 fields including a nested
+     * PerformanceMetrics struct (6 fields), totalling 17+ when ABI-encoded.
+     * This exceeds the EVM stack depth in coverage mode (no via_ir). Split
+     * the view into core fields and performance metrics to stay under the
+     * limit.
      */
     function getRentalAgreement(uint256 _agreementId)
         external
         view
         agreementExists(_agreementId)
-        returns (RentalAgreement memory)
+        returns (
+            uint256 agreementId,
+            address provider,
+            address consumer,
+            uint256 duration,
+            uint256 price,
+            uint256 startTime,
+            uint256 endTime,
+            uint256 platformFee,
+            RentalStatus status,
+            string memory gpuModel,
+            uint256 computeUnits,
+            bytes32 performanceProof
+        )
     {
-        return rentalAgreements[_agreementId];
+        RentalAgreement storage a = rentalAgreements[_agreementId];
+        return (
+            a.agreementId,
+            a.provider,
+            a.consumer,
+            a.duration,
+            a.price,
+            a.startTime,
+            a.endTime,
+            a.platformFee,
+            a.status,
+            a.gpuModel,
+            a.computeUnits,
+            a.performanceProof
+        );
+    }
+
+    /**
+     * @dev Gets the performance metrics for a rental agreement.
+     * @param _agreementId ID of the agreement
+     */
+    function getRentalPerformance(uint256 _agreementId)
+        external
+        view
+        agreementExists(_agreementId)
+        returns (
+            uint256 responseTime,
+            uint256 accuracy,
+            uint256 availability,
+            uint256 computePower,
+            bool withinSLA,
+            uint256 lastUpdateTime
+        )
+    {
+        PerformanceMetrics memory p = rentalAgreements[_agreementId].performance;
+        return (
+            p.responseTime,
+            p.accuracy,
+            p.availability,
+            p.computePower,
+            p.withinSLA,
+            p.lastUpdateTime
+        );
     }
 
     /**
