@@ -24,6 +24,11 @@ logger = get_logger(__name__)
 _BOND_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_BOND_HIGH_VALUE_THRESHOLD", "10"))
 _BOND_REQUIRE = os.getenv("COORDINATOR_BOND_REQUIRE", "false").lower() == "true"
 
+# G5: miners that have not heartbeated recently should not block dispatch for
+# currently active miners. The heartbeat interval is typically 15s; allow a
+# generous 5-minute window before treating a miner as stale for dispatch decisions.
+_MINER_ONLINE_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS", "300"))
+
 
 def _bond_required_for(job: Job) -> bool:
     """Return True if the job requires a performance bond check."""
@@ -298,8 +303,15 @@ class JobService:
             jobs = self.session.scalars(statement).all()
 
             # Load the pool of online miners once per dispatch decision so we can
-            # route high-reputation jobs to the best available provider.
-            online_miners = list(self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all())
+            # route high-reputation jobs to the best available provider. Only count
+            # miners whose last heartbeat is recent, otherwise stale records with a
+            # high reputation block jobs from being picked by active miners.
+            cutoff = now - timedelta(seconds=_MINER_ONLINE_HEARTBEAT_CUTOFF_SECONDS)
+            online_miners = [
+                m
+                for m in self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all()
+                if m.last_heartbeat and _to_utc(m.last_heartbeat) and _to_utc(m.last_heartbeat) >= cutoff
+            ]
             current_reputation = self._get_miner_reputation(miner)
 
             for job in jobs:
