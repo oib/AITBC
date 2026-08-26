@@ -87,7 +87,11 @@ ALL_SERVICE_ENDPOINTS = {
     "aitbc-gpu": "http://localhost:8101/health",
     "aitbc-edge": "http://localhost:8111/health",
     "aitbc-pool-hub": "http://localhost:8210/health",
+    "aitbc-island-ipfs": "http://localhost:5002/api/v0/version",
+    "aitbc-whisper": "http://localhost:8110/health",
+    "aitbc-ffmpeg": "http://localhost:8230/health",
     "aitbc-monitoring": "http://localhost:8002/health",
+    "ollama": "http://localhost:11434/api/tags",
 }
 
 # Base URLs for the AITBC HTTP APIs (used by call_aitbc_http).  These map a
@@ -107,6 +111,10 @@ ALL_SERVICE_BASES = {
     "monitoring": "http://localhost:8002",
     "trading": "http://localhost:8104",
     "governance": "http://localhost:8105",
+    "ipfs": "http://localhost:5002",
+    "whisper": "http://localhost:8110",
+    "ffmpeg": "http://localhost:8230",
+    "ollama": "http://localhost:11434",
 }
 
 # Set of service names available to call_aitbc_http.
@@ -196,16 +204,21 @@ def _is_allowed_script(path: str) -> bool:
 # these groups; typed wrappers are provided for the most common subcommands.
 ALL_AITBC_GROUPS = {
     "account",
+    "agent",
     "ai",
     "auth",
     "bond",
     "config",
+    "dashboard",
+    "ipfs",
     "list",
     "market",
+    "marketplace",
     "node",
     "restart",
     "start",
     "stop",
+    "system",
     "transactions",
     "version",
     "wallet",
@@ -1297,6 +1310,135 @@ def get_service_logs(
         return _json({"error": "invalid service name", "service": service})
     command = f"journalctl -n {lines} -u {service} --no-pager"
     return _json(_run_remote(target, command, timeout=30))
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 daily-use CLI wrappers
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def check_aitbc_system_health(
+    service: Annotated[
+        str | None,
+        Field(description="Check a single systemd service by unit name (e.g. 'aitbc-coordinator-api')."),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Run `aitbc system check` to get a real multi-service readiness report."""
+    options: dict[str, str] = {}
+    if service is not None:
+        options["service"] = service
+    return _aitbc_cli_read_tool(role, host, "system", "check", options=options or None)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_aitbc_ipfs_rentals(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List active IPFS hosting rentals."""
+    return _aitbc_cli_read_tool(role, host, "ipfs", "rentals")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_aitbc_ipfs_pins(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List locally pinned IPFS CIDs."""
+    return _aitbc_cli_read_tool(role, host, "ipfs", "list")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_agent_status(
+    agent_id: Annotated[
+        str | None,
+        Field(description="Agent ID to look up."),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the status of an agent (or the default local agent)."""
+    args = [agent_id] if agent_id else None
+    return _aitbc_cli_read_tool(role, host, "agent", "status", args=args)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_agent_inbox(
+    agent_id: Annotated[
+        str | None,
+        Field(description="Agent ID to look up."),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the inbox of an agent (or the default local agent)."""
+    options: dict[str, str] = {}
+    if agent_id is not None:
+        options["agent-id"] = agent_id
+    return _aitbc_cli_read_tool(role, host, "agent", "inbox", options=options or None)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_dashboard_customer(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the customer dashboard with live wallet balances and job status."""
+    return _aitbc_cli_read_tool(role, host, "dashboard", "customer")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_dashboard_shop(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the shop dashboard with live balances and marketplace offers."""
+    return _aitbc_cli_read_tool(role, host, "dashboard", "shop")
 
 
 # ---------------------------------------------------------------------------
