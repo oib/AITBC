@@ -11,7 +11,7 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
-from ...utils.crypto_utils import bech32_to_hex
+from ...utils.address import to_eip55
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
@@ -295,7 +295,7 @@ def info(ctx):
     wallet_info = {
         "name": wallet_data["wallet_id"],
         "type": wallet_data.get("type", "simple"),
-        "address": wallet_data["address"],
+        "address": to_eip55(wallet_data["address"]),
         "public_key": wallet_data["public_key"],
         "created_at": wallet_data["created_at"],
         "active": wallet_data["wallet_id"] == active_wallet,
@@ -309,42 +309,72 @@ def info(ctx):
     output(wallet_info, ctx.obj.get("output_format", "table"))
 
 
+def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
+    """Return the on-chain address for a wallet, preferring the daemon list."""
+    client = get_wallet_client()
+    try:
+        wallets_data = client.get("/v1/wallets")
+        for item in wallets_data.get("items", []):
+            if item.get("wallet_id") == wallet_name:
+                meta = item.get("metadata", {}) or {}
+                return meta.get("address") or meta.get("original_address") or item.get("address")
+    except Exception:
+        pass
+
+    wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
+    wallet_path = wallet_dir / f"{wallet_name}.json"
+    if wallet_path.exists():
+        try:
+            with open(wallet_path) as f:
+                data = json.load(f)
+            return data.get("address")
+        except Exception:
+            pass
+
+    return None
+
+
 @wallet.command()
 @click.argument("name", required=False)
 @click.pass_context
 def balance(ctx, name: str | None):
-    """Check wallet balance from wallet service or file wallet"""
+    """Check wallet balance from the blockchain RPC.
+
+    The command first resolves the wallet address from the wallet daemon or a
+    local file wallet, canonicalises it, and then queries the chain directly so
+    the displayed balance is never stale.
+    """
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
-    client = get_wallet_client()
+    address = _resolve_wallet_address(ctx, wallet_name)
+    if not address:
+        error(f"Wallet '{wallet_name}' not found in daemon or file wallets")
+        raise click.Abort() from None
+
+    canonical = to_eip55(address)
+    config = get_config()
+    rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    chain_id = ctx.obj.get("chain_id", config.chain_id) or "ait-hub.aitbc.bubuit.net"
+
+    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
-        balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
-    except Exception:
-        # Fall back to local file wallet if the daemon does not know this wallet.
-        wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
-        wallet_path = wallet_dir / f"{wallet_name}.json"
-        if not wallet_path.exists():
-            error(f"Wallet '{wallet_name}' not found in daemon or {wallet_path}")
-            raise click.Abort() from None
+        account_data = http_client.get(f"/rpc/account/{canonical}")
+    except Exception as e:
+        error(f"Failed to query balance for {canonical}: {e}")
+        raise click.Abort() from e
 
-        try:
-            with open(wallet_path) as f:
-                wallet_data = json.load(f)
-        except Exception as e:
-            error(f"Failed to read file wallet '{wallet_name}': {e}")
-            raise click.Abort() from e
-
-        balance = wallet_data.get("balance", 0)
-        balance_data = {
-            "wallet_id": wallet_name,
-            "address": wallet_data.get("address"),
-            "balance": balance,
-            "balance_ait": format_ait(balance),
-            "chain_id": ctx.obj.get("chain_id", "ait-hub.aitbc.bubuit.net"),
-        }
+    balance_data = {
+        "wallet_id": wallet_name,
+        "address": address,
+        "canonical": canonical,
+        "balance": account_data.get("balance", 0),
+        "balance_ait": format_ait(account_data.get("balance", 0)),
+        "nonce": account_data.get("nonce", 0),
+        "chain_id": account_data.get("chain_id", chain_id),
+    }
 
     output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
 
@@ -384,7 +414,7 @@ def transactions(ctx, name: str | None, limit: int):
         # Get transactions from blockchain RPC
         config = get_config()
         rpc_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=30)
-        hex_address = bech32_to_hex(address)
+        hex_address = to_eip55(address)
         transactions = rpc_client.get(f"/rpc/transactions?address={hex_address}&limit={limit}")
 
         if isinstance(transactions, dict):
@@ -534,7 +564,7 @@ def address(ctx, name: str | None):
     wallet_data = _load_wallet(wallet_path, wallet_name)
 
     output(
-        {"wallet": wallet_name, "address": wallet_data["address"]},
+        {"wallet": wallet_name, "address": to_eip55(wallet_data["address"])},
         ctx.obj.get("output_format", "table"),
     )
 
@@ -556,7 +586,8 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         return
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    sender_address = wallet_data["address"]
+    sender_address = to_eip55(wallet_data["address"])
+    to_address = to_eip55(to_address)
 
     # Get RPC URL from context or parameter (use hub for cross-node transfers)
     if not rpc_url:
