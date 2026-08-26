@@ -165,9 +165,10 @@ def get_account_nonce(address: str, chain_id: str) -> int:
         return 0
 
 
-def get_next_nonce() -> int:
-    """Get next transaction nonce from blockchain (confirmed nonce + 1)"""
-    wallet_address = get_wallet_address()
+def get_next_nonce(wallet_address: str | None = None) -> int:
+    """Get next transaction nonce from blockchain (confirmed nonce + 1)."""
+    if not wallet_address:
+        wallet_address = get_wallet_address()
     config = get_config()
     hub_url = config.hub_discovery_url or "hub.aitbc.bubuit.net"
     chain_id = "ait-" + hub_url
@@ -177,12 +178,22 @@ def get_next_nonce() -> int:
 def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str | None, str]:
     """Resolve the wallet used by market commands.
 
-    Priority: group-level --wallet / --wallet-path, then environment, then
+    Priority: group-level --wallet / --wallet-path, then the
+    ``SHOP_WALLET_ADDRESS`` / ``AITBC_MARKET_WALLET`` environment, then
     configuration.  Returns ``(address, private_key_or_none, wallet_name)``.
     """
     wallet_name = ctx.obj.get("market_wallet")
     wallet_path = ctx.obj.get("market_wallet_path")
     password = ctx.obj.get("market_password")
+
+    # If no wallet was specified on the command line, fall back to the shop
+    # environment.  This keeps backwards compatibility for unattended offers
+    # while still allowing a human buyer to pass --wallet for paid jobs.
+    if not wallet_name and not wallet_path and not require_private_key:
+        shop_address = os.environ.get("SHOP_WALLET_ADDRESS")
+        if shop_address:
+            return shop_address, None, "shop"
+
     return load_wallet_for_payment(
         ctx,
         wallet_name=wallet_name,
