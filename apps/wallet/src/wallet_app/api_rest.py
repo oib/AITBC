@@ -9,8 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import format_ait
 from aitbc.utils.validation import validate_address
+from eth_utils import to_checksum_address
 
 from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
 from .keystore.persistent_service import PersistentKeystoreService
@@ -176,7 +178,15 @@ def get_wallet_balance(
 
     # Address is stored in metadata
     meta = record.metadata if isinstance(record.metadata, dict) else {}
-    address = meta.get("address") or meta.get("original_address") or record.public_key
+    raw_address = meta.get("address") or meta.get("original_address") or record.public_key
+
+    # Canonicalise legacy ait1/aitbc1 prefixes, then convert 0x addresses to
+    # EIP-55 checksum form so ``validate_address`` accepts lowercase 0x inputs.
+    try:
+        canonical_hex = canonical_address(raw_address)
+        address = to_checksum_address(canonical_hex)
+    except Exception:
+        address = raw_address
 
     balance = 0
     chain_id = meta.get("chain_id", os.getenv("CHAIN_ID", ""))
@@ -189,6 +199,7 @@ def get_wallet_balance(
             "chain_id": chain_id,
             "error": "Invalid address format",
         }
+    error_msg: str | None = None
     try:
         rpc_url = _settings.blockchain_rpc_url
         resp = _httpx.get(f"{rpc_url}/rpc/account/{address}", timeout=5)
@@ -196,16 +207,21 @@ def get_wallet_balance(
             data = resp.json()
             balance = data.get("balance", 0)
             chain_id = data.get("chain_id", chain_id)
-    except Exception:
-        pass
+        else:
+            error_msg = f"RPC returned {resp.status_code}"
+    except Exception as exc:
+        error_msg = str(exc)
 
-    return {
+    result: dict[str, Any] = {
         "wallet_id": wallet_id,
         "address": address,
         "balance": balance,
         "balance_ait": format_ait(balance),
         "chain_id": chain_id,
     }
+    if error_msg:
+        result["error"] = error_msg
+    return result
 
 
 @router.post("/wallets/{wallet_id}/unlock", response_model=WalletUnlockResponse, summary="Unlock wallet")
