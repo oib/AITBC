@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md), [Scenario 07 AI Job Submission](./07_ai_job_submission.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.5
+**Last Updated**: 2026-08-26
+**Version**: 1.6
 
 ## Navigation Path
 
@@ -39,6 +39,7 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the l
 
 - How to point `aitbc` at the hub and log in with `aitbc auth login`
 - How to submit unpaid and paid jobs with `aitbc ai`
+- How to accept a completed job and release escrow with `aitbc ai accept`
 - How to submit high-value jobs that receive a verified ZK receipt proof
 - How to check escrow with `aitbc wallet` / `aitbc account`
 - How to publish and list GPU offers with `aitbc market`, including live trust scores
@@ -160,12 +161,20 @@ aitbc ai submit --prompt "Cross-node paid job test" \
   --wait --timeout 180
 ```
 
-**Expected output:** `payment_status: escrowed`, then `COMPLETED` with `payment_status: released`.
+**Expected output:** `payment_status: escrowed`, then `COMPLETED` with `payment_status: pending_acceptance` while the customer acceptance window is open.
 
-Poll or inspect:
+Release the escrow explicitly with the new `accept` command:
 
 ```bash
+aitbc ai accept --job-id "$JOB_ID"
 aitbc ai status --job-id "$JOB_ID"
+```
+
+**Expected output:** `payment_status: released` after the customer accepts the result.
+
+Inspect the result:
+
+```bash
 aitbc ai results --job-id "$JOB_ID"
 ```
 
@@ -262,6 +271,7 @@ After completing this scenario, you should be able to:
 
 - Log in with `aitbc auth login` and use stored credentials for customer and shop views
 - Run the inner loop with `aitbc` only (config, auth, ai, zk, wallet, account, market, reputation, dashboard, bridge, exchange-island)
+- Accept a completed job and release escrow with `aitbc ai accept`
 - See `ESCROW_RELEASE` in the provider wallet
 - List the shop GPU offer from the hub and see live trust scores
 - Submit high-value jobs that generate and verify a ZK receipt proof
