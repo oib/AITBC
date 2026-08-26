@@ -1533,3 +1533,4 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - `get_aitbc_agent_inbox`
   - `get_aitbc_dashboard_customer`
   - `get_aitbc_dashboard_shop`
+- fix(miner,coordinator): aitbc-miner heartbeats now report status: ONLINE so the coordinator counts it in the online pool; coordinator dispatch and online-count now ignore miners whose last heartbeat is older than COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS (default 5 min)
