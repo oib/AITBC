@@ -257,6 +257,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Bond slash sweeper disabled (BOND_SLASH_SWEEPER_ENABLED=false)")
 
+        # G5: mark miners whose last heartbeat is stale as OFFLINE so the
+        # dashboard and status endpoints do not keep them in the online pool.
+        from .contexts.infrastructure.services.stale_miner_reaper import (
+            StaleMinerReaper,
+            reaper_enabled as stale_miner_reaper_enabled,
+        )
+
+        if stale_miner_reaper_enabled():
+            await task_manager.start_task("stale_miner_reaper", StaleMinerReaper().run_forever)
+            logger.info("Stale miner reaper started")
+        else:
+            logger.info("Stale miner reaper disabled (COORDINATOR_STALE_MINER_REAPER_ENABLED=false)")
+
         logger.info("🚀 Coordinator API is ready to serve requests")
 
         lifecycle_state.set_state(lifecycle_state.RUNNING)
