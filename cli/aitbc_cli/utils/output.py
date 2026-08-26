@@ -7,7 +7,10 @@ without forcing the whole ``aitbc_cli.utils`` package to finish loading.
 
 import base64
 import logging
+from functools import update_wrapper
+from typing import Any
 
+import click
 from click import echo, secho
 
 
@@ -72,3 +75,44 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
 
     logging.basicConfig(level=level, format="%(message)s")
     return level_name
+
+
+def resolve_output_format(ctx, command_format: str | None = None) -> str:
+    """Return the effective output format for a command.
+
+    Command-level ``--format`` wins, then the global ``--output`` option stored
+    in ``ctx.obj["output_format"]``, then the default ``table``.
+    """
+    if command_format:
+        return command_format
+    if ctx and ctx.obj:
+        return ctx.obj.get("output_format", "table")
+    return "table"
+
+
+def OUTPUT_FORMAT_OPTION(command: Any | None = None, *, default: str = "table") -> Any:
+    """Decorator that adds ``--format`` / ``--output`` aliases to a command.
+
+    Works as ``@OUTPUT_FORMAT_OPTION`` or as a click option factory.
+    """
+
+    def decorator(f):
+        f = click.option(
+            "--format",
+            "output_format",
+            default=default,
+            type=click.Choice(["table", "json", "yaml", "csv"]),
+            help="Output format",
+        )(f)
+        f = click.option(
+            "--output",
+            "output_format",
+            default=default,
+            type=click.Choice(["table", "json", "yaml", "csv"]),
+            help="Output format (alias for --format)",
+        )(f)
+        return f
+
+    if command is None:
+        return decorator
+    return update_wrapper(decorator(command), command)
