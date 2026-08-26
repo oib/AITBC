@@ -1305,6 +1305,17 @@ ensure_service_env_files() {
             log "Created missing env file: $env_file"
         fi
     done
+
+    # Common shared env files referenced by many services. Create empty ones
+    # if they do not exist; service files now use the '-' prefix so missing
+    # files do not cause resource failures, but we still want them present.
+    for common in /etc/aitbc/node.env /etc/aitbc/blockchain.env; do
+        if [ ! -f "$common" ]; then
+            touch "$common"
+            chmod 644 "$common"
+            log "Created missing shared env file: $common"
+        fi
+    done
     success "Per-service environment files verified"
 }
 
