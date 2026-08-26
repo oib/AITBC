@@ -19121,6 +19121,14 @@
             "type": "string",
             "title": "Island Id"
           },
+          "island_name": {
+            "type": "string",
+            "title": "Island Name"
+          },
+          "island_chain_id": {
+            "type": "string",
+            "title": "Island Chain Id"
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -19128,14 +19136,31 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "credentials": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Credentials"
+          },
+          "members": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Members"
           }
         },
         "type": "object",
         "required": [
           "success",
           "island_id",
+          "island_name",
+          "island_chain_id",
           "status",
-          "message"
+          "message",
+          "credentials",
+          "members"
         ],
         "title": "JoinIslandResponse",
         "description": "Response model for joining an island"
