@@ -272,7 +272,7 @@ check_prerequisites() {
 
     # Install missing prerequisites
     local missing=()
-    for cmd in python3 pip3 git systemctl node npm postgresql psql redis-server redis-cli; do
+    for cmd in python3 pip3 git systemctl curl node npm postgresql psql redis-server redis-cli; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             missing+=("$cmd")
         fi
@@ -322,6 +322,9 @@ check_prerequisites() {
                     python3-venv)
                         apt-get install -y python3-venv
                         ;;
+                    curl)
+                        apt-get install -y curl
+                        ;;
                     redis-server)
                         apt-get install -y redis-server
                         ;;
@@ -334,7 +337,7 @@ check_prerequisites() {
                 esac
             done
         elif command -v yum >/dev/null 2>&1; then
-            yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib redis postgresql-devel
+            yum install -y python3 python3-pip python3-venv git curl systemd postgresql postgresql-server postgresql-contrib redis postgresql-devel
             # Install Node.js 24.x
             run_remote_installer "https://rpm.nodesource.com/setup_24.x"
             yum install -y nodejs
@@ -896,9 +899,27 @@ EOF
         log "Created /etc/aitbc/blockchain.env with unique IDs"
     fi
 
-    # Ensure blockchain gossip defaults exist
-    set_env gossip_backend broadcast
-    set_env gossip_broadcast_url redis://localhost:6379
+    # Ensure blockchain gossip defaults exist.
+    # Followers use WebSocket gossip back to the hub; the hub still uses redis
+    # for the internal gossip broker and exposes WebSocket subscriptions.
+    if [ "${BLOCKCHAIN_MODE:-follower}" = "hub" ]; then
+        set_env gossip_backend redis
+        set_env gossip_broadcast_url redis://localhost:6379
+        set_env subscription_enabled true
+        set_env subscription_transport websocket
+    else
+        # Convert hub base URL (http/https) to a WebSocket gossip URL.
+        local HUB_WS_URL
+        if [ -n "$OPEN_ISLAND_HUB" ]; then
+            HUB_WS_URL="$(printf '%s' "$OPEN_ISLAND_HUB" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
+        else
+            HUB_WS_URL="ws://127.0.0.1:8202/rpc/gossip/ws"
+        fi
+        set_env gossip_backend websocket
+        set_env gossip_websocket_url "$HUB_WS_URL"
+        set_env subscription_enabled true
+        set_env subscription_transport websocket
+    fi
 
     # Set the default peer RPC URL. For a follower joining an open island,
     # this is the hub base URL; for a hub it stays local.
@@ -1232,6 +1253,20 @@ setup_venvs() {
         fi
     fi
 
+    # Install repo-local packages (aitbc-shared, aitbc-crypto, aitbc-sdk, etc.)
+    # The CLI and services import these as top-level packages; they must be
+    # present in editable form or imports fail on fresh venvs.
+    log "Installing repo-local packages..."
+    for pkg_dir in /opt/aitbc/packages/aitbc-shared /opt/aitbc/packages/py/*; do
+        if [ -d "$pkg_dir" ] && [ -f "$pkg_dir/pyproject.toml" ]; then
+            if pip install -q -e "$pkg_dir" >/dev/null 2>&1; then
+                log "Installed $(basename "$pkg_dir")"
+            else
+                warning "Failed to install $(basename "$pkg_dir")"
+            fi
+        fi
+    done
+
     # Install AITBC CLI
     log "Installing AITBC CLI..."
     if [ -d "/opt/aitbc/cli" ]; then
@@ -1311,12 +1346,16 @@ install_services() {
         systemctl daemon-reload
     fi
 
-    # Add aitbc CLI to PATH
+    # Add aitbc CLI to system PATH
     log "Adding aitbc CLI to system PATH..."
-    # Create wrapper script in /usr/local/bin/aitbc
+    # Create wrapper script in /usr/local/bin/aitbc.
+    # Sourcing the venv keeps PYTHONPATH and editable package metadata
+    # consistent with the way the repo is developed.
     cat > /usr/local/bin/aitbc << 'EOF'
-#!/bin/bash
-/opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"
+#!/bin/sh
+set -e
+. /opt/aitbc/venv/bin/activate
+exec aitbc "$@"
 EOF
     chmod +x /usr/local/bin/aitbc
     log "aitbc CLI installed to /usr/local/bin/aitbc"
