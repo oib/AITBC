@@ -751,6 +751,33 @@ def status(ctx, job_id, coordinator_url, format):
 
 
 @ai.command()
+@click.option("--job-id", required=True, help="Job ID to accept")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def accept(ctx, job_id, coordinator_url, format):
+    """Accept a completed job and release the escrowed payment."""
+    get_config()
+
+    try:
+        coord_url = _coordinator_base_url(ctx, coordinator_url)
+        if not coord_url:
+            abort(ctx, "Coordinator URL not configured")
+
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        result = http_client.post(f"/v1/jobs/{job_id}/accept")
+
+        success(f"Job {job_id} accepted and payment released")
+        output(result, ctx.obj.get("output_format", format))
+
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error accepting job: {e}", from_exception=e)
+
+
+@ai.command()
 @click.option("--job-id", required=True, help="Job ID to refund")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--coordinator-url", help="Coordinator URL")
