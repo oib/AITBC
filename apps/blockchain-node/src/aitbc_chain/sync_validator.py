@@ -193,7 +193,6 @@ class ProposerSignatureValidator:
         validator_canonical = {canonical_address(v) for v in validator_set}
 
         block_hash = block_data.get("hash", "")
-        block_height = block_data.get("height", 0)
 
         valid_count = 0
         seen = set()
@@ -210,9 +209,10 @@ class ProposerSignatureValidator:
                 continue
             if commit_block_hash and commit_block_hash != block_hash:
                 continue
-            if sequence_number != block_height:
-                continue
-            expected_digest = hashlib.sha256(f"{block_hash}:{sequence_number}:{view_number}".encode()).hexdigest()
+            # The PBFT sequence_number is the PBFT view sequence, not the chain
+            # height, so the only height binding we enforce is the block_hash.
+            expected_block_hash = commit_block_hash or block_hash
+            expected_digest = hashlib.sha256(f"{expected_block_hash}:{sequence_number}:{view_number}".encode()).hexdigest()
             if digest.lower() != expected_digest.lower():
                 continue
             if validator_canonical and canonical_address(sender) not in validator_canonical:
