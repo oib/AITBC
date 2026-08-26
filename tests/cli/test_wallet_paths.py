@@ -12,7 +12,22 @@ from aitbc_cli.utils.wallet_paths import wallet_dir
 def test_wallet_dir_defaults_to_home(monkeypatch, tmp_path):
     monkeypatch.delenv("AITBC_WALLET_DIR", raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("os.getuid", lambda: 12345)
     assert wallet_dir() == tmp_path / ".aitbc" / "wallets"
+
+
+def test_wallet_dir_defaults_to_var_lib_for_aitbc_user(monkeypatch, tmp_path):
+    monkeypatch.delenv("AITBC_WALLET_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("/home/aitbc")))
+    monkeypatch.setattr("os.getuid", lambda: 983)
+    monkeypatch.setattr("pwd.getpwuid", lambda uid: type("Pw", (), {"pw_name": "aitbc"})())
+    assert wallet_dir() == Path("/var/lib/aitbc/wallets")
+
+
+def test_wallet_dir_defaults_to_var_lib_when_home_is_var_lib(monkeypatch, tmp_path):
+    monkeypatch.delenv("AITBC_WALLET_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("/var/lib/aitbc")))
+    assert wallet_dir() == Path("/var/lib/aitbc/wallets")
 
 
 def test_wallet_dir_honours_env(monkeypatch, tmp_path):

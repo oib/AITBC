@@ -76,7 +76,7 @@ async def _import_file_wallets() -> None:
 
     import httpx
 
-    wallet_dir = Path(os.getenv("WALLET_DIR", "/root/.aitbc/wallets"))
+    wallet_dir = Path(os.getenv("WALLET_DIR") or os.getenv("AITBC_WALLET_DIR") or "/var/lib/aitbc/wallets")
     if not wallet_dir.exists():
         return
     wallet_files = list(wallet_dir.glob("*.json"))
