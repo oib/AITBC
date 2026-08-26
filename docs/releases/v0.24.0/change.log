@@ -1452,3 +1452,14 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   `model_registry` calling `node`/Poseidon at module import time.
   `model_hash` is now computed lazily via `ModelCircuit.get_model_hash()`.
 - Both coordinators now restart cleanly and `/health` returns 200.
+
+## Phase 3 — AI job lifecycle and dashboard sync (2026-08-26)
+
+- `aitbc ai cancel --refund` cancels a job and refunds the escrowed payment in one step.
+- `aitbc ai refund` now fails with a clear auth message when the user is not logged in.
+- `aitbc dashboard customer` and `aitbc dashboard shop` now show real wallet balances
+  (daemon + blockchain fallback) and override `payment_status` with the on-chain escrow state.
+- `cli/aitbc_cli/commands/market/escrow.py` exposes a shared `refund_escrow` helper used
+  by `ai cancel --refund` as a blockchain refund fallback.
+- Live: pushed to Gitea, pulled on `hub.aitbc` and `aitbc3`;
+  `aitbc dashboard customer`/`shop` show canonical addresses and formatted AIT balances.
