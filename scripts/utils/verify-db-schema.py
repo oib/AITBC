@@ -144,8 +144,12 @@ def _check_sqlmodel_db(
     if not db_path.exists():
         return []
 
-    expected = _expected_schema(metadata_list)
     actual = _actual_tables(db_path)
+    if not actual:
+        # Empty/uninitialised database; its service is probably not linked for this role.
+        return []
+
+    expected = _expected_schema(metadata_list)
     for table in sorted(actual):
         exp = expected.get(table)
         if exp is None:
@@ -162,15 +166,24 @@ def _check_sqlmodel_db(
     return errors
 
 
-def _check_static_db(db_path: Path, expected: dict[str, list[str]]) -> list[str]:
+def _check_static_db(
+    db_path: Path,
+    expected: dict[str, list[str]],
+    required_tables: list[str] | None = None,
+) -> list[str]:
     errors: list[str] = []
     if not db_path.exists():
         return []
 
     actual = _actual_tables(db_path)
+    if not actual:
+        return []
+
+    required = set(required_tables or list(expected.keys()))
     for table, cols in expected.items():
         if table not in actual:
-            errors.append(f"{db_path}: missing table '{table}'")
+            if table in required:
+                errors.append(f"{db_path}: missing table '{table}'")
             continue
         missing = set(cols) - _actual_columns(db_path, table)
         if missing:
@@ -227,8 +240,11 @@ def _repair_sqlmodel_db(
     if not db_path.exists():
         return [], []
 
-    quote, dialect = _sqlite_quote_and_type()
     actual = _actual_tables(db_path)
+    if not actual:
+        return [], []
+
+    quote, dialect = _sqlite_quote_and_type()
     for table in sorted(actual):
         exp_cols = _expected_columns(metadata_list, table)
         if exp_cols is None:
@@ -356,6 +372,7 @@ KNOWN_DBS: dict[str, Any] = {
     "exchange": {
         "type": "static",
         "path": _data_dir() / "exchange" / "exchange.db",
+        "required_tables": ["trades", "orders"],
         "tables": {
             "trades": ["id", "amount", "price", "total", "created_at"],
             "orders": [
@@ -421,6 +438,13 @@ KNOWN_DBS: dict[str, Any] = {
         "modules": ["coordinator_api.main"],
         "metadata": ["sqlmodel.SQLModel.metadata"],
         "required_tables": ["agent_executions"],
+    },
+    "agent_coordinator": {
+        "type": "static",
+        "path": _data_dir() / "agent_coordinator.db",
+        "tables": {
+            "messages": ["message_id", "data", "sender", "receiver", "timestamp", "status"],
+        },
     },
     "agent_coin_requests": {
         "type": "static",
@@ -558,7 +582,7 @@ def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[
             else:
                 errors.extend(_check_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables")))
         elif cfg["type"] == "static":
-            errors.extend(_check_static_db(db_path, cfg["tables"]))
+            errors.extend(_check_static_db(db_path, cfg["tables"], cfg.get("required_tables")))
 
     if dbs is None or "blockchain" in dbs or any(n.startswith("blockchain") for n in (dbs or [])):
         chain_dbs = _collect_chain_dbs()
