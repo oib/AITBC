@@ -15,7 +15,7 @@ from aitbc.compliance.policies import (
 )
 
 from ..config import get_config
-from ..utils import output, success, warning
+from ..utils import output, resolve_output_format, success, warning
 from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -668,12 +668,14 @@ def refund(ctx, job_id, reason, coordinator_url):
     get_config()
 
     try:
+        if not _auth_headers(ctx):
+            abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
+
         coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=_auth_headers(ctx))
 
         # Lookup payment_id for this job.
         job = http_client.get(f"/v1/jobs/{job_id}")
@@ -686,7 +688,7 @@ def refund(ctx, job_id, reason, coordinator_url):
             json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
         )
         success(f"Payment {payment_id} for job {job_id} refunded")
-        output(result, ctx.obj.get("output_format", "table"))
+        output(result, resolve_output_format(ctx, "table"))
 
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -875,15 +877,17 @@ def results(ctx, job_id, coordinator_url, format):
 
 
 @ai.command()
-@click.option("--job-id", help="Job ID")
-@click.option("--wallet", required=True, help="Wallet name")
+@click.option("--job-id", required=True, help="Job ID")
+@click.option("--wallet", help="Wallet name (optional)")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", type=click.Path(exists=True), help="Password file")
+@click.option("--refund", is_flag=True, help="Also refund the escrowed payment after cancel")
+@click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format):
-    """Cancel AI job"""
+def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordinator_url, format):
+    """Cancel AI job and optionally refund the payment."""
     get_config()
 
     try:
@@ -894,17 +898,41 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
         if not job_id:
             abort(ctx, "Job ID required")
 
-        # Get password
+        # Get password (kept for backward compatibility; cancel itself does not sign)
         if password_file:
             with open(password_file) as f:
                 _ = f.read().strip()
 
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        if not _auth_headers(ctx):
+            abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
+
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=_auth_headers(ctx))
         result = http_client.post(f"/v1/jobs/{job_id}/cancel")
 
+        payment_status = result.get("payment_status", "") if isinstance(result, dict) else ""
+        if refund and payment_status in ("escrowed", "pending", "pending_acceptance"):
+            payment_id = result.get("payment_id") if isinstance(result, dict) else None
+            refund_result = None
+            if payment_id:
+                try:
+                    refund_result = http_client.post(
+                        f"/v1/payments/{payment_id}/refund",
+                        json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
+                    )
+                except Exception as e:
+                    logger.warning("Coordinator refund after cancel failed: %s", e)
+            if not refund_result:
+                # Fallback to on-chain escrow refund.
+                from ..market.escrow import refund_escrow
+
+                refund_result = refund_escrow(ctx, job_id, reason)
+            if isinstance(result, dict):
+                result["refund"] = refund_result
+            else:
+                result = {"cancel_result": result, "refund": refund_result}
+
         success(f"Job {job_id} cancelled")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
 
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
