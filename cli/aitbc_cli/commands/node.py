@@ -13,6 +13,7 @@ from datetime import datetime
 
 import click
 
+from ..config import get_config
 from ..core.config import (
     add_node_config,
     get_default_node_config,
@@ -20,7 +21,7 @@ from ..core.config import (
     remove_node_config,
 )
 from ..core.node_client import NodeClient
-from ..utils.http_client import get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.output import error, info, output, success
 
 
@@ -457,13 +458,8 @@ def create(ctx, island_id, island_name, chain_id):
 @click.option("--is-hub", is_flag=True, help="Register this node as a hub for the island")
 @click.pass_context
 def join(ctx, island_id, island_name, chain_id, hub, is_hub):
-    """Join an existing island"""
+    """Join an existing island via the hub's HTTP RPC endpoint."""
     try:
-        # Get system hostname
-        hostname = socket.gethostname()
-
-        from aitbc_chain.config import settings as chain_settings
-
         # Get public key from keystore
         keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
         public_key_pem = None
@@ -481,93 +477,89 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
         if not public_key_pem:
             abort(ctx, "No public key found in keystore")
 
-        # Generate node_id using hostname-based method
-        local_address = socket.gethostbyname(hostname)
-        local_port = chain_settings.p2p_bind_port
-        content = f"{hostname}:{local_address}:{local_port}:{public_key_pem}"
-        node_id = hashlib.sha256(content.encode()).hexdigest()
-
-        # Resolve hub domain to IP
+        # Resolve hub domain and build the RPC URL.
         hub_ip = socket.gethostbyname(hub)
-        hub_port = chain_settings.p2p_bind_port
+        click.echo(f"Connecting to hub {hub} ({hub_ip}:8202)...")
 
-        click.echo(f"Connecting to hub {hub} ({hub_ip}:{hub_port})...")
+        config = get_config()
+        rpc_url = f"http://{hub}:8202"
+        client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
 
-        # Create P2P network service instance for sending join request
-        from aitbc_chain.p2p_network import P2PNetworkService
+        payload_chain_id = chain_id or config.chain_id
+        try:
+            response = client.post(
+                "/rpc/islands/join",
+                json={
+                    "island_id": island_id,
+                    "island_name": island_name,
+                    "chain_id": payload_chain_id,
+                    "is_hub": is_hub,
+                    "role": "compute-provider",
+                },
+            )
+        except NetworkError as e:
+            abort(ctx, f"Network error joining island: {e}")
 
-        # Create a minimal P2P service just for sending the join request
-        p2p_service = P2PNetworkService(
-            local_address,
-            local_port,
-            node_id,
-            "",
-            island_id=island_id,
-            island_name=island_name,
-            is_hub=is_hub,
-            island_chain_id=chain_id or chain_settings.island_chain_id or chain_settings.chain_id,
-        )
+        if not isinstance(response, dict) or not response.get("success"):
+            status = response.get("status", "unknown") if isinstance(response, dict) else "unknown"
+            message = response.get("message", "No response from hub") if isinstance(response, dict) else str(response)
+            abort(ctx, f"Failed to join island - status={status}: {message}")
 
-        # Send join request
-        async def send_join():
-            return await p2p_service.send_join_request(hub_ip, hub_port, island_id, island_name, node_id, public_key_pem)
+        # Prefer RPC endpoint from response; fall back to the URL we used.
+        credentials = response.get("credentials") or {}
+        if not credentials.get("rpc_endpoint"):
+            credentials["rpc_endpoint"] = f"{rpc_url}/rpc"
 
-        response = asyncio.run(send_join())
+        # Store credentials locally
+        credentials_path = "/var/lib/aitbc/island_credentials.json"
+        credentials_data = {
+            "island_id": response.get("island_id"),
+            "island_name": response.get("island_name"),
+            "island_chain_id": response.get("island_chain_id"),
+            "credentials": credentials,
+            "joined_at": datetime.now().isoformat(),
+        }
 
-        if response:
-            # Store credentials locally
-            credentials_path = "/var/lib/aitbc/island_credentials.json"
-            credentials_data = {
-                "island_id": response.get("island_id"),
-                "island_name": response.get("island_name"),
-                "island_chain_id": response.get("island_chain_id"),
-                "credentials": response.get("credentials"),
-                "joined_at": datetime.now().isoformat(),
-            }
+        with open(credentials_path, "w") as f:
+            json.dump(credentials_data, f, indent=2)
 
-            with open(credentials_path, "w") as f:
-                json.dump(credentials_data, f, indent=2)
+        # Ensure the runtime user can read its own island credentials.
+        try:
+            shutil.chown(credentials_path, user="aitbc", group="aitbc")
+        except (LookupError, OSError) as e:
+            logger.warning("Could not chown %s to aitbc:aitbc: %s", credentials_path, e)
+        try:
+            os.chmod(credentials_path, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError as e:
+            logger.warning("Could not chmod %s: %s", credentials_path, e)
 
-            # Ensure the runtime user can read its own island credentials.
-            try:
-                shutil.chown(credentials_path, user="aitbc", group="aitbc")
-            except (LookupError, OSError) as e:
-                logger.warning("Could not chown %s to aitbc:aitbc: %s", credentials_path, e)
-            try:
-                os.chmod(credentials_path, stat.S_IRUSR | stat.S_IWUSR)
-            except OSError as e:
-                logger.warning("Could not chmod %s: %s", credentials_path, e)
+        # Display join info
+        join_info = {
+            "Island ID": response.get("island_id"),
+            "Island Name": response.get("island_name"),
+            "Chain ID": response.get("island_chain_id"),
+            "Member Count": len(response.get("members", [])),
+            "Credentials Stored": credentials_path,
+        }
 
-            # Display join info
-            join_info = {
-                "Island ID": response.get("island_id"),
-                "Island Name": response.get("island_name"),
-                "Chain ID": response.get("island_chain_id"),
-                "Member Count": len(response.get("members", [])),
-                "Credentials Stored": credentials_path,
-            }
+        output(join_info, ctx.obj.get("output_format", "table"), title=f"Joined Island: {island_name}")
 
-            output(join_info, ctx.obj.get("output_format", "table"), title=f"Joined Island: {island_name}")
+        # Display member list
+        members = response.get("members", [])
+        if members:
+            output(members, ctx.obj.get("output_format", "table"), title="Island Members")
 
-            # Display member list
-            members = response.get("members", [])
-            if members:
-                output(members, ctx.obj.get("output_format", "table"), title="Island Members")
+        # Display credentials
+        if credentials:
+            output(credentials, ctx.obj.get("output_format", "table"), title="Blockchain Credentials")
 
-            # Display credentials
-            credentials = response.get("credentials", {})
-            if credentials:
-                output(credentials, ctx.obj.get("output_format", "table"), title="Blockchain Credentials")
+        success(f"Successfully joined island {island_name}")
 
-            success(f"Successfully joined island {island_name}")
-
-            # If registering as hub
-            if is_hub:
-                click.echo("Registering as hub...")
-                # Hub registration would happen here via the hub register command
-                click.echo("Run 'aitbc node hub register' to complete hub registration")
-        else:
-            abort(ctx, "Failed to join island - no response from hub")
+        # If registering as hub
+        if is_hub:
+            click.echo("Registering as hub...")
+            # Hub registration would happen here via the hub register command
+            click.echo("Run 'aitbc node hub register' to complete hub registration")
 
     except Exception as e:
         abort(ctx, f"Error joining island: {str(e)}", from_exception=e)
