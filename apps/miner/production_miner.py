@@ -288,7 +288,7 @@ def send_heartbeat():
     latency_ms = measure_coordinator_latency()
     if gpu_info:
         heartbeat_data = {
-            "status": "active",
+            "status": "ONLINE",
             "current_jobs": 0,
             "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": gpu_info["utilization"],
@@ -300,7 +300,7 @@ def send_heartbeat():
         }
     else:
         heartbeat_data = {
-            "status": "active",
+            "status": "ONLINE",
             "current_jobs": 0,
             "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": 0,

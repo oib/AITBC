@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import os
+from datetime import UTC, datetime, timedelta
+
+_MINER_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS", "300"))
 from typing import Any
 from uuid import uuid4
 
@@ -120,7 +123,9 @@ class MinerService:
         return list(self.session.scalars(select(Miner)).all())
 
     def online_count(self) -> int:
-        result = self.session.execute(select(Miner).where(Miner.status == "ONLINE"))
+        cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=_MINER_HEARTBEAT_CUTOFF_SECONDS)
+        statement = select(Miner).where(Miner.status == "ONLINE", Miner.last_heartbeat >= cutoff)
+        result = self.session.execute(statement)
         return len(result.all())
 
     def deregister(self, miner_id: str) -> None:
