@@ -3,6 +3,17 @@
 
 Run after migrations (e.g. from run-migrations.sh or update.sh) to catch drift
 such as a stamped alembic_version that does not actually include all columns.
+
+Covers the SQLite databases used by the production services:
+  coordinator, blockchain (per-island chain.db), keystore, wallet_ledger,
+  governance, trading, gpu, edge, marketplace, exchange and hermes coin requests.
+
+Any other non-empty .db files found under the data directory are reported as
+unverified warnings so they are not silently ignored.
+
+Postgres-backed databases are NOT verified by this SQLite tool; they are checked
+by run-migrations.sh with `alembic upgrade head` and an optional `alembic current`
+head check.
 """
 
 from __future__ import annotations
@@ -10,12 +21,13 @@ from __future__ import annotations
 import argparse
 import importlib
 import io
+import json
 import logging
 import os
 import re
 import sqlite3
 import sys
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -52,35 +64,6 @@ def _setup_pythonpath() -> None:
             sys.path.insert(0, p)
 
 
-def actual_tables(db_path: Path) -> set[str]:
-    conn = sqlite3.connect(db_path)
-    try:
-        cur = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'"
-        )
-        return {row[0] for row in cur.fetchall()}
-    finally:
-        conn.close()
-
-
-def actual_columns(db_path: Path, table: str) -> set[str]:
-    conn = sqlite3.connect(db_path)
-    try:
-        cur = conn.execute(f'PRAGMA table_info("{table}")')
-        return {row[1] for row in cur.fetchall()}
-    finally:
-        conn.close()
-
-
-def resolve_metadata(metadata_attr: str) -> Any:
-    parts = metadata_attr.split(".")
-    mod = importlib.import_module(parts[0])
-    obj = mod
-    for part in parts[1:]:
-        obj = getattr(obj, part)
-    return obj
-
-
 @contextmanager
 def _suppress_import_noise():
     old_level = logging.root.level
@@ -97,66 +80,107 @@ def _suppress_import_noise():
         sys.stderr = old_stderr
 
 
-def load_metadata(module_name: str, metadata_attr: str) -> Any:
+def _actual_tables(db_path: Path) -> set[str]:
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'")
+        return {row[0] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def _actual_columns(db_path: Path, table: str) -> set[str]:
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.execute(f'PRAGMA table_info("{table}")')
+        return {row[1] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
+def _resolve_metadata(metadata_attr: str) -> Any:
+    parts = metadata_attr.split(".")
+    mod = importlib.import_module(parts[0])
+    obj = mod
+    for part in parts[1:]:
+        obj = getattr(obj, part)
+    return obj
+
+
+def _load_metadata(modules: list[str], metadata_attrs: list[str]) -> list[Any]:
     with _suppress_import_noise():
-        importlib.import_module(module_name)
-    return resolve_metadata(metadata_attr)
+        for mod in modules:
+            importlib.import_module(mod)
+    return [_resolve_metadata(attr) for attr in metadata_attrs]
 
 
-def expected_columns(metadata: Any, table: str) -> set[str] | None:
-    if table not in metadata.tables:
-        return None
-    return {c.name for c in metadata.tables[table].columns}
+def _expected_schema(metadata_list: list[Any]) -> dict[str, set[str]]:
+    expected: dict[str, set[str]] = {}
+    for metadata in metadata_list:
+        for table in metadata.tables:
+            if table not in expected:
+                expected[table] = set()
+            expected[table] |= {c.name for c in metadata.tables[table].columns}
+    return expected
 
 
-def check_sqlmodel_db(
+def _expected_columns(metadata_list: list[Any], table: str) -> dict[str, Any] | None:
+    cols: dict[str, Any] = {}
+    for metadata in metadata_list:
+        if table not in metadata.tables:
+            continue
+        for c in metadata.tables[table].columns:
+            if c.name not in cols:
+                cols[c.name] = c
+    return cols if cols else None
+
+
+def _check_sqlmodel_db(
     db_path: Path,
-    metadata: Any,
+    metadata_list: list[Any],
     required_tables: list[str] | None = None,
 ) -> list[str]:
     errors: list[str] = []
     if not db_path.exists():
         return []
 
-    actual = actual_tables(db_path)
+    expected = _expected_schema(metadata_list)
+    actual = _actual_tables(db_path)
     for table in sorted(actual):
-        exp = expected_columns(metadata, table)
+        exp = expected.get(table)
         if exp is None:
             continue
-        missing = exp - actual_columns(db_path, table)
+        missing = exp - _actual_columns(db_path, table)
         if missing:
-            errors.append(
-                f"{db_path}: table '{table}' missing columns: {sorted(missing)}"
-            )
+            errors.append(f"{db_path}: table '{table}' missing columns: {sorted(missing)}")
 
     for table in required_tables or []:
         if table not in actual:
-            exp = expected_columns(metadata, table)
+            exp = _expected_columns(metadata_list, table)
             if exp is not None:
                 errors.append(f"{db_path}: required table '{table}' is missing")
     return errors
 
 
-def check_static_db(db_path: Path, expected: dict[str, list[str]]) -> list[str]:
+def _check_static_db(db_path: Path, expected: dict[str, list[str]]) -> list[str]:
     errors: list[str] = []
     if not db_path.exists():
         return []
 
-    actual = actual_tables(db_path)
+    actual = _actual_tables(db_path)
     for table, cols in expected.items():
         if table not in actual:
             errors.append(f"{db_path}: missing table '{table}'")
             continue
-        missing = set(cols) - actual_columns(db_path, table)
+        missing = set(cols) - _actual_columns(db_path, table)
         if missing:
-            errors.append(
-                f"{db_path}: table '{table}' missing columns: {sorted(missing)}"
-            )
+            errors.append(f"{db_path}: table '{table}' missing columns: {sorted(missing)}")
     return errors
 
 
 def _sqlite_quote_and_type():
     from sqlalchemy import create_engine
+
     engine = create_engine("sqlite://")
     return engine.dialect.identifier_preparer.quote, engine.dialect
 
@@ -185,32 +209,31 @@ def _add_missing_column(db_path: Path, table: str, col, dialect, quote) -> str |
             # quoted by the SQLite dialect; this is trusted DDL, not user input.
             (row_count,) = conn.execute(f"SELECT COUNT(*) FROM {quote(table)}").fetchone()  # nosec B608
             if row_count > 0:
-                return (
-                    f"{table}.{col.name} is NOT NULL with no default and the table "
-                    f"has {row_count} rows; cannot safely add"
-                )
-        conn.execute(
-            f"ALTER TABLE {quote(table)} ADD COLUMN {quote(col.name)} {coltype}{default}"
-        )  # nosec B608
+                return f"{table}.{col.name} is NOT NULL with no default and the table has {row_count} rows; cannot safely add"
+        conn.execute(f"ALTER TABLE {quote(table)} ADD COLUMN {quote(col.name)} {coltype}{default}")  # nosec B608
         conn.commit()
         return None
     finally:
         conn.close()
 
 
-def repair_sqlmodel_db(db_path: Path, metadata: Any, required_tables: list[str] | None = None) -> tuple[list[str], list[str]]:
+def _repair_sqlmodel_db(
+    db_path: Path,
+    metadata_list: list[Any],
+    required_tables: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
     repairs: list[str] = []
     errors: list[str] = []
     if not db_path.exists():
         return [], []
 
     quote, dialect = _sqlite_quote_and_type()
-    actual = actual_tables(db_path)
+    actual = _actual_tables(db_path)
     for table in sorted(actual):
-        if table not in metadata.tables:
+        exp_cols = _expected_columns(metadata_list, table)
+        if exp_cols is None:
             continue
-        exp_cols = {c.name: c for c in metadata.tables[table].columns}
-        existing = actual_columns(db_path, table)
+        existing = _actual_columns(db_path, table)
         missing = set(exp_cols) - existing
         for col_name in sorted(missing):
             err = _add_missing_column(db_path, table, exp_cols[col_name], dialect, quote)
@@ -218,6 +241,12 @@ def repair_sqlmodel_db(db_path: Path, metadata: Any, required_tables: list[str] 
                 errors.append(f"{db_path}: {err}")
             else:
                 repairs.append(f"{db_path}: added {table}.{col_name}")
+
+    for table in required_tables or []:
+        if table not in actual:
+            exp_cols = _expected_columns(metadata_list, table)
+            if exp_cols is not None:
+                errors.append(f"{db_path}: required table '{table}' is missing; cannot create table")
     return repairs, errors
 
 
@@ -234,13 +263,187 @@ def _active_chain_ids() -> list[str]:
     return chain_ids
 
 
-KNOWN_DBS = {
+def _collect_chain_dbs() -> list[Path]:
+    data_dir = _data_dir()
+    dbs: list[Path] = []
+    for chain_id in _active_chain_ids():
+        db = data_dir / chain_id / "chain.db"
+        if db.exists():
+            dbs.append(db)
+    # Fall back to legacy root chain.db only if it is actually populated.
+    if not dbs:
+        root_db = data_dir / "chain.db"
+        if root_db.exists() and _actual_tables(root_db):
+            dbs.append(root_db)
+    return dbs
+
+
+# Registry of known SQLite databases and how to load their expected schema.
+# Metadata is loaded in-process; apps with private metadata are listed first
+# to avoid SQLModel global-metadata pollution where possible.
+KNOWN_DBS: dict[str, Any] = {
     "coordinator": {
         "type": "sqlmodel",
         "path": _data_dir() / "coordinator.db",
-        "module": "coordinator_api.main",
-        "metadata": "sqlmodel.SQLModel.metadata",
+        "modules": ["coordinator_api.main"],
+        "metadata": ["sqlmodel.SQLModel.metadata"],
         "required_tables": ["job", "escrow", "miner"],
+    },
+    "governance": {
+        "type": "sqlmodel",
+        "path": _data_dir() / "governance_service.db",
+        "modules": ["governance_service.domain.governance", "governance_service.domain.base"],
+        "metadata": ["governance_service.domain.base.governance_metadata"],
+        "required_tables": ["proposals", "votes"],
+    },
+    "trading": {
+        "type": "sqlmodel",
+        "path": _data_dir() / "trading_service.db",
+        "modules": [
+            "trading_service.domain.inter_chain",
+            "trading_service.domain.trading",
+            "trading_service.domain.base",
+            "aitbc_shared.models",
+        ],
+        "metadata": [
+            "trading_service.domain.base.trading_metadata",
+            "sqlmodel.SQLModel.metadata",
+        ],
+        "required_tables": ["trade_requests"],
+    },
+    "gpu": {
+        "type": "sqlmodel",
+        "path": _data_dir() / "gpu_service.db",
+        "modules": [
+            "gpu_service.domain.gpu_marketplace",
+            "gpu_service.domain.base",
+            "aitbc_shared.models",
+        ],
+        "metadata": [
+            "gpu_service.domain.base.gpu_metadata",
+            "sqlmodel.SQLModel.metadata",
+        ],
+        "required_tables": ["gpu_registry"],
+    },
+    "edge": {
+        "type": "sqlmodel",
+        "path": _data_dir() / "aitbc_edge.db",
+        "modules": [
+            "aitbc_edge.schemas.database",
+            "aitbc_edge.schemas.gpu",
+            "aitbc_edge.schemas.island",
+            "aitbc_edge.schemas.metrics",
+            "aitbc_edge.schemas.serve",
+            "aitbc_shared.models",
+        ],
+        "metadata": ["sqlmodel.SQLModel.metadata"],
+        "required_tables": ["compute_requests"],
+    },
+    "marketplace": {
+        "type": "sqlmodel",
+        "path": _data_dir() / "marketplace_service.db",
+        "modules": [
+            "marketplace_service.domain.marketplace",
+            "marketplace_service.domain.global_marketplace",
+            "marketplace_service.domain.base",
+        ],
+        "metadata": [
+            "marketplace_service.domain.base.marketplace_metadata",
+            "sqlmodel.SQLModel.metadata",
+        ],
+        "required_tables": ["bids", "marketplaceoffer"],
+    },
+    "exchange": {
+        "type": "static",
+        "path": _data_dir() / "exchange" / "exchange.db",
+        "tables": {
+            "trades": ["id", "amount", "price", "total", "created_at"],
+            "orders": [
+                "id",
+                "order_type",
+                "amount",
+                "price",
+                "total",
+                "filled",
+                "remaining",
+                "status",
+                "created_at",
+                "user_address",
+                "tx_hash",
+            ],
+            "marketplace_offers": [
+                "id",
+                "item",
+                "item_type",
+                "price",
+                "wallet",
+                "status",
+                "description",
+                "created_at",
+            ],
+            "marketplace_orders": [
+                "id",
+                "order_type",
+                "item",
+                "price",
+                "wallet",
+                "status",
+                "created_at",
+            ],
+        },
+    },
+    "hermes": {
+        "type": "static",
+        "path": _data_dir() / "hermes_coin_requests.db",
+        "tables": {
+            "coin_requests": [
+                "id",
+                "sender",
+                "recipient",
+                "amount",
+                "wallet_address",
+                "status",
+                "approval_mode",
+                "approved_by",
+                "approved_at",
+                "rejection_reason",
+                "created_at",
+                "expires_at",
+                "signed_transaction",
+                "transaction_hash",
+                "audit_log",
+            ],
+        },
+    },
+    "agent_management": {
+        "type": "sqlmodel",
+        "path": _data_dir() / "agent_management.db",
+        "modules": ["coordinator_api.main"],
+        "metadata": ["sqlmodel.SQLModel.metadata"],
+        "required_tables": ["agent_executions"],
+    },
+    "agent_coin_requests": {
+        "type": "static",
+        "path": _data_dir() / "agent_coin_requests.db",
+        "tables": {
+            "coin_requests": [
+                "id",
+                "sender",
+                "recipient",
+                "amount",
+                "wallet_address",
+                "status",
+                "approval_mode",
+                "approved_by",
+                "approved_at",
+                "rejection_reason",
+                "created_at",
+                "expires_at",
+                "signed_transaction",
+                "transaction_hash",
+                "audit_log",
+            ],
+        },
     },
     "keystore": {
         "type": "static",
@@ -277,19 +480,53 @@ KNOWN_DBS = {
 }
 
 
-def _collect_chain_dbs() -> list[Path]:
+def _known_db_paths() -> set[Path]:
+    paths: set[Path] = set()
+    for cfg in KNOWN_DBS.values():
+        if "path" in cfg:
+            paths.add(Path(cfg["path"]).resolve())
+    return paths
+
+
+def _auto_discover(checked: set[Path]) -> list[str]:
+    """Return warnings for non-empty SQLite files that are not in the known set.
+
+    Skips legacy, backup and test databases (pre-migrate*, backup*, test_*) and
+    non-active chain databases so the output is not swamped by old copies.
+    """
+    warnings: list[str] = []
     data_dir = _data_dir()
-    dbs: list[Path] = []
-    for chain_id in _active_chain_ids():
-        db = data_dir / chain_id / "chain.db"
-        if db.exists():
-            dbs.append(db)
-    # Fall back to legacy root chain.db only if it is actually populated.
-    if not dbs:
-        root_db = data_dir / "chain.db"
-        if root_db.exists() and actual_tables(root_db):
-            dbs.append(root_db)
-    return dbs
+    if not data_dir.exists():
+        return warnings
+
+    active_chain_ids = set(_active_chain_ids())
+
+    for db_path in data_dir.rglob("*.db"):
+        resolved = db_path.resolve()
+        if resolved in checked:
+            continue
+        if not db_path.exists():
+            continue
+
+        rel = db_path.relative_to(data_dir)
+        parts = rel.parts
+        if any(
+            part.lower().startswith("pre-migrate") or "backup" in part.lower() or part.lower().startswith("test_")
+            for part in parts
+        ):
+            continue
+
+        # Skip non-active island chain databases and the legacy root chain.db
+        # unless _collect_chain_dbs already added it to the checked set.
+        if db_path.name == "chain.db":
+            if rel.parent == Path("."):
+                continue  # legacy root chain.db; checked if it is the active fallback
+            if rel.parent.name not in active_chain_ids:
+                continue  # old / test island chain db
+
+        if _actual_tables(db_path):
+            warnings.append(f"Unverified database (not in schema registry): {db_path}")
+    return warnings
 
 
 def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[str], list[str], list[str]]:
@@ -297,93 +534,68 @@ def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[
     errors: list[str] = []
     warnings: list[str] = []
     actions: list[str] = []
+    checked_paths: set[Path] = _known_db_paths()
 
     selected = dbs or list(KNOWN_DBS.keys())
     for name in selected:
         if name == "blockchain" or name.endswith("-chain"):
-            # handled below
             continue
         cfg = KNOWN_DBS.get(name)
         if not cfg:
             warnings.append(f"Unknown DB name: {name}")
             continue
 
+        db_path = Path(cfg["path"])
+        checked_paths.add(db_path.resolve())
+
         if cfg["type"] == "sqlmodel":
-            try:
-                metadata = load_metadata(cfg["module"], cfg["metadata"])
-            except Exception as exc:
-                errors.append(f"{name}: failed to load metadata ({exc})")
-                continue
-            db_path = Path(cfg["path"])
+            modules = cfg["modules"]
+            metadata_list = _load_metadata(modules, cfg["metadata"])
             if repair:
-                rep, err = repair_sqlmodel_db(db_path, metadata, cfg.get("required_tables"))
+                rep, err = _repair_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables"))
                 actions.extend(rep)
                 errors.extend(err)
             else:
-                errors.extend(
-                    check_sqlmodel_db(
-                        db_path,
-                        metadata,
-                        cfg.get("required_tables"),
-                    )
-                )
+                errors.extend(_check_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables")))
         elif cfg["type"] == "static":
-            db_path = Path(cfg["path"])
-            errors.extend(check_static_db(db_path, cfg["tables"]))
+            errors.extend(_check_static_db(db_path, cfg["tables"]))
 
-    if dbs is None or "blockchain" in dbs or any(
-        n.startswith("blockchain") for n in (dbs or [])
-    ):
+    if dbs is None or "blockchain" in dbs or any(n.startswith("blockchain") for n in (dbs or [])):
         chain_dbs = _collect_chain_dbs()
         if not chain_dbs:
             warnings.append("No active chain database found")
         else:
-            try:
-                metadata = load_metadata("aitbc_chain.database", "aitbc_chain.database.chain_metadata")
-            except Exception as exc:
-                errors.append(f"blockchain: failed to load metadata ({exc})")
-                metadata = None
+            metadata_list = _load_metadata(
+                ["aitbc_chain.database"],
+                ["aitbc_chain.database.chain_metadata"],
+            )
+            for db_path in chain_dbs:
+                checked_paths.add(db_path.resolve())
+                if repair:
+                    rep, err = _repair_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"])
+                    actions.extend(rep)
+                    errors.extend(err)
+                else:
+                    errors.extend(_check_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"]))
 
-            if metadata:
-                for db_path in chain_dbs:
-                    if repair:
-                        rep, err = repair_sqlmodel_db(db_path, metadata, ["account", "block", "transaction"])
-                        actions.extend(rep)
-                        errors.extend(err)
-                    else:
-                        errors.extend(
-                            check_sqlmodel_db(
-                                db_path,
-                                metadata,
-                                ["account", "block", "transaction"],
-                            )
-                        )
+    if dbs is None:
+        warnings.extend(_auto_discover(checked_paths))
 
     return errors, warnings, actions
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify AITBC DB schemas")
-    parser.add_argument(
-        "--all", action="store_true", help="Check all known databases"
-    )
-    parser.add_argument(
-        "--db", action="append", help="Check specific DB by name (may be repeated)"
-    )
-    parser.add_argument(
-        "--json", action="store_true", help="Output machine-readable JSON"
-    )
+    parser.add_argument("--all", action="store_true", help="Check all known databases")
+    parser.add_argument("--db", action="append", help="Check specific DB by name (may be repeated)")
+    parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     parser.add_argument(
         "--repair",
         action="store_true",
         help="Add missing columns that are nullable or have a default",
     )
-    parser.add_argument(
-        "--aitbc-root", default=None, help="Override AITBC_ROOT"
-    )
-    parser.add_argument(
-        "--data-dir", default=None, help="Override AITBC data directory"
-    )
+    parser.add_argument("--aitbc-root", default=None, help="Override AITBC_ROOT")
+    parser.add_argument("--data-dir", default=None, help="Override AITBC data directory")
     args = parser.parse_args()
 
     if args.aitbc_root:
@@ -397,8 +609,6 @@ def main() -> int:
     errors, warnings, actions = check_all(args.db, repair=args.repair)
 
     if args.json:
-        import json
-
         print(json.dumps({"errors": errors, "warnings": warnings, "actions": actions}))
     else:
         for a in actions:

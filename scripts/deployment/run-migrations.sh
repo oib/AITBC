@@ -177,7 +177,20 @@ run_migrations() {
                 set +a
                 set -u
             fi
-            cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /'
+            cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /' && {
+                case "${DATABASE_URL:-}" in
+                    postgresql*|postgres*)
+                        if ! head_check=$(PYTHONPATH="$pythonpath" DATABASE_URL="$DATABASE_URL" "$alembic_bin" -c "$ini" current 2>&1); then
+                            echo "Postgres head check for $svc_name failed: $head_check" >&2
+                            exit 1
+                        fi
+                        if ! grep -q '(head)' <<< "$head_check"; then
+                            echo "Postgres DB for $svc_name is not at alembic head: $head_check" >&2
+                            exit 1
+                        fi
+                        ;;
+                esac
+            }
         ); then
             success "  migrated: $svc_name"
             migrated=$((migrated + 1))
@@ -201,7 +214,6 @@ run_migrations() {
     fi
     return 0
 }
-
 
 verify_schemas() {
     log "Step 5b: Verifying live DB schemas against code models..."
