@@ -773,3 +773,24 @@ class LiquidityDistribution(ChainBase, table=True):
     reward_per_share_after: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18), default=0))
     total_staked: int = Field(default=0, sa_column=Column(BigInteger, default=0))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+class IPFSSubscription(ChainBase, table=True):
+    """On-chain IPFS subscription for island members.
+
+    Records a paid subscription that grants access to a private island IPFS
+    swarm. The subscription is keyed by (chain_id, island_id, member_address).
+    """
+
+    __tablename__ = "ipfs_subscription"
+    __table_args__ = (UniqueConstraint("chain_id", "island_id", "member_address", name="uix_ipfs_subscription"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    island_id: str = Field(index=True)
+    member_address: str = Field(sa_column=Column(AccountAddress(), index=True))
+    expires_at_block: int = Field(default=0)
+    quota_bytes: int = Field(default=0)
+    used_bytes: int = Field(default=0)
+    created_tx_hash: str | None = None
+    updated_tx_hash: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -13,12 +13,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from eth_utils import keccak
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlmodel import Session, select
 
 from ..config import settings
 from ..logger import get_logger
-from ..base_models import Bond, _to_ait_address
+from ..base_models import Block, Bond, IPFSSubscription, _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_transaction_signature
@@ -277,6 +277,27 @@ class StateTransition:
                 return (False, f"Receipt {receipt_id} has invalid miner signature")
             if not receipt.coordinator_attestations or not isinstance(receipt.coordinator_attestations, list):
                 return (False, f"Receipt {receipt_id} has invalid coordinator attestations")
+        if tx_type == "IPFS_SUBSCRIPTION":
+            payload = tx_data.get("payload", {}) or {}
+            if isinstance(payload, str):
+                try:
+                    import json
+
+                    payload = json.loads(payload)
+                except Exception:
+                    return (False, "IPFS_SUBSCRIPTION payload is not valid JSON")
+            if not payload.get("island_id"):
+                return (False, "IPFS_SUBSCRIPTION payload must include island_id")
+            duration_blocks = payload.get("duration_blocks")
+            if not isinstance(duration_blocks, int) or duration_blocks <= 0:
+                return (False, "IPFS_SUBSCRIPTION payload must include positive duration_blocks")
+            quota_bytes = payload.get("quota_bytes")
+            if not isinstance(quota_bytes, int) or quota_bytes < 0:
+                return (False, "IPFS_SUBSCRIPTION payload must include non-negative quota_bytes")
+            if value <= 0:
+                return (False, "IPFS_SUBSCRIPTION requires value > 0")
+            # Ensure recipient (island treasury) exists so the payment can be credited.
+            _ensure_account(session, chain_id, recipient_addr)
         return (True, "Transaction validated successfully")
 
     def apply_transaction(
@@ -463,6 +484,8 @@ class StateTransition:
                 logger.info(
                     "Claimed receipt %s: minted_amount=%s, claimed_by=%s", receipt_id, receipt.minted_amount, sender_addr
                 )
+        if tx_type == "IPFS_SUBSCRIPTION":
+            self._handle_ipfs_subscription(session, chain_id, tx_data, tx_hash, sender_addr)
         self._processed_tx_hashes.add(tx_hash)
         if sender_addr is not None:
             self._processed_nonces[sender_addr] = sender_account.nonce  # type: ignore[union-attr]
@@ -481,6 +504,83 @@ class StateTransition:
             tx_type,
         )
         return (True, "Transaction applied successfully")
+
+    def _handle_ipfs_subscription(
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+        sender_addr: str,
+    ) -> None:
+        """Record or extend an on-chain IPFS subscription for an island member."""
+        payload = tx_data.get("payload", {}) or {}
+        if isinstance(payload, str):
+            try:
+                import json
+
+                payload = json.loads(payload)
+            except Exception:
+                logger.warning("IPFS_SUBSCRIPTION payload is not valid JSON: %s", tx_hash)
+                return
+        island_id = payload.get("island_id")
+        duration_blocks = payload.get("duration_blocks", 0)
+        quota_bytes = payload.get("quota_bytes", 0)
+        if (
+            not island_id
+            or not isinstance(duration_blocks, int)
+            or duration_blocks <= 0
+            or not isinstance(quota_bytes, int)
+            or quota_bytes < 0
+        ):
+            logger.warning("IPFS_SUBSCRIPTION tx %s has invalid payload: %s", tx_hash, payload)
+            return
+
+        current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
+        expires_at_block = current_height + duration_blocks
+
+        existing = session.exec(
+            select(IPFSSubscription).where(
+                IPFSSubscription.chain_id == chain_id,
+                IPFSSubscription.island_id == island_id,
+                IPFSSubscription.member_address == sender_addr,
+            )
+        ).first()
+        now = datetime.now(UTC)
+        if existing:
+            existing.expires_at_block = max(existing.expires_at_block, expires_at_block)
+            existing.quota_bytes += quota_bytes
+            existing.updated_tx_hash = tx_hash
+            existing.updated_at = now
+            logger.info(
+                "IPFS subscription extended: island=%s member=%s expires=%s quota=%s",
+                island_id,
+                sender_addr,
+                existing.expires_at_block,
+                existing.quota_bytes,
+            )
+        else:
+            session.add(
+                IPFSSubscription(
+                    chain_id=chain_id,
+                    island_id=island_id,
+                    member_address=sender_addr,
+                    expires_at_block=expires_at_block,
+                    quota_bytes=quota_bytes,
+                    used_bytes=0,
+                    created_tx_hash=tx_hash,
+                    updated_tx_hash=tx_hash,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            logger.info(
+                "IPFS subscription created: island=%s member=%s expires=%s quota=%s",
+                island_id,
+                sender_addr,
+                expires_at_block,
+                quota_bytes,
+            )
 
     def _handle_governance_execute(
         self,
