@@ -73,18 +73,6 @@ class ProposerSignatureValidator:
             int(hash_hex, 16)
         except ValueError:
             return (False, f"Invalid hex in hash: {hash_hex}")
-        # v0.7.5: if multi-validator consensus is enabled and the proposer is not in
-        # the current validator set, accept the block as a pre-multi-validator era block
-        # without verifying its signature. This lets new nodes sync through chains that
-        # contain historical blocks with mismatched proposer/keys (V23-51..55).
-        if getattr(settings, "multi_validator_consensus_enabled", False) and getattr(settings, "validator_set", ""):
-            validator_set = self._load_validator_set()
-            if validator_set:
-                from aitbc.crypto.signature_recovery import canonical_address
-
-                proposer_canonical = canonical_address(proposer)
-                if not any(canonical_address(v) == proposer_canonical for v in validator_set):
-                    return (True, "Pre-multi-validator block: proposer not in validator set")
 
         if self._trusted and proposer not in self._trusted:
             metrics_registry.increment("sync_signature_rejected_total")
