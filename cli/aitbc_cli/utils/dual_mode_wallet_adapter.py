@@ -14,7 +14,7 @@ from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
 
 from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
 
-from aitbc_cli.utils.wallet_paths import wallet_dir
+from aitbc_cli.utils.wallet_paths import find_wallet_file, wallet_dir, wallet_search_dirs
 
 
 class DualModeWalletAdapter:
@@ -183,8 +183,15 @@ class DualModeWalletAdapter:
     def _list_wallets_file(self) -> list[dict[str, Any]]:
         """List wallets using file-based storage"""
         wallets = []
+        seen: set[str] = set()
 
-        for wallet_file in self.wallet_dir.glob("*.json"):
+        for directory in wallet_search_dirs():
+            if not directory.exists():
+                continue
+            for wallet_file in directory.glob("*.json"):
+                if wallet_file.stem in seen:
+                    continue
+                seen.add(wallet_file.stem)
             try:
                 with open(wallet_file) as f:
                     wallet_data = json.load(f)
@@ -208,7 +215,11 @@ class DualModeWalletAdapter:
     def get_wallet_info(self, wallet_name: str) -> dict[str, Any] | None:
         """Get wallet information using the appropriate mode"""
         if self.use_daemon:
-            return self._get_wallet_info_daemon(wallet_name)
+            info = self._get_wallet_info_daemon(wallet_name)
+            if info:
+                return info
+            # Fall back to file wallets (e.g. service wallets not in daemon)
+            return self._get_wallet_info_file(wallet_name)
         else:
             return self._get_wallet_info_file(wallet_name)
 
@@ -239,9 +250,9 @@ class DualModeWalletAdapter:
     def _get_wallet_info_file(self, wallet_name: str) -> dict[str, Any] | None:
         """Get wallet info using file-based storage"""
 
-        wallet_path = self.wallet_dir / f"{wallet_name}.json"
+        wallet_path = find_wallet_file(wallet_name)
 
-        if not wallet_path.exists():
+        if wallet_path is None:
             return None
 
         try:
