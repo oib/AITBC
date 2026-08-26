@@ -12,11 +12,6 @@ import uuid
 import click
 
 try:
-    from aitbc_cli.config import get_config
-except ImportError:
-    from aitbc_cli.config import get_config
-
-try:
     from aitbc_cli.utils import error, output, success, warning
 except ImportError:
     from aitbc_cli.utils import error, output, success, warning
@@ -25,6 +20,28 @@ try:
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 except ImportError:
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
+
+
+def _resolve_join_rpc_url(hub: str, rpc_url: str | None) -> str:
+    """Return the RPC base URL to use for the island join request."""
+    if rpc_url:
+        return rpc_url.rstrip("/")
+
+    from aitbc_cli.config import get_config
+
+    config = get_config()
+    if config.blockchain_rpc_url:
+        return config.blockchain_rpc_url.rstrip("/")
+
+    try:
+        hub_ip = socket.gethostbyname(hub)
+    except socket.gaierror:
+        hub_ip = ""
+
+    if hub_ip in ("127.0.0.1", "::1", "localhost"):
+        return "http://127.0.0.1:8202"
+
+    return f"http://{hub}:8202"
 
 
 def create_island_command(ctx, island_id, island_name, chain_id):
@@ -46,7 +63,7 @@ def create_island_command(ctx, island_id, island_name, chain_id):
         raise click.Abort() from e
 
 
-def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
+def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, rpc_url: str | None = None):
     """Join an existing island via the hub's HTTP RPC endpoint."""
     try:
         from datetime import datetime
@@ -71,16 +88,17 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
             raise click.Abort()
 
         # Resolve hub domain and build the RPC URL.
-        hub_ip = socket.gethostbyname(hub)
-        click.echo(f"Connecting to hub {hub} ({hub_ip}:8202)...")
+        rpc_base = _resolve_join_rpc_url(hub, rpc_url)
+        click.echo(f"Connecting to hub {hub} (RPC {rpc_base})...")
+
+        from aitbc_cli.config import get_config
 
         config = get_config()
-        rpc_url = f"http://{hub}:8202"
-        client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        client = AITBCHTTPClient(base_url=rpc_base, timeout=10)
 
         payload_chain_id = chain_id or config.chain_id
         response = client.post(
-            "/rpc/islands/join",
+            "/islands/join" if rpc_base.endswith("/rpc") else "/rpc/islands/join",
             json={
                 "island_id": island_id,
                 "island_name": island_name,
@@ -99,7 +117,7 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
         # Prefer RPC endpoint from response; fall back to the URL we used.
         credentials = response.get("credentials") or {}
         if not credentials.get("rpc_endpoint"):
-            credentials["rpc_endpoint"] = f"{rpc_url}/rpc"
+            credentials["rpc_endpoint"] = f"{rpc_base}/rpc" if not rpc_base.endswith("/rpc") else rpc_base
 
         # Store credentials locally
         credentials_path = "/var/lib/aitbc/island_credentials.json"
