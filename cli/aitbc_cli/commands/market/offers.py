@@ -14,6 +14,7 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
+from ...utils.address import to_canonical
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -901,32 +902,26 @@ def disable_offer(ctx, offer_id: str):
     """Disable (cancel) a software offer published by the local wallet."""
     try:
         config = get_config()
-        chain_id = get_chain_id()
-        island_id = get_island_id()
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
-        cancel_data = {
-            "from": wallet_address,
-            "to": "0x0000000000000000000000000000000000000000",
-            "amount": 0,
-            "fee": 36,
-            "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKETPLACE",
-            "chain_id": chain_id,
-            "payload": {
-                "action": "cancel",
-                "order_id": offer_id,
-                "status": "cancelled",
-                "island_id": island_id,
-                "chain_id": chain_id,
-                "created_at": datetime.now().isoformat(),
-            },
-        }
-
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
-        success(f"Offer {offer_id} disabled on-chain")
+        marketplace_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
+        http_client = AITBCHTTPClient(base_url=marketplace_url, timeout=10)
+
+        # Resolve the marketplace service entry for this offer_id.
+        service = http_client.get(f"/v1/marketplace/offer-by-id/{offer_id}")
+        if not service:
+            error(f"Offer not found in marketplace: {offer_id}")
+            raise click.Abort()
+
+        provider_address = to_canonical(service.get("provider_address", ""))
+        if provider_address and to_canonical(wallet_address) != provider_address:
+            error(f"Offer {offer_id} belongs to {provider_address}, not the selected wallet {to_canonical(wallet_address)}")
+            raise click.Abort()
+
+        plugin_id = service["plugin_id"]
+        result = http_client.delete(f"/v1/marketplace/offer/{plugin_id}")
+        success(f"Offer {offer_id} ({plugin_id}) disabled")
         output(result, ctx.obj.get("output_format", "table"))
     except Exception as e:
         error(f"Error disabling offer: {e}")
