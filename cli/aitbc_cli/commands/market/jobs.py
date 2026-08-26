@@ -19,6 +19,8 @@ from ...utils.http_client import AITBCHTTPClient, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
+from ...auth import AuthManager
+
 from . import get_chain_id, get_market_wallet, get_next_nonce, market
 from .escrow import _escrow_create, _get_blockchain_rpc_url
 
@@ -106,6 +108,66 @@ def _resolve_offer(ctx, offer_id_or_plugin_id: str) -> dict[str, Any]:
     raise click.Abort()
 
 
+def _track_coordinator_job(
+    ctx: click.Context,
+    job_id: str,
+    offer: dict[str, Any],
+    wallet_address: str,
+    provider_address: str,
+    actual_cost: Decimal,
+    service_type: str,
+    result_hash: str = "",
+) -> dict[str, Any] | None:
+    """Create a lightweight coordinator job record for a direct market-run job."""
+    if not ctx.obj:
+        return None
+    token = ctx.obj.get("api_key")
+    if not token:
+        try:
+            token = AuthManager().get_credential("client")
+        except Exception:
+            token = None
+    if not token:
+        warning("Job tracking skipped: no client token. Run `aitbc auth login --wallet <name>` first.")
+        return None
+
+    config = get_config()
+    coord_url = config.coordinator_api_url or "http://localhost:8203"
+    if coord_url.endswith("/v1"):
+        coord_url = coord_url[:-3]
+    coord_url = coord_url.rstrip("/")
+
+    payload: dict[str, Any] = {
+        "type": service_type,
+        "model": offer.get("model", ""),
+        "source": "market_run",
+        "market_job_id": job_id,
+        "offer_id": offer.get("offer_id", ""),
+        "result_hash": result_hash,
+        "actual_cost_ait": str(round(actual_cost, 6)),
+        "buyer_address": wallet_address,
+        "provider_address": provider_address or wallet_address,
+    }
+    job_data = {
+        "payload": payload,
+        "constraints": {},
+        "ttl_seconds": 86400,
+        "payment_amount": 0,
+        "payment_currency": "AITBC",
+        "buyer_address": wallet_address,
+        "provider_address": provider_address or wallet_address,
+    }
+
+    try:
+        client = AITBCHTTPClient(base_url=coord_url, timeout=10, headers={"Authorization": f"Bearer {token}"})
+        result = client.post("/v1/jobs", json=job_data)
+        info(f"Tracked market-run job with coordinator: {result.get('job_id')}")
+        return result
+    except Exception as e:
+        warning(f"Failed to track market-run job with coordinator: {e}")
+        return None
+
+
 def _run_ollama(
     ctx: click.Context,
     offer: dict[str, Any],
@@ -115,6 +177,7 @@ def _run_ollama(
     max_tokens: int,
     stream: bool,
     output_format: str,
+    track: bool = False,
 ) -> None:
     """Run an Ollama inference job against a software offer and pay metered escrow."""
     config = get_config()
@@ -203,6 +266,9 @@ def _run_ollama(
         },
         output_format,
     )
+    if track:
+        result_hash = hashlib.sha256(response_text.encode()).hexdigest()[:32]
+        _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, service_type, result_hash)
 
 
 def _run_whisper(
@@ -215,6 +281,7 @@ def _run_whisper(
     task: str,
     fmt: str,
     output_format: str,
+    track: bool = False,
 ) -> None:
     """Transcribe audio using a Whisper software offer and pay metered escrow."""
     import subprocess
@@ -380,6 +447,8 @@ def _run_whisper(
         },
         output_format,
     )
+    if track:
+        _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, "whisper", result_hash)
 
 
 def _run_ffmpeg(
@@ -393,6 +462,7 @@ def _run_ffmpeg(
     resolution: str,
     bitrate: str,
     output_format: str,
+    track: bool = False,
 ) -> None:
     """Process video using an FFmpeg software offer and pay metered escrow."""
     import urllib.request as _urllib
@@ -532,6 +602,8 @@ def _run_ffmpeg(
         },
         output_format,
     )
+    if track:
+        _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, "ffmpeg", result_hash)
 
 
 @market.command(name="run")
@@ -548,6 +620,7 @@ def _run_ffmpeg(
 @click.option("--codec", default="h264", help="FFmpeg target codec (e.g. h264, vp9)")
 @click.option("--resolution", default="1080p", help="FFmpeg target resolution (e.g. 1080p, 720p)")
 @click.option("--bitrate", default="5M", help="FFmpeg target bitrate (e.g. 5M, 10M)")
+@click.option("--track", is_flag=True, default=False, help="Create a coordinator job record after a successful run")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def run_job(
@@ -563,6 +636,7 @@ def run_job(
     codec: str,
     resolution: str,
     bitrate: str,
+    track: bool,
     output_format: str,
 ) -> None:
     """Run a software offer (Ollama/Whisper/FFmpeg) and pay metered escrow."""
@@ -574,18 +648,18 @@ def run_job(
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
 
         if service_type == "ollama":
-            _run_ollama(ctx, offer, prompt, wallet_address, private_key, max_tokens, stream, output_format)
+            _run_ollama(ctx, offer, prompt, wallet_address, private_key, max_tokens, stream, output_format, track)
         elif service_type == "whisper":
             if not os.path.exists(prompt):
                 error(f"Whisper jobs require an audio file. File not found: {prompt}")
                 raise click.Abort()
-            _run_whisper(ctx, offer, prompt, wallet_address, private_key, language, task, fmt, output_format)
+            _run_whisper(ctx, offer, prompt, wallet_address, private_key, language, task, fmt, output_format, track)
         elif service_type == "ffmpeg":
             if not os.path.exists(prompt):
                 error(f"FFmpeg jobs require a video file. File not found: {prompt}")
                 raise click.Abort()
             _run_ffmpeg(
-                ctx, offer, prompt, wallet_address, private_key, media_format, codec, resolution, bitrate, output_format
+                ctx, offer, prompt, wallet_address, private_key, media_format, codec, resolution, bitrate, output_format, track
             )
         elif service_type == "ipfs":
             error("IPFS hosting jobs are not supported via 'market run'. Use 'aitbc ipfs host' instead.")
