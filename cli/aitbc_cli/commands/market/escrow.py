@@ -176,11 +176,7 @@ def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
         return None
 
 
-@escrow.command(name="refund")
-@click.argument("job_id")
-@click.option("--reason", default="buyer_requested", help="Reason for refund")
-@click.pass_context
-def escrow_refund(ctx, job_id: str, reason: str):
+def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any] | None:
     """Refund escrow back to the buyer (coordinator first, then blockchain fallback)."""
     try:
         config = get_config()
@@ -188,7 +184,7 @@ def escrow_refund(ctx, job_id: str, reason: str):
         if coordinator_result:
             success(f"Coordinator refund accepted for job {job_id}")
             output(coordinator_result, ctx.obj.get("output_format", "table"))
-            return
+            return coordinator_result
         rpc_url = _get_blockchain_rpc_url(config)
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
@@ -208,11 +204,20 @@ def escrow_refund(ctx, job_id: str, reason: str):
         if result:
             success(f"Escrow refunded for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))
-        else:
-            error(f"Failed to refund escrow for job {job_id}")
+            return result
+        return None
     except Exception as e:
         error(f"Error refunding escrow: {e}")
         raise click.Abort() from e
+
+
+@escrow.command(name="refund")
+@click.argument("job_id")
+@click.option("--reason", default="buyer_requested", help="Reason for refund")
+@click.pass_context
+def escrow_refund(ctx, job_id: str, reason: str):
+    """Refund escrow back to the buyer (coordinator first, then blockchain fallback)."""
+    refund_escrow(ctx, job_id, reason)
 
 
 @escrow.command(name="status")
