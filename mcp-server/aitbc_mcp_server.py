@@ -2757,6 +2757,12 @@ def get_island(
 
 
 # ---------------------------------------------------------------------------
+# Additional typed CLI tools from the companion module
+# ---------------------------------------------------------------------------
+
+import aitbc_mcp_cli_tools  # noqa: F401  # registers more CLI tools
+
+# ---------------------------------------------------------------------------
 # Additional typed RPC tools from the companion module
 # ---------------------------------------------------------------------------
 
