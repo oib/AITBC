@@ -1492,3 +1492,16 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
   `aitbc market run ollama-llama3.2-3b hello --max-tokens 10000 --track`
   created a tracked job and `aitbc dashboard customer` displayed it.
+
+## Phase 6.1 — Real `aitbc system check` (2026-08-26)
+
+- `aitbc system check` now reports real systemd state and HTTP health for all
+  AITBC services, plus `ollama` when it is installed and running.
+- Services without a documented HTTP endpoint (e.g. `aitbc-blockchain-node`,
+  `aitbc-miner`) are reported as "process-only" rather than unreachable.
+- Each reachable service is probed on its documented `/health` endpoint (or the
+  IPFS `/api/v0/version` and Ollama `/api/tags` endpoints where applicable).
+- The active wallet balance is checked and a warning is printed if it falls
+  below the listing fee (36 compute-seconds / 0.01 AIT).
+- Output respects `--format` and supports table/json/yaml/csv via the standard
+  `OUTPUT_FORMAT_OPTION`.
