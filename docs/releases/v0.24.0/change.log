@@ -1475,3 +1475,20 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   coordinator that does not know the agent ("not registered") from an unreachable one.
 - Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
   `aitbc agent status` without an agent_id resolves to the local default.
+
+## Phase 5 — Dashboard and observability (2026-08-26)
+
+- `aitbc dashboard customer` and `aitbc dashboard shop` already canonicalize
+  addresses and fall back to on-chain balances when the wallet daemon is
+  unavailable (completed in Phase 3).
+- `aitbc market run ... --track` now creates a lightweight coordinator job
+  record via `POST /v1/jobs` with `source: "market_run"` after a successful
+  direct offer execution (Ollama, Whisper, FFmpeg).
+- Tracked market-run jobs appear in `aitbc ai jobs` and the customer/shop
+  dashboards with the original `market_job_id`, `offer_id`, `actual_cost_ait`,
+  and `result_hash` in the payload.
+- Tracking is best-effort: if no client token is available, the command succeeds
+  with a warning and skips the coordinator record.
+- Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
+  `aitbc market run ollama-llama3.2-3b hello --max-tokens 10000 --track`
+  created a tracked job and `aitbc dashboard customer` displayed it.
