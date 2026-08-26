@@ -49,6 +49,25 @@ success() { echo -e "${GREEN}[$(date +'%H:%M:%S')] ✓${NC} $*"; }
 warning() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $*" >&2; }
 error()   { echo -e "${RED}[$(date +'%H:%M:%S')] ✗${NC} $*" >&2; }
 
+# Record warnings/errors for an end-of-run agent follow-up block.
+__mig_agent_followup_path="$AITBC_ROOT/scripts/utils/agent_followup.sh"
+if [ -f "$__mig_agent_followup_path" ]; then
+    # shellcheck disable=SC1090
+    source "$__mig_agent_followup_path"
+    agent_followup_init
+
+    __mig_warning() {
+        agent_record_warning "$*"
+        echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $*" >&2
+    }
+    __mig_error() {
+        agent_record_error "$*"
+        echo -e "${RED}[$(date +'%H:%M:%S')] ✗${NC} $*" >&2
+    }
+    warning() { __mig_warning "$@"; }
+    error()   { __mig_error "$@"; }
+fi
+
 run_migrations() {
     local alembic_bin="$VENV_DIR/bin/alembic"
     if [ ! -x "$alembic_bin" ]; then
@@ -183,4 +202,11 @@ run_migrations() {
     return 0
 }
 
-run_migrations
+main() {
+    local exit_code=0
+    run_migrations || exit_code=$?
+    agent_print_followup
+    return $exit_code
+}
+
+main "$@"
