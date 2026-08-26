@@ -18,7 +18,7 @@ from ...utils.http_client import AITBCHTTPClient, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
-from . import get_chain_id, get_next_nonce, get_wallet_address, market
+from . import get_chain_id, get_market_wallet, get_next_nonce, market
 from .escrow import _escrow_create, _get_blockchain_rpc_url
 
 
@@ -33,7 +33,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
     try:
         config = get_config()
         _ = get_chain_id()
-        wallet_address = get_wallet_address()
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
 
         # Resolve the offer from hub transactions
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
@@ -72,7 +72,9 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
         estimated_cost = (Decimal(estimated_tokens) / 1000) * price
         job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
         info(f"Locking escrow: ~{estimated_cost:.4f} AIT (est. {estimated_tokens} tokens)")
-        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+        contract_id = _escrow_create(
+            ctx, job_id, wallet_address, provider_address or wallet_address, estimated_cost, config, private_key=private_key
+        )
 
         # Resolve the Ollama endpoint. The offer lists a provider-side public endpoint
         # (for remote consumers) and a local endpoint (for the shop itself). Customers
@@ -159,7 +161,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
 
     try:
         config = get_config()
-        wallet_address = get_wallet_address()
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
         chain_id = get_chain_id()
 
         # Resolve the offer from hub
@@ -231,7 +233,9 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
 
         job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
         info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.4f} AIT")
-        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+        contract_id = _escrow_create(
+            ctx, job_id, wallet_address, provider_address or wallet_address, estimated_cost, config, private_key=private_key
+        )
 
         # Submit audio to Whisper service
         info("Sending audio to Whisper service...")
@@ -361,7 +365,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
 
     try:
         config = get_config()
-        wallet_address = get_wallet_address()
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
         chain_id = get_chain_id()
 
         # Resolve the offer from hub
@@ -406,7 +410,9 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
         info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.4f} AIT")
 
         job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
-        contract_id = _escrow_create(job_id, wallet_address, provider_address or wallet_address, estimated_cost, config)
+        contract_id = _escrow_create(
+            ctx, job_id, wallet_address, provider_address or wallet_address, estimated_cost, config, private_key=private_key
+        )
 
         # Submit video to FFmpeg service
         info("Sending video to FFmpeg service...")
