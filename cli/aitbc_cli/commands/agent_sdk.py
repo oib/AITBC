@@ -16,7 +16,7 @@ except ImportError:
     AITBCAgent = None
 
 from ..config import get_config
-from ..utils import error, output, success
+from ..utils import error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -190,18 +190,68 @@ def list_local_agents(agent_dir: Path | None = None) -> list[dict[str, Any]]:
     return agents
 
 
-def get_agent_status(agent_id: str) -> dict:
-    """Get status information for an agent"""
-    # For now, return a simulated status
-    # In a real implementation, this would query the coordinator
-    return {
-        "agent_id": agent_id,
-        "status": "active",
-        "registered": True,
-        "reputation_score": 0.85,
-        "last_seen": "2026-04-29T09:40:00Z",
-        "message": "Agent status retrieved (simulated)",
-    }
+def _resolve_agent_id(ctx, agent_id: str | None) -> str:
+    """Resolve an agent_id, defaulting to the single local agent if not provided."""
+    if agent_id:
+        return agent_id
+    agents = list_local_agents()
+    if not agents:
+        abort(ctx, "No local agents found. Create one with `aitbc agent create <name>`.")
+    if len(agents) == 1:
+        resolved = agents[0].get("agent_id")
+        if not resolved:
+            abort(ctx, "Local agent has no agent_id")
+        info(f"Using local agent {resolved}")
+        return resolved
+    agent_list = []
+    for a in agents:
+        name = a.get("name", a.get("agent_id", "unknown"))
+        aid = a.get("agent_id", "no-id")
+        agent_list.append(f"{name} ({aid})")
+    abort(ctx, "Multiple local agents found; use --agent-id. Agents: " + ", ".join(agent_list))
+
+
+def _check_agent_coordinator(coordinator_url: str, ctx: Any | None = None) -> bool:
+    """Probe the agent coordinator. If it is not reachable, print a helpful message and exit cleanly."""
+    try:
+        client = AITBCHTTPClient(base_url=coordinator_url, timeout=2)
+        client.get("/health")
+        return True
+    except Exception:
+        info("The agent-coordinator service is not running. Start it with: `sudo systemctl start aitbc-agent-coordinator`")
+        return False
+
+
+def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
+    """Get status information for an agent, preferring the coordinator."""
+    if not coordinator_url:
+        config = get_config()
+        coordinator_url = getattr(config, "agent_coordinator_url", None) or "http://localhost:8107"
+    try:
+        client = AITBCHTTPClient(base_url=coordinator_url, timeout=5)
+        data = client.get(f"/v1/agents/{agent_id}") or {}
+        return {
+            "agent_id": data.get("agent_id") or agent_id,
+            "status": data.get("status", data.get("state", "unknown")),
+            "registered": data.get("registered", data.get("active", False)),
+            "reputation_score": data.get("reputation_score", 0.0),
+            "last_seen": data.get("last_seen")
+            or data.get("last_heartbeat")
+            or data.get("updated_at")
+            or data.get("created_at")
+            or "N/A",
+            "message": "Agent status retrieved from coordinator",
+        }
+    except Exception as e:
+        logger.warning("Could not fetch agent status from coordinator: %s", e)
+        return {
+            "agent_id": agent_id,
+            "status": "unknown",
+            "registered": False,
+            "reputation_score": 0.0,
+            "last_seen": "N/A",
+            "message": "Agent coordinator not reachable; status is simulated until the backend is ready.",
+        }
 
 
 def set_agent_config(name: str, key: str, value: str) -> dict:
@@ -341,7 +391,7 @@ def export_agent_config(name: str, output_path: str) -> dict:
 try:
     import click
 
-    from ..utils import error, output, success
+    from ..utils import error, info, output, success
 
     @click.group()
     def agent():
@@ -617,13 +667,15 @@ try:
             abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
     @agent.command()
-    @click.argument("agent_id")
+    @click.argument("agent_id", required=False)
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def status(ctx, agent_id, format):
+    def status(ctx, agent_id, coordinator_url, format):
         """Get agent status"""
         try:
-            status_data = get_agent_status(agent_id)
+            agent_id = _resolve_agent_id(ctx, agent_id)
+            status_data = get_agent_status(agent_id, coordinator_url=coordinator_url)
 
             status_list = [
                 {"Field": "Agent ID", "Value": status_data["agent_id"]},
@@ -853,6 +905,8 @@ try:
     @click.pass_context
     def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
         """Discover agents by capability"""
+        if not _check_agent_coordinator(coordinator_url, ctx):
+            return
         try:
             import requests
 
@@ -893,7 +947,7 @@ try:
             abort(ctx, f"Error discovering agents: {e}", from_exception=e)
 
     @agent.command()
-    @click.option("--agent-id", required=True, help="Agent ID")
+    @click.option("--agent-id", help="Agent ID")
     @click.option("--limit", type=int, default=100, help="Maximum messages")
     @click.option("--unread-only", is_flag=True, help="Only unread messages")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
@@ -904,6 +958,7 @@ try:
         try:
             import requests
 
+            agent_id = _resolve_agent_id(ctx, agent_id)
             params = {"agent_id": agent_id, "limit": limit, "unread_only": unread_only}
             response = requests.get(f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, timeout=10)
             response.raise_for_status()
