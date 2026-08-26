@@ -15,7 +15,7 @@ import os
 import re
 import sqlite3
 import sys
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +55,9 @@ def _setup_pythonpath() -> None:
 def actual_tables(db_path: Path) -> set[str]:
     conn = sqlite3.connect(db_path)
     try:
-        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'")
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'"
+        )
         return {row[0] for row in cur.fetchall()}
     finally:
         conn.close()
@@ -123,7 +125,9 @@ def check_sqlmodel_db(
             continue
         missing = exp - actual_columns(db_path, table)
         if missing:
-            errors.append(f"{db_path}: table '{table}' missing columns: {sorted(missing)}")
+            errors.append(
+                f"{db_path}: table '{table}' missing columns: {sorted(missing)}"
+            )
 
     for table in required_tables or []:
         if table not in actual:
@@ -145,13 +149,14 @@ def check_static_db(db_path: Path, expected: dict[str, list[str]]) -> list[str]:
             continue
         missing = set(cols) - actual_columns(db_path, table)
         if missing:
-            errors.append(f"{db_path}: table '{table}' missing columns: {sorted(missing)}")
+            errors.append(
+                f"{db_path}: table '{table}' missing columns: {sorted(missing)}"
+            )
     return errors
 
 
 def _sqlite_quote_and_type():
     from sqlalchemy import create_engine
-
     engine = create_engine("sqlite://")
     return engine.dialect.identifier_preparer.quote, engine.dialect
 
@@ -171,8 +176,6 @@ def _render_default_clause(col, dialect) -> str:
 
 
 def _add_missing_column(db_path: Path, table: str, col, dialect, quote) -> str | None:
-    from sqlalchemy import text
-
     coltype = col.type.compile(dialect=dialect)
     default = _render_default_clause(col, dialect)
     conn = sqlite3.connect(db_path)
@@ -180,10 +183,15 @@ def _add_missing_column(db_path: Path, table: str, col, dialect, quote) -> str |
         if not default and col.nullable is False:
             # The table name is a known identifier from SQLModel metadata and is
             # quoted by the SQLite dialect; this is trusted DDL, not user input.
-            (row_count,) = conn.execute(text(f"SELECT COUNT(*) FROM {quote(table)}")).fetchone()  # nosec B608
+            (row_count,) = conn.execute(f"SELECT COUNT(*) FROM {quote(table)}").fetchone()  # nosec B608
             if row_count > 0:
-                return f"{table}.{col.name} is NOT NULL with no default and the table has {row_count} rows; cannot safely add"
-        conn.execute(text(f"ALTER TABLE {quote(table)} ADD COLUMN {quote(col.name)} {coltype}{default}"))  # nosec B608
+                return (
+                    f"{table}.{col.name} is NOT NULL with no default and the table "
+                    f"has {row_count} rows; cannot safely add"
+                )
+        conn.execute(
+            f"ALTER TABLE {quote(table)} ADD COLUMN {quote(col.name)} {coltype}{default}"
+        )  # nosec B608
         conn.commit()
         return None
     finally:
@@ -323,7 +331,9 @@ def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[
             db_path = Path(cfg["path"])
             errors.extend(check_static_db(db_path, cfg["tables"]))
 
-    if dbs is None or "blockchain" in dbs or any(n.startswith("blockchain") for n in (dbs or [])):
+    if dbs is None or "blockchain" in dbs or any(
+        n.startswith("blockchain") for n in (dbs or [])
+    ):
         chain_dbs = _collect_chain_dbs()
         if not chain_dbs:
             warnings.append("No active chain database found")
@@ -354,16 +364,26 @@ def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify AITBC DB schemas")
-    parser.add_argument("--all", action="store_true", help="Check all known databases")
-    parser.add_argument("--db", action="append", help="Check specific DB by name (may be repeated)")
-    parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    parser.add_argument(
+        "--all", action="store_true", help="Check all known databases"
+    )
+    parser.add_argument(
+        "--db", action="append", help="Check specific DB by name (may be repeated)"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Output machine-readable JSON"
+    )
     parser.add_argument(
         "--repair",
         action="store_true",
         help="Add missing columns that are nullable or have a default",
     )
-    parser.add_argument("--aitbc-root", default=None, help="Override AITBC_ROOT")
-    parser.add_argument("--data-dir", default=None, help="Override AITBC data directory")
+    parser.add_argument(
+        "--aitbc-root", default=None, help="Override AITBC_ROOT"
+    )
+    parser.add_argument(
+        "--data-dir", default=None, help="Override AITBC data directory"
+    )
     args = parser.parse_args()
 
     if args.aitbc_root:
