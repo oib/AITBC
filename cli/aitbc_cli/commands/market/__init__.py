@@ -18,6 +18,7 @@ from ...utils.address import to_canonical
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.island_credentials import load_island_credentials
 from ...utils.wallet_loader import load_wallet_for_payment
+from ...utils.wallet_paths import find_wallet_file
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -129,12 +130,9 @@ def get_wallet_address() -> str:
             if address:
                 return str(address)
 
-    # Fallback to local wallet file
-    wallet_path = "/root/.aitbc/wallets/genesis.json"
-
-    # Fallback to local wallet file
-    wallet_path = "/root/.aitbc/wallets/genesis.json"
-    if os.path.exists(wallet_path):
+    # Fallback to local file wallet in the standard directory.
+    wallet_path = find_wallet_file("genesis")
+    if wallet_path is not None and wallet_path.exists():
         try:
             with open(wallet_path) as f:
                 wallet = json.load(f)
