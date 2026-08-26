@@ -4,6 +4,7 @@ Marketplace offer commands: list, cancel, status, match, providers, offer
 
 import hashlib
 import json
+import re
 import socket
 from datetime import datetime
 from decimal import Decimal
@@ -495,13 +496,13 @@ def providers(ctx):
 
 
 @market.command(name="offer")
-@click.argument("service_type", type=click.Choice(["ollama", "whisper", "ffmpeg"]))
+@click.argument("service_type", type=click.Choice(["ollama", "whisper", "ffmpeg", "ipfs"]))
 @click.argument("model_or_variant")
 @click.argument("price", type=DECIMAL)
 @click.option(
     "--unit",
     default="per_1k_tokens",
-    type=click.Choice(["per_1k_tokens", "per_audio_min", "per_gb", "per_processing_hour"]),
+    type=click.Choice(["per_1k_tokens", "per_audio_min", "per_gb", "per_processing_hour", "per_day"]),
     help="Pricing unit",
 )
 @click.option("--description", help="Description of the service")
@@ -522,7 +523,7 @@ def offer(
     gpu_device: str | None,
     gpu_offer_id: str | None,
 ):
-    """List a hardware+software bundle offer (Ollama/Whisper/FFmpeg) in the marketplace"""
+    """List a hardware+software bundle offer (Ollama/Whisper/FFmpeg/IPFS) in the marketplace"""
     try:
         config = get_config()
         chain_id = get_chain_id()
@@ -534,8 +535,17 @@ def offer(
         deployment_type = "cloud" if is_cloud else "local"
         info(f"Auto-detected deployment type: {deployment_type}")
 
+        # IPFS hosting offers use a Kubo daemon, not a GPU
+        ipfs_port = 0
+        ipfs_peer_id = ""
+        ipfs_public_multiaddr = ""
+
         # Auto-detect GPU info from nvidia-smi if not provided and not cloud
         gpu_uuid = None
+        if service_type == "ipfs":
+            gpu_name = "N/A (IPFS)"
+            gpu_device = "N/A"
+            gpu_uuid = "N/A"
         if gpu_name is None and not is_cloud:
             try:
                 import subprocess
@@ -610,13 +620,54 @@ def offer(
                 error(f"FFmpeg service not reachable at localhost:8230: {e}")
                 error("Start it with: systemctl start aitbc-ffmpeg")
                 raise click.Abort() from e
+        elif service_type == "ipfs":
+            # Try island IPFS API (5002) then default IPFS API (5001)
+            for _candidate_port in (5002, 5001):
+                try:
+                    ipfs_client = AITBCHTTPClient(base_url=f"http://localhost:{_candidate_port}", timeout=5)
+                    _version = ipfs_client.post("/api/v0/version")
+                    if _version.get("Version"):
+                        ipfs_port = _candidate_port
+                        info(f"Verified IPFS daemon on localhost:{ipfs_port}")
+                        break
+                except NetworkError:
+                    continue
+            if not ipfs_port:
+                error("IPFS daemon not reachable at localhost:5001 or localhost:5002")
+                error("Start it with: systemctl start aitbc-island-ipfs")
+                raise click.Abort()
+            try:
+                _id = ipfs_client.post("/api/v0/id")
+                ipfs_peer_id = _id.get("ID", "")
+                _addrs = _id.get("Addresses", [])
+                # Pick the first non-loopback, non-private /ip4/ address as the public multiaddr
+                for _addr in _addrs:
+                    _m = re.match(r"/ip4/(\d+\.\d+\.\d+\.\d+)", _addr)
+                    if _m:
+                        _octets = _m.group(1).split(".")
+                        _first = int(_octets[0])
+                        _second = int(_octets[1])
+                        if _first == 127:
+                            continue
+                        if _first == 10 or (_first == 172 and 16 <= _second <= 31) or (_first == 192 and _second == 168):
+                            continue
+                        ipfs_public_multiaddr = _addr
+                        break
+                if not ipfs_public_multiaddr and _addrs:
+                    ipfs_public_multiaddr = _addrs[-1]
+                info(f"IPFS peer id: {ipfs_peer_id}")
+            except NetworkError as e:
+                error(f"Could not query IPFS peer identity: {e}")
+                raise click.Abort() from e
 
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
         # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230}
+        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0}
         _local_port = _local_ports.get(service_type, 8110)
+        if service_type == "ipfs" and ipfs_port:
+            _local_port = ipfs_port
         _hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
         _base_domain = _hub_hostname.removeprefix("hub.")
         _node_hostname = socket.getfqdn()
@@ -624,10 +675,14 @@ def offer(
         if _base_domain and _base_domain not in _node_hostname:
             _node_hostname = f"{socket.gethostname()}.{_base_domain}"
         # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg"}
+        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs"}
         _nginx_path = _nginx_paths.get(service_type, service_type)
-        _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
-        _local_endpoint = f"http://localhost:{_local_port}"
+        if service_type == "ipfs":
+            _public_endpoint = ipfs_public_multiaddr or f"https://{_node_hostname}/{_nginx_path}"
+            _local_endpoint = f"http://localhost:{_local_port}"
+        else:
+            _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
+            _local_endpoint = f"http://localhost:{_local_port}"
 
         offer_data = {
             "from": wallet_address,
@@ -676,6 +731,7 @@ def offer(
             "ollama": "http://localhost:11434/api/tags",
             "whisper": "http://localhost:8110/health",
             "ffmpeg": "http://localhost:8230/health",
+            "ipfs": f"http://localhost:{ipfs_port}/api/v0/version" if ipfs_port else "",
         }
         try:
             # P2.5: register the offer with the same marketplace service that `market list`
