@@ -242,6 +242,20 @@ def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
             or "N/A",
             "message": "Agent status retrieved from coordinator",
         }
+    except NetworkError as e:
+        logger.warning("Could not fetch agent status from coordinator: %s", e)
+        if "404" in str(e):
+            message = "Agent not registered with the coordinator."
+        else:
+            message = "Agent coordinator not reachable; status is simulated until the backend is ready."
+        return {
+            "agent_id": agent_id,
+            "status": "unknown",
+            "registered": False,
+            "reputation_score": 0.0,
+            "last_seen": "N/A",
+            "message": message,
+        }
     except Exception as e:
         logger.warning("Could not fetch agent status from coordinator: %s", e)
         return {
