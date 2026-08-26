@@ -207,6 +207,9 @@ def get_wallet_balance(
             data = resp.json()
             balance = data.get("balance", 0)
             chain_id = data.get("chain_id", chain_id)
+        elif resp.status_code in (404, 204):
+            # Account has not been created on-chain yet; balance is zero.
+            balance = 0
         else:
             error_msg = f"RPC returned {resp.status_code}"
     except Exception as exc:
