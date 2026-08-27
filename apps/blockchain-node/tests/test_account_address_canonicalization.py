@@ -1,10 +1,9 @@
-"""One account, however it is spelled (V23-64).
+"""One account, however it is spelled (V23-66).
 
-`AccountAddress` normalises `0x…`, `ait1…` and `aitbc1…` to one lowercase `ait1` form on the
-way into the database and on the way out, and `StateManager._encode_address` does the same for
-trie keys. That closes the latent half of V23-63: account lookups were exact string matches, so
-an account written in one spelling and queried in another read as absent — and on a chain that
-moves money, "absent" means a zero balance and a nonce of 0.
+`EvmAddress` normalises any `0x…` form to the EIP-55 checksum on the way into the database and
+on the way out, and `StateManager._encode_address` does the same for trie keys. Legacy `ait1…`
+and `aitbc1…` spellings are no longer accepted now that the chain uses canonical secp256k1/EVM
+`0x` addresses.
 
 The change arrived without tests. These are them. Two of the cases are the ones that would
 actually cost something:
@@ -20,13 +19,17 @@ import pytest
 from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlmodel import Session, create_engine, select
 
+from aitbc.crypto.signature_recovery import canonical_address
+
 from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.base_models import Account, Escrow, _to_ait_address
 from aitbc_chain.state.merkle_patricia_trie import StateManager
 
 BODY = "fe2d63fe87db282083b9159e5857cac788af9e03"
-SPELLINGS = [f"ait1{BODY}", f"0x{BODY}", f"0x{BODY.upper()}", f"aitbc1{BODY}", f"AIT1{BODY.upper()}"]
+CANONICAL = "0xFe2d63FE87Db282083b9159e5857Cac788af9E03"
+# Only 0x forms are valid; legacy prefixes are treated as non-addresses and pass through.
+SPELLINGS = [f"0x{BODY}", f"0x{BODY.upper()}", CANONICAL]
 
 
 @pytest.fixture
@@ -42,10 +45,12 @@ def session():
 
 @pytest.mark.parametrize("spelling", SPELLINGS)
 def test_every_spelling_reduces_to_the_same_address(spelling: str) -> None:
-    assert _to_ait_address(spelling) == f"ait1{BODY}"
+    assert _to_ait_address(spelling) == CANONICAL
 
 
-@pytest.mark.parametrize("value", ["", "hub-coordinator", "genesis", "0xnothex", "ait1short", "0x" + "ab" * 21])
+@pytest.mark.parametrize(
+    "value", ["", "hub-coordinator", "genesis", "0xnothex", "ait1short", "0x" + "ab" * 21, f"ait1{BODY}", f"aitbc1{BODY}"]
+)
 def test_anything_that_is_not_an_address_passes_through(value: str) -> None:
     """Proposer ids and aliases share these columns; mangling them would be worse than the bug."""
     assert _to_ait_address(value) == value.strip().lower()
@@ -70,14 +75,14 @@ def test_an_account_written_in_any_spelling_is_found_by_any_other(session, writt
 
     assert found is not None
     assert found.balance == 3_599_999_999_890
-    assert found.address == f"ait1{BODY}"
+    assert found.address == CANONICAL
 
 
 def test_the_same_account_cannot_be_stored_twice_under_two_spellings(session) -> None:
     """Without normalisation these are two rows, and a balance splits across them."""
-    session.add(Account(chain_id="ait-test", address=f"ait1{BODY}", balance=100, nonce=0))
+    session.add(Account(chain_id="ait-test", address=f"0x{BODY}", balance=100, nonce=0))
     session.commit()
-    session.add(Account(chain_id="ait-test", address=f"0x{BODY}", balance=999, nonce=0))
+    session.add(Account(chain_id="ait-test", address=CANONICAL, balance=999, nonce=0))
 
     with pytest.raises(Exception):  # noqa: B017 - the dialect chooses the integrity error type
         session.commit()
@@ -126,20 +131,21 @@ class _Account:
 
 @pytest.mark.parametrize("spelling", SPELLINGS)
 def test_the_trie_key_is_the_same_for_every_spelling(spelling: str) -> None:
-    assert StateManager()._encode_address(spelling) == f"ait1{BODY}".encode()
+    assert StateManager()._encode_address(spelling) == CANONICAL.encode()
 
 
 def test_the_state_root_does_not_move_for_an_already_canonical_chain() -> None:
     """The one that would be expensive to get wrong.
 
     Trie keys feed the state root, and the state root is recorded in every block. If
-    normalisation changed the key for accounts that are already `ait1`, every historical
+    normalisation changed the key for accounts that are already `0x`, every historical
     block would fail verification and the node would diverge from its peers. It does not,
-    because `_to_ait_address` is the identity on an address already in that form — but that
+    because `_to_ait_address` is the identity on an address already in EIP-55 form — but that
     is a property worth holding onto rather than assuming.
     """
     state = StateManager()
-    accounts = {f"ait1{BODY}": _Account(3_599_999_999_890, 1), "ait1" + "ab" * 20: _Account(360000, 0)}
+    other = canonical_address(f"0x{'ab' * 20}")
+    accounts = {CANONICAL: _Account(3_599_999_999_890, 1), other: _Account(360000, 0)}
 
     class _Unnormalised(StateManager):
         def _encode_address(self, address: str) -> bytes:
@@ -151,7 +157,7 @@ def test_the_state_root_does_not_move_for_an_already_canonical_chain() -> None:
 def test_the_state_root_agrees_across_spellings() -> None:
     state = StateManager()
 
-    canonical = state.compute_state_root({f"ait1{BODY}": _Account(100, 1)})
+    canonical = state.compute_state_root({CANONICAL: _Account(100, 1)})
     hex_form = state.compute_state_root({f"0x{BODY}": _Account(100, 1)})
 
     assert canonical == hex_form

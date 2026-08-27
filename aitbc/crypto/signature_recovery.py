@@ -24,6 +24,7 @@ added quietly (V23-05).
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 # Ethereum encodes the recovery id as 27 or 28 (or 35+ for EIP-155 chain-bound
@@ -98,31 +99,24 @@ def recover_address(msg_hash: bytes, signature: str | bytes) -> str:
     return str(pub_key.to_checksum_address())
 
 
-_LEGACY_PREFIXES: Final = ("aitbc1", "ait1")
-_HEX_DIGITS: Final = frozenset("0123456789abcdef")
+_EVM_ADDRESS_RE: Final = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
 def canonical_address(address: str) -> str:
-    """Reduce an address to the form recovery produces, so the two can be compared.
+    """Normalize an address to the EIP-55 checksummed 0x form used for comparison.
 
-    Recovery always yields ``0x`` + 40 hex. The chain also carries the legacy
-    ``ait1``/``aitbc1`` spellings of the same twenty bytes — ``validate_address`` accepts
-    them, ``cli/aitbc_cli/utils/crypto_utils.py`` strips them to the ``0x`` body, and the
-    deployed hub's own blocks declare their proposer that way. Comparing the two spellings
-    as plain strings therefore fails for every legacy-addressed block, whatever key signed
-    it (V23-54).
-
-    The prefix is only stripped when what follows is exactly 40 hex characters, so this
-    cannot collapse two addresses that are genuinely different — the mapping between
-    ``ait1<body>`` and ``0x<body>`` is one-to-one on the body.
+    Valid secp256k1/EVM addresses (``0x`` + 40 hex) are returned as EIP-55 checksum
+    addresses. Anything else — including the legacy ``ait1`` and ``aitbc1`` prefixes —
+    is returned unchanged (lower-cased). This means legacy spellings no longer compare
+    equal to their 0x counterpart, effectively rejecting them at comparison boundaries
+    without raising in the middle of consensus code.
     """
-    lowered = address.strip().lower()
-    for prefix in _LEGACY_PREFIXES:
-        if lowered.startswith(prefix):
-            body = lowered[len(prefix) :]
-            if len(body) == 40 and _HEX_DIGITS.issuperset(body):
-                return f"0x{body}"
-            break
+    from eth_utils import to_checksum_address
+
+    value = address.strip()
+    lowered = value.lower()
+    if _EVM_ADDRESS_RE.fullmatch(lowered):
+        return to_checksum_address(lowered)
     return lowered
 
 
