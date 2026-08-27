@@ -3,8 +3,8 @@
 **Level**: All Levels
 **Prerequisites**: None
 **Estimated Time**: 5-15 minutes
-**Last Updated**: July 21, 2026
-**Version**: 2.4
+**Last Updated**: August 27, 2026
+**Version**: 2.5
 
 ## 🧭 **Navigation Path:**
 
@@ -29,6 +29,8 @@ Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
 
+- **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion (v0.25.1 follow-up)
+- **[v0.24.0](v0.24/v0.24.0_change.log)** - Hub node development special (split into v0.24.1–v0.24.18 by topic)
 - **[v0.23.0](v0.23/v0.23.0_change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
 
 - **[v2.0.0](v2.0/v2.0.0_change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
@@ -90,7 +92,7 @@ Read the release notes newest-first:
 - **[v0.4.27](v0.4/v0.4.27_change.log)** - (See change.log for details)
 - **[v0.4.26](v0.4/v0.4.26_change.log)** - (See change.log for details)
 - **[v0.4.25](v0.4/v0.4.25_change.log)** - (See change.log for details)
-- **[v0.4.16](v0.4.16/change.log)** - (See change.log for details)
+- **[v0.4.16](v0.4/v0.4.16_changelog.md)** - (See changelog for details)
 - **[v0.4.7](v0.4/v0.4.7_changelog.md)** - May 14, 2026 - **Multi-Model Ollama, Hardware+Software Bundles, GPU Marketplace Deprecated** ✅
 - **[v0.4.6](v0.4/v0.4.6_changelog.md)** - April 17, 2026
 - **[v0.4.4](v0.4/v0.4.4_changelog.md)** - March 14, 2026
@@ -127,4 +129,4 @@ This directory records versioned release notes, migration context, and milestone
 
 *Last updated: July 21, 2026*
 *Version: 2.4*
-*Status: Release index updated through v0.10.16*
+*Status: Release index updated through v0.25.1*

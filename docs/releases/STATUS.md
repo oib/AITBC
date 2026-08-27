@@ -59,7 +59,8 @@
 | v0.16.2 | Platform Builder Tooling (Phase 2) | 🚧 Planned | SDK, SDK reference docs, white-label/plugin architecture |
 | v0.17.0 | Accessibility & Theme Engine | 🚧 Planned | Light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
-| v0.24.0 | Hub node development special | ✅ Complete | Live two-node paid jobs, bridge multi-sig/Merkle validation, single-proposer restoration after multi-key PoA test |
+| v0.24.0 | Hub node development special | ✅ Complete | See [v0.24.0 overview](v0.24/v0.24.0_change.log); details split into v0.24.1–v0.24.18 |
+| v0.25.0 | On-chain liquidity, sync consolidation and MCP expansion | ✅ Complete | AIT-only on-chain liquidity pool, MCP server expansion; see v0.25.0_change.log |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 
 ## Security Audit Summary
