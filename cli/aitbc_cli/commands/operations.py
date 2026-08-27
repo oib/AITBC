@@ -15,6 +15,9 @@ import click
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address
+
 from ..config import get_config
 from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import abort
@@ -514,10 +517,10 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
         wallet_data = _load_wallet(wallet_path, wallet)
         voter_address = wallet_data["address"]
 
-        # Convert bech32 address to hex for RPC compatibility
-        from ..utils.crypto_utils import bech32_to_hex
-
-        hex_address = bech32_to_hex(voter_address)
+        hex_address = canonical_address(voter_address)
+        if not validate_address(hex_address):
+            error(f"Invalid voter address: {voter_address}")
+            return
 
         # Submit vote to blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -590,10 +593,10 @@ def proposal(
         wallet_data = _load_wallet(wallet_path, wallet)
         proposer_address = wallet_data["address"]
 
-        # Convert bech32 address to hex for RPC compatibility
-        from ..utils.crypto_utils import bech32_to_hex
-
-        hex_address = bech32_to_hex(proposer_address)
+        hex_address = canonical_address(proposer_address)
+        if not validate_address(hex_address):
+            error(f"Invalid proposer address: {proposer_address}")
+            return
 
         # Calculate voting times
         from datetime import UTC, datetime, timedelta

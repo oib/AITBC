@@ -2,6 +2,7 @@
 # AITBC Blockchain Sync Fix Script
 # Resolves synchronization issues between genesis and follower nodes
 
+set -euo pipefail
 echo "=== AITBC Blockchain Sync Fix ==="
 
 
@@ -39,13 +40,13 @@ if [ "$AITBC_HEIGHT" = "0" ] || [ "$AITBC_HEIGHT" = "null" ]; then
   "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "parent_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "timestamp": "1774794510",
-  "proposer": "ait128p577qftddusxvtu4yvxjkwlnx232jlr8lrq57u93getatdrkcsqghm0q",
+  "proposer": "0x92A006c8D767ce11148472e715Fea70d17901f95",
   "allocations": [
-    {"address": "ait128p577qftddusxvtu4yvxjkwlnx232jlr8lrq57u93getatdrkcsqghm0q", "balance": 1000000000, "nonce": 0},
-    {"address": "ait1uwunjewjrserytqzd28pmpkq46uyl2els8c2536f8e8496sahpcsy3r3cz", "balance": 0, "nonce": 0}
+    {"address": "0x92A006c8D767ce11148472e715Fea70d17901f95", "balance": 1000000000, "nonce": 0},
+    {"address": "0xea17516872a24d14cce6238D7Ee6C63e4B285D07", "balance": 0, "nonce": 0}
   ],
   "authorities": [
-    {"address": "ait128p577qftddusxvtu4yvxjkwlnx232jlr8lrq57u93getatdrkcsqghm0q", "weight": 1}
+    {"address": "0x92A006c8D767ce11148472e715Fea70d17901f95", "weight": 1}
   ],
   "params": {
     "base_fee": 10,

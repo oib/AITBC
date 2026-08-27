@@ -4,15 +4,19 @@ Utility script to generate and set unique node IDs for AITBC nodes.
 This script updates /etc/aitbc/blockchain.env and /etc/aitbc/node.env with unique UUID-based IDs.
 """
 
+import hashlib
 import os
 import sys
 import uuid
 from pathlib import Path
 
+from eth_account import Account
+
 
 def generate_proposer_id() -> str:
-    """Generate a unique proposer ID in AITBC address format."""
-    return f"ait1{uuid.uuid4().hex}"
+    """Generate a unique proposer ID as a canonical EIP-55 0x address."""
+    node_secret = uuid.uuid4().hex
+    return Account.from_key(hashlib.sha256(node_secret.encode()).digest()).address
 
 
 def generate_p2p_node_id() -> str:

@@ -133,9 +133,6 @@ class TestHandleAsyncCLIError:
     """Test async CLI error handling decorator"""
 
 
-
-
-
 class TestSafeExecute:
     """Test safe_execute utility"""
 

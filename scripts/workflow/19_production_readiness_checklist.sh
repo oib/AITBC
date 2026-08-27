@@ -3,8 +3,7 @@
 # AITBC Production Readiness Checklist
 # Validates production readiness across all system components
 
-set -e
-
+set -euo pipefail
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
@@ -201,8 +200,8 @@ echo "6. 💰 WALLET VALIDATION"
 echo "======================"
 
 # Check genesis wallet
-if curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" >/dev/null 2>&1; then
-    genesis_balance=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" | jq -r .balance 2>/dev/null || echo "0")
+if curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a" >/dev/null 2>&1; then
+    genesis_balance=$(curl -s "$BLOCKCHAIN_RPC/rpc/getBalance/0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a" | jq -r .balance 2>/dev/null || echo "0")
     if [ "$genesis_balance" -gt 900000000 ]; then
         check_pass "Genesis wallet balance: $genesis_balance AIT"
     else

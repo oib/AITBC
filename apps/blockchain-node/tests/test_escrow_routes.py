@@ -39,8 +39,8 @@ def test_settlement_key_falls_back_to_genesis(monkeypatch):
 
 
 # The address the deterministic ``release_key`` fixture actually controls.
-RELEASE_KEY_ADDRESS = "0x1563915e194d8cfba1943570603f7606a3115508"
-FOREIGN_ADDRESS = "0xaabbccddeeff00112233445566778899aabbccdd"
+RELEASE_KEY_ADDRESS = "0x1563915e194D8CfBA1943570603F7606A3115508"
+FOREIGN_ADDRESS = "0xAAbbCCDdeEFf00112233445566778899aABBcCDd"
 GENESIS_KEY = "0x1111111111111111111111111111111111111111111111111111111111111111"
 
 
@@ -76,7 +76,7 @@ def test_settlement_address_rejects_address_without_matching_key(monkeypatch):
 
 def test_settlement_address_none_without_any_key(monkeypatch):
     """Without a signing key there is nothing to settle with, address or not."""
-    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", "ait1aabbccddeeff00112233445566778899aabbccdd")
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", "0x0000000000000000000000000000000000000000")
     monkeypatch.delenv("ESCROW_RELEASE_PRIVATE_KEY", raising=False)
     monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
 
@@ -90,7 +90,7 @@ def test_settlement_address_derives_from_release_key(release_key, monkeypatch):
     monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
 
     escrow_routes = _reload_routes()
-    assert escrow_routes._get_settlement_address() == "0x1563915e194d8cfba1943570603f7606a3115508"
+    assert escrow_routes._get_settlement_address() == "0x1563915e194D8CfBA1943570603F7606A3115508"
 
 
 @pytest.mark.asyncio

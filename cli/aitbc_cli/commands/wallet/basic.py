@@ -311,6 +311,16 @@ def info(ctx):
 
 def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
     """Return the on-chain address for a wallet, preferring the daemon list."""
+    # If the context has a direct wallet path for this name, use it.
+    wallet_path = ctx.obj.get("wallet_path")
+    if wallet_path and wallet_path.exists() and wallet_path.stem == wallet_name:
+        try:
+            with open(wallet_path) as f:
+                data = json.load(f)
+            return data.get("address")
+        except Exception:
+            pass
+
     client = get_wallet_client()
     try:
         wallets_data = client.get("/v1/wallets")

@@ -117,7 +117,7 @@ Wallet         Coordination    Processing    Proposal    Peer       Aggreg  Inte
 
 **Proof of Authority (PoA) Implementation**
 
-- **Validator**: ait1devproposer000000000000000000000000000000
+- **Validator**: 0x7f56B297AB92B6F8074ee8B0F63579ED6D35161a
 - **Block Height**: Currently 250+ blocks
 - **Transaction Flow**: Submit → Mempool → Consensus → Block
 - **Chain Isolation**: Maintained per chain (ait-devnet active)

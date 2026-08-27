@@ -32,7 +32,7 @@ class TestBridgeManagerSettlementLifecycle:
             target_chain_id="1001",
             amount=42.0,
             asset_type="AITBC",
-            recipient_address="ait1abc",
+            recipient_address="0x1234567890123456789012345678901234567890",
         )
         assert isinstance(sid, str) and len(sid) > 0
         record = await manager.storage.get_settlement(sid)
@@ -136,7 +136,7 @@ class TestBlockchainServiceStakingMethods:
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
             mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
             with pytest.raises(NetworkError):
-                await svc.complete_unbonding("stake_1", "0x" + "aa" * 20)
+                await svc.complete_unbonding("stake_1", "0xABaBaBaBABabABabAbAbABAbABabababaBaBABaB")
 
     async def test_distribute_earnings_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
@@ -146,7 +146,7 @@ class TestBlockchainServiceStakingMethods:
         with patch("coordinator_api.contexts.blockchain.services.blockchain.AITBCHTTPClient") as mock_client_cls:
             mock_client_cls.return_value.post.side_effect = NetworkError("connection refused")
             with pytest.raises(NetworkError):
-                await svc.distribute_earnings("ait1agent", 500.0)
+                await svc.distribute_earnings("0x1234567890123456789012345678901234567890", 500.0)
 
     async def test_claim_rewards_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService

@@ -72,6 +72,7 @@ def test_plugin_load_demo(tmp_path, runner, monkeypatch):
     assert data["name"] == "demo"
     assert data["brand"]["name"] == "Demo"
 
+
 def test_plugin_create_writes_loadable_plugin(tmp_path, runner, monkeypatch):
     """``aitbc plugin create`` writes a .py plugin that PluginManager can load."""
     plugins_dir = tmp_path / "plugins"

@@ -5,9 +5,11 @@ from decimal import Decimal
 
 import click
 
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address, validate_address_strict
+
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
-from ..utils.crypto_utils import bech32_to_hex
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet_paths import wallet_dir
 
@@ -75,7 +77,10 @@ def register_onchain(
             wallet_data = json.load(f)
 
         registered_by = wallet_data["address"]
-        hex_address = bech32_to_hex(registered_by)
+        hex_address = canonical_address(registered_by)
+        if not validate_address(hex_address):
+            error(f"Invalid wallet address: {registered_by}")
+            return
 
         # Submit GPU registration to blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -174,8 +179,15 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_
             wallet_data = json.load(f)
 
         allocated_by = wallet_data["address"]
-        hex_allocated_by = bech32_to_hex(allocated_by)
-        hex_client_id = bech32_to_hex(client_id)
+        hex_allocated_by = canonical_address(allocated_by)
+        if not validate_address(hex_allocated_by):
+            error(f"Invalid wallet address: {allocated_by}")
+            return
+        try:
+            hex_client_id = validate_address_strict(client_id)
+        except Exception as e:
+            error(f"Invalid client address: {e}")
+            return
 
         # Submit GPU allocation to blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)

@@ -353,7 +353,7 @@ def _bond_escrow_address() -> str:
     env = os.getenv("BOND_ESCROW_ADDRESS", "")
     if env:
         return canonical_address(env)
-    return "0x" + keccak(b"aitbc.bond.escrow").hex()[:40]
+    return canonical_address("0x" + keccak(b"aitbc.bond.escrow").hex()[:40])
 
 
 def _bond_burn_address() -> str:
@@ -361,7 +361,7 @@ def _bond_burn_address() -> str:
     env = os.getenv("BOND_BURN_ADDRESS", "")
     if env:
         return canonical_address(env)
-    return "0x" + keccak(b"aitbc.bond.burn").hex()[:40]
+    return canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
 
 def ensure_bond_accounts(session: Session, chain_id: str) -> None:

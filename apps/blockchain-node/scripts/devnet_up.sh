@@ -12,7 +12,7 @@ export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/scripts:${PYTHONPATH:-}"
 
 GENESIS_PATH="data/devnet/genesis.json"
 ALLOCATIONS_PATH="data/devnet/allocations.json"
-PROPOSER_ADDRESS="ait15v2cdlz5a3uy3wfurgh6m957kahnhhprdq7fy9m6eay05mvrv4jsyx4sks"
+PROPOSER_ADDRESS="0x4366b90fd96cEB6498e50baf95CFA40876dd8d7b"
 "$VENV_PYTHON" "scripts/make_genesis.py" \
   --output "$GENESIS_PATH" \
   --force \

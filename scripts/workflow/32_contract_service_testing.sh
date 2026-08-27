@@ -114,7 +114,7 @@ CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/contract/d
   -H "Content-Type: application/json" \
   -d "{
     \"contract_code\": \"$TEST_CONTRACT\",
-    \"sender\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
+    \"sender\": \"0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a\",
     \"gas_limit\": 1000000
   }")
 
@@ -143,7 +143,7 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
         \"contract_address\": \"$CONTRACT_ADDRESS\",
         \"function\": \"storeValue\",
         \"inputs\": [\"Hello from contract!\"],
-        \"sender\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
+        \"sender\": \"0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a\",
         \"gas_limit\": 100000
       }")
 
@@ -237,7 +237,7 @@ MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/mar
     \"resource_type\": \"compute\",
     \"price\": 100,
     \"duration_hours\": 1,
-    \"provider\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\"
+    \"provider\": \"0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a\"
   }")
 
 echo "Marketplace contract result: $MARKET_CONTRACT_RESULT"
@@ -263,7 +263,7 @@ SECURITY_TEST=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/contract/cal
     \"contract_address\": \"$CONTRACT_ADDRESS\",
     \"function\": \"getValue\",
     \"inputs\": [],
-    \"sender\": \"ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b\",
+    \"sender\": \"0xE7d5e60688Ff0b4a5C6863f1625E47945D84C94b\",
     \"gas_limit\": 100000
   }")
 
@@ -283,7 +283,7 @@ PERF_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/contract/call"
     \"contract_address\": \"$CONTRACT_ADDRESS\",
     \"function\": \"getValue\",
     \"inputs\": [],
-    \"sender\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
+    \"sender\": \"0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a\",
     \"gas_limit\": 100000
   }")
 END_TIME=$(date +%s%N)

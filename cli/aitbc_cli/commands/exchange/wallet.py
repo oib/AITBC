@@ -8,7 +8,7 @@ from aitbc_cli.utils import error, output, success
 def balance_command(ctx):
     """Check wallet balance"""
     try:
-        balance_data = {"aitbc": 1000.0, "eth": 0.05, "eth": 0.0}
+        balance_data = {"aitbc": 1000.0, "eth": 0.05}
         output(balance_data, title="Wallet Balance")
         success("Wallet balance retrieved")
     except Exception as e:

@@ -38,7 +38,7 @@ class FakeTransactionService:
 
     def __init__(self) -> None:
         self.genesis_private_key = "0x" + "11" * 32
-        self.genesis_address = "ait1" + "fe" * 20
+        self.genesis_address = "0xF5A930bBC90c15dB0bbf28f8485D18eEf24c3F43"
         self.rpc_url = "http://localhost:8202"
         self.signed: list[dict] = []
         FakeTransactionService.instances.append(self)

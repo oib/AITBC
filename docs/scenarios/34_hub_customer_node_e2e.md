@@ -156,8 +156,8 @@ On the hub:
 aitbc ai submit --prompt "Cross-node paid job test" \
   --payment 1.0 \
   --wallet default \
-  --buyer-address <customer-ait1-or-aitbc1> \
-  --provider-address aitbc1a54b82312beb65d0e90c21717ea372396991fa36 \
+  --buyer-address <customer-0x-address> \
+  --provider-address 0xA54B82312beb65D0E90c21717ea372396991Fa36 \
   --wait --timeout 180
 ```
 
@@ -183,7 +183,7 @@ On the shop (or any CLI that talks to the hub wallet/RPC):
 ```bash
 aitbc wallet balance test-wallet-3
 aitbc wallet transactions test-wallet-3
-aitbc account get --address aitbc1a54b82312beb65d0e90c21717ea372396991fa36
+aitbc account get --address 0xA54B82312beb65D0E90c21717ea372396991Fa36
 ```
 
 **Expected output:** provider balance includes the 0.9750 AIT release (1.0 minus fee); an `ESCROW_RELEASE` tx; `account get` shows compute-seconds (3510 per 0.975 AIT).
@@ -232,7 +232,7 @@ On the hub:
 aitbc ai submit --prompt "High-value ZK test" \
   --payment 15 \
   --wallet default \
-  --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f \
+  --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F \
   --model llama3.2:3b \
   --zk-proof-required \
   --wait --timeout 300

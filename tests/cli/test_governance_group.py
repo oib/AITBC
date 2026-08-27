@@ -1,6 +1,6 @@
 """Tests for the aitbc governance command group (P1.7 lifecycle)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

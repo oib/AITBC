@@ -123,9 +123,9 @@ def canonical_address(address: str) -> str:
 def verify_signature(msg_hash: bytes, signature: str | bytes, expected_address: str) -> bool:
     """Return True iff ``signature`` over ``msg_hash`` recovers to ``expected_address``.
 
-    Address comparison is case-insensitive, so a checksummed and a lowercase form of the
-    same address compare equal, and it accepts the legacy ``ait1``/``aitbc1`` spelling of
-    the address recovery returns — see :func:`canonical_address`.
+    Address comparison is case-insensitive for valid ``0x`` secp256k1/EVM addresses,
+    because :func:`canonical_address` returns the EIP-55 form. Legacy ``ait1``/``aitbc1``
+    spellings are not accepted and will not compare equal to their ``0x`` counterpart.
 
     Raises:
         SignatureMalformed: If the signature cannot be decoded. Callers that want a

@@ -5,8 +5,7 @@
 # Uses RPC endpoints only, no SSH access
 #
 
-set -e
-
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
@@ -24,7 +23,7 @@ LOG_FILE="${LOG_DIR}/cross-node-transaction-test.log"
 # Test Configuration
 TEST_WALLET_NAME="cross-node-test-wallet"
 TEST_WALLET_PASSWORD="mock_test_password"
-TEST_RECIPIENT="ait1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz4vxy"
+TEST_RECIPIENT="0x45424919B597811a273EB3E8Db0Dc1C8Fbfb3DE1"
 TEST_AMOUNT=1
 CHAINS="${CHAINS:-ait-mainnet,ait-testnet}"
 
@@ -89,7 +88,7 @@ get_wallet_address() {
     if [ $exit_code -ne 0 ] || [ -z "$address" ]; then
         log_warning "wallet address command failed (exit code: ${exit_code}, output: ${address})"
         # Try alternative syntax
-        address=$(timeout 10 ${CLI_PATH} wallet list --name "${wallet_name}" 2>&1 | grep -o "ait1[a-z0-9]*" | head -1 || echo "")
+        address=$(timeout 10 ${CLI_PATH} wallet list --name "${wallet_name}" 2>&1 | grep -oE "0x[a-fA-F0-9]{40}" | head -1 || echo "")
     fi
 
     echo "$address"

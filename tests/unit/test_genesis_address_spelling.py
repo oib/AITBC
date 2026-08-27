@@ -1,19 +1,8 @@
-"""The genesis key and address may be spelled differently and still be the same key (V23-63).
+"""The genesis key and address must match and the address must be a valid 0x form (V23-63).
 
-The hub refused to sign anything, reporting:
-
-    GENESIS_ADDRESS (ait1fe2d63fe87db282083b9159e5857cac788af9e03) does not match the
-    secp256k1 address derived from GENESIS_PRIVATE_KEY (0xFe2d63FE87Db282083b9159e5857Cac788af9E03)
-
-Those are the same twenty bytes. The forty hex characters are identical; only the prefix and
-the checksum casing differ. The key was correct all along and the comparison was wrong —
-`canonical_address` exists for exactly this and was added under V23-54 for the block proposer
-check, but `TransactionService` never picked it up.
-
-Which spelling goes on the wire matters separately. The node verifies `from` against the
-recovered signer canonically, so either works there — but its account lookups are exact string
-matches, so a transaction signed with the derived `0x` spelling asks for the nonce of an
-address the chain has no row for.
+The hub now stores and sends only EIP-55 secp256k1/EVM addresses. The genesis
+address configured in the environment must be the ``0x`` form of the key that
+signs the transaction, otherwise the node will reject the signature.
 """
 
 from __future__ import annotations
@@ -37,11 +26,6 @@ def derived_address() -> str:
     return str(keys.PrivateKey(bytes.fromhex(PRIVATE_KEY.removeprefix("0x"))).public_key.to_checksum_address())
 
 
-def _legacy(checksummed: str) -> str:
-    """The `ait1` spelling of an address the chain also writes as `0x…`."""
-    return "ait1" + checksummed.removeprefix("0x").lower()
-
-
 @pytest.fixture
 def service(monkeypatch):
     def _build(address: str) -> TransactionService:
@@ -55,16 +39,16 @@ def service(monkeypatch):
     return _build
 
 
-@pytest.mark.parametrize("spelling", ["checksummed", "lowercase", "ait1"])
+@pytest.mark.parametrize("spelling", ["checksummed", "lowercase", "uppercase"])
 def test_every_spelling_of_the_right_address_signs(service, derived_address, spelling: str) -> None:
-    """The bug in one test: the `ait1` case returned None while naming the same account."""
+    """A 0x address in any valid hexadecimal spelling names the same account."""
     address = {
         "checksummed": derived_address,
         "lowercase": derived_address.lower(),
-        "ait1": _legacy(derived_address),
+        "uppercase": derived_address.upper().replace("0X", "0x"),
     }[spelling]
 
-    transaction = service(address).generate_signed_transaction(to_address="ait1" + "ab" * 20, amount=100, fee=10)
+    transaction = service(address).generate_signed_transaction(to_address="0x" + "ab" * 20, amount=100, fee=10)
 
     assert transaction is not None
     assert transaction["signature"]
@@ -76,49 +60,44 @@ def test_a_genuinely_different_address_still_fails_closed(service) -> None:
 
     other = keys.PrivateKey(bytes.fromhex("22" * 32)).public_key.to_checksum_address()
 
-    assert service(other).generate_signed_transaction(to_address="ait1" + "ab" * 20, amount=100, fee=10) is None
-    assert service(_legacy(str(other))).generate_signed_transaction("ait1" + "ab" * 20, 100, 10) is None
+    assert service(other).generate_signed_transaction(to_address="0x" + "ab" * 20, amount=100, fee=10) is None
+    assert service(other.lower()).generate_signed_transaction("0x" + "ab" * 20, 100, 10) is None
 
 
 def test_the_configured_spelling_is_what_goes_on_the_wire(service, derived_address) -> None:
-    """`from` must be the address the chain has an account row for.
+    """`from` and `to` are canonical 0x addresses so the node can look them up."""
+    configured = derived_address.lower()
 
-    The node compares `from` to the recovered signer canonically, so the `0x` form would
-    verify — but `rpc/accounts.get_account` matches on the exact string, so signing as
-    `0x…` when the account is stored as `ait1…` reads the nonce of an account that does
-    not exist and the transfer debits nothing.
-    """
-    legacy = _legacy(derived_address)
-
-    transaction = service(legacy).generate_signed_transaction(to_address="ait1" + "ab" * 20, amount=100, fee=10)
+    transaction = service(configured).generate_signed_transaction(to_address="0x" + "ab" * 20, amount=100, fee=10)
 
     assert transaction is not None
-    assert transaction["from"] == legacy
+    assert transaction["from"] == canonical_address(configured)
+    assert transaction["to"] == canonical_address("0x" + "ab" * 20)
 
 
-def test_the_nonce_is_fetched_for_the_configured_spelling(monkeypatch, derived_address) -> None:
-    """Same reason: a nonce looked up under the wrong spelling comes back 0 for a used account."""
-    legacy = _legacy(derived_address)
+def test_the_nonce_is_fetched_for_the_canonical_address(monkeypatch, derived_address) -> None:
+    """The nonce lookup uses the same canonical 0x address that goes on the wire."""
+    configured = derived_address.lower()
     monkeypatch.setenv("GENESIS_PRIVATE_KEY", PRIVATE_KEY)
-    monkeypatch.setenv("GENESIS_ADDRESS", legacy)
+    monkeypatch.setenv("GENESIS_ADDRESS", configured)
     built = TransactionService()
 
     asked: list[str] = []
     monkeypatch.setattr(built, "get_nonce", lambda address: asked.append(address) or 7)
-    built.generate_signed_transaction(to_address="ait1" + "ab" * 20, amount=100, fee=10)
+    built.generate_signed_transaction(to_address="0x" + "ab" * 20, amount=100, fee=10)
 
-    assert asked == [legacy]
+    assert asked == [canonical_address(configured)]
 
 
-def test_the_signature_verifies_against_the_configured_spelling(service, derived_address) -> None:
+def test_the_signature_verifies_against_the_canonical_address(service, derived_address) -> None:
     """End to end against the node's own verifier, which is the only check that counts."""
     verify = pytest.importorskip(
         "aitbc_chain.rpc.utils", reason="blockchain-node not importable from the root suite"
     ).verify_transaction_signature
 
-    legacy = _legacy(derived_address)
-    transaction = service(legacy).generate_signed_transaction(to_address="ait1" + "ab" * 20, amount=100, fee=10)
+    configured = derived_address.lower()
+    transaction = service(configured).generate_signed_transaction(to_address="0x" + "ab" * 20, amount=100, fee=10)
     signature = transaction.pop("signature")
 
-    assert verify(transaction, signature, legacy)
-    assert canonical_address(legacy) == canonical_address(derived_address)
+    assert verify(transaction, signature, canonical_address(configured))
+    assert canonical_address(configured) == canonical_address(derived_address)

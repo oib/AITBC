@@ -80,7 +80,7 @@ set_env gossip_backend broadcast
 set_env gossip_broadcast_url redis://10.1.223.40:6379
 set_env default_peer_rpc_url http://aitbc1:8202
 set_env p2p_bind_port 8200
-set_env trusted_proposers ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96
+set_env trusted_proposers 0x2d7151D8b39Ba010d778c74af74383C8a3348B98
 
 # Ensure p2p_node_id exists in node.env (preserve if already set)
 if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then

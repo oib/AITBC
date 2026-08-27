@@ -907,7 +907,7 @@ setup_node_identities() {
     }
 
     # Generate unique IDs
-    PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
+    PROPOSER_ID="0x$(python3 -c 'import secrets; print(secrets.token_hex(20))')"
     P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
 
     # Use pre-configured example if available AND no existing config, otherwise create minimal config
