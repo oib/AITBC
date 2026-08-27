@@ -1,0 +1,239 @@
+# AITBC v1.0.0 Release Plan — Production Readiness
+
+## Overview
+
+v1.0.0 is the **production readiness milestone**. It is not a feature release — it is the point at which the codebase, infrastructure, and operational practices are hardened enough to handle real user funds on the AITBC mainnet. All planned releases (v0.5.16 through v0.9.0) must be complete before v1.0.0.
+
+**Target Date**: TBD (after v0.9.0 completion)
+**Theme**: "Trustworthy Infrastructure"
+**Success Criteria**: A security auditor can review the codebase and find no P0/P1 issues. All releases v0.5.16–v0.9.0 are shipped and tested.
+
+---
+
+## Prerequisites
+
+v1.0.0 requires **all** of the following releases to be complete:
+
+| Release | Scope | Status |
+|---------|-------|--------|
+| [v0.5.16](../v0.5/v0.5.16_change.log) | Security hardening + multi-chain preparation | ✅ Complete |
+| [v0.5.17](../v0.5/v0.5.17_change.log) | Test infrastructure | ✅ Complete |
+| [v0.6.0](../v0.6/v0.6.0_change.log) | Performance optimization | ✅ Complete |
+| [v0.6.1](../v0.6/v0.6.1_change.log) | Parallel processing | ✅ Complete |
+| [v0.6.2](../v0.6/v0.6.2_change.log) | Sync & gossip optimization | 🚧 Planned |
+| [v0.6.3](../v0.6/v0.6.3_change.log) | Multi-island node support | 🚧 Planned |
+| [v0.6.4](../v0.6/v0.6.4_change.log) | Multi-chain per island | 🚧 Planned |
+| [v0.6.5](../v0.6/v0.6.5_change.log) | Agent coordination service | ✅ Complete |
+| [v0.6.6](../v0.6/v0.6.6_change.log) | Compute marketplace | 🚧 Planned |
+| [v0.6.7](../v0.6/v0.6.7_change.log) | Pool hub & mining | 🚧 Planned |
+| [v0.7.0](../v0.7/v0.7.0_change.log) | Bridge basics | ✅ Complete |
+| [v0.7.1](../v0.7/v0.7.1_change.log) | Bridge security | ✅ Complete |
+| [v0.7.2](../v0.7/v0.7.2_change.log) | Bridge oracle | ✅ Complete |
+| [v0.7.3](../v0.7/v0.7.3_change.log) | Governance | ✅ Complete |
+| [v0.8.0](../v0.8/v0.8.0_change.log) | Inter-chain trading | ✅ Complete |
+| [v0.8.1](../v0.8/v0.8.1_change.log) | Cross-chain offer sync | ✅ Complete |
+| [v0.9.0](../v0.9/v0.9.0_change.log) | Atomic cross-chain settlement | 🚧 In Progress |
+
+---
+
+## P0: Mainnet Deployment (MUST HAVE)
+
+### Problem
+AITBC currently runs on testnet/devnet. Mainnet deployment requires:
+
+- AITBC blockchain mainnet genesis (not Ethereum — AITBC has its own chain)
+- Mainnet island configuration (production islands, hubs, validators)
+- Real AIT coin distribution (genesis allocation, no test tokens)
+- Mainnet bridge configuration (cross-island bridges with real value)
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Generate mainnet genesis for ait-hub chain | 🔴 Not started | Agent B |
+| Configure production islands and hubs | 🔴 Not started | DevOps |
+| Deploy mainnet bridge service | 🔴 Not started | Agent B |
+| Configure oracle endpoints for mainnet | 🔴 Not started | DevOps |
+| Generate and distribute genesis wallets | 🔴 Not started | Security |
+| Set up block explorer for mainnet | 🔴 Not started | DevOps |
+| Configure monitoring for mainnet nodes | 🔴 Not started | DevOps |
+
+### Acceptance Criteria
+- [ ] Mainnet blockchain node runs and produces blocks
+- [ ] Mainnet islands are connected and bridges work
+- [ ] AIT coins are distributed per genesis allocation
+- [ ] Block explorer shows mainnet blocks and transactions
+- [ ] Monitoring dashboards show mainnet health
+
+---
+
+## P0: Security Audit (MUST HAVE)
+
+### Problem
+The bridge, settlement, and governance layers handle real value. An external security audit is required before mainnet.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| External audit: bridge security (v0.7.0, v0.7.1) | 🔴 Not started | Security |
+| External audit: atomic settlement (v0.9.0) | 🔴 Not started | Security |
+| External audit: signature verification (v0.5.16) | 🔴 Not started | Security |
+| External audit: governance execution (v0.7.3) | 🔴 Not started | Security |
+| Penetration testing on staging | 🔴 Not started | Security |
+| Fix all audit findings before v1.0.0 | 🔴 Not started | TBD |
+
+### Acceptance Criteria
+- [ ] No P0/P1 findings from external audit
+- [ ] Penetration testing finds no critical vulnerabilities
+- [ ] All bridge proof verification paths audited
+- [ ] All signature verification paths audited
+
+---
+
+## P0: Systemd & Infrastructure Hardening (MUST HAVE)
+
+### Problem
+Systemd units need production hardening. Services must run securely and survive failures.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Audit all systemd units for security best practices | 🔴 Not started | Agent B |
+| Add `PrivateTmp=yes`, `NoNewPrivileges=yes`, `ProtectSystem=strict` | 🔴 Not started | Agent B |
+| Move inline secrets out of `.service` files | 🔴 Not started | Agent B |
+| Use `EnvironmentFile=/etc/aitbc/%N.env` for secrets | 🔴 Not started | Agent B |
+| Add systemd watchdog (`WatchdogSec=30`, `NotifyAccess=all`) | 🔴 Not started | Agent B |
+| Limit resources (`MemoryMax`, `CPUQuota`) | 🔴 Not started | Agent B |
+| Add restart policy: `Restart=on-failure`, `RestartSec=5` | 🔴 Not started | Agent B |
+
+### Acceptance Criteria
+- [ ] All services run as non-root user
+- [ ] No secrets in `/etc/systemd/system/*.service`
+- [ ] `systemctl status` shows clean security profile
+- [ ] OOM conditions are handled gracefully
+
+---
+
+## P1: Secret Management (MUST HAVE)
+
+### Problem
+Validator keys, bridge keys, and oracle keys need secure storage. Production requires HSM or secure enclave for high-value keys.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Deploy HashiCorp Vault or AWS Secrets Manager | 🔴 Not started | DevOps |
+| Store validator private keys in HSM/secure enclave | 🔴 Not started | Security |
+| Store bridge signing keys in HSM | 🔴 Not started | Security |
+| Create secret rotation policy (90-day max age) | 🔴 Not started | Security |
+| Audit all env vars for secret leakage in logs | 🔴 Not started | Agent B |
+| Add secret masking to logging | 🔴 Not started | Agent B |
+
+### Acceptance Criteria
+- [ ] No plaintext secrets in repo, CI logs, or systemd units
+- [ ] Validator and bridge keys are in HSM
+- [ ] Secret rotation is documented and automated
+
+---
+
+## P1: Observability & Monitoring (MUST HAVE)
+
+### Problem
+Production requires monitoring, alerting, and tracing for all services.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Deploy Prometheus + Grafana for metrics | 🔴 Not started | DevOps |
+| Add `/metrics` endpoint to all services | 🔴 Not started | Agent B |
+| Standardize logging (JSON format, structured) | 🔴 Not started | Agent B |
+| Add distributed tracing (OpenTelemetry) | 🔴 Not started | TBD |
+| Create alerting rules for critical paths | 🔴 Not started | DevOps |
+| Add health check endpoints (`/health`, `/ready`, `/live`) | 🟡 Partial | Agent B |
+
+### Acceptance Criteria
+- [ ] All services expose `/metrics` in Prometheus format
+- [ ] Grafana dashboard shows block production, sync lag, bridge transfers
+- [ ] Alerts fire on: block production stall, sync lag, bridge failures, auth failures
+- [ ] Logs are queryable (not just flat files)
+
+---
+
+## P1: Performance & Load Testing (SHOULD HAVE)
+
+### Problem
+Production traffic may exceed testnet capacity. Load testing must verify performance targets.
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Load test blockchain node at target TPS | 🔴 Not started | QA |
+| Load test bridge service at target transfer rate | 🔴 Not started | QA |
+| Load test marketplace matching at target offer rate | 🔴 Not started | QA |
+| Profile agent-coordinator under 1000 concurrent agents | 🔴 Not started | QA |
+| Identify and fix N+1 queries | 🔴 Not started | Agent A |
+
+### Acceptance Criteria
+- [ ] Blockchain node handles >1000 TPS (per v0.6.0 targets)
+- [ ] Bridge handles >100 transfers/minute
+- [ ] Marketplace matching <200ms at 10K offers
+- [ ] No memory leaks over 24-hour run
+
+---
+
+## P2: Documentation & Deployment Automation (SHOULD HAVE)
+
+### Work Required
+
+| Task | Status | Owner |
+|------|--------|-------|
+| Create `docs/deployment/PRODUCTION.md` step-by-step guide | 🔴 Not started | TBD |
+| Automate deployment with Ansible/Terraform | 🔴 Not started | DevOps |
+| Add pre-flight check script (`scripts/check-production-readiness.py`) | 🔴 Not started | TBD |
+| Document rollback procedures | 🔴 Not started | TBD |
+| Create runbook for common incidents | 🔴 Not started | TBD |
+| Update README with v1.0.0 architecture diagram | 🔴 Not started | TBD |
+
+---
+
+## Release Checklist
+
+Before tagging v1.0.0:
+
+- [ ] All releases v0.5.16–v0.9.0 complete and shipped
+- [ ] All P0 items complete
+- [ ] All P1 items complete
+- [ ] External security audit complete with no P0/P1 findings
+- [ ] Penetration testing passed
+- [ ] Load tests pass at target capacity
+- [ ] Deployment automation tested on staging
+- [ ] Rollback procedure tested
+- [ ] All secrets rotated and stored in HSM/Vault
+- [ ] Mainnet genesis generated and verified
+- [ ] Monitoring dashboards active
+- [ ] Team trained on incident response
+- [ ] Public announcement prepared
+
+---
+
+## Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Bridge vulnerability on mainnet | Critical (lost funds) | External audit, chaos testing (v0.9.0), HSM keys |
+| Validator key compromise | Critical (forged blocks) | HSM storage, key rotation, multi-sig (v0.7.1) |
+| Settlement atomicity failure | Critical (stuck funds) | HTLC, chaos testing, external audit |
+| Governance attack | High (malicious parameter changes) | Quorum thresholds, timelock, cross-chain verification |
+| Load beyond capacity | Medium (degraded service) | Auto-scaling, rate limiting, load testing |
+| Oracle manipulation | High (invalid bridge proofs) | Multi-oracle consensus, light client fallback (v0.7.2) |
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 1.0.0*
+*Status: Planned — Production Readiness (after v0.9.0)*

@@ -1,0 +1,47 @@
+# v0.23.0 — Design & Correctness Audit (overview)
+
+**Scope**: all subdirectories, focused on defects and design gaps rather than style.
+**Baseline**: `main` at `d6b6b9dda` (v0.22 remediation merged, PR #91).
+**Date**: 2026-08-09.
+
+---
+
+
+---
+
+This release is split into the following v0.23.x sub-releases by topic:
+
+- [v0.23.1](v0.23/v0.23.1_change.log) — How to read this
+- [v0.23.2](v0.23/v0.23.2_change.log) — Critical — signature verification rejects standard signatures
+- [v0.23.3](v0.23/v0.23.3_change.log) — High — things that are named for what they do not do
+- [v0.23.4](v0.23/v0.23.4_change.log) — High — structural hazards
+- [v0.23.5](v0.23/v0.23.5_change.log) — Medium — concurrency
+- [v0.23.6](v0.23/v0.23.6_change.log) — Medium — configuration and honesty
+- [v0.23.7](v0.23/v0.23.7_change.log) — Low — process
+- [v0.23.8](v0.23/v0.23.8_change.log) — Critical — a service that reports work it did not do · RESOLVED
+- [v0.23.9](v0.23/v0.23.9_change.log) — Critical — governance timelock fails open · RESOLVED
+- [v0.23.10](v0.23/v0.23.10_change.log) — High — supply chain
+- [v0.23.11](v0.23/v0.23.11_change.log) — High — a deploy script that defaults to destroying the local checkout
+- [v0.23.12](v0.23/v0.23.12_change.log) — Medium — shell safety is inconsistent across 266 scripts
+- [v0.23.13](v0.23/v0.23.13_change.log) — Critical — proving keys with no phase-2 contribution are the ones loaded · RESOLVED
+- [v0.23.14](v0.23/v0.23.14_change.log) — High — the contract toolchain's declared dependency tree
+- [v0.23.15](v0.23/v0.23.15_change.log) — Two things that are right
+- [v0.23.16](v0.23/v0.23.16_change.log) — Critical — the HTLC timelock calculation cannot be correct · RESOLVED
+- [v0.23.17](v0.23/v0.23.17_change.log) — Medium — what the feature flags say about the system
+- [v0.23.18](v0.23/v0.23.18_change.log) — What the fourth pass changes about the shape of this audit
+- [v0.23.19](v0.23/v0.23.19_change.log) — What this audit did not cover
+- [v0.23.20](v0.23/v0.23.20_change.log) — Method
+- [v0.23.21](v0.23/v0.23.21_change.log) — Medium — the guard for the money invariant checked thirteen files by hand · RESOLVED
+- [v0.23.22](v0.23/v0.23.22_change.log) — High — the largest float-money backlog, and the type checker that was not checking
+- [v0.23.23](v0.23/v0.23.23_change.log) — High — money in consensus code, and the line where Decimal must stop
+- [v0.23.24](v0.23/v0.23.24_change.log) — Medium — the client side of the same protocol
+- [v0.23.25](v0.23/v0.23.25_change.log) — Medium — one CLI, two units for the same quantity
+- [v0.23.26](v0.23/v0.23.26_change.log) — High — a client that had never been checked against its server
+- [v0.23.27](v0.23/v0.23.27_change.log) — Medium — the second CLI, and what was actually in it
+- [v0.23.28](v0.23/v0.23.28_change.log) — Medium — the compliance module nothing tested and nothing calls
+- [v0.23.29](v0.23/v0.23.29_change.log) — Medium — the open decision V23-36 left behind
+- [v0.23.30](v0.23/v0.23.30_change.log) — High — the type-checker backlog was hiding runtime crashes
+- [v0.23.31](v0.23/v0.23.31_change.log) — Medium — two services with no way to change their schema
+- [v0.23.32](v0.23/v0.23.32_change.log) — Medium — a penalty the chain levied and never wrote down
+- [v0.23.33](v0.23/v0.23.33_change.log) — High — the migration that reported success against the wrong database
+- [v0.23.34](v0.23/v0.23.34_change.log) — High — the deployment scripts, and five services in a restart loop

@@ -1,0 +1,164 @@
+# AITBC v0.10.9 Release Notes
+
+**Date**: 2026-07-06
+**Status**: ✅ Complete — Dead Code Elimination & Status Drift Cleanup
+**Scope**: Delete ~2,500 lines of dead test-only modules from `aitbc/`, fix documentation/status drift, clean up stale port references, migrate auth shims, and remove deprecated constants.
+
+## 🎯 Overview
+
+v0.10.9 is a **dead-code elimination and status-drift cleanup release**. It continues the pattern from v0.10.6, v0.10.7, and v0.10.8 by removing unused code and fixing inconsistencies in documentation and configuration.
+
+**Key focus areas:**
+1. **Dead code elimination** — Delete 15+ test-only modules in `aitbc/` with zero production importers (~2,500 lines)
+2. **Status drift fixes** — Update `pyproject.toml` version, mark v0.10.4 as complete, update STATUS.md
+3. **Stale port cleanup** — Fix port 8006 references in test fixtures (missed in v0.10.6), update coordinator-api CORS config, fix hardcoded wallet port 20000
+4. **Auth shim migration** — Migrate remaining internal importers to `aitbc.auth`, then delete deprecated shims
+5. **Deprecated constants** — Remove `HERMES_PORT` (deprecated since v0.5.9)
+6. **Documentation cleanup** — Remove references to deleted `agent-management` service
+
+**Prerequisites**: [v0.10.8](../v0.10/v0.10.8_change.log) (✅ complete — config consolidation & dead retry helper cleanup).
+
+**Risk**: Low. All deletions are verified to have zero production importers. Status drift fixes are documentation-only. Port updates are mechanical.
+
+---
+
+## 📊 Summary
+
+| Category | Items | Lines Changed (est.) | Lines Deleted (est.) |
+|----------|-------|----------------------|----------------------|
+| Dead code — test-only aitbc/ modules | 15 | 0 | ~2,500 |
+| Dead code — pool-hub health router | 1 | 0 | ~77 |
+| Dead code — cli/advanced_wallet.py | 1 | 0 | ~314 |
+| Status drift — version + docs | 4 | ~10 | ~5 |
+| Stale ports — test fixtures 8006 | 1 | ~60 | ~60 |
+| Stale ports — CORS config | 1 | ~10 | ~10 |
+| Stale ports — payments wallet URL | 1 | ~2 | ~2 |
+| Stale ports — health-check.sh | 1 | ~8 | ~8 |
+| Auth shim migration | 7 | ~30 | ~200 |
+| Deprecated constants — HERMES_PORT | 1 | 0 | ~3 |
+| Documentation — agent-management refs | 1 | 0 | ~5 |
+| **Total** | **34** | **~120** | **~3,184** |
+
+---
+
+## 🧪 Testing
+
+- All existing tests must pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- Integration tests pass (`./venv/bin/python -m pytest tests/integration -q -o addopts=""`)
+- Type check passes (`./venv/bin/python -m mypy --show-error-codes aitbc/`)
+- Lint passes (`./venv/bin/python -m ruff check .`)
+
+---
+
+## 📝 Task Status
+
+See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
+
+### Agent A — Dead Code Elimination (SWE 1.6)
+- [x] A1: Delete 15+ dead test-only `aitbc/` modules + orphan tests (~2,500 lines)
+- [x] A2: Delete dead pool-hub health router (77 lines)
+- [x] A3: Delete cli/advanced_wallet.py (314 lines, zero importers)
+- [x] A4: Remove deprecated HERMES_PORT constant
+
+### Agent B — Status Drift & Config Cleanup (GLM 5.2)
+- [x] B1: Fix status drift — version bump, mark v0.10.4 complete, update STATUS.md
+- [x] B2: Clean up stale port 8006 references in test fixtures (~60 occurrences)
+- [x] B3: Update coordinator-api CORS config to use current port constants
+- [x] B4: Fix hardcoded wallet port 20000 in payments service
+- [x] B5: Fix health-check.sh hardcoded ports
+- [x] B6: Migrate auth shim importers to `aitbc.auth` + delete deprecated shims
+- [x] B7: Remove agent-management references from documentation
+
+---
+
+## 📋 Detailed Findings
+
+### Dead Code — Test-Only `aitbc/` Modules
+
+The following modules in `aitbc/` are **only used in tests** and have **no usage in any apps**:
+
+| Module | Lines | Test importers only | Production importers |
+|--------|-------|---------------------|---------------------|
+| `aitbc/state/` | ~270 | `tests/test_imports.py`, `tests/test_state.py` | 0 |
+| `aitbc/testing/` | ~200 | `tests/test_imports.py`, `tests/core/test_testing_module.py`, `tests/test_testing.py`, `tests/fixtures/` | 0 |
+| `aitbc/benchmark.py` | 139 | `apps/blockchain-node/tests/test_performance.py` | 0 |
+| `aitbc/feature_flags.py` | 235 | `tests/test_imports.py`, `tests/test_feature_flags.py` | 0 |
+| `aitbc/monitoring/` | 254 | `tests/test_imports.py`, `tests/test_monitoring.py` | 0 |
+| `aitbc/api/` | 62 | `tests/test_imports.py`, `tests/test_api_utils.py` | 0 |
+| `aitbc/api_utils.py` | ~200 | `aitbc/api/__init__.py`, `tests/core/test_api_utils_module.py` | 0 |
+| `aitbc/decorators/` | ~106 | `tests/test_imports.py`, `tests/test_decorators.py` | 0 |
+| `aitbc/events/` | ~222 | `tests/test_imports.py`, `tests/test_events.py` | 0 |
+| `aitbc/queues/` | ~500 | `tests/test_imports.py`, `tests/core/test_utility_modules.py`, `tests/test_queue_manager.py` | 0 |
+| `aitbc/consensus/` | ~172 | `tests/unit/test_consensus_signing.py` | 0 |
+| `aitbc/agent_protocols/` | ~100 | `docs/agent-sdk/api-sdk-methods.md` | 0 |
+| `aitbc/agent_compliance/` | ~50 | 0 | 0 |
+| `aitbc/agent_trading/` | ~50 | 0 | 0 |
+| `aitbc/agent_bridge/src/__init__.py` | 0 (empty) | 0 | 0 |
+
+**Total**: ~2,500 lines of dead code.
+
+**Note**: `aitbc/monitoring/` has a duplicate `HealthChecker` class with `aitbc/health_checks.py` — this is a bonus cleanup opportunity.
+
+### Dead Code — Pool-Hub Health Router
+
+**File**: `apps/pool-hub/src/app/routers/health.py` (77 lines)
+**Problem**: Health router in `src/app/routers/health.py` is never mounted. Only `src/poolhub/app/routers/health.py` is used in main.py.
+**Evidence**:
+- `src/poolhub/app/main.py:20` attempts to import `from app.routers.pools import router as pools_router` (fails, sets to None)
+- `src/poolhub/app/main.py:56` includes `health_router` from poolhub (not app)
+- `src/app/routers/__init__.py:6` exports `health_router` but it's never imported anywhere in production code
+
+### Dead Code — CLI Advanced Wallet
+
+**File**: `cli/advanced_wallet.py` (314 lines)
+**Problem**: Standalone wallet script with zero importers across the codebase.
+**Evidence**: `grep -r "advanced_wallet" --include="*.py" .` returns no results. File contains placeholder implementations using requests library but is never invoked.
+
+### Status Drift — Version and Documentation
+
+**Issues**:
+1. `pyproject.toml` version is `0.10.2` but latest complete release is v0.10.8
+2. `AGENTS.md` marks v0.10.4 as "🚧 in progress" but all tasks are complete (zero unchecked in change.log)
+3. `docs/releases/STATUS.md` stops at v0.9.0 ("in progress" — it's done); no v0.10.x entries
+4. `docs/getting-started/setup-service-selection.md` still documents the `aitbc-agent-management` service deleted in v0.10.7
+
+### Stale Port References
+
+**Test fixtures port 8006** (missed in v0.10.6 A2):
+- `tests/fixtures/cli_mocks.py:256`: `config.coordinator_url = "http://localhost:8006"`
+- `tests/fixtures/multi_chain.py`: 5 occurrences
+- `tests/unit/test_http_pool.py`: 5 occurrences
+- `tests/unit/test_island_registry.py`: 19 occurrences
+- `tests/unit/test_sync_source_resolver.py`: 30 occurrences
+- **Total**: ~60 occurrences
+
+**Coordinator-api CORS config** (`apps/coordinator-api/src/app/config.py:128-137`):
+- Lists obsolete ports: `8001` (Exchange - now 8106), `8002/8003` (Blockchain - now 8202), `8010-8016` (various services - now 8101-8108)
+- Should use current constants from `aitbc/constants.py`
+
+**Payments service wallet URL** (`apps/coordinator-api/src/app/contexts/payments/services/payments.py:28`):
+- Hardcodes `wallet_base_url: str = "http://127.0.0.1:20000"`
+- `aitbc/constants.py` defines `WALLET_PORT = 8108`
+
+### Auth Shim Migration
+
+**Deprecated shims from v0.10.5** (still have internal importers):
+- `apps/coordinator-api/src/app/auth/jwt_handler.py` (23 lines)
+- `apps/coordinator-api/src/app/auth/middleware.py` (21 lines)
+- `apps/coordinator-api/src/app/auth/dependencies.py` (35 lines)
+- `apps/coordinator-api/src/app/auth/security_matrix.py` (27 lines)
+- `apps/agent-coordinator/src/app/auth/jwt_handler.py` (23 lines)
+- `apps/agent-coordinator/src/app/auth/middleware.py` (42 lines)
+- `apps/agent-coordinator/src/app/auth/permissions.py` (25 lines)
+
+**Evidence**: Integration tests emit hundreds of `DeprecationWarning: app.auth.X is deprecated` warnings, indicating live usage.
+
+**Fix**: Migrate internal importers to `aitbc.auth`, then delete the shims.
+
+### Deprecated Constants
+
+**HERMES_PORT** (`aitbc/constants.py:56`):
+- Marked as deprecated since v0.5.9
+- Comment: "Deprecated: hermes service removed in v0.5.9 §8, use AGENT_COORDINATOR_PORT"
+- Only referenced in docs, no active usage found
+- Safe to remove

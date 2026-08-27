@@ -304,7 +304,7 @@ await withSystemContext(prisma, contextType, async (client) => {
 - [RLS Implementation Guide](./RLS_IMPLEMENTATION_GUIDE.md)
 - [RLS Migration SOP](./RLS_DATABASE_MIGRATION_SOP.md)
 - [Security First Architecture](../security/SECURITY_FIRST_ARCHITECTURE.md)
-- [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- [CONTRIBUTING.md](../CONTRIBUTING.md)
 
 ---
 

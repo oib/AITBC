@@ -11,7 +11,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 
 **v0.6.4 Release Notes**
 
-- Split `docs/releases/v0.6.4/AGENTS.md` into topic-focused files:
+- Split `docs/releases/v0.6/v0.6.4_AGENTS.md` into topic-focused files:
   - `overview.md` - Release overview, status baseline, architecture
   - `agent-a.md` - Shared core implementation (PortAllocator, ChainConfigParser)
   - `agent-b.md` - Apps & infrastructure implementation
@@ -21,7 +21,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 
 **v0.6.3 Release Notes**
 
-- Split `docs/releases/v0.6.3/AGENTS.md` into topic-focused files:
+- Split `docs/releases/v0.6/v0.6.3_AGENTS.md` into topic-focused files:
   - `overview.md` - Release overview, status baseline, architecture
   - `agent-a.md` - Shared core implementation (SyncSourceResolver, IslandRegistry, SubscriptionManager)
   - `agent-b.md` - Apps & infrastructure implementation
@@ -31,7 +31,7 @@ This changelog tracks all structural and content changes to the AITBC documentat
 
 **v0.5.10 Migration Runbook**
 
-- Split `docs/releases/v0.5.10/migrate-hub.md` into topic-focused files:
+- Split `docs/releases/v0.5/v0.5.10_migrate-hub.md` into topic-focused files:
   - `overview.md` - Migration overview
   - `pre-flight-checks.md` - Pre-migration verification (P1-P7)
   - `migration-steps.md` - Step-by-step hub migration procedure (Step 1-11)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase 4 success-criteria gate checker for v0.11.0.
 
-Reads a YAML gate definition (default: docs/releases/v0.11.0/phase4_gates.yaml)
+Reads a YAML gate definition (default: docs/releases/v0.11/v0.11.0_phase4_gates.yml)
 and exits with status 0 only when every gate is marked ``status: passed`` and,
 where numeric, ``current >= threshold``. Otherwise exits 1 and prints a report.
 
@@ -23,7 +23,7 @@ except ImportError as exc:  # pragma: no cover
     raise SystemExit("PyYAML is required to run the Phase 4 gate checker") from exc
 
 
-DEFAULT_GATE_FILE = Path(__file__).resolve().parents[2] / "docs" / "releases" / "v0.11.0" / "phase4_gates.yml"
+DEFAULT_GATE_FILE = Path(__file__).resolve().parents[2] / "docs" / "releases" / "v0.11" / "v0.11.0_phase4_gates.yml"
 
 
 def _to_decimal(value: Any) -> Decimal | None:

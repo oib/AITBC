@@ -289,7 +289,7 @@ def main():
     print("Backups saved as .service.bak")
 
     # Generate summary file
-    summary_path = repo / "docs/releases/v0.5.0/systemd-hardening-report.md"
+    summary_path = repo / "docs/releases/v0.5/v0.5.0_systemd-hardening-report.md"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(summary_path, "w") as f:
