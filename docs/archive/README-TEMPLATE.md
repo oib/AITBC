@@ -123,7 +123,7 @@ We are committed to providing a welcoming and inclusive environment. Please be r
 
 After running `apply-workflow.sh`, your typical workflow will look like:
 
-1. **Create a spec**: `cp specs_templates/spec_template.md specs/AITBC-123-my-feature-spec.md`
+1. **Create a spec**: `cp specs_templates/spec_template.md docs/specs/AITBC-123-my-feature-spec.md`
 2. **Fill in requirements**: Define user story, acceptance criteria, tasks
 3. **Implement using agents**: Follow the spec with agent collaboration
 4. **Validate with demo script**: Run the demo script from spec

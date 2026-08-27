@@ -3,7 +3,7 @@
 **Ticket**: ABS-36 (this spec is subtask ABS-51) · **Status**: accepted (human, 2026-07-04) · **Date**: 2026-07-03
 **Author role**: BSA / System Architect · **Gates**: ABS-52 (runner) · ABS-53 (spawn seam) · ABS-54 (safety) · ABS-55 (E2E dry-run)
 
-Decision record for the **Coordinator** described in [BLUEPRINT §11](../blueprint/BLUEPRINT.md#11-orchestration-model)
+Decision record for the **Coordinator** described in [BLUEPRINT §11](../../blueprint/BLUEPRINT.md#11-orchestration-model)
 — the single component that turns tracker status-change events into fresh-subagent spawns and advances
 the status machine. This spec pins the contracts the implementation subtasks (ABS-52..55) must not
 re-decide. It is **design only**: no runner code ships under ABS-51.
@@ -13,7 +13,7 @@ The orchestrator is the runtime realization of three standing invariants it must
 - **Fresh subagent per task** (ADR-A-0002 / §12): clean context in, handoff record out.
 - **Active tracking** (ADR-A-0006 / §14): every status transition is a workflow trigger.
 - **Adapter-only tracker access** (ADR-A-0007 / §18): the runner speaks the nine canonical
-  operations of [`task-tracking.md`](../profiles/neutral/adapters/task-tracking.md) through `TRACKER_CMD`
+  operations of [`task-tracking.md`](../../profiles/neutral/adapters/task-tracking.md) through `TRACKER_CMD`
   — never touches `work/tickets/*.md` or a vendor API directly.
 
 ---
@@ -114,7 +114,7 @@ Consequences the runner must handle:
 ## 2. Event → role mapping
 
 Derived directly from the `triggers:` field of each status in
-[`statuses.yaml`](../profiles/neutral/adapters/statuses.yaml) and the §14 lifecycle table. The runner
+[`statuses.yaml`](../../profiles/neutral/adapters/statuses.yaml) and the §14 lifecycle table. The runner
 keys on the **destination** status (`to`). Three action classes: **SPAWN** (fresh subagent),
 **NOTIFY** (comment only, human-facing), **NOOP** (record nothing beyond the event's own audit).
 
@@ -584,4 +584,4 @@ see the Approval section above, which is the authoritative status.
 
 ---
 
-_This spec matches the decision-record style of [`specs/ABS-12-iteration-guard-spec.md`](ABS-12-iteration-guard-spec.md)._
+_This spec matches the decision-record style of [`docs/specs/ABS-12-iteration-guard-spec.md`](ABS-12-iteration-guard-spec.md)._

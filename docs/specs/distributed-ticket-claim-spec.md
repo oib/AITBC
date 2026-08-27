@@ -7,7 +7,7 @@ Design record for a **cross-machine ticket claim** that lets two or more orchest
 instances — running on **different machines** against the **same tracker project** — cooperate
 without double-spawning the same ticket.
 
-It closes the gap identified on 2026-07-09: the existing per-ticket lock ([`scripts/orchestrator.sh:2300`](../scripts/orchestrator.sh), §5.2 of ABS-36) is a
+It closes the gap identified on 2026-07-09: the existing per-ticket lock ([`scripts/orchestrator.sh:2300`](../../scripts/orchestrator.sh), §5.2 of ABS-36) is a
 local `mkdir` directory under `work/.orchestrator/locks/`. Two machines have independent lock
 trees, so `acquire_lock` on machine B always succeeds while machine A holds "the same" lock —
 they never see each other, and both spawn a subagent for the same ticket.
@@ -87,7 +87,7 @@ Post a `kind: claim` comment carrying an arbitrary `instance:` id and an `episod
 ticket; the claim comment that appears **first in the dump** for that episode wins.
 - The adapter renders comments as `### <at> | kind: <k> | actor: <a>` in **creation order** (Jira's
   `/comment` endpoint returns created-ascending; the mock appends) — verified in both
-  [`jira-tracker.sh:522`](../scripts/jira-tracker.sh) and [`mock-tracker.sh:166`](../scripts/mock-tracker.sh).
+  [`jira-tracker.sh:522`](../../scripts/jira-tracker.sh) and [`mock-tracker.sh:166`](../../scripts/mock-tracker.sh).
   **Dump order is a server-assigned total order** → a deterministic single winner, not a guess.
 - Reuses an idiom the codebase already trusts: `kind`+`actor` comment markers as idempotency guards
   (`has_intake_marker`, `has_blocked_marker`).
@@ -168,7 +168,7 @@ acquire_remote_claim(ticket):
   are broken by dump position, which the server assigns. No comment id is needed.
 - **Staleness (TTL) authority = the server-assigned comment timestamp**, i.e. the `### <at>` header
   the adapter renders for every comment (Jira-native timestamps are already normalized to UTC `Z`
-  form by `jira_ts_to_z` in [`jira-tracker.sh`](../scripts/jira-tracker.sh); the mock appends its
+  form by `jira_ts_to_z` in [`jira-tracker.sh`](../../scripts/jira-tracker.sh); the mock appends its
   own). The body `at:` field is a human-readable signal only and MUST NOT be used for TTL math:
   it is written by the *staking* machine's clock and read by the *judging* machine's clock, so
   cross-machine clock skew (minutes are plausible) would cause premature steals or over-sticky
@@ -188,7 +188,7 @@ acquire_remote_claim(ticket):
   claim out **mid-episode** — the ticket still sits in its spawn-triggering status (the agent
   transitions only at the end), so the peer would see a stale claim, win, and double-spawn: exactly
   the failure this design exists to prevent, in the most common heavy case. Therefore the holder
-  re-stakes from the **watchdog loop** ([`orchestrator.sh:3230`](../scripts/orchestrator.sh) — it
+  re-stakes from the **watchdog loop** ([`orchestrator.sh:3230`](../../scripts/orchestrator.sh) — it
   already ticks every 1 s around the live child), throttled to once per `ORCH_CLAIM_TTL/3` (~200 s).
   This makes the TTL independent of episode length: it only needs to exceed the heartbeat interval,
   and per-seat timeout overrides can never outrun it.
@@ -209,7 +209,7 @@ acquire_remote_claim(ticket):
 
 ### 4.5 Why ticket affinity, not per-episode  `#PATH_DECISION`
 All work on a ticket stays on one machine for the ticket's whole life. This is a requirement, not an
-optimization — a spawn runs as a **local child process** ([`orchestrator.sh:3086`](../scripts/orchestrator.sh))
+optimization — a spawn runs as a **local child process** ([`orchestrator.sh:3086`](../../scripts/orchestrator.sh))
 and its only durable outputs are the pushed git branch and the tracker handoff. If successive roles
 of one ticket ran on different machines, three machine-local pieces of state would desynchronize:
 
@@ -269,15 +269,15 @@ The `claim` comment kind must be added to the whitelist in **three** places (pur
 
 | File | Line (today) | Change |
 |---|---|---|
-| [`scripts/mock-tracker.sh`](../scripts/mock-tracker.sh) | ~457 | add `claim` to the `case "$kind"` allow-list |
-| [`scripts/jira-tracker.sh`](../scripts/jira-tracker.sh) | ~1058 | add `claim` to the `case "$kind"` allow-list |
-| [`profiles/neutral/adapters/task-tracking.md`](../profiles/neutral/adapters/task-tracking.md) | ~44 | document the `claim` kind in the canonical contract |
+| [`scripts/mock-tracker.sh`](../../scripts/mock-tracker.sh) | ~457 | add `claim` to the `case "$kind"` allow-list |
+| [`scripts/jira-tracker.sh`](../../scripts/jira-tracker.sh) | ~1058 | add `claim` to the `case "$kind"` allow-list |
+| [`profiles/neutral/adapters/task-tracking.md`](../../profiles/neutral/adapters/task-tracking.md) | ~44 | document the `claim` kind in the canonical contract |
 
 No new adapter *operation* is introduced — the claim rides entirely on the existing
 `comment` + `get`.
 
 **Plus one adapter verification that is now load-bearing: comment pagination in `cmd_get`.**
-Today [`jira-tracker.sh:524`](../scripts/jira-tracker.sh) fetches comments with a **single**
+Today [`jira-tracker.sh:524`](../../scripts/jira-tracker.sh) fetches comments with a **single**
 `GET /rest/api/3/issue/$id/comment` and no pagination loop. If Jira's default page size ever
 truncates a long-lived ticket's comment list (handoffs + intake markers + claim stakes/refreshes
 all accumulate), the truncation cuts the **newest** end — i.e. exactly the freshest peer claim
@@ -314,7 +314,7 @@ before (see §4.6: claiming before the cap is what starves the other machines). 
 ever stakes a claim on a ticket it is about to spawn *right now*, so its live claim count is bounded
 by `ORCH_MAX_CONCURRENT` and every deferred ticket stays unclaimed and free for peers.
 
-Concretely, the existing cap block ([`scripts/orchestrator.sh:3048–3062`](../scripts/orchestrator.sh))
+Concretely, the existing cap block ([`scripts/orchestrator.sh:3048–3062`](../../scripts/orchestrator.sh))
 already runs after `acquire_lock` and releases the lock on `DEFER-CAP`. The claim is inserted between
 that cap block and the `LIVE_SPAWNS`/budget increment (`:3064`), so a lost claim consumes no slot:
 

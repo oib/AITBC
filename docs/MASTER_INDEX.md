@@ -97,6 +97,7 @@ docs/
 | [releases](releases/) | 322 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 37 | End-to-end usage scenarios |
 | [security](security/) | 44 | Security architecture and audits |
+| [specs](specs/) | 21 | Feature and epic specifications |
 | [testing](testing/) | 8 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |

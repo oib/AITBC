@@ -59,7 +59,7 @@ unless a follow-up explicitly scopes multi-provider sync.
 ## 4. Governance defaults
 
 Document in `profiles/evolver/profile.yaml` `notes` and `.env.template`. Canonical list:
-[`profiles/neutral/adapters/evolution.md`](../profiles/neutral/adapters/evolution.md) § Governance invariants.
+[`profiles/neutral/adapters/evolution.md`](../../profiles/neutral/adapters/evolution.md) § Governance invariants.
 
 Prerequisite (documented, not installed by the repo): `npm i -g @evomap/evolver` (Node >= 18).
 
@@ -82,7 +82,7 @@ Evolver's `setup-hooks --platform=*` targets **user-level** config. This repo us
 ### 5.2 Additive registration in `.claude/hooks-config.json`
 
 Append entries per the hook table in
-[`profiles/neutral/adapters/evolution.md`](../profiles/neutral/adapters/evolution.md) § Lifecycle hooks.
+[`profiles/neutral/adapters/evolution.md`](../../profiles/neutral/adapters/evolution.md) § Lifecycle hooks.
 **Do not** register on `SessionEnd` — `Stop` only. Do not remove or rewrite existing hooks.
 
 ### 5.3 Rate limit
@@ -98,7 +98,7 @@ Prevents evolver spam on every file edit.
 ## 6. Success validation command
 
 ```bash
-npx markdownlint-cli specs/ABS-25-evolver-integration-spec.md docs/onboarding/EVOLVER-INTEGRATION.md profiles/neutral/adapters/evolution.md && bash tests/test-hooks-config.sh && bash tests/test-evolver-lifecycle.sh && echo "ABS-25 SUCCESS" || echo "ABS-25 FAILED"
+npx markdownlint-cli docs/specs/ABS-25-evolver-integration-spec.md docs/onboarding/EVOLVER-INTEGRATION.md profiles/neutral/adapters/evolution.md && bash tests/test-hooks-config.sh && bash tests/test-evolver-lifecycle.sh && echo "ABS-25 SUCCESS" || echo "ABS-25 FAILED"
 ```
 
 ## 7. Demo script (QAS / fixture — no live Evolver required)
@@ -124,7 +124,7 @@ Add to Step 2 evidence table:
 
 - `profiles/neutral/adapters/task-tracking.md` — adapter contract shape
 - `profiles/jira-github-postgres/profile.yaml` — profile binding example
-- `specs/ABS-12-iteration-guard-spec.md` §5 — additive hook registration
+- `docs/specs/ABS-12-iteration-guard-spec.md` §5 — additive hook registration
 - `adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md`
 - `adrs/agentic/ADR-A-0010-minimal-change-default.md`
 
