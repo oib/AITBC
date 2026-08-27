@@ -22,14 +22,23 @@ from pathlib import Path
 # /opt/boilerplate).
 #
 # They are cross-repo references, not broken links, so this checker does not own them.
-# Anything added here must genuinely live in the boilerplate repo.
+# Anything added here must genuinely live in the boilerplate repo, or be generated or
+# removed historical paths that are intentionally not committed to this checkout.
 BOILERPLATE_OWNED_PREFIXES = (
     "adrs/",
+    "blueprint/",
     "dark-factory/",
+    "docs/agent-outputs/",
+    "docs/guides/",
+    "docs/onboarding/",
+    "docs/sop/",
     "profiles/",
     "specs_templates/",
     "patterns_library/",
     "knowledge/",
+    "scripts/jira-tracker.sh",
+    "scripts/mock-tracker.sh",
+    "scripts/orchestrator.sh",
     "work/improvement-proposals/",
     ".agentic/templates/",
     ".claude/agents/",
