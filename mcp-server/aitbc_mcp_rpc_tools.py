@@ -11,7 +11,7 @@ import json
 import shlex
 from decimal import Decimal
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from mcp.types import ToolAnnotations
 
@@ -20,6 +20,7 @@ from pydantic import Field
 from aitbc_mcp_server import (
     ALL_HTTP_SERVICES,
     ALL_SERVICE_BASES,
+    NodeRole,
     _build_dry_run,
     _build_http_url,
     _host_for_role,
@@ -83,7 +84,7 @@ def _http_write_tool(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_pending_mempool(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -103,7 +104,7 @@ def get_pending_mempool(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_marketplace_listings(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -122,7 +123,7 @@ def get_marketplace_listing(
         Field(description="Listing ID (typically tx_<id>)."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -150,7 +151,7 @@ def get_agent_identity(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -176,7 +177,7 @@ def get_governance_proposal(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -215,7 +216,7 @@ def get_bridge_transfer_proof(
         Field(description="Block hash to anchor the proof."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -241,7 +242,7 @@ def get_bridge_balance(
         Field(description="Chain ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -260,7 +261,7 @@ def get_bridge_validators(
         Field(description="Chain ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -275,7 +276,7 @@ def get_bridge_validators(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_bridge_security_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -290,7 +291,7 @@ def get_bridge_security_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_bridge_oracle_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -313,7 +314,7 @@ def get_bridge_block_header(
         Field(description="Block height.", ge=0),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -345,7 +346,7 @@ def list_cross_chain_swaps(
         Field(description="Maximum number of swaps.", ge=1),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -371,7 +372,7 @@ def get_cross_chain_swap(
         Field(description="Swap ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -390,7 +391,7 @@ def get_cross_chain_bridge(
         Field(description="Bridge transaction ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -405,7 +406,7 @@ def get_cross_chain_bridge(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_cross_chain_stats(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -429,7 +430,7 @@ def get_gpu_allocations(
         Field(description="GPU ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -448,7 +449,7 @@ def get_edge_info(
         Field(description="Edge node ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -468,7 +469,7 @@ def get_edge_info(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_ai_service_stats(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -488,7 +489,7 @@ def get_ai_service_stats(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_contracts(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -503,7 +504,7 @@ def list_contracts(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_messaging_contract_state(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -530,7 +531,7 @@ def get_forum_topics(
         Field(description="Sort field, e.g. 'last_activity'."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -556,7 +557,7 @@ def get_topic_messages(
         Field(description="Topic ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -576,7 +577,7 @@ def get_topic_messages(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_active_disputes(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -591,7 +592,7 @@ def get_active_disputes(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_authorized_arbitrators(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -610,7 +611,7 @@ def get_arbitrator_disputes(
         Field(description="Arbitrator address."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -629,7 +630,7 @@ def get_user_disputes(
         Field(description="User address."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -648,7 +649,7 @@ def get_dispute(
         Field(description="Dispute ID.", ge=0),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -667,7 +668,7 @@ def get_dispute_evidence(
         Field(description="Dispute ID.", ge=0),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -686,7 +687,7 @@ def get_arbitration_votes(
         Field(description="Dispute ID.", ge=0),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -710,7 +711,7 @@ def list_subscribers(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -732,7 +733,7 @@ def get_lease_status(
         Field(description="Subscriber node ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -764,7 +765,7 @@ def submit_blockchain_transaction(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -791,7 +792,7 @@ def submit_marketplace_transaction(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -830,7 +831,7 @@ def create_marketplace_listing(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -899,7 +900,7 @@ def register_gpu(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -958,7 +959,7 @@ def allocate_gpu(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1008,7 +1009,7 @@ def stake_tokens(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1055,7 +1056,7 @@ def unstake_tokens(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1109,7 +1110,7 @@ def register_agent_identity(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1180,7 +1181,7 @@ def create_governance_proposal(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1244,7 +1245,7 @@ def cast_governance_vote(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1289,7 +1290,7 @@ def execute_governance_proposal(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1349,7 +1350,7 @@ def create_cross_chain_swap(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1404,7 +1405,7 @@ def create_cross_chain_bridge(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1462,7 +1463,7 @@ def bridge_lock(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1511,7 +1512,7 @@ def bridge_confirm(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1553,7 +1554,7 @@ def bridge_unlock(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1613,7 +1614,7 @@ def create_escrow(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1658,7 +1659,7 @@ def release_escrow(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1692,7 +1693,7 @@ def refund_escrow(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1720,7 +1721,7 @@ def register_account(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1747,7 +1748,7 @@ def request_faucet(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
@@ -1774,7 +1775,7 @@ def force_sync_chain(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to submit to."),
     ] = None,
     host: Annotated[
