@@ -41,7 +41,9 @@ RestrictSUIDSGID=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
+# snarkjs runs a Node.js JIT that must allocate read/write/execute pages.
+# MemoryDenyWriteExecute breaks V8 and causes `Check failed: 12 == (*__errno_location())`.
+MemoryDenyWriteExecute=no
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 # Security hardening (v0.5.0)
