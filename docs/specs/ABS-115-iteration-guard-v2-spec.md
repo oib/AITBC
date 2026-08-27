@@ -46,7 +46,7 @@ Consequences of (a):
 ## 2. Direction: the status rank table
 
 Backward/forward is decided from the canonical happy paths in
-`profiles/neutral/adapters/statuses.yaml` (story and epic pipelines). The guard embeds the two
+the story and epic pipelines. The guard embeds the two
 ordered rank lists (story: Backlog → Design → Ready for Development → In Progress → In Review →
 Security Review → Test Prep → In Test → Design Test → Story Acceptance → Merging → Docs →
 Ready for Human Acceptance → Ready for Merge → Done; epic: Backlog → PO Triage → Grooming →
@@ -177,8 +177,8 @@ New cases (ABS-107-shaped fixtures):
   (marker + In Test → In Progress → … loops) BEFORE the baseline snapshot, and the escalation
   assertion moves from `status: Blocked` to `status: Needs PO Decision`
 - test-hooks-behavioral.sh guard seeds likewise rewritten to real-pair histories
-- drift test (architect F4): the guard's embedded rank lists are compared against the `- name:`
-  document order of profiles/neutral/adapters/statuses.yaml
+- drift test (architect F4): the guard's embedded rank lists are compared against the
+  canonical story and epic pipeline order.
 
 Legacy-history caveat (accepted, extended per architect F6): tickets whose bounces predate
 adapter-comment transitions have no transition records and stop counting; bounces routed through

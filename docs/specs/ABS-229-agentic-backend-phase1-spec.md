@@ -1,7 +1,6 @@
 # ABS-229 — Agentic Delivery Backend, Phase 1: Tracker Core (Spec)
 
-**Epic:** ABS-229 · **Stories:** ABS-233…ABS-242 · **ADR:** ADR-A-0021 (proposed) ·
-**Vision:** `docs/specs/DRAFT-agentic-backend-vision.md`
+**Epic:** ABS-229 · **Stories:** ABS-233…ABS-242
 **Date:** 2026-07-12 · **Amended:** 2026-07-15 (ABS-313 design constraints — see change markers `[A-313]`)
 **Status:** groomed; S1/S2 delivered, S3/S4 restarted against this amended spec (Operator decision 2026-07-15)
 
@@ -141,8 +140,8 @@ columns or `fields` entries.
 
 ## §3 Workflow engine & resolution
 
-- **Format**: the existing `profiles/neutral/adapters/statuses.yaml` shape (`- name:` /
-  `next:` list + metadata) is the workflow definition language, unchanged.
+- **Format**: the existing status pipeline shape (`- name:` / `next:` list + metadata) is
+  the workflow definition language, unchanged.
 - **Split**: the shipped file is imported as two named workflows, `epic-pipeline` and
   `story-pipeline`, sharing one status namespace per project. `Blocked` and
   `Needs PO Decision` cross-cutting semantics are preserved exactly.
