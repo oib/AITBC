@@ -15,6 +15,18 @@ _logger = get_logger(__name__)
 _poa_proposers: dict[str, Any] = {}
 
 
+def _unsigned_tx_fields(tx_data: dict[str, Any]) -> dict[str, Any]:
+    """Return the fields that go into the signed transaction message.
+
+    Excludes the signature itself, gossip-attached ``tx_hash``, and the
+    internal ``value`` alias when ``amount`` is present.
+    """
+    excluded = {"signature", "sig", "tx_hash"}
+    if "amount" in tx_data:
+        excluded.add("value")
+    return {k: v for k, v in tx_data.items() if k not in excluded}
+
+
 def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender: str) -> bool:
     """Verify that a transaction was signed by the claimed sender.
 
@@ -27,14 +39,7 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
     if not signature or not sender:
         return False
 
-    # Build the message that was signed: canonical JSON of tx fields without the
-    # signature field. ``value`` is excluded only when ``amount`` is also present,
-    # because in that case it is the internal alias added by ``normalize_transaction_data``
-    # after the client has already signed. If the client sent ``value`` directly (e.g.
-    # CLI transfers), it must stay in the signed message.
-    has_amount = "amount" in tx_data
-    tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature" and not (has_amount and k == "value")}
-    message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
+    message = json.dumps(_unsigned_tx_fields(tx_data), sort_keys=True, separators=(",", ":")).encode()
 
     try:
         from eth_utils import keccak
@@ -65,9 +70,7 @@ def sign_transaction_data(tx_data: dict[str, Any], private_key: str) -> str:
     from eth_keys import keys
     from eth_utils import keccak
 
-    has_amount = "amount" in tx_data
-    tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature" and not (has_amount and k == "value")}
-    message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
+    message = json.dumps(_unsigned_tx_fields(tx_data), sort_keys=True, separators=(",", ":")).encode()
     msg_hash = keccak(message)
     pk_hex = private_key.removeprefix("0x")
     pk = keys.PrivateKey(bytes.fromhex(pk_hex))
