@@ -35,9 +35,7 @@ def main() -> None:
         logger.error("Failed to initialize chain manager: %s", e)
         logger.info("Continuing without multi-chain support...")
     logger.info("Starting server on %s:%s", settings.host, settings.port)
-    uvicorn.run(
-        app, host=settings.host, port=settings.port, reload=settings.debug, log_level="info" if not settings.debug else "debug"
-    )
+    uvicorn.run(app, host=settings.host, port=settings.port, reload=settings.debug, log_level="critical", access_log=False)
 
 
 if __name__ == "__main__":

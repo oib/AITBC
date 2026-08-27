@@ -30,12 +30,7 @@ def main() -> None:
     """Run the memory service with uvicorn."""
     import uvicorn
 
-    uvicorn.run(
-        "memory_app.main:app",
-        host=settings.app_host,
-        port=settings.app_port,
-        log_level=settings.log_level.lower(),
-    )
+    uvicorn.run("memory_app.main:app", host=settings.app_host, port=settings.app_port, log_level="critical", access_log=False)
 
 
 if __name__ == "__main__":

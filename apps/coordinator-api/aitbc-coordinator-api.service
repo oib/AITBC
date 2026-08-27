@@ -15,7 +15,7 @@ EnvironmentFile=/etc/aitbc/%N.env
 # Shared chain-wide public configuration
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8203 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level info --no-access-log
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8203 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level critical --no-access-log
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
