@@ -33,7 +33,7 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
         # For MVP, we'll use a simple RPC call to get latest block and filter
         # In production, use proper block explorer API or indexer
 
-        payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
+        payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", True], "id": 1}
 
         response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
         response.raise_for_status()
@@ -47,7 +47,10 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
         # Filter transactions to our wallet address
         relevant_txs = []
         for tx in transactions:
-            if tx.get("to", "").lower() == address.lower():
+            if not isinstance(tx, dict):
+                continue
+            to_address = tx.get("to") or ""
+            if to_address and to_address.lower() == address.lower():
                 relevant_txs.append(tx)
 
         return relevant_txs
@@ -62,10 +65,10 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     Returns True if deposit was recorded, False if already exists.
     """
     tx_hash = tx.get("hash", "")
-    from_address = tx.get("from", "")
+    from_address = tx.get("from") or ""
 
     # Parse ETH amount (hex wei to ETH)
-    value_hex = tx.get("value", "0x0")
+    value_hex = tx.get("value") or "0x0"
     value_wei = int(value_hex, 16)
     amount_eth = Decimal(value_wei) / Decimal(10**18)  # Convert wei to ETH
 
