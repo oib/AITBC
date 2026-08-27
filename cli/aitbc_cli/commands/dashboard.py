@@ -17,10 +17,60 @@ from aitbc.utils import format_ait
 
 logger = get_logger(__name__)
 
+_MINER_ENV_FILE = "/etc/aitbc/aitbc-miner.env"
 
-def _auth_headers(ctx: click.Context) -> dict[str, str] | None:
-    """Return Authorization header from --api-key or the stored credential."""
-    token = ctx.obj.get("api_key")
+
+def _miner_env() -> dict[str, str]:
+    """Return miner id/key from the process environment or the shop miner env file."""
+    values: dict[str, str] = {}
+    for key in ("MINER_ID", "MINER_API_KEY", "AITBC_API_KEY"):
+        value = os.environ.get(key)
+        if value:
+            values[key] = value
+    if "MINER_ID" in values and "MINER_API_KEY" in values:
+        return values
+    try:
+        with open(_MINER_ENV_FILE) as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key, value = key.strip(), value.strip().strip("'\"")
+                if key in ("MINER_ID", "MINER_API_KEY", "AITBC_API_KEY") and key not in values:
+                    values[key] = value
+    except OSError:
+        logger.debug("Could not read %s", _MINER_ENV_FILE, exc_info=True)
+    return values
+
+
+def _ctx_obj(ctx: click.Context | dict[str, Any]) -> dict[str, Any]:
+    """Return the CLI object dict from a Click context or a plain dict."""
+    obj = getattr(ctx, "obj", ctx)
+    return obj if isinstance(obj, dict) else {}
+
+
+def _auth_headers(ctx: click.Context | dict[str, Any], role: str = "client") -> dict[str, str] | None:
+    """Return auth headers for a dashboard role.
+
+    Customer views use a client JWT. Shop views use miner API-key auth
+    (``X-Api-Key`` / ``X-Miner-ID``), matching production miners. A client JWT
+    must not be sent to miner-only endpoints: AuthMiddleware rejects
+    role=client on ``/v1/miners/*`` with 401.
+    """
+    obj = _ctx_obj(ctx)
+    if role == "miner":
+        miner_env = _miner_env()
+        api_key = obj.get("api_key") or miner_env.get("MINER_API_KEY") or miner_env.get("AITBC_API_KEY")
+        if not api_key:
+            return None
+        headers = {"X-Api-Key": api_key}
+        miner_id = miner_env.get("MINER_ID")
+        if miner_id:
+            headers["X-Miner-ID"] = miner_id
+        return headers
+
+    token = obj.get("api_key")
     if not token:
         token = AuthManager().get_credential("client")
     if token:
@@ -257,12 +307,22 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         config = ctx.obj["config"]
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
         if not miner_id:
-            miner_id = os.environ.get("NODE_ID") or socket.gethostname() or getattr(config, "node_id", "") or "unknown"
+            miner_id = (
+                _miner_env().get("MINER_ID")
+                or os.environ.get("NODE_ID")
+                or socket.gethostname()
+                or getattr(config, "node_id", "")
+                or "unknown"
+            )
 
-        coord_client = _client(ctx, timeout=15)
+        # Miner-role headers for /v1/miners/*; monitoring is public if called unauthenticated.
+        miner_headers = _auth_headers(ctx, role="miner")
+        coord_url = _coordinator_base_url(ctx)
+        coord_client = AITBCHTTPClient(base_url=coord_url, timeout=15, headers=miner_headers)
+        metrics_client = AITBCHTTPClient(base_url=coord_url, timeout=15)
 
         # Aggregate job/miner metrics (public monitoring endpoint)
-        metrics = _safe_get(coord_client, "/v1/monitoring/metrics") or {}
+        metrics = _safe_get(metrics_client, "/v1/monitoring/metrics") or {}
         jobs_metrics = metrics.get("jobs", {}) if isinstance(metrics, dict) else {}
         miners_metrics = metrics.get("miners", {}) if isinstance(metrics, dict) else {}
 
