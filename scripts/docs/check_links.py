@@ -12,44 +12,6 @@ import re
 import sys
 from pathlib import Path
 
-# Paths owned by the agentic-boilerplate repo, not this one.
-#
-# The SAFe/agentic governance docs under docs/sop/, docs/onboarding/ and docs/guides/
-# were written while the boilerplate was vendored in-tree. v0.21 stripped it
-# ("refactor(harness): strip boilerplate"), so these relative links no longer resolve
-# here -- but the documents they point at still exist, and still govern this repo, in
-# https://gitlab.haemosan.at/boilerplate/agentic-boilerplate (local checkout:
-# /opt/boilerplate).
-#
-# They are cross-repo references, not broken links, so this checker does not own them.
-# Anything added here must genuinely live in the boilerplate repo, or be generated or
-# removed historical paths that are intentionally not committed to this checkout.
-BOILERPLATE_OWNED_PREFIXES = (
-    "adrs/",
-    "blueprint/",
-    "dark-factory/",
-    "docs/agent-outputs/",
-    "docs/guides/",
-    "docs/onboarding/",
-    "docs/sop/",
-    "profiles/",
-    "specs_templates/",
-    "patterns_library/",
-    "knowledge/",
-    "scripts/jira-tracker.sh",
-    "scripts/mock-tracker.sh",
-    "scripts/orchestrator.sh",
-    "work/improvement-proposals/",
-    ".agentic/templates/",
-    ".claude/agents/",
-    ".claude/README.md",
-    ".claude/SETUP.md",
-    ".claude/TROUBLESHOOTING.md",
-    ".gemini/",
-    ".codex/",
-    "TEMPLATE_SETUP.md",
-)
-
 # Documentation trees excluded from link validation.
 #
 # docs/archive/ holds retired material, including README-TEMPLATE.md -- a template meant
@@ -126,7 +88,6 @@ def main() -> int:
 
     broken: list[tuple[str, str]] = []
     checked = 0
-    skipped_boilerplate = 0
 
     for src in scan_files:
         text = strip_code_fences(src.read_text(errors="ignore"))
@@ -153,27 +114,15 @@ def main() -> int:
             else:
                 resolved = (src.parent / base).resolve()
 
-            try:
-                rel = resolved.relative_to(repo).as_posix()
-            except ValueError:
-                # Escapes the repo root entirely; judge it by the literal target.
-                rel = base.lstrip("./")
-
-            if rel.startswith(BOILERPLATE_OWNED_PREFIXES):
-                skipped_boilerplate += 1
-                continue
-
             checked += 1
             if not resolved.exists():
                 broken.append((str(src.relative_to(repo)), target))
 
-    suffix = f" ({skipped_boilerplate} boilerplate-owned reference(s) skipped)" if skipped_boilerplate else ""
-
     if not broken:
-        print(f"Checked {checked} internal link(s). All valid.{suffix}")
+        print(f"Checked {checked} internal link(s). All valid.")
         return 0
 
-    print(f"Checked {checked} internal link(s). Found {len(broken)} broken link(s):{suffix}\n")
+    print(f"Checked {checked} internal link(s). Found {len(broken)} broken link(s):\n")
     for src, target in broken:
         print(f"  {src} -> {target}")
     return 1
