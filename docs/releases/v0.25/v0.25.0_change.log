@@ -1,0 +1,79 @@
+# v0.25.0 — On-chain liquidity, sync consolidation and MCP expansion
+
+**Baseline**: `docs/releases/v0.24/v0.24.0_change.log` finalized at `a1adf65e1`.
+**Date**: 2026-08-27.
+
+## AIT-only on-chain liquidity pool
+
+`c5263b97e` introduces a real AIT-only liquidity pool backed by on-chain accounts and new transaction types.
+
+- New models: `LiquidityPool`, `LiquidityStake`, `LiquidityDistribution`.
+- Deterministic pool, treasury and emission accounts.
+- New transaction types: `LIQUIDITY_DEPOSIT`, `LIQUIDITY_CLAIM`, `LIQUIDITY_WITHDRAW`.
+- Pool reserves and rewards live in ordinary on-chain accounts.
+- Rewards use a reward-per-share model; fixed APY is realized at claim/unstake time from the emission treasury.
+- New `/rpc/liquidity/*` endpoints expose pools, stakes, pending rewards and unsigned transaction builders.
+- CLI `wallet liquidity-stake`/`unstake`/`claim` now sign and submit on-chain transactions.
+- Wallet rewards queries `/rpc/liquidity/stakes/{address}` for live liquidity data.
+- Pure state transition falls back to sequential processing for liquidity transactions.
+- Added `apps/blockchain-node/tests/test_liquidity.py`; ruff and no-float-money checks pass.
+
+Follow-up fixes:
+- `e29b2d771` includes `to` and `amount` in the liquidity payload so the signature matches the on-chain expectation.
+- `641185794` removes an unexpected `timeout` kwarg from the liquidity transaction submission path.
+- `1edd0e6e5` handles naive `locked_until` values in the withdraw builder.
+- `50722f9aa` removes duplicate pool-account creation in `apply_transaction`.
+
+## MCP server expansion
+
+Three commits extend the AITBC MCP server with typed tools for auth, diagnostics, ZK, liquidity and customer/follower roles.
+
+- `1b9d3cfe3` adds authentication, diagnostics and zero-knowledge proof tools (`mcp-server/aitbc_mcp_zk_tools.py`, 166 new lines).
+- `9b8c7660d` adds liquidity-pool MCP tools in `mcp-server/aitbc_mcp_liquidity_tools.py`.
+- `00a7d25c0` adds `customer2`/`follower2` role variants, `group_options` support and liquidity tool wiring across the CLI/RPC tool registries.
+
+## Blockchain sync consolidation
+
+The separate `aitbc-blockchain-sync` wrapper and timer have been merged into `aitbc-blockchain-node`.
+
+- `5f98fad8b` merges `blockchain-sync` into `blockchain-node`. Removes the separate wrapper, `.service` and `.timer` files, and consolidates sync logic in `sync_manager.py`. Adds `tests/test_sync_manager.py`.
+- `88fe208d7` changes the remaining `aitbc-blockchain-sync.service` unit to `Type=simple` with `Restart=on-failure` because the sync task is long-running.
+- `423e74a90` makes `get_block`/`get_blocks_range` return the complete signed transaction fields (`from`, `to`, `value`, `fee`, `nonce`, `type`) and makes `sync_bulk` respect the configured `sync_state_root_validation_enabled` setting instead of hard-coding `skip_state_root_validation=True`. This lets followers reset after the chain reset import blocks with correct state transitions.
+- `754802f1b` deduplicates permanently rejected blocks across push sync paths in `sync_manager.py`.
+
+## Health check robustness
+
+`50fd6dde8` updates `scripts/monitoring/health_check.sh` to avoid false positives for:
+- timer/oneshot/inactive systemd units,
+- ICMP-only network configurations,
+- missing PostgreSQL / `psql` client.
+
+## ZK receipt proof verification
+
+`692932d0b` hardens `/v1/zk/receipt/verify` in the coordinator-api ZK router by verifying the `receipt_model` proof binding. Updates the coordinator-api OpenAPI spec accordingly.
+
+## Documentation reorganization
+
+`4c4ddd90d` moves the top-level `specs/` design-document tree under `docs/specs/`:
+- Updates internal cross-links in the moved files, `docs/security/`, `docs/archive/README-TEMPLATE.md`, `docs/MASTER_INDEX.md` and `tests/workflow-v2-sim.py`.
+- Extends `scripts/docs/check_links.py` skip lists for the moved specs.
+- Converts an `ABS-262` link to plain text because that spec has never existed in this checkout.
+- `bash scripts/validate_docs.sh` is green.
+
+## Commits since v0.24
+
+- `4c4ddd90d` docs(specs): move root specs/ tree into docs/specs/
+- `423e74a90` fix(rpc,sync): include signed tx fields in block responses and validate state roots during bulk sync
+- `50fd6dde8` fix(health): avoid false positives for timer/oneshot/inactive units, ICMP-only network and missing psql
+- `754802f1b` fix(sync): also deduplicate permanently rejected blocks across push paths
+- `5f98fad8b` refactor(sync): merge blockchain-sync into blockchain-node
+- `88fe208d7` fix(systemd): blockchain-sync is long-running, use Type=simple with restart
+- `00a7d25c0` feat(mcp): add customer2/follower2 roles, group_options, liquidity tools
+- `9b8c7660d` feat(mcp): add liquidity pool tools
+- `1edd0e6e5` fix(liquidity): handle naive locked_until in build-withdraw
+- `692932d0b` fix(zk): verify receipt_model proof binding in /v1/zk/receipt/verify
+- `50722f9aa` fix(state): avoid duplicate pool account creation in apply_transaction
+- `1b9d3cfe3` feat(mcp): add auth, diagnostics and ZK tools
+- `e29b2d771` fix(cli): include to and amount in liquidity payload for signature match
+- `641185794` fix(cli): remove unexpected timeout kwarg from liquidity transaction submission
+- `c5263b97e` feat(liquidity): real on-chain AIT-only liquidity pool with deposit/claim/withdraw
