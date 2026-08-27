@@ -16,6 +16,7 @@ from pydantic import Field
 
 from aitbc_mcp_server import (
     DEFAULT_WALLET_DIR,
+    NodeRole,
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _host_for_role,
@@ -104,7 +105,7 @@ def get_exchange_orderbook(
     pair: Annotated[str, Field(description="Trading pair, e.g. 'AIT/ETH'.")] = "AIT/ETH",
     limit: Annotated[int | None, Field(description="Order book depth.", ge=1)] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -122,7 +123,7 @@ def get_exchange_orderbook(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_exchange_rates(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -143,7 +144,7 @@ def get_exchange_orders(
     ] = None,
     pair: Annotated[str | None, Field(description="Filter by trading pair.")] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -173,7 +174,7 @@ def buy_ait_exchange(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -200,7 +201,7 @@ def sell_ait_exchange(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -223,7 +224,7 @@ def cancel_exchange_order(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -249,7 +250,7 @@ def create_island(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -279,7 +280,7 @@ def join_island(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -306,7 +307,7 @@ def leave_island(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -321,7 +322,7 @@ def leave_island(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_node_islands(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -338,7 +339,7 @@ def get_node_island_info(
     island_id: Annotated[str, Field(description="Island ID.")],
     node_url: Annotated[str | None, Field(description="Local node RPC URL override.")] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -384,7 +385,7 @@ def create_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -428,7 +429,7 @@ def list_market_offers_cli(
         Field(description="Sort order."),
     ] = "default",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -454,7 +455,7 @@ def list_my_market_offers(
         Field(description="Sort order."),
     ] = "default",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -479,7 +480,7 @@ def upload_ipfs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -502,7 +503,7 @@ def download_ipfs(
     output: Annotated[str | None, Field(description="Write retrieved content to this remote path.")] = None,
     wait: Annotated[bool, Field(description="Wait for the CID to become available on the network.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -525,7 +526,7 @@ def pin_ipfs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -545,7 +546,7 @@ def unpin_ipfs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -570,7 +571,7 @@ def host_ipfs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -613,7 +614,7 @@ def create_wallet(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -636,7 +637,7 @@ def fund_wallet(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -656,7 +657,7 @@ def fund_wallet(
 def get_wallet_info(
     wallet_name: Annotated[str, Field(description="Wallet name.")] = "genesis",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -672,7 +673,7 @@ def get_wallet_info(
 def get_wallet_address(
     wallet_name: Annotated[str, Field(description="Wallet name.")] = "genesis",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -716,7 +717,7 @@ def run_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -781,7 +782,7 @@ def transcribe_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -827,7 +828,7 @@ def process_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -870,7 +871,7 @@ def rate_market_service(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -905,7 +906,7 @@ def get_market_service_ratings(
     limit: Annotated[int | None, Field(description="Maximum number of ratings to return.", ge=1)] = None,
     offset: Annotated[int | None, Field(description="Pagination offset.", ge=0)] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -929,7 +930,7 @@ def disable_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -959,7 +960,7 @@ def cancel_market_order(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -986,7 +987,7 @@ def cancel_market_order(
 def get_market_order_status(
     order_id: Annotated[str, Field(description="Order ID.")],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1001,7 +1002,7 @@ def get_market_order_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def market_match(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1016,7 +1017,7 @@ def market_match(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def market_providers(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1036,7 +1037,7 @@ def sync_market_ratings(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1075,7 +1076,7 @@ def create_market_escrow(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1107,7 +1108,7 @@ def release_market_escrow(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1138,7 +1139,7 @@ def refund_market_escrow(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1170,7 +1171,7 @@ def get_market_escrow_status(
     job_id: Annotated[str, Field(description="Job ID.")],
     wallet: Annotated[str, Field(description="Wallet name to use.")] = "genesis",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1192,7 +1193,7 @@ def get_market_escrow_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_market_exchange_price(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1207,7 +1208,7 @@ def get_market_exchange_price(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_market_exchange_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1227,7 +1228,7 @@ def list_market_exchange_deposits(
     ] = None,
     limit: Annotated[int | None, Field(description="Maximum number of deposits.", ge=1)] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1257,7 +1258,7 @@ def mint_ait_from_eth_deposit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1288,7 +1289,7 @@ def withdraw_eth_from_bridge(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1329,7 +1330,7 @@ def send_aitbc_from_wallet(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1374,7 +1375,7 @@ def spend_aitbc_from_wallet(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1413,7 +1414,7 @@ def record_wallet_earnings(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1459,7 +1460,7 @@ def login_aitbc(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1495,7 +1496,7 @@ def logout_aitbc(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
@@ -1528,7 +1529,7 @@ def logout_aitbc(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def show_aitbc_config(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1543,7 +1544,7 @@ def show_aitbc_config(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_aitbc_config(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1559,7 +1560,7 @@ def get_aitbc_config(
 def get_aitbc_config_path(
     global_config: Annotated[bool, Field(description="Show global config path.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1577,7 +1578,7 @@ def get_aitbc_config_path(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def check_aitbc_config(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1592,7 +1593,7 @@ def check_aitbc_config(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def validate_aitbc_config(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1612,7 +1613,7 @@ def set_aitbc_config(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[

@@ -46,7 +46,11 @@ ROLE_HOSTS = {
     "customer": "hub.aitbc",
     "shop": "aitbc3",
     "follower": "aitbc3",
+    "customer2": "hub2.aitbc",
+    "follower2": "hub2.aitbc",
 }
+
+NodeRole = Literal["hub", "customer", "shop", "follower", "customer2", "follower2"]
 
 SSH_USER = os.getenv("AITBC_MCP_SSH_USER", "")
 DEFAULT_HOST = os.getenv("AITBC_MCP_DEFAULT_HOST", "hub.aitbc")
@@ -631,8 +635,10 @@ def list_nodes() -> str:
             "nodes": [
                 {"role": "hub", "host": ROLE_HOSTS["hub"], "site": "hub/customer node"},
                 {"role": "customer", "host": ROLE_HOSTS["customer"], "site": "hub/customer node"},
+                {"role": "customer2", "host": ROLE_HOSTS["customer2"], "site": "hub2/customer replica"},
                 {"role": "shop", "host": ROLE_HOSTS["shop"], "site": "shop/follower node"},
                 {"role": "follower", "host": ROLE_HOSTS["follower"], "site": "shop/follower node"},
+                {"role": "follower2", "host": ROLE_HOSTS["follower2"], "site": "hub2/follower customer replica"},
             ],
             "environment": {
                 "default_host": DEFAULT_HOST,
@@ -646,7 +652,7 @@ def list_nodes() -> str:
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def node_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query (uses default host if omitted)."),
     ] = None,
     service: Annotated[
@@ -682,7 +688,7 @@ def node_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_service_health(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     service: Annotated[
@@ -718,7 +724,7 @@ def get_service_health(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_chain_height(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -738,7 +744,7 @@ def get_block(
         Field(description="Block height to retrieve.", ge=0),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -754,7 +760,7 @@ def get_block(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_trigger_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -793,7 +799,7 @@ def list_rebalance_triggers() -> str:
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_cron_jobs(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -824,7 +830,7 @@ def list_cron_jobs(
 
 def _control_node(
     action: str,
-    role: Literal["hub", "customer", "shop", "follower"],
+    role: NodeRole,
     dry_run: bool,
     confirm: bool,
     host: str | None = None,
@@ -841,7 +847,7 @@ def _control_node(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def start_node(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"],
+        NodeRole,
         Field(description="Node role to start."),
     ],
     dry_run: Annotated[
@@ -864,7 +870,7 @@ def start_node(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def stop_node(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"],
+        NodeRole,
         Field(description="Node role to stop."),
     ],
     dry_run: Annotated[
@@ -887,7 +893,7 @@ def stop_node(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def restart_node(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"],
+        NodeRole,
         Field(description="Node role to restart."),
     ],
     dry_run: Annotated[
@@ -910,7 +916,7 @@ def restart_node(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def run_cron_job(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"],
+        NodeRole,
         Field(description="Node role where the job runs."),
     ],
     script_path: Annotated[
@@ -952,7 +958,7 @@ def run_cron_job(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def run_aitbc_command(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"],
+        NodeRole,
         Field(description="Node role where the command runs."),
     ],
     command: Annotated[
@@ -1018,12 +1024,18 @@ def run_aitbc_cli(
         dict[str, str | None] | None,
         Field(description="Options as --key=value. Use null for boolean flags."),
     ] = None,
+    group_options: Annotated[
+        dict[str, str | None] | None,
+        Field(
+            description="Group-level options placed before the subcommand, e.g. {'wallet-name': 'default'} for 'aitbc wallet --wallet-name default <subcommand>'."
+        ),
+    ] = None,
     output_format: Annotated[
         Literal["json", "yaml", "csv", "table"],
         Field(description="Output format; JSON is preferred for machine parsing."),
     ] = "json",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -1051,7 +1063,8 @@ def run_aitbc_cli(
 
     Examples:
       - group="wallet", subcommand="list"
-      - group="wallet", subcommand="balance", options={"wallet-name": "genesis"}
+      - group="wallet", subcommand="rewards", group_options={"wallet-name": "default"}
+      - group="wallet", subcommand="balance", args=["genesis"]
       - group="ai", subcommand="status", args=["<job-id>"]
       - group="market", subcommand="status", args=["<order-id>"]
       - group="node", subcommand="info", args=["<node-id>"]
@@ -1065,7 +1078,7 @@ def run_aitbc_cli(
             }
         )
 
-    command = _build_aitbc_cli_command(group, subcommand, args, options, output_format)
+    command = _build_aitbc_cli_command(group, subcommand, args, options, output_format, group_options=group_options)
     destructive = _is_aitbc_subcommand_destructive(subcommand)
 
     if dry_run:
@@ -1080,7 +1093,18 @@ def run_aitbc_cli(
             }
         )
 
-    return _json(_run_aitbc_cli(target, group, subcommand, args, options, output_format, timeout))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            group,
+            subcommand,
+            args,
+            options,
+            output_format,
+            timeout,
+            group_options=group_options,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1090,7 +1114,7 @@ def list_aitbc_cli_group(
         Field(description="Live aitbc CLI group to describe (e.g. 'wallet', 'market')."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1113,7 +1137,7 @@ def list_aitbc_cli_group(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_aitbc_version(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1128,7 +1152,7 @@ def get_aitbc_version(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_auth_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1143,7 +1167,7 @@ def get_auth_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_wallets(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1162,7 +1186,7 @@ def get_wallet_balance(
         Field(description="Wallet name to query."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1185,7 +1209,7 @@ def list_wallet_transactions(
         Field(description="Maximum number of transactions to return.", ge=1),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1207,7 +1231,7 @@ def list_ai_jobs(
         Field(description="Maximum number of jobs to return.", ge=1),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1229,7 +1253,7 @@ def get_ai_job_status(
         Field(description="AI job ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1248,7 +1272,7 @@ def get_ai_job_results(
         Field(description="AI job ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1267,7 +1291,7 @@ def list_market_offers(
         Field(description="Maximum number of offers to return.", ge=1),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1289,7 +1313,7 @@ def get_market_status(
         Field(description="Marketplace order/escrow ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1304,7 +1328,7 @@ def get_market_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_aitbc_node_config(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1323,7 +1347,7 @@ def get_node_info(
         Field(description="Node ID to look up."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1338,7 +1362,7 @@ def get_node_info(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_accounts(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1357,7 +1381,7 @@ def get_account(
         Field(description="Account address to look up."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1376,7 +1400,7 @@ def get_bond_status(
         Field(description="Provider ID or address to look up."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1391,7 +1415,7 @@ def get_bond_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_pending_transactions(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1410,7 +1434,7 @@ def get_transaction_status(
         Field(description="Transaction hash."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1437,7 +1461,7 @@ def search_transactions(
         Field(description="Use the Explorer API instead of RPC."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1465,7 +1489,7 @@ def get_service_logs(
         Field(description="Number of recent log lines to return.", ge=1, le=1000),
     ] = 50,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1498,7 +1522,7 @@ def get_service_status(
         Field(description="systemd unit name, e.g. 'aitbc-coordinator-api'."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1521,7 +1545,7 @@ def get_systemd_unit(
         Field(description="systemd unit name, e.g. 'aitbc-coordinator-api'."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1548,7 +1572,7 @@ def get_systemd_show(
         Field(description="Comma-separated unit properties to show (e.g. 'ActiveState,SubState,MemoryDenyWriteExecute')."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1576,7 +1600,7 @@ def get_remote_file(
         Field(description="Absolute path to a file under /opt/aitbc, /etc/aitbc, /var/log/aitbc, or /var/lib/aitbc."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1615,7 +1639,7 @@ def restart_service(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the service runs."),
     ] = None,
     host: Annotated[
@@ -1646,7 +1670,7 @@ def check_aitbc_system_health(
         Field(description="Check a single systemd service by unit name (e.g. 'aitbc-coordinator-api')."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1664,7 +1688,7 @@ def check_aitbc_system_health(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_aitbc_ipfs_rentals(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1679,7 +1703,7 @@ def list_aitbc_ipfs_rentals(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_aitbc_ipfs_pins(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1698,7 +1722,7 @@ def get_aitbc_agent_status(
         Field(description="Agent ID to look up."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1718,7 +1742,7 @@ def get_aitbc_agent_inbox(
         Field(description="Agent ID to look up."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1736,7 +1760,7 @@ def get_aitbc_agent_inbox(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_aitbc_dashboard_customer(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1751,7 +1775,7 @@ def get_aitbc_dashboard_customer(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_aitbc_dashboard_shop(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1801,7 +1825,7 @@ def call_aitbc_http(
         Field(description="Remote env file to source when auth='miner'."),
     ] = "/etc/aitbc/aitbc-coordinator-api.env",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1883,7 +1907,7 @@ def call_aitbc_http(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_blockchain_info(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1898,7 +1922,7 @@ def get_blockchain_info(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_blockchain_head(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1929,7 +1953,7 @@ def list_blocks(
         Field(description="Include transactions in each block."),
     ] = True,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1956,7 +1980,7 @@ def get_block_info(
         Field(description="Block height to retrieve.", ge=0),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1975,7 +1999,7 @@ def get_account_info(
         Field(description="Account address or bech32 address."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -1994,7 +2018,7 @@ def get_transaction_info(
         Field(description="Transaction hash with 0x prefix."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2009,7 +2033,7 @@ def get_transaction_info(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_mempool(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2024,7 +2048,7 @@ def get_mempool(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_network_info(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2039,7 +2063,7 @@ def get_network_info(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_blockchain_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2155,7 +2179,7 @@ def submit_ai_job(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2245,7 +2269,7 @@ def pay_for_ai_job(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2303,7 +2327,7 @@ def manage_ai_job(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2341,7 +2365,7 @@ def get_zk_refund_sweep_candidates(
         Field(description="Refund reason used for reporting."),
     ] = "buyer_requested",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2374,7 +2398,7 @@ def run_zk_refund_sweep(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2419,7 +2443,7 @@ def send_aitbc_transaction(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2471,7 +2495,7 @@ def create_performance_bond(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2517,7 +2541,7 @@ def stake_aitbc(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2580,7 +2604,7 @@ def unstake_aitbc(
         Field(description="Confirm the destructive action."),
     ] = False,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role where the command runs."),
     ] = None,
     host: Annotated[
@@ -2655,7 +2679,7 @@ def query_blockchain_transactions(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2693,7 +2717,7 @@ def get_account_balance(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2719,7 +2743,7 @@ def reconcile_account_balance(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2741,7 +2765,7 @@ def get_account_state_snapshot(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2771,7 +2795,7 @@ def get_account_state_delta(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2796,7 +2820,7 @@ def get_genesis_allocations(
         Field(description="Chain ID override."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2814,7 +2838,7 @@ def get_genesis_allocations(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_sync_config(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2829,7 +2853,7 @@ def get_sync_config(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_chains(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2844,7 +2868,7 @@ def list_chains(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_consensus_status(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2859,7 +2883,7 @@ def get_consensus_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_validators(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2878,7 +2902,7 @@ def get_staking_info(
         Field(description="Account address."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2897,7 +2921,7 @@ def get_bond(
         Field(description="Bond ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2916,7 +2940,7 @@ def list_provider_bonds(
         Field(description="Provider ID or address."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2935,7 +2959,7 @@ def get_bridge_transfer(
         Field(description="Bridge transfer ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2950,7 +2974,7 @@ def get_bridge_transfer(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_pending_bridge_transfers(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2965,7 +2989,7 @@ def list_pending_bridge_transfers(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_cross_chain_rates(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2980,7 +3004,7 @@ def get_cross_chain_rates(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_cross_chain_pools(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -2995,7 +3019,7 @@ def get_cross_chain_pools(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_gpus(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -3014,7 +3038,7 @@ def get_gpu_info(
         Field(description="GPU ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -3037,7 +3061,7 @@ def list_ai_jobs_onchain(
         Field(description="Filter by status."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -3061,7 +3085,7 @@ def get_ai_job_onchain(
         Field(description="AI job ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -3080,7 +3104,7 @@ def get_escrow_state(
         Field(description="Job ID for the escrow."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -3095,7 +3119,7 @@ def get_escrow_state(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_islands(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -3114,7 +3138,7 @@ def get_island(
         Field(description="Island ID."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
