@@ -92,7 +92,7 @@ if settings.debug:
     # TODO(v0.5.0): Replace with Redis-backed node registry and task queue.
     # This in-memory state is temporary and is lost on service restart.
     # Mock routes are gated behind settings.debug — never enabled in production.
-    # See docs/releases/v0.5.0/change.log for DB/Redis migration plan.
+    # See docs/releases/v0.5/v0.5.0_change.log for DB/Redis migration plan.
     logger.warning(
         "Swarm mock registry activated (DEBUG=true). In-memory state is "
         "non-persistent and unauthenticated. Do NOT use in production."

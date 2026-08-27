@@ -1,0 +1,378 @@
+# v0.5.13 Change Log
+
+**Theme**: Phase 4 — coordinator-api bounded context formalization, JWT library standardization, and codebase cleanup.
+
+**Goal**: Standardize both services on a single JWT library (PyJWT), audit and document cross-context boundary violations in coordinator-api, add context documentation, decide the agent-coordinator service boundary, and clean up lint/infra issues discovered during the audit.
+
+**Context**: v0.5.12 completed duplication elimination and large-file decomposition (B1–B7). v0.5.13 kicks off Phase 4 — formalizing the bounded-context architecture in coordinator-api. The initial Phase 4 draft contained factual errors (rate limiter no-op claim, wrong file counts, wrong auth file locations) that were corrected before execution.
+
+**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit, P2-followup-2 pricing_models revival, T1 Tier 1 migrations (6 models), T2 Tier 2 shared-kernel migrations (2 models), T2-r model rename (MultiChainTransaction → ChainTransaction), and T3 Tier 3 boundary-violation migrations (2 models + 1 documented).
+
+---
+
+## Implementation Status
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| P1 | Standardize on PyJWT — migrate `jwt_auth.py` from `python-jose` to `PyJWT`, drop `python-jose` dep | High | ✅ DONE |
+| P2 | Audit + document cross-context imports into `app/domain/` from 10 contexts | High | ✅ DONE |
+| P2-followup | Orphan-models audit — classify 17 `app/domain/` models with zero context imports | Medium | ✅ DONE |
+| P3 | Add `README.md` to each `contexts/*/` + `__all__` to `__init__.py` files | Medium | ✅ DONE |
+| P4 | Decide agent-coordinator service boundary (fold in vs keep separate) + add README | Medium | ✅ DONE |
+| P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
+| T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge, analytics) | High | ✅ DONE (all 6 models migrated) |
+| T2 | Tier 2 shared-kernel model migrations (reputation, multi_chain_transaction) | High | ✅ DONE (both models migrated to owning contexts) |
+| T2-r | Rename MultiChainTransaction → ChainTransaction (misnomer: transaction is single-chain, not multi-chain) | Medium | ✅ DONE (class + table + file + alias + manager renamed) |
+| T3 | Tier 3 boundary-violation migrations (agent, agent_performance) + document analytics cross-context | Medium | ✅ DONE (2 models migrated, 1 documented) |
+| C1 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE |
+| C2 | Fix malformed `.secrets.baseline` (duplicate `generated_at` line) | Low | ✅ DONE |
+
+---
+
+## Detailed Changes
+
+### P1: PyJWT standardization — ✅ DONE
+
+**Problem**: Two JWT libraries installed — `PyJWT` 2.13.0 (used by `agent-coordinator/jwt_handler.py` + `coordinator-api/services/enterprise_integration/api_gateway.py`) and `python-jose` 3.5.0 (used by `coordinator-api/auth/jwt_auth.py` only). `python-jose` is largely unmaintained.
+
+**Fix**: Migrated `apps/coordinator-api/src/app/auth/jwt_auth.py` from `python-jose` to `PyJWT`:
+- `from jose import JWTError, jwt` → `import jwt`
+- `except JWTError` → `except jwt.PyJWTError`
+- `jwt.encode`/`jwt.decode` API identical between both libraries — no other changes needed
+- Removed `python-jose[cryptography]>=3.3.0` from `pyproject.toml` security deps
+
+**Security improvement**: PyJWT correctly rejects empty HMAC keys (`InvalidKeyError: HMAC key must not be empty`), whereas `python-jose` silently allowed encoding with an empty secret. The dev config's `jwt_secret: str = ""` default now surfaces this.
+
+**Verification**:
+- `grep -rn "from jose" apps/` → empty (zero jose imports remain)
+- `ruff check jwt_auth.py` → All checks passed
+- `mypy jwt_auth.py` → clean
+- Functional test: create token → verify → invalid reject (401) → role mismatch (403) → ALL PASSED
+- Auth tests: 3 passed, 2 failed — **both failures pre-existing** (verified on clean HEAD: identical results)
+- `agent-coordinator/jwt_handler.py` unchanged (already used PyJWT)
+
+**Files**: `apps/coordinator-api/src/app/auth/jwt_auth.py`, `pyproject.toml`
+
+---
+
+### P2: Cross-context import audit — ✅ DONE
+
+**Problem**: 38 imports across 10 contexts reach into the flat `app/domain/` instead of their own `contexts/<bc>/domain/`. Many carry `# type: ignore[import-not-found]`.
+
+**Fix**: Produced <ref_file file="/opt/aitbc/docs/releases/v0.5/v0.5.13_context_import_audit.md" /> (267 lines) cataloguing all 38 cross-references with categorization:
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| (a) Intra-context | 20 | Model belongs to importing context — migrate file + fix import path |
+| (b) Shared kernel | 9 | Model genuinely shared by 2+ contexts — keep as shared kernel or extract |
+| (c) Boundary violation | 9 | Context reaches into another context's domain — needs service interface |
+
+**Key findings**:
+- 3 models already migrated with correct `..domain.*` relative imports: `global_marketplace` (10 refs), `gpu_marketplace` (5 refs), `agent_identity` (1 ref) — all in `marketplace` and `agent_identity` contexts
+- 2 shared-kernel candidates: `reputation` (certification + rewards), `multi_chain_transaction` (cross_chain + marketplace)
+- 2 boundary-violation clusters: `agent` (agent_coordination reaches in), `agent_performance` (advanced_rl + multimodal reach in, no owning context)
+- 5 Tier-1 quick-win migrations identified: `certification`, `rewards`, `amm`+`trading`, `cross_chain_bridge`, `analytics`
+- A list of `app/domain/` models flagged as having "zero context imports" — audited separately (see P2-followup below)
+
+**Files**: `docs/releases/v0.5/v0.5.13_context_import_audit.md`
+
+---
+
+### P2-followup: Orphan-models audit — ✅ DONE
+
+**Problem**: `context_import_audit.md` flagged a set of `app/domain/` models as having "zero context imports" (text said "14 models" but listed 17), recommending a separate audit to classify them as migrate vs dead code.
+
+**Fix**: Audited all 17 listed models across `apps/coordinator-api/` (src + tests) and the full repo, using 5 import patterns (absolute, 2/3/4-dot relative, and name-import via `domain/__init__.py`). Produced <ref_file file="/opt/aitbc/docs/releases/v0.5/v0.5.13_orphan_models_audit.md" />.
+
+**Result**: 16 MIGRATE, 1 DEAD CODE.
+- **Dead code (1)**: `pricing_models.py` — zero importers anywhere (all grep hits are local variable/feature names). Safe to delete.
+- **False orphans (5)** — the original audit's grep missed 4-dot relative imports (`....domain.X`) and name-imports (`from ..domain import X`): `governance` (3 importers in `contexts/governance/`), and `job`/`job_receipt`/`miner`/`user` (re-exported by `domain/__init__.py`, used across top-level `app/`).
+- **Genuine `contexts/`-orphans imported by top-level `app/` code (11)**: `agent_portfolio`, `atomic_swap`, `bounty`, `community`, `cross_chain_reputation`, `dao_governance`, `decentralized_memory`, `developer_platform`, `federated_learning`, `pricing_strategies`, `wallet`.
+
+**Side findings**: `agent_portfolio`'s cross-app import in `apps/agent-management/` is broken (file absent, `# type: ignore[import-not-found]`). `dao_governance` is owned by `contexts/governance/`. The `job`/`job_receipt`/`miner`/`user` cluster functions as a de-facto shared kernel.
+
+**Corrections applied**: Updated `context_import_audit.md` §"Remaining models" — fixed the "14" count to 17, removed the 5 false orphans, and split the rest into migrate (11) / dead code (1).
+
+**Files**: `docs/releases/v0.5/v0.5.13_orphan_models_audit.md`, `docs/releases/v0.5/v0.5.13_context_import_audit.md`
+
+---
+
+### P2-followup-2: Revive `pricing_models.py` (dynamic-pricing persistence) — ✅ DONE
+
+**Problem**: The orphan audit's one "dead code" model, `pricing_models.py`, was actually an **unfinished persistence layer**: the live `DynamicPricingEngine` kept pricing history + provider strategies in memory only (lost on restart), with empty `_load_pricing_history`/`_load_provider_strategies` stubs. `pricing_models.py` was the never-wired schema for exactly that. Decision: **wire it in** rather than delete.
+
+**Fix**:
+- Cleaned up all 8 mangled `__table_args__` blocks in `pricing_models.py` → proper composite `Index(...)` definitions (botched-edit artifacts removed; added `Index` import).
+- Decoupled enums: `PricingHistory.strategy_used` and `ProviderPricingStrategy.strategy_type` changed `PricingStrategyType` → `str` (the engine's runtime `PricingStrategy` enum is a different overlapping set from the DB enum).
+- Top-level model import in the engine module → `init_db()`/`create_all()` now creates all 8 pricing tables.
+- `_store_price_point` persists a `PricingHistory` row; `set_provider_strategy` upserts a `ProviderPricingStrategy` row (deactivating prior active rows). Both via `asyncio.to_thread`, best-effort (DB failure logs a warning, never breaks pricing).
+- Implemented `_load_pricing_history` + `_load_provider_strategies`, called from `initialize()`.
+
+**Verification**: ruff + mypy clean; router still imports; end-to-end temp-SQLite test confirms persist → fresh-engine reload of history/strategy/constraints, and that re-setting a strategy deactivates the prior row.
+
+**Files**: `apps/coordinator-api/src/app/domain/pricing_models.py`, `apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/dynamic_pricing.py`, `docs/releases/v0.5/v0.5.13_orphan_models_audit.md`
+
+---
+
+### P3: Context READMEs + explicit public surface — ✅ DONE
+
+**Problem**: 34 bounded contexts under `apps/coordinator-api/src/app/contexts/` had no documentation. Public surface (`__all__`) not declared in most `__init__.py` files.
+
+**Fix**: Created 34 `README.md` files (one per context directory). Each README contains:
+- One-line description of the bounded context's responsibility
+- Domain Models list (`.py` files in `domain/`, or "None (stub)")
+- Routes list (METHOD path per `@router` decorator, or "None (stub)")
+- Services list (`.py` files in `services/`, or "None (stub)")
+
+`__all__` additions: 0 needed — all non-empty `routers/__init__.py`, `services/__init__.py`, `storage/__init__.py` files already had `__all__` defined.
+
+**Verification**:
+- `find apps/coordinator-api/src/app/contexts -maxdepth 2 -name README.md | wc -l` → 34
+- `ruff check apps/coordinator-api/src/app/contexts/` → All checks passed
+- Spot-checks: marketplace (3 domain models, 8+ routes), agent_identity (1 domain model, 10+ routes), advanced_ai (stub) — all accurate
+
+**Files**: `apps/coordinator-api/src/app/contexts/*/README.md` (34 new files)
+
+---
+
+### P4: Service-boundary decision (agent-coordinator) — ✅ DONE
+
+**Question**: Should `agent-coordinator` (61 .py files, port 9001, Core Service: No) remain a separate microservice, or fold into `coordinator-api` (485 .py files, port 8203, Core Service: Yes)?
+
+**Decision**: **Keep agent-coordinator as a separate microservice.**
+
+**Rationale** (documented in <ref_file file="/opt/aitbc/docs/releases/v0.5/v0.5.13_agent_coordinator_boundary.md" />):
+
+| Coupling dimension | Finding |
+|--------------------|---------|
+| coordinator-api → agent-coordinator API calls | **Zero** — all 7 files referencing port 9001 use it only in CORS `allow_origins`, not as HTTP client targets |
+| agent-coordinator → coordinator-api API calls | **Zero** — only reference is `COORDINATOR_API_KEY` env var name, not a URL |
+| Shared database | **No** — agent-coord uses own SQLite (`agent_coin_requests.db`, stdlib sqlite3), coordinator-api uses SQLAlchemy (`coordinator.db`) |
+| Shared Redis | Same instance, **different logical DBs** (db 1 vs db 0) |
+| systemd dependency | Independent units, different dependency chains (agent-coord depends on Redis, coordinator-api does not) |
+| External clients | CLI calls agent-coordinator directly at `localhost:9001` for agent discovery/registration |
+
+Folding in would require migrating 61 files + 103 endpoints, merging two DBs, repointing CLI, merging two auth systems — high blast radius for zero coupling reduction.
+
+**Additional findings**:
+- `apps/agent-coordinator/README.md` already existed — file count corrected (48→61)
+- Deployment gap: `aitbc-agent-coordinator.service` file exists but is NOT symlinked into `/etc/systemd/system/` (unlike the 12 other aitbc services verified in B7)
+
+**Files**: `docs/releases/v0.5/v0.5.13_agent_coordinator_boundary.md`, `apps/agent-coordinator/README.md`
+
+---
+
+### P5: agent-coordinator restructure — ⏭️ SKIPPED
+
+**Gating**: Only execute if P4 decides "fold in". P4 decided "keep separate" — restructure not needed.
+
+---
+
+### C1: E501 line-too-long cleanup — ✅ DONE
+
+**Problem**: 5 `E501 line-too-long` violations in `apps/agent-coordinator/src/app/` (originally Agent A item 10, but files are in Agent B's domain).
+
+**Fix**: Broke long string literals with parentheses — no behavior change:
+- `auth/middleware.py:234` — CSP header split into parenthesized concatenation
+- `monitoring/alerting.py:261` — alert email body split into multi-line f-string
+- `websocket/agent_stream.py:387,426` — 2 SQL INSERT strings split across lines
+- `websocket/agent_stream.py:530` — approval message split into parenthesized f-string
+
+**Verification**:
+- `ruff check --select E501 apps/agent-coordinator/src/app/` → All checks passed (0 errors, down from 5)
+- String split equivalence verified programmatically — all splits produce byte-identical output to originals
+
+**Files**: `apps/agent-coordinator/src/app/auth/middleware.py`, `apps/agent-coordinator/src/app/monitoring/alerting.py`, `apps/agent-coordinator/src/app/websocket/agent_stream.py`
+
+---
+
+### C2: Fix malformed `.secrets.baseline` — ✅ DONE
+
+**Problem**: `.secrets.baseline` (secrets scanning baseline for `detect-secrets` v1.5.0) had a duplicate `"generated_at"` line (line 2658) with no comma separator, making it unparseable JSON. Introduced in commit `bb9e17e4b`.
+
+**Fix**: Removed the duplicate line, leaving a single valid `"generated_at"` entry.
+
+**Verification**: `json.load()` succeeds — parses to 192 files with 306 findings.
+
+**Files**: `.secrets.baseline`
+
+---
+
+### T1: Tier 1 intra-context domain model migrations — ✅ DONE
+
+**Problem**: The P2 audit (`context_import_audit.md`) identified 5 Tier 1 quick-win migrations — intra-context domain models still living in the flat `app/domain/` package that should be moved to their owning `contexts/<bc>/domain/` with import paths repointed.
+
+**Fix**: Migrated all 5 Tier 1 models:
+
+| Model | Moved to | Importers fixed |
+|-------|----------|----------------|
+| `certification.py` | `contexts/certification/domain/` | 8 (4 service files + 1 router + 3 test files) |
+| `rewards.py` | `contexts/rewards/domain/` | 5 (3 inline router + 1 top-level router + 1 service) |
+| `amm.py` | `contexts/trading/domain/` | 1 (amm service) |
+| `trading.py` | `contexts/trading/domain/` | 2 (trading service + trading router; also fixed duplicated `type: ignore` comment) |
+| `cross_chain_bridge.py` | `contexts/cross_chain/domain/` | 2 (bridge.py + bridge_enhanced.py) |
+| `analytics.py` | `contexts/analytics/domain/` | 2 (1 intra-context router + 1 cross-context service import from `ai_analytics`) |
+
+**Import path patterns used**:
+- Service files in `contexts/<bc>/services/<sub>/` → `from ...domain.<model>` (3 dots)
+- Service files in `contexts/<bc>/services/` → `from ..domain.<model>` (2 dots)
+- Router files in `contexts/<bc>/routers/` → `from ..domain.<model>` (2 dots)
+- Test files (outside package) → `from app.contexts.<bc>.domain.<model>` (absolute)
+- Cross-context service import (`ai_analytics` → `analytics`) → `from ....analytics.domain.analytics` (4 dots, up to `app.contexts` then into sibling context)
+
+**`analytics.py` ownership decision**: The model is shared by 2 contexts — `analytics` (API layer, 22 routes) and `ai_analytics` (computation layer, 5 services). The audit categorized it as Tier 1 "needs ownership decision" but it's actually a shared-kernel situation. Decision: `analytics` owns the model (canonical API-facing context, generic analytics classes). `ai_analytics` imports cross-context via `....analytics.domain.analytics` — this is a known boundary violation (Tier 3) that can be refactored to a service interface later.
+
+**Audit corrections discovered during migration**:
+- The original audit undercounted importers — it only grepped `contexts/` for absolute `from app.domain.*` and 1-2 dot relative imports, missing: (a) test file imports, (b) router-level 4-dot relative imports (`....domain.*`), (c) additional service files (`reward_service.py`, `bridge_enhanced.py`).
+- The audit claimed `cross_chain_bridge.py`'s import path was "already correct" (`..domain.cross_chain_bridge`) — this was wrong; both importers used `from app.domain.cross_chain_bridge` (absolute).
+- All 5 model files were self-contained (stdlib + sqlmodel/sqlalchemy imports only, zero internal `app.domain.*` references), confirming the "just move the file" assessment was correct.
+
+**Untouched imports**: `from app.domain.reputation` imports in certification and rewards files were left as-is — `reputation` is a Tier 2 shared-kernel model, not part of this migration.
+
+**Verification**:
+- `grep -rn 'from app.domain.(certification|rewards|amm|trading|cross_chain_bridge|analytics)' apps/coordinator-api/` → 0 matches (zero stale references)
+- `grep -rn 'from \.{4,}domain.(certification|rewards|amm|trading|cross_chain_bridge)' apps/coordinator-api/src/` → 0 matches (zero 4+ dot relative imports to old location)
+- `ruff check` on all modified context directories → All checks passed
+- `mypy --show-error-codes` → zero `import-not-found` errors for the 6 migrated models (1 pre-existing error for `app.domain.reputation`, not migrated)
+- Runtime import test: both `app.contexts.analytics.domain.analytics` and `app.contexts.ai_analytics.services.ai_analytics.analytics` import successfully
+- Certification tests: 16 failed — **all pre-existing** (verified on clean HEAD: identical failures, caused by tests referencing old `app.services.certification.*` path, not by this migration)
+
+**Files** (6 moved, 15 importers fixed):
+- Moved: `app/domain/{certification,rewards,amm,trading,cross_chain_bridge,analytics}.py` → `app/contexts/{certification,rewards,trading,trading,cross_chain,analytics}/domain/`
+- Fixed: `contexts/certification/services/certification/{badge_system,certification_system,service,partnership_manager}.py`, `contexts/certification/routers/certification.py`, `contexts/rewards/routers/rewards.py`, `contexts/rewards/services/reward_service.py`, `contexts/trading/services/trading_marketplace/{amm,trading}.py`, `contexts/trading/routers/trading.py`, `contexts/cross_chain/services/cross_chain/{bridge,bridge_enhanced}.py`, `contexts/analytics/routers/analytics.py`, `contexts/ai_analytics/services/ai_analytics/analytics.py`, `tests/services/test_certification/{test_badge_system,test_certification_system,test_partnership_manager}.py`
+
+---
+
+### T2: Tier 2 shared-kernel model migrations — ✅ DONE
+
+**Problem**: The P2 audit identified 2 shared-kernel models used by multiple contexts — `reputation` (by certification + rewards + reputation context + top-level app/reputation) and `multi_chain_transaction` (by cross_chain + marketplace + top-level app/services). These required ownership decisions before migration.
+
+**Fix**: Migrated both models to their owning contexts using Approach A (move full model, cross-context imports for non-owning consumers):
+
+| Model | Moved to | Importers fixed | Ownership decision |
+|-------|----------|----------------|-------------------|
+| `reputation.py` (268 lines, 8 classes) | `contexts/reputation/domain/` | 15 (2 intra-context, 5 cross-context certification/rewards, 2 top-level app/reputation, 6 tests) | `reputation` context owns it — already had services + router, just empty domain/ stub. Certification and rewards import `AgentReputation` cross-context (1 class each). |
+| `multi_chain_transaction.py` (101 lines, 5 classes) | `contexts/cross_chain/domain/` | 5 (1 intra-context cross_chain router, 2 cross-context marketplace, 1 top-level app/services with alias, 1 top-level) | `cross_chain` context owns it — model is about cross-chain transactions. Marketplace imports `TransactionPriority` cross-context (enum only). |
+
+**Approach A vs B**: Chose Approach A (move full model) over Approach B (extract enums to shared types) for `multi_chain_transaction.py`. Approach B would split the file and create a shared types module, but marketplace still needs a cross-context import either way — the enum extraction doesn't eliminate the boundary violation, just makes it lighter. Consistent with the Tier 1 pattern.
+
+**Cross-context import paths** (new boundary violations, tracked for Tier 3 refactor):
+- `certification/services/certification/*.py` → `....reputation.domain.reputation` (4 dots, imports `AgentReputation`)
+- `rewards/services/reward_service.py` → `...reputation.domain.reputation` (3 dots, imports `AgentReputation`)
+- `rewards/routers/rewards.py` → `...reputation.domain.reputation` (3 dots, inline, imports `AgentReputation`)
+- `marketplace/services/global_marketplace_integration.py` → `...cross_chain.domain.multi_chain_transaction` (3 dots, imports `TransactionPriority`)
+- `marketplace/routers/global_marketplace_integration.py` → `...cross_chain.domain.multi_chain_transaction` (3 dots, imports `TransactionPriority`)
+
+**Verification**:
+- `grep 'from app.domain.(reputation|multi_chain_transaction)' apps/coordinator-api/` → 0 matches (zero stale references)
+- `grep 'from \.{3,}domain.(reputation|multi_chain_transaction)' apps/coordinator-api/src/` → 0 matches (zero 3+ dot relative imports to old location)
+- `ruff check` on all modified directories → All checks passed
+- `mypy --show-error-codes` → zero `import-not-found` errors for both migrated models
+- Runtime import test: all 7 import paths verified (reputation context, cross_chain context, top-level app/reputation/engine, top-level app/services/multi_chain_transaction_manager, certification cross-context, rewards cross-context, marketplace cross-context)
+
+**Files** (2 moved, 20 importers fixed):
+- Moved: `app/domain/{reputation,multi_chain_transaction}.py` → `app/contexts/{reputation,cross_chain}/domain/`
+- Fixed: `contexts/reputation/{services/reputation_service,routers/reputation}.py`, `contexts/certification/services/certification/{badge_system,certification_system,partnership_manager}.py`, `contexts/rewards/{services/reward_service,routers/rewards}.py`, `contexts/marketplace/{services/global_marketplace_integration,routers/global_marketplace_integration}.py`, `contexts/cross_chain/routers/cross_chain_integration.py`, `app/reputation/{engine,aggregator}.py`, `app/services/multi_chain_transaction_manager.py`, `tests/services/test_certification/{test_badge_system,test_certification_system,test_partnership_manager}.py`
+
+---
+
+### T3: Tier 3 boundary-violation migrations — ✅ DONE
+
+**Problem**: The P2 audit identified 3 boundary violations where contexts reached into unowned domain models:
+1. `agent.py` — imported by `agent_coordination` (5 files) + `security` (1 file) + `adapters` (1 file). Question: does `agent_coordination` or `agent_identity` own it?
+2. `agent_performance.py` — imported by `agent_coordination` (3 files) + `advanced_rl` (2 files) + `multimodal` (1 file) + tests (2 inline). No owning context existed.
+3. `analytics` cross-context import from `ai_analytics` — discovered during the orphan audit (4-dot relative import missed by original grep).
+
+**Ownership decisions**:
+
+| Model | Decision | Rationale |
+|-------|----------|-----------|
+| `agent.py` (313 lines, 7 classes) | → `contexts/agent_coordination/domain/` | 5 of 7 importing files are in `agent_coordination`. Model defines agent workflow execution — the core concern of agent_coordination. `agent_identity` already has its own separate `agent_identity.py`. |
+| `agent_performance.py` (500 lines, 13 classes) | → `contexts/agent_coordination/domain/` | 3 of 7 importing files are in `agent_coordination` (including the `agent_performance` router). Model is about agent performance profiles, meta-learning, resource allocation. |
+| `analytics` (already in `contexts/analytics/domain/`) | Document, no move | `ai_analytics` is a legitimate consumer of `analytics`'s domain model. The 4-dot relative import (`....analytics.domain.analytics`) is explicit and traceable. In strict DDD this would need an ACL, but for this codebase the explicit cross-context import is accepted. |
+
+**Fix**:
+
+1. **Moved** `app/domain/agent.py` → `contexts/agent_coordination/domain/agent.py` (via `git mv`)
+2. **Moved** `app/domain/agent_performance.py` → `contexts/agent_coordination/domain/agent_performance.py` (via `git mv`)
+3. **Updated** `app/domain/__init__.py` — re-exports agent models from new location (preserves SQLModel table registration at `init_db()` time + backward compat for any name imports)
+4. **Fixed 9 `agent.py` importers**:
+   - 4 intra-context (`contexts/agent_coordination/routers/`): `....domain.agent` → `..domain.agent` (2-dot relative)
+   - 3 top-level services (`services/agent_coordination/`): `...domain.agent` → absolute `app.contexts.agent_coordination.domain.agent`
+   - 1 cross-context (`contexts/security/routers/`): `....domain.agent` → absolute `app.contexts.agent_coordination.domain.agent`
+   - 1 adapter (`adapters/`): `app.domain.agent` → `app.contexts.agent_coordination.domain.agent` (also removed `type: ignore[import-not-found]`)
+   - 2 inline imports in `agent_router.py`: `app.domain.agent` → `app.contexts.agent_coordination.domain.agent` (also removed `type: ignore`)
+5. **Fixed 8 `agent_performance.py` importers**:
+   - 2 intra-context (`contexts/agent_coordination/routers/`): `....domain.agent_performance` → `..domain.agent_performance`
+   - 1 top-level service (`services/agent_coordination/performance.py`): `...domain.agent_performance` → absolute
+   - 2 cross-context (`contexts/advanced_rl/`): `app.domain.agent_performance` → absolute `app.contexts.agent_coordination.domain.agent_performance`
+   - 1 cross-context (`contexts/multimodal/`): `app.domain.agent_performance` → absolute
+   - 2 test inline imports: `app.domain.agent_performance` → absolute
+
+**Remaining cross-context dependencies** (documented, not refactored to service interfaces):
+- `contexts/security/routers/security_router.py` → `app.contexts.agent_coordination.domain.agent` (imports `AIAgentWorkflow`)
+- `contexts/advanced_rl/services/advanced_rl/{engine,marketplace_optimizer}.py` → `app.contexts.agent_coordination.domain.agent_performance` (imports `ReinforcementLearningConfig`)
+- `contexts/multimodal/services/multi_modal_fusion/fusion_engine.py` → `app.contexts.agent_coordination.domain.agent_performance` (imports `FusionModel`)
+- `contexts/ai_analytics/services/ai_analytics/analytics.py` → `contexts/analytics/domain/analytics` (imports 7 analytics model classes)
+
+These are explicit, traceable cross-context imports. A future refactor could introduce service interfaces or DTOs to eliminate them, but that's outside the current scope.
+
+**Verification**:
+- `grep 'from app.domain.agent\b\|from \.{3,}domain.agent\b' apps/coordinator-api/` → 0 matches (zero stale references)
+- `grep 'from app.domain.agent_performance\b\|from \.{3,}domain.agent_performance\b' apps/coordinator-api/` → 0 matches
+- `ruff check` on all modified files → All checks passed
+- `mypy` on migrated model files + `__init__.py` → Success: no issues found (pre-existing errors in router/service files unchanged)
+- Runtime import test: all 15+ import paths verified (agent_coordination routers, services, security router, adapters, advanced_rl, multimodal, domain `__init__.py` re-exports)
+- `AgentExecution` and `AIAgentWorkflow` identity check: re-exported classes from `domain/__init__.py` are the same objects as those imported from the new location
+
+**Files** (2 moved, 17 importers fixed, 1 `__init__.py` updated):
+- Moved: `app/domain/{agent,agent_performance}.py` → `app/contexts/agent_coordination/domain/`
+- Fixed: `contexts/agent_coordination/routers/{agent_router,agent_integration_router,agent_performance,agent_creativity}.py`, `services/agent_coordination/{agent_service,integration,security,performance}.py`, `contexts/security/routers/security_router.py`, `contexts/advanced_rl/services/advanced_rl/{engine,marketplace_optimizer}.py`, `contexts/multimodal/services/multi_modal_fusion/fusion_engine.py`, `adapters/agent_core_adapters.py`, `tests/services/test_multi_modal_fusion/test_fusion_engine.py`
+- Updated: `app/domain/__init__.py` (re-export from new location)
+
+---
+
+### T2-r: Rename MultiChainTransaction → ChainTransaction — ✅ DONE
+
+**Problem**: The model `MultiChainTransaction` was misnamed. A transaction is inherently single-chain — it's submitted to one chain, confirmed on one chain, and has one hash. The `chain_id: int` field (a single chain) confirms this. The "multi-chain" qualifier described the *manager's* capability (routing transactions to different chains), not the transaction itself. The name was architecturally misleading.
+
+**Fix**: Renamed the model to reflect what it actually is — a transaction on a single chain:
+
+| Old | New | Scope |
+|-----|-----|-------|
+| `MultiChainTransaction` (class) | `ChainTransaction` | Model + all 19 references in manager |
+| `multi_chain_transaction` (table) | `chain_transaction` | `__tablename__` |
+| `multi_chain_transaction.py` (file) | `chain_transaction.py` | `git mv` |
+| `MultiChainTransactionType` (alias) | `ChainTransactionType` | 14 references in manager |
+| `MultiChainTransactionManager` (class) | `ChainTransactionManager` | Manager + 9 references in 2 importers |
+
+**Rationale for also renaming the manager**: `ChainTransactionManager` is cleaner — it manages `ChainTransaction` records. The "multi-chain" aspect (handling transactions on different chains) is an implementation detail, not a naming concern. The manager file `multi_chain_transaction_manager.py` was left as-is to minimize churn.
+
+**Import path updates**: 5 importers updated from `...domain.multi_chain_transaction` → `...domain.chain_transaction`
+
+**Verification**:
+- `grep 'MultiChainTransaction\|multi_chain_transaction' apps/coordinator-api/` → 0 matches (zero stale references, excluding the manager file name)
+- `ruff check` → All checks passed
+- `mypy` → zero errors related to the rename
+- Runtime import test: `ChainTransaction.__tablename__` = `chain_transaction`, `ChainTransactionManager` imports OK, cross_chain router OK, marketplace service OK
+
+**Files**: `contexts/cross_chain/domain/chain_transaction.py` (renamed), `services/multi_chain_transaction_manager.py`, `contexts/cross_chain/routers/cross_chain_integration.py`, `contexts/marketplace/{services/global_marketplace_integration,routers/global_marketplace_integration}.py`
+
+---
+
+## Grounding Facts (verified 2026-06-24)
+
+- `apps/coordinator-api/src/app/` — 485 .py files, 34 bounded contexts under `contexts/` (each with `domain/`, `routers/`, `services/`, `storage/` subpackages). Only `contexts/agent_identity/` and `contexts/marketplace/` are fully populated; most others have empty `domain/` stubs.
+- `apps/coordinator-api/src/app/domain/` — 25 flat domain model files (6,859 lines) still the live import target. 38 cross-context imports reach into it from 10 contexts.
+- `apps/agent-coordinator/` — separate microservice, 61 .py files, flat layout. 103 endpoints across 15 routers. 12 of 15 routers use `@rate_limit`.
+- **Rate limiter is NOT a no-op** — `aitbc/rate_limiting.py` is enabled by default (`AITBC_ENABLE_RATE_LIMITING=true`), enforces via `RateLimiter`, returns 429 on exceed. Fixed in commits `71cec61bf` + `c08e85b03`.
+- **JWT libraries**: both services now use `PyJWT` 2.13.0 only. `python-jose` removed from deps.
+
+## Corrections from the Initial (Rejected) Phase 4 Draft
+
+The first Phase 4 draft contained factual errors that this plan corrects:
+- ~~"rate_limit decorator is a no-op"~~ — it is enabled and enforced by default (`aitbc/rate_limiting.py:24`).
+- ~~"move auth/dependencies.py and security_matrix.py into coordinator-api"~~ — they already live there; the real duplication was the JWT *library* (PyJWT vs python-jose), not those files.
+- ~~"health endpoint rate=50, will be throttled"~~ — it's `rate=1000, per=60` (`routers/health.py:15`).
+- ~~"agent_stream.py has 5 E501 errors"~~ — ruff now reports clean (fixed in C1).
+- File counts corrected: agent-coordinator 61 (not 48), coordinator-api 485 (not 508), contexts 34 (not 35).

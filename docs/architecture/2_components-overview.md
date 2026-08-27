@@ -58,7 +58,7 @@ Ethereum-to-AITBC exchange with QR payments, user management, and real-time trad
 
 Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inference verification, training verification, and cryptographic proof generation using Groth16.
 
-[Learn More →](../releases/v0.4.2/zk-circuits.md)
+[Learn More →](../releases/v0.4/v0.4.2_zk-circuits.md)
 
 ### FHE Service
 
