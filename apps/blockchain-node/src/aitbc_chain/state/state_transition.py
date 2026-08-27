@@ -21,6 +21,12 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_transaction_signature
 from .gpu_resources import GPUAllocation, GPURegistration
+from .liquidity import _ensure_pool_accounts
+from .liquidity_transition import (
+    apply_liquidity_claim,
+    apply_liquidity_deposit,
+    apply_liquidity_withdraw,
+)
 
 try:
     from aitbc.caching import RedisCache
@@ -156,6 +162,21 @@ class StateTransition:
             select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
         ).first()
         tx_type = _tx_type(tx_data, tx_record)
+        if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
+            # Ensure the pool reserve/treasury/emission accounts and the sender
+            # and recipient accounts exist before the generic recipient check.
+            _ensure_pool_accounts(session, chain_id)
+            _ensure_account(session, chain_id, sender_addr)
+            _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
+            payload = tx_data.get("payload") or {}
+            if tx_type == "LIQUIDITY_DEPOSIT":
+                if not payload.get("pool_id"):
+                    return (False, "LIQUIDITY_DEPOSIT payload must include pool_id")
+                if "lock_days" not in payload:
+                    return (False, "LIQUIDITY_DEPOSIT payload must include lock_days")
+            if tx_type in {"LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
+                if not payload.get("stake_id"):
+                    return (False, f"{tx_type} payload must include stake_id")
         if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
             # Pre-registered credit transactions do not require a sender account or
             # nonce. The state update is applied off-chain by the RPC call that
@@ -243,6 +264,21 @@ class StateTransition:
         _MAX_INT64 = 2**63 - 1
         if value < 0 or fee < 0 or value > _MAX_INT64 or fee > _MAX_INT64:
             raise ValueError(f"Transaction value/fee out of range: value={value}, fee={fee}")
+        if tx_type == "LIQUIDITY_DEPOSIT":
+            ok, msg = apply_liquidity_deposit(session, chain_id, tx_data, tx_hash, _cache)
+            if ok:
+                self._processed_tx_hashes.add(tx_hash)
+            return (ok, msg)
+        if tx_type == "LIQUIDITY_CLAIM":
+            ok, msg = apply_liquidity_claim(session, chain_id, tx_data, tx_hash, _cache)
+            if ok:
+                self._processed_tx_hashes.add(tx_hash)
+            return (ok, msg)
+        if tx_type == "LIQUIDITY_WITHDRAW":
+            ok, msg = apply_liquidity_withdraw(session, chain_id, tx_data, tx_hash, _cache)
+            if ok:
+                self._processed_tx_hashes.add(tx_hash)
+            return (ok, msg)
         if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
             # Pre-registered credit transactions: the sender is a magic string
             # (faucet/bridge_release/bridge_refund) and does not have an account.
