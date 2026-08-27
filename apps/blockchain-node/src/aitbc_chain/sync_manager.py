@@ -338,8 +338,21 @@ class SyncManager:
                 skip_state_root_validation=not settings.sync_state_root_validation_enabled,
             )
 
-            if result.accepted:
+            # Cache the block hash for accepted results and for permanent rejection
+            # reasons, so that the same block delivered over multiple transports
+            # (gossip + subscription) does not produce duplicate import attempts.
+            # Transient reasons (gaps, divergence, state-root mismatches) must not be
+            # cached because the block can become valid after catch-up / state sync.
+            transient_reason = (
+                "Gap detected" in result.reason
+                or result.diverged
+                or "state root" in result.reason.lower()
+                or "stale" in result.reason.lower()
+            )
+            if result.accepted or not transient_reason:
                 self._seen_blocks[key] = now
+
+            if result.accepted:
                 state.last_push_at = time.time()
                 state.last_local_height = block_data.get("height", state.last_local_height)
                 if state.mode in (SyncMode.CATCH_UP, SyncMode.ERROR):
