@@ -55,7 +55,8 @@ def main() -> None:
         host=settings.host,
         port=settings.port,
         reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),
-        log_level="info",
+        log_level="critical",
+        access_log=False,
     )
 
 

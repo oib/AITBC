@@ -172,4 +172,4 @@ if __name__ == "__main__":
     host = os.getenv("WALLET_BIND_HOST", settings.host)
     port = int(os.getenv("WALLET_BIND_PORT", settings.port))
 
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
