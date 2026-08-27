@@ -187,7 +187,10 @@ class EscrowManager:
 
             with session_scope() as session:
                 records = session.exec(
-                    select(EscrowRecord).where(EscrowRecord.released_at is None, EscrowRecord.refunded_at is None)
+                    select(EscrowRecord).where(
+                        EscrowRecord.released_at.is_(None),
+                        EscrowRecord.refunded_at.is_(None),
+                    )
                 ).all()
                 for record in records:
                     contract_id = (
