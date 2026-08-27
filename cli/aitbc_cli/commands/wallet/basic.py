@@ -591,7 +591,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
 
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
-        return
+        raise click.Abort()
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = to_eip55(wallet_data["address"])
@@ -603,7 +603,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
     to_address = to_eip55(to_address)
     if not to_address.startswith("0x"):
         error(f"Invalid recipient address: {to_address}")
-        return
+        raise click.Abort()
 
     # Get RPC URL from context or parameter (use hub for cross-node transfers)
     if not rpc_url:
@@ -640,7 +640,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         private_key_hex = wallet_data.get("private_key")
         if not private_key_hex:
             error("Wallet does not contain private key")
-            return
+            raise click.Abort()
 
         # Remove 0x prefix if present for eth_keys
         if private_key_hex.startswith("0x"):
@@ -648,7 +648,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
         error(f"Error loading private key: {e}")
-        return
+        raise click.Abort() from e
 
     # Create transaction with modern payload format
     # Convert AIT to seconds for blockchain
@@ -695,10 +695,10 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
             },
             ctx.obj.get("output_format", "table"),
         )
-        return tx_hash
+        return 0
     except Exception as e:
         error(f"Error submitting transaction: {e}")
-        return None
+        raise click.Abort() from e
 
 
 @wallet.command()
