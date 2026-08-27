@@ -19,7 +19,7 @@ aitbc --help
 | `agent-comm` | Cross-chain agent communication commands | `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status` |
 | `agent-msg` | Agent messaging commands (ping, send, receive, peers, request-coins). | `peers`, `ping`, `receive`, `request-coins`, `send` |
 | `agent-wallet` | Agent-owned wallet, staking, and rebalancing commands. | `balance`, `rebalance`, `stake` |
-| `ai` | AI job submission and inspection | `cancel`, `distribution-stats`, `jobs`, `refund`, `results`, `service`, `stats`, `status`, `submit` |
+| `ai` | AI job submission and inspection | `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit` |
 | `analytics` | Chain analytics and monitoring commands | `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary` |
 | `blockchain` | Multi-chain management commands | `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status` |
 | `bond` | Provider performance bond lifecycle commands. | `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up` |
@@ -47,7 +47,7 @@ aitbc --help
 | `gpu` | Local GPU service commands for hardware management | `discover`, `list-gpus`, `register`, `unregister`, `update` |
 | `gpu-onchain` | GPU resource tracking commands (on-chain) | `allocate`, `allocations`, `list`, `query`, `register` |
 | `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
-| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `list`, `pin`, `upload` |
+| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `host`, `list`, `pin`, `rentals`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
 | `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `marketplace` | **Legacy** global on-chain marketplace (cross-chain listings, bridge, economy). Hidden from `aitbc --help`; prefer `aitbc market` for GPU/software offers. | `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions` |
@@ -74,12 +74,12 @@ aitbc --help
 | `stop` | Stop all AITBC services for the current (or selected) role |  |
 | `sync` | Blockchain synchronization utilities | `bulk`, `status` |
 | `system` | System management commands | `architect`, `audit`, `check`, `config`, `restart`, `status` |
-| `tee` | Trusted Execution Environment (TEE) commands. | `attest`, `launch`, `register`, `status`, `verify` |
+| `tee` | Trusted Execution Environment (TEE) commands. | `attest`, `keygen`, `launch`, `register`, `status`, `verify` |
 | `trade` | Inter-chain trading operations | `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch` |
 | `transactions` | Transaction management commands | `batch`, `estimate-fee`, `pending`, `search`, `send`, `status` |
 | `update` | Pull the latest code and run scripts/deployment/update.sh. |  |
 | `version` | Show version information |  |
-| `wallet` | Manage your wallets and transactions | `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake` |
+| `wallet` | Manage your wallets and transactions | `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-claim`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake` |
 | `workflow` | Workflow management commands | `list`, `run`, `status`, `stop` |
 | `zk` | Zero-knowledge proof commands. | `circuits`, `health`, `verify` |
 
