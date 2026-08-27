@@ -77,3 +77,7 @@ The separate `aitbc-blockchain-sync` wrapper and timer have been merged into `ai
 - `e29b2d771` fix(cli): include to and amount in liquidity payload for signature match
 - `641185794` fix(cli): remove unexpected timeout kwarg from liquidity transaction submission
 - `c5263b97e` feat(liquidity): real on-chain AIT-only liquidity pool with deposit/claim/withdraw
+
+## What’s next
+
+Open follow-ups, live-validation notes, and design plans are collected in [v0.25.1_change.log](v0.25.1_change.log).
