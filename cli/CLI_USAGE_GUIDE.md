@@ -7,7 +7,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `agent-comm` — Cross-chain agent communication commands. Subcommands: `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status`
 - `agent-msg` — Agent messaging commands (ping, send, receive, peers, request-coins).. Subcommands: `peers`, `ping`, `receive`, `request-coins`, `send`
 - `agent-wallet` — Agent-owned wallet, staking, and rebalancing commands.. Subcommands: `balance`, `rebalance`, `stake`
-- `ai` — AI job submission and inspection. Subcommands: `cancel`, `distribution-stats`, `jobs`, `refund`, `results`, `service`, `stats`, `status`, `submit`
+- `ai` — AI job submission and inspection. Subcommands: `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit`
 - `analytics` — Chain analytics and monitoring commands. Subcommands: `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary`
 - `blockchain` — Multi-chain management commands. Subcommands: `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
 - `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up`
@@ -35,7 +35,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `gpu` — Local GPU service commands for hardware management. Subcommands: `discover`, `list-gpus`, `register`, `unregister`, `update`
 - `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `list`, `query`, `register`
 - `grant` — DAO grant proposal commands.. Subcommands: `create`, `disburse`, `list`, `vote`
-- `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `list`, `pin`, `upload`
+- `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `host`, `list`, `pin`, `rentals`, `unpin`, `upload`
 - `list` — Legacy wallet list alias
 - `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
 - `marketplace` — Global chain marketplace commands. Subcommands: `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions`
@@ -62,11 +62,11 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `stop` — Stop all AITBC services for the current (or selected) role
 - `sync` — Blockchain synchronization utilities. Subcommands: `bulk`, `status`
 - `system` — System management commands. Subcommands: `architect`, `audit`, `check`, `config`, `restart`, `status`
-- `tee` — Trusted Execution Environment (TEE) commands.. Subcommands: `attest`, `launch`, `register`, `status`, `verify`
+- `tee` — Trusted Execution Environment (TEE) commands.. Subcommands: `attest`, `keygen`, `launch`, `register`, `status`, `verify`
 - `trade` — Inter-chain trading operations. Subcommands: `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch`
 - `transactions` — Transaction management commands. Subcommands: `batch`, `estimate-fee`, `pending`, `search`, `send`, `status`
 - `update` — Pull the latest code and run scripts/deployment/update.sh.
 - `version` — Show version information
-- `wallet` — Manage your wallets and transactions. Subcommands: `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake`
+- `wallet` — Manage your wallets and transactions. Subcommands: `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-claim`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake`
 - `workflow` — Workflow management commands. Subcommands: `list`, `run`, `status`, `stop`
 - `zk` — Zero-knowledge proof commands.. Subcommands: `circuits`, `health`, `verify`
