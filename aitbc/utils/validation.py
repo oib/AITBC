@@ -13,39 +13,36 @@ def _validate_address_impl(address: str) -> bool:
     """
     Internal address validation (no exception handling).
 
-    Returns True if the address is valid, False otherwise.
+    Returns True if the address is a valid 0x secp256k1/EVM address.
+    Legacy ait1/aitbc1 prefixes are no longer accepted.
     """
     if not address:
         return False
 
-    # Ethereum-style 0x address (canonical, secp256k1)
-    if address.startswith("0x") and len(address) == 42:
-        try:
-            from eth_utils import is_checksum_address
+    if not (address.startswith("0x") and len(address) == 42):
+        return False
 
-            return bool(is_checksum_address(address))
-        except ImportError:
-            # eth_utils not available — accept 0x + 40 hex chars as fallback
-            return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
+    try:
+        from eth_utils import is_checksum_address
 
-    # Legacy ait1/aitbc1 prefix (backward compat)
-    pattern = r"^ait(bc)?1[a-z0-9]+$"
-    return bool(re.match(pattern, address))
+        return bool(is_checksum_address(address))
+    except ImportError:
+        # eth_utils not available — accept 0x + 40 hex chars as fallback
+        return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
 
 
 def validate_address(address: str) -> bool:
     """
     Validate an AITBC blockchain address (non-raising).
 
-    AITBC uses Ethereum-style secp256k1 addresses (0x-prefixed, 42 chars,
-    EIP-55 checksum). Legacy ait1/aitbc1-prefixed addresses are accepted
-    for backward compatibility but should be migrated.
+    AITBC uses canonical secp256k1/EVM addresses (0x-prefixed, 42 chars,
+    EIP-55 checksum). Legacy ait1/aitbc1-prefixed addresses are rejected.
 
     Args:
         address: Address string to validate
 
     Returns:
-        True if address is valid format, False otherwise
+        True if address is a valid 0x EVM address, False otherwise
     """
     return _validate_address_impl(address)
 
@@ -56,13 +53,13 @@ def validate_address_strict(address: str) -> str:
 
     Same validation as :func:`validate_address` but raises
     :class:`~aitbc.exceptions.ValidationError` on invalid input
-    and returns the normalized address on success.
+    and returns the EIP-55 checksummed 0x address on success.
 
     Args:
         address: Address string to validate
 
     Returns:
-        The validated address string
+        The EIP-55 checksummed 0x address
 
     Raises:
         ValidationError: If address format is invalid
@@ -70,26 +67,22 @@ def validate_address_strict(address: str) -> str:
     if not address:
         raise ValidationError("Address cannot be empty")
 
-    # Ethereum-style 0x address (canonical, secp256k1)
-    if address.startswith("0x") and len(address) == 42:
-        try:
-            from eth_utils import is_checksum_address
+    if not (address.startswith("0x") and len(address) == 42):
+        raise ValidationError(f"Invalid address format: {address}")
 
-            if not is_checksum_address(address):
-                raise ValidationError(f"Invalid checksum address: {address}")
-            return address
-        except ImportError:
-            # eth_utils not available — accept 0x + 40 hex chars as fallback
-            if not re.match(r"^0x[0-9a-fA-F]{40}$", address):
-                raise ValidationError(f"Invalid address format: {address}") from None
-            return address
+    try:
+        from eth_utils import is_checksum_address
 
-    # Legacy ait1/aitbc1 prefix (backward compat)
-    pattern = r"^ait(bc)?1[a-z0-9]+$"
-    if re.match(pattern, address):
+        if not is_checksum_address(address):
+            raise ValidationError(f"Invalid checksum address: {address}")
         return address
-
-    raise ValidationError(f"Invalid address format: {address}")
+    except ImportError:
+        # eth_utils not available — accept 0x + 40 hex chars as fallback
+        if not re.match(r"^0x[0-9a-fA-F]{40}$", address):
+            raise ValidationError(f"Invalid address format: {address}") from None
+        return address
+    except ValueError as exc:
+        raise ValidationError(f"Invalid checksum address: {address}") from exc
 
 
 def validate_hash(hash_str: str) -> bool:

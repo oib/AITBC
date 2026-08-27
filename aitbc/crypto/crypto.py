@@ -95,17 +95,12 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
     try:
         from eth_utils import to_bytes
 
-        from .signature_recovery import recover_address
+        from .signature_recovery import canonical_address, recover_address
 
         message_bytes = to_bytes(hexstr=message_hash.removeprefix("0x"))
         recovered_address = recover_address(message_bytes, signature)
-        # Compare case-insensitively on the 0x-prefixed form both sides normalise to:
-        # recovery returns an EIP-55 checksummed address, and callers pass whatever they
-        # hold. Stripping "0x" from only one side, as this did, made every comparison
-        # false even once recovery worked.
-        if not address.startswith("0x"):
-            address = "0x" + address
-        return bool(recovered_address.lower() == address.lower())
+        # Recovery returns EIP-55; canonical_address also returns EIP-55 for valid 0x.
+        return bool(canonical_address(recovered_address) == canonical_address(address))
     except ImportError:
         # eth-account is no longer reached from here; recovery uses eth-keys via
         # signature_recovery. Naming the packages that are actually required makes the

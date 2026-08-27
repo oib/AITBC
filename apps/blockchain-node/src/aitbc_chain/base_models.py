@@ -26,50 +26,48 @@ def _validate_optional_hex(value: str | None, field_name: str) -> str | None:
     return _validate_hex(value, field_name)
 
 
-def _to_ait_address(address: str) -> str:
-    """Return the canonical `ait1` spelling of a chain account address.
+def _to_evm_address(address: str) -> str:
+    """Return the canonical EIP-55 `0x` spelling of a chain account address.
 
-    Accepts `0x...`, `ait1...` and `aitbc1...` spellings. Anything that does
-    not look like a 40-hex address is passed through unchanged so callers that
-    use short/alias values do not break.
+    Valid `0x...` addresses are returned as EIP-55 checksum strings. Anything
+    that does not look like a 40-hex EVM address is passed through unchanged so
+    callers that use short/alias values do not break.
 
     Delegates the parsing to :func:`canonical_address`, which answers the same
     question for signature verification. The two must agree on what counts as an
     address or the chain and the signature layer would disagree about who an
-    account belongs to; they differ only in which spelling they hand back —
-    `0x` there, `ait1` here, because that is what each layer stores (V23-64).
+    account belongs to; they both now hand back EIP-55 `0x` (V23-66).
     """
-    canonical = canonical_address(address)
-    body = canonical.removeprefix("0x")
-    if canonical.startswith("0x") and len(body) == 40:
-        return f"ait1{body}"
-    return canonical
+    return canonical_address(address)
 
 
-def address_spellings(address: str) -> list[str]:
-    """Every lowercase spelling of ``address`` a verbatim column may be holding.
+# Backward-compatible alias for callers that have not yet been updated.
+_to_ait_address = _to_evm_address
 
-    `Account.address` is normalised on the way in, so looking one up is a plain equality.
-    `Transaction.sender`/`recipient` are not — they keep whatever the signer wrote — so a
-    query has to ask for all the spellings that mean the same account. The mapping is
-    one-to-one on the 40-hex body, so this cannot widen a search to a different account.
 
-    Compare against ``lower(column)``: a checksummed `0x` address differs from its
-    lowercase form only in case, and enumerating case variants is not tractable.
+def evm_address_spellings(address: str) -> list[str]:
+    """Every spelling of ``address`` a verbatim column may be holding.
+
+    With legacy prefixes removed, the only supported spellings are the EIP-55
+    checksum and its lowercase form. Callers can compare against
+    ``lower(column)`` if they do not know the checksum casing.
     """
-    canonical = _to_ait_address(address)
-    body = canonical.removeprefix("ait1")
-    if canonical.startswith("ait1") and len(body) == 40:
-        return [f"ait1{body}", f"0x{body}", f"aitbc1{body}"]
+    canonical = _to_evm_address(address)
+    if canonical.startswith("0x") and len(canonical) == 42:
+        return [canonical, canonical.lower()]
     return [canonical]
 
 
-class AccountAddress(TypeDecorator):
-    """Canonical ait address column for chain account tables.
+# Backward-compatible alias until call sites are updated.
+address_spellings = evm_address_spellings
 
-    Both inserts and lookups are normalised to lowercase `ait1` 40-hex. This
-    is the single normalisation point for on-chain account access; the trie
-    layer (``StateManager._encode_address``) canonicalises to the same value.
+
+class EvmAddress(TypeDecorator):
+    """Canonical EVM address column for chain account tables.
+
+    Both inserts and lookups are normalised to EIP-55 `0x` 40-hex. This is the
+    single normalisation point for on-chain account access; the trie layer
+    (``StateManager._encode_address``) canonicalises to the same value.
     """
 
     impl = String
@@ -78,12 +76,16 @@ class AccountAddress(TypeDecorator):
     def process_bind_param(self, value: Any, dialect: Any) -> Any:
         if not isinstance(value, str):
             return value
-        return _to_ait_address(value)
+        return _to_evm_address(value)
 
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if not isinstance(value, str):
             return value
-        return _to_ait_address(value)
+        return _to_evm_address(value)
+
+
+# Backward-compatible alias for SQLModel columns that still reference AccountAddress.
+AccountAddress = EvmAddress
 
 
 class Block(ChainBase, table=True):
