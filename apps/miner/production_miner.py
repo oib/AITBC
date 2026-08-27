@@ -123,7 +123,13 @@ def publish_default_offers(ollama_models: list[str]) -> None:
             offer["description"],
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            # Ensure `aitbc market offer` uses the same address the coordinator expects
+            # for provider payouts, because the default wallet may not exist or may
+            # have insufficient balance to pay the listing fee.
+            env = os.environ.copy()
+            if MINER_WALLET_ADDRESS:
+                env.setdefault("SHOP_WALLET_ADDRESS", MINER_WALLET_ADDRESS)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
             if result.returncode == 0:
                 logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
             else:
