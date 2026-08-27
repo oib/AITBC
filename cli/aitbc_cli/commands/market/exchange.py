@@ -1,3 +1,5 @@
+import os
+
 """
 Exchange subgroup and exchange commands
 """
@@ -8,6 +10,7 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, error, info, success, warning
+from aitbc.utils import ait_to_seconds
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -46,7 +49,8 @@ def exchange():
 def exchange_price(ctx):
     """Get current ETH-AIT exchange rate"""
     try:
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
 
         response = client.get("/v1/exchange/price")
 
@@ -77,7 +81,8 @@ def exchange_price(ctx):
 def list_deposits(ctx, status: str, limit: int):
     """List ETH deposits"""
     try:
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
 
         response = client.get("/v1/exchange/deposits", params={"status": status, "limit": limit})
         deposits = response.get("deposits", [])
@@ -113,7 +118,7 @@ def mint_ait(ctx, deposit_id: str):
     """Mint AIT tokens for a verified ETH deposit"""
     try:
         config = get_config()
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
 
         # Get deposit details
         deposit_response = client.get(f"/v1/exchange/deposits/{deposit_id}")
@@ -142,7 +147,7 @@ def mint_ait(ctx, deposit_id: str):
         success(f"Deposit verified: {deposit_id}")
 
         # Transfer AIT tokens from genesis wallet (fixed supply, no minting)
-        wallet_address = getattr(config, "wallet_address", None)
+        wallet_address = getattr(config, "wallet_address", None) or os.environ.get("WALLET_ADDRESS")
         chain_id = getattr(config, "chain_id", None)
         genesis_wallet_address = getattr(config, "genesis_wallet_address", "")
 
@@ -164,15 +169,19 @@ def mint_ait(ctx, deposit_id: str):
             nonce = sender_data.get("nonce", 0)
 
             # Build transaction payload for AIT transfer
+            fee_ait = Decimal("0.01")
+            amount_seconds = ait_to_seconds(deposit_amount_ait)
+            fee_seconds = ait_to_seconds(fee_ait)
+
             tx_payload = {
-                "from": genesis_wallet_address,
-                "to": wallet_address,
-                "value": str(int(deposit_amount_ait * 1000)),  # Convert to milli-AIT
-                "nonce": nonce,
-                "gas_limit": 21000,
-                "gas_price": "1",
                 "type": "TRANSFER",
                 "chain_id": chain_id,
+                "from": genesis_wallet_address,
+                "to": wallet_address,
+                "amount": amount_seconds,
+                "fee": fee_seconds,
+                "nonce": nonce,
+                "payload": {"amount": amount_seconds},
             }
 
             # The endpoint has rejected unsigned transactions since v0.10.13 (403 "Signature
@@ -187,7 +196,7 @@ def mint_ait(ctx, deposit_id: str):
             tx_payload["signature"] = _sign_transaction(tx_payload, secret.get_secret_value())
 
             # Submit transaction to blockchain
-            blockchain_response = httpx.post(f"{blockchain_rpc_url}/rpc/transactions/marketplace", json=tx_payload)
+            blockchain_response = httpx.post(f"{blockchain_rpc_url}/rpc/transaction", json=tx_payload)
 
             if blockchain_response.status_code != 200:
                 error(f"Failed to submit transfer transaction: {blockchain_response.text}")
@@ -337,7 +346,8 @@ def withdraw_eth(ctx, amount: Decimal, address: str):
 def exchange_status(ctx):
     """Get bridge service status"""
     try:
-        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10)
+        config = get_config()
+        client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
 
         response = client.get("/v1/exchange/status")
 
