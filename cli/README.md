@@ -26,7 +26,6 @@ aitbc --help
 | `bootstrap` | Bootstrap local development and configuration files. | `bootstrap-env` |
 | `brand` | Show and manage white-label brand settings. | `list`, `show` |
 | `bridge` | Cross-chain bridge management | `attest`, `balance`, `confirm`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock` |
-
 | `cluster` | Cluster management and operations | `balance`, `status`, `sync` |
 | `coin-requests` | Manage coin transfer requests. | `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show` |
 | `compliance` | Compliance policy, classification, and audit commands. | `check`, `classify`, `export-audit` |
