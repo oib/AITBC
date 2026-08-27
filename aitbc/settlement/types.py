@@ -14,7 +14,7 @@ Design rationale: HTLC (Hashed Timelock Contract) is chosen over
 two-phase commit because HTLC has existing partial implementation, is
 the industry standard for cross-chain atomic swaps, and has a simpler
 failure model (timeout-based refund vs distributed abort coordination).
-See ``docs/releases/v0.9.0/change.log`` §"HTLC vs Two-Phase Commit".
+See ``docs/releases/v0.9/v0.9.0_change.log`` §"HTLC vs Two-Phase Commit".
 """
 
 from __future__ import annotations

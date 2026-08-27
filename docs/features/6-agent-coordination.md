@@ -28,8 +28,8 @@
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
 | Submit Task | Submit task for distribution with priority | [docs/agent-coordinator/ARCHITECTURE.md](../agent-coordinator/ARCHITECTURE.md) | ✅ | v0.6.5 |
-| Chain-Aware Distribution | Distribute tasks with chain_id/island_id awareness | [docs/releases/v0.6.5/change.log](releases/v0.6.5/change.log) | ✅ | v0.6.5 |
-| Payment Escrow | PaymentEscrow for task distribution | [docs/releases/v0.6.5/change.log](releases/v0.6.5/change.log) | ✅ | v0.6.5 |
+| Chain-Aware Distribution | Distribute tasks with chain_id/island_id awareness | [docs/releases/v0.6/v0.6.5_change.log](releases/v0.6/v0.6.5_change.log) | ✅ | v0.6.5 |
+| Payment Escrow | PaymentEscrow for task distribution | [docs/releases/v0.6/v0.6.5_change.log](releases/v0.6/v0.6.5_change.log) | ✅ | v0.6.5 |
 
 ### Agent Communication
 

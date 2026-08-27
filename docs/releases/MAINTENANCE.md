@@ -32,7 +32,7 @@ docs/releases/
     suggestions.md  - Investigation findings (optional)
 ```
 
-**Example**: `v0.6.0/change.log`, `v0.6.0/AGENTS.md`
+**Example**: `v0.6/v0.6.0_change.log`, `v0.6/v0.6.0_AGENTS.md`
 
 ## Adding New Releases
 

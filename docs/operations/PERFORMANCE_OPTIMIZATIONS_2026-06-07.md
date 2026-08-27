@@ -453,7 +453,7 @@ redis-cli keys "aitbc:*"
 
 - [MEMORY_CONFIGURATION_2026-06-07.md](./MEMORY_CONFIGURATION_2026-06-07.md) - Memory limits configuration
 - [SERVICE_PORTS.md](../reference/SERVICE_PORTS.md) - Service port configuration
-- [RELEASE_v0.4.13.md](../releases/v0.4.13/RELEASE_v0.4.13.md) - Release notes with optimization roadmap
+- [RELEASE_v0.4.13.md](../releases/v0.4/RELEASE_v0.4.13.md) - Release notes with optimization roadmap
 
 ## Maintenance
 

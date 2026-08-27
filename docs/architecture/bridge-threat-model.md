@@ -243,9 +243,9 @@ Remaining:
 
 - [Bridge Security Audit](../releases/AUDIT.md) — Bug #3, #4 findings and fixes
 - [Release Status](../releases/STATUS.md) — All releases, config defaults, audit summary
-- [v0.9.0 Change Log](../releases/v0.9.0/change.log) — Atomic settlement release
-- [v0.7.2 Change Log](../releases/v0.7.2/change.log) — Bridge verification (Merkle proofs)
-- [v0.7.1 Change Log](../releases/v0.7.1/change.log) — Bridge security (multi-sig)
+- [v0.9.0 Change Log](../releases/v0.9/v0.9.0_change.log) — Atomic settlement release
+- [v0.7.2 Change Log](../releases/v0.7/v0.7.2_change.log) — Bridge verification (Merkle proofs)
+- [v0.7.1 Change Log](../releases/v0.7/v0.7.1_change.log) — Bridge security (multi-sig)
 - [General Threat Model](../security/threat-model.md) — Platform-wide threats
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` — Bridge implementation
 - `apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py` — HTLC contract

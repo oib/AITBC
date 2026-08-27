@@ -25,4 +25,4 @@ All mock routes are **disabled in production**:
 
 ## Migration Plan
 
-See `docs/releases/v0.5.0/change.log` — Goal: DB/Redis Backing for Mock State.
+See `docs/releases/v0.5/v0.5.0_change.log` — Goal: DB/Redis Backing for Mock State.
