@@ -1,7 +1,7 @@
 # AITBC Release Notes Summary
 
-**Last Updated**: 2026-07-14
-**Version**: 1.1
+**Last Updated**: 2026-08-27
+**Version**: 1.2
 
 This document provides a user-friendly summary of AITBC releases, organized by major themes and tracks. For detailed release notes and agent task assignments, see the individual version directories.
 
@@ -67,103 +67,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 | **v0.8.0** | Inter-Chain Trading Basics | ✅ Complete | Cross-chain trading service, offer management, trade matching |
 | **v0.8.1** | Cross-Chain Offer Sync | ✅ Complete | Polling-based sync, local offer cache (Redis), staleness detection, conflict resolution |
 | **v0.8.2** | Advanced Offer Sync | ✅ Complete | Subscription-based sync, real-time notifications, gossip propagation, optional search index |
-| **v0.9.0** | Atomic Cross-Chain Settlement | 🚧 In Progress | HTLC-based atomic settlement, cross-chain escrow, timeout handling |
-
----
-
-## Latest Releases
-
-### v0.9.0 - Atomic Cross-Chain Settlement (In Progress)
-
-**Theme**: Secure atomic settlement for cross-chain trades using HTLC (Hashed Timelock Contracts)
-
-**Status**: In Progress (B1-B5 complete; chaos testing + external audit pending)
-
-**Key Features**:
-
-- HTLC contract implementation for atomic swaps
-- Cross-chain escrow with timeout protection
-- Multi-chain settlement coordination
-- Chaos testing for fault tolerance
-- External security audit
-
-**Documentation**: [v0.9.0 Release Notes](./v0.9.0/)
-
----
-
-### v0.8.2 - Advanced Offer Sync (Complete)
-
-**Theme**: Subscription-based offer synchronization with real-time notifications
-
-**Status**: ✅ Complete
-
-**Key Features**:
-
-- WebSocket-based offer subscription
-- Real-time offer change notifications
-- Gossip-based event propagation
-- Optional Meilisearch integration for advanced search
-- Fallback to polling-based sync (v0.8.1)
-
-**Documentation**: [v0.8.2 Release Notes](./v0.8.2/)
-
----
-
-### v0.8.1 - Cross-Chain Offer Synchronization (Complete)
-
-**Theme**: Polling-based cross-chain offer discovery and synchronization
-
-**Status**: ✅ Complete
-
-**Key Features**:
-
-- Cross-chain offer discovery
-- Polling-based synchronization
-- Local offer cache (Redis)
-- Staleness detection
-- Conflict resolution
-- CLI discover/sync/sync-status commands
-
-**Documentation**: [v0.8.1 Release Notes](./v0.8.1/)
-
----
-
-### v0.8.0 - Inter-Chain Trading Basics (Complete)
-
-**Theme**: Foundation for cross-chain trading
-
-**Status**: ✅ Complete
-
-**Key Features**:
-
-- Cross-chain trading service
-- Offer management
-- Trade matching
-- Inter-chain trade data models
-- Trading SDK and client
-
-**Documentation**: [v0.8.0 Release Notes](./v0.8.0/)
-
----
-
-### v0.7.5 - Consensus Activation (Code Complete)
-
-**Theme**: Production-grade multi-validator consensus with PBFT
-
-**Status**: ⚠️ Code Complete (soak test pending)
-
-**Key Features**:
-
-- MultiValidatorPoA with signature verification
-- PBFT consensus implementation
-- SlashingManager integration
-- ValidatorRotation support
-- Consensus signing utilities (secp256k1)
-- Security review findings fixed (6 Critical + 6 High)
-
-**Note**: Requires testnet soak test (≥48h) before mainnet activation
-
-**Documentation**: [v0.7.5 Release Notes](./v0.7.5/)
+| **v0.9.0** | Atomic Cross-Chain Settlement | ✅ Complete | HTLC-based atomic settlement, cross-chain escrow, timeout handling |
 
 ---
 
@@ -207,13 +111,20 @@ Cross-chain bridge, governance, and atomic settlement features.
 | v0.10.9 | Dead Code Elimination & Status Drift Cleanup | - | ✅ Complete |
 | v0.10.10 | Code Quality & Testing Roadmap | - | ✅ Complete |
 | v0.10.11 | Bug Fixes & Code Quality Continuation | - | ✅ Complete |
+| v0.10.12 | Quality Hardening | - | ✅ Complete |
+| v0.10.13 | Security & Correctness Hardening | - | ✅ Complete |
+| v0.10.14 | Legacy Code & Stub Elimination | - | ✅ Complete |
+| v0.10.15 | Router/Module Decomposition & Settlement Config Wiring | - | ✅ Complete |
+| v0.10.16 | Security & Correctness Hardening | - | ✅ Complete |
+| v0.10.17 | Security & Auth Hardening (bugfix) | - | ✅ Complete |
+| v0.10.18 | Update Deployment Stabilization | - | ✅ Complete |
+| v0.24.0 | Hub Node Development Special | - | ✅ Complete |
+| v0.25.0 | On-chain Liquidity, Sync Consolidation and MCP Expansion | - | ✅ Complete |
 
 ### Planned Releases
 
 | Version | Theme | Status |
 |---------|-------|--------|
-| v0.10.12 | Quality Hardening | ✅ Complete |
-| v0.10.13 | Security & Correctness Hardening | ✅ Complete |
 | v1.0.0 | Production Readiness | 🚧 Planned |
 
 ### Future Vision (Post-v1.0)
