@@ -18,6 +18,7 @@ from sqlmodel import Session
 
 from aitbc.rate_limiting import rate_limit
 
+from ..services import model_registry
 from ..services.zk_proofs import zk_proof_service
 from coordinator_api.contexts.infrastructure.domain import Job
 from coordinator_api.storage import get_session
@@ -191,11 +192,34 @@ async def verify_job_receipt(
             )
 
         zk_service = zk_proof_service
-        result = await zk_service.verify_proof(
-            proof=zk_proof["proof"],
-            public_signals=zk_proof["public_signals"],
-            circuit_name=zk_proof.get("circuit") or zk_proof.get("circuit_name"),
-        )
+        circuit_name = zk_proof.get("circuit") or zk_proof.get("circuit_name")
+
+        if circuit_name == "receipt_model":
+            # Re-derive the expected public signals from the job/result/model and
+            # run the same public-signal binding check the coordinator used when
+            # it first verified the receipt. verify_proof alone does not have
+            # enough context to set computation_correct for receipt_model.
+            model_id = model_registry.resolve_model_id(job, job.result)
+            if not model_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Job does not specify a supported deterministic model",
+                )
+            model = model_registry.get_model(model_id)
+            if not model:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"No model circuit registered for {model_id}",
+                )
+            inputs = model_registry.compute_public_inputs(job, job.result, model)
+            expected_public = model_registry.expected_public_signals(inputs["public_inputs"])
+            result = await zk_service.verify_model_proof(zk_proof["proof"], zk_proof["public_signals"], expected_public)
+        else:
+            result = await zk_service.verify_proof(
+                proof=zk_proof["proof"],
+                public_signals=zk_proof["public_signals"],
+                circuit_name=circuit_name,
+            )
 
         return VerificationResponse(
             verified=result["verified"],
