@@ -136,7 +136,6 @@ Cross-chain bridge, governance, and atomic settlement features.
 
 | Version | Theme | Status |
 |---------|-------|--------|
-| v2.0.0 | Vision/Questionable Features | 🅿️ Parked |
 
 ---
 
@@ -151,7 +150,6 @@ v0.5.16 → v0.5.17 → v0.5.18 → v0.5.19
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3 → v0.7.4 → v0.7.5
   → v0.8.0 → v0.8.1 → v0.8.2 → v0.9.0
   → v1.0.0 (production readiness)
-  → v2.0.0 (vision - parked for re-evaluation)
 ```
 
 ---

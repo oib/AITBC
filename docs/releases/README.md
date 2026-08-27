@@ -82,7 +82,6 @@ Read the release notes newest-first:
 - **[v0.5.1](v0.5/v0.5.1_change.log)** - (See change.log for details)
 - **[v0.5.0](v0.5/v0.5.0_change.log)** - Production Infrastructure
 - **[v1.0.0](v1.0/v1.0.0_change.log)** - Production Readiness
-- **[v2.0.0](v2.0/v2.0.0_change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 
 ### Legacy Releases (v0.4.x and earlier)
 >
