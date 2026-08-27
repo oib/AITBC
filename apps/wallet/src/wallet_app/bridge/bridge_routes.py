@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from wallet_app.deps import require_admin_api_key
 
-from .bridge_db import get_all_deposits, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
+from .bridge_db import get_all_deposits, get_deposit_by_id, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
 from .price_api import calculate_ait_amount, get_exchange_rate
 
 router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
@@ -58,8 +58,9 @@ async def get_deposit(deposit_id: str) -> dict[str, Any]:
     """
     Get a specific deposit by ID.
     """
-    # For MVP, we'll search by tx_hash since that's our unique key
-    deposit = get_deposit_by_tx_hash(deposit_id)
+    deposit = get_deposit_by_id(deposit_id)
+    if not deposit:
+        deposit = get_deposit_by_tx_hash(deposit_id)
 
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
@@ -75,7 +76,9 @@ async def verify_deposit(
     """
     Verify a deposit (admin operation).
     """
-    deposit = get_deposit_by_tx_hash(deposit_id)
+    deposit = get_deposit_by_id(deposit_id)
+    if not deposit:
+        deposit = get_deposit_by_tx_hash(deposit_id)
 
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
@@ -83,12 +86,12 @@ async def verify_deposit(
     if deposit["status"] != "pending":
         raise HTTPException(status_code=400, detail=f"Deposit already {deposit['status']}")
 
-    success = update_deposit_status(deposit_id, "verified")
+    success = update_deposit_status(deposit["id"], "verified")
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
 
-    return {"success": True, "message": "Deposit verified", "deposit_id": deposit_id}
+    return {"success": True, "message": "Deposit verified", "deposit_id": deposit["id"]}
 
 
 @router.post("/deposits/{deposit_id}/complete")
@@ -99,7 +102,9 @@ async def complete_deposit(
     """
     Mark a deposit as completed after AIT minting (admin operation).
     """
-    deposit = get_deposit_by_tx_hash(deposit_id)
+    deposit = get_deposit_by_id(deposit_id)
+    if not deposit:
+        deposit = get_deposit_by_tx_hash(deposit_id)
 
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
@@ -107,12 +112,12 @@ async def complete_deposit(
     if deposit["status"] != "verified":
         raise HTTPException(status_code=400, detail="Deposit must be verified first")
 
-    success = update_deposit_status(deposit_id, "completed")
+    success = update_deposit_status(deposit["id"], "completed")
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
 
-    return {"success": True, "message": "Deposit completed", "deposit_id": deposit_id}
+    return {"success": True, "message": "Deposit completed", "deposit_id": deposit["id"]}
 
 
 @router.get("/calculate")
