@@ -43,7 +43,7 @@ def test_cli_gap_analysis_wins_its_collision_without_evicting_the_package_trees(
     )
     proc = subprocess.run(
         [sys.executable, "-c", code],
-        cwd=str(REPO),
+        cwd=str(REPO / "tests"),
         capture_output=True,
         text=True,
         timeout=120,

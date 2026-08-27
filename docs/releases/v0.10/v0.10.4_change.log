@@ -1,0 +1,159 @@
+# AITBC v0.10.4 Release Notes
+
+**Date**: TBD
+**Status**: ✅ Complete — Performance optimization, Decimal migration, dead code elimination
+**Scope**: Performance, Correctness & Cleanup — Migrate remaining float-based money handling to Decimal, eliminate N+1 queries, add missing DB indexes, fix race conditions in async services, remove ~1,000 lines of dead code, and consolidate duplicate infrastructure (HTTP clients, JWT, retry logic, config validators).
+
+## 🎯 Overview
+
+v0.10.4 is a **performance, correctness, and cleanup release** that addresses findings from the comprehensive post-v0.10.3 codebase audit. The audit identified 15 performance opportunities, 43 remaining bugs (categorized by severity), and 23 categories of duplicate/legacy code.
+
+**Key focus areas:**
+1. **Financial correctness** — Migrate pool-hub billing and trading pricing engines from `float` to `Decimal` (extends v0.10.3's exchange fix to the rest of the stack)
+2. **Performance** — Eliminate N+1 queries in pool-hub, add missing DB indexes, replace per-request HTTP clients with shared instances, fix blocking I/O in async paths
+3. **Concurrency safety** — Add `asyncio.Lock` to 4 services with check-then-act patterns on shared dicts
+4. **Code quality** — Delete ~1,000 lines of dead code, consolidate 3 HTTP client implementations into 1, unify JWT/retry/circuit-breaker/config-validator patterns
+5. **Security hardening** — SQL identifier whitelisting, TTL eviction on unbounded caches, `datetime.now(UTC)` sweep
+
+**Prerequisites**: [v0.10.3](../v0.10/v0.10.3_change.log) (complete — critical bugs, race conditions, and resource leaks fixed).
+
+**Risk**: Medium-High. The Decimal migration requires a DB schema migration (Float→Numeric columns) and touches ~1,500 lines across pricing/bid engines. Performance changes (indexes, shared HTTP clients) require benchmarking. Mitigated by: (1) comprehensive test suite, (2) live testing on shop node, (3) rollback plan for schema migrations, (4) incremental task completion with verification at each step.
+
+---
+
+## 🔍 What Was Fixed
+
+### Category 1: Financial Correctness — Decimal Migration (B1–B3)
+
+#### Pool-Hub Billing Float Arithmetic
+- **Before**: `BillingIntegration.record_usage()` converted `Decimal` quantities/prices to `float` for the HTTP payload. The receiving `UsageRecord` model stored `quantity/unit_price/total_cost` as `Float` columns, guaranteeing accounting drift at scale.
+- **After**: Migrated `UsageRecord` monetary columns to `Numeric(18, 8)`. Removed `float()` conversions in `billing_integration.py`. Added Alembic migration.
+
+#### Trading Dynamic Pricing Engine
+- **Before**: `dynamic_pricing.py` (969 lines) computed all price recommendations using `float` arithmetic — `base_price`, multipliers, confidence scores, risk adjustments all `float`.
+- **After**: Migrated pricing data structures and arithmetic to `Decimal`. Price recommendations now maintain precision throughout the computation chain.
+
+#### Trading Bid Strategy Engine
+- **Before**: `bid_strategy.py` (560 lines) computed bid prices using `float` — `base_price`, urgency/market/competition multipliers, `bid_price` all `float`.
+- **After**: Migrated bid computation to `Decimal`.
+
+### Category 2: Performance — N+1 Queries & Indexes (B4–B6)
+
+#### Pool-Hub SLA Collector N+1
+- **Before**: `sla_collector.py` executed 3 queries per miner per collection cycle (3N+1 total).
+- **After**: Batched queries with joins, reducing to O(1) round trips.
+
+#### Pool-Hub Billing Sync N+1
+- **Before**: `billing_integration.sync_all_miners_usage()` executed 1 query per miner.
+- **After**: Batched usage collection query.
+
+#### Missing Database Indexes
+- **Before**: `MatchResult.miner_id`, `MatchResult.created_at`, `Feedback.miner_id`, `SLAMetric.miner_id`, `SLAViolation.created_at`, marketplace `provider_address/status/region` all unindexed despite being queried in WHERE/ORDER BY.
+- **After**: Added `index=True` on all filtered columns. Created Alembic migration with `if_not_exists=True` for existing DBs.
+
+### Category 3: Performance — HTTP Client Consolidation (A4–A5)
+
+#### Per-Request `httpx.AsyncClient()` Elimination
+- **Before**: ~10 sites created a new `httpx.AsyncClient()` per request (wallet main.py, trading main.py + clients/blockchain.py 3×, edge heartbeat, dao_governance_service, marketplace escrow). Each call paid TCP+TLS handshake overhead.
+- **After**: Replaced with shared `SharedHttpClient` instances managed by service lifespan.
+
+#### Blocking Sync `requests.post()` in Async Alerting
+- **Before**: `agent-coordinator/monitoring/alerting.py` delivered Slack/webhook alerts via sync `requests.post()`, blocking the event loop.
+- **After**: Migrated to `httpx.AsyncClient` with proper async delivery.
+
+### Category 4: Concurrency Safety (B7–B10)
+
+#### Race Conditions on Shared Dicts
+- **Before**: 4 services mutated shared dicts across `await` boundaries without locks:
+  - `cross_chain/reputation.py` — check-then-act on reputation/stakes dicts (~13 sites)
+  - `agent-coordinator/load_balancer.py` — task assignment metrics
+  - `infrastructure/services/distributed_framework.py` — worker/task registries
+  - `trading_marketplace/dynamic_pricing.py` — pricing history/strategy caches
+- **After**: Added `asyncio.Lock` around check-then-act sequences.
+
+### Category 5: Security & Correctness (B11–B13)
+
+#### SQL Identifier Whitelisting
+- **Before**: F-string interpolation of table names in `execute()` at 3 sites (exchange migrations, blockchain PRAGMA/ALTER, wallet multichain ledger).
+- **After**: Replaced with identifier whitelisting via validated constants.
+
+#### Unbounded In-Memory Cache Growth
+- **Before**: 5 caches had no TTL/LRU eviction — `dynamic_pricing` history, `reputation` dicts, `distributed_framework.result_cache`, `marketplace_scaler.scaling_history`, alerts list.
+- **After**: Added TTL or LRU max-size eviction to each.
+
+#### `datetime.now(UTC)` Sweep
+- **Before**: ~40 sites used naive `datetime.now()` or deprecated `datetime.utcnow()` in expiry/alert logic.
+- **After**: Migrated all to `datetime.now(UTC)`.
+
+### Category 6: Dead Code Elimination (~1,000 lines) (A1–A3)
+
+#### Confirmed Dead Modules
+- `cli/advanced_wallet.py` (314 lines, 0 imports — verified)
+- `aitbc/database_service.py` (only its own test imports it — verified)
+- `tests/test_coordinator_api_v1.py` (330 lines, orphaned)
+- `apps/coordinator-api/.../payments/services/payments_service.py` (in-memory `PaymentsService`, 0 imports — real service is DB-backed `PaymentService` in `payments.py`)
+
+### Category 7: Infrastructure Consolidation (A6–A9)
+
+#### HTTP Client Consolidation
+- **Before**: 3 HTTP client implementations — `aitbc/network/client.py` (608 lines, ~0 app usage), `cli/.../http_client.py` (48+ users), `aitbc/http_client/client.py` (request-ID aware).
+- **After**: Consolidated to 1 canonical client in `aitbc/network/` with request-ID support.
+
+#### JWT Implementation Consolidation
+- **Before**: 2 JWT implementations — coordinator-api basic vs agent-coordinator with refresh/bcrypt.
+- **After**: Extracted to `aitbc/auth/` shared module.
+
+#### Retry & Circuit Breaker Consolidation
+- **Before**: 5 retry implementations, 2 circuit breakers, 2 `session_scope()` variants.
+- **After**: Standardized on `aitbc/network/` versions.
+
+#### Config Validator Extraction
+- **Before**: Copy-pasted config validators (secret/CORS/bool-parsing) across 3+ apps. The v0.10.3 A5 gap (missing `jwt_secret` validator) existed because of this duplication.
+- **After**: Created `aitbc/config/validators.py` shared module.
+
+### Category 8: Cleanup (A10)
+
+#### Stale Port Defaults Sweep
+- **Before**: Port 8010/8011 still referenced in CORS lists, `agent_bridge/integration_layer.py:21`, pool-hub/wallet settings despite the port registry established in v0.10.3.
+- **After**: Swept all references to port registry values.
+
+---
+
+## 📊 Summary
+
+| Category | Items | Lines Changed (est.) | Lines Deleted (est.) |
+|----------|-------|----------------------|----------------------|
+| Decimal Migration | 3 | ~1,500 | 0 |
+| N+1 Queries & Indexes | 3 | ~200 | 0 |
+| HTTP Client Consolidation | 2 | ~300 | ~600 |
+| Concurrency Safety | 4 | ~150 | 0 |
+| Security & Correctness | 3 | ~200 | 0 |
+| Dead Code Elimination | 4 | 0 | ~1,000 |
+| Infrastructure Consolidation | 4 | ~400 | ~800 |
+| Port Defaults Sweep | 1 | ~50 | 0 |
+| **Total** | **24** | **~2,800** | **~2,400** |
+
+---
+
+## 🧪 Testing
+
+- All existing tests must pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- Coordinator-api tests (`cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- New tests for Decimal precision in billing/pricing
+- New tests for `asyncio.Lock` correctness in race-prone services
+- Live testing on shop node for performance verification
+
+---
+
+## 📝 Migration Notes
+
+### Database Migration Required
+
+The Decimal migration requires an Alembic migration to change Float columns to Numeric(18, 8):
+- `aitbc.usage_records.quantity/unit_price/total_cost` → `Numeric(18, 8)`
+
+**Rollback**: The migration includes a downgrade path. Existing float values will be converted to Decimal with 8 decimal places.
+
+### Breaking Changes
+
+None expected — all changes are internal. API contracts remain the same. The Decimal migration changes internal storage precision but does not affect API response formats (JSON serialization remains the same).

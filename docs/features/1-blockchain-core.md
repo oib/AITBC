@@ -53,10 +53,10 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Gossip Protocol | P2P gossip for block/tx propagation with versioning | [docs/releases/v0.6.2/change.log](releases/v0.6.2/change.log) | ✅ | v0.6.2 |
-| Delta Sync | Sync only changed blocks instead of full chain | [docs/releases/v0.6.2/change.log](releases/v0.6.2/change.log) | ✅ | v0.6.2 |
-| Parallel Sync | Sync from multiple peers concurrently | [docs/releases/v0.6.2/change.log](releases/v0.6.2/change.log) | ✅ | v0.6.2 |
-| Compact Blocks | Compressed block propagation | [docs/releases/v0.6.2/change.log](releases/v0.6.2/change.log) | ✅ | v0.6.2 |
+| Gossip Protocol | P2P gossip for block/tx propagation with versioning | [docs/releases/v0.6/v0.6.2_change.log](releases/v0.6/v0.6.2_change.log) | ✅ | v0.6.2 |
+| Delta Sync | Sync only changed blocks instead of full chain | [docs/releases/v0.6/v0.6.2_change.log](releases/v0.6/v0.6.2_change.log) | ✅ | v0.6.2 |
+| Parallel Sync | Sync from multiple peers concurrently | [docs/releases/v0.6/v0.6.2_change.log](releases/v0.6/v0.6.2_change.log) | ✅ | v0.6.2 |
+| Compact Blocks | Compressed block propagation | [docs/releases/v0.6/v0.6.2_change.log](releases/v0.6/v0.6.2_change.log) | ✅ | v0.6.2 |
 | HTTP RPC Compression | GZip middleware for RPC responses | [docs/features/http-rpc-compression.md](./http-rpc-compression.md) | ✅ | v0.10.1 |
 
 ### Disputes & Arbitration

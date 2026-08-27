@@ -1,0 +1,26 @@
+# v0.24.0 — Hub node development special (overview)
+
+**Scope**: hub node live validation, two-node paid AI jobs, cross-island bridge multi-sig/Merkle verification, multi-key consensus, ZK/TEE gating, CLI surface cleanup, and canonical 0x migration.
+
+**Baseline**: v0.23.34 remediation merged.
+
+This release is split into the following v0.24.x sub-releases by topic:
+
+- [v0.24.1 — V23 port fixes and CLI foundation](v0.24.1_change.log)
+- [v0.24.2 — P0 Phase 1–3: docs, auth, sync alerts](v0.24.2_change.log)
+- [v0.24.3 — P0 Phase 4–8 and escrow refund](v0.24.3_change.log)
+- [v0.24.4 — P1.5–1.8: wait, island credentials, architecture](v0.24.4_change.log)
+- [v0.24.5 — P1.1–1.4: reputation, dashboards, governance, bridge, consensus](v0.24.5_change.log)
+- [v0.24.6 — P2: bonds, ZK high-value, validation sweep](v0.24.6_change.log)
+- [v0.24.7 — v0.24.0-next live scenario playback fixes](v0.24.7_change.log)
+- [v0.24.8 — Operator user and CLI wallet hardening](v0.24.8_change.log)
+- [v0.24.9 — Cross-island bridge multi-sig and Merkle proof verification](v0.24.9_change.log)
+- [v0.24.10 — Follower state-root validation and replay cache](v0.24.10_change.log)
+- [v0.24.11 — Bridge multi-signature and Merkle enforcement live validation](v0.24.11_change.log)
+- [v0.24.12 — Multi-key consensus live validation and single-proposer restoration](v0.24.12_change.log)
+- [v0.24.13 — ML inference ZK constraint fix](v0.24.13_change.log)
+- [v0.24.14 — Open design-review gaps and recovery](v0.24.14_change.log)
+- [v0.24.15 — TEE and ZK verification hardening](v0.24.15_change.log)
+- [v0.24.16 — AI job lifecycle, dashboards, IPFS, and MCP server](v0.24.16_change.log)
+- [v0.24.17 — Canonical 0x address migration and final fixes](v0.24.17_change.log)
+- [v0.24.18 — Commit index since v0.23.0](v0.24.18_change.log)

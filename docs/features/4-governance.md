@@ -25,7 +25,7 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Emergency Proposals | Accelerated timelock, 80% quorum, 2/3 supermajority | [docs/releases/v0.7.4/change.log](releases/v0.7.4/change.log) | ✅ | v0.7.4 |
+| Emergency Proposals | Accelerated timelock, 80% quorum, 2/3 supermajority | [docs/releases/v0.7/v0.7.4_change.log](releases/v0.7/v0.7.4_change.log) | ✅ | v0.7.4 |
 
 ### On-Chain Submission
 

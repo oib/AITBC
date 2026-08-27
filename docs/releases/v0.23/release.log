@@ -5927,8 +5927,8 @@ removing a parameter from the middle of the signature shifts nothing. That is wo
 explicitly: `structured` sat between `level` and `service_name`, and a single positional caller
 would have made this a silent behaviour change instead of a deletion.
 
-Left alone deliberately: `docs/releases/v0.4.25/logging-patterns.md`, `v0.5.0/change.log` and
-`v0.5.1/change.log` all describe `LOG_FORMAT` as live. They are versioned records of releases
+Left alone deliberately: `docs/releases/v0.4/v0.4.25_logging-patterns.md`, `v0.5/v0.5.0_change.log` and
+`v0.5/v0.5.1_change.log` all describe `LOG_FORMAT` as live. They are versioned records of releases
 that shipped before it was disconnected, and they were accurate when written. Rewriting them
 would be rewriting history — but note that `logging-patterns.md` reads as guidance rather than
 as a change record, so anyone who finds it will be misinformed. There is no unversioned logging
@@ -6869,7 +6869,7 @@ set this up says the bare command:
 | `docs/agents/AGENTS.md` | 238 |
 | `skills/aitbc-software-setup/SKILL.md` | 281 |
 
-Only the archived `docs/releases/v0.4.22/PRE_COMMIT_HOOKS_GUIDE.md` mentions
+Only the archived `docs/releases/v0.4/v0.4.22_PRE_COMMIT_HOOKS_GUIDE.md` mentions
 `--hook-type pre-push`, and nothing current points at it.
 
 #### And there was no configuration to read
