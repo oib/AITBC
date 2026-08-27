@@ -57,6 +57,11 @@ jobs:
           export PYTHON=./venv/bin/python
           make openapi-check
 
+      - name: CLI docs sync check
+        run: |
+          export PYTHON=./venv/bin/python
+          bash scripts/ci/check-cli-docs.sh
+
       - name: App tests
         env:
           PYTHON: ./venv/bin/python

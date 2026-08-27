@@ -46,7 +46,7 @@ test-apps:
 		apps/blockchain-node/tests
 
 test-cli:
-	$(PYTHON) -m pytest -q cli/tests
+	$(PYTHON) -m pytest -q cli/tests tests/test_cli_docs_sync.py tests/test_syspath_hygiene.py
 
 live-dry-run:
 	WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1 bash scripts/ci/live-scenario-dry-run.sh

@@ -112,6 +112,14 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      - id: check-cli-docs
+        name: validate-cli-docs
+        entry: bash scripts/ci/check-cli-docs.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
   # Type ignore validation
   - repo: local
     hooks:
