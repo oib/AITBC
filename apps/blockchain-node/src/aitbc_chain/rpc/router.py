@@ -79,6 +79,13 @@ except ImportError as e:
     _import_failed("Staking sub-router", e)
 
 try:
+    from .routers.liquidity import router as liquidity_router
+
+    router.include_router(liquidity_router)
+except ImportError as e:
+    _import_failed("Liquidity sub-router", e)
+
+try:
     from .routers.bond import router as bond_router
 
     router.include_router(bond_router)

@@ -10,6 +10,7 @@ import click
 from aitbc.utils import ait_to_seconds
 from aitbc.utils.validation import validate_address_strict
 from ...utils import error, output, success
+from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import _load_wallet, wallet
 
@@ -17,7 +18,7 @@ from . import _load_wallet, wallet
 @wallet.command()
 @click.pass_context
 def rewards(ctx):
-    """View all earned rewards (staking + liquidity)"""
+    """View all earned rewards (staking + on-chain liquidity)"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -40,15 +41,10 @@ def rewards(ctx):
         except (InvalidOperation, ValueError, TypeError, ArithmeticError):
             return _Decimal("0")
 
-    # Staking rewards
+    # Staking rewards (kept as local cache; staking is unchanged)
     staking_rewards = sum(_as_number(s.get("rewards", 0)) for s in staking if s.get("status") == "completed")
     active_staking = sum(_as_number(s["amount"]) for s in staking if s.get("status") == "active")
 
-    # Liquidity rewards
-    liq_rewards = sum(_as_number(r.get("rewards", 0)) for r in liquidity if r.get("status") == "completed")
-    active_liquidity = sum(_as_number(r["amount"]) for r in liquidity if r.get("status") == "active")
-
-    # Estimate pending rewards for active positions
     pending_staking = _Decimal("0")
     for s in staking:
         if s.get("status") == "active":
@@ -58,14 +54,34 @@ def rewards(ctx):
             days = _Decimal(str(max((datetime.now(UTC) - start).total_seconds() / 86400, 0)))
             pending_staking += _as_number(s["amount"]) * (_as_number(s["apy"]) / _Decimal("100")) * (days / _Decimal("365"))
 
+    # On-chain liquidity rewards: query the canonical pool state.
+    liq_rewards = _Decimal("0")
+    active_liquidity = _Decimal("0")
     pending_liquidity = _Decimal("0")
-    for r in liquidity:
-        if r.get("status") == "active":
-            start = datetime.fromisoformat(r["start_date"])
-            if start.tzinfo is None:
-                start = start.replace(tzinfo=UTC)
-            days = _Decimal(str(max((datetime.now(UTC) - start).total_seconds() / 86400, 0)))
-            pending_liquidity += _as_number(r["amount"]) * (_as_number(r["apy"]) / _Decimal("100")) * (days / _Decimal("365"))
+    try:
+        from ...config import get_config
+        from ...utils.chain_id import get_chain_id
+
+        config = get_config()
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+        chain_id = get_chain_id(rpc_url)
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        address = wallet_data.get("address", "")
+        result = http_client.get(f"/rpc/liquidity/stakes/{address}?chain_id={chain_id}")
+        if result.get("success"):
+            for s in result.get("stakes", []):
+                if s.get("status") == "active":
+                    active_liquidity += _as_number(s.get("amount_ait", 0))
+                    pending_liquidity += _as_number(s.get("rewards_pending_ait", 0))
+                if s.get("status") == "withdrawn":
+                    liq_rewards += _as_number(s.get("rewards", 0))
+    except Exception:
+        # Fall back to the local wallet cache if the node or endpoint is unavailable
+        for r in liquidity:
+            if r.get("status") == "active":
+                active_liquidity += _as_number(r.get("amount", 0))
+            elif r.get("status") == "completed":
+                liq_rewards += _as_number(r.get("rewards", 0))
 
     output(
         {
