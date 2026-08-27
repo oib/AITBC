@@ -85,9 +85,21 @@ def main() -> int:
     wallets = _wallet_addresses(Path("/var/lib/aitbc/wallets"))
     wallets.discard(genesis_address)
 
+    # Ensure service accounts have enough balance to pay fees on the first blocks.
+    service_balances: dict[str, int] = {}
+    escrow_release = node_env.get("ESCROW_RELEASE_ADDRESS", "")
+    agent_operator = node_env.get("AGENT_ECONOMICS_OPERATOR_ADDRESS") or blockchain_env.get(
+        "AGENT_ECONOMICS_OPERATOR_ADDRESS", ""
+    )
+    for addr, amount in [(escrow_release, 18_000_000), (agent_operator, 18_000_000)]:
+        if addr and addr not in {genesis_address} | wallets:
+            service_balances[addr] = amount
+
     allocations: list[dict[str, object]] = [{"address": genesis_address, "balance": 3_600_000_000_000, "nonce": 0}]
     for addr in sorted(wallets):
         allocations.append({"address": addr, "balance": 3_600_000_000, "nonce": 0})
+    for addr, balance in sorted(service_balances.items()):
+        allocations.append({"address": addr, "balance": balance, "nonce": 0})
     for name in [
         "aitbc1aiengine",
         "aitbc1surveillance",
