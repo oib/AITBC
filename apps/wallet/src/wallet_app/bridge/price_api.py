@@ -3,6 +3,7 @@ ETH-AIT Price API
 Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 """
 
+import os
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -12,8 +13,32 @@ from aitbc.network import SharedHttpClient
 
 logger = get_logger(__name__)
 
-# Fixed AIT price in USD (for simplicity in MVP)
-AIT_USD_PRICE = Decimal("1.0")  # 1 AIT = $1 USD
+# Default AIT price in USD (fallback only; derived from oracle/fixed price when possible)
+_AIT_USD_DEFAULT = Decimal(os.getenv("AIT_USD_PRICE", "0.25"))
+
+
+def _ait_usd_price(eth_usd: Decimal | None = None, eth_eur: Decimal | None = None) -> Decimal:
+    """Resolve AIT/USD price.
+
+    Priority:
+      1. AIT_EUR_FIXED_PRICE env, derived via live ETH/USD and ETH/EUR.
+      2. AIT_USD_FIXED_PRICE env.
+      3. AIT_USD_PRICE env.
+    """
+    eur_fixed = os.getenv("AIT_EUR_FIXED_PRICE")
+    if eur_fixed and eth_usd is not None and eth_eur is not None and eth_eur > 0:
+        try:
+            ait_eur = Decimal(eur_fixed)
+            return ait_eur * eth_usd / eth_eur
+        except Exception:
+            logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)
+    usd_fixed = os.getenv("AIT_USD_FIXED_PRICE")
+    if usd_fixed:
+        try:
+            return Decimal(usd_fixed)
+        except Exception:
+            logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
+    return _AIT_USD_DEFAULT
 
 
 async def get_eth_prices() -> dict[str, Decimal] | None:
@@ -22,7 +47,6 @@ async def get_eth_prices() -> dict[str, Decimal] | None:
     Returns None if API call fails.
     """
     try:
-        # CoinGecko public API (no API key required for basic usage)
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {"ids": "ethereum", "vs_currencies": "usd,eur"}
 
@@ -59,12 +83,19 @@ async def calculate_ait_amount(eth_amount: Decimal, eth_price_usd: Decimal | Non
     Formula: AIT = (ETH * ETH_USD) / AIT_USD
     """
     if eth_price_usd is None:
-        eth_price_usd = await get_eth_price_usd()
+        eth_prices = await get_eth_prices()
+        if not eth_prices:
+            return None
+        eth_price_usd = eth_prices["usd"]
+        eth_price_eur = eth_prices["eur"]
+    else:
+        eth_price_eur = None
 
-    if eth_price_usd is None:
+    ait_usd = _ait_usd_price(eth_price_usd, eth_price_eur)
+    if ait_usd <= 0:
         return None
 
-    return (eth_amount * eth_price_usd) / AIT_USD_PRICE
+    return (eth_amount * eth_price_usd) / ait_usd
 
 
 async def get_exchange_rate() -> dict[str, Any]:
@@ -76,13 +107,18 @@ async def get_exchange_rate() -> dict[str, Any]:
     if eth_prices is None:
         return {"success": False, "error": "Failed to fetch ETH prices"}
 
+    eth_usd = eth_prices["usd"]
+    eth_eur = eth_prices["eur"]
+    ait_usd = _ait_usd_price(eth_usd, eth_eur)
+    ait_eur = ait_usd * eth_eur / eth_usd if eth_usd > 0 else Decimal("0")
+
     return {
         "success": True,
-        "eth_usd": eth_prices["usd"],
-        "eth_eur": eth_prices["eur"],
-        "ait_usd": AIT_USD_PRICE,
-        "ait_eur": AIT_USD_PRICE * (eth_prices["eur"] / eth_prices["usd"]),  # Approximate EUR price
-        "eth_ait_rate_usd": eth_prices["usd"] / AIT_USD_PRICE,
-        "eth_ait_rate_eur": eth_prices["eur"] / (AIT_USD_PRICE * (eth_prices["eur"] / eth_prices["usd"])),
+        "eth_usd": eth_usd,
+        "eth_eur": eth_eur,
+        "ait_usd": ait_usd,
+        "ait_eur": ait_eur,
+        "eth_ait_rate_usd": eth_usd / ait_usd,
+        "eth_ait_rate_eur": eth_eur / ait_eur if ait_eur > 0 else Decimal("0"),
         "timestamp": datetime.now().isoformat(),
     }
