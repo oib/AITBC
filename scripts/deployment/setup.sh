@@ -208,8 +208,6 @@ get_services_for_role() {
 
     # Follower-specific services (in addition to base)
     local follower_services=(
-        aitbc-blockchain-sync
-        aitbc-blockchain-sync.timer
         aitbc-blockchain-explorer
     )
 

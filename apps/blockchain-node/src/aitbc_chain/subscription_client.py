@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -23,10 +24,17 @@ logger = get_logger(__name__)
 class SubscriptionClient:
     """Client for follower nodes to subscribe to block pushes from hub."""
 
-    def __init__(self, hub_url: str, node_id: str, chain_id: str):
+    def __init__(
+        self,
+        hub_url: str,
+        node_id: str,
+        chain_id: str,
+        on_block: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    ):
         self._hub_url = hub_url.rstrip("/")
         self._node_id = node_id
         self._chain_id = chain_id
+        self._on_block = on_block
         self._transport = settings.subscription_transport
         self._lease_expiry = 0.0
         self._running = False
@@ -340,9 +348,23 @@ class SubscriptionClient:
 
     async def _import_block(self, block_data: dict[str, Any]) -> None:
         """Import a received block."""
+        block_height = block_data.get("height")
+        block_hash = block_data.get("hash")
         try:
-            block_height = block_data.get("height")
-            block_hash = block_data.get("hash")
+            if self._on_block:
+                logger.debug(
+                    "Delivering block via push",
+                    extra={
+                        "height": block_height,
+                        "hash": block_hash,
+                        "node_id": self._node_id,
+                        "chain_id": self._chain_id,
+                    },
+                )
+                await self._on_block(block_data)
+                return
+
+            # Legacy fallback: import directly when no manager callback is set.
             logger.debug(
                 "Importing block via push",
                 extra={
