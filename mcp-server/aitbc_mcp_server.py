@@ -25,6 +25,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
@@ -2877,6 +2878,13 @@ def get_island(
 # ---------------------------------------------------------------------------
 # Additional typed CLI tools from the companion module
 # ---------------------------------------------------------------------------
+
+# When this file is executed as a script the module is named __main__.  The
+# companion modules do ``from aitbc_mcp_server import mcp``; register the
+# __main__ module under its real name so they import the same mcp instance and
+# tools are registered on the server that is actually started.
+if __name__ == "__main__":
+    sys.modules["aitbc_mcp_server"] = sys.modules["__main__"]
 
 import aitbc_mcp_cli_tools  # noqa: F401  # registers more CLI tools
 
