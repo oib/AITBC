@@ -35,6 +35,7 @@ from aitbc_chain.rpc.auth import get_authenticated_address
 from aitbc_chain.rpc.router import router
 from aitbc_chain.rpc.transactions import TransactionRequest
 from aitbc_chain.rpc.utils import (
+    sign_transaction_data,
     validate_chain_id,
     verify_transaction_signature,
 )
@@ -321,6 +322,63 @@ class TestBug4TransactionSignatureVerification:
         tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature"}
         signature = _sign_message(priv_key, tx_without_sig)
         assert verify_transaction_signature(tx_data, signature, sender_address) is True
+
+    def test_verify_transaction_signature_ignores_gossip_tx_hash(self) -> None:
+        """Followers attach tx_hash after signing; verification must ignore it."""
+        priv_key, sender_address = _generate_keypair()
+        tx_data = {
+            "from": sender_address,
+            "to": "0xrecipient",
+            "amount": 3600,
+            "nonce": 0,
+            "fee": 36,
+            "type": "ESCROW_LOCK",
+            "payload": {
+                "job_id": "354a98bb66104d1f95e76e744ee8ab0a",
+                "provider": "0xa54b82312beb65d0e90c21717ea372396991fa36",
+            },
+            "chain_id": "ait-hub",
+        }
+        signature = _sign_message(priv_key, tx_data)
+        gossiped = dict(tx_data)
+        gossiped["signature"] = signature
+        gossiped["tx_hash"] = "0xabea1a7f038dedf89995549f94e656dfe147e9a707a8ebe7dddad6a4d6424081"
+        gossiped["value"] = 3600
+        assert verify_transaction_signature(gossiped, signature, sender_address) is True
+
+    def test_sign_transaction_data_ignores_gossip_fields_and_value(self) -> None:
+        """sign_transaction_data must exclude signature, tx_hash and the value alias."""
+        priv_key, sender_address = _generate_keypair()
+        tx_data = {
+            "from": sender_address,
+            "to": "0xrecipient",
+            "amount": 3600,
+            "nonce": 0,
+            "fee": 36,
+            "type": "ESCROW_LOCK",
+            "payload": {
+                "job_id": "354a98bb66104d1f95e76e744ee8ab0a",
+                "provider": "0xa54b82312beb65d0e90c21717ea372396991fa36",
+            },
+            "chain_id": "ait-hub",
+        }
+        signature = sign_transaction_data(tx_data, priv_key.to_hex())
+
+        # Adding gossip / internal fields after signing must not break verification.
+        gossiped = dict(tx_data)
+        gossiped["signature"] = signature
+        gossiped["tx_hash"] = "0xabea1a7f038dedf89995549f94e656dfe147e9a707a8ebe7dddad6a4d6424081"
+        gossiped["value"] = 3600
+        assert verify_transaction_signature(gossiped, signature, sender_address) is True
+
+        # Providing tx_hash or value to the signer itself must not change the signed bytes.
+        with_hash = dict(tx_data)
+        with_hash["tx_hash"] = "0xabea1a7f038dedf89995549f94e656dfe147e9a707a8ebe7dddad6a4d6424081"
+        assert sign_transaction_data(with_hash, priv_key.to_hex()) == signature
+
+        with_value = dict(tx_data)
+        with_value["value"] = 3600
+        assert sign_transaction_data(with_value, priv_key.to_hex()) == signature
 
 
 # ---------------------------------------------------------------------------

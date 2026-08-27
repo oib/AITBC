@@ -25,6 +25,8 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Escrow, Stake
 
+from .utils import _unsigned_tx_fields
+
 _raw_rpc_url = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL).rstrip("/")
 _HUB_RPC_URL = _raw_rpc_url if _raw_rpc_url.endswith("/rpc") else f"{_raw_rpc_url}/rpc"
 _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net"))
@@ -64,9 +66,7 @@ _ESCROW_RELEASE_ADDRESS = os.getenv("ESCROW_RELEASE_ADDRESS", "")
 
 def _compute_tx_signing_hash(tx: dict[str, Any]) -> str:
     """Return the keccak hash the RPC verifies for a transaction signature."""
-    has_amount = "amount" in tx
-    tx_for_sign = {k: v for k, v in tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
-    canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
+    canonical = json.dumps(_unsigned_tx_fields(tx), sort_keys=True, separators=(",", ":")).encode()
     return "0x" + keccak(canonical).hex()
 
 
