@@ -3,6 +3,7 @@
 This guide is generated from the live `aitbc` command tree. Each entry below lists a top-level group and its key subcommands.
 
 - `account` — Account information and management. Subcommands: `get`, `list`
+- `auth` — Authentication and session management. Subcommands: `login`, `logout`, `status`
 - `agent` — Agent SDK management commands. Subcommands: `cancel`, `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `job`, `jobs`, `list`, `register`, `register-identity`, `status`, `submit`, `subscribe`, `verify-identity`, `workflow`
 - `agent-comm` — Cross-chain agent communication commands. Subcommands: `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status`
 - `agent-msg` — Agent messaging commands (ping, send, receive, peers, request-coins).. Subcommands: `peers`, `ping`, `receive`, `request-coins`, `send`
@@ -14,7 +15,6 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `bootstrap` — Bootstrap local development and configuration files.. Subcommands: `bootstrap-env`
 - `brand` — Show and manage white-label brand settings.. Subcommands: `list`, `show`
 - `bridge` — Cross-chain bridge management. Subcommands: `attest`, `balance`, `confirm`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock`
-
 - `cluster` — Cluster management and operations. Subcommands: `balance`, `status`, `sync`
 - `coin-requests` — Manage coin transfer requests.. Subcommands: `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show`
 - `compliance` — Compliance policy, classification, and audit commands.. Subcommands: `check`, `classify`, `export-audit`
