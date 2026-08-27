@@ -33,7 +33,6 @@ v0.10.18  (update deployment stabilization) ✅ complete
   → v0.16.2  (Platform Builder Tooling Phase 2: SDK, white-label/plugin architecture) 🚧 planned
   → v0.17.0  (Accessibility & Theme Engine) 🚧 planned
   → v1.0.0   (production readiness)
-  → v2.0.0   (vision — questionable features, parked for re-evaluation)
 ```
 
 ## 3. Shared Design Documents
