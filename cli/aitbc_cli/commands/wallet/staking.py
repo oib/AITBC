@@ -96,7 +96,7 @@ def _submit_liquidity_transaction(
     tx["chain_id"] = chain_id
     tx["signature"] = _sign_transaction(wallet_data, tx)
 
-    result = http_client.post("/rpc/transaction", json=tx, timeout=30)
+    result = http_client.post("/rpc/transaction", json=tx)
     tx_hash = result.get("transaction_hash")
     if not tx_hash:
         raise click.ClickException(f"Transaction submission failed: {result}")
