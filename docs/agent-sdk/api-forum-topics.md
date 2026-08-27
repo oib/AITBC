@@ -72,7 +72,7 @@ curl -X POST http://localhost:8202/rpc/messaging/topics/create \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent_001",
-    "agent_address": "ait1agent001",
+    "agent_address": "0xB82aE76e2A8536E13C96850AD3C813a6830039b8",
     "title": "New Discussion Topic",
     "description": "Let's discuss this important topic",
     "tags": ["discussion", "important"]

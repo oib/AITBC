@@ -21,11 +21,13 @@ from aitbc_chain.rpc.utils import verify_transaction_signature  # noqa: E402
 
 from aitbc_cli.commands.market.exchange import _sign_transaction  # noqa: E402
 
+RECIPIENT = "0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f"
+
 
 def _payload(sender: str) -> dict:
     return {
         "from": sender,
-        "to": "ait1" + "cd" * 20,
+        "to": RECIPIENT,
         "value": "100000",
         "nonce": 7,
         "gas_limit": 21000,
@@ -37,7 +39,7 @@ def _payload(sender: str) -> dict:
 
 def test_the_server_accepts_what_the_cli_signs() -> None:
     signer = Account.create()
-    sender = "ait1" + signer.address.removeprefix("0x").lower()
+    sender = signer.address
 
     tx = _payload(sender)
     tx["signature"] = _sign_transaction(tx, signer.key.hex())
@@ -47,7 +49,7 @@ def test_the_server_accepts_what_the_cli_signs() -> None:
 
 def test_a_signature_from_another_key_is_rejected() -> None:
     signer, impostor = Account.create(), Account.create()
-    sender = "ait1" + signer.address.removeprefix("0x").lower()
+    sender = signer.address
 
     tx = _payload(sender)
     tx["signature"] = _sign_transaction(tx, impostor.key.hex())
@@ -58,7 +60,7 @@ def test_a_signature_from_another_key_is_rejected() -> None:
 def test_tampering_with_a_field_invalidates_the_signature() -> None:
     """The signature must cover the amount, not just the sender."""
     signer = Account.create()
-    sender = "ait1" + signer.address.removeprefix("0x").lower()
+    sender = signer.address
 
     tx = _payload(sender)
     tx["signature"] = _sign_transaction(tx, signer.key.hex())
@@ -70,7 +72,7 @@ def test_tampering_with_a_field_invalidates_the_signature() -> None:
 def test_the_signature_field_is_excluded_from_the_signed_bytes() -> None:
     """Both sides drop it before hashing; if only one did, nothing would ever verify."""
     signer = Account.create()
-    tx = _payload("ait1" + signer.address.removeprefix("0x").lower())
+    tx = _payload(signer.address)
 
     without = _sign_transaction(tx, signer.key.hex())
     with_junk = _sign_transaction({**tx, "signature": "0xdeadbeef"}, signer.key.hex())

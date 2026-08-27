@@ -1,7 +1,7 @@
 """A second grant to the same wallet, for the price of a new name (V23-67).
 
-`req-follower-1782118019` was granted 100 AIT to `ait1c10f…`. `req-follower-1782118019-v2`
-was granted 100 AIT to the same `ait1c10f…` and auto-approved, because it declared
+`req-follower-1782118019` was granted 100 AIT to `0xe0383C46…`. `req-follower-1782118019-v2`
+was granted 100 AIT to the same `0xe0383C46…` and auto-approved, because it declared
 `sender="follower-ait-reset"` where the first declared `sender="follower"`.
 
 `has_prior_grant` keyed on `sender` alone. `sender` is a string in the registration body —
@@ -9,9 +9,10 @@ the caller writes it, nothing checks it against an identity, and changing it cos
 So the faucet's one-grant-per-agent rule was really one-grant-per-*name*, and the wallet
 that actually receives the money was never counted against.
 
-The address is counted canonically for the reason V23-63 cost a day: `ait1<body>`,
-`aitbc1<body>` and `0x<body>` are the same twenty bytes. Matching the stored string exactly
-would have left the same bypass available to anyone who respelled the destination.
+The address is counted canonically: only the `0x<body>` spelling is a valid secp256k1/EVM
+address. Legacy `ait1<body>` and `aitbc1<body>` spellings are now treated as distinct
+non-address strings and are no longer normalised to the same wallet. Matching the canonical
+string exactly closes the same bypass for anyone using the valid `0x` form.
 
 The WebSocket handler had the identical defect and is the worse of the two, because it signs
 and submits on the spot rather than writing a row for an operator.
@@ -27,8 +28,8 @@ from agent_app.services import faucet_policy
 from aitbc.db import agent_db
 from aitbc.models import CoinRequest, CoinRequestStatus
 
-WALLET = "ait1" + "c1" * 20
-OTHER_WALLET = "ait1" + "d4" * 20
+WALLET = "0xe0383C465aF763F2489B61Ec169bB06E485DAB95"
+OTHER_WALLET = "0x335de516468598827245e10094A9c014F4894a02"
 GRANT = faucet_policy.DEFAULT_AUTO_APPROVE_MAX
 
 
@@ -77,9 +78,12 @@ def test_renaming_the_sender_does_not_buy_a_second_grant(session) -> None:
     assert WALLET in reason
 
 
-@pytest.mark.parametrize("respelled", ["0x" + "c1" * 20, "aitbc1" + "c1" * 20, "0x" + "C1" * 20])
+@pytest.mark.parametrize(
+    "respelled",
+    [WALLET.lower(), "0x" + WALLET[2:].upper()],
+)
 def test_respelling_the_wallet_does_not_buy_a_second_grant(session, respelled: str) -> None:
-    """Counting the destination is only worth anything if it sees through the spellings."""
+    """Counting the destination is only worth anything if it sees through the 0x spellings."""
     _grant(session, "req-1", "follower", WALLET)
 
     status, _ = faucet_policy.decide(session, "someone-else", GRANT, respelled)
@@ -87,9 +91,12 @@ def test_respelling_the_wallet_does_not_buy_a_second_grant(session, respelled: s
     assert status == CoinRequestStatus.PENDING
 
 
-@pytest.mark.parametrize("stored_as", ["0x" + "c1" * 20, "aitbc1" + "c1" * 20])
+@pytest.mark.parametrize(
+    "stored_as",
+    [WALLET.lower(), "0x" + WALLET[2:].upper()],
+)
 def test_the_prior_grant_is_found_however_it_was_stored(session, stored_as: str) -> None:
-    """Rows predate the canonicalisation, so the stored side varies too."""
+    """Rows are now stored in canonical 0x form; the lookup matches that form."""
     _grant(session, "req-1", "follower", stored_as)
 
     status, _ = faucet_policy.decide(session, "someone-else", GRANT, WALLET)

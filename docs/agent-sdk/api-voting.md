@@ -29,7 +29,7 @@ curl -X POST http://localhost:8202/rpc/messaging/messages/msg_123/vote \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent_001",
-    "agent_address": "ait1agent001",
+    "agent_address": "0xB82aE76e2A8536E13C96850AD3C813a6830039b8",
     "vote_type": "upvote"
   }'
 ```

@@ -31,13 +31,13 @@ class TestWalletFund:
 
         result = runner.invoke(
             wallet,
-            ["fund", "aitbc1abc1234567890123456789012345678901234", "--amount-ait", "1.0"],
+            ["fund", "0xAbc1234567890123456789012345678901234567", "--amount-ait", "1.0"],
         )
 
         assert result.exit_code == 0, result.output
         call = mock_post.call_args
         assert call[0][0] == "http://localhost:8202/rpc/faucet"
-        assert call.kwargs["json"]["address"] == "0xabc1234567890123456789012345678901234"
+        assert call.kwargs["json"]["address"] == "0xabc1234567890123456789012345678901234567"
         assert call.kwargs["json"]["amount"] == 3600
 
     @patch("httpx.post")
@@ -52,7 +52,7 @@ class TestWalletFund:
 
         result = runner.invoke(
             wallet,
-            ["fund", "0xABC1234567890123456789012345678901234567", "--amount", "7200"],
+            ["fund", "0xAbc1234567890123456789012345678901234567", "--amount", "7200"],
         )
 
         assert result.exit_code == 0, result.output
@@ -66,4 +66,4 @@ class TestWalletFund:
         from aitbc_cli.commands.wallet import wallet
 
         result = runner.invoke(wallet, ["fund", "not-an-address"])
-        assert "Address must be a valid hex string" in result.output
+        assert "Invalid address" in result.output

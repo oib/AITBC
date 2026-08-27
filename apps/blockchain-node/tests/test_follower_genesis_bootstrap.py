@@ -47,7 +47,7 @@ GENESIS_FILE = {
         "chain_id": CHAIN_ID,
         "state_root": "0xe135ccc691cadc7ac5e1353d26ae3fdd376566f10ad5b9f9151534d65b0cc7df",
     },
-    "allocations": [{"address": "ait1" + "fe" * 20, "balance": 3600000000000, "nonce": 0}],
+    "allocations": [{"address": "0xF5A930bBC90c15dB0bbf28f8485D18eEf24c3F43", "balance": 3600000000000, "nonce": 0}],
 }
 
 
@@ -110,7 +110,7 @@ def test_a_non_empty_trusted_set_filters_every_block_not_just_genesis() -> None:
     ok, reason = validator.validate_block_signature(
         {
             "hash": "0x" + "ab" * 32,
-            "proposer": "ait1" + "fe" * 20,
+            "proposer": "0xF5A930bBC90c15dB0bbf28f8485D18eEf24c3F43",
             "signature": "0x" + "cd" * 65,
             "height": 1,
             "parent_hash": GENESIS_FILE["block"]["hash"],

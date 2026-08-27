@@ -47,18 +47,15 @@ def auto_approve_ceiling() -> int:
 
 
 def address_spellings(address: str) -> list[str]:
-    """Every way the same address can be written, so a lookup cannot miss one.
+    """The canonical 0x spelling of an address, for a case-insensitive lookup.
 
-    `ait1<body>`, `aitbc1<body>` and `0x<body>` are the same twenty bytes, and the prior-grant
-    check below is only worth anything if it sees through that. `canonical_address` strips a
-    prefix only when exactly 40 hex characters follow, so this never widens to a different
-    account (V23-54, V23-63).
+    The hub now stores and accepts only EIP-55 secp256k1/EVM addresses, so the
+    prior-grant check only needs the canonical `0x` form. `canonical_address`
+    returns that form for valid 0x addresses and lowercases anything else, so
+    non-address strings (such as node ids that also reach this field) are still
+    matched as themselves.
     """
-    canonical = canonical_address(address)
-    body = canonical.removeprefix("0x")
-    if canonical.startswith("0x") and len(body) == 40:
-        return [f"0x{body}", f"ait1{body}", f"aitbc1{body}"]
-    return [canonical]
+    return [canonical_address(address).lower()]
 
 
 def has_prior_grant(session: Session, sender: str, wallet_address: str) -> bool:

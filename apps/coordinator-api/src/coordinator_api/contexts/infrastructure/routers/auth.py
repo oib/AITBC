@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address, verify_signature
 from aitbc.rate_limiting import rate_limit
+from aitbc.utils.validation import validate_address
 from eth_account.messages import defunct_hash_message
 
 from ....auth import create_access_token
@@ -42,8 +43,10 @@ async def auth_nonce(request: Request, data: dict[str, Any]) -> dict[str, Any]:
     if not wallet_address or not isinstance(wallet_address, str):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="wallet_address is required")
 
-    # Canonicalise the address (accepts 0x..., ait1..., aitbc1...).
+    # Canonicalise and validate the address; only 0x secp256k1/EVM addresses are accepted.
     wallet_address = canonical_address(wallet_address)
+    if not validate_address(wallet_address):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid wallet address")
 
     # Clean expired nonces
     now = time.time()
@@ -73,6 +76,8 @@ async def auth_login(request: Request, data: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="signature is required")
 
     wallet_address = canonical_address(wallet_address)
+    if not validate_address(wallet_address):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid wallet address")
 
     stored = _auth_nonces.get(wallet_address)
     if not stored or stored[0] != nonce:

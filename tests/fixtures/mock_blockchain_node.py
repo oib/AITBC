@@ -19,9 +19,9 @@ mock_chain_state = {
     "height": 100,
     "hash": "0xabcdef1234567890",
     "balances": {
-        "aitbc1alice00000000000000000000000000000000000": 1000,
-        "aitbc1bob0000000000000000000000000000000000000": 500,
-        "aitbc1charl0000000000000000000000000000000000": 100,
+        "0xF1fF672A618e7b47212EEecaFd84fa72bADecd86": 1000,
+        "0x176aC203870FBDB8c04Ca5d316392850062cd8fe": 500,
+        "0xE11fCD3725859CA1112Fa5D54785dFAfD0f73ed1": 100,
     },
     "transactions": [],
 }

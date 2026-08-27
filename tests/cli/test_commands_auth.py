@@ -46,9 +46,7 @@ class TestAuthCommands:
 
         mock_account.from_key.return_value = MagicMock(
             address="0xCustomerAddress",
-            sign_message=MagicMock(
-                return_value=MagicMock(signature=MagicMock(hex=MagicMock(return_value="deadbeef")))
-            ),
+            sign_message=MagicMock(return_value=MagicMock(signature=MagicMock(hex=MagicMock(return_value="deadbeef")))),
         )
 
         mock_manager = MagicMock()
@@ -70,9 +68,7 @@ class TestAuthCommands:
         assert login_call.kwargs["json"]["nonce"] == "nonce123"
         assert login_call.kwargs["json"]["signature"] == "0xdeadbeef"
 
-        mock_manager.store_credential.assert_called_once_with(
-            "client", "jwt-token-xyz", environment="test"
-        )
+        mock_manager.store_credential.assert_called_once_with("client", "jwt-token-xyz", environment="test")
 
     @patch("aitbc_cli.commands.auth.get_config")
     def test_auth_login_missing_credential_source(self, mock_get_config, runner, mock_config):

@@ -31,6 +31,23 @@ from aitbc_mcp_server import (
 # ---------------------------------------------------------------------------
 
 
+def _validate_evm_address(address: str, field: str = "address") -> str:
+    """Reject legacy ait1/aitbc1 prefixes and ensure a 0x + 40 hex format.
+
+    The check is intentionally local: the MCP server runs without the aitbc
+    package on its PYTHONPATH, but it can still guard against legacy spellings
+    before they reach the remote CLI.
+    """
+    import re
+
+    value = address.strip()
+    if not value.startswith("0x"):
+        raise ValueError(f"{field} must be a 0x-prefixed secp256k1 address: {address}")
+    if not re.fullmatch(r"0x[0-9a-fA-F]{40}", value):
+        raise ValueError(f"{field} must be 0x followed by 40 hex characters: {address}")
+    return value
+
+
 def _run_aitbc_cli_write(
     role: str | None,
     host: str | None,
@@ -628,6 +645,7 @@ def fund_wallet(
     ] = None,
 ) -> str:
     """Fund a wallet address using the blockchain faucet."""
+    _validate_evm_address(address, "wallet address")
     options: dict[str, str | None] = {"amount-ait": amount_ait}
     if chain_id is not None:
         options["chain-id"] = chain_id
@@ -1066,6 +1084,8 @@ def create_market_escrow(
     ] = None,
 ) -> str:
     """Create an on-chain escrow for a marketplace job."""
+    _validate_evm_address(buyer, "buyer")
+    _validate_evm_address(provider, "provider")
     return _run_aitbc_cli_write(
         role,
         host,
@@ -1277,6 +1297,7 @@ def withdraw_eth_from_bridge(
     ] = None,
 ) -> str:
     """Withdraw ETH from the bridge wallet (admin only)."""
+    _validate_evm_address(address, "ETH address")
     return _run_aitbc_cli_write(
         role,
         host,
@@ -1317,6 +1338,7 @@ def send_aitbc_from_wallet(
     ] = None,
 ) -> str:
     """Send AIT from a local wallet to another address."""
+    _validate_evm_address(to_address, "to_address")
     group_options: dict[str, str | None] = {"wallet-name": wallet_name}
     if wallet_path is not None:
         group_options["wallet-path"] = wallet_path

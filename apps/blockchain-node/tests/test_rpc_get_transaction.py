@@ -38,8 +38,8 @@ def chain(monkeypatch):
                 chain_id=CHAIN_ID,
                 tx_hash=TX_HASH,
                 block_height=6,
-                sender="ait1" + "fe" * 20,
-                recipient="ait1" + "c1" * 20,
+                sender="0xF5A930bBC90c15dB0bbf28f8485D18eEf24c3F43",
+                recipient="0xe0383C465aF763F2489B61Ec169bB06E485DAB95",
                 payload={"amount": 100},
                 type="TRANSFER",
                 value=100,
@@ -80,7 +80,7 @@ async def test_a_transaction_the_chain_holds_is_returned(chain) -> None:
     assert result["tx_hash"] == TX_HASH
     assert result["block_height"] == 6
     assert result["value"] == 100
-    assert result["recipient"] == "ait1" + "c1" * 20
+    assert result["recipient"] == "0xe0383C465aF763F2489B61Ec169bB06E485DAB95"
 
 
 async def test_a_transaction_the_chain_does_not_hold_is_a_404(chain) -> None:

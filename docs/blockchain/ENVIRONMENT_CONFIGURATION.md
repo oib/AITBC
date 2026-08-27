@@ -25,7 +25,7 @@ AITBC uses three environment configuration files:
 |----------|----------|---------|-------------|
 | `NODE_ID` | Yes | - | Unique identifier for this node (e.g., `aitbc`, `aitbc1`, `aitbc2`) |
 | `p2p_node_id` | Yes | - | Unique P2P network identity. Format: `node-<uuid>` |
-| `proposer_id` | Yes* | - | PoA proposer address. Format: `ait1<public-key>` |
+| `proposer_id` | Yes* | - | PoA proposer address. Format: `0x<address>` |
 | `enable_block_production` | No | `true` | Set `false` on follower nodes to prevent forks |
 | `block_production_chains` | No | - | Comma-separated list of chains to produce blocks for |
 
@@ -62,7 +62,7 @@ NODE_ID=aitbc
 p2p_node_id=node-ad4e9170aea04a349469d17758de7b27
 p2p_bind_host=0.0.0.0
 p2p_bind_port=7070
-proposer_id=ait1ytkh0cn8v2a4zjwzyav6854832myf9j7unsse8yntmuwzst4qhtqe9hqdw
+proposer_id=0x88A13a03119cfaefe99Bd4657b5F4DD4A2199AD7
 
 # P2P Peers (empty for hub node)
 p2p_peers=
@@ -86,7 +86,7 @@ NODE_ID=aitbc2
 
 # P2P Configuration (not needed for followers — subscription system uses RPC)
 p2p_node_id=node-7af14c549bab473d9deb4ca8ab4bdcde
-proposer_id=ait1ytkh0cn8v2a4zjwzyav6854832myf9j7unsse8yntmuwzst4qhtqe9hqdw
+proposer_id=0x88A13a03119cfaefe99Bd4657b5F4DD4A2199AD7
 
 # Trusted Proposers (for follower nodes)
 trusted_proposers=

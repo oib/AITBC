@@ -16,6 +16,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Deterministic, valid EIP-55 0x addresses.
+# Derived via eth_account.Account.from_key(sha256(name.encode()).digest()).address
+BUYER = "0xe8b0db006F34bf5b5d2B22553C017431E8e86e4F"
+PROVIDER = "0xD4d85501E6cD447972Db19370307F1E3B1510016"
+
 ORIGINAL = datetime(2026, 8, 23, 9, 20, 0, tzinfo=UTC)
 
 
@@ -31,8 +36,8 @@ def _manager():
         milestones=[],
         state=None,
         released_amount=Decimal("0.975"),
-        client_address="ait1buyer",
-        agent_address="ait1provider",
+        client_address=BUYER,
+        agent_address=PROVIDER,
     )
     mgr = MagicMock()
     mgr.escrow_contracts = {"c-1": contract}

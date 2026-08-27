@@ -3,6 +3,7 @@
 # Distributed AI job economics, marketplace strategy, and advanced economic modeling
 # Updated 2026-03-30: Transform agents from AI Specialists to Economics Masters
 
+set -euo pipefail
 set -e  # Exit on any error
 
 # Source scenario configuration
@@ -165,7 +166,7 @@ SESSION_ID="cross-node-economics-$(date +%s)"
 economics_log "Creating economic coordination topic for cross-node optimization"
 TOPIC_ID=$(curl -sf -X POST http://localhost:8202/rpc/messaging/topics/create \
     -H "Content-Type: application/json" \
-    -d "{\"agent_id\": \"genesis-economics\", \"agent_address\": \"ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871\", \"title\": \"AI Economics Coordination\", \"description\": \"Cross-node AI economics coordination and optimization\", \"tags\": [\"economics\", \"coordination\", \"optimization\", \"marketplace\"]}" \
+    -d "{\"agent_id\": \"genesis-economics\", \"agent_address\": \"0x58EC7a0713f30CcFB1aaC6bfbAb71F36271C5871\", \"title\": \"AI Economics Coordination\", \"description\": \"Cross-node AI economics coordination and optimization\", \"tags\": [\"economics\", \"coordination\", \"optimization\", \"marketplace\"]}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[\"topic_id\"])" 2>/dev/null || echo "topic_7c245a01a6e7feea")
 
 economics_log "Economic topic created: $TOPIC_ID"
@@ -173,11 +174,11 @@ economics_log "Economic topic created: $TOPIC_ID"
 # Genesis node posts economic capabilities
 curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post \
     -H "Content-Type: application/json" \
-    -d "{\"agent_id\": \"genesis-economics\", \"agent_address\": \"ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871\", \"topic_id\": \"$TOPIC_ID\", \"content\": \"Genesis node ready for AI economics coordination. Capabilities: Distributed cost optimization (target <$0.01/inference), dynamic pricing strategies, revenue sharing models, investment portfolio management. Current economic metrics: GPU utilization 85%, cost efficiency 22% improvement, revenue growth 35% YoY. Ready for cross-node economic optimization.\"}" \
+    -d "{\"agent_id\": \"genesis-economics\", \"agent_address\": \"0x58EC7a0713f30CcFB1aaC6bfbAb71F36271C5871\", \"topic_id\": \"$TOPIC_ID\", \"content\": \"Genesis node ready for AI economics coordination. Capabilities: Distributed cost optimization (target <$0.01/inference), dynamic pricing strategies, revenue sharing models, investment portfolio management. Current economic metrics: GPU utilization 85%, cost efficiency 22% improvement, revenue growth 35% YoY. Ready for cross-node economic optimization.\"}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"Message posted: {d.get(\"message_id\", d.get(\"error\"))}\")" 2>/dev/null
 
 # Follower node responds with economic capabilities
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-economics\\\", \\\"agent_address\\\": \\\"ait141b3bae6eea3a74273ef3961861ee58e12b6d855\\\", \\\"topic_id\\\": \\\"$TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for AI economics coordination. Specialized capabilities: CPU optimization (target 95% utilization), memory pricing strategies, market analysis, customer acquisition optimization. Current economic metrics: CPU utilization 78%, cost efficiency 18% improvement, market share 12%. Proposed coordination: Genesis handles GPU economics, follower handles CPU/memory economics and market analysis. Ready for distributed economic optimization.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
+ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-economics\\\", \\\"agent_address\\\": \\\"0x41B3BaE6eEa3A74273ef3961861ee58E12b6D855\\\", \\\"topic_id\\\": \\\"$TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for AI economics coordination. Specialized capabilities: CPU optimization (target 95% utilization), memory pricing strategies, market analysis, customer acquisition optimization. Current economic metrics: CPU utilization 78%, cost efficiency 18% improvement, market share 12%. Proposed coordination: Genesis handles GPU economics, follower handles CPU/memory economics and market analysis. Ready for distributed economic optimization.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
 
 success "Cross-node economic coordination established"
 

@@ -24,10 +24,10 @@ from coordinator_api.contexts.marketplace.offer_quote import (
 from coordinator_api.contexts.payments.provider_binding import looks_like_wallet_address
 from coordinator_api.schemas import JobCreate
 
-# The wallet a live hub offer is actually sold by, in the legacy spelling the
-# marketplace stores, and the 0x spelling recovery produces for the same twenty bytes.
-SELLER_LEGACY = "aitbc1a54b82312beb65d0e90c21717ea372396991fa36"
-SELLER_HEX = "0xa54b82312beb65d0e90c21717ea372396991fa36"
+# The wallet a live hub offer is actually sold by, in the canonical 0x spelling
+# the marketplace stores and in a lowercase 0x spelling a caller might use.
+SELLER = "0xA54B82312beb65D0E90c21717ea372396991Fa36"
+SELLER_LOWER = "0xa54b82312beb65d0e90c21717ea372396991fa36"
 OUTSIDER = "0x2222222222222222222222222222222222222222"
 
 
@@ -40,7 +40,7 @@ def _offer(**overrides):
         "model": "llama3.2:3b",
         "price": "0.00100000",
         "price_unit": "per_1k_tokens",
-        "provider_address": SELLER_LEGACY,
+        "provider_address": SELLER,
         "status": "active",
     }
     offer.update(overrides)
@@ -89,7 +89,7 @@ async def test_the_offer_is_looked_up_by_plugin_id_first(monkeypatch):
     quote = await resolve_offer("ollama-llama3.2-3b", Decimal("1"))
 
     assert seen == ["/v1/marketplace/offer/ollama-llama3.2-3b"]
-    assert quote.provider_address == SELLER_LEGACY
+    assert quote.provider_address == SELLER
     assert quote.unit_price == Decimal("0.001")
     assert quote.price_unit == "per_1k_tokens"
 
@@ -185,7 +185,7 @@ async def test_the_quote_supplies_the_price_and_the_payee(monkeypatch):
 
     assert quote is not None
     assert priced.payment_amount == Decimal("0.001")
-    assert priced.provider_address == SELLER_LEGACY
+    assert priced.provider_address == SELLER
 
 
 @pytest.mark.asyncio
@@ -239,15 +239,15 @@ async def test_a_provider_address_that_disagrees_is_refused(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_a_legacy_spelling_of_the_seller_still_agrees(monkeypatch):
-    """The same twenty bytes in the 0x spelling is the same seller, not a mismatch."""
+async def test_a_lowercase_spelling_of_the_seller_still_agrees(monkeypatch):
+    """The same twenty bytes in a different 0x case is the same seller, not a mismatch."""
     _serve(monkeypatch, {"/v1/marketplace/offer/ollama-llama3.2-3b": _offer()})
-    req = _submission(offer_id="ollama-llama3.2-3b", provider_address=SELLER_HEX)
+    req = _submission(offer_id="ollama-llama3.2-3b", provider_address=SELLER_LOWER)
 
     priced, quote = await client_router._apply_offer_quote(req)
 
     assert quote is not None
-    assert priced.provider_address == SELLER_LEGACY
+    assert priced.provider_address == SELLER
 
 
 @pytest.mark.asyncio
@@ -304,9 +304,8 @@ async def test_requiring_an_offer_still_allows_unpriced_work(monkeypatch):
 @pytest.mark.parametrize(
     "value,payable",
     [
-        (SELLER_HEX, True),
-        (SELLER_LEGACY, True),
-        ("ait1f6a5b2afd6b3de3db048f5da204ec3c54c3b0201", True),
+        (SELLER, True),
+        (SELLER_LOWER, True),
         ("0xEB29516824E95AdFFeEdfc914941F0fbEd0bB1a4", True),
         ("aitbc-miner-1", False),
         ("aitbc3-provider", False),

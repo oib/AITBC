@@ -65,7 +65,7 @@ async def main():
             swap_id=swap_id,
             token="0x0000000000000000000000000000000000000000",  # Native token
             amount=1000,
-            participant="ait1144a6e75b728930da9f7eb784b6946a0cd7f60de",
+            participant="0x144a6e75B728930Da9F7Eb784B6946A0cD7F60dE",
             hashlock=hashlock,
             timelock=3600,
             contract_address="0xcrosschainatomicswap_1778182201",
