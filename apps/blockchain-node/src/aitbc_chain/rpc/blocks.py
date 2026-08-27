@@ -92,6 +92,12 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
             tx_list = []
             for tx in txs:
                 t = dict(tx.payload) if tx.payload else {}
+                t["from"] = tx.sender
+                t["to"] = tx.recipient
+                t["value"] = tx.value
+                t["fee"] = tx.fee
+                t["nonce"] = tx.nonce
+                t["type"] = tx.type
                 t["tx_hash"] = tx.tx_hash
                 tx_list.append(t)
         metrics_registry.increment("rpc_get_block_success_total")
@@ -112,6 +118,12 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
         tx_list = []
         for tx in txs:
             t = dict(tx.payload) if tx.payload else {}
+            t["from"] = tx.sender
+            t["to"] = tx.recipient
+            t["value"] = tx.value
+            t["fee"] = tx.fee
+            t["nonce"] = tx.nonce
+            t["type"] = tx.type
             t["tx_hash"] = tx.tx_hash
             tx_list.append(t)
     metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
@@ -202,7 +214,13 @@ async def get_blocks_range(
                 "signature": b.signature,
             }
             if include_tx:
-                block_data["transactions"] = [tx.model_dump() for tx in txs_by_height.get(b.height, [])]
+                tx_list = []
+                for tx in txs_by_height.get(b.height, []):
+                    t = tx.model_dump()
+                    t["from"] = t.get("sender", "")
+                    t["to"] = t.get("recipient", "")
+                    tx_list.append(t)
+                block_data["transactions"] = tx_list
             result_blocks.append(block_data)
         return {"success": True, "blocks": result_blocks, "count": len(blocks)}
 

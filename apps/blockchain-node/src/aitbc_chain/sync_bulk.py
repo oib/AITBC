@@ -239,7 +239,9 @@ class BulkSyncMixin(SyncBase):
                 break
             for block_data in batch:
                 result = self.import_block(
-                    block_data, transactions=block_data.get("transactions"), skip_state_root_validation=True
+                    block_data,
+                    transactions=block_data.get("transactions"),
+                    skip_state_root_validation=not settings.sync_state_root_validation_enabled,
                 )
                 if result.accepted:
                     imported += 1
@@ -330,7 +332,9 @@ class BulkSyncMixin(SyncBase):
         imported = 0
         for block_data in unique_blocks:
             result = self.import_block(
-                block_data, transactions=block_data.get("transactions"), skip_state_root_validation=True
+                block_data,
+                transactions=block_data.get("transactions"),
+                skip_state_root_validation=not settings.sync_state_root_validation_enabled,
             )
             if result.accepted:
                 imported += 1
