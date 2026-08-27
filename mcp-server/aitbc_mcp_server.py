@@ -222,29 +222,71 @@ def _is_allowed_script(path: str) -> bool:
 ALL_AITBC_GROUPS = {
     "account",
     "agent",
+    "agent-comm",
+    "agent-msg",
+    "agent-wallet",
     "ai",
+    "analytics",
     "auth",
+    "blockchain",
     "bond",
+    "bootstrap",
+    "brand",
     "bridge",
+    "cluster",
+    "coin-requests",
+    "compliance",
+    "confidential",
     "config",
+    "contract",
+    "crosschain",
     "dashboard",
+    "deploy",
+    "developer",
+    "economics",
+    "edge",
     "exchange",
     "exchange-island",
     "explorer",
-    "gpu",
+    "genesis",
     "governance",
+    "gpu",
+    "gpu-onchain",
+    "grant",
     "ipfs",
     "list",
     "market",
     "marketplace",
+    "messaging",
+    "mining",
+    "monitor",
+    "network",
     "node",
-    "restart",
+    "oracle",
+    "performance",
+    "platform",
+    "plugin",
+    "pool-hub",
+    "prometheus",
+    "reinvest",
+    "reputation",
+    "resource",
+    "script",
+    "security",
+    "simulate",
     "start",
     "stop",
+    "restart",
+    "sync",
     "system",
+    "tee",
+    "trade",
     "transactions",
+    "update",
     "version",
     "wallet",
+    "workflow",
+    "zk",
 }
 
 # Subcommands that are known to mutate state.  The generic ``run_aitbc_cli``
@@ -458,6 +500,28 @@ def _build_http_url(base: str, path: str, params: dict[str, str] | None) -> str:
     return url
 
 
+def _build_curl_command(
+    url: str,
+    method: str = "GET",
+    body: dict[str, Any] | None = None,
+    use_auth: bool = False,
+) -> str:
+    """Build a curl command for an HTTP request.
+
+    ``use_auth`` adds ``-H "X-Api-Key: $API_KEY"``; the caller is expected to
+    set ``API_KEY`` in the remote shell before running the command.
+    """
+    method = method.upper()
+    auth_header = '-H "X-Api-Key: $API_KEY"' if use_auth else ""
+    if method == "GET":
+        return f"curl -sS {auth_header} {shlex.quote(url)}".strip()
+    headers = "-H 'Content-Type: application/json'"
+    if body:
+        payload = shlex.quote(json.dumps(body, default=str))
+        return f"curl -sS -X {method} {headers} {auth_header} -d {payload} {shlex.quote(url)}".strip()
+    return f"curl -sS -X {method} {auth_header} {shlex.quote(url)}".strip()
+
+
 def _run_http(
     host: str,
     service: str,
@@ -466,8 +530,16 @@ def _run_http(
     params: dict[str, str] | None = None,
     body: dict[str, Any] | None = None,
     timeout: int = 30,
+    auth: str = "none",
+    auth_env: str = "/etc/aitbc/aitbc-coordinator-api.env",
 ) -> dict[str, Any]:
-    """Call an AITBC HTTP endpoint on a remote node via curl."""
+    """Call an AITBC HTTP endpoint on a remote node via curl.
+
+    ``auth`` may be ``none`` or ``miner``. When ``miner``, the remote env file is
+    sourced and the first ``MINER_API_KEYS`` value is passed as ``X-Api-Key``.
+    The key itself is not returned in the command output; the result only shows
+    a ``$API_KEY`` shell variable reference.
+    """
     base = ALL_SERVICE_BASES.get(service)
     if not base:
         return {
@@ -476,16 +548,18 @@ def _run_http(
         }
 
     url = _build_http_url(base, path, params)
-    method = method.upper()
-    if method == "GET":
-        command = f"curl -sS {shlex.quote(url)}"
+    use_auth = auth == "miner"
+    curl = _build_curl_command(url, method, body, use_auth=use_auth)
+    if use_auth:
+        # Source the env in the same shell so the key stays in a variable and
+        # is never expanded into the command string we return.
+        command = (
+            f"API_KEY=$(set -a; . {shlex.quote(auth_env)}; set +a; "
+            f'echo "$MINER_API_KEYS" | cut -d, -f1) && '
+            f'[ -n "$API_KEY" ] && {curl}'
+        )
     else:
-        headers = "-H 'Content-Type: application/json'"
-        if body:
-            payload = shlex.quote(json.dumps(body, default=str))
-            command = f"curl -sS -X {method} {headers} -d {payload} {shlex.quote(url)}"
-        else:
-            command = f"curl -sS -X {method} {shlex.quote(url)}"
+        command = curl
 
     result = _run_remote(host, command, timeout)
     if result.get("returncode") == 0:
@@ -901,10 +975,11 @@ def run_aitbc_command(
     """Run an `aitbc` CLI command on the selected node.
 
     Examples of ``command``:
-    - ``chain height``
+    - ``blockchain height``
     - ``wallet list``
-    - ``market list-offers``
-    - ``ai list-jobs``
+    - ``market list``
+    - ``ai list``
+    - ``zk health``
     """
     ok, tokens = _safe_command(command)
     if not ok:
@@ -1406,6 +1481,159 @@ def get_service_logs(
     return _json(_run_remote(target, command, timeout=30))
 
 
+# Canonical paths for read-only file inspection via get_remote_file.
+ALLOWED_READ_PREFIXES = (
+    "/opt/aitbc/",
+    "/etc/aitbc/",
+    "/etc/systemd/",
+    "/var/log/aitbc/",
+    "/var/lib/aitbc/",
+)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_service_status(
+    service: Annotated[
+        str,
+        Field(description="systemd unit name, e.g. 'aitbc-coordinator-api'."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show full `systemctl status` output for a single AITBC service."""
+    target = _host_for_role(role, host)
+    if re.search(r"[^A-Za-z0-9_.@-]", service):
+        return _json({"error": "invalid service name", "service": service})
+    command = f"systemctl status {service} --no-pager"
+    return _json(_run_remote(target, command, timeout=30))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_systemd_unit(
+    service: Annotated[
+        str,
+        Field(description="systemd unit name, e.g. 'aitbc-coordinator-api'."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Display the systemd unit file for a service (`systemctl cat`)."""
+    target = _host_for_role(role, host)
+    if re.search(r"[^A-Za-z0-9_.@-]", service):
+        return _json({"error": "invalid service name", "service": service})
+    command = f"systemctl cat {service}"
+    return _json(_run_remote(target, command, timeout=30))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_systemd_show(
+    service: Annotated[
+        str,
+        Field(description="systemd unit name, e.g. 'aitbc-coordinator-api'."),
+    ],
+    properties: Annotated[
+        str | None,
+        Field(description="Comma-separated unit properties to show (e.g. 'ActiveState,SubState,MemoryDenyWriteExecute')."),
+    ] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show selected `systemctl show` properties for a service."""
+    target = _host_for_role(role, host)
+    if re.search(r"[^A-Za-z0-9_.@-]", service):
+        return _json({"error": "invalid service name", "service": service})
+    if properties:
+        if re.search(r"[^A-Za-z0-9_,=]", properties):
+            return _json({"error": "invalid properties", "properties": properties})
+        command = f"systemctl show {service} --property={properties}"
+    else:
+        command = f"systemctl show {service}"
+    return _json(_run_remote(target, command, timeout=30))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_remote_file(
+    file_path: Annotated[
+        str,
+        Field(description="Absolute path to a file under /opt/aitbc, /etc/aitbc, /var/log/aitbc, or /var/lib/aitbc."),
+    ],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Read a remote AITBC configuration, log, or data file."""
+    target = _host_for_role(role, host)
+    if not any(file_path.startswith(prefix) for prefix in ALLOWED_READ_PREFIXES):
+        return _json(
+            {
+                "error": "file path not allowed",
+                "path": file_path,
+                "allowed_prefixes": list(ALLOWED_READ_PREFIXES),
+            }
+        )
+    if re.search(r"[;&|<>$`\\!\n\r]", file_path):
+        return _json({"error": "invalid file path", "path": file_path})
+    command = f"cat -- {shlex.quote(file_path)}"
+    return _json(_run_remote(target, command, timeout=30))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def restart_service(
+    service: Annotated[
+        str,
+        Field(description="systemd unit name, e.g. 'aitbc-coordinator-api'."),
+    ],
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role where the service runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Restart a single AITBC systemd service."""
+    target = _host_for_role(role, host)
+    if re.search(r"[^A-Za-z0-9_.@-]", service):
+        return _json({"error": "invalid service name", "service": service})
+    command = f"systemctl restart {service}"
+    guard = _require_confirm(dry_run, confirm, command)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_remote(target, command, timeout=120))
+
+
 # ---------------------------------------------------------------------------
 # Phase 6 daily-use CLI wrappers
 # ---------------------------------------------------------------------------
@@ -1562,6 +1790,16 @@ def call_aitbc_http(
         dict[str, Any] | None,
         Field(description="JSON body for POST/PUT/PATCH requests."),
     ] = None,
+    auth: Annotated[
+        Literal["none", "miner"],
+        Field(
+            description="Authentication mode. 'miner' sources the first MINER_API_KEYS from the remote service env file and sends it as X-Api-Key without exposing the value."
+        ),
+    ] = "none",
+    auth_env: Annotated[
+        str,
+        Field(description="Remote env file to source when auth='miner'."),
+    ] = "/etc/aitbc/aitbc-coordinator-api.env",
     role: Annotated[
         Literal["hub", "customer", "shop", "follower"] | None,
         Field(description="Node role to query."),
@@ -1588,11 +1826,14 @@ def call_aitbc_http(
     This is the generic HTTP pivot. GET calls can run directly; mutating methods
     (POST, PUT, PATCH, DELETE) require ``dry_run=false`` and ``confirm=true``.
 
+    Use ``auth='miner'`` to reach endpoints (such as ``/v1/zk/*``) that require
+    an API key without passing the key through the tool arguments.
+
     Examples:
       - service="blockchain-rpc", path="info"
       - service="blockchain-rpc", path="account/0x..."
       - service="blockchain-rpc", path="blocks-range", params={"limit": "3"}
-      - service="coordinator-api", path="v1/jobs", params={"limit": "10"}
+      - service="coordinator-api", path="v1/jobs", params={"limit": "10"}, auth="miner"
     """
     target = _host_for_role(role, host)
     if service not in ALL_HTTP_SERVICES:
@@ -1603,30 +1844,40 @@ def call_aitbc_http(
             }
         )
 
-    base = ALL_SERVICE_BASES[service]
-    url = _build_http_url(base, path, params)
-    command = f"curl -sS {shlex.quote(url)}"
-    if method != "GET":
-        headers = "-H 'Content-Type: application/json'"
-        if body:
-            payload = shlex.quote(json.dumps(body, default=str))
-            command = f"curl -sS -X {method} {headers} -d {payload} {shlex.quote(url)}"
-        else:
-            command = f"curl -sS -X {method} {shlex.quote(url)}"
-
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        # Build a representative command for the dry-run note.
+        url = _build_http_url(ALL_SERVICE_BASES[service], path, params)
+        cmd = _build_curl_command(url, method, body, use_auth=auth == "miner")
+        if auth == "miner":
+            cmd = (
+                f"API_KEY=$(set -a; . {shlex.quote(auth_env)}; set +a; "
+                f'echo "$MINER_API_KEYS" | cut -d, -f1) && '
+                f'[ -n "$API_KEY" ] && {cmd}'
+            )
+        return _json(_build_dry_run("Set dry_run=false to execute.", cmd))
 
     if method != "GET" and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
-                "command": command,
+                "command": f"{method} {path} on {service}",
                 "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
             }
         )
 
-    return _json(_run_http(target, service, path, method, params, body, timeout))
+    return _json(
+        _run_http(
+            target,
+            service,
+            path,
+            method,
+            params,
+            body,
+            timeout,
+            auth=auth,
+            auth_env=auth_env,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -2893,6 +3144,12 @@ import aitbc_mcp_cli_tools  # noqa: F401  # registers more CLI tools
 # ---------------------------------------------------------------------------
 
 import aitbc_mcp_rpc_tools  # noqa: F401  # registers more RPC tools
+
+# ---------------------------------------------------------------------------
+# Additional typed ZK tools from the companion module
+# ---------------------------------------------------------------------------
+
+import aitbc_mcp_zk_tools  # noqa: F401  # registers ZK tools
 
 
 # ---------------------------------------------------------------------------
