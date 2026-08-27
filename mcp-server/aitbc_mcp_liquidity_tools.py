@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from aitbc_mcp_server import (
+    NodeRole,
     _host_for_role,
     _json,
     _run_http,
@@ -48,7 +49,7 @@ def _call_liquidity(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_liquidity_pools(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -67,7 +68,7 @@ def get_liquidity_pool(
         Field(description="Pool identifier, e.g. 'main'."),
     ] = "main",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -90,7 +91,7 @@ def get_liquidity_stakes(
         Field(description="Filter stakes by pool identifier."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -135,7 +136,7 @@ def build_liquidity_deposit(
         Field(description="Transaction fee in AIT (e.g. '0.01')."),
     ] = "0.01",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -173,7 +174,7 @@ def build_liquidity_withdraw(
         Field(description="Transaction fee in AIT (e.g. '0.01')."),
     ] = "0.01",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -210,7 +211,7 @@ def build_liquidity_claim(
         Field(description="Transaction fee in AIT (e.g. '0.01')."),
     ] = "0.01",
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
