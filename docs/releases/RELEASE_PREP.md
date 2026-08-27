@@ -19,6 +19,9 @@ Order matters because later releases consume shared types from earlier ones:
 
 ```
 v0.10.18  (update deployment stabilization) ✅ complete
+  → v0.23.0  (design & correctness audit; split into v0.23.1–v0.23.34) ✅ complete
+  → v0.24.0  (hub node development special; split into v0.24.1–v0.24.18) ✅ complete
+  → v0.25.0  (on-chain liquidity, sync consolidation and MCP expansion) ✅ complete
   → v0.11.0  (Phase 4 & 2026 roadmap foundations: memory, economics, grants, compliance) 🚧 in progress
   → v0.12.0  (OpenClaw Autonomous Economics) 🚧 planned
   → v0.13.0  (Mature Autonomous Economic Infrastructure) 🚧 planned
@@ -98,7 +101,7 @@ Before code, write or review design docs for any cross-cutting types:
 
 ## 10. Release Gate Sign-Off
 
-- [ ] Release gate checklist in `docs/releases/<version>/change.log` is reviewed
+- [ ] Release gate checklist in `docs/releases/vX.Y/vX.Y.Z_change.log` is reviewed
       and realistic.
 - [ ] `AGENTS.md` task split is assigned and does not overlap with other
       in-flight releases.

@@ -1,7 +1,7 @@
 # Release Documentation Maintenance
 
-**Last Updated**: June 30, 2026
-**Version**: 1.0
+**Last Updated**: August 27, 2026
+**Version**: 1.1
 **Maintainers**: Documentation Team
 
 ## Purpose
@@ -26,10 +26,10 @@ This document provides guidelines for maintaining the AITBC release documentatio
 
 ```
 docs/releases/
-  vX.Y.Z/
-    change.log      - Main release notes
-    AGENTS.md       - Agent task assignments
-    suggestions.md  - Investigation findings (optional)
+  vX.Y/
+    vX.Y.Z_change.log      - Main release notes
+    vX.Y.Z_AGENTS.md       - Agent task assignments (optional)
+    vX.Y.Z_suggestions.md  - Investigation findings (optional)
 ```
 
 **Example**: `v0.6/v0.6.0_change.log`, `v0.6/v0.6.0_AGENTS.md`
@@ -41,7 +41,7 @@ docs/releases/
 When a new release is planned, create a versioned directory:
 
 ```bash
-mkdir -p /opt/aitbc/docs/releases/vX.Y.Z
+mkdir -p /opt/aitbc/docs/releases/vX.Y
 ```
 
 ### Step 2: Create Standard Files
@@ -58,7 +58,7 @@ Update `/opt/aitbc/docs/releases/README.md` to include the new release:
 
 1. Add the release to the appropriate section (Current Releases or Legacy Releases)
 2. Use the correct link format:
-   - For v0.5.x+: `[vX.Y.Z](vX.Y.Z/change.log)`
+   - For v0.5.x+: `[vX.Y.Z](v0.X/v0.X.Y_change.log)`
    - For v0.4.x and earlier: `vX.Y.Z` (if not archived)
 3. Include a brief description of the release
 4. Update the "Last Updated" date and version number
@@ -88,7 +88,7 @@ Documentation should be archived when:
 
    ```bash
    mkdir -p /opt/aitbc/docs/releases/archive/v0.4.x
-   mv /opt/aitbc/docs/releases/RELEASE_v0.4.*.md /opt/aitbc/docs/releases/archive/v0.4.x/
+   mv /opt/aitbc/docs/releases/v0.4/v0.4.*_change.log /opt/aitbc/docs/releases/archive/v0.4.x/
    ```
 
 3. Update the release index to reference the archived location
@@ -107,9 +107,9 @@ docs/releases/
       RELEASE_v0.4.0.md
       RELEASE_v0.4.1.md
       ...
-  vX.Y.Z/
-    change.log
-    AGENTS.md
+  vX.Y/
+    vX.Y.Z_change.log
+    vX.Y.Z_AGENTS.md
     ...
 ```
 
@@ -134,8 +134,8 @@ When features are deprecated:
 ### File Naming
 
 - Use lowercase with hyphens for file names: `change.log`, `AGENTS.md`
-- Use semantic versioning for directories: `v0.6.0`, `v1.0.0`
-- Use descriptive names for topic files: `SERVICE_REPUTATION.md`, `MULTI_GPU_SUPPORT.md`
+- Use semantic minor-version directories with full patch-version file names: `v0.6/v0.6.0_change.log`
+- Use descriptive names for extra topic files: `v0.6.5_SERVICE_REPUTATION.md`, `v0.4.7_MULTI_GPU_SUPPORT.md`
 
 ### Markdown Formatting
 
