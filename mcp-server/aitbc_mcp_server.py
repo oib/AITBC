@@ -482,7 +482,7 @@ def _run_http(
     else:
         headers = "-H 'Content-Type: application/json'"
         if body:
-            payload = shlex.quote(json.dumps(body))
+            payload = shlex.quote(json.dumps(body, default=str))
             command = f"curl -sS -X {method} {headers} -d {payload} {shlex.quote(url)}"
         else:
             command = f"curl -sS -X {method} {shlex.quote(url)}"
@@ -1609,7 +1609,7 @@ def call_aitbc_http(
     if method != "GET":
         headers = "-H 'Content-Type: application/json'"
         if body:
-            payload = shlex.quote(json.dumps(body))
+            payload = shlex.quote(json.dumps(body, default=str))
             command = f"curl -sS -X {method} {headers} -d {payload} {shlex.quote(url)}"
         else:
             command = f"curl -sS -X {method} {shlex.quote(url)}"

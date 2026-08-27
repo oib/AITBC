@@ -58,7 +58,7 @@ def _http_write_tool(
     base = ALL_SERVICE_BASES[service]
     url = _build_http_url(base, path, None)
     headers = "-H 'Content-Type: application/json'"
-    payload = shlex.quote(json.dumps(body))
+    payload = shlex.quote(json.dumps(body, default=str))
     command = f"curl -sS -X POST {headers} -d {payload} {shlex.quote(url)}"
 
     if dry_run:
