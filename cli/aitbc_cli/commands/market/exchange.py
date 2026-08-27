@@ -50,10 +50,16 @@ def exchange_price(ctx):
 
         response = client.get("/v1/exchange/price")
 
+        # The /v1/exchange/price endpoint returns numeric values as strings,
+        # so convert before formatting.
+        eth_usd = Decimal(response.get("eth_usd", 0))
+        ait_usd = Decimal(response.get("ait_usd", 0))
+        exchange_rate = Decimal(response.get("exchange_rate", 0))
+
         info("ETH-AIT Exchange Rate:")
-        info(f"  ETH Price: ${response['eth_usd']:.2f} USD")
-        info(f"  AIT Price: ${response['ait_usd']:.2f} USD")
-        info(f"  Exchange Rate: 1 ETH = {response['exchange_rate']:.2f} AIT")
+        info(f"  ETH Price: ${eth_usd:.2f} USD")
+        info(f"  AIT Price: ${ait_usd:.2f} USD")
+        info(f"  Exchange Rate: 1 ETH = {exchange_rate:.2f} AIT")
         info(f"  Timestamp: {response['timestamp']}")
 
     except NetworkError as e:
@@ -82,10 +88,12 @@ def list_deposits(ctx, status: str, limit: int):
 
         info(f"ETH Deposits (status: {status}):")
         for deposit in deposits:
+            amount_eth = Decimal(deposit.get("amount_eth", 0))
+            amount_ait = Decimal(deposit.get("amount_ait", 0))
             info(f"  ID: {deposit['id']}")
             info(f"    TX Hash: {deposit['tx_hash']}")
             info(f"    From: {deposit['from_address']}")
-            info(f"    Amount: {deposit['amount_eth']:.6f} ETH → {deposit['amount_ait']:.2f} AIT")
+            info(f"    Amount: {amount_eth:.6f} ETH → {amount_ait:.2f} AIT")
             info(f"    Status: {deposit['status']}")
             info(f"    Created: {deposit['created_at']}")
             info("")
@@ -115,7 +123,9 @@ def mint_ait(ctx, deposit_id: str):
             error(f"Deposit is not pending (current status: {deposit['status']})")
             raise click.Abort()
 
-        info(f"Deposit: {deposit['amount_eth']:.6f} ETH → {deposit['amount_ait']:.2f} AIT")
+        deposit_amount_eth = Decimal(deposit.get("amount_eth", 0))
+        deposit_amount_ait = Decimal(deposit.get("amount_ait", 0))
+        info(f"Deposit: {deposit_amount_eth:.6f} ETH → {deposit_amount_ait:.2f} AIT")
         info(f"From: {deposit['from_address']}")
 
         if not click.confirm("Verify this deposit and mint AIT tokens?"):
@@ -157,7 +167,7 @@ def mint_ait(ctx, deposit_id: str):
             tx_payload = {
                 "from": genesis_wallet_address,
                 "to": wallet_address,
-                "value": str(int(deposit["amount_ait"] * 1000)),  # Convert to milli-AIT
+                "value": str(int(deposit_amount_ait * 1000)),  # Convert to milli-AIT
                 "nonce": nonce,
                 "gas_limit": 21000,
                 "gas_price": "1",
@@ -194,7 +204,7 @@ def mint_ait(ctx, deposit_id: str):
             complete_response = client.post(f"/v1/exchange/deposits/{deposit_id}/complete", json={"tx_hash": tx_hash})
 
             if complete_response.get("success"):
-                success(f"Transferred {deposit['amount_ait']:.2f} AIT to {wallet_address} (tx: {tx_hash[:16]}...)")
+                success(f"Transferred {deposit_amount_ait:.2f} AIT to {wallet_address} (tx: {tx_hash[:16]}...)")
             else:
                 error(f"Failed to complete deposit: {complete_response}")
                 raise click.Abort()

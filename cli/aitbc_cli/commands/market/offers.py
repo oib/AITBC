@@ -481,22 +481,25 @@ def match(ctx):
         # Load CLI config
         config = get_config()
 
-        # Query blockchain for matching
-        try:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.get("/rpc/transactions/marketplace/match")
+        # The matching endpoint lives on the marketplace service, not the blockchain RPC.
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
-            if not result:
-                # Try hub
-                hub_url = config.blockchain_rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                result = http_client.get("/rpc/transactions/marketplace/match")
+        # POST an empty compute request and let the marketplace return the best offer.
+        match_request = {
+            "requirements": {},
+            "chain_id": get_chain_id(),
+        }
+        result = http_client.post("/v1/marketplace/match", json=match_request)
 
-            output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
-        except NetworkError as e:
-            error(f"Network error: {e}")
-            raise click.Abort() from e
+        if not result:
+            info("No GPU marketplace match found")
+            return
 
+        output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error matching GPU market: {e}")
         raise click.Abort() from e
