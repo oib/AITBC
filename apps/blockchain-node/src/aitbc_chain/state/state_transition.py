@@ -21,7 +21,6 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_transaction_signature
 from .gpu_resources import GPUAllocation, GPURegistration
-from .liquidity import _ensure_pool_accounts
 from .liquidity_transition import (
     apply_liquidity_claim,
     apply_liquidity_deposit,
@@ -165,7 +164,6 @@ class StateTransition:
         if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
             # Ensure the pool reserve/treasury/emission accounts and the sender
             # and recipient accounts exist before the generic recipient check.
-            _ensure_pool_accounts(session, chain_id)
             _ensure_account(session, chain_id, sender_addr)
             _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
             payload = tx_data.get("payload") or {}
