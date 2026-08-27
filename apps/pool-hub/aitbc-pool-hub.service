@@ -13,7 +13,7 @@ Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/pool-hub/src:/opt/aitbc/packa
 Environment="HOME=/var/lib/aitbc"
 Environment="PGSSLMODE=disable"
 EnvironmentFile=/etc/aitbc/%N.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn poolhub.app.main:app --host 127.0.0.1 --port 8210
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn poolhub.app.main:app --host 127.0.0.1 --port 8210 --no-access-log --log-level critical
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

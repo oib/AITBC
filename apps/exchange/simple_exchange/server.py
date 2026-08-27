@@ -21,7 +21,7 @@ def main():
     # ponytail: Imported here so --help is fast; app triggers DB init via lifespan.
     from .main import app
 
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(app, host=args.host, port=args.port, log_level="critical", access_log=False)
 
 
 if __name__ == "__main__":

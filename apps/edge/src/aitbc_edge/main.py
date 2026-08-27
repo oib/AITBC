@@ -142,5 +142,6 @@ if __name__ == "__main__":
         host=settings.app_host,
         port=settings.app_port,
         reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),
-        log_level=settings.log_level.lower(),
+        log_level="critical",
+        access_log=False,
     )
