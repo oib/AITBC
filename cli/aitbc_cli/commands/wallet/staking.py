@@ -1,7 +1,6 @@
 """Staking wallet commands"""
 
 import json
-from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -16,8 +15,10 @@ from aitbc.utils.validation import validate_address
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient
-from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
+
+
+LIQUIDITY_FEE_DEFAULT_AIT = Decimal("0.01")
 
 
 def _brand_token_symbol() -> str:
@@ -49,6 +50,57 @@ def _get_chain_id(rpc_url: str) -> str:
         import os
 
         return os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+
+def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
+    """Fetch the on-chain nonce for an address."""
+    try:
+        account = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
+        return int(account.get("nonce", 0))
+    except Exception:
+        return 0
+
+
+def _sign_transaction(wallet_data: dict[str, Any], tx: dict[str, Any]) -> str:
+    """Sign a transaction dict with the wallet's private key."""
+    from eth_keys import keys
+    from eth_utils import keccak
+
+    private_key = wallet_data.get("private_key")
+    if not private_key:
+        raise click.ClickException("Wallet private key is not available")
+
+    if private_key.startswith("0x"):
+        private_key = private_key[2:]
+    pk = keys.PrivateKey(bytes.fromhex(private_key))
+
+    signed = {k: v for k, v in tx.items() if k != "signature"}
+    message = json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
+    signature = pk.sign_msg_hash(keccak(message))
+    return signature.to_bytes().hex()
+
+
+def _submit_liquidity_transaction(
+    ctx: click.Context,
+    wallet_data: dict[str, Any],
+    tx: dict[str, Any],
+) -> str:
+    """Sign and submit a LIQUIDITY_* transaction, returning the tx hash."""
+
+    rpc_url = _get_rpc_url(ctx)
+    chain_id = _get_chain_id(rpc_url)
+    address = canonical_address(wallet_data["address"])
+
+    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+    tx["nonce"] = _get_account_nonce(http_client, address, chain_id)
+    tx["chain_id"] = chain_id
+    tx["signature"] = _sign_transaction(wallet_data, tx)
+
+    result = http_client.post("/rpc/transaction", json=tx, timeout=30)
+    tx_hash = result.get("transaction_hash")
+    if not tx_hash:
+        raise click.ClickException(f"Transaction submission failed: {result}")
+    return str(tx_hash)
 
 
 def _sign_staking_message(wallet_data: dict[str, Any], sign_data: dict[str, Any]) -> str:
@@ -243,9 +295,10 @@ def staking_info(ctx):
 @click.argument("amount", type=DECIMAL)
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
+@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
-def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int):
-    """Stake tokens into a liquidity pool"""
+def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decimal):
+    """Stake tokens into an on-chain liquidity pool"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -254,98 +307,114 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int):
         return
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    hex_address = canonical_address(wallet_data["address"])
+    amount_seconds = int(ait_to_seconds(amount))
+    fee_seconds = int(ait_to_seconds(fee))
 
-    # Use the on-chain balance for the liquidity-stake check; the local
-    # ``balance`` field in the wallet JSON is a stale cache that is not
-    # updated by on-chain ``stake`` / ``send`` operations.
-    rpc_url = _get_rpc_url(ctx)
-    chain_id = _get_chain_id(rpc_url)
-    sender_address = wallet_data["address"]
-    hex_address = canonical_address(sender_address)
+    tx = {
+        "type": "LIQUIDITY_DEPOSIT",
+        "from": hex_address,
+        "to": _pool_main_address(),
+        "amount": amount_seconds,
+        "fee": fee_seconds,
+        "payload": {
+            "pool_id": pool,
+            "lock_days": lock_days,
+        },
+    }
+
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        account = http_client.get(f"/rpc/account/{hex_address}?chain_id={chain_id}")
-        chain_balance = Decimal(seconds_to_ait(account.get("balance", 0)))
-    except Exception:
-        chain_balance = _wallet_amount(wallet_data.get("balance", 0))
-
-    if chain_balance < amount:
-        error(f"Insufficient balance. Available: {chain_balance}, Required: {amount}")
+        tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
+    except click.ClickException as e:
+        error(str(e))
+        ctx.exit(1)
+        return
+    except Exception as e:
+        error(f"Error submitting liquidity deposit: {e}")
         ctx.exit(1)
         return
 
-    balance = chain_balance
-
-    # APY tiers based on lock period
-    if lock_days >= 90:
-        apy = 12.0
-        tier = "platinum"
-    elif lock_days >= 30:
-        apy = 8.0
-        tier = "gold"
-    elif lock_days >= 7:
-        apy = 5.0
-        tier = "silver"
-    else:
-        apy = 3.0
-        tier = "bronze"
-
-    import secrets
-
-    stake_id = f"liq_{secrets.token_hex(6)}"
-    now = datetime.now(UTC)
-
+    # Keep a local cache entry for convenience, but mark it as on-chain-backed.
     liq_record = {
-        "stake_id": stake_id,
+        "stake_id": None,  # will be set by on-chain state
         "pool": pool,
         "amount": str(amount),
-        "apy": apy,
-        "tier": tier,
         "lock_days": lock_days,
-        "start_date": now.isoformat(),
-        "unlock_date": (now + timedelta(days=lock_days)).isoformat() if lock_days > 0 else None,
+        "tx_hash": tx_hash,
         "status": "active",
     }
-
     wallet_data.setdefault("liquidity", []).append(liq_record)
-    wallet_data["balance"] = str(balance - amount)
-
-    wallet_data["transactions"].append(
-        {
-            "type": "liquidity_stake",
-            "amount": str(-amount),
-            "pool": pool,
-            "stake_id": stake_id,
-            "timestamp": now.isoformat(),
-        }
-    )
-
-    # Save wallet with encryption
     password = None
     if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
-    success(f"Staked {amount} AITBC into '{pool}' pool ({tier} tier, {apy}% APY)")
+    success(f"Submitted liquidity deposit of {amount} AIT to pool '{pool}' (tx={tx_hash})")
     output(
         {
-            "stake_id": stake_id,
+            "transaction_hash": tx_hash,
             "pool": pool,
             "amount": str(amount),
-            "apy": apy,
-            "tier": tier,
             "lock_days": lock_days,
-            "new_balance": wallet_data["balance"],
+            "fee": str(fee),
         },
+        ctx.obj.get("output_format", "table"),
+    )
+
+
+@wallet.command(name="liquidity-claim")
+@click.argument("stake_id")
+@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.pass_context
+def liquidity_claim(ctx, stake_id: str, fee: Decimal):
+    """Claim accrued rewards for a liquidity stake"""
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj.get("wallet_path")
+    if not wallet_path or not Path(wallet_path).exists():
+        error("Wallet not found")
+        ctx.exit(1)
+        return
+
+    wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    hex_address = canonical_address(wallet_data["address"])
+    fee_seconds = int(ait_to_seconds(fee))
+
+    tx = {
+        "type": "LIQUIDITY_CLAIM",
+        "from": hex_address,
+        "to": hex_address,
+        "amount": 0,
+        "fee": fee_seconds,
+        "payload": {
+            "pool_id": "main",
+            "stake_id": stake_id,
+        },
+    }
+
+    try:
+        tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
+    except click.ClickException as e:
+        error(str(e))
+        ctx.exit(1)
+        return
+    except Exception as e:
+        error(f"Error submitting liquidity claim: {e}")
+        ctx.exit(1)
+        return
+
+    success(f"Submitted liquidity claim for stake {stake_id} (tx={tx_hash})")
+    output(
+        {"transaction_hash": tx_hash, "stake_id": stake_id, "fee": str(fee)},
         ctx.obj.get("output_format", "table"),
     )
 
 
 @wallet.command(name="liquidity-unstake")
 @click.argument("stake_id")
+@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
-def liquidity_unstake(ctx, stake_id: str):
-    """Withdraw from a liquidity pool with rewards"""
+def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
+    """Withdraw a liquidity stake and its rewards"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -354,68 +423,50 @@ def liquidity_unstake(ctx, stake_id: str):
         return
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    hex_address = canonical_address(wallet_data["address"])
+    fee_seconds = int(ait_to_seconds(fee))
 
-    liquidity = wallet_data.get("liquidity", [])
-    record = next(
-        (r for r in liquidity if r["stake_id"] == stake_id and r["status"] == "active"),
-        None,
-    )
+    tx = {
+        "type": "LIQUIDITY_WITHDRAW",
+        "from": hex_address,
+        "to": hex_address,
+        "amount": 0,
+        "fee": fee_seconds,
+        "payload": {
+            "pool_id": "main",
+            "stake_id": stake_id,
+        },
+    }
 
-    if not record:
-        error(f"Active liquidity stake '{stake_id}' not found")
+    try:
+        tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
+    except click.ClickException as e:
+        error(str(e))
+        ctx.exit(1)
+        return
+    except Exception as e:
+        error(f"Error submitting liquidity withdraw: {e}")
         ctx.exit(1)
         return
 
-    # Check lock period
-    if record.get("unlock_date"):
-        unlock = datetime.fromisoformat(record["unlock_date"])
-        if datetime.now() < unlock:
-            error(f"Stake is locked until {record['unlock_date']}")
-            ctx.exit(1)
-            return
-
-    # Calculate rewards
-    start = datetime.fromisoformat(record["start_date"])
-    days_staked = max((datetime.now(UTC) - start.replace(tzinfo=UTC)).total_seconds() / 86400, 0.001)
-    principal = _wallet_amount(record["amount"])
-    rewards = principal * (Decimal(str(record["apy"])) / 100) * (Decimal(str(days_staked)) / 365)
-    total = principal + rewards
-
-    record["status"] = "completed"
-    record["end_date"] = datetime.now(UTC).isoformat()
-    record["rewards"] = str(round(rewards, 6))
-
-    wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + total)
-
-    wallet_data["transactions"].append(
-        {
-            "type": "liquidity_unstake",
-            "amount": str(total),
-            "principal": str(principal),
-            "rewards": str(round(rewards, 6)),
-            "pool": record["pool"],
-            "stake_id": stake_id,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-    )
-
-    # Save wallet with encryption
+    for rec in wallet_data.get("liquidity", []):
+        if rec.get("stake_id") == stake_id and rec.get("status") == "active":
+            rec["status"] = "completed"
     password = None
     if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
-    success(f"Withdrawn {total:.6f} AITBC (principal: {principal}, rewards: {rewards:.6f})")
+    success(f"Submitted liquidity unstake for stake {stake_id} (tx={tx_hash})")
     output(
-        {
-            "stake_id": stake_id,
-            "pool": record["pool"],
-            "principal": str(principal),
-            "rewards": str(round(rewards, 6)),
-            "total_returned": str(round(total, 6)),
-            "days_staked": round(days_staked, 2),
-            "apy": record["apy"],
-            "new_balance": str(round(_wallet_amount(wallet_data["balance"]), 6)),
-        },
+        {"transaction_hash": tx_hash, "stake_id": stake_id, "fee": str(fee)},
         ctx.obj.get("output_format", "table"),
     )
+
+
+def _pool_main_address() -> str:
+    """Return the canonical pool main address deterministically."""
+    from aitbc.crypto.signature_recovery import canonical_address
+    from eth_utils import keccak
+
+    return canonical_address("0x" + keccak(b"aitbc.pool.main").hex()[:40])

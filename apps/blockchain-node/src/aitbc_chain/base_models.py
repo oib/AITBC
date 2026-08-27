@@ -3,13 +3,14 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, Column, ForeignKeyConstraint, Index, String, TypeDecorator, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKeyConstraint, Index, Numeric, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship
 
 from .metadata import ChainBase
 
 from aitbc.crypto.signature_recovery import canonical_address
+from decimal import Decimal
 
 _HEX_PATTERN = re.compile(r"^(0x)?[0-9a-fA-F]+$")
 
@@ -701,3 +702,57 @@ class SmartContract(ChainBase, table=True):
     status: str = Field(default="deployed", index=True)  # deployed, destroyed
     deployed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class LiquidityPool(ChainBase, table=True):
+    """On-chain AIT-only liquidity pool."""
+
+    __tablename__ = "liquidity_pool"
+    __table_args__ = ()
+
+    pool_id: str = Field(primary_key=True)
+    chain_id: str = Field(primary_key=True)
+    token: str = Field(default="AIT")
+    total_staked: int = Field(default=0, sa_column=Column(BigInteger, default=0))
+    reward_per_share: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18), default=0))
+    last_distribution_at: datetime | None = None
+    status: str = Field(default="active", index=True)  # active, paused
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class LiquidityStake(ChainBase, table=True):
+    """A single liquidity provider position in a pool."""
+
+    __tablename__ = "liquidity_stake"
+    __table_args__ = ()
+
+    stake_id: str = Field(primary_key=True)
+    chain_id: str = Field(primary_key=True)
+    pool_id: str = Field(index=True)
+    address: str = Field(sa_column=Column(EvmAddress, nullable=False, index=True))
+    amount: int = Field(sa_column=Column(BigInteger, default=0))
+    lock_days: int = Field(default=0)
+    locked_until: datetime | None = None
+    reward_per_share_at_stake: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18), default=0))
+    rewards_claimed: int = Field(default=0, sa_column=Column(BigInteger, default=0))
+    status: str = Field(default="active", index=True)  # active, withdrawn
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class LiquidityDistribution(ChainBase, table=True):
+    """Record of a reward or fee distribution into a pool."""
+
+    __tablename__ = "liquidity_distribution"
+    __table_args__ = ()
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    pool_id: str = Field(index=True)
+    amount: int = Field(sa_column=Column(BigInteger, default=0))
+    source: str = Field(default="")  # escrow_fee, gas_fee, bridge_fee, emission
+    reward_per_share_before: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18), default=0))
+    reward_per_share_after: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18), default=0))
+    total_staked: int = Field(default=0, sa_column=Column(BigInteger, default=0))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

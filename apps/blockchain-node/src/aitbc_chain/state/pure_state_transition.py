@@ -91,6 +91,22 @@ def compute_state_delta(
     value = tx_data.get("value", tx_data.get("amount", 0))
     fee = tx_data.get("fee", 0)
 
+    # Liquidity pool transactions update non-account state (pools, stakes,
+    # distributions) that the parallel delta map cannot yet model. Force a
+    # sequential fallback so StateTransition.apply_transaction handles them.
+    if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"{tx_type} must be processed sequentially",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+
     # Validate sender exists
     if not sender:
         return StateDelta(

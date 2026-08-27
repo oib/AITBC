@@ -34,6 +34,9 @@ from .base_models import (  # noqa: F401
     AgentIdentity,
     GovernanceProposal,
     GovernanceVote,
+    LiquidityPool,
+    LiquidityStake,
+    LiquidityDistribution,
     _to_ait_address,
     canonical_address,
 )
