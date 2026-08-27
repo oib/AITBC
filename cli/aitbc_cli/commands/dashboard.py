@@ -18,29 +18,40 @@ from aitbc.utils import format_ait
 logger = get_logger(__name__)
 
 _MINER_ENV_FILE = "/etc/aitbc/aitbc-miner.env"
+_MINER_UNIT_FILE = "/opt/aitbc/apps/miner/aitbc-miner.service"
+
+
+def _parse_env_assignment(line: str) -> tuple[str, str] | None:
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return None
+    if line.startswith("Environment="):
+        line = line.split("=", 1)[1].strip().strip("'\"")
+    key, value = line.split("=", 1)
+    key, value = key.strip().strip("'\""), value.strip().strip("'\"")
+    if key in ("MINER_ID", "MINER_API_KEY", "AITBC_API_KEY") and value:
+        return key, value
+    return None
 
 
 def _miner_env() -> dict[str, str]:
-    """Return miner id/key from the process environment or the shop miner env file."""
+    """Return miner id/key from the process environment, miner env file, or unit file."""
     values: dict[str, str] = {}
     for key in ("MINER_ID", "MINER_API_KEY", "AITBC_API_KEY"):
         value = os.environ.get(key)
         if value:
             values[key] = value
-    if "MINER_ID" in values and "MINER_API_KEY" in values:
-        return values
-    try:
-        with open(_MINER_ENV_FILE) as handle:
-            for line in handle:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                key, value = key.strip(), value.strip().strip("'\"")
-                if key in ("MINER_ID", "MINER_API_KEY", "AITBC_API_KEY") and key not in values:
-                    values[key] = value
-    except OSError:
-        logger.debug("Could not read %s", _MINER_ENV_FILE, exc_info=True)
+    for path in (_MINER_ENV_FILE, _MINER_UNIT_FILE):
+        if "MINER_ID" in values and "MINER_API_KEY" in values:
+            break
+        try:
+            with open(path) as handle:
+                for raw in handle:
+                    parsed = _parse_env_assignment(raw)
+                    if parsed and parsed[0] not in values:
+                        values[parsed[0]] = parsed[1]
+        except OSError:
+            logger.debug("Could not read %s", path, exc_info=True)
     return values
 
 
@@ -315,14 +326,12 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 or "unknown"
             )
 
-        # Miner-role headers for /v1/miners/*; monitoring is public if called unauthenticated.
+        # Miner-role headers for /v1/miners/* and /v1/monitoring* (ANY authenticated role).
         miner_headers = _auth_headers(ctx, role="miner")
         coord_url = _coordinator_base_url(ctx)
         coord_client = AITBCHTTPClient(base_url=coord_url, timeout=15, headers=miner_headers)
-        metrics_client = AITBCHTTPClient(base_url=coord_url, timeout=15)
 
-        # Aggregate job/miner metrics (public monitoring endpoint)
-        metrics = _safe_get(metrics_client, "/v1/monitoring/metrics") or {}
+        metrics = _safe_get(coord_client, "/v1/monitoring/metrics") or {}
         jobs_metrics = metrics.get("jobs", {}) if isinstance(metrics, dict) else {}
         miners_metrics = metrics.get("miners", {}) if isinstance(metrics, dict) else {}
 
