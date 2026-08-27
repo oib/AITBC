@@ -265,7 +265,7 @@ async function trackDeposit() {
 
     if (!input) {
         errEl.style.display = 'block';
-        errEl.textContent = 'Enter an ETH tx hash or AIT address';
+        errEl.textContent = 'Enter a 0x ETH tx hash (66 chars) or 0x AIT address (42 chars)';
         return;
     }
 
@@ -284,8 +284,8 @@ async function lookupDeposit(input) {
 
     try {
         let deposit = null;
-        if (input.startsWith('0x')) {
-            // Lookup by ETH tx hash
+        if (input.startsWith('0x') && input.length === 66) {
+            // Lookup by ETH tx hash (0x + 64 hex)
             const resp = await fetch(`/v1/bridge/deposit/${encodeURIComponent(input)}`);
             if (resp.ok) {
                 deposit = await resp.json();
@@ -295,8 +295,8 @@ async function lookupDeposit(input) {
                 resultEl.style.display = 'none';
                 return;
             }
-        } else {
-            // Lookup by AIT address — filter deposits list
+        } else if (input.startsWith('0x') && input.length === 42) {
+            // Lookup by AIT address (0x + 40 hex) — filter deposits list
             const resp = await fetch('/v1/bridge/deposits?limit=50');
             if (resp.ok) {
                 const data = await resp.json();
@@ -308,6 +308,11 @@ async function lookupDeposit(input) {
                 resultEl.style.display = 'none';
                 return;
             }
+        } else {
+            errEl.style.display = 'block';
+            errEl.textContent = 'Enter a 0x ETH tx hash (66 chars) or 0x AIT address (42 chars)';
+            resultEl.style.display = 'none';
+            return;
         }
 
         if (deposit) {

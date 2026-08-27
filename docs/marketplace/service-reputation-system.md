@@ -52,7 +52,7 @@ Submit a rating for a service.
 ```json
 {
   "rating": 4.5,
-  "reviewer_id": "ait1abc123...",
+  "reviewer_id": "0x...",
   "comment": "Great service!"
 }
 ```
@@ -66,7 +66,7 @@ Submit a rating for a service.
     "id": "rating-uuid",
     "service_id": "ollama-llama3.2:3b",
     "rating": 4.5,
-    "reviewer_id": "ait1abc123...",
+    "reviewer_id": "0x...",
     "comment": "Great service!",
     "created_at": "2026-06-05T10:40:43.469518",
     "source_node": "local"
@@ -97,7 +97,7 @@ Retrieve ratings for a service.
       "id": "rating-uuid",
       "service_id": "ollama-llama3.2:3b",
       "rating": 4.5,
-      "reviewer_id": "ait1abc123...",
+      "reviewer_id": "0x...",
       "comment": "Great service!",
       "created_at": "2026-06-05T10:40:43.469518",
       "source_node": "local"
@@ -126,7 +126,7 @@ Fetch ratings that haven't been synced to remote nodes.
       "id": "rating-uuid",
       "service_id": "ollama-llama3.2:3b",
       "rating": 4.5,
-      "reviewer_id": "ait1abc123...",
+      "reviewer_id": "0x...",
       "comment": "Great service!",
       "created_at": "2026-06-05T10:40:43.469518",
       "source_node": "local"
@@ -148,7 +148,7 @@ Sync ratings from a remote node with conflict resolution.
     "id": "rating-uuid",
     "service_id": "ollama-llama3.2:3b",
     "rating": 4.5,
-    "reviewer_id": "ait1abc123...",
+    "reviewer_id": "0x...",
     "comment": "Great service!",
     "created_at": "2026-06-05T10:40:43.469518",
     "source_node": "hub"

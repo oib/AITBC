@@ -48,7 +48,7 @@ def _make_zk_job(db_session, receipt, payment_status=PENDING_ACCEPTANCE, amount=
         amount=amount,
         currency="AITBC",
         status="escrowed",
-        meta_data={"provider_address": "ait1provider"},
+        meta_data={"provider_address": "0x1234567890123456789012345678901234567890"},
     )
     db_session.add(payment)
     db_session.commit()
@@ -64,7 +64,7 @@ def _make_zk_job(db_session, receipt, payment_status=PENDING_ACCEPTANCE, amount=
 @pytest.mark.asyncio
 async def test_release_payment_blocked_when_computation_correct_false(db_session, payment_service):
     """Escrow release must fail when the ZK receipt is verified but computation_correct is False."""
-    receipt = {"zk_status": "verified", "computation_correct": False, "provider": "ait1provider"}
+    receipt = {"zk_status": "verified", "computation_correct": False, "provider": "0x1234567890123456789012345678901234567890"}
     job, payment = _make_zk_job(db_session, receipt)
 
     with patch(
@@ -82,7 +82,7 @@ async def test_release_payment_blocked_when_computation_correct_false(db_session
 async def test_release_payment_blocked_when_computation_correct_missing(db_session, payment_service):
     """Escrow release must fail for a legacy receipt that has no computation_correct key."""
     # Legacy receipt: only zk_status was stored.
-    receipt = {"zk_status": "verified", "provider": "ait1provider"}
+    receipt = {"zk_status": "verified", "provider": "0x1234567890123456789012345678901234567890"}
     job, payment = _make_zk_job(db_session, receipt)
 
     with patch(
@@ -102,7 +102,7 @@ async def test_release_payment_allowed_when_computation_correct_true(db_session,
     receipt = {
         "zk_status": "verified",
         "computation_correct": True,
-        "provider": "ait1provider",
+        "provider": "0x1234567890123456789012345678901234567890",
         "zk_proof": {"circuit": "receipt_public"},
     }
     job, payment = _make_zk_job(db_session, receipt)
@@ -129,7 +129,7 @@ async def test_release_payment_allowed_when_computation_correct_true(db_session,
 @pytest.mark.asyncio
 async def test_accept_job_blocked_when_computation_correct_false(db_session):
     """Customer acceptance must be rejected when computation_correct is False."""
-    receipt = {"zk_status": "verified", "computation_correct": False, "provider": "ait1provider"}
+    receipt = {"zk_status": "verified", "computation_correct": False, "provider": "0x1234567890123456789012345678901234567890"}
     job, _payment = _make_zk_job(db_session, receipt)
 
     with pytest.raises(HTTPException) as exc:
@@ -144,7 +144,7 @@ async def test_accept_job_allowed_when_computation_correct_true(db_session):
     receipt = {
         "zk_status": "verified",
         "computation_correct": True,
-        "provider": "ait1provider",
+        "provider": "0x1234567890123456789012345678901234567890",
         "zk_proof": {"circuit": "receipt_public"},
     }
     job, _payment = _make_zk_job(db_session, receipt)

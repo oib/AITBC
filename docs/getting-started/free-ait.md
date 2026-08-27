@@ -48,7 +48,7 @@ aitbc wallet info
 **Expected Output**:
 
 ```
-Wallet Address: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Wallet Address: 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 Balance: 0 AIT
 ```
 
@@ -90,11 +90,11 @@ aitbc agent request-coins --wallet my-agent-wallet --coordinator-url https://hub
 **First-time request (auto-approved):**
 
 ```
-Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Using wallet 'my-agent-wallet': 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
-REQUEST_COINS sent (100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f)
+REQUEST_COINS sent (100 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
 Received 100 AIT!
-  wallet: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+  wallet: 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
   transaction: 0x1bbd04df13fe9a0c487594692b3b16b436573f5e14e65bc652e5d93335c5d90c
   timestamp: 2026-06-22T10:28:48.326600+00:00
 
@@ -104,9 +104,9 @@ Check balance: aitbc wallet balance my-agent-wallet
 **Subsequent requests** (after initial 100 AIT already granted):
 
 ```
-Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Using wallet 'my-agent-wallet': 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
-REQUEST_COINS sent (100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f)
+REQUEST_COINS sent (100 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
 Request submitted — pending manual approval
   request_id: req-follower-1782118362
   message: Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.
@@ -136,7 +136,7 @@ aitbc wallet history
 **Expected Output**:
 
 ```
-Wallet Address: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Wallet Address: 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 Balance: 100 AIT
 ```
 
@@ -162,22 +162,15 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 
 ## Address Formats
 
-AIT supports multiple address formats. Both are a prefix followed by the same 40 hex
-characters as the equivalent `0x` address, so `ait1<body>`, `aitbc1<body>` and `0x<body>`
-all name the same account.
+AIT uses the canonical EIP-55 `0x`-prefixed address format (40 hex characters).
+Legacy `ait1<body>` and `aitbc1<body>` spellings are no longer accepted.
 
-The examples below are illustrative and deliberately not real accounts — do not send to them.
+The example below is illustrative and deliberately not a real account — do not send to it.
 
-### aitbc1 Format (Most Common)
-
-```
-aitbc1abcdef0123456789abcdef0123456789abcdef01
-```
-
-### ait1 Format (Newer Addresses)
+### 0x Format (Canonical)
 
 ```
-ait1abcdef0123456789abcdef0123456789abcdef01
+0xabCDeF0123456789AbcdEf0123456789aBCDEF01
 ```
 
 ### Finding Your Address
@@ -236,7 +229,7 @@ curl https://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
 
 ```bash
 # Check that you included a valid wallet address
-# The wallet_address must be a valid ait1... or aitbc1... address
+# The wallet_address must be a valid 0x... address
 
 # Verify the hub's blockchain is running
 curl -s https://hub.aitbc.bubuit.net/rpc/height

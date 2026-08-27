@@ -109,10 +109,10 @@ def test_an_escrow_without_a_provider_is_refused(db_session, job_service):
     assert job_service.acquire_next_job(miner) is None
 
 
-def test_legacy_address_spelling_still_matches(db_session, job_service):
-    """ait1<body> and 0x<body> are the same address, and the chain treats them so."""
-    job = _escrowed_job(job_service, db_session, provider_address="ait1" + PROVIDER[2:])
-    miner = _miner(db_session, "miner_legacy", PROVIDER.upper().replace("0X", "0x"))
+def test_lowercase_0x_spelling_still_matches(db_session, job_service):
+    """Lowercase and checksummed 0x are the same address, and the chain treats them so."""
+    job = _escrowed_job(job_service, db_session, provider_address=PROVIDER.lower())
+    miner = _miner(db_session, "miner_lower", PROVIDER)
 
     acquired = job_service.acquire_next_job(miner)
     assert acquired is not None
@@ -159,4 +159,4 @@ def test_same_address_never_matches_a_missing_address():
     """Two unknowns are not a match; that would defeat the whole check."""
     assert not same_address(None, None)
     assert not same_address("", PROVIDER)
-    assert same_address(PROVIDER, "AIT1" + PROVIDER[2:].upper())
+    assert same_address(PROVIDER, PROVIDER.lower())

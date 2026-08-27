@@ -68,7 +68,7 @@ def create_keystore(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate encrypted keystore for an account")
-    parser.add_argument("address", help="Account address (e.g., aitbc1treasury)")
+    parser.add_argument("address", help="Account address (e.g., 0xF2960ce8B9316F198A2aF4A864e9D3A6AeFA606F)")
     parser.add_argument("--output-dir", type=Path, default=Path("/var/lib/aitbc/keystore"), help="Keystore directory")
     parser.add_argument("--force", action="store_true", help="Overwrite existing keystore file")
     parser.add_argument("--password", help="Encryption password (or read from KEYSTORE_PASSWORD / keystore/.password)")

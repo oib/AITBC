@@ -5,7 +5,9 @@
 # Uses RPC endpoints only, no SSH access
 #
 
-set -e
+set -euo pipefail
+set -u
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -255,7 +257,7 @@ main() {
     local failed_transactions=0
 
     for i in $(seq 1 $TRANSACTION_COUNT); do
-        local recipient="ait1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz4vxy"
+        local recipient="0x45424919B597811a273EB3E8Db0Dc1C8Fbfb3DE1"
         local amount=1
 
         if submit_transaction "${STRESS_WALLET_NAME}" "${recipient}" "${amount}"; then

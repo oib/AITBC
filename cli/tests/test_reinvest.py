@@ -26,7 +26,11 @@ def mock_client():
         config.coordinator_api_url = "http://localhost:8203"
         config.api_key = "test-key"
         config.timeout = 10
-        with patch("aitbc_cli.commands.ai.get_config", return_value=config):
+        wallet = ("0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f", None, "genesis")
+        with (
+            patch("aitbc_cli.commands.ai.get_config", return_value=config),
+            patch("aitbc_cli.commands.ai.load_wallet_for_payment", return_value=wallet),
+        ):
             yield client
 
 
@@ -45,9 +49,9 @@ def test_ai_submit_with_auto_reinvest_pct(runner, mock_client):
             "--wallet",
             "genesis",
             "--buyer-address",
-            "ait1buyer",
+            "0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f",
             "--provider-address",
-            "aitbc1provider",
+            "0xb8A506Cd711eb63630081cCfD907Fa0545B3BE9E",
         ],
         obj={"output_format": "table", "api_key": "test-key"},
     )

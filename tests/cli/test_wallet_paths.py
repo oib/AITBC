@@ -44,9 +44,9 @@ def test_wallet_dir_override_beats_env(monkeypatch, tmp_path):
 
 def test_resolve_wallet_address_uses_env_dir(monkeypatch, tmp_path):
     wallet_path = tmp_path / "shop.json"
-    wallet_path.write_text(json.dumps({"address": "ait1testaddress00000000000000000000000000"}))
+    wallet_path.write_text(json.dumps({"address": "0xAC2A166407d6e39f1b3B884b93319686b658B276"}))
     monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path))
-    assert _resolve_wallet_address("shop") == "ait1testaddress00000000000000000000000000"
+    assert _resolve_wallet_address("shop") == "0xAC2A166407d6e39f1b3B884b93319686b658B276"
 
 
 def test_resolve_wallet_address_missing_env_dir(monkeypatch, tmp_path):

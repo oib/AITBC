@@ -1,6 +1,6 @@
 """Tests for the aitbc sync command group."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner

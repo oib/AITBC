@@ -57,14 +57,9 @@ class TestAgentCommands:
         """Test that agent ping subcommand is registered"""
         assert "ping" in agent.commands
 
-
-
-
     def test_agent_request_coins_command_exists(self):
         """Test that agent request-coins subcommand is registered"""
         assert "request-coins" in agent.commands
-
-
 
     @patch("aitbc_cli.commands.agent._resolve_wallet_address")
     @patch("aitbc_cli.commands.agent.websockets")

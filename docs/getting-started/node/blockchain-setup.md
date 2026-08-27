@@ -122,9 +122,9 @@ Two things to check when setting it:
   are the same setting written two ways — but both reach the process as distinct environment
   variables, and the lowercase spelling wins. An env file containing both has one live value
   and one line of dead text that reads exactly like configuration.
-- **It must be the full 40-hex address.** `validate_address` accepts a short `ait1…` body, but
-  signature verification canonicalises `ait1<body>` to `0x<body>` only at exactly 40 hex
-  characters. A shorter id passes validation, fails to match any keystore entry (`Failed to
+- **It must be the full 40-hex `0x` address.** `validate_address` and signature verification
+  only accept the canonical EIP-55 `0x<body>` form at exactly 40 hex characters. A shorter
+  or non-`0x` id passes validation, fails to match any keystore entry (`Failed to
   load proposer key from keystore` on every start), and produces blocks no peer can verify.
 
 ## 3. Setup Genesis Block
@@ -146,7 +146,7 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
     "height": 0,
     "hash": "cb501afac77f861ad145aa7fc1106bb8f9caa90ed5c2498f0d4e73107c327504",
     "parent_hash": "0x00",
-    "proposer": "ait1db5247d03ca2e40f3995a583b2c097ab703efd4d",
+    "proposer": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
     "timestamp": "2026-05-30T16:50:31.562096+00:00",
     "tx_count": 0,
     "chain_id": "ait-hub.aitbc.bubuit.net",
@@ -159,7 +159,7 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
   },
   "allocations": [
     {
-      "address": "ait1db5247d03ca2e40f3995a583b2c097ab703efd4d",
+      "address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
       "balance": 1000000000,
       "nonce": 0
     }

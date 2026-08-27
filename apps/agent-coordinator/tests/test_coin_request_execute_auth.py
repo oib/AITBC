@@ -42,8 +42,8 @@ from .conftest import (
     stored_request,
 )
 
-APPROVED = {"id": "req-0001", "amount": PAYOUT, "wallet_address": "ait1" + "ab" * 20}
-PENDING = {"id": "req-0002", "amount": 250, "wallet_address": "ait1" + "ba" * 20}
+APPROVED = {"id": "req-0001", "amount": PAYOUT, "wallet_address": "0xf3290d4F0D96a2Dd231C44362c57d5ad0AF0A281"}
+PENDING = {"id": "req-0002", "amount": 250, "wallet_address": "0x3e68f68531Da9c0748083f9dA97EC6e61B7d4A89"}
 
 
 @pytest.fixture
@@ -135,7 +135,7 @@ def test_the_amount_comes_from_the_stored_request_not_the_request_body(client) -
 
 
 def test_the_destination_comes_from_the_stored_request_not_the_request_body(client) -> None:
-    attacker = "ait1" + "ee" * 20
+    attacker = "0x3476E0ee27BC5959c00de93834a9a3d033d32DAA"
 
     response = _execute(client, wallet_address=attacker)
 

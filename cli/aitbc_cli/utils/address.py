@@ -1,24 +1,17 @@
 """Address canonicalization helpers for AITBC CLI.
 
-The chain accepts multiple spellings of the same 20-byte address:
-- EIP-55 checksummed ``0x...``
-- lowercase ``0x...``
-- legacy ``ait1...`` / ``aitbc1...`` prefixes
-
-For most on-chain queries and transaction fields we want the same canonical
-lowercase ``0x`` form that the node uses internally.  This module wraps the
-chain's canonicaliser and provides a safe CLI-facing fallback.
+The chain accepts only EIP-55 or lowercase ``0x...`` secp256k1/EVM addresses.
+Legacy ``ait1...`` / ``aitbc1...`` prefixes are rejected.
 """
 
 from aitbc.crypto.signature_recovery import canonical_address
 
 
 def to_canonical(address: str) -> str:
-    """Return the lowercase ``0x`` canonical form of an AITBC address.
+    """Return the canonical ``0x`` form of an AITBC address.
 
-    Accepts ``0x``, ``ait1``, or ``aitbc1`` spellings.  If the input cannot be
-    canonicalised, it is returned lowercased and stripped; the caller should
-    validate it separately.
+    Accepts ``0x``-prefixed secp256k1/EVM addresses. Legacy spellings are
+    returned unchanged; the caller should validate them separately.
     """
     try:
         return canonical_address(address)
@@ -31,14 +24,14 @@ def to_eip55(address: str) -> str:
 
     This is the form expected by ``aitbc.utils.validation.validate_address``
     for ``0x`` inputs and is accepted by the blockchain RPC ``/rpc/account/...``
-    endpoints.  Legacy ``ait1`` / ``aitbc1`` spellings are converted first.
+    endpoints. Legacy ``ait1`` / ``aitbc1`` spellings are rejected.
     """
     from eth_utils import to_checksum_address
 
     canon = to_canonical(address)
-    if canon.startswith("0x"):
-        return to_checksum_address(canon)
-    return canon
+    if not is_canonical(canon):
+        raise ValueError(f"Invalid address: {address}")
+    return to_checksum_address(canon)
 
 
 def is_canonical(address: str) -> bool:

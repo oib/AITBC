@@ -10440,7 +10440,7 @@
             }
           },
           "401": {
-            "description": "Invalid or expired nonce / Invalid signature format / Signature verification failed",
+            "description": "Invalid wallet address / Invalid or expired nonce / Invalid signature format / Signature verification failed",
             "content": {
               "application/json": {
                 "schema": {

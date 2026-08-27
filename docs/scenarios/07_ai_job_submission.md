@@ -237,7 +237,7 @@ async def main() -> None:
         input_data={"prompt": "Summarize the latest AITBC block headers"},
         requirements={"max_latency_ms": 5000},
         max_price=5.0,
-        buyer_address="aitbc1...",  # funded wallet for escrow
+        buyer_address="0x...",  # funded wallet for escrow
     )
     print(f"Submitted job: {job_id}")
 
@@ -279,7 +279,7 @@ async def main() -> None:
         job_type="inference",
         input_data={"prompt": "Translate this document to French"},
         max_price=3.0,
-        buyer_address="aitbc1...",
+        buyer_address="0x...",
     )
     result = await wait_for_completion(consumer, job_id)
     print(result)
@@ -308,7 +308,7 @@ async def main() -> None:
         "inference",
         {"prompt": "test"},
         max_price=1.0,
-        buyer_address="aitbc1...",
+        buyer_address="0x...",
     )
     ok = await consumer.cancel_job(job_id)
     print(f"Cancelled {job_id}: {ok}")

@@ -12,6 +12,9 @@ from aitbc_cli.utils.crypto_utils import (
     validate_multisig_transaction,
 )
 
+VALID_ADDRESS = "0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C"
+VALID_ADDRESS_2 = "0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f"
+
 
 class TestCreateSignatureChallenge:
     """Test create_signature_challenge function"""
@@ -20,7 +23,7 @@ class TestCreateSignatureChallenge:
         """Test basic challenge creation"""
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
         }
@@ -44,7 +47,7 @@ class TestCreateSignatureChallenge:
         """Test that same inputs produce same challenge"""
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
         }
@@ -90,7 +93,7 @@ class TestValidateMultisigTransaction:
         """Test validation of valid transaction"""
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
@@ -104,7 +107,7 @@ class TestValidateMultisigTransaction:
     def test_validate_missing_field(self):
         """Test validation with missing required field"""
         tx_data = {
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
@@ -122,7 +125,7 @@ class TestValidateMultisigTransaction:
         is_valid, error = validate_multisig_transaction(tx_data)
 
         assert is_valid is False
-        assert "must start with '0x' or 'ait'" in error
+        assert "Invalid recipient address format" in error
 
     def test_validate_invalid_address_length(self):
         """Test validation with invalid address length"""
@@ -131,7 +134,7 @@ class TestValidateMultisigTransaction:
         is_valid, error = validate_multisig_transaction(tx_data)
 
         assert is_valid is False
-        assert "42 chars" in error
+        assert "Invalid address format" in error
 
     def test_validate_invalid_address_characters(self):
         """Test validation with invalid address characters"""
@@ -146,13 +149,29 @@ class TestValidateMultisigTransaction:
         is_valid, error = validate_multisig_transaction(tx_data)
 
         assert is_valid is False
-        assert "invalid characters" in error
+        assert "Invalid" in error
+
+    def test_validate_legacy_address_rejected(self):
+        """Test validation rejects legacy ait1/aitbc1 addresses"""
+        for addr in ("aitbc1" + "cd" * 20, "ait1" + "cd" * 20):
+            tx_data = {
+                "tx_id": "tx123",
+                "to": addr,
+                "amount": 100,
+                "timestamp": 1234567890,
+                "nonce": "abc123",
+            }
+
+            is_valid, error = validate_multisig_transaction(tx_data)
+
+            assert is_valid is False
+            assert "Invalid" in error
 
     def test_validate_negative_amount(self):
         """Test validation with negative amount"""
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": -100,
             "timestamp": 1234567890,
             "nonce": "abc123",
@@ -167,7 +186,7 @@ class TestValidateMultisigTransaction:
         """Test validation with invalid amount format"""
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": "invalid",
             "timestamp": 1234567890,
             "nonce": "abc123",
@@ -182,37 +201,39 @@ class TestValidateMultisigTransaction:
 class TestBech32ToHex:
     """Test bech32_to_hex function"""
 
-    def test_bech32_to_hex_aitbc1_prefix(self):
-        """Test conversion with legacy aitbc1 prefix (backward compat)"""
-        bech32 = "aitbc1c10f0e4f"
-
-        result = bech32_to_hex(bech32)
-
-        assert result == "0xc10f0e4f"
-
-    def test_bech32_to_hex_ait1_prefix(self):
-        """Test conversion with legacy ait1 prefix (backward compat)"""
-        bech32 = "ait1c10f0e4f"
-
-        result = bech32_to_hex(bech32)
-
-        assert result == "0xc10f0e4f"
-
-    def test_bech32_to_hex_already_hex(self):
-        """Test conversion with already hex address"""
-        hex_addr = "c10f0e4f"
+    def test_bech32_to_hex_0x_prefix(self):
+        """Test pass-through with 0x prefix (native format)"""
+        hex_addr = VALID_ADDRESS_2
 
         result = bech32_to_hex(hex_addr)
 
-        assert result == "0xc10f0e4f"
+        assert result == hex_addr
 
-    def test_bech32_to_hex_with_0x_prefix(self):
-        """Test conversion with 0x prefix (native format, returns as-is)"""
-        hex_addr = "0xc10f0e4f"
+    def test_bech32_to_hex_lowercase_0x(self):
+        """Test pass-through with lowercase 0x address"""
+        hex_addr = VALID_ADDRESS_2.lower()
 
         result = bech32_to_hex(hex_addr)
 
-        assert result == "0xc10f0e4f"
+        assert result == hex_addr
+
+    def test_bech32_to_hex_legacy_aitbc1_rejected(self):
+        """Test legacy aitbc1 prefix is rejected"""
+        bech32 = "aitbc1" + "cd" * 20
+
+        with pytest.raises(ValueError) as exc_info:
+            bech32_to_hex(bech32)
+
+        assert "Legacy" in str(exc_info.value)
+
+    def test_bech32_to_hex_legacy_ait1_rejected(self):
+        """Test legacy ait1 prefix is rejected"""
+        bech32 = "ait1" + "cd" * 20
+
+        with pytest.raises(ValueError) as exc_info:
+            bech32_to_hex(bech32)
+
+        assert "Legacy" in str(exc_info.value)
 
     def test_bech32_to_hex_empty(self):
         """Test conversion with empty string"""
@@ -221,25 +242,39 @@ class TestBech32ToHex:
 
         assert "cannot be empty" in str(exc_info.value)
 
+    def test_bech32_to_hex_invalid_length(self):
+        """Test conversion with invalid 0x length"""
+        with pytest.raises(ValueError) as exc_info:
+            bech32_to_hex("0x123")
+
+        assert "Invalid 0x address" in str(exc_info.value)
+
 
 class TestHexToBech32:
     """Test hex_to_bech32 function"""
 
-    def test_hex_to_bech32_without_prefix(self):
-        """Test conversion without 0x prefix (returns 0x format)"""
-        hex_addr = "c10f0e4f"
-
-        result = hex_to_bech32(hex_addr)
-
-        assert result == "0xc10f0e4f"
-
     def test_hex_to_bech32_with_prefix(self):
-        """Test conversion with 0x prefix (returns 0x format)"""
-        hex_addr = "0xc10f0e4f"
+        """Test pass-through with 0x prefix"""
+        hex_addr = VALID_ADDRESS_2
 
         result = hex_to_bech32(hex_addr)
 
-        assert result == "0xc10f0e4f"
+        assert result == hex_addr
+
+    def test_hex_to_bech32_lowercase(self):
+        """Test pass-through with lowercase 0x address"""
+        hex_addr = VALID_ADDRESS_2.lower()
+
+        result = hex_to_bech32(hex_addr)
+
+        assert result == hex_addr
+
+    def test_hex_to_bech32_legacy_rejected(self):
+        """Test legacy aitbc1 prefix is rejected"""
+        with pytest.raises(ValueError) as exc_info:
+            hex_to_bech32("aitbc1" + "cd" * 20)
+
+        assert "Legacy" in str(exc_info.value)
 
     def test_hex_to_bech32_empty(self):
         """Test conversion with empty string"""
@@ -257,7 +292,7 @@ class TestMultisigSecurityManager:
         manager = MultisigSecurityManager()
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
@@ -274,7 +309,7 @@ class TestMultisigSecurityManager:
     def test_create_signing_request_invalid_transaction(self):
         """Test creating signing request with invalid transaction"""
         manager = MultisigSecurityManager()
-        tx_data = {"to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "amount": 100}
+        tx_data = {"to": VALID_ADDRESS, "amount": 100}
 
         with pytest.raises(ValueError) as exc_info:
             manager.create_signing_request(tx_data, "wallet123")
@@ -286,7 +321,7 @@ class TestMultisigSecurityManager:
         manager = MultisigSecurityManager()
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",
@@ -316,7 +351,7 @@ class TestMultisigSecurityManager:
         manager = MultisigSecurityManager()
         tx_data = {
             "tx_id": "tx123",
-            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "to": VALID_ADDRESS,
             "amount": 100,
             "timestamp": 1234567890,
             "nonce": "abc123",

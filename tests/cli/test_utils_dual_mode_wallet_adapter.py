@@ -97,7 +97,7 @@ class TestDualModeWalletAdapter:
         mock_wallet_info = Mock()
         mock_wallet_info.wallet_id = "wallet123"
         mock_wallet_info.public_key = "pubkey123"
-        mock_wallet_info.address = "aitbc1abc"
+        mock_wallet_info.address = "0xB304b44D76f48A4e1837d53E7d17EcDD6b642438"
         mock_wallet_info.created_at = "2024-01-01"
         mock_wallet_info.metadata = {}
         mock_daemon.create_wallet.return_value = mock_wallet_info

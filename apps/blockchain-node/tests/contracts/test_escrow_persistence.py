@@ -19,9 +19,9 @@ from aitbc_chain.rpc.escrow_routes import refund_escrow
 # the id the `escrow_engine` fixture installs as the default.
 CHAIN_ID = "test"
 
-# Valid AIT-style addresses (ait1 + 40 hex chars)
-BUYER = "ait1" + "0" * 40
-PROVIDER = "ait1" + "1" * 40
+# Valid canonical EVM addresses (0x + 40 hex chars)
+BUYER = "0x11a01cb7F3C01AE8E8a992FE72fbDF3B530ccdD7"
+PROVIDER = "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450"
 
 
 @pytest.fixture

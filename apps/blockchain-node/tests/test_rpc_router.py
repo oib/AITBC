@@ -20,8 +20,8 @@ def test_transfer_payload_accepts_modern_format() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
@@ -30,8 +30,8 @@ def test_transfer_payload_accepts_modern_format() -> None:
     )
 
     assert req.type == "TRANSFER"
-    assert req.sender == "aitbc1sender"
-    assert req.recipient == "aitbc1recipient"
+    assert req.sender == "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a"
+    assert req.recipient == "0xb14d128ec760432d2041DF727D9fafc8814E7f2C"
     assert req.amount == 100
     # The model_validator copies the top-level ``amount`` (no alias) into the
     # payload. Note: ``payload["to"]`` is only set when the input uses the
@@ -50,18 +50,18 @@ def test_transfer_payload_accepts_legacy_to_field() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
             "signature": _DUMMY_SIG,
-            "payload": {"to": "aitbc1other", "amount": 200},
+            "payload": {"to": "0x256c41bf37d05c2FD5f58efcE46bbe7746CA299d", "amount": 200},
         }
     )
 
-    assert req.recipient == "aitbc1recipient"
-    assert req.payload["to"] == "aitbc1other"
+    assert req.recipient == "0xb14d128ec760432d2041DF727D9fafc8814E7f2C"
+    assert req.payload["to"] == "0x256c41bf37d05c2FD5f58efcE46bbe7746CA299d"
     assert req.payload["amount"] == 200
 
 
@@ -76,7 +76,7 @@ def test_transfer_payload_requires_recipient_or_to() -> None:
         TransactionRequest.model_validate(
             {
                 "type": "TRANSFER",
-                "from": "aitbc1sender",
+                "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
                 "amount": 100,
                 "nonce": 1,
                 "fee": 0,
@@ -97,8 +97,8 @@ def test_transfer_payload_normalizes_amount_and_value() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
@@ -122,8 +122,8 @@ def test_transfer_payload_normalizes_value_to_amount() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 200,
             "nonce": 1,
             "fee": 0,
@@ -141,8 +141,8 @@ def test_transfer_payload_with_chain_id() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
@@ -160,8 +160,8 @@ def test_transfer_payload_without_chain_id() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
@@ -178,8 +178,8 @@ def test_transfer_payload_with_sig() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "TRANSFER",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
@@ -201,8 +201,8 @@ def test_transfer_payload_without_sig() -> None:
         TransactionRequest.model_validate(
             {
                 "type": "TRANSFER",
-                "from": "aitbc1sender",
-                "to": "aitbc1recipient",
+                "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+                "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
                 "amount": 100,
                 "nonce": 1,
                 "fee": 0,
@@ -222,8 +222,8 @@ def test_transfer_type_normalization() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "transfer",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,
@@ -245,8 +245,8 @@ def test_receipt_claim_type() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "receipt_claim",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 0,
             "nonce": 1,
             "fee": 0,
@@ -271,8 +271,8 @@ def test_unsupported_transaction_type() -> None:
     req = TransactionRequest.model_validate(
         {
             "type": "INVALID_TYPE",
-            "from": "aitbc1sender",
-            "to": "aitbc1recipient",
+            "from": "0x3B7f50D0F18B5Cf72C41E965a75BcF78F364D60a",
+            "to": "0xb14d128ec760432d2041DF727D9fafc8814E7f2C",
             "amount": 100,
             "nonce": 1,
             "fee": 0,

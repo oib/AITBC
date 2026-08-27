@@ -105,7 +105,7 @@ cd /opt/aitbc
 ```bash
 ./aitbc-cli send \
   --from my-wallet \
-  --to ait1abc123... \
+  --to 0x... \
   --amount 100.0 \
   --fee 10.0 \
   --password "securepassword123" \
@@ -336,7 +336,7 @@ cd /opt/aitbc
 **Example:**
 ```bash
 ./aitbc-cli agent message \
-  --agent ait1abc123... \
+  --agent 0x... \
   --message "Hello agent" \
   --wallet my-wallet \
   --password "securepassword123" \
@@ -517,7 +517,7 @@ python3 cli/unified_cli.py agent register \
 ### Password File Usage
 ```bash
 # Using password file
-./aitbc-cli send --from my-wallet --to ait1abc... --amount 100 --password-file /var/lib/aitbc/keystore/.genesis_password
+./aitbc-cli send --from my-wallet --to 0x... --amount 100 --password-file /var/lib/aitbc/keystore/.genesis_password
 ```
 
 ---
@@ -545,7 +545,7 @@ python3 cli/unified_cli.py agent register \
 
 ### 3. Invalid Address
 **Error:** `Invalid recipient address`
-**Fix:** Verify address format (starts with `ait1`)
+**Fix:** Verify address format (starts with `0x`)
 
 ### 4. Insufficient Balance
 **Error:** Transaction failed (insufficient balance)

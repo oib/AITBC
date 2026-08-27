@@ -161,7 +161,7 @@ class EscrowManager:
             return False
 
         def _valid_addr(addr: str) -> bool:
-            return addr.startswith("0x") and len(addr) == 42 or addr.startswith("aitbc1") or addr.startswith("ait1")
+            return addr.startswith("0x") and len(addr) == 42
 
         if not _valid_addr(client_address):
             return False

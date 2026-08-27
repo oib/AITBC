@@ -118,15 +118,15 @@ aitbc genesis verify --chain-id ait-mainnet
 ✓ Genesis config found: /var/lib/aitbc/data/ait-mainnet/genesis.json
 chain_id           ait-mainnet
 genesis_hash       0x0000000000000000000000000000000000000000000000000000000000000000
-proposer           aitbc1genesis000000000000000000000000000000
+proposer           0x0000000000000000000000000000000000000000
 allocations_count  3
 ✓ Genesis block found in database
 height   0
 hash     0x0000000000000000000000000000000000000000000000000000000000000000
-proposer  aitbc1genesis000000000000000000000000000000
+proposer  0x0000000000000000000000000000000000000000
 ✓ Found 3 accounts in database
 ✓ Genesis wallet found: /var/lib/aitbc/keystore/genesis.json
-address     aitbc1genesis000000000000000000000000000000
+address     0x0000000000000000000000000000000000000000
 public_key  -----BEGIN PUBLIC-----
 ```
 
@@ -146,11 +146,11 @@ genesis_block
   height        0
   hash          0x0000000000000000000000000000000000000000000000000000000000000000
   parent_hash   0x00
-  proposer      aitbc1genesis000000000000000000000000000000
+  proposer      0x0000000000000000000000000000000000000000
   timestamp     2026-06-25T12:00:00Z
   tx_count      0
 allocations
-  address       aitbc1genesis000000000000000000000000000000
+  address       0x0000000000000000000000000000000000000000
   balance       1000000000
   nonce         0
 total_allocations  3

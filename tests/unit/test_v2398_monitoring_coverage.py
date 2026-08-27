@@ -42,7 +42,7 @@ PORT_SOURCES: dict[str, tuple[int, str, str]] = {
     "aitbc-blockchain-explorer": (
         8100,
         "apps/blockchain-explorer/main.py",
-        r"uvicorn\.run\(app, host=\"0\.0\.0\.0\", port=(\d+)\)",
+        r"uvicorn\.run\(app, host=\"0\.0\.0\.0\", port=(\d+)",
     ),
     "aitbc-gpu": (8101, "apps/gpu/src/gpu_service/config.py", r"gpu_bind_port: int = (\d+)"),
     "aitbc-trading": (8104, "apps/trading/src/trading_service/config.py", r"bind_port: int = Field\(default=(\d+)\)"),

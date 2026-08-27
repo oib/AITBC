@@ -17,7 +17,7 @@ def account():
 
 
 @account.command()
-@click.option("--address", required=True, help="Account address (0x, ait1 or aitbc1)")
+@click.option("--address", required=True, help="Account address (0x, 42 hex chars)")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.option("--chain-id", help="Chain ID for multichain operations")
 @click.pass_context

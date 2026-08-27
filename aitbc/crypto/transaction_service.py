@@ -18,6 +18,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address
 
 # Transaction fields covered by the signature, in the exact shape the node
 # verifier reconstructs. Keep in sync with the node verifier (see module docstring).
@@ -111,7 +112,15 @@ class TransactionService:
 
             private_key = keys.PrivateKey(bytes.fromhex(self.genesis_private_key.removeprefix("0x")))
             signer_address = private_key.public_key.to_checksum_address()
-            if canonical_address(self.genesis_address) != canonical_address(signer_address):
+            genesis_address = canonical_address(self.genesis_address)
+            to_address = canonical_address(to_address)
+            if not validate_address(genesis_address):
+                self.logger.error("GENESIS_ADDRESS (%s) is not a valid 0x address", self.genesis_address)
+                return None
+            if not validate_address(to_address):
+                self.logger.error("to_address (%s) is not a valid 0x address", to_address)
+                return None
+            if canonical_address(genesis_address) != canonical_address(signer_address):
                 # The node recovers the signer from the signature and compares it to
                 # `from`; a mismatch here guarantees a 403 rejection downstream, so we
                 # fail closed rather than emit an unverifiable transaction.
@@ -125,19 +134,14 @@ class TransactionService:
                 return None
 
             actual_chain_id = chain_id if chain_id is not None else self.chain_id
-            # Use the operator's spelling of the address, not the `0x` form recovery
-            # produces. The node compares `from` to the recovered signer canonically
-            # (`rpc/utils.verify_transaction_signature`), so either spelling verifies —
-            # but its account lookups are exact string matches
-            # (`rpc/accounts.get_account`), and the account this key controls is stored
-            # under whatever `GENESIS_ADDRESS` says. Signing with the derived spelling
-            # would look up a nonce for an address the chain has no row for (V23-63).
-            actual_nonce = self.get_nonce(self.genesis_address)
+            # The hub now stores and verifies EIP-55 0x addresses.  Use the canonical
+            # form for the `from` field and the nonce lookup so account lookups match.
+            actual_nonce = self.get_nonce(genesis_address)
 
             # Replicate the node's payload defaulting: for a TRANSFER posted via the
             # `from`/`to` aliases, the server injects `amount` (only) into the payload.
             transaction: dict[str, Any] = {
-                "from": self.genesis_address,
+                "from": genesis_address,
                 "to": to_address,
                 "amount": amount,
                 "fee": fee,

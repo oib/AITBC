@@ -92,7 +92,6 @@ class TestSimulateCommands:
         assert "Network Topology" in result.output
         assert "Final Network Status" in result.output
 
-
     def test_run_scenario(self, runner, mock_config, mock_http):
         """Test running a simulation scenario via coordinator API"""
         result = runner.invoke(

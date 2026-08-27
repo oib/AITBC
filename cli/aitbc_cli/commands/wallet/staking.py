@@ -10,9 +10,11 @@ import click
 
 from aitbc.utils.units import ait_to_seconds, seconds_to_ait
 
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address
+
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
-from ...utils.crypto_utils import bech32_to_hex
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
@@ -79,7 +81,10 @@ def stake(ctx, amount: Decimal, duration: int):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    hex_address = bech32_to_hex(sender_address)
+    hex_address = canonical_address(sender_address)
+    if not validate_address(hex_address):
+        error(f"Invalid sender address: {sender_address}")
+        return
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(rpc_url)
 
@@ -142,7 +147,10 @@ def unstake(ctx, stake_id: str):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    hex_address = bech32_to_hex(sender_address)
+    hex_address = canonical_address(sender_address)
+    if not validate_address(hex_address):
+        error(f"Invalid sender address: {sender_address}")
+        return
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(rpc_url)
 
@@ -202,7 +210,10 @@ def staking_info(ctx):
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = wallet_data["address"]
 
-    hex_address = bech32_to_hex(sender_address)
+    hex_address = canonical_address(sender_address)
+    if not validate_address(hex_address):
+        error(f"Invalid sender address: {sender_address}")
+        return
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(rpc_url)
 

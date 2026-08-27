@@ -1101,7 +1101,7 @@
             }
           },
           "400": {
-            "description": "eth_amount must be a number / eth_amount must be positive / ait_address is required / Minimum deposit is {min_deposit} ETH",
+            "description": "eth_amount must be a number / eth_amount must be positive / ait_address is required / Invalid ait_address: {exc} / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1310,7 +1310,7 @@
             }
           },
           "400": {
-            "description": "eth_amount must be positive / ait_address is required",
+            "description": "eth_amount must be positive / ait_address is required / Invalid ait_address: {exc}",
             "content": {
               "application/json": {
                 "schema": {

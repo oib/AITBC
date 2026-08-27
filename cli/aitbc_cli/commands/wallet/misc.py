@@ -8,8 +8,8 @@ from pathlib import Path
 import click
 
 from aitbc.utils import ait_to_seconds
+from aitbc.utils.validation import validate_address_strict
 from ...utils import error, output, success
-from ...utils.crypto_utils import bech32_to_hex
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import _load_wallet, wallet
 
@@ -99,15 +99,11 @@ def fund(ctx, address: str, amount: int, amount_ait: str | None, chain_id: str):
             error(f"Invalid --amount-ait: {amount_ait}")
             return
 
-    # Normalize address (accept 0x, aitbc1, ait1, or raw hex)
+    # Normalize and validate address (canonical 0x only)
     try:
-        address = bech32_to_hex(address).lower()
-    except ValueError as e:
+        address = validate_address_strict(address).lower()
+    except Exception as e:
         error(f"Invalid address: {e}")
-        return
-
-    if not address.startswith("0x") or not all(c in "0123456789abcdef" for c in address[2:]):
-        error("Address must be a valid hex string")
         return
 
     # Call faucet endpoint at /rpc/faucet

@@ -207,7 +207,7 @@ It maps a service name to a base URL and builds a `curl` command.
 Examples:
 
 - service="blockchain-rpc", path="info"
-- service="blockchain-rpc", path="account/ait1..."
+- service="blockchain-rpc", path="account/0x..."
 - service="blockchain-rpc", path="transaction/0x..."
 - service="blockchain-rpc", path="blocks-range", params={"limit": "3"}
 - service="coordinator-api", path="v1/jobs", params={"limit": "10"}

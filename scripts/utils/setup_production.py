@@ -2,17 +2,33 @@
 """
 Full production setup:
 - Generate keystore password file
-- Generate encrypted keystores for aitbc1genesis and aitbc1treasury
-- Initialize production database with allocations
+- Generate encrypted keystores for the genesis and treasury accounts
+- Initialize production database with 0x allocations
 - Configure blockchain node .env for ait-mainnet
 - Restart services
+
+All addresses are canonical EIP-55 0x-prefixed secp256k1/EVM addresses.
+No ``ait1`` or ``aitbc1`` prefix is used for address values.
 """
 
+from __future__ import annotations
+
+import hashlib
+import json
 import os
 import secrets
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
+from eth_account import Account
+
+# Reuse the blockchain node's keystore encryption; insert the directory first
+# so we don't accidentally import scripts/utils/keystore.py.
+_BLOCKCHAIN_SCRIPTS = Path(__file__).parent.parent / "apps" / "blockchain-node" / "scripts"
+sys.path.insert(0, str(_BLOCKCHAIN_SCRIPTS))
+import keystore as _node_keystore
 
 # Configuration
 CHAIN_ID = "ait-mainnet"
@@ -20,10 +36,18 @@ DATA_DIR = Path("/var/lib/aitbc/data/ait-mainnet")
 DB_PATH = DATA_DIR / "chain.db"
 KEYS_DIR = Path("/var/lib/aitbc/keystore")
 PASSWORD_FILE = KEYS_DIR / ".password"
-NODE_VENV = Path("/opt/aitbc/apps/blockchain-node/.venv/bin/python")
 NODE_ENV = Path("/opt/aitbc/apps/blockchain-node/.env")
 SERVICE_NODE = "aitbc-blockchain-node"
 SERVICE_RPC = "aitbc-blockchain-rpc"
+GENESIS_PROD_YAML = Path("/opt/aitbc/genesis_prod.yaml")
+
+
+def _derive_address(name: str) -> str:
+    """Return a deterministic 0x address derived from ``name``.
+
+    Used for system accounts that do not receive a dedicated keystore.
+    """
+    return Account.from_key(hashlib.sha256(name.encode()).digest()).address
 
 
 def run(cmd, check=True, capture_output=False):
@@ -33,6 +57,54 @@ def run(cmd, check=True, capture_output=False):
     else:
         result = subprocess.run(cmd, shell=False, check=check)
     return result
+
+
+def _write_keystore(name: str, private_hex: str, password: str, keystore_dir: Path) -> Path:
+    """Write a web3-style keystore JSON for the given private key."""
+    private_bytes = bytes.fromhex(private_hex)
+    account = Account.from_key(private_bytes)
+    address = account.address
+    salt = os.urandom(32)
+    ks = _node_keystore.encrypt_private_key(private_bytes, password, salt)
+    ks["address"] = address
+    ks["keytype"] = "secp256k1"
+    ks["version"] = 1
+    ks["created_at"] = datetime.now(UTC).isoformat() + "Z"
+
+    keystore_dir.mkdir(parents=True, exist_ok=True)
+    out_file = keystore_dir / f"{name}.json"
+    out_file.write_text(json.dumps(ks, indent=2))
+    os.chmod(out_file, 0o600)
+    return out_file
+
+
+def _write_genesis_prod_yaml(
+    genesis_address: str,
+    treasury_address: str,
+    output: Path,
+) -> None:
+    """Write a genesis_prod.yaml with 0x addresses and production balances."""
+    accounts = [
+        {"address": genesis_address, "balance": 10_000_000},
+        {"address": treasury_address, "balance": 5_000_000},
+        {"address": _derive_address("aitbc1aiengine"), "balance": 2_000_000},
+        {"address": _derive_address("aitbc1surveillance"), "balance": 1_500_000},
+        {"address": _derive_address("aitbc1analytics"), "balance": 1_000_000},
+        {"address": _derive_address("aitbc1marketplace"), "balance": 2_000_000},
+        {"address": _derive_address("aitbc1enterprise"), "balance": 3_000_000},
+        {"address": _derive_address("aitbc1multimodal"), "balance": 1_500_000},
+        {"address": _derive_address("aitbc1zkproofs"), "balance": 1_000_000},
+        {"address": _derive_address("aitbc1crosschain"), "balance": 2_000_000},
+        {"address": _derive_address("aitbc1developer1"), "balance": 500_000},
+        {"address": _derive_address("aitbc1developer2"), "balance": 300_000},
+        {"address": _derive_address("aitbc1tester"), "balance": 200_000},
+    ]
+    data = {"genesis": {"accounts": accounts}}
+    output.parent.mkdir(parents=True, exist_ok=True)
+    import yaml
+
+    output.write_text(yaml.safe_dump(data, sort_keys=False, default_flow_style=False))
+    os.chmod(output, 0o600)
 
 
 def main():
@@ -66,54 +138,50 @@ def main():
             del os.environ["AITBC_KEYSTORE_PASSWORD"]
 
     os.environ["KEYSTORE_PASSWORD"] = password
+    PASSWORD_FILE.write_text(password)
+    os.chmod(PASSWORD_FILE, 0o600)
 
-    # 2. Generate keystores
-    print("\n=== Generating keystore for aitbc1genesis ===")
-    result = run(
-        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1genesis --output-dir {KEYS_DIR} --force", capture_output=True
-    )
-    print(result.stdout)
-    genesis_priv = None
-    for line in result.stdout.splitlines():
-        if "Private key (hex):" in line:
-            genesis_priv = line.split(":", 1)[1].strip()
-            break
-    if not genesis_priv:
-        print("ERROR: Could not extract genesis private key")
-        sys.exit(1)
-    (KEYS_DIR / "genesis_private_key.txt").write_text(genesis_priv)
+    # 2. Generate secp256k1 keypairs for genesis and treasury
+    print("\n=== Generating genesis keystore ===")
+    genesis_priv = secrets.token_hex(32)
+    genesis_addr = Account.from_key(genesis_priv).address
+    genesis_ks = _write_keystore("aitbc1genesis", genesis_priv, password, KEYS_DIR)
+    print(f"[+] Genesis address: {genesis_addr}")
+    print(f"[+] Keystore: {genesis_ks}")
+
+    print("\n=== Generating treasury keystore ===")
+    treasury_priv = secrets.token_hex(32)
+    treasury_addr = Account.from_key(treasury_priv).address
+    treasury_ks = _write_keystore("aitbc1treasury", treasury_priv, password, KEYS_DIR)
+    print(f"[+] Treasury address: {treasury_addr}")
+    print(f"[+] Keystore: {treasury_ks}")
+
+    # Save private keys locally (production operators must secure these)
+    (KEYS_DIR / "genesis_private_key.txt").write_text("0x" + genesis_priv)
     os.chmod(KEYS_DIR / "genesis_private_key.txt", 0o600)
-
-    print("\n=== Generating keystore for aitbc1treasury ===")
-    result = run(
-        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1treasury --output-dir {KEYS_DIR} --force", capture_output=True
-    )
-    print(result.stdout)
-    treasury_priv = None
-    for line in result.stdout.splitlines():
-        if "Private key (hex):" in line:
-            treasury_priv = line.split(":", 1)[1].strip()
-            break
-    if not treasury_priv:
-        print("ERROR: Could not extract treasury private key")
-        sys.exit(1)
-    (KEYS_DIR / "treasury_private_key.txt").write_text(treasury_priv)
+    (KEYS_DIR / "treasury_private_key.txt").write_text("0x" + treasury_priv)
     os.chmod(KEYS_DIR / "treasury_private_key.txt", 0o600)
 
     # 3. Data directory
     run(f"mkdir -p {DATA_DIR}")
     run(f"chown -R root:root {DATA_DIR}")
 
-    # 4. Initialize DB
+    # 4. Write genesis_prod.yaml so init uses 0x addresses
+    _write_genesis_prod_yaml(genesis_addr, treasury_addr, GENESIS_PROD_YAML)
+    print(f"[+] Wrote {GENESIS_PROD_YAML}")
+
+    # 5. Initialize DB
     os.environ["DB_PATH"] = str(DB_PATH)
     os.environ["CHAIN_ID"] = CHAIN_ID
-    run(f"sudo -E {NODE_VENV} /opt/aitbc/scripts/init_production_genesis.py --chain-id {CHAIN_ID} --db-path {DB_PATH}")
+    run(
+        f"sudo -E {sys.executable} /opt/aitbc/scripts/utils/init_production_genesis.py --chain-id {CHAIN_ID} --db-path {DB_PATH}"
+    )
 
-    # 5. Write .env for blockchain node
+    # 6. Write .env for blockchain node
     env_content = f"""CHAIN_ID={CHAIN_ID}
 SUPPORTED_CHAINS={CHAIN_ID}
 DB_PATH=./data/ait-mainnet/chain.db
-PROPOSER_ID=aitbc1genesis
+PROPOSER_ID={genesis_addr}
 PROPOSER_KEY=0x{genesis_priv}
 PROPOSER_INTERVAL_SECONDS=5
 BLOCK_TIME_SECONDS=2
@@ -131,7 +199,7 @@ GOSSIP_BACKEND=memory
     os.chmod(NODE_ENV, 0o600)
     print(f"[+] Updated {NODE_ENV}")
 
-    # 6. Restart services
+    # 7. Restart services
     run("systemctl daemon-reload")
     run(f"systemctl restart {SERVICE_NODE} {SERVICE_RPC}")
 
