@@ -40,7 +40,7 @@ Yes, AITBC is open source. The code is available on GitHub at https://github.com
 
 ### How can I contribute?
 
-Contributions are welcome! Please see the [contributing guidelines](../../CONTRIBUTING.md) for more information.
+Contributions are welcome! Please see the [contributing guidelines](../CONTRIBUTING.md) for more information.
 
 ## Installation and Setup
 

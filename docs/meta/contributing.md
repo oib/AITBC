@@ -1,6 +1,6 @@
 # AITBC - Contributing
 
-For the current contribution workflow and validation commands, see [CONTRIBUTING.md](../../CONTRIBUTING.md).
+For the current contribution workflow and validation commands, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 The notes below are historical and may not reflect the current process.
 

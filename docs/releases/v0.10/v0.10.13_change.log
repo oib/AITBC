@@ -1,0 +1,150 @@
+# AITBC v0.10.13 Release Notes
+
+**Date**: 2026-07-14
+**Status**: ✅ Complete — Agent A and Agent B tasks finished
+**Scope**: Security, correctness, and trust-boundary hardening based on the post-v0.10.12 deep audit.
+
+## 🎯 Overview
+
+v0.10.13 is a **security and correctness hardening release**. It addresses the highest-confidence findings from the post-v0.10.12 audit: committed credentials, missing authentication on financial/admin routes, unsigned marketplace transactions, fake payment success paths, forgeable signatures, insecure FHE, broken Web3 compatibility, and schema/test drift.
+
+**Key focus areas:**
+1. **Credential hygiene** — remove hardcoded Gitea tokens and TLS-disabled fallbacks from tracked scripts.
+2. **Authentication and authorization** — install the existing `AuthMiddleware` in `coordinator_api.main` and add auth dependencies to financial/admin routes.
+3. **Cryptographic correctness** — require and verify signatures on marketplace transactions, fix AITBC/Ethereum wallet adapters, replace or disable the fake FHE scheme.
+4. **Data and file safety** — restrict private key and database file permissions, fix `FileKeyStorage` mode, stop world-readable DB chmods.
+5. **Schema and migration integrity** — reconcile `SQLModel.metadata` with Alembic and add `alembic check` to CI.
+6. **Runtime correctness** — fix Web3 7.x import, async DB URL conversion, staking anonymous fallback, governance state persistence, multi-tenant quota model, and test/CI blind spots.
+
+**Prerequisites**: [v0.10.12](../v0.10/v0.10.12_change.log) (✅ complete — Quality Hardening).
+
+**Risk**: High. This release touches security boundaries and financial paths. Some fixes are breaking changes relative to the previous permissive behavior, but they restore intended security invariants.
+
+---
+
+## 📊 Summary
+
+| Category | Items | Status | Notes |
+|----------|-------|--------|-------|
+| Credential hygiene (scripts) | 3 | ✅ complete | `scripts/utils/workspace-manager.sh`, `claim-task.py`, `monitor-prs.py`; rotate tokens |
+| Authentication on coordinator routes | 7 | ✅ complete | install `AuthMiddleware`, add auth to oracle/cross-chain/marketplace/admin/staking |
+| Marketplace transaction security | 2 | ✅ complete | signature verification, `normalize_transaction_data` |
+| Marketplace payment correctness | 2 | ✅ complete | `payments/send`, GPU purchase rollback |
+| Wallet adapter correctness | 2 | ✅ complete | AITBC signature, Ethereum private key |
+| FHE security | 2 | ✅ complete | replace/disable BFV, add auth |
+| Audit token integrity | 1 | ✅ complete | verify signature instead of base64 JSON |
+| File/DB permissions | 3 | ✅ complete | `FileKeyStorage`, confidential keys, blockchain DB |
+| Web3 7.x compatibility | 1 | ✅ complete | `geth_poa_middleware` import path |
+| Async DB URL conversion | 1 | ✅ complete | query parameter handling, scheme validation |
+| Quota/governance/staking correctness | 4 | ✅ complete | quota ORM, governance persistence, staking auth fallback, database security test |
+| Alembic/migration integrity | 2 | ✅ complete | reconcile metadata, add `alembic check` |
+| CI/test coverage | 3 | ✅ complete | CLI/security/services/production/blockchain-node suites in `testpaths` and CI; 59 stale CLI tests quarantined |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Type check
+./venv/bin/python -m mypy --show-error-codes aitbc/
+
+# Lint
+./venv/bin/python -m ruff check .
+
+# Unit tests
+./venv/bin/python -m pytest tests/unit -q -o addopts=""
+
+# Coordinator tests
+cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+
+# CLI suite
+./venv/bin/python -m pytest tests/cli -q -o addopts=""
+
+# Security suite
+./venv/bin/python -m pytest tests/security -q -o addopts=""
+
+# Alembic graph check
+cd apps/coordinator-api && PYTHONPATH=src DATABASE_URL=sqlite:///tmp/alembic_check.db ../../venv/bin/python -m alembic upgrade head
+cd apps/coordinator-api && PYTHONPATH=src DATABASE_URL=sqlite:///tmp/alembic_check.db ../../venv/bin/python -m alembic check
+
+# Version consistency
+./venv/bin/python scripts/check_version_consistency.py
+```
+
+---
+
+## 📝 Task Status
+
+### Agent A — Type Safety & Shared Core
+- [x] A1: Fix Web3 7.x `geth_poa_middleware` import in `aitbc/network/web3_utils.py`
+- [x] A2: Reconcile `SQLModel.metadata` with the Alembic migration graph
+- [x] A3: Fix `database_async.py` async URL conversion for query parameters and unsupported schemes
+
+### Agent B — Infrastructure & Apps
+- [x] B1: Remove hardcoded credentials and insecure TLS fallbacks from `scripts/`
+- [x] B2: Install `AuthMiddleware` and add auth to financial/admin coordinator routes
+- [x] B3: Require and verify signatures on marketplace transactions
+- [x] B4: Fix fake marketplace payment success paths
+- [x] B5: Fix AITBC and Ethereum wallet adapters
+- [x] B6: Replace or disable insecure FHE implementation and add auth
+- [x] B7: Verify audit authorization token signatures
+- [x] B8: Restrict private key and database file permissions
+- [x] B9: Fix staking anonymous auth fallback
+- [x] B10: Fix multi-tenant quota ORM models
+- [x] B11: Fix governance service persistence
+- [x] B12: Expand CI/test path coverage
+- [x] B13: Remove duplicate broken `cli/setup/setup.py`
+- [x] B14: Fix `validate_query()` case-sensitivity in database security test
+
+---
+
+## 📋 Detailed Findings
+
+### Credential hygiene
+- `scripts/utils/workspace-manager.sh` contains a hardcoded `GITEA_TOKEN` fallback and disables TLS verification globally.
+- `scripts/utils/claim-task.py` and `scripts/monitoring/monitor-prs.py` reuse the same token pattern.
+- Local `.git/config` remotes embed credentials (operational; rotate outside the repo).
+
+### Authentication gaps
+- `apps/coordinator-api/src/coordinator_api/main.py` does not install the existing `AuthMiddleware`.
+- Financial/admin routes (`oracle.py`, `cross_chain_integration.py`, `marketplace_gpu.py`, `admin.py`) have no auth dependency.
+- `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py` falls back to `test_user_address` for missing/invalid tokens.
+
+### Cryptographic and financial correctness
+- `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` `/rpc/transactions/marketplace` never verifies transaction signatures.
+- `apps/blockchain-node/src/aitbc_chain/rpc/utils.py` `normalize_transaction_data()` removes the signature.
+- `apps/blockchain-node/src/aitbc_chain/state/state_transition.py` checks balance/nonce but not ownership.
+- `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` `/payments/send` returns fake success.
+- `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` GPU purchase catches payment failure and still returns `purchased`.
+- `apps/coordinator-api/src/coordinator_api/agent_identity/wallet_adapter_enhanced.py` AITBC wallet verification accepts any 66-char hex string; the Ethereum adapter passes `from_address` to `Account.from_key()`.
+
+### FHE and audit tokens
+- `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_enhanced.py` does not use the secret key and is not a real FHE scheme.
+- `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/routers/fhe.py` is unauthenticated.
+- `apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py` audit tokens carry a `"placeholder"` signature and verification does not check it.
+
+### File and database permissions
+- `apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py` `FileKeyStorage` writes `.priv` files with default `0o644`.
+- `apps/coordinator-api/src/coordinator_api/contexts/confidential/routers/confidential.py` uses `/tmp/aitbc_keys`.
+- `apps/blockchain-node/src/aitbc_chain/database.py` chmods DB/WAL files to `666`.
+
+### Runtime correctness
+- `aitbc/network/web3_utils.py` imports `geth_poa_middleware` from `web3.middleware`, incompatible with Web3 7.x.
+- `apps/coordinator-api/src/coordinator_api/database_async.py` `_build_async_url()` corrupts URLs with query strings.
+- `apps/coordinator-api/src/coordinator_api/models/multitenant.py` SQLModel classes lack `table=True`.
+- `apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py` constructs `UsageRecord` without required `job_id`.
+- `apps/coordinator-api/src/coordinator_api/contexts/governance/services/governance_service.py` enhanced state is in-memory only.
+- `apps/blockchain-node/tests/security/test_database_security.py` `validate_query()` uppercase comparison vs lowercase patterns is xfailed but still a real bug.
+
+### Schema and test blind spots
+- `alembic check` reports ~139 removed tables and ~454 removed indexes vs `SQLModel.metadata`.
+- `apps/coordinator-api/src/coordinator_api/main.py` and `storage/db.py` call `SQLModel.metadata.create_all()` on startup.
+- `pyproject.toml` `testpaths` omits most test files; CLI, security, services, and production suites have failures/skips.
+- `cli/setup/setup.py` is a stale duplicate with a broken entry point.
+
+---
+
+## 🔗 Related
+- Previous release: [v0.10.12](../v0.10/v0.10.12_change.log)
+- Agent task assignment: [v0.10/v0.10.13_AGENTS.md](AGENTS.md)
+- Audit report: compiled from post-v0.10.12 sub-agent findings

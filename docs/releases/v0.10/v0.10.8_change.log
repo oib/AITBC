@@ -1,0 +1,81 @@
+# AITBC v0.10.8 Release Notes
+
+**Date**: 2026-07-06
+**Status**: ✅ Complete — Config Consolidation & Dead Retry Helper Cleanup
+**Scope**: Resolve the `aitbc/config.py` vs `aitbc/config/hierarchical_config.py` package shadowing issue, consolidate simple health endpoints, and delete 3 unused retry helper implementations (zero production importers).
+
+## 🎯 Overview
+
+v0.10.8 is a **small cleanup release** that closes out the 3 deferred items from v0.10.7. These tasks were deferred to avoid scope creep in v0.10.7 and are low-risk, mechanical changes.
+
+**Key focus areas:**
+1. **Config consolidation** — Merge `aitbc/config.py` (shadowed by package directory, accessed via importlib hack) into `aitbc/config/hierarchical_config.py`, eliminate the package shadowing issue, and remove the importlib workaround
+2. **Health endpoint helper** — Add `create_simple_health_response()` to `aitbc/health_checks.py` and update 11 services with copy-pasted health handlers
+3. **Dead retry helper cleanup** — Delete 3 retry helper implementations with zero production importers (`retry_with_backoff`, `retry` decorator, `retry_async`); keep `RetryPolicy` (5 production importers) and `retry_until_deadline` (different pattern)
+
+**Prerequisites**: [v0.10.7](../v0.10/v0.10.7_change.log) (✅ complete — dead code elimination & duplicate consolidation).
+
+**Risk**: Low. Config consolidation has only 1 production importer. Health endpoint helper is additive. Retry helpers have zero production importers (dead code).
+
+---
+
+## 📊 Summary
+
+| Category | Items | Lines Changed (est.) | Lines Deleted (est.) |
+|----------|-------|----------------------|----------------------|
+| Config — merge config.py into hierarchical_config.py | 1 | ~30 | ~118 |
+| Health — create_simple_health_response() helper | 1 | ~15 | ~22 |
+| Dead code — 3 unused retry helpers | 1 | 0 | ~111 |
+| **Total** | **3** | **~45** | **~251** |
+
+---
+
+## 🧪 Testing
+
+- All existing tests must pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- Coordinator-api tests (`cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- Type check passes (`./venv/bin/python -m mypy --show-error-codes aitbc/`)
+- Lint passes (`./venv/bin/python -m ruff check .`)
+
+---
+
+## 📝 Task Status
+
+See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
+
+### Agent A — Dead Retry Helper Cleanup (SWE 1.6)
+- [x] A1: Delete 3 dead retry helpers + update tests
+
+### Agent B — Config Consolidation & Health Endpoints (GLM 5.2)
+- [x] B1: Consolidate config.py into hierarchical_config.py (eliminate package shadowing)
+- [x] B2: Add `create_simple_health_response()` helper + update 11 services
+
+---
+
+## 📋 Detailed Findings
+
+### Config — `aitbc/config.py` vs `aitbc/config/hierarchical_config.py`
+
+**Problem**: `aitbc/config.py` (105 lines) is shadowed by the `aitbc/config/` package directory. Python imports the package, not the file. The `__init__.py` uses importlib hackery (lines 25-38) to load the shadowed file as `aitbc._legacy_config` and re-export its classes. This is fragile and confusing.
+
+**Overlap**: ~80% field overlap between `BaseAITBCConfig` (in config.py) and `ValidatedAITBCConfig` (in hierarchical_config.py). The latter has better validation but is missing 9 fields from the former.
+
+**Importers**: 1 production (`apps/coordinator-api/src/app/config.py`), 5 test files. All use `from aitbc.config import ...` (the package).
+
+**Fix**: Merge `BaseAITBCConfig` fields/methods into `ValidatedAITBCConfig`, add `AITBCConfig` subclass, simplify `__init__.py` (remove importlib hack), delete `config.py`.
+
+### Health — 11 services with copy-pasted health handlers
+
+**Problem**: 11 services have copy-pasted simple health endpoint handlers returning `{"status": "healthy", "service": "<name>"}` with minor variations. The existing `HealthChecker` class is overkill for static responses.
+
+**Fix**: Add `create_simple_health_response(service_name, version=None, **extra_fields)` to `aitbc/health_checks.py`. Update 11 services to use it. The 30+ coordinator-api context routers with specialized health checks are NOT consolidated.
+
+### Dead code — 3 unused retry helpers
+
+| Function | File | Lines | Production importers |
+|----------|------|-------|---------------------|
+| `retry_with_backoff()` | `cli/utils/__init__.py` | ~40 | 0 |
+| `retry()` decorator | `aitbc/decorators/decorators.py` | ~43 | 0 |
+| `retry_async()` | `aitbc/async_helpers/async_helpers.py` | ~28 | 0 |
+
+**Keep**: `RetryPolicy` in `aitbc/network/retry_policy.py` (5 importers, used by `SharedHttpClient`), `retry_until_deadline` in `aitbc/utils/time_utils.py` (different pattern, used in production).

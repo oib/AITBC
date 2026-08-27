@@ -632,4 +632,4 @@ All endpoints have rate limiting applied:
 - [Agent Agent Documentation](compute-provider.md)
 - [Marketplace API](../api/marketplace-api.md)
 - [Security Hardening](../infrastructure/NETWORK_SECURITY_RECOMMENDATIONS.md)
-- [Release Notes v0.4.3](../releases/v0.4.3/RELEASE_v0.4.3.md)
+- [Release Notes v0.4.3](../releases/v0.4/RELEASE_v0.4.3.md)
