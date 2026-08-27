@@ -999,6 +999,363 @@
         }
       }
     },
+    "/v1/bridge/status": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Get Bridge V1 Status",
+        "description": "Get bridge service status.",
+        "operationId": "get_bridge_v1_status_v1_bridge_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Bridge V1 Status V1 Bridge Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/price": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Get Bridge Price",
+        "description": "Get bridge exchange price.",
+        "operationId": "get_bridge_price_v1_bridge_price_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Bridge Price V1 Bridge Price Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/deposit": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Deposit",
+        "description": "Calculate bridge deposit instructions and estimate.",
+        "operationId": "bridge_deposit_v1_bridge_deposit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Deposit V1 Bridge Deposit Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "eth_amount must be a number / eth_amount must be positive / ait_address is required / Minimum deposit is {min_deposit} ETH",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge ETH address not configured / Failed to calculate AIT amount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/deposits": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge List Deposits",
+        "description": "List bridge deposits.",
+        "operationId": "bridge_list_deposits_v1_bridge_deposits_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge List Deposits V1 Bridge Deposits Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/deposit/{tx_hash}": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Get Deposit",
+        "description": "Get a single bridge deposit by ETH transaction hash.",
+        "operationId": "bridge_get_deposit_v1_bridge_deposit__tx_hash__get",
+        "parameters": [
+          {
+            "name": "tx_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tx Hash"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Get Deposit V1 Bridge Deposit  Tx Hash  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deposit not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/estimate": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Estimate",
+        "description": "Estimate AIT for a given ETH amount.",
+        "operationId": "bridge_estimate_v1_bridge_estimate_get",
+        "parameters": [
+          {
+            "name": "eth_amount",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "title": "Eth Amount"
+            }
+          },
+          {
+            "name": "ait_address",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ait Address"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Estimate V1 Bridge Estimate Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "eth_amount must be positive / ait_address is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Failed to calculate AIT amount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exchange/price.json": {
+      "get": {
+        "tags": [
+          "exchange"
+        ],
+        "summary": "Exchange Price Json",
+        "description": "Price ticker JSON used by the website.",
+        "operationId": "exchange_price_json_exchange_price_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Exchange Price Json Exchange Price Json Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health Check",

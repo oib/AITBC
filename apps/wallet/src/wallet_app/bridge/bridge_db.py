@@ -12,6 +12,15 @@ from typing import Any
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
 
 
+def _add_column_if_not_exists(conn, table, column, col_type):
+    """Add a column to a table if it does not already exist."""
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(" + table + ")")
+    columns = {row[1] for row in cursor.fetchall()}
+    if column not in columns:
+        cursor.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + col_type)
+
+
 def init_db() -> None:
     """Initialize the bridge database with required tables."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -23,9 +32,11 @@ def init_db() -> None:
             id TEXT PRIMARY KEY,
             tx_hash TEXT UNIQUE NOT NULL,
             from_address TEXT NOT NULL,
+            recipient TEXT,
             amount_eth NUMERIC NOT NULL,
             amount_ait NUMERIC NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending',
+            ait_tx_hash TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             verified_at TIMESTAMP,
             completed_at TIMESTAMP
@@ -47,6 +58,8 @@ def init_db() -> None:
     # SQLite doesn't support ALTER COLUMN TYPE, so we recreate the table
     # (standard SQLite migration pattern). Only runs if columns are REAL.
     _migrate_real_to_numeric(conn)
+    _add_column_if_not_exists(conn, "eth_deposits", "recipient", "TEXT")
+    _add_column_if_not_exists(conn, "eth_deposits", "ait_tx_hash", "TEXT")
 
     conn.commit()
     conn.close()
@@ -105,7 +118,9 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
         cursor.execute(f"DROP TABLE {temp_name}")  # nosec B608 - temp_name is a hardcoded literal (see above)
 
 
-def insert_deposit(tx_hash: str, from_address: str, amount_eth: Decimal, amount_ait: Decimal) -> str:
+def insert_deposit(
+    tx_hash: str, from_address: str, amount_eth: Decimal, amount_ait: Decimal, recipient: str | None = None
+) -> str:
     """Insert a new deposit record."""
     import uuid
 
@@ -117,10 +132,10 @@ def insert_deposit(tx_hash: str, from_address: str, amount_eth: Decimal, amount_
     try:
         cursor.execute(
             """
-            INSERT INTO eth_deposits (id, tx_hash, from_address, amount_eth, amount_ait, status, created_at)
-            VALUES (?, ?, ?, ?, ?, 'pending', ?)
+            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
             """,
-            (deposit_id, tx_hash, from_address, amount_eth, amount_ait, datetime.now().isoformat()),
+            (deposit_id, tx_hash, from_address, recipient, amount_eth, amount_ait, datetime.now().isoformat()),
         )
         conn.commit()
         return deposit_id
@@ -137,7 +152,7 @@ def get_pending_deposits() -> list[dict[str, Any]]:
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at
+        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
         WHERE status = 'pending'
         ORDER BY created_at DESC
@@ -155,6 +170,10 @@ def get_pending_deposits() -> list[dict[str, Any]]:
             "amount_ait": row[4],
             "status": row[5],
             "created_at": row[6],
+            "verified_at": row[7],
+            "completed_at": row[8],
+            "recipient": row[9],
+            "ait_tx_hash": row[10],
         }
         for row in rows
     ]
@@ -182,6 +201,20 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     return rows_affected > 0
 
 
+def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str) -> bool:
+    """Record the AIT transaction hash for a completed deposit."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE eth_deposits SET ait_tx_hash = ? WHERE id = ?",
+        (ait_tx_hash, deposit_id),
+    )
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
 def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
     """Get deposit by transaction hash."""
     conn = sqlite3.connect(DB_PATH)
@@ -189,7 +222,7 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
 
     cursor.execute(
         """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
+        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
         WHERE tx_hash = ?
     """,
@@ -212,6 +245,8 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
         "created_at": row[6],
         "verified_at": row[7],
         "completed_at": row[8],
+        "recipient": row[9],
+        "ait_tx_hash": row[10],
     }
 
 
@@ -222,7 +257,7 @@ def get_deposit_by_id(deposit_id: str) -> dict[str, Any] | None:
 
     cursor.execute(
         """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
+        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
         WHERE id = ?
     """,
@@ -245,6 +280,8 @@ def get_deposit_by_id(deposit_id: str) -> dict[str, Any] | None:
         "created_at": row[6],
         "verified_at": row[7],
         "completed_at": row[8],
+        "recipient": row[9],
+        "ait_tx_hash": row[10],
     }
 
 
@@ -255,7 +292,7 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
 
     cursor.execute(
         """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
+        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -277,6 +314,8 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
             "created_at": row[6],
             "verified_at": row[7],
             "completed_at": row[8],
+            "recipient": row[9],
+            "ait_tx_hash": row[10],
         }
         for row in rows
     ]
