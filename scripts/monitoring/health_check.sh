@@ -272,6 +272,26 @@ check_endpoint_health() {
 check_resource_usage() {
     local service="$1"
 
+    # Timer and oneshot units do not have a persistent main process.
+    if [[ "$service" == *.timer ]]; then
+        log "$service is a timer unit, skipping resource check"
+        return 0
+    fi
+
+    local unit_type active_state
+    unit_type=$(systemctl show -p Type --value "$service" 2>/dev/null || echo "")
+    active_state=$(systemctl show -p ActiveState --value "$service" 2>/dev/null || echo "")
+
+    if [[ "$unit_type" == "oneshot" ]]; then
+        log "$service is a oneshot unit, skipping resource check"
+        return 0
+    fi
+
+    if [[ "$active_state" != "active" ]]; then
+        log "$service is not active, skipping resource check"
+        return 0
+    fi
+
     # Get PID of service
     local pid
     pid=$(systemctl show -p MainPID --value "$service" 2>/dev/null || echo "")
@@ -376,10 +396,16 @@ check_database() {
             error "PostgreSQL is not reachable"
             return 1
         fi
-    else
+    fi
+
+    # psql is not installed. Only warn if PostgreSQL is supposed to be on this host.
+    if systemctl is-enabled postgresql &> /dev/null; then
         warning "psql not available, skipping database check"
         return 0
     fi
+
+    log "PostgreSQL not installed on this host, skipping database check"
+    return 0
 }
 
 # Check Redis connectivity
@@ -405,10 +431,16 @@ check_network() {
     if ping -c 1 -W 2 "$target_host" &> /dev/null; then
         success "Network connectivity OK (ping to $target_host)"
         return 0
-    else
-        error "Network connectivity failed (ping to $target_host)"
-        return 1
     fi
+
+    # Some hosts block ICMP. Fall back to an actual HTTPS probe to the local Gitea.
+    if command -v curl &> /dev/null && curl -fsI --max-time 5 "https://gitea.bubuit.net" &> /dev/null; then
+        success "Network connectivity OK (HTTPS to gitea.bubuit.net)"
+        return 0
+    fi
+
+    error "Network connectivity failed (ping to $target_host and HTTPS to gitea.bubuit.net)"
+    return 1
 }
 
 # Main health check function
