@@ -215,6 +215,39 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
     }
 
 
+def get_deposit_by_id(deposit_id: str) -> dict[str, Any] | None:
+    """Get deposit by its local deposit id."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
+        FROM eth_deposits
+        WHERE id = ?
+    """,
+        (deposit_id,),
+    )
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "tx_hash": row[1],
+        "from_address": row[2],
+        "amount_eth": row[3],
+        "amount_ait": row[4],
+        "status": row[5],
+        "created_at": row[6],
+        "verified_at": row[7],
+        "completed_at": row[8],
+    }
+
+
 def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """Get all deposits with pagination."""
     conn = sqlite3.connect(DB_PATH)
