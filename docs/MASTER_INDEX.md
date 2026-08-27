@@ -46,7 +46,6 @@ docs/
 ├── troubleshooting/
 ├── ui/
 ├── web/
-├── adr-flip-list.md
 ├── CHANGELOG.md
 ├── FEATURES.md
 ├── GLOSSARY.md
