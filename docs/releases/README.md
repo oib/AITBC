@@ -29,12 +29,10 @@ Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
 
-- **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion (v0.25.1 follow-up)
+- **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion
+- **[v0.25.1](v0.25/v0.25.1_change.log)** - Open follow-ups and design notes after v0.25.0
 - **[v0.24.0](v0.24/v0.24.0_change.log)** - Hub node development special (split into v0.24.1–v0.24.18 by topic)
 - **[v0.23.0](v0.23/v0.23.0_change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
-
-- **[v2.0.0](v2.0/v2.0.0_change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
-- **[v1.0.0](v1.0/v1.0.0_change.log)** - Production Readiness
 - **[v0.10.18](v0.10/v0.10.18_change.log)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) ✅ complete
 - **[v0.10.17](v0.10/v0.10.17_change.log)** - Security & Auth Hardening (auth bypass, hardcoded defaults, feature flag defaults, pool-hub reward signing, wiring bug) ✅ complete
 - **[v0.10.16](v0.10/v0.10.16_change.log)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) ✅ complete
@@ -83,6 +81,8 @@ Read the release notes newest-first:
 - **[v0.5.2](v0.5/v0.5.2_change.log)** - (See change.log for details)
 - **[v0.5.1](v0.5/v0.5.1_change.log)** - (See change.log for details)
 - **[v0.5.0](v0.5/v0.5.0_change.log)** - Production Infrastructure
+- **[v1.0.0](v1.0/v1.0.0_change.log)** - Production Readiness
+- **[v2.0.0](v2.0/v2.0.0_change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 
 ### Legacy Releases (v0.4.x and earlier)
 >

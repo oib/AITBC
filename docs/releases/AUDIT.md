@@ -131,15 +131,7 @@ Activate multi-validator consensus (v0.7.5) after the soak test. Ensure the vali
 
 ## Configuration Summary
 
-| Flag | Default | Purpose | Risk if misconfigured |
-|------|---------|---------|----------------------|
-| `bridge_release_enabled` | `True` | Enables bridge fund release | Active by default — ensure verification is correct |
-| `bridge_multisig_enabled` | `False` | Requires M-of-N validator sigs | Off by default — single-signer path used |
-| `bridge_block_signature_required` | `True` | Requires block header signatures | Safe default |
-| `bridge_require_merkle_proof` | `False` | **NEW** — rejects proofs without Merkle proof | Set to `True` for production |
-| `escrow_enabled` | `False` | Enables HTLC settlement | Safe default until v0.9.0 audit passes |
-| `multi_validator_consensus_enabled` | `False` | Activates PBFT consensus | Safe default (soak test pending) |
-| `escrow_require_proof_verification` | — | **REMOVED** — dead flag, replaced by `bridge_require_merkle_proof` | N/A |
+For the current configuration defaults, production recommendations, and live status, see the [Release Status Overview](STATUS.md). The audit findings below were written against the defaults in effect when the audit was performed; the operational status document now owns the single source of truth for these flags.
 
 ---
 
