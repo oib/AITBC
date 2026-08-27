@@ -14,7 +14,7 @@ from ...utils import DECIMAL, error, output, success
 from ...utils.address import to_eip55
 from ...utils.http_client import AITBCHTTPClient, NetworkError
 from ...utils.money import wallet_amount as _wallet_amount
-from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
+from ...utils.wallet_paths import wallet_search_dirs
 from aitbc.utils import ait_to_seconds, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
@@ -321,15 +321,15 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
     except Exception:
         pass
 
-    wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
-    wallet_path = wallet_dir / f"{wallet_name}.json"
-    if wallet_path.exists():
-        try:
-            with open(wallet_path) as f:
-                data = json.load(f)
-            return data.get("address")
-        except Exception:
-            pass
+    for directory in wallet_search_dirs():
+        wallet_path = directory / f"{wallet_name}.json"
+        if wallet_path.exists():
+            try:
+                with open(wallet_path) as f:
+                    data = json.load(f)
+                return data.get("address")
+            except Exception:
+                pass
 
     return None
 
@@ -595,7 +595,15 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
     sender_address = to_eip55(wallet_data["address"])
+
+    # Allow the recipient to be specified as a wallet name or an address.
+    resolved_to = _resolve_wallet_address(ctx, to_address)
+    if resolved_to:
+        to_address = resolved_to
     to_address = to_eip55(to_address)
+    if not to_address.startswith("0x"):
+        error(f"Invalid recipient address: {to_address}")
+        return
 
     # Get RPC URL from context or parameter (use hub for cross-node transfers)
     if not rpc_url:
