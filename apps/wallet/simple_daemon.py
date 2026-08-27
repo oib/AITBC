@@ -502,4 +502,4 @@ if __name__ == "__main__":
     print("  POST /v1/wallets/{wallet_id}/unlock")
     print("  POST /v1/wallets/{wallet_id}/sign")
 
-    uvicorn.run(wallet_app, host="0.0.0.0", port=8003, log_level="info")  # nosec B104
+    uvicorn.run(wallet_app, host="0.0.0.0", port=8003, log_level="critical", access_log=False)  # nosec B104
