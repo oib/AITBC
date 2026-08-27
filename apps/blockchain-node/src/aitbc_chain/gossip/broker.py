@@ -705,6 +705,10 @@ class GossipBroker:
             self._started = True
         await previous.shutdown()
 
+    def is_running(self) -> bool:
+        """Return whether the broker has been started."""
+        return self._started
+
     async def shutdown(self) -> None:
         if self._priority_task is not None:
             self._priority_task.cancel()
