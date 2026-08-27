@@ -255,11 +255,26 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
 
-    balance = _wallet_amount(wallet_data.get("balance", 0))
-    if balance < amount:
-        error(f"Insufficient balance. Available: {balance}, Required: {amount}")
+    # Use the on-chain balance for the liquidity-stake check; the local
+    # ``balance`` field in the wallet JSON is a stale cache that is not
+    # updated by on-chain ``stake`` / ``send`` operations.
+    rpc_url = _get_rpc_url(ctx)
+    chain_id = _get_chain_id(rpc_url)
+    sender_address = wallet_data["address"]
+    hex_address = canonical_address(sender_address)
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        account = http_client.get(f"/rpc/account/{hex_address}?chain_id={chain_id}")
+        chain_balance = Decimal(seconds_to_ait(account.get("balance", 0)))
+    except Exception:
+        chain_balance = _wallet_amount(wallet_data.get("balance", 0))
+
+    if chain_balance < amount:
+        error(f"Insufficient balance. Available: {chain_balance}, Required: {amount}")
         ctx.exit(1)
         return
+
+    balance = chain_balance
 
     # APY tiers based on lock period
     if lock_days >= 90:
