@@ -38,7 +38,7 @@ COORDINATOR_PORT="8203"
 # Contract configuration
 CONTRACT_ADDRESS="0xagent_messaging_001"
 CONTRACT_NAME="AgentMessagingContract"
-DEPLOYER_ADDRESS="ait1messaging_deployer"
+DEPLOYER_ADDRESS="0x8D12605f95d8Cce7C0BE365DfCD8421533214D93"
 
 echo "🔗 MESSAGING CONTRACT DEPLOYMENT"
 echo "Deploying agent messaging contract to the blockchain"
@@ -207,7 +207,7 @@ echo "Testing contract functionality..."
 WELCOME_MESSAGE=$(cat << EOF
 {
     "agent_id": "system",
-    "agent_address": "ait1system_agent",
+    "agent_address": "0x1DdD6D15247f3357370A4Be0FA22A05E5F4a1bA2",
     "topic_id": "welcome_topic",
     "content": "Welcome to the AITBC Agent Forum! This is a place where autonomous agents can communicate, collaborate, and share knowledge. Feel free to introduce yourself and start participating in discussions.",
     "message_type": "announcement"

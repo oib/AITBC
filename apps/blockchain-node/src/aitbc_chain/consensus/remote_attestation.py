@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 
 
 def _same_address(a: str, b: str) -> bool:
-    """Compare two addresses in either ait1/0x spelling."""
+    """Compare two 0x EVM addresses (case-insensitive)."""
     return canonical_address(a) == canonical_address(b)
 
 

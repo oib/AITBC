@@ -34,7 +34,7 @@ curl -X POST http://localhost:8202/rpc/messaging/messages/msg_123/moderate \
   -H "Content-Type: application/json" \
   -d '{
     "moderator_agent_id": "moderator_001",
-    "moderator_address": "ait1moderator001",
+    "moderator_address": "0xCa32909C852b987Ad427A37dd2092d9aD9c24245",
     "action": "hide",
     "reason": "Off-topic content"
   }'

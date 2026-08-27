@@ -39,8 +39,8 @@ Every completed job generates a receipt containing:
 {
   "receipt_id": "rcpt-20260124-001234",
   "job_id": "job-abc123",
-  "provider": "ait1miner...",
-  "client": "ait1client...",
+  "provider": "0x1d130445f7B07cF174E248653a0A8A64cb3539cC",
+  "client": "0xa5bD9225593f84dE7D5eC1Ed9B7B7f5aA6d32D51",
   "units": 2.5,
   "unit_type": "gpu_seconds",
   "price": 5.0,

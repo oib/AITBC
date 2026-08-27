@@ -76,10 +76,10 @@ curl http://localhost:8100/api/blocks/29656
 curl http://localhost:8100/api/transactions/0x...
 
 # Search transactions by address
-curl "http://localhost:8100/api/transactions/search?address=ait1db524..."
+curl "http://localhost:8100/api/transactions/search?address=0x1234567890123456789012345678901234567890"
 
 # Get all blocks for an address
-curl "http://localhost:8100/api/blocks/by-address/ait1db524..."
+curl "http://localhost:8100/api/blocks/by-address/0x1234567890123456789012345678901234567890"
 
 # Network stats
 curl http://localhost:8100/api/analytics/network-stats
@@ -91,7 +91,7 @@ curl "http://localhost:8100/api/analytics/activity?days=30"
 curl "http://localhost:8100/api/analytics/top-addresses?limit=10"
 
 # Provider reputation
-curl "http://localhost:8100/api/analytics/provider-reputation/ait1db524..."
+curl "http://localhost:8100/api/analytics/provider-reputation/0x1234567890123456789012345678901234567890"
 ```
 
 ### For Humans (Web UI)

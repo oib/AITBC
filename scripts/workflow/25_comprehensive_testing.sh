@@ -113,8 +113,8 @@ echo "=========================="
 
 run_test_verbose "Blockchain head retrieval" "curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height"
 run_test_verbose "Blockchain info retrieval" "curl -s http://localhost:$GENESIS_PORT/rpc/info | jq .total_transactions"
-run_test_verbose "Genesis wallet balance" "curl -s 'http://localhost:$GENESIS_PORT/rpc/balance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r' | jq .balance"
-run_test_verbose "User wallet balance" "curl -s 'http://localhost:$GENESIS_PORT/rpc/balance/ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b' | jq .balance"
+run_test_verbose "Genesis wallet balance" "curl -s 'http://localhost:$GENESIS_PORT/rpc/balance/0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a' | jq .balance"
+run_test_verbose "User wallet balance" "curl -s 'http://localhost:$GENESIS_PORT/rpc/balance/0xE7d5e60688Ff0b4a5C6863f1625E47945D84C94b' | jq .balance"
 
 # 3. TRANSACTION TESTS
 echo ""
@@ -125,8 +125,8 @@ run_test_verbose "Transaction submission" "curl -s -X POST http://localhost:$GEN
   -H 'Content-Type: application/json' \
   -d '{
     \"type\": \"TRANSFER\",
-    \"from\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
-    \"to\": \"ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b\",
+    \"from\": \"0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a\",
+    \"to\": \"0xE7d5e60688Ff0b4a5C6863f1625E47945D84C94b\",
     \"amount\": 10,
     \"fee\": 5,
     \"nonce\": 1,

@@ -27,7 +27,11 @@ def mock_client():
         config.blockchain_rpc_url = "http://localhost:8202"
         config.api_key = "test-key"
         config.timeout = 10
-        with patch("aitbc_cli.commands.ai.get_config", return_value=config):
+        wallet = ("0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f", None, "default")
+        with (
+            patch("aitbc_cli.commands.ai.get_config", return_value=config),
+            patch("aitbc_cli.commands.ai.load_wallet_for_payment", return_value=wallet),
+        ):
             yield client
 
 

@@ -7,8 +7,6 @@ transaction-signing path using a deterministic, in-memory wallet.
 import json
 import os
 from decimal import Decimal
-from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
@@ -19,11 +17,6 @@ from eth_utils import keccak
 os.environ["AITBC_SKIP_ENV_FILES"] = "1"
 
 from aitbc_cli.commands.transactions import _send_transaction_impl, transactions
-
-
-def _ait1_address(hex_addr: str) -> str:
-    """Convert a 0x Ethereum address to the AITBC ait1 legacy format."""
-    return f"ait1{hex_addr[2:]}" if hex_addr.startswith("0x") else f"ait1{hex_addr}"
 
 
 @pytest.fixture
@@ -37,15 +30,13 @@ def funded_wallet(tmp_path, monkeypatch):
     acct = Account.from_key(private_key_hex)
     wallet = {
         "name": "test",
-        "address": _ait1_address(acct.address),
+        "address": acct.address,
         "private_key": private_key_hex,
     }
     (wallets_dir / "test.json").write_text(json.dumps(wallet))
 
     # Make the CLI use this keystore directory.
-    monkeypatch.setattr(
-        "aitbc_cli.commands.transactions.DEFAULT_KEYSTORE_DIR", wallets_dir
-    )
+    monkeypatch.setattr("aitbc_cli.commands.transactions.wallet_dir", lambda: wallets_dir)
     return wallet, private_key_hex, wallets_dir
 
 
@@ -91,7 +82,7 @@ def test_send_transaction_signs_with_secp256k1(mock_http_client, funded_wallet):
 
     tx_hash = _send_transaction_impl(
         from_wallet="test",
-        to_address="ait1" + "0" * 40,
+        to_address="0x0000000000000000000000000000000000000000",
         amount=Decimal("1.0"),
         fee=Decimal("0.001"),
         password="",
@@ -109,7 +100,7 @@ def test_send_transaction_signs_with_secp256k1(mock_http_client, funded_wallet):
 
     # Fields used by the verifier are present.
     assert tx_payload["from"] == wallet["address"]
-    assert tx_payload["to"] == "ait1" + "0" * 40
+    assert tx_payload["to"] == "0x0000000000000000000000000000000000000000"
     assert tx_payload["chain_id"] == "ait-hub.aitbc.bubuit.net"
     assert tx_payload["type"] == "TRANSFER"
     assert "signature" in tx_payload
@@ -135,7 +126,7 @@ def test_send_cli_invocation(mock_http_client, funded_wallet):
             "--from",
             "test",
             "--to",
-            "ait1" + "0" * 40,
+            "0x0000000000000000000000000000000000000000",
             "--amount",
             "1.0",
             "--fee",

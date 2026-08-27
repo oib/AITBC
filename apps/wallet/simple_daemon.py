@@ -284,7 +284,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
 
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
-        address = f"ait1{public_key[2:]}"
+        address = f"0x{public_key[2:]}"
 
         # Save to keystore (encrypt if password available)
         encrypted_key, is_encrypted = _encrypt_if_password(private_key)
@@ -445,7 +445,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
 
         private_key = secrets.token_hex(32)
         public_key = derive_ethereum_address(private_key)
-        address = f"ait1{public_key[2:]}"
+        address = f"0x{public_key[2:]}"
         encrypted_key, is_encrypted = _encrypt_if_password(private_key)
         wallet_data = {"address": address, "public_key": public_key, "private_key": encrypted_key, "encrypted": is_encrypted}
         KEYSTORE_PATH = Path("/etc/aitbc/keystore")

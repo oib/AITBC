@@ -244,7 +244,7 @@ validate_node_env() {
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "ait1<unique-uuid-here>" "$NODE_ENV_FILE"; then
+    if grep -q "0x<unique-uuid-here>" "$NODE_ENV_FILE"; then
         error "proposer_id contains placeholder UUID. Please set a unique value"
         ERRORS=$((ERRORS + 1))
     fi

@@ -1,9 +1,9 @@
 """Prove a node can sign as the identity it declares, before it produces anything.
 
-The deployed hub signed 12,353 blocks as `ait1db5247d0…` using a key that controls
-`0xFe2d63FE…`, then produced block 105,627 with no signature at all. Nothing raised: the
-keystore matched files on the `address` field they declared rather than the address their
-key derives to, and a failed key load logged a warning and let start-up continue.
+The deployed hub signed 12,353 blocks as the legacy `0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d` spelling using a key
+that controls `0xFe2d63FE…`, then produced block 105,627 with no signature at all. Nothing
+raised: the keystore matched files on the `address` field they declared rather than the
+address their key derives to, and a failed key load logged a warning and let start-up continue.
 
 Both faults are unrecoverable once written, because the chain commits to them. Every
 validating follower stalls at the first bad block forever, and the only remedy is manual

@@ -220,7 +220,7 @@ class Settings(BaseAITBCConfig):
 
     # Agent-economics operator (hub) used to sign agent-stake/bounty chain calls.
     agent_economics_operator_key: str = Field(default="", description="Agent economics operator private key (hex, env)")
-    agent_economics_operator_address: str = Field(default="", description="Agent economics operator address (ait1...)")
+    agent_economics_operator_address: str = Field(default="", description="Agent economics operator address (0x...)")
 
     @field_validator("debug", "enable_mock_swarm", mode="before")
     @classmethod

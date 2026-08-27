@@ -316,7 +316,7 @@ class TestStateSyncRefusesADivergedPeer:
     async def test_balances_are_not_copied_from_a_chain_we_reject(self, session_factory):
         _seed(session_factory, 12)
         with session_factory() as session:
-            session.add(Account(chain_id=CHAIN, address="ait1local", balance=500, nonce=1))
+            session.add(Account(chain_id=CHAIN, address="0xbdA835A027cab27d41f50F01F706066F171b0C29", balance=500, nonce=1))
             session.commit()
         sync = _sync(session_factory, {"height": 5, "hash": _hash(5, "theirs")})
 
@@ -329,6 +329,8 @@ class TestStateSyncRefusesADivergedPeer:
         # would have raised. Assert the balance too, since that is what the guard protects.
         assert sync._client.paths == [f"{PEER}/rpc/head"]  # type: ignore[attr-defined]
         with session_factory() as session:
-            account = session.exec(select(Account).where(Account.address == "ait1local")).first()
+            account = session.exec(
+                select(Account).where(Account.address == "0xbdA835A027cab27d41f50F01F706066F171b0C29")
+            ).first()
             assert account is not None
             assert account.balance == 500

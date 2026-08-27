@@ -234,8 +234,8 @@ def validate_ethereum_address(address: str) -> bool:
 
     Delegates to :func:`aitbc.utils.validation.validate_address` which
     supports EIP-55 checksum validation via eth_utils (with a regex
-    fallback when eth_utils is unavailable) and legacy ait1/aitbc1
-    prefixed addresses.
+    fallback when eth_utils is unavailable). Legacy ait1/aitbc1 prefixed
+    addresses are not accepted.
     """
     from ..utils.validation import validate_address
 

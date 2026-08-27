@@ -14,7 +14,6 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
-from ...utils.address import to_canonical
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -481,25 +480,22 @@ def match(ctx):
         # Load CLI config
         config = get_config()
 
-        # The matching endpoint lives on the marketplace service, not the blockchain RPC.
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        # Query blockchain for matching
+        try:
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            result = http_client.get("/rpc/transactions/marketplace/match")
 
-        # POST an empty compute request and let the marketplace return the best offer.
-        match_request = {
-            "requirements": {},
-            "chain_id": get_chain_id(),
-        }
-        result = http_client.post("/v1/marketplace/match", json=match_request)
+            if not result:
+                # Try hub
+                hub_url = config.blockchain_rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
+                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                result = http_client.get("/rpc/transactions/marketplace/match")
 
-        if not result:
-            info("No GPU marketplace match found")
-            return
+            output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
+        except NetworkError as e:
+            error(f"Network error: {e}")
+            raise click.Abort() from e
 
-        output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
-    except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
     except Exception as e:
         error(f"Error matching GPU market: {e}")
         raise click.Abort() from e
@@ -768,8 +764,8 @@ def offer(
         try:
             # P2.5: register the offer with the same marketplace service that `market list`
             # queries, otherwise the offer is visible only on the local node.
-            # Use the same plain-HTTP hub URL that the read path uses.
-            plugin_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            marketplace_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
+            plugin_client = AITBCHTTPClient(base_url=marketplace_url, timeout=10)
             plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
             plugin_client.post(
                 "/v1/marketplace/offer",
@@ -807,124 +803,4 @@ def offer(
 
     except Exception as e:
         error(f"Error creating software offer: {e}")
-        raise click.Abort() from e
-
-
-@market.command(name="offers")
-@click.option(
-    "--sort",
-    type=click.Choice(["reputation", "price", "availability", "default"]),
-    default="default",
-    help="Sort order",
-)
-@OUTPUT_FORMAT_OPTION
-@click.pass_context
-def my_offers(ctx, sort: str, output_format: str):
-    """List software offers published by the local wallet/node."""
-    try:
-        fmt = resolve_output_format(ctx, output_format)
-        config = get_config()
-        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
-        node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
-
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-
-        offers: list[dict[str, Any]] = []
-        try:
-            result = http_client.get("/v1/marketplace/offer")
-            all_offers = result.get("offers", []) if result else []
-            offers = [o for o in all_offers if o.get("provider_address") == wallet_address or o.get("node_id") == node_id]
-        except Exception as e:
-            logger.warning("Marketplace service not available: %s", e)
-
-        # Also include on-chain offers that may not be in the service yet.
-        if not offers:
-            try:
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-                result = http_client.get("/rpc/transactions", params={"limit": 500})
-                if result and not isinstance(result, dict):
-                    for tx in result:  # type: ignore[unreachable]
-                        p = tx.get("payload", {})
-                        if isinstance(p, str):
-                            try:
-                                p = json.loads(p)
-                            except json.JSONDecodeError:
-                                continue
-                        if p.get("action") == "software_offer" and (
-                            p.get("provider_address") == wallet_address or p.get("provider_node_id") == node_id
-                        ):
-                            offers.append(
-                                {
-                                    "offer_id": p.get("offer_id"),
-                                    "plugin_id": _compute_plugin_id(p.get("service_type", ""), p.get("model", "")),
-                                    "service_type": p.get("service_type"),
-                                    "model": p.get("model"),
-                                    "price": p.get("price"),
-                                    "price_unit": p.get("price_unit"),
-                                    "provider_address": p.get("provider_address"),
-                                    "node_id": p.get("provider_node_id"),
-                                    "status": p.get("status", "active"),
-                                }
-                            )
-            except Exception:
-                logger.debug("Blockchain offer lookup failed", exc_info=True)
-
-        if not offers:
-            info("No offers found for the local wallet/node")
-            return
-
-        offers = _sort_offers(offers, sort)
-        market_data = []
-        for offer in offers:
-            provider_addr = offer.get("provider_address", "N/A") or "N/A"
-            market_data.append(
-                {
-                    "Offer ID": offer.get("offer_id", "N/A"),
-                    "Plugin ID": offer.get("plugin_id", "N/A"),
-                    "Service Type": offer.get("service_type", "N/A"),
-                    "Model": offer.get("model", "N/A"),
-                    "Price": f"{offer.get('price', 0)} {offer.get('price_unit', 'units')}",
-                    "Provider": provider_addr[:16] + "..." if len(provider_addr) > 16 else provider_addr,
-                    "Node ID": offer.get("node_id", "N/A"),
-                    "Status": offer.get("status", "active"),
-                }
-            )
-
-        output(market_data, fmt)
-        success(f"Found {len(offers)} local offers")
-    except Exception as e:
-        error(f"Error listing local offers: {e}")
-        raise click.Abort() from e
-
-
-@market.command(name="offer-disable")
-@click.argument("offer_id")
-@click.pass_context
-def disable_offer(ctx, offer_id: str):
-    """Disable (cancel) a software offer published by the local wallet."""
-    try:
-        config = get_config()
-        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
-
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-
-        # Resolve the marketplace service entry for this offer_id.
-        service = http_client.get(f"/v1/marketplace/offer-by-id/{offer_id}")
-        if not service:
-            error(f"Offer not found in marketplace: {offer_id}")
-            raise click.Abort()
-
-        provider_address = to_canonical(service.get("provider_address", ""))
-        if provider_address and to_canonical(wallet_address) != provider_address:
-            error(f"Offer {offer_id} belongs to {provider_address}, not the selected wallet {to_canonical(wallet_address)}")
-            raise click.Abort()
-
-        plugin_id = service["plugin_id"]
-        result = http_client.delete(f"/v1/marketplace/offer/{plugin_id}")
-        success(f"Offer {offer_id} ({plugin_id}) disabled")
-        output(result, ctx.obj.get("output_format", "table"))
-    except Exception as e:
-        error(f"Error disabling offer: {e}")
         raise click.Abort() from e

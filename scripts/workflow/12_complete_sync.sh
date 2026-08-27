@@ -18,7 +18,7 @@ else
     echo "⚠️  Using default configuration (env file not found)"
 fi
 # Configuration
-WALLET_ADDR="ait11c02342d4fec502240c20d609a8bb839ccd23838"
+WALLET_ADDR="0x1C02342D4fEc502240C20D609a8BB839ccd23838"
 
 # Check current heights
 echo "1. Current blockchain status:"

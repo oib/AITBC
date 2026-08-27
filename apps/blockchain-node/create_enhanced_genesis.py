@@ -11,12 +11,17 @@ from datetime import datetime
 from typing import Any
 
 import yaml
+from eth_account import Account as EthAccount
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.models import Account, Block, Transaction
 from sqlmodel import select
 
 logger = get_logger(__name__)
+
+# Deterministic 0x sender used for genesis contract deployments.
+# This matches the address that _derive_address("aitbc1genesis") returns.
+GENESIS_SENDER = EthAccount.from_key(hashlib.sha256(b"aitbc1genesis").digest()).address
 
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain_id: str) -> str:
@@ -44,7 +49,7 @@ def create_genesis_contracts(session, contracts: list[dict[str, Any]], chain_id:
         deployment_tx = Transaction(
             chain_id=chain_id,
             tx_hash=f"0x{hashlib.sha256(f'contract_{contract["name"]}_{chain_id}'.encode()).hexdigest()}",
-            sender="aitbc1genesis",
+            sender=GENESIS_SENDER,
             recipient=contract["address"],
             payload={"type": "contract_deployment", "contract_name": contract["name"], "code": contract.get("code", "0x")},
         )

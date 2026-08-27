@@ -46,7 +46,7 @@ def test_nodes():
                 try:
                     response = httpx.post(
                         f"{node['url']}/rpc/faucet",
-                        json={"address": "aitbc1test000000000000000000000000000000000000", "amount": 100},
+                        json={"address": "0x50070B0Ed558c6a131d8D9b122DcF7fC55A81972", "amount": 100},
                         timeout=5,
                     )
                     faucet_ok = response.status_code == 200

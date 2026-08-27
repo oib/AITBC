@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 # AITBC Messaging Contract Deployment - Simplified
-set -e
-
+set -euo pipefail
 echo "🔗 AITBC MESSAGING CONTRACT DEPLOYMENT"
 
 # Source scenario configuration
@@ -22,7 +21,7 @@ echo ""
 # Configuration
 CONTRACT_ADDRESS="0xagent_messaging_001"
 CONTRACT_NAME="AgentMessagingContract"
-DEPLOYER_ADDRESS="ait1messaging_deployer"
+DEPLOYER_ADDRESS="0x8D12605f95d8Cce7C0BE365DfCD8421533214D93"
 
 echo "🚀 CONTRACT DEPLOYMENT"
 echo "=================="

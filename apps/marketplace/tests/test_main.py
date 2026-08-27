@@ -202,7 +202,9 @@ def test_book_offer_not_found(client):
     with a 500 — a client retrying on 5xx would retry it forever, and an operator watching
     error rates would see the service failing rather than a caller asking for nothing (V23-81).
     """
-    response = client.post("/v1/marketplace/offers/nonexistent-offer-id/book", json={"wallet": "aitbc1test"})
+    response = client.post(
+        "/v1/marketplace/offers/nonexistent-offer-id/book", json={"wallet": "0x4472315052d1bC56dd9aA6514B9796770C8c0611"}
+    )
     assert response.status_code == 404
     assert response.json() == {"error": "Offer not found"}
 
@@ -219,14 +221,20 @@ def test_book_offer_that_is_not_available(client):
     now that cancelling works (V23-83): a booked offer cannot be cancelled either, so the
     two-bookings route to this state is the only one.
     """
-    created = client.post("/v1/marketplace/offers", json={"provider": "aitbc1provider", "capacity": 1})
+    created = client.post(
+        "/v1/marketplace/offers", json={"provider": "0xb8A506Cd711eb63630081cCfD907Fa0545B3BE9E", "capacity": 1}
+    )
     assert created.status_code == 200
     offer_id = created.json()["id"]
 
-    first = client.post(f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "aitbc1test"})
+    first = client.post(
+        f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "0x4472315052d1bC56dd9aA6514B9796770C8c0611"}
+    )
     assert first.status_code == 200
 
-    response = client.post(f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "aitbc1other"})
+    response = client.post(
+        f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "0x256c41bf37d05c2FD5f58efcE46bbe7746CA299d"}
+    )
     assert response.status_code == 400
     assert response.json() == {"error": "Offer is not available (status=booked)"}
 
@@ -239,13 +247,15 @@ def test_book_offer_with_an_unparseable_duration(client):
     missing offer, from bad input rather than a bad id. The `except ValueError` added in
     V23-81 covers both, which is why it is worth pinning that it covers this one too.
     """
-    created = client.post("/v1/marketplace/offers", json={"provider": "aitbc1provider", "capacity": 1})
+    created = client.post(
+        "/v1/marketplace/offers", json={"provider": "0xb8A506Cd711eb63630081cCfD907Fa0545B3BE9E", "capacity": 1}
+    )
     assert created.status_code == 200
     offer_id = created.json()["id"]
 
     response = client.post(
         f"/v1/marketplace/offers/{offer_id}/book",
-        json={"wallet": "aitbc1test", "duration_hours": "half a day"},
+        json={"wallet": "0x4472315052d1bC56dd9aA6514B9796770C8c0611", "duration_hours": "half a day"},
     )
     assert response.status_code == 400
     assert "error" in response.json()
@@ -256,7 +266,9 @@ def test_book_offer_with_an_unparseable_duration(client):
 
 def _new_offer(client, **fields):
     """Create an offer and return its id. Defaults to a bookable one."""
-    created = client.post("/v1/marketplace/offers", json={"provider": "aitbc1provider", "capacity": 1, **fields})
+    created = client.post(
+        "/v1/marketplace/offers", json={"provider": "0xb8A506Cd711eb63630081cCfD907Fa0545B3BE9E", "capacity": 1, **fields}
+    )
     assert created.status_code == 200, created.text
     return created.json()["id"]
 
@@ -339,7 +351,12 @@ def test_cancel_a_booked_offer_is_refused(client):
     of failing to parse `"booked"` on the way in.
     """
     offer_id = _new_offer(client)
-    assert client.post(f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "aitbc1buyer"}).status_code == 200
+    assert (
+        client.post(
+            f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "0x2A90A998913478Cdb1c59CaC089C44A3BC59DEf0"}
+        ).status_code
+        == 200
+    )
 
     response = client.post(f"/v1/marketplace/offers/{offer_id}/cancel")
     assert response.status_code == 400
@@ -355,7 +372,7 @@ def test_an_offer_cannot_be_created_in_a_status_the_service_does_not_have(client
     """
     created = client.post(
         "/v1/marketplace/offers",
-        json={"provider": "aitbc1provider", "capacity": 1, "status": "mostly available"},
+        json={"provider": "0xb8A506Cd711eb63630081cCfD907Fa0545B3BE9E", "capacity": 1, "status": "mostly available"},
     )
     assert created.status_code == 400
     assert "Unknown offer status" in created.json()["error"]
@@ -409,7 +426,9 @@ def test_an_offer_stored_as_open_can_be_booked(client):
     """
     offer_id = _new_offer(client, status="open")
 
-    response = client.post(f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "aitbc1buyer"})
+    response = client.post(
+        f"/v1/marketplace/offers/{offer_id}/book", json={"wallet": "0x2A90A998913478Cdb1c59CaC089C44A3BC59DEf0"}
+    )
     assert response.status_code == 200
     assert client.get(f"/v1/marketplace/offers/{offer_id}").json()["status"] == "booked"
 
@@ -504,7 +523,7 @@ def test_rate_service_not_found(client):
     """
     response = client.post(
         "/v1/marketplace/offer/no-such-service/rate",
-        json={"rating": 5.0, "reviewer_id": "aitbc1reviewer", "comment": "orphan"},
+        json={"rating": 5.0, "reviewer_id": "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e", "comment": "orphan"},
     )
     assert response.status_code == 404
     assert response.json() == {"error": "Service not found"}
@@ -522,7 +541,7 @@ def test_rate_a_registered_service(client, registered_service):
     """
     response = client.post(
         f"/v1/marketplace/offer/{registered_service}/rate",
-        json={"rating": 4.0, "reviewer_id": "aitbc1reviewer", "comment": "fine"},
+        json={"rating": 4.0, "reviewer_id": "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e", "comment": "fine"},
     )
     assert response.status_code == 200
     assert response.json()["rating"]["service_id"] == registered_service

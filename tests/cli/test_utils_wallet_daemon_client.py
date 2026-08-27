@@ -41,13 +41,13 @@ class TestWalletInfo:
             wallet_id="wallet123",
             chain_id="ait-mainnet",
             public_key="pubkey123",
-            address="aitbc1abc",
+            address="0xB304b44D76f48A4e1837d53E7d17EcDD6b642438",
             created_at="2024-01-01",
             metadata={"label": "test"},
         )
 
         assert info.wallet_id == "wallet123"
-        assert info.address == "aitbc1abc"
+        assert info.address == "0xB304b44D76f48A4e1837d53E7d17EcDD6b642438"
 
 
 class TestWalletBalance:
@@ -58,7 +58,11 @@ class TestWalletBalance:
         from aitbc_cli.utils.wallet_daemon_client import WalletBalance
 
         balance = WalletBalance(
-            wallet_id="wallet123", chain_id="ait-mainnet", balance=100.5, address="aitbc1abc", last_updated="2024-01-01"
+            wallet_id="wallet123",
+            chain_id="ait-mainnet",
+            balance=100.5,
+            address="0xB304b44D76f48A4e1837d53E7d17EcDD6b642438",
+            last_updated="2024-01-01",
         )
 
         assert balance.balance == 100.5

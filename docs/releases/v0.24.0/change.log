@@ -734,7 +734,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   - Job status shows `reinvest_status: staked` and `reinvest_stake_id`.
   - Scenario docs: `docs/scenarios/40_auto_reinvestment.md`.
 - Added `HUB_COORDINATOR_URL=http://hub.aitbc.bubuit.net/c/v1` to `/etc/aitbc/blockchain.env` on `aitbc3` and `hub.aitbc` so the `aitbc` operator user resolves the coordinator URL correctly without relying on a per-user `.aitbc.yaml`.
-- Validated `sudo -u aitbc aitbc ai submit --payment 1.0 --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f --model llama3.2:3b --prompt "What is 2+2?" --wait` on `hub.aitbc`: job completed, payment released, escrow tx `0x867529e7b692e222bb3406ec4b6ed51b86e8411da99654be14d962b38a913c74`.
+- Validated `sudo -u aitbc aitbc ai submit --payment 1.0 --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F --model llama3.2:3b --prompt "What is 2+2?" --wait` on `hub.aitbc`: job completed, payment released, escrow tx `0x867529e7b692e222bb3406ec4b6ed51b86e8411da99654be14d962b38a913c74`.
 
 - `aitbc-miner.service`: set `HOME=/var/lib/aitbc` so `ProtectHome=yes` does not break Whisper temp paths after the operator home move.
 - `aitbc-pool-hub.service`: set `HOME=/var/lib/aitbc` and `PGSSLMODE=disable` so the hub pool-hub starts cleanly with the new `aitbc` home.
@@ -763,7 +763,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
     include `ffmpeg` and `whisper` upstream/location blocks on the correct ports.
   - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md` and
     `docs/scenarios/50_default_shop_offers.md`.
-- Validated end-to-end ZK receipt verification: submitted `aitbc ai submit --wallet default --payment 1.0 --provider-address aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f --model llama3.2:3b --prompt "What is the capital of France?" --zk-proof-required --wait`; the completed receipt shows `zk_status: verified` and `aitbc zk verify --proof-id f714b502099b4813931d8594b9b57650` returns `verified: true, computation_correct: true, privacy_preserved: true`.
+- Validated end-to-end ZK receipt verification: submitted `aitbc ai submit --wallet default --payment 1.0 --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F --model llama3.2:3b --prompt "What is the capital of France?" --zk-proof-required --wait`; the completed receipt shows `zk_status: verified` and `aitbc zk verify --proof-id f714b502099b4813931d8594b9b57650` returns `verified: true, computation_correct: true, privacy_preserved: true`.
 
 
 - P2.6: real IPFS daemon behind `aitbc ipfs`.
@@ -1349,7 +1349,7 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
   4. Temporarily set `MULTI_VALIDATOR_MIN_ATTESTATIONS=0` on both nodes, restarted both `aitbc-blockchain-node` services, and restored `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` after the first converged blocks.
 - **Verification:**
   - `hub.aitbc` pulled block 14548 from `aitbc1` over HTTPS; both heads converged at height 14550 with identical hashes.
-  - The chain now advances every ~60s with `MultiValidatorPoA` round-robin selection; blocks 14563+ carry `block_metadata` with a valid cross-validator attestation signature (e.g. 14563 from `ait1Eb9F...` attested by `ait178046...`; 14564 from `ait178046...` attested by `ait1Eb9F...`).
+  - The chain now advances every ~60s with `MultiValidatorPoA` round-robin selection; blocks 14563+ carry `block_metadata` with a valid cross-validator attestation signature (e.g. 14563 from `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` attested by `0x78046b9677c724FdF0af59c58439d67B210AD71b`; 14564 from `0x78046b9677c724FdF0af59c58439d67B210AD71b` attested by `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F`).
   - `hub.aitbc` and `aitbc1` report the same head height and hash.
   - Extended independent verification (heights 14592–14612, 15 consecutive blocks) ran `verify_block_signature()` live on all three nodes; every proposer and attestation signature validated, with attestations exclusively from the non-proposing validator.
 - **Residual:**

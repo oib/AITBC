@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 
 import click
+from eth_utils import to_checksum_address
 
 from ...utils import DECIMAL, error, output, success
 from ...utils.money import wallet_amount as _wallet_amount
@@ -37,7 +38,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     multisig_data = {
         "wallet_id": name,
         "type": "multisig",
-        "address": f"aitbc1ms{secrets.token_hex(18)}",
+        "address": to_checksum_address(f"0x{secrets.token_hex(20)}"),
         "signers": list(signers),
         "threshold": threshold,
         "created_at": datetime.now().isoformat(),
