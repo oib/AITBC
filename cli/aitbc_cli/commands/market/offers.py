@@ -768,8 +768,8 @@ def offer(
         try:
             # P2.5: register the offer with the same marketplace service that `market list`
             # queries, otherwise the offer is visible only on the local node.
-            marketplace_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
-            plugin_client = AITBCHTTPClient(base_url=marketplace_url, timeout=10)
+            # Use the same plain-HTTP hub URL that the read path uses.
+            plugin_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
             plugin_client.post(
                 "/v1/marketplace/offer",
@@ -908,8 +908,7 @@ def disable_offer(ctx, offer_id: str):
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        marketplace_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
-        http_client = AITBCHTTPClient(base_url=marketplace_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
 
         # Resolve the marketplace service entry for this offer_id.
         service = http_client.get(f"/v1/marketplace/offer-by-id/{offer_id}")
