@@ -288,11 +288,13 @@ class ChainSettings(BaseSettings):
     sync_state_root_validation_enabled: bool = True  # validate state roots on push/gossip block import
 
     # SyncManager settings (v0.11.0)
-    sync_manager_enabled: bool = False
+    sync_manager_enabled: bool = True
     sync_managed_externally: bool = False
     sync_manager_use_gossip: bool = True
-    sync_manager_use_subscription: bool = False
+    sync_manager_use_subscription: bool = True
     sync_manager_poll_interval: float = 15.0
+    sync_manager_block_dedup_ttl: float = 300.0
+    sync_manager_block_dedup_max_size: int = 10000
     sync_manager_synced_poll_interval: float = 30.0
     sync_manager_state_sync_interval: float = 300.0
     sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."

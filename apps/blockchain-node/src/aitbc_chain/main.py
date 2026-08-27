@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from aitbc.async_tasks import TaskRegistry
-from aitbc.network import IslandRegistry, SharedHttpClient, SubscriptionManager
+from aitbc.network import IslandRegistry
 from aitbc.sync import SyncSourceResolver
 
 from .config import settings
@@ -19,10 +19,9 @@ from .gossip import create_backend, gossip_broker
 from .lease_tracker import lease_tracker
 from .logger import get_logger
 from .mempool import init_mempool
-from .metrics import sync_lag_blocks
 from .observability import register_exporters
-from .subscription_client import SubscriptionClient
 from .sync import ChainSync
+from .sync_manager import SyncManager
 
 try:
     from .p2p_network import get_p2p_network
@@ -170,10 +169,10 @@ class BlockchainNode:
             sync_sources=settings.chain_sync_sources,
             default_url=settings.default_peer_rpc_url,
         )
-        self._subscription_manager: SubscriptionManager | None = None
         self._multi_chain_manager: MultiChainManager | None = None
         self._settlement_coordinators: list[Any] = []
         self._sync: ChainSync | None = None
+        self._sync_manager: SyncManager | None = None
 
     @staticmethod
     def _env_value(*names: str) -> str | None:
@@ -327,93 +326,10 @@ class BlockchainNode:
                     logger.error("Error processing transaction from gossip: %s", exc)
 
         self._task_registry.create_task(process_txs, name="gossip_process_txs")
+        # Block subscriptions are now owned by SyncManager.
+
+        # v0.7.7: Subscribe to PBFT gossip topics for each chain that has PBFT enabled.
         for chain_id in chains:
-            try:
-                block_topic = f"blocks.{chain_id}"
-                block_sub = await gossip_broker.subscribe(block_topic)
-                logger.info("Successfully subscribed to %s topic", block_topic)
-
-                async def process_blocks_for_chain(chain_id_param: str = chain_id, block_sub_param: Any = block_sub) -> None:
-                    last_bulk_sync_time = 0.0
-                    logger.info("Block processing task started for chain %s", chain_id_param)
-                    while True:
-                        try:
-                            block_data = await block_sub_param.queue.get()
-                            if isinstance(block_data, str):
-                                import json
-
-                                block_data = json.loads(block_data)
-                            block_proposer = block_data.get("proposer", "")
-                            if block_proposer and block_proposer == settings.proposer_id:
-                                logger.debug("Skipping self-proposed block %s from gossip", block_data.get("height"))
-                                continue
-                            logger.info("Received block from gossip for chain %s", chain_id_param)
-                            logger.info("Importing block for chain %s: %s", chain_id_param, block_data.get("height"))
-
-                            sync = ChainSync(
-                                session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),
-                                chain_id=chain_id_param,
-                            )
-                            res = sync.import_block(
-                                block_data,
-                                transactions=block_data.get("transactions"),
-                                skip_state_root_validation=not settings.sync_state_root_validation_enabled,
-                            )
-                            logger.info("Import result: accepted=%s, reason=%s", res.accepted, res.reason)
-                            if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
-                                try:
-                                    reason_parts = res.reason.split(":")
-                                    our_height = int(reason_parts[1].strip().split(",")[0].replace("our height: ", ""))
-                                    received_height = int(reason_parts[2].strip().replace("received: ", "").replace(")", ""))
-                                    gap_size = received_height - our_height
-                                    if gap_size > settings.auto_sync_threshold:
-                                        current_time = asyncio.get_event_loop().time()
-                                        time_since_last_sync = current_time - last_bulk_sync_time
-                                        if time_since_last_sync >= settings.min_bulk_sync_interval:
-                                            logger.warning(
-                                                "Gap detected: %s blocks, triggering automatic bulk sync (chain=%s)",
-                                                gap_size,
-                                                chain_id_param,
-                                            )
-                                            source_url = block_data.get("source_url")
-                                            if not source_url:
-                                                source_url = settings.default_peer_rpc_url
-                                            if source_url:
-                                                try:
-                                                    imported = await sync.bulk_import_from(source_url)
-                                                    logger.info(
-                                                        "Bulk sync completed: %s blocks imported (chain=%s)",
-                                                        imported,
-                                                        chain_id_param,
-                                                    )
-                                                    last_bulk_sync_time = current_time
-                                                    res = sync.import_block(
-                                                        block_data,
-                                                        transactions=block_data.get("transactions"),
-                                                        skip_state_root_validation=not settings.sync_state_root_validation_enabled,
-                                                    )
-                                                    logger.info(
-                                                        "Retry import result: accepted=%s, reason=%s", res.accepted, res.reason
-                                                    )
-                                                except Exception as sync_exc:
-                                                    logger.error("Automatic bulk sync failed: %s", sync_exc)
-                                            else:
-                                                logger.warning("No source URL available for bulk sync")
-                                        else:
-                                            logger.info("Skipping bulk sync, too recent (%ss ago)", time_since_last_sync)
-                                except (ValueError, IndexError) as parse_exc:
-                                    logger.error("Failed to parse gap size from reason: %s, error: %s", res.reason, parse_exc)
-                        except Exception as exc:
-                            logger.error("Error processing block from gossip for chain %s: %s", chain_id_param, exc)
-
-                self._task_registry.create_task(
-                    lambda c=chain_id, b=block_sub: process_blocks_for_chain(chain_id_param=c, block_sub_param=b),  # type: ignore[misc]
-                    name=f"gossip_blocks_{chain_id}",
-                )
-            except Exception as e:
-                logger.error("Failed to subscribe to blocks.%s: %s", chain_id, e)
-
-            # v0.7.7: Subscribe to PBFT gossip topics for each chain that has PBFT enabled.
             proposer = self._proposers.get(chain_id)
             if proposer and proposer.pbft_consensus:
                 for phase in ("pre_prepare", "prepare", "commit"):
@@ -466,6 +382,24 @@ class BlockchainNode:
         for chain_id in chains:
             init_db(chain_id)
             logger.info("Initialized database for chain: %s", chain_id)
+
+        use_gossip = settings.sync_manager_use_gossip
+        use_subscription = settings.sync_manager_use_subscription
+        if settings.blockchain_mode == "hub" and not settings.multi_validator_consensus_enabled:
+            use_gossip = False
+            use_subscription = False
+        self._sync_manager = SyncManager(
+            chains=chains,
+            node_id=os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node"),
+            proposer_id=settings.proposer_id,
+            production_chains=self._block_production_chains(),
+            use_gossip=use_gossip,
+            use_subscription=use_subscription and settings.subscription_enabled,
+            own_gossip=False,
+            skip_init_db=True,
+        )
+        await self._sync_manager.start()
+
         init_mempool(
             backend=settings.mempool_backend,
             db_url=settings.mempool_db_url,
@@ -524,9 +458,16 @@ class BlockchainNode:
             if p2p_service is not None:
                 try:
                     default_chain = self._supported_chains()[0] if self._supported_chains() else settings.chain_id
-                    self._sync = ChainSync(session_factory=lambda: session_scope(default_chain), chain_id=default_chain)
-                    p2p_service.set_peer_capability_callback(self._sync.register_sync_peer)
-                    logger.info("P2P peer capability callback wired to ChainSync peer tracker")
+                    if self._sync_manager is not None:
+                        p2p_service.set_peer_capability_callback(
+                            lambda peer_id, rpc_url, block_range, has_state=True: self._sync_manager.register_sync_peer(
+                                default_chain, peer_id, rpc_url, block_range, has_state
+                            )
+                        )
+                    else:
+                        self._sync = ChainSync(session_factory=lambda: session_scope(default_chain), chain_id=default_chain)
+                        p2p_service.set_peer_capability_callback(self._sync.register_sync_peer)
+                    logger.info("P2P peer capability callback wired to SyncManager")
                 except Exception as e:
                     logger.warning("Failed to wire P2P peer capability callback: %s", e)
             else:
@@ -559,49 +500,8 @@ class BlockchainNode:
             logger.info("Running in FOLLOWER mode (blockchain_mode=%s)", settings.blockchain_mode)
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
             await self._bootstrap_genesis_for_follower()
-            subscription_client: SubscriptionClient | None = None
-            if settings.subscription_enabled:
-                node_id = os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node")
-                chains = self._supported_chains()
-                if len(chains) <= 1:
-                    # Single-chain backward compat: one SubscriptionClient (original path)
-                    chain_id = chains[0] if chains else settings.chain_id
-                    hub_url = self.get_sync_source(chain_id)
-                    if hub_url:
-                        subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
-                        self._task_registry.create_task(subscription_client.start, name="subscription_client")
-                        logger.info("Subscription client started for chain %s via hub %s", chain_id, hub_url)
-                    else:
-                        logger.warning("Subscription client not started: no hub URL configured for chain %s", chain_id)
-                else:
-                    # Multi-chain: one SubscriptionClient per (chain_id, hub_url) pair
-                    self._subscription_manager = SubscriptionManager()
-                    for chain_id in chains:
-                        hub_url = self.get_sync_source(chain_id)
-                        if hub_url:
-                            client = SubscriptionClient(hub_url, node_id, chain_id)
-                            self._subscription_manager.add_subscription(chain_id, client)
-                            logger.info("Subscription client registered for chain %s via hub %s", chain_id, hub_url)
-                        else:
-                            logger.warning("No hub URL configured for chain %s, skipping subscription", chain_id)
-                    self._task_registry.create_task(self._subscription_manager.start_all, name="subscription_manager")
-                    logger.info("Subscription manager started for %d chains", len(chains))
-            if settings.periodic_sync_enabled:
-                self._task_registry.create_task(
-                    lambda sc=subscription_client: self._periodic_sync_task(sc),  # type: ignore[misc]
-                    name="periodic_sync",
-                )
         else:
             logger.warning("Unknown blockchain_mode: %s, defaulting to follower behavior", settings.blockchain_mode)
-
-        # v0.7.6: multi-validator nodes can fall behind after restarts. Keep
-        # periodic sync active so a validator can catch up from a peer before
-        # it is selected as the next proposer.
-        if settings.blockchain_mode != "follower" and settings.periodic_sync_enabled:
-            self._task_registry.create_task(
-                lambda sc=None: self._periodic_sync_task(None),  # type: ignore[misc]
-                name="periodic_sync",
-            )
         # Settlement timeout monitor: refunds escrows stuck in non-terminal
         # states (incl. any that timed out while the node was down).
         if settings.escrow_enabled:
@@ -657,168 +557,15 @@ class BlockchainNode:
             chains_str = getattr(settings, "block_production_chains", "")
         return [c.strip() for c in (chains_str or "").split(",") if c.strip()]
 
-    def _should_skip_sync(self, chain_id: str, source_url: str | None) -> bool:
-        """Do not pull a chain from the default peer if we produce it locally.
-
-        A chain that is in our block_production_chains and has no explicit
-        per-chain sync source is a local-only chain (e.g. an island).  Pulling
-        it from the default hub returns 503 because the hub does not serve that
-        chain.  If a per-chain source is explicitly configured, that overrides
-        this heuristic.
-        """
-        if source_url is None:
-            return True
-        if not self._sync_source_resolver.is_fallback_source(chain_id):
-            return False
-        if chain_id in self._block_production_chains() and not getattr(settings, "multi_validator_consensus_enabled", False):
-            logger.info("Skipping sync for locally-produced chain %s (no remote source configured)", chain_id)
-            return True
-        return False
-
-    async def _periodic_sync_task(self, subscription_client: SubscriptionClient | None = None) -> None:
-        """Periodic pull sync task for follower nodes. Skips pull when WebSocket push is active, but forces pull if gap grows."""
-        chains = self._supported_chains()
-        sync_interval = settings.periodic_sync_interval
-        default_source_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
-        if not default_source_url:
-            logger.warning("Periodic sync disabled: no default_peer_rpc_url or genesis_node configured")
-            return
-        logger.info("Starting periodic sync task (interval=%ss, default_source=%s)", sync_interval, default_source_url)
-
-        # Sync account state from hub on startup (every 10 cycles thereafter)
-        state_sync_counter = 0
-        state_sync_every = 10
-        while not self._stop_event.is_set():
-            try:
-                # State sync: reconcile accounts with hub
-                if state_sync_counter % state_sync_every == 0:
-                    for chain_id in chains:
-                        source_url = self.get_sync_source(chain_id)
-                        if source_url is None or self._should_skip_sync(chain_id, source_url):
-                            continue
-                        try:
-                            sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
-                                chain_id=chain_id,
-                            )
-                            result = await sync.sync_state_from(source_url)
-                            if result.get("synced", 0) > 0:
-                                logger.info(
-                                    "State sync: created=%s, updated=%s, match=%s",
-                                    result.get("created", 0),
-                                    result.get("updated", 0),
-                                    result.get("match", False),
-                                )
-                            elif result.get("match") is False:
-                                # Reported even with nothing to sync: a root that stays wrong after
-                                # a full account sync was previously logged only when something
-                                # changed, so 414 mismatched cycles said nothing at all (V23-90).
-                                logger.warning(
-                                    "State sync did not converge for chain %s: local_root=%s remote_root=%s",
-                                    chain_id,
-                                    result.get("local_state_root"),
-                                    result.get("remote_state_root"),
-                                    extra={"chain_id": chain_id},
-                                )
-                        except Exception as e:
-                            logger.warning("State sync failed for chain %s: %s", chain_id, e)
-                state_sync_counter += 1
-                # Check if we should force pull sync (gap threshold exceeded)
-                force_pull = False
-                if subscription_client and subscription_client.get_sync_mode() == "push":
-                    # Check if we're actually receiving blocks by comparing heights
-                    for chain_id in chains:
-                        try:
-                            sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
-                                chain_id=chain_id,
-                            )
-                            local_status = sync.get_sync_status()
-                            local_height = local_status.get("head_height", 0)
-
-                            # Get remote height via HTTP
-                            chain_source_url = self.get_sync_source(chain_id)
-                            if self._should_skip_sync(chain_id, chain_source_url):
-                                continue
-                            response = await SharedHttpClient.get(f"{chain_source_url}/rpc/height", timeout=10.0)
-                            response.raise_for_status()
-                            remote_data = response.json()
-                            remote_height = remote_data.get("height", 0)
-
-                            gap = remote_height - local_height
-                            sync_lag_blocks.labels(chain_id=chain_id).set(max(gap, 0))
-                            trigger = _pull_trigger(gap)
-                            if trigger == "behind":
-                                logger.warning(
-                                    "Block gap too large (%s blocks), forcing pull sync despite push mode",
-                                    gap,
-                                    extra={"chain_id": chain_id, "local_height": local_height, "remote_height": remote_height},
-                                )
-                                force_pull = True
-                                break
-                            if trigger == "ahead":
-                                logger.warning(
-                                    "Local chain is %s blocks ahead of peer %s (local %s, peer %s), forcing pull sync to "
-                                    "check for divergence",
-                                    -gap,
-                                    chain_source_url,
-                                    local_height,
-                                    remote_height,
-                                    extra={"chain_id": chain_id, "local_height": local_height, "remote_height": remote_height},
-                                )
-                                force_pull = True
-                                break
-                        except Exception as e:
-                            logger.warning("Failed to check block gap, forcing pull sync: %s", e)
-                            force_pull = True
-                            break
-
-                if force_pull or not subscription_client or subscription_client.get_sync_mode() != "push":
-                    logger.info(
-                        "Sync mode: pull (periodic)",
-                        extra={
-                            "force_pull": force_pull,
-                            "sync_mode": subscription_client.get_sync_mode() if subscription_client else "no_client",
-                        },
-                    )
-                    for chain_id in chains:
-                        source_url = self.get_sync_source(chain_id)
-                        if source_url is None or self._should_skip_sync(chain_id, source_url):
-                            continue
-                        try:
-                            sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
-                                chain_id=chain_id,
-                            )
-                            imported = await sync.bulk_import_from(source_url)
-                            if imported > 0:
-                                logger.info(
-                                    "Periodic sync imported %s blocks for chain %s",
-                                    imported,
-                                    chain_id,
-                                    extra={"chain_id": chain_id, "imported": imported},
-                                )
-                        except Exception as e:
-                            logger.error(
-                                "Periodic sync failed for chain %s: %s",
-                                chain_id,
-                                str(e),
-                                extra={"chain_id": chain_id},
-                            )
-                else:
-                    logger.debug("Skipping periodic pull: WebSocket push is active and gap is acceptable")
-            except Exception as e:
-                logger.error("Periodic sync task error: %s", str(e))
-            try:
-                await asyncio.wait_for(self._stop_event.wait(), timeout=sync_interval)
-                break
-            except TimeoutError:
-                continue
+    # Sync source resolution and periodic pull logic now live in SyncManager.
 
     async def _shutdown(self) -> None:
         logger.info("Shutting down blockchain node, cancelling background tasks...")
-        if self._subscription_manager is not None:
-            await self._subscription_manager.stop_all()
+        if self._sync_manager is not None:
+            try:
+                await self._sync_manager.stop()
+            except Exception as e:
+                logger.error("Error stopping sync manager: %s", e)
         # Stop multi-chain manager (stops all secondary chains gracefully)
         if self._multi_chain_manager is not None:
             try:

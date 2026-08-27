@@ -38,7 +38,6 @@ SERVICES_NEEDING_WRITE_ACCESS = {
     "aitbc-blockchain-event-bridge.service",
     "aitbc-blockchain-explorer.service",
     "aitbc-blockchain-rpc.service",
-    "aitbc-blockchain-sync.service",
     "aitbc-exchange.service",
     "aitbc-gpu.service",
     "aitbc-miner.service",

@@ -119,7 +119,6 @@ get_allowed_services() {
 
     # Follower-specific services (blockchain sync, in addition to base)
     local follower_services=(
-        aitbc-blockchain-sync
         aitbc-blockchain-explorer
     )
 
