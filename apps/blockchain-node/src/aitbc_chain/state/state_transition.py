@@ -35,13 +35,13 @@ _BOND_ESCROW_ADDRESS = os.getenv("BOND_ESCROW_ADDRESS", "")
 if _BOND_ESCROW_ADDRESS:
     _BOND_ESCROW_ADDRESS = canonical_address(_BOND_ESCROW_ADDRESS)
 else:
-    _BOND_ESCROW_ADDRESS = "0x" + keccak(b"aitbc.bond.escrow").hex()[:40]
+    _BOND_ESCROW_ADDRESS = canonical_address("0x" + keccak(b"aitbc.bond.escrow").hex()[:40])
 
 _BOND_BURN_ADDRESS = os.getenv("BOND_BURN_ADDRESS", "")
 if _BOND_BURN_ADDRESS:
     _BOND_BURN_ADDRESS = canonical_address(_BOND_BURN_ADDRESS)
 else:
-    _BOND_BURN_ADDRESS = "0x" + keccak(b"aitbc.bond.burn").hex()[:40]
+    _BOND_BURN_ADDRESS = canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
 
 def _bond_slash_authority() -> str | None:
