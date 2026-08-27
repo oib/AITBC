@@ -27,15 +27,21 @@ def dashboard_ctx_obj():
 
 
 class TestDashboardCustomer:
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
     @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
     @patch("aitbc_cli.commands.dashboard._auth_headers")
-    def test_customer_dashboard(self, mock_auth, mock_client_class, runner, dashboard_ctx_obj):
+    def test_customer_dashboard(self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj):
         mock_auth.return_value = {"Authorization": "Bearer token"}
         mock_client = mock_client_class.return_value
         mock_client.get.side_effect = [
             {
                 "items": [
-                    {"job_id": "job-1", "state": "COMPLETED", "payment_status": "released", "created_at": "2026-08-21T10:00:00"},
+                    {
+                        "job_id": "job-1",
+                        "state": "COMPLETED",
+                        "payment_status": "released",
+                        "created_at": "2026-08-21T10:00:00",
+                    },
                     {"job_id": "job-2", "state": "QUEUED", "payment_status": "escrowed", "created_at": "2026-08-21T10:01:00"},
                 ]
             },
@@ -52,9 +58,10 @@ class TestDashboardCustomer:
         assert "job-1" in result.output
         assert "wallet-1" in result.output
 
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
     @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
     @patch("aitbc_cli.commands.dashboard._auth_headers")
-    def test_customer_dashboard_list_response(self, mock_auth, mock_client_class, runner, dashboard_ctx_obj):
+    def test_customer_dashboard_list_response(self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj):
         """Older hubs may return a list instead of a dict."""
         mock_auth.return_value = {"Authorization": "Bearer token"}
         mock_client = mock_client_class.return_value
@@ -72,9 +79,10 @@ class TestDashboardCustomer:
 
 
 class TestDashboardShop:
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
     @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
     @patch("aitbc_cli.commands.dashboard._auth_headers")
-    def test_shop_dashboard(self, mock_auth, mock_client_class, runner, dashboard_ctx_obj):
+    def test_shop_dashboard(self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj):
         mock_auth.return_value = {"Authorization": "Bearer token"}
         mock_client = mock_client_class.return_value
 
@@ -84,7 +92,19 @@ class TestDashboardShop:
             if path == "/v1/gpu/discover":
                 return {"gpus": [{"id": "gpu-0"}]}
             if path == "/v1/marketplace/offer":
-                return {"offers": [{"plugin_id": "p1", "model": "m1", "price": 0.1, "status": "active", "avg_rating": 4.0, "rating_count": 2, "node_id": "aitbc3"}]}
+                return {
+                    "offers": [
+                        {
+                            "plugin_id": "p1",
+                            "model": "m1",
+                            "price": 0.1,
+                            "status": "active",
+                            "avg_rating": 4.0,
+                            "rating_count": 2,
+                            "node_id": "aitbc3",
+                        }
+                    ]
+                }
             if path == "/v1/wallets":
                 return {"items": [{"wallet_id": "w1"}]}
             if path == "/v1/chains/ait-devnet/wallets/w1/balance":
@@ -105,3 +125,25 @@ class TestDashboardShop:
         assert "Shop Dashboard" in result.output
         assert "p1" in result.output
         assert "aitbc3" in result.output
+
+
+class TestShopAuth:
+    def test_shop_auth_uses_miner_api_key_not_client_jwt(self, dashboard_ctx_obj, monkeypatch):
+        from aitbc_cli.commands.dashboard import _auth_headers, _miner_env
+
+        monkeypatch.setenv("MINER_ID", "aitbc-miner-1")
+        monkeypatch.setenv("MINER_API_KEY", "miner-secret")
+        monkeypatch.delenv("AITBC_API_KEY", raising=False)
+        dashboard_ctx_obj["api_key"] = None
+
+        headers = _auth_headers(dashboard_ctx_obj, role="miner")
+        assert headers == {"X-Api-Key": "miner-secret", "X-Miner-ID": "aitbc-miner-1"}
+        assert "Authorization" not in headers
+        assert _miner_env()["MINER_ID"] == "aitbc-miner-1"
+
+    def test_customer_auth_still_uses_bearer(self, dashboard_ctx_obj):
+        from aitbc_cli.commands.dashboard import _auth_headers
+
+        dashboard_ctx_obj["api_key"] = "client-jwt"
+        headers = _auth_headers(dashboard_ctx_obj, role="client")
+        assert headers == {"Authorization": "Bearer client-jwt"}
