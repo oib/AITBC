@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # =============================================================================
 # Workflow v2 simulation — executable companion to
-# specs/DRAFT-workflow-v2-full-agent-team-spec.md (§5 acceptance test cases)
+# docs/specs/DRAFT-workflow-v2-full-agent-team-spec.md (§5 acceptance test cases)
 # =============================================================================
 # Simulates the PROPOSED v2 state machine (extended status→role map, JOIN rule,
 # SKIP-FORWARD, per-ticket rework counter, follow-up containment, sequential

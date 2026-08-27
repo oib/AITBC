@@ -3,14 +3,14 @@
 **Ticket**: ABS-103 (Story 1 of epic ABS-102) · **Status**: draft (for Architecture Review) · **Date**: 2026-07-06
 **Author role**: BSA / Backend Developer (spec-authoring seat) · **Epic**: ABS-102 — "Workflow v3.1 — flexible intake"
 **Extends**: [ABS-69-workflow-v3-full-agent-team-spec.md](ABS-69-workflow-v3-full-agent-team-spec.md) §3.5 (merge/integration policy), §3.10 (Ticket-Review DoR gate)
-**Depends on**: [docs/sop/DEFINITION_OF_READY.md](../docs/sop/DEFINITION_OF_READY.md) · **Diagram (Story 7)**: [assets/workflow-v2.drawio](assets/workflow-v2.drawio)
+**Depends on**: [docs/sop/DEFINITION_OF_READY.md](../sop/DEFINITION_OF_READY.md) · **Diagram (Story 7)**: [assets/workflow-v2.drawio](assets/workflow-v2.drawio)
 
 > **Scope of this document.** This is a *design-only* spec. It resolves the two open
 > `#PATH_DECISION`s carried in the ABS-102 grooming draft and pins the contracts the sibling
 > implementation stories (ABS-104..110) must not re-decide. **No runner code, no adapter code, no
 > diagram edit, and no SOP-body edit ship under ABS-103** (ADR-A-0010 minimal-change default — that
 > work belongs to Stories 2–8). Where this spec and the already-landed
-> [`docs/sop/ORCHESTRATOR_SOP.md`](../docs/sop/ORCHESTRATOR_SOP.md) "Intake classification" subsection
+> [`docs/sop/ORCHESTRATOR_SOP.md`](../sop/ORCHESTRATOR_SOP.md) "Intake classification" subsection
 > describe the same behavior, they are intentionally identical.
 
 ---
@@ -176,7 +176,7 @@ A **pre-populated epic** (row 2: epic, no parent, ≥ 1 child) **skips Grooming 
 routes **straight into the QAS `Ticket Review` Definition-of-Ready gate as its *entry* gate** over the
 pre-existing children (plus epic-prerequisite checks). The DoR **checklist, mandatory
 coverage-mapping rule, blind-spot catalog, and three verdicts are reused verbatim** from
-[`docs/sop/DEFINITION_OF_READY.md`](../docs/sop/DEFINITION_OF_READY.md) ("Path-B entry-gate reuse") and
+[`docs/sop/DEFINITION_OF_READY.md`](../sop/DEFINITION_OF_READY.md) ("Path-B entry-gate reuse") and
 ABS-69 §3.10 — **only the point at which the gate runs moves earlier** in the pipeline.
 
 **Verdict routing (unchanged from §3.10):**
@@ -314,7 +314,7 @@ None of the following block acceptance; each names how it resolves.
    a follow-up ticket adds an opt-out — decided by data, not now.
 2. **Exact adapter primitive names/semantics for `parent` and `child-count`** across providers (mock
    vs. Jira). **Resolution path:** pinned by ABS-104 (Story 2) against the adapter contract
-   [`profiles/neutral/adapters/task-tracking.md`](../profiles/neutral/adapters/task-tracking.md); the
+   [`profiles/neutral/adapters/task-tracking.md`](../../profiles/neutral/adapters/task-tracking.md); the
    mock adapter is the reference; conformance asserted in `tests/test-intake-classification.sh`.
 3. **CI / branch-protection for the Path-A PR-to-main tail** — does a solo ticket's PR need the same
    required checks as an epic PR? **Resolution path:** ABS-106 (Story 4) **reuses the existing `main`
@@ -337,8 +337,8 @@ None of the following block acceptance; each names how it resolves.
 
 ## 11. References
 
-- [specs/ABS-69-workflow-v3-full-agent-team-spec.md](ABS-69-workflow-v3-full-agent-team-spec.md) §3.5 (merge/integration), §3.10 (Ticket-Review DoR gate), §1.2 (story pipeline stages), §3.2 (rework counter), §3.3 (SKIP-FORWARD)
-- [docs/sop/DEFINITION_OF_READY.md](../docs/sop/DEFINITION_OF_READY.md) — DoR checklist + "Path-B entry-gate reuse"
-- [docs/sop/ORCHESTRATOR_SOP.md](../docs/sop/ORCHESTRATOR_SOP.md) — "Intake classification — three-way route (v3.1, ABS-102)"
-- [specs/assets/workflow-v2.drawio](assets/workflow-v2.drawio) — the two intake-head boxes (Story 7, ABS-109)
+- [docs/specs/ABS-69-workflow-v3-full-agent-team-spec.md](ABS-69-workflow-v3-full-agent-team-spec.md) §3.5 (merge/integration), §3.10 (Ticket-Review DoR gate), §1.2 (story pipeline stages), §3.2 (rework counter), §3.3 (SKIP-FORWARD)
+- [docs/sop/DEFINITION_OF_READY.md](../sop/DEFINITION_OF_READY.md) — DoR checklist + "Path-B entry-gate reuse"
+- [docs/sop/ORCHESTRATOR_SOP.md](../sop/ORCHESTRATOR_SOP.md) — "Intake classification — three-way route (v3.1, ABS-102)"
+- [docs/specs/assets/workflow-v2.drawio](assets/workflow-v2.drawio) — the two intake-head boxes (Story 7, ABS-109)
 - `tests/test-intake-classification.sh` — classifier conformance (Story 2, ABS-104)

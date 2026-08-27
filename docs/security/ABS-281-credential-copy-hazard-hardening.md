@@ -148,6 +148,6 @@ architecture review; the security engineer concurred. Do not bounce future revie
 - `backend/packages/core/src/config.ts` — `loadConfig`, `DEV_BOOTSTRAP_TOKEN`, `isDevEnv`
 - `backend/.env.example` — the LOCAL DEV ONLY block
 - `backend/docker-compose.yml` — the local-dev artifact header
-- [ABS-262](../../specs/) — the preceding hardening that closed the compose-level default
+- ABS-262 — the preceding hardening that closed the compose-level default
 - [docs/security/SECURITY_FIRST_ARCHITECTURE.md](SECURITY_FIRST_ARCHITECTURE.md) — broader
   security architecture
