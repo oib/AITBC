@@ -141,6 +141,22 @@ class TestShopAuth:
         assert "Authorization" not in headers
         assert _miner_env()["MINER_ID"] == "aitbc-miner-1"
 
+    def test_miner_env_reads_unit_file_when_id_is_commented(self, tmp_path, monkeypatch):
+        from aitbc_cli.commands import dashboard as dashboard_mod
+
+        env_file = tmp_path / "aitbc-miner.env"
+        env_file.write_text("#   MINER_ID=aitbc-miner-1\nMINER_API_KEY=miner-secret\n")
+        unit_file = tmp_path / "aitbc-miner.service"
+        unit_file.write_text('Environment="MINER_ID=aitbc-miner-1"\n')
+        monkeypatch.setattr(dashboard_mod, "_MINER_ENV_FILE", str(env_file))
+        monkeypatch.setattr(dashboard_mod, "_MINER_UNIT_FILE", str(unit_file))
+        monkeypatch.delenv("MINER_ID", raising=False)
+        monkeypatch.delenv("MINER_API_KEY", raising=False)
+
+        values = dashboard_mod._miner_env()
+        assert values["MINER_ID"] == "aitbc-miner-1"
+        assert values["MINER_API_KEY"] == "miner-secret"
+
     def test_customer_auth_still_uses_bearer(self, dashboard_ctx_obj):
         from aitbc_cli.commands.dashboard import _auth_headers
 
