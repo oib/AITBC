@@ -1541,3 +1541,23 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
 - feat(coordinator): add background StaleMinerReaper to mark stale ONLINE miners OFFLINE
 - ops(hub): create island credentials and validate exchange-island orderbook/rates
 - ops(hub): stop orphaned aitbc-pool-hub process (canonical pool-hub remains on aitbc3)
+
+## Canonical 0x address migration and live chain reset (2026-08-27)
+
+- feat(address): canonical EIP-55 0x secp256k1/EVM address migration across core,
+  CLI, wallet, bridge, marketplace, tests, docs, website, and MCP wrappers
+  (commit `7774d37f7` on gitea `main`).
+- feat(genesis): `init_production_genesis.py` and production setup scripts now
+  write canonical 0x addresses into `genesis_prod.yaml` and blockchain `.env`.
+- fix(state): `compute_state_root_full()` reads raw SQL and recomputes the trie
+  deterministically after DB mutations.
+- ops: live reset of the `ait-hub.aitbc.bubuit.net` chain on `hub.aitbc`,
+  `aitbc3`, and `hub2.aitbc`:
+  - Backed up `/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net`.
+  - Migrated `/etc/aitbc/*.env` and `/var/lib/aitbc/wallets/*.json` to 0x.
+  - Regenerated `genesis.json` with a deterministic genesis block and state root.
+  - All three nodes converged to height 4 with matching block hashes.
+  - Wallet send round-trip from `genesis` to `default` succeeded and balances
+    matched across all RPC nodes.
+- fix(ops): migrated `keystore.db` and `wallet_ledger.db` metadata from legacy
+  `ait1`/`aitbc1` to canonical `0x` on `hub.aitbc` and `aitbc3`.
