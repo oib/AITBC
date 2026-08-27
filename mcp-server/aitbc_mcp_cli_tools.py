@@ -15,6 +15,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from aitbc_mcp_server import (
+    DEFAULT_WALLET_DIR,
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _host_for_role,
@@ -34,20 +35,46 @@ def _run_aitbc_cli_write(
     role: str | None,
     host: str | None,
     group: str,
-    subcommand: str | None,
+    subcommand: str | list[str] | None,
     args: list[str] | None,
-    options: dict[str, str | None],
+    options: dict[str, str | None] | None,
     dry_run: bool,
     confirm: bool,
     timeout: int = 120,
+    *,
+    group_options: dict[str, str | None] | None = None,
+    subcommand_options: dict[str, str | None] | None = None,
+    env: dict[str, str] | None = None,
 ) -> str:
     """Build and run a mutating aitbc CLI command, honouring dry_run/confirm."""
     target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(group, subcommand, args, options, "json")
+    command = _build_aitbc_cli_command(
+        group,
+        subcommand,
+        args,
+        options,
+        "json",
+        group_options=group_options,
+        subcommand_options=subcommand_options,
+        env=env,
+    )
     guard = _require_confirm(dry_run, confirm, command)
     if guard is not None:
         return _json(guard)
-    return _json(_run_aitbc_cli(target, group, subcommand, args, options, "json", timeout))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            group,
+            subcommand,
+            args,
+            options,
+            "json",
+            timeout,
+            group_options=group_options,
+            subcommand_options=subcommand_options,
+            env=env,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -349,19 +376,29 @@ def create_market_offer(
     ] = None,
 ) -> str:
     """List a hardware/software marketplace offer."""
-    options: dict[str, str | None] = {
-        "unit": unit,
-        "wallet": wallet,
-    }
+    group_options: dict[str, str | None] = {"wallet": wallet}
+    subcommand_options: dict[str, str | None] = {"unit": unit}
     if description is not None:
-        options["description"] = description
+        subcommand_options["description"] = description
     if context_window is not None:
-        options["context-window"] = str(context_window)
+        subcommand_options["context-window"] = str(context_window)
     if gpu_name is not None:
-        options["gpu-name"] = gpu_name
+        subcommand_options["gpu-name"] = gpu_name
     if gpu_device is not None:
-        options["gpu-device"] = gpu_device
-    return _run_aitbc_cli_write(role, host, "market", "offer", [service_type, model, str(price)], options, dry_run, confirm)
+        subcommand_options["gpu-device"] = gpu_device
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "offer",
+        [service_type, model, str(price)],
+        None,
+        dry_run,
+        confirm,
+        group_options=group_options,
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -627,3 +664,952 @@ def get_wallet_address(
 ) -> str:
     """Show the address for a named wallet."""
     return _aitbc_cli_read_tool(role, host, "wallet", "address", args=[wallet_name])
+
+
+# ---------------------------------------------------------------------------
+# Market execution, ratings and shop management
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def run_market_offer(
+    offer_id_or_plugin_id: Annotated[
+        str,
+        Field(description="Marketplace offer ID or plugin ID to run."),
+    ],
+    prompt: Annotated[str, Field(description="Prompt or input for the offer.")],
+    wallet: Annotated[str, Field(description="Wallet name to sign payment.")] = "genesis",
+    max_tokens: Annotated[int | None, Field(description="Max tokens for Ollama.", ge=1)] = None,
+    stream: Annotated[bool, Field(description="Stream the Ollama response.")] = False,
+    language: Annotated[str | None, Field(description="Language code for Whisper (e.g. 'en').")] = None,
+    task: Annotated[
+        Literal["transcribe", "translate"] | None,
+        Field(description="Whisper task."),
+    ] = None,
+    transcript_format: Annotated[
+        Literal["text", "srt", "json"] | None,
+        Field(description="Whisper output format."),
+    ] = None,
+    media_format: Annotated[str | None, Field(description="FFmpeg output container (e.g. 'mp4').")] = None,
+    codec: Annotated[str | None, Field(description="FFmpeg target codec (e.g. 'h264').")] = None,
+    resolution: Annotated[str | None, Field(description="FFmpeg target resolution (e.g. '1080p').")] = None,
+    bitrate: Annotated[str | None, Field(description="FFmpeg target bitrate (e.g. '5M').")] = None,
+    track: Annotated[bool, Field(description="Create a coordinator job record.")] = False,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Run a software offer (Ollama/Whisper/FFmpeg) and pay metered escrow."""
+    subcommand_options: dict[str, str | None] = {}
+    if max_tokens is not None:
+        subcommand_options["max-tokens"] = str(max_tokens)
+    if stream:
+        subcommand_options["stream"] = None
+    if language is not None:
+        subcommand_options["language"] = language
+    if task is not None:
+        subcommand_options["task"] = task
+    if transcript_format is not None:
+        subcommand_options["transcript-format"] = transcript_format
+    if media_format is not None:
+        subcommand_options["media-format"] = media_format
+    if codec is not None:
+        subcommand_options["codec"] = codec
+    if resolution is not None:
+        subcommand_options["resolution"] = resolution
+    if bitrate is not None:
+        subcommand_options["bitrate"] = bitrate
+    if track:
+        subcommand_options["track"] = None
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "run",
+        [offer_id_or_plugin_id, prompt],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def transcribe_market_offer(
+    offer_id_or_plugin_id: Annotated[
+        str,
+        Field(description="Marketplace offer ID or plugin ID to run."),
+    ],
+    audio_file: Annotated[str, Field(description="Remote audio file path to transcribe.")],
+    wallet: Annotated[str, Field(description="Wallet name to sign payment.")] = "genesis",
+    language: Annotated[str | None, Field(description="Language code (e.g. 'en').")] = None,
+    task: Annotated[
+        Literal["transcribe", "translate"] | None,
+        Field(description="Whisper task."),
+    ] = None,
+    output_format: Annotated[
+        Literal["text", "srt", "json"] | None,
+        Field(description="Transcript output format."),
+    ] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Run a Whisper transcription offer on a remote audio file."""
+    subcommand_options: dict[str, str | None] = {}
+    if language is not None:
+        subcommand_options["language"] = language
+    if task is not None:
+        subcommand_options["task"] = task
+    if output_format is not None:
+        subcommand_options["output-format"] = output_format
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "transcribe",
+        [offer_id_or_plugin_id, audio_file],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def process_market_offer(
+    offer_id_or_plugin_id: Annotated[
+        str,
+        Field(description="Marketplace offer ID or plugin ID to run."),
+    ],
+    input_file: Annotated[str, Field(description="Remote input media file to process.")],
+    wallet: Annotated[str, Field(description="Wallet name to sign payment.")] = "genesis",
+    output_format: Annotated[str | None, Field(description="Output container (e.g. 'mp4').")] = None,
+    codec: Annotated[str | None, Field(description="Target codec (e.g. 'h264').")] = None,
+    resolution: Annotated[str | None, Field(description="Target resolution (e.g. '1080p').")] = None,
+    bitrate: Annotated[str | None, Field(description="Target bitrate (e.g. '5M').")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Run an FFmpeg media processing offer on a remote input file."""
+    subcommand_options: dict[str, str | None] = {}
+    if output_format is not None:
+        subcommand_options["format"] = output_format
+    if codec is not None:
+        subcommand_options["codec"] = codec
+    if resolution is not None:
+        subcommand_options["resolution"] = resolution
+    if bitrate is not None:
+        subcommand_options["bitrate"] = bitrate
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "process",
+        [offer_id_or_plugin_id, input_file],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def rate_market_service(
+    service_id: Annotated[str, Field(description="Service or offer ID to rate.")],
+    rating: Annotated[int, Field(description="Rating from 1 (poor) to 5 (excellent).", ge=1, le=5)],
+    wallet: Annotated[str, Field(description="Wallet name to sign the rating.")] = "genesis",
+    comment: Annotated[str | None, Field(description="Optional review comment.")] = None,
+    reviewer_id: Annotated[str | None, Field(description="Optional reviewer identifier.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Submit a 1-5 star rating for a marketplace service."""
+    subcommand_options: dict[str, str | None] = {}
+    if comment is not None:
+        subcommand_options["comment"] = comment
+    if reviewer_id is not None:
+        subcommand_options["reviewer-id"] = reviewer_id
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "rate",
+        [service_id, str(rating)],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_market_service_ratings(
+    service_id: Annotated[str, Field(description="Service or offer ID.")],
+    limit: Annotated[int | None, Field(description="Maximum number of ratings to return.", ge=1)] = None,
+    offset: Annotated[int | None, Field(description="Pagination offset.", ge=0)] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List ratings for a marketplace service."""
+    options: dict[str, str | None] = {}
+    if limit is not None:
+        options["limit"] = str(limit)
+    if offset is not None:
+        options["offset"] = str(offset)
+    return _aitbc_cli_read_tool(role, host, "market", "ratings", args=[service_id], options=options)
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def disable_market_offer(
+    offer_id: Annotated[str, Field(description="Offer ID to disable.")],
+    wallet: Annotated[str, Field(description="Wallet name that owns the offer.")] = "genesis",
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Deactivate a local marketplace offer."""
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "offer-disable",
+        [offer_id],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def cancel_market_order(
+    order_id: Annotated[str, Field(description="Order ID to cancel.")],
+    wallet: Annotated[str, Field(description="Wallet name that placed the order.")] = "genesis",
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Cancel a marketplace order."""
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "cancel",
+        [order_id],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_market_order_status(
+    order_id: Annotated[str, Field(description="Order ID.")],
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the status of a marketplace order."""
+    return _aitbc_cli_read_tool(role, host, "market", "status", args=[order_id])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def market_match(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Match GPU bids with offers (price discovery)."""
+    return _aitbc_cli_read_tool(role, host, "market", "match")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def market_providers(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Query island members for GPU providers."""
+    return _aitbc_cli_read_tool(role, host, "market", "providers")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def sync_market_ratings(
+    wallet: Annotated[str, Field(description="Wallet name to sign the sync.")] = "genesis",
+    remote_url: Annotated[str | None, Field(description="Remote marketplace service URL.")] = None,
+    limit: Annotated[int | None, Field(description="Number of ratings to sync.", ge=1)] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Sync marketplace ratings to/from a remote marketplace node."""
+    subcommand_options: dict[str, str | None] = {}
+    if remote_url is not None:
+        subcommand_options["remote-url"] = remote_url
+    if limit is not None:
+        subcommand_options["limit"] = str(limit)
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        "sync-ratings",
+        None,
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def create_market_escrow(
+    job_id: Annotated[str, Field(description="Job ID.")],
+    buyer: Annotated[str, Field(description="Buyer/customer address.")],
+    provider: Annotated[str, Field(description="Provider address.")],
+    amount: Annotated[str, Field(description="Amount to escrow.")],
+    wallet: Annotated[str, Field(description="Wallet name to sign the escrow lock.")] = "genesis",
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Create an on-chain escrow for a marketplace job."""
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        ["escrow", "create"],
+        [job_id, buyer, provider, amount],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def release_market_escrow(
+    job_id: Annotated[str, Field(description="Job ID.")],
+    wallet: Annotated[str, Field(description="Wallet name to release funds.")] = "genesis",
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Release escrow funds to the provider after a job completes."""
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        ["escrow", "release"],
+        [job_id],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def refund_market_escrow(
+    job_id: Annotated[str, Field(description="Job ID.")],
+    wallet: Annotated[str, Field(description="Wallet name to sign the refund.")] = "genesis",
+    reason: Annotated[str | None, Field(description="Reason for refund.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Refund a marketplace escrow back to the buyer."""
+    subcommand_options: dict[str, str | None] = {}
+    if reason is not None:
+        subcommand_options["reason"] = reason
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        ["escrow", "refund"],
+        [job_id],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_market_escrow_status(
+    job_id: Annotated[str, Field(description="Job ID.")],
+    wallet: Annotated[str, Field(description="Wallet name to use.")] = "genesis",
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the on-chain escrow state for a job."""
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "market",
+        ["escrow", "status"],
+        args=[job_id],
+        group_options={"wallet": wallet},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_market_exchange_price(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the current ETH-AIT exchange rate."""
+    return _aitbc_cli_read_tool(role, host, "market", ["exchange", "price"])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_market_exchange_status(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the bridge service status."""
+    return _aitbc_cli_read_tool(role, host, "market", ["exchange", "status"])
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_market_exchange_deposits(
+    status: Annotated[
+        Literal["pending", "verified", "completed", "rejected"] | None,
+        Field(description="Filter by deposit status."),
+    ] = None,
+    limit: Annotated[int | None, Field(description="Maximum number of deposits.", ge=1)] = None,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List ETH bridge deposits."""
+    options: dict[str, str | None] = {}
+    if status is not None:
+        options["status"] = status
+    if limit is not None:
+        options["limit"] = str(limit)
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "market",
+        ["exchange", "list-deposits"],
+        options=options,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def mint_ait_from_eth_deposit(
+    deposit_id: Annotated[str, Field(description="Verified ETH deposit ID.")],
+    wallet: Annotated[str, Field(description="Wallet name to sign the mint.")] = "genesis",
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Mint AIT tokens for a verified ETH bridge deposit."""
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        ["exchange", "mint-ait"],
+        [deposit_id],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def withdraw_eth_from_bridge(
+    amount: Annotated[Decimal, Field(description="Amount of ETH to withdraw.", gt=0)],
+    address: Annotated[str, Field(description="Destination ETH address.")],
+    wallet: Annotated[str, Field(description="Admin wallet to sign the withdrawal.")] = "genesis",
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Withdraw ETH from the bridge wallet (admin only)."""
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "market",
+        ["exchange", "withdraw-eth"],
+        [str(amount), address],
+        None,
+        dry_run,
+        confirm,
+        group_options={"wallet": wallet},
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Wallet payments
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def send_aitbc_from_wallet(
+    to_address: Annotated[str, Field(description="Recipient address.")],
+    amount: Annotated[Decimal, Field(description="Amount of AIT to send.", gt=0)],
+    wallet_name: Annotated[str, Field(description="Wallet name to send from.")] = "genesis",
+    wallet_path: Annotated[str | None, Field(description="Path to a wallet file override.")] = None,
+    use_daemon: Annotated[bool, Field(description="Use the wallet daemon instead of a file.")] = False,
+    fee: Annotated[Decimal | None, Field(description="Transaction fee.", ge=0)] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL override.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Send AIT from a local wallet to another address."""
+    group_options: dict[str, str | None] = {"wallet-name": wallet_name}
+    if wallet_path is not None:
+        group_options["wallet-path"] = wallet_path
+    if use_daemon:
+        group_options["use-daemon"] = None
+    subcommand_options: dict[str, str | None] = {}
+    if fee is not None:
+        subcommand_options["fee"] = str(fee)
+    if rpc_url is not None:
+        subcommand_options["rpc-url"] = rpc_url
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "wallet",
+        "send",
+        [to_address, str(amount)],
+        None,
+        dry_run,
+        confirm,
+        group_options=group_options,
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def spend_aitbc_from_wallet(
+    amount: Annotated[Decimal, Field(description="Amount to spend.", gt=0)],
+    description: Annotated[str, Field(description="Description of the spend.")],
+    wallet_name: Annotated[str, Field(description="Wallet name to spend from.")] = "genesis",
+    wallet_path: Annotated[str | None, Field(description="Path to a wallet file override.")] = None,
+    use_daemon: Annotated[bool, Field(description="Use the wallet daemon instead of a file.")] = False,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Record an AIT spend from a local wallet."""
+    group_options: dict[str, str | None] = {"wallet-name": wallet_name}
+    if wallet_path is not None:
+        group_options["wallet-path"] = wallet_path
+    if use_daemon:
+        group_options["use-daemon"] = None
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "wallet",
+        "spend",
+        [str(amount), description],
+        None,
+        dry_run,
+        confirm,
+        group_options=group_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def record_wallet_earnings(
+    amount: Annotated[Decimal, Field(description="Amount earned.", gt=0)],
+    job_id: Annotated[str, Field(description="Job ID the earnings are for.")],
+    wallet_name: Annotated[str, Field(description="Wallet name to credit.")] = "genesis",
+    wallet_path: Annotated[str | None, Field(description="Path to a wallet file override.")] = None,
+    use_daemon: Annotated[bool, Field(description="Use the wallet daemon instead of a file.")] = False,
+    desc: Annotated[str | None, Field(description="Optional earning description.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Record earned AIT for a job into a local wallet."""
+    group_options: dict[str, str | None] = {"wallet-name": wallet_name}
+    if wallet_path is not None:
+        group_options["wallet-path"] = wallet_path
+    if use_daemon:
+        group_options["use-daemon"] = None
+    subcommand_options: dict[str, str | None] = {}
+    if desc is not None:
+        subcommand_options["desc"] = desc
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "wallet",
+        "earn",
+        [str(amount), job_id],
+        None,
+        dry_run,
+        confirm,
+        group_options=group_options,
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def login_aitbc(
+    wallet: Annotated[str, Field(description="Wallet name to sign the login.")] = "genesis",
+    wallet_address: Annotated[str | None, Field(description="Override wallet address.")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL.")] = None,
+    environment: Annotated[str | None, Field(description="Credential environment name.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Log in to the AITBC coordinator and store credentials on the node."""
+    subcommand_options: dict[str, str | None] = {"wallet": wallet}
+    if wallet_address is not None:
+        subcommand_options["wallet-address"] = wallet_address
+    if coordinator_url is not None:
+        subcommand_options["coordinator-url"] = coordinator_url
+    if environment is not None:
+        subcommand_options["environment"] = environment
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "auth",
+        "login",
+        None,
+        None,
+        dry_run,
+        confirm,
+        subcommand_options=subcommand_options,
+        env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def logout_aitbc(
+    environment: Annotated[str | None, Field(description="Credential environment name.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Log out from the AITBC coordinator."""
+    subcommand_options: dict[str, str | None] = {}
+    if environment is not None:
+        subcommand_options["environment"] = environment
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "auth",
+        "logout",
+        None,
+        None,
+        dry_run,
+        confirm,
+        subcommand_options=subcommand_options,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def show_aitbc_config(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the current AITBC configuration."""
+    return _aitbc_cli_read_tool(role, host, "config", "show")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_config(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the current AITBC configuration (alias for show)."""
+    return _aitbc_cli_read_tool(role, host, "config", "get")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_aitbc_config_path(
+    global_config: Annotated[bool, Field(description="Show global config path.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Show the configuration file path."""
+    options: dict[str, str | None] = {}
+    if global_config:
+        options["global"] = None
+    return _aitbc_cli_read_tool(role, host, "config", "path", options=options)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def check_aitbc_config(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Check configuration and environment API keys."""
+    return _aitbc_cli_read_tool(role, host, "config", "check")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def validate_aitbc_config(
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Validate the AITBC configuration."""
+    return _aitbc_cli_read_tool(role, host, "config", "validate")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def set_aitbc_config(
+    key: Annotated[str, Field(description="Configuration key to set.")],
+    value: Annotated[str, Field(description="Configuration value.")],
+    global_config: Annotated[bool, Field(description="Set in the global config file.")] = False,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[
+        Literal["hub", "customer", "shop", "follower"] | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Set an AITBC configuration value."""
+    subcommand_options: dict[str, str | None] = {}
+    if global_config:
+        subcommand_options["global"] = None
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "config",
+        "set",
+        [key, value],
+        None,
+        dry_run,
+        confirm,
+        subcommand_options=subcommand_options,
+    )

@@ -169,11 +169,13 @@ def test_create_market_offer():
     )
     assert result["returncode"] == 0
     cmd = _last_command()
-    assert "market offer" in cmd
+    assert cmd.startswith("AITBC_WALLET_DIR=/var/lib/aitbc/wallets")
+    assert "market" in cmd
+    assert "--wallet=hub2-shop" in cmd
+    assert "offer" in cmd
     assert "ipfs" in cmd
     assert "ipfs-host" in cmd
     assert "--unit=per_day" in cmd
-    assert "--wallet=hub2-shop" in cmd
     assert "--description='Host files for 1 AIT per day'" in cmd
 
 
@@ -269,6 +271,111 @@ def test_dry_run_gating():
     assert not CAPTURED
 
 
+def test_run_market_offer():
+    _clear()
+    result = json.loads(
+        aitbc_mcp_cli_tools.run_market_offer(
+            offer_id_or_plugin_id="sw_offer_1234",
+            prompt="transcribe this",
+            wallet="test-wallet-3",
+            language="en",
+            stream=True,
+            dry_run=False,
+            confirm=True,
+            role="customer",
+        )
+    )
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert cmd.startswith("AITBC_WALLET_DIR=/var/lib/aitbc/wallets")
+    assert "market --wallet=test-wallet-3 run" in cmd
+    assert "sw_offer_1234" in cmd
+    assert "'transcribe this'" in cmd
+    assert "--language=en" in cmd
+    assert "--stream" in cmd
+
+
+def test_send_aitbc_from_wallet():
+    _clear()
+    result = json.loads(
+        aitbc_mcp_cli_tools.send_aitbc_from_wallet(
+            to_address="aitbc1receiver",
+            amount="1.5",
+            wallet_name="test-wallet-3",
+            fee="0.001",
+            dry_run=False,
+            confirm=True,
+            role="hub",
+        )
+    )
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert cmd.startswith("AITBC_WALLET_DIR=/var/lib/aitbc/wallets")
+    assert "wallet --wallet-name=test-wallet-3 send" in cmd
+    assert "aitbc1receiver" in cmd
+    assert "1.5" in cmd
+    assert "--fee=0.001" in cmd
+
+
+def test_nested_market_escrow_create():
+    _clear()
+    result = json.loads(
+        aitbc_mcp_cli_tools.create_market_escrow(
+            job_id="job-1234",
+            buyer="aitbc1buyer",
+            provider="aitbc1provider",
+            amount="1.0",
+            wallet="test-wallet-3",
+            dry_run=False,
+            confirm=True,
+            role="hub",
+        )
+    )
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "market --wallet=test-wallet-3 escrow create" in cmd
+    assert "job-1234" in cmd
+    assert "aitbc1buyer" in cmd
+    assert "aitbc1provider" in cmd
+    assert "1.0" in cmd
+
+
+def test_set_aitbc_config():
+    _clear()
+    result = json.loads(
+        aitbc_mcp_cli_tools.set_aitbc_config(
+            key="coordinator.url",
+            value="https://hub.aitbc.bubuit.net",
+            global_config=True,
+            dry_run=False,
+            confirm=True,
+            role="hub",
+        )
+    )
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "config set" in cmd
+    assert "coordinator.url" in cmd
+    assert "https://hub.aitbc.bubuit.net" in cmd
+    assert "--global" in cmd
+
+
+def test_login_aitbc():
+    _clear()
+    result = json.loads(
+        aitbc_mcp_cli_tools.login_aitbc(
+            wallet="test-wallet-3",
+            dry_run=False,
+            confirm=True,
+            role="hub",
+        )
+    )
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert cmd.startswith("AITBC_WALLET_DIR=/var/lib/aitbc/wallets")
+    assert "auth login --wallet=test-wallet-3" in cmd
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()
@@ -282,4 +389,9 @@ if __name__ == "__main__":
     test_create_wallet()
     test_fund_wallet()
     test_dry_run_gating()
+    test_run_market_offer()
+    test_send_aitbc_from_wallet()
+    test_nested_market_escrow_create()
+    test_set_aitbc_config()
+    test_login_aitbc()
     print("All aitbc_mcp_cli_tools tests passed")

@@ -120,6 +120,22 @@ ALL_SERVICE_BASES = {
 # Set of service names available to call_aitbc_http.
 ALL_HTTP_SERVICES = set(ALL_SERVICE_BASES)
 
+# Canonical wallet directory on live AITBC nodes.  Used as AITBC_WALLET_DIR for
+# any CLI command that signs transactions or needs a wallet file.
+DEFAULT_WALLET_DIR = "/var/lib/aitbc/wallets"
+
+
+def _build_env_prefix(env: dict[str, str] | None) -> str:
+    """Build a shell-safe environment-variable prefix for a remote command."""
+    if not env:
+        return ""
+    parts: list[str] = []
+    for key, value in env.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            raise ValueError(f"invalid environment variable name: {key}")
+        parts.append(f"{key}={shlex.quote(value)}")
+    return " ".join(parts) + " " if parts else ""
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -283,6 +299,10 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "batch",
     "login",
     "logout",
+    "mint-ait",
+    "withdraw-eth",
+    "sync-ratings",
+    "offer-disable",
 }
 
 
@@ -293,10 +313,14 @@ def _safe_option_key(key: str) -> bool:
 
 def _build_aitbc_cli_command(
     group: str,
-    subcommand: str | None = None,
+    subcommand: str | list[str] | None = None,
     args: list[str] | None = None,
     options: dict[str, str | None] | None = None,
     output_format: str = "json",
+    *,
+    group_options: dict[str, str | None] | None = None,
+    subcommand_options: dict[str, str | None] | None = None,
+    env: dict[str, str] | None = None,
 ) -> str:
     """Build a quoted aitbc CLI command string.
 
@@ -305,41 +329,79 @@ def _build_aitbc_cli_command(
     Click parses them, e.g.::
 
         aitbc --output json wallet --wallet-name genesis balance
+
+    For backward compatibility the ``options`` parameter is treated as an alias
+    for ``subcommand_options``.
     """
     tokens: list[str] = [AITBC_CLI]
     if output_format in {"json", "yaml", "csv"}:
         tokens.append(f"--output={output_format}")
     tokens.append(shlex.quote(group))
-    if subcommand:
-        tokens.append(shlex.quote(subcommand))
-    for arg in args or []:
-        tokens.append(shlex.quote(str(arg)))
-    for key, value in (options or {}).items():
+
+    # Group-level options must appear before any subcommand.
+    for key, value in (group_options or {}).items():
         if not _safe_option_key(key):
             raise ValueError(f"invalid option key: {key}")
         if value is None or value == "":
             tokens.append(f"--{key}")
         else:
             tokens.append(f"--{key}={shlex.quote(str(value))}")
-    return " ".join(tokens)
+
+    if subcommand:
+        if isinstance(subcommand, str):
+            tokens.append(shlex.quote(subcommand))
+        else:
+            for token in subcommand:
+                tokens.append(shlex.quote(str(token)))
+
+    for arg in args or []:
+        tokens.append(shlex.quote(str(arg)))
+
+    # Subcommand-level options appear after positional arguments.
+    for key, value in (subcommand_options or options or {}).items():
+        if not _safe_option_key(key):
+            raise ValueError(f"invalid option key: {key}")
+        if value is None or value == "":
+            tokens.append(f"--{key}")
+        else:
+            tokens.append(f"--{key}={shlex.quote(str(value))}")
+
+    return _build_env_prefix(env) + " ".join(tokens)
 
 
-def _is_aitbc_subcommand_destructive(subcommand: str | None) -> bool:
+def _is_aitbc_subcommand_destructive(subcommand: str | list[str] | None) -> bool:
     """Return True when a subcommand is known to mutate state."""
-    return subcommand in DESTRUCTIVE_AITBC_SUBCOMMANDS if subcommand else False
+    if not subcommand:
+        return False
+    if isinstance(subcommand, str):
+        return subcommand in DESTRUCTIVE_AITBC_SUBCOMMANDS
+    return any(token in DESTRUCTIVE_AITBC_SUBCOMMANDS for token in subcommand)
 
 
 def _run_aitbc_cli(
     host: str,
     group: str,
-    subcommand: str | None,
+    subcommand: str | list[str] | None,
     args: list[str] | None,
     options: dict[str, str | None] | None,
     output_format: str = "json",
     timeout: int = 120,
+    *,
+    group_options: dict[str, str | None] | None = None,
+    subcommand_options: dict[str, str | None] | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run an aitbc CLI subcommand on a remote host and optionally parse JSON."""
-    command = _build_aitbc_cli_command(group, subcommand, args, options, output_format)
+    command = _build_aitbc_cli_command(
+        group,
+        subcommand,
+        args,
+        options,
+        output_format,
+        group_options=group_options,
+        subcommand_options=subcommand_options,
+        env=env,
+    )
     result = _run_remote(host, command, timeout)
     if output_format == "json" and result.get("returncode") == 0:
         try:
@@ -353,10 +415,14 @@ def _aitbc_cli_read_tool(
     role: str | None,
     host: str | None,
     group: str,
-    subcommand: str | None = None,
+    subcommand: str | list[str] | None = None,
     args: list[str] | None = None,
     options: dict[str, str | None] | None = None,
     timeout: int = 120,
+    *,
+    group_options: dict[str, str | None] | None = None,
+    subcommand_options: dict[str, str | None] | None = None,
+    env: dict[str, str] | None = None,
 ) -> str:
     """Helper for read-only aitbc CLI tools."""
     target = _host_for_role(role, host)
@@ -367,7 +433,20 @@ def _aitbc_cli_read_tool(
                 "allowed_groups": sorted(ALL_AITBC_GROUPS),
             }
         )
-    return _json(_run_aitbc_cli(target, group, subcommand, args, options, "json", timeout))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            group,
+            subcommand,
+            args,
+            options,
+            "json",
+            timeout,
+            group_options=group_options,
+            subcommand_options=subcommand_options,
+            env=env,
+        )
+    )
 
 
 def _build_http_url(base: str, path: str, params: dict[str, str] | None) -> str:
@@ -2195,18 +2274,39 @@ def stake_aitbc(
     ] = None,
 ) -> str:
     """Stake AITBC tokens on the blockchain."""
-    options: dict[str, str | None] = {}
+    group_options: dict[str, str | None] = {}
     if wallet_name is not None:
-        options["wallet-name"] = wallet_name
+        group_options["wallet-name"] = wallet_name
+    subcommand_options: dict[str, str | None] = {}
     if duration_days is not None:
-        options["duration"] = str(duration_days)
+        subcommand_options["duration"] = str(duration_days)
+    env = {"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR}
 
     target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command("wallet", "stake", [amount], options, "json")
+    command = _build_aitbc_cli_command(
+        "wallet",
+        "stake",
+        [amount],
+        group_options=group_options,
+        subcommand_options=subcommand_options,
+        env=env,
+    )
     guard = _require_confirm(dry_run, confirm, command)
     if guard is not None:
         return _json(guard)
-    return _json(_run_aitbc_cli(target, "wallet", "stake", [amount], options, "json"))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "wallet",
+            "stake",
+            [amount],
+            None,
+            "json",
+            group_options=group_options,
+            subcommand_options=subcommand_options,
+            env=env,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -2237,16 +2337,34 @@ def unstake_aitbc(
     ] = None,
 ) -> str:
     """Unstake AITBC tokens from the blockchain."""
-    options: dict[str, str | None] = {}
+    group_options: dict[str, str | None] = {}
     if wallet_name is not None:
-        options["wallet-name"] = wallet_name
+        group_options["wallet-name"] = wallet_name
+    env = {"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR}
 
     target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command("wallet", "unstake", [stake_id], options, "json")
+    command = _build_aitbc_cli_command(
+        "wallet",
+        "unstake",
+        [stake_id],
+        group_options=group_options,
+        env=env,
+    )
     guard = _require_confirm(dry_run, confirm, command)
     if guard is not None:
         return _json(guard)
-    return _json(_run_aitbc_cli(target, "wallet", "unstake", [stake_id], options, "json"))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "wallet",
+            "unstake",
+            [stake_id],
+            None,
+            "json",
+            group_options=group_options,
+            env=env,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
