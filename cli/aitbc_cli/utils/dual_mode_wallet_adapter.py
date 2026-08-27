@@ -192,23 +192,23 @@ class DualModeWalletAdapter:
                 if wallet_file.stem in seen:
                     continue
                 seen.add(wallet_file.stem)
-            try:
-                with open(wallet_file) as f:
-                    wallet_data = json.load(f)
+                try:
+                    with open(wallet_file) as f:
+                        wallet_data = json.load(f)
 
-                wallets.append(
-                    {
-                        "mode": "file",
-                        "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
-                        "address": wallet_data.get("address"),
-                        "balance": wallet_data.get("balance", 0.0),
-                        "wallet_type": wallet_data.get("wallet_type", "hd"),
-                        "created_at": wallet_data.get("created_at"),
-                        "encrypted": wallet_data.get("encrypted", False),
-                    }
-                )
-            except Exception as e:
-                error(f"Error reading wallet file {wallet_file}: {str(e)}")
+                    wallets.append(
+                        {
+                            "mode": "file",
+                            "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
+                            "address": wallet_data.get("address"),
+                            "balance": wallet_data.get("balance", 0.0),
+                            "wallet_type": wallet_data.get("wallet_type", "hd"),
+                            "created_at": wallet_data.get("created_at"),
+                            "encrypted": wallet_data.get("encrypted", False),
+                        }
+                    )
+                except Exception as e:
+                    error(f"Error reading wallet file {wallet_file}: {str(e)}")
 
         return wallets
 
