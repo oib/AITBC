@@ -88,7 +88,12 @@ Cross-chain bridge, governance, and atomic settlement features.
 | v0.5.19 | Tech Debt Cleanup | - | ✅ Complete |
 | v0.6.0 | Database & Network Optimization | - | ✅ Complete |
 | v0.6.1 | Parallel Processing | - | ✅ Complete |
+| v0.6.2 | Sync & Gossip Optimization | - | ✅ Complete |
+| v0.6.3 | Multi-Island Node Support | - | ✅ Complete |
+| v0.6.4 | Multi-Chain Per Island | - | ✅ Complete |
 | v0.6.5 | Agent Coordination Service | - | ✅ Complete |
+| v0.6.6 | Compute Marketplace | - | ✅ Complete |
+| v0.6.7 | Pool Hub & Mining | - | ✅ Complete |
 | v0.7.0 | Bridge Basics | - | ✅ Complete |
 | v0.7.1 | Bridge Security | - | ✅ Complete |
 | v0.7.2 | Bridge Verification | - | ✅ Complete |
