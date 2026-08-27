@@ -5,8 +5,7 @@
 # This script sets up the node from scratch on a new host or container
 #
 
-set -e
-
+set -euo pipefail
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -235,7 +234,7 @@ from pathlib import Path
 # Generate wallet keys
 private_key = f"0x{secrets.token_hex(32)}"
 public_key = f"0x{secrets.token_hex(32)}"
-address = f"aitbc1{secrets.token_hex(20)}"
+address = f"0x{secrets.token_hex(20)}"
 
 # Save wallet
 wallet_data = {

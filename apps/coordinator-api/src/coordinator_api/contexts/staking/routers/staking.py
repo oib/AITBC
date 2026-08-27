@@ -607,7 +607,7 @@ async def get_staking_leaderboard(
             "leaderboard": [
                 {
                     "rank": 1,
-                    "agent_wallet": "ait1abc123...",
+                    "agent_wallet": "0x1234567890123456789012345678901234567890",
                     "total_staked": 50000.0,
                     "total_rewards": 12500.0,
                     "apy": 12.5,
@@ -615,7 +615,7 @@ async def get_staking_leaderboard(
                 },
                 {
                     "rank": 2,
-                    "agent_wallet": "ait1def456...",
+                    "agent_wallet": "0x4567890123456789012345678901234567890123",
                     "total_staked": 35000.0,
                     "total_rewards": 8750.0,
                     "apy": 11.8,
@@ -623,7 +623,7 @@ async def get_staking_leaderboard(
                 },
                 {
                     "rank": 3,
-                    "agent_wallet": "ait1ghi789...",
+                    "agent_wallet": "0x7890123456789012345678901234567890123456",
                     "total_staked": 25000.0,
                     "total_rewards": 6250.0,
                     "apy": 11.2,

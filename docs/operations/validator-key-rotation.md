@@ -94,8 +94,8 @@ private key):
 ```markdown
 ## 2026-08-25 — Validator key rotation for <node>
 
-- Rotated address: `ait1<...>` (public only)
-- Old address: `ait1<...>` (public only)
+- Rotated address: `0x<...>` (public only)
+- Old address: `0x<...>` (public only)
 - Reason: planned recovery / incident recovery / host migration
 - Nodes touched: hub.aitbc, aitbc1
 - Services restarted: aitbc-blockchain-node

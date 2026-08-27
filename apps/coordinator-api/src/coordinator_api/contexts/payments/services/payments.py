@@ -21,6 +21,7 @@ from aitbc_agent_core import get_active_brand
 
 from ....config import settings
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
@@ -186,6 +187,8 @@ class PaymentService:
             node_wallet = canonical_address(node_wallet)
         except Exception as e:
             raise ValueError(f"Invalid node wallet address {node_wallet}: {e}") from e
+        if not validate_address(node_wallet):
+            raise ValueError(f"Invalid node wallet address {node_wallet}: not a valid 0x address")
         return {
             "from": buyer,
             "to": node_wallet,
@@ -228,10 +231,16 @@ class PaymentService:
             except Exception:
                 logger.warning("Invalid buyer address for escrow: %s", buyer)
                 return None
+            if not validate_address(buyer):
+                logger.warning("Invalid buyer address for escrow: %s", buyer)
+                return None
         if provider:
             try:
                 provider = canonical_address(provider)
             except Exception:
+                logger.warning("Invalid provider address for escrow: %s", provider)
+                return None
+            if not validate_address(provider):
                 logger.warning("Invalid provider address for escrow: %s", provider)
                 return None
         if not buyer or not provider:

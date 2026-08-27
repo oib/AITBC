@@ -24,6 +24,8 @@ from coordinator_api.storage import get_session
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 
+SessionDep = Depends(get_session)
+
 
 class GenerateProofRequest(BaseModel):
     """Request to generate a ZK proof"""
@@ -169,7 +171,7 @@ class VerifyJobReceiptRequest(BaseModel):
 async def verify_job_receipt(
     request: Request,
     req: VerifyJobReceiptRequest,
-    session: Session = Depends(get_session),
+    session: Session = SessionDep,
 ) -> VerificationResponse:
     """Verify the ZK receipt proof that was attached to a completed job."""
     try:

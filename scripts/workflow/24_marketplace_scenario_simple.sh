@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
 # Simplified Hardware+Software Bundle Marketplace Scenario using existing blockchain endpoints
 echo "=== 🛒 SIMPLIFIED HARDWARE+SOFTWARE BUNDLE MARKETPLACE SCENARIO ==="
 echo "Timestamp: $(date)"
@@ -18,8 +19,8 @@ else
 fi
 
 # Addresses
-GENESIS_ADDR="ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r"
-USER_ADDR="ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b"
+GENESIS_ADDR="0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a"
+USER_ADDR="0xE7d5e60688Ff0b4a5C6863f1625E47945D84C94b"
 
 echo "🎯 SIMPLIFIED HARDWARE+SOFTWARE BUNDLE MARKETPLACE WORKFLOW"
 echo "Testing hardware+software bundle marketplace functionality using blockchain"

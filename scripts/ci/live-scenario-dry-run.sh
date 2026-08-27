@@ -26,7 +26,6 @@ done
 echo "
 🔎 CLI smoke checks"
 $PYTHON -m aitbc_cli --help >/dev/null
-$PYTHON -m aitbc_cli --show-deprecated --help >/dev/null
 $PYTHON -m aitbc_cli ai --help >/dev/null
 $PYTHON -m aitbc_cli wallet --help >/dev/null
 $PYTHON -m aitbc_cli market --help >/dev/null

@@ -14,6 +14,8 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
 from aitbc.utils import ait_to_seconds
 
+from aitbc.crypto.signature_recovery import canonical_address
+
 from .bridge_db import (
     get_deposit_by_tx_hash,
     init_db,
@@ -39,23 +41,15 @@ MIN_ETH_DEPOSIT = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
 
 
 def _canonical_address(address: str) -> str | None:
-    """Normalize ait1/aitbc1/0x address to 0x... if it is a valid 20-byte address.
+    """Normalize a 0x address to its canonical EIP-55 form.
 
-    Returns the original string as-is if it cannot be canonicalized, so agents
-    can pass any supported spelling.
+    Legacy ait1/aitbc1 spellings are rejected.
     """
     if not address:
         return None
-    lowered = address.strip().lower()
-    if lowered.startswith("0x"):
-        body = lowered[2:]
-        if len(body) == 40:
-            return lowered
-    for prefix in ("aitbc1", "ait1"):
-        if lowered.startswith(prefix):
-            body = lowered[len(prefix) :]
-            if len(body) == 40:
-                return f"0x{body}"
+    normalized = canonical_address(address)
+    if normalized.startswith("0x") and len(normalized) == 42:
+        return normalized
     return None
 
 
@@ -77,10 +71,7 @@ def _parse_recipient_from_input(tx_input: str | None) -> str | None:
         if decoded:
             canonical = _canonical_address(decoded)
             if canonical:
-                return decoded
-            # If decoded is already 0x + 40 hex without prefix, return as 0x...
-            if len(decoded) == 42 and decoded.startswith("0x"):
-                return decoded
+                return canonical
     except UnicodeDecodeError:
         pass
 
@@ -164,7 +155,10 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     recipient = _parse_recipient_from_input(tx_input)
     if not recipient:
         if DEFAULT_RECIPIENT:
-            recipient = DEFAULT_RECIPIENT
+            recipient = _canonical_address(DEFAULT_RECIPIENT)
+            if not recipient:
+                logger.error("Default WALLET_ADDRESS is not a valid 0x address: %s", DEFAULT_RECIPIENT)
+                return False
             logger.info("No AIT address in tx %s data; using default recipient %s", tx_hash, recipient)
         else:
             logger.error("No AIT recipient for tx %s and no WALLET_ADDRESS configured", tx_hash)
@@ -189,7 +183,7 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
         return False
 
     # Auto-mint if configured
-    if GENESIS_WALLET_ADDRESS and GENESIS_WALLET_PRIVATE_KEY:
+    if _canonical_address(GENESIS_WALLET_ADDRESS) and GENESIS_WALLET_PRIVATE_KEY:
         try:
             await _mint_deposit(deposit_id, recipient, amount_ait)
         except Exception as e:
@@ -202,12 +196,18 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
 
 async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) -> None:
     """Verify, sign, submit AIT transfer, and mark deposit completed."""
+    genesis_address = _canonical_address(GENESIS_WALLET_ADDRESS)
+    if not genesis_address:
+        logger.error("GENESIS_WALLET_ADDRESS is not a valid 0x address: %s", GENESIS_WALLET_ADDRESS)
+        update_deposit_status(deposit_id, "pending")
+        return
+
     # 1. Verify
     update_deposit_status(deposit_id, "verified")
 
     # 2. Get nonce
     try:
-        account_resp = await SharedHttpClient.get(f"{BLOCKCHAIN_RPC_URL}/rpc/account/{GENESIS_WALLET_ADDRESS}", timeout=10.0)
+        account_resp = await SharedHttpClient.get(f"{BLOCKCHAIN_RPC_URL}/rpc/account/{genesis_address}", timeout=10.0)
         account_data = account_resp.json()
         nonce = account_data.get("nonce", 0)
     except Exception as e:
@@ -226,7 +226,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         tx_payload = {
             "type": "TRANSFER",
             "chain_id": os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"),
-            "from": GENESIS_WALLET_ADDRESS,
+            "from": genesis_address,
             "to": recipient,
             "amount": amount_seconds,
             "fee": fee_seconds,

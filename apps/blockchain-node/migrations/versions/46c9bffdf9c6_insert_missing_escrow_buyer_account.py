@@ -1,7 +1,7 @@
 """Insert the missing escrow buyer account.
 
 Four released escrow rows on hub point to buyer
-`ait135daba990a37177398e0e0c1670baa316a032417`, who has a coordinator user
+0x35DABA990a37177398e0E0C1670BAa316a032417, who has a coordinator user
 and wallet record but never had an on-chain `account` row created because the
 escrow path does not debit the buyer or create the account.  Inserting the
 account with zero balance makes the schema checkable without hiding the

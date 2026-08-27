@@ -5,8 +5,7 @@
 # All nodes run on port 8006 on different physical machines
 #
 
-set -e
-
+set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
@@ -215,7 +214,7 @@ test_transaction() {
     fi
 
     # Get receiver address
-    RECEIVER_ADDR=$(${CLI_PATH} wallet balance test-comm-receiver 2>/dev/null | grep -oE 'ait1[a-zA-Z0-9]+' | head -1 || echo "")
+    RECEIVER_ADDR=$(${CLI_PATH} wallet balance test-comm-receiver 2>/dev/null | grep -oE '0x[0-9a-fA-F]{40}' | head -1 || echo "")
 
     # Send transaction
     log_debug "Sending test transaction"

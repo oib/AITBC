@@ -68,7 +68,7 @@ class CLIConfig(BaseAITBCConfig):
     # (see docs/getting-started/node/blockchain-setup.md). Matches the meaning
     # GENESIS_WALLET_ADDRESS already has in bridge-monitor and blockchain-node escrow.
     genesis_wallet_address: str = Field(
-        default="ait1db5247d03ca2e40f3995a583b2c097ab703efd4d",
+        default="0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
         description="Wallet holding the genesis allocation (from GENESIS_WALLET_ADDRESS env var)",
     )
     # SecretStr so it cannot land in a log line or traceback via repr.

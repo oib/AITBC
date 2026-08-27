@@ -15,16 +15,20 @@ except ImportError:
     click.echo("❌ Error: miner_management module not found")
     sys.exit(1)
 
+# Example wallet address used in CLI help text (canonical EIP-55 0x form).
+_WALLET_EXAMPLE = "0x94ad80f4790bb3baFe6bDc0F5AD33353239AB3e8"
+
 
 def main():
     """Main CLI entry point for miner management"""
     parser = argparse.ArgumentParser(
         description="AITBC AI Compute Miner Management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 Examples:
   # Register as AI compute provider
-  python miner_cli.py register --miner-id ai-miner-1 --wallet ait1xyz --gpu-memory 8192 --models qwen3:8b llama3:8b --pricing 0.50
+  python miner_cli.py register --miner-id ai-miner-1 --wallet {_WALLET_EXAMPLE}
+      --gpu-memory 8192 --models qwen3:8b llama3:8b --pricing 0.50
 
   # Check miner status
   python miner_cli.py status --miner-id ai-miner-1

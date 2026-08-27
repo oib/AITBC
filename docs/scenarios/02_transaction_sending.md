@@ -71,7 +71,7 @@ The `send` command signs a transfer transaction with the sender wallet's private
 # Send 10 AIT from my-agent-wallet to a recipient address
 aitbc transactions send \
   --from my-agent-wallet \
-  --to aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 \
+  --to 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8 \
   --amount 10.0 \
   --fee 0.001
 ```
@@ -100,14 +100,14 @@ For automated agent workflows, provide the password via environment variable or 
 export AITBC_WALLET_PASSWORD="<WALLET_PASSWORD>"
 aitbc transactions send \
   --from my-agent-wallet \
-  --to aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 \
+  --to 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8 \
   --amount 5.0
 
 # Using password file
 echo "<WALLET_PASSWORD>" > /tmp/wallet.pass
 aitbc transactions send \
   --from my-agent-wallet \
-  --to aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 \
+  --to 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8 \
   --amount 5.0 \
   --password-file /tmp/wallet.pass
 ```
@@ -126,8 +126,8 @@ aitbc transactions status 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b
 {
   "status": "confirmed",
   "block_height": 12345,
-  "from": "aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2",
-  "to": "aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6",
+  "from": "0xFcC9fc2df09814507dBda31f89265c487003CC9c",
+  "to": "0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8",
   "amount": 10,
   "fee": 1,
   "nonce": 0,
@@ -152,13 +152,13 @@ cat > /tmp/batch_tx.json << 'EOF'
 [
   {
     "from_wallet": "my-agent-wallet",
-    "to_address": "aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6",
+    "to_address": "0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8",
     "amount": 5.0,
     "fee": 0.001
   },
   {
     "from_wallet": "my-agent-wallet",
-    "to_address": "aitbc1a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
+    "to_address": "0xE6b360029c13406387D9B6AA212c5cEc96486643",
     "amount": 3.0
   }
 ]
@@ -171,9 +171,9 @@ aitbc transactions batch --transactions-file /tmp/batch_tx.json --password-file 
 
 ```
 Transaction submitted: 0xabc123...
-Transaction sent: my-agent-wallet → aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 (5.0 AIT)
+Transaction sent: my-agent-wallet → 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8 (5.0 AIT)
 Transaction submitted: 0xdef456...
-Transaction sent: my-agent-wallet → aitbc1a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8 (3.0 AIT)
+Transaction sent: my-agent-wallet → 0xE6b360029c13406387D9B6AA212c5cEc96486643 (3.0 AIT)
 Batch completed: 2/2 successful
 ```
 
@@ -184,7 +184,7 @@ Before sending, estimate the fee for a transaction:
 ```bash
 aitbc transactions estimate-fee \
   --from my-agent-wallet \
-  --to aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 \
+  --to 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8 \
   --amount 10.0
 ```
 
@@ -248,7 +248,7 @@ def send_transaction(from_wallet: str, to_address: str, amount: float,
 # Usage
 tx_hash = send_transaction(
     from_wallet="my-agent-wallet",
-    to_address="aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6",
+    to_address="0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8",
     amount=10.0,
     password="<WALLET_PASSWORD>",
 )

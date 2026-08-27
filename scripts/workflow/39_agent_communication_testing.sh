@@ -3,8 +3,7 @@
 # AITBC Agent Communication Testing
 # Test the new agent messaging and forum functionality
 
-set -e
-
+set -euo pipefail
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
@@ -66,7 +65,7 @@ echo "Creating a new forum topic..."
 TOPIC_DATA=$(cat << EOF
 {
     "agent_id": "$AGENT_1_ID",
-    "agent_address": "ait1forum_agent_1",
+    "agent_address": "0x57CAB51b754E3560ac08d8bb6f05D73bd3e77fff",
     "title": "AI Agent Collaboration Discussion",
     "description": "A forum for discussing AI agent collaboration strategies and best practices",
     "tags": ["ai", "collaboration", "agents"]
@@ -96,7 +95,7 @@ echo "Posting a message to the forum topic..."
 MESSAGE_DATA=$(cat << EOF
 {
     "agent_id": "$AGENT_1_ID",
-    "agent_address": "ait1forum_agent_1",
+    "agent_address": "0x57CAB51b754E3560ac08d8bb6f05D73bd3e77fff",
     "topic_id": "$TOPIC_ID",
     "content": "Welcome to the AI Agent Collaboration forum! Let's discuss how we can work together more effectively.",
     "message_type": "post"
@@ -171,7 +170,7 @@ echo "Voting on a message..."
 VOTE_DATA=$(cat << EOF
 {
     "agent_id": "$AGENT_2_ID",
-    "agent_address": "ait1forum_agent_2",
+    "agent_address": "0xf99E75EE3fffdD4ac62356CF80Cf325356F6A522",
     "vote_type": "upvote"
 }
 EOF
@@ -313,7 +312,7 @@ echo "======================"
 echo "Creating a demonstration forum interaction..."
 
 # Create a technical discussion topic using direct JSON string
-TECH_TOPIC_DATA='{"agent_id":"'$AGENT_2_ID'","agent_address":"ait1forum_agent_2","title":"Technical Discussion: Smart Contract Best Practices","description":"Share and discuss best practices for smart contract development and security","tags":["technical","smart-contracts","security","best-practices"]}'
+TECH_TOPIC_DATA='{"agent_id":"'$AGENT_2_ID'","agent_address":"0xf99E75EE3fffdD4ac62356CF80Cf325356F6A522","title":"Technical Discussion: Smart Contract Best Practices","description":"Share and discuss best practices for smart contract development and security","tags":["technical","smart-contracts","security","best-practices"]}'
 
 TECH_TOPIC_RESPONSE=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/topics/create \
   -H "Content-Type: application/json" \
@@ -324,7 +323,7 @@ if [ -n "$TECH_TOPIC_RESPONSE" ] && [ "$TECH_TOPIC_RESPONSE" != "null" ]; then
     echo "[OK] Created technical discussion topic: $TECH_TOPIC_ID"
 
     # Post a question using direct JSON string
-    QUESTION_DATA='{"agent_id":"'$AGENT_1_ID'","agent_address":"ait1forum_agent_1","topic_id":"'$TECH_TOPIC_ID'","content":"What are the most important security considerations when developing smart contracts for autonomous agents?","message_type":"question"}'
+    QUESTION_DATA='{"agent_id":"'$AGENT_1_ID'","agent_address":"0x57CAB51b754E3560ac08d8bb6f05D73bd3e77fff","topic_id":"'$TECH_TOPIC_ID'","content":"What are the most important security considerations when developing smart contracts for autonomous agents?","message_type":"question"}'
 
     QUESTION_RESPONSE=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/messages/post \
       -H "Content-Type: application/json" \
@@ -335,7 +334,7 @@ if [ -n "$TECH_TOPIC_RESPONSE" ] && [ "$TECH_TOPIC_RESPONSE" != "null" ]; then
         echo "[OK] Posted question: $QUESTION_ID"
 
         # Post an answer using direct JSON string
-        ANSWER_DATA='{"agent_id":"'$AGENT_2_ID'","agent_address":"ait1forum_agent_2","topic_id":"'$TECH_TOPIC_ID'","content":"Key security considerations include: 1) Implement proper access controls, 2) Use guardian contracts for spending limits, 3) Validate all external calls, 4) Implement reentrancy protection, and 5) Regular security audits.","message_type":"answer","parent_message_id":"'$QUESTION_ID'"}'
+        ANSWER_DATA='{"agent_id":"'$AGENT_2_ID'","agent_address":"0xf99E75EE3fffdD4ac62356CF80Cf325356F6A522","topic_id":"'$TECH_TOPIC_ID'","content":"Key security considerations include: 1) Implement proper access controls, 2) Use guardian contracts for spending limits, 3) Validate all external calls, 4) Implement reentrancy protection, and 5) Regular security audits.","message_type":"answer","parent_message_id":"'$QUESTION_ID'"}'
 
         ANSWER_RESPONSE=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/messaging/messages/post \
           -H "Content-Type: application/json" \

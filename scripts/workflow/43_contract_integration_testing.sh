@@ -100,7 +100,7 @@ run_test_verbose "Contract service connectivity" "
     echo 'Testing contract deployment endpoint:'
     DEPLOY_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/deploy \
       -H 'Content-Type: application/json' \
-      -d '{\"contract_code\": \"test_contract\", \"sender\": \"ait1test\", \"gas_limit\": 1000000}')
+      -d '{\"contract_code\": \"test_contract\", \"sender\": \"0xfdA4b5C4d4b60f3b90bE125f03fB610f4A1cC36f\", \"gas_limit\": 1000000}')
 
     echo \"Contract deployment test: \$(echo \$DEPLOY_RESULT | jq .success 2>/dev/null || echo 'Deployment endpoint responding')\"
 "
@@ -113,7 +113,7 @@ run_test_verbose "Contract service functionality" "
     CONTRACT_DATA='{
         \"name\": \"TestIntegrationContract\",
         \"code\": \"function test() { return true; }\",
-        \"sender\": \"ait1test\",
+        \"sender\": \"0xfdA4b5C4d4b60f3b90bE125f03fB610f4A1cC36f\",
         \"gas_limit\": 1000000
     }'
 
@@ -127,7 +127,7 @@ run_test_verbose "Contract service functionality" "
     echo 'Testing contract interaction:'
     INTERACT_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/call \
       -H 'Content-Type: application/json' \
-      -d '{\"contract_address\": \"0xtest\", \"function\": \"test\", \"params\": [], \"sender\": \"ait1test\"}')
+      -d '{\"contract_address\": \"0xtest\", \"function\": \"test\", \"params\": [], \"sender\": \"0xfdA4b5C4d4b60f3b90bE125f03fB610f4A1cC36f\"}')
 
     echo \"Contract interaction: \$(echo \$INTERACT_RESULT | jq .success 2>/dev/null || echo 'Contract interaction responding')\"
 "
@@ -150,7 +150,7 @@ run_test_verbose "Marketplace contract integration" "
     MKT_CONTRACT='{
         \"contract_type\": \"marketplace\",
         \"name\": \"MarketplaceContract\",
-        \"owner\": \"ait1marketplace\",
+        \"owner\": \"0x99eC4D8C9eFc43F9a1a0918DaF85e28800516031\",
         \"settings\": {\"fee_rate\": 0.01, \"min_listing_price\": 100}
     }'
 
@@ -164,7 +164,7 @@ run_test_verbose "Marketplace contract integration" "
     echo 'Testing marketplace transaction:'
     TX_DATA='{
         \"listing_id\": \"test_listing_001\",
-        \"buyer\": \"ait1buyer\",
+        \"buyer\": \"0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f\",
         \"amount\": 1000,
         \"payment_method\": \"ait\"
     }'
@@ -195,7 +195,7 @@ run_test_verbose "AI service contract integration" "
         \"prompt\": \"Explain blockchain consensus\",
         \"model\": \"gpt-3.5-turbo\",
         \"max_tokens\": 1000,
-        \"sender\": \"ait1aiuser\"
+        \"sender\": \"0x24caEeD10eb019c9609996A107C42D4f141f455E\"
     }'
 
     AI_RESULT=\$(ssh $FOLLOWER_NODE 'curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/ai/submit \
@@ -209,7 +209,7 @@ run_test_verbose "AI service contract integration" "
     AI_CONTRACT='{
         \"contract_type\": \"ai_service\",
         \"name\": \"AIServiceContract\",
-        \"provider\": \"ait1aiprovider\",
+        \"provider\": \"0xec069955b7384d79611ae5E4a4f3FdF162Ad46d6\",
         \"models\": [\"gpt-3.5-turbo\", \"gpt-4\"],
         \"pricing\": {\"gpt-3.5-turbo\": 0.001, \"gpt-4\": 0.01}
     }'
@@ -238,7 +238,7 @@ run_test_verbose "Agent messaging contract integration" "
     echo 'Testing topic creation:'
     TOPIC_DATA='{
         \"agent_id\": \"test_integration_agent\",
-        \"agent_address\": \"ait1testagent\",
+        \"agent_address\": \"0xBE53097e6DC81bA51287cc0b8972CCd4296dAa11\",
         \"title\": \"Integration Testing Topic\",
         \"description\": \"Topic for testing contract integration\",
         \"tags\": [\"integration\", \"test\"]
@@ -254,7 +254,7 @@ run_test_verbose "Agent messaging contract integration" "
     echo 'Testing message posting:'
     MSG_DATA='{
         \"agent_id\": \"test_integration_agent\",
-        \"agent_address\": \"ait1testagent\",
+        \"agent_address\": \"0xBE53097e6DC81bA51287cc0b8972CCd4296dAa11\",
         \"topic_id\": \"integration_topic_001\",
         \"content\": \"This is a test message for contract integration testing\",
         \"message_type\": \"post\"
@@ -310,7 +310,7 @@ run_test_verbose "Cross-service contract integration" "
             \"price\": 500,
             \"description\": \"AI-powered data analysis service\"
         },
-        \"sender\": \"ait1coordinator\"
+        \"sender\": \"0x965A7E021EFa5880e0822f0A40Ef5e7d98FEfce4\"
     }'
 
     CROSS_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/coordination/execute \
@@ -340,7 +340,7 @@ run_test_verbose "Contract state management" "
         \"state_changes\": {
             \"counter\": 1,
             \"last_updated\": \"$(date -Iseconds)\",
-            \"updated_by\": \"ait1updater\"
+            \"updated_by\": \"0xFCf2c1dc792cb0568C59a148C7C79C18a049e83E\"
         }
     }'
 
@@ -368,7 +368,7 @@ run_test_verbose "Contract error handling" "
     echo 'Testing invalid contract deployment:'
     INVALID_CONTRACT='{
         \"code\": \"invalid syntax\",
-        \"sender\": \"ait1invalid\"
+        \"sender\": \"0xBb65Fd551CdEA91aB68d6353B57d7Dfd9A67D792\"
     }'
 
     INVALID_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/deploy \
@@ -381,7 +381,7 @@ run_test_verbose "Contract error handling" "
     echo 'Testing insufficient gas handling:'
     LOW_GAS_CONTRACT='{
         \"code\": \"function expensive() { while(true) {} }\",
-        \"sender\": \"ait1lowgas\",
+        \"sender\": \"0xbd4fF85560c5f76C012b2e0A9D510e2CBa15674A\",
         \"gas_limit\": 1000
     }'
 
@@ -395,7 +395,7 @@ run_test_verbose "Contract error handling" "
     echo 'Testing permission error handling:'
     PERM_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/admin/deploy \
       -H 'Content-Type: application/json' \
-      -d '{\"code\": \"admin_only\", \"sender\": \"ait1user\"}')
+      -d '{\"code\": \"admin_only\", \"sender\": \"0xE56355f4C74E4A99BC8332058b467Dc0CfBb66b9\"}')
 
     echo \"Permission error handling: \$(echo \$PERM_RESULT | jq .error_code 2>/dev/null || echo 'Permission error handling working')\"
 "

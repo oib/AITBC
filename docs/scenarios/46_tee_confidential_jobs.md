@@ -17,8 +17,8 @@ releases escrow after a verified attestation is attached to the job receipt.
 
 ```bash
 # Customer / provider addresses from the live network
-CUSTOMER=ait1fe2d63fe87db282083b9159e5857cac788af9e03
-PROVIDER=aitbc1a54b82312beb65d0e90c21717ea372396991fa36
+CUSTOMER=0xFe2d63FE87Db282083b9159e5857Cac788af9E03
+PROVIDER=0xA54B82312beb65D0E90c21717ea372396991Fa36
 
 # A stable enclave measurement used to pin the job to a specific enclave image
 MEASUREMENT="sha256:0000000000000000000000000000000000000000000000000000000000000001"

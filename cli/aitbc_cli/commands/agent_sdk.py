@@ -15,6 +15,9 @@ except ImportError:
     ComputeConsumer = None
     AITBCAgent = None
 
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address
+
 from ..config import get_config
 from ..utils import error, info, output, success
 from ..utils.error_handling import abort
@@ -552,10 +555,10 @@ try:
                     agent_config = json.load(f)
                 capabilities = agent_config.get("capabilities", {})
 
-            # Convert bech32 address to hex for RPC compatibility
-            from ..utils.crypto_utils import bech32_to_hex
-
-            hex_address = bech32_to_hex(agent_address)
+            hex_address = canonical_address(agent_address)
+            if not validate_address(hex_address):
+                abort(ctx, f"Invalid agent address: {agent_address}")
+                return
 
             # Submit identity registration to blockchain RPC
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)

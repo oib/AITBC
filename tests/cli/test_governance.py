@@ -30,13 +30,13 @@ def mock_config():
 def temp_wallet_dir():
     """Create a temporary wallet directory with a test wallet"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        wallet_dir = Path(tmpdir) / "wallets"
-        wallet_dir.mkdir(parents=True, exist_ok=True)
-        wallet_file = wallet_dir / "test_wallet.json"
-        wallet_data = {"address": "aitbc1test", "balance": 1000.0, "private_key": "a" * 64}
+        test_wallet_dir = Path(tmpdir) / "wallets"
+        test_wallet_dir.mkdir(parents=True, exist_ok=True)
+        wallet_file = test_wallet_dir / "test_wallet.json"
+        wallet_data = {"address": "0x4472315052d1bC56dd9aA6514B9796770C8c0611", "balance": 1000.0, "private_key": "a" * 64}
         wallet_file.write_text(json.dumps(wallet_data))
-        with patch("aitbc_cli.commands.operations.DEFAULT_WALLET_DIR", wallet_dir):
-            yield wallet_dir
+        with patch("aitbc_cli.commands.operations.wallet_dir", lambda: test_wallet_dir):
+            yield test_wallet_dir
 
 
 class TestGovernanceCommands:
@@ -115,7 +115,16 @@ class TestGovernanceCommands:
         """Test governance staking command"""
         result = runner.invoke(
             operations,
-            ["governance", "stake", "--address", "aitbc1test", "--amount", "1000", "--lock-days", "30"],
+            [
+                "governance",
+                "stake",
+                "--address",
+                "0x4472315052d1bC56dd9aA6514B9796770C8c0611",
+                "--amount",
+                "1000",
+                "--lock-days",
+                "30",
+            ],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -128,7 +137,16 @@ class TestGovernanceCommands:
         """Test governance delegation command"""
         result = runner.invoke(
             operations,
-            ["governance", "delegate", "--delegator", "aitbc1alice", "--delegate", "aitbc1bob", "--amount", "500"],
+            [
+                "governance",
+                "delegate",
+                "--delegator",
+                "0xaF2D9311445394B71F559a6CA3EF2FCE1e2B050e",
+                "--delegate",
+                "0x69b590a929Cc7Bf11AcbE5b9CAF1b79F7EB7c800",
+                "--amount",
+                "500",
+            ],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -151,10 +169,12 @@ class TestGovernanceCommands:
     def test_voting_power_command(self, runner, mock_config, mock_http, temp_wallet_dir):
         """Test voting power query command"""
         result = runner.invoke(
-            operations, ["governance", "voting-power", "aitbc1test"], obj={"config": mock_config, "output": "json"}
+            operations,
+            ["governance", "voting-power", "0x4472315052d1bC56dd9aA6514B9796770C8c0611"],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code == 0
         mock_http.return_value.get.assert_called_once()
         call_args = mock_http.return_value.get.call_args
-        assert "/v1/governance/voting-power/aitbc1test" in call_args[0][0]
+        assert "/v1/governance/voting-power/0x4472315052d1bC56dd9aA6514B9796770C8c0611" in call_args[0][0]

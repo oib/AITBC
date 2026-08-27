@@ -80,9 +80,7 @@ def test_marketplace_create_posts_to_local_service(mock_marketplace_config, mock
         ],
     )
     assert result.exit_code == 0, result.output
-    assert any(
-        path == "/v1/marketplace/offers" for _, path, _ in calls["post"]
-    ), f"Calls: {calls['post']}"
+    assert any(path == "/v1/marketplace/offers" for _, path, _ in calls["post"]), f"Calls: {calls['post']}"
 
 
 def test_market_escrow_create_posts_to_local_blockchain(mock_marketplace_config, mock_http_client):
@@ -96,8 +94,8 @@ def test_market_escrow_create_posts_to_local_blockchain(mock_marketplace_config,
             "escrow",
             "create",
             "job-1",
-            "ait1" + "0" * 40,
-            "ait1" + "1" * 40,
+            "0x11a01cb7F3C01AE8E8a992FE72fbDF3B530ccdD7",
+            "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450",
             "2.5",
         ],
     )

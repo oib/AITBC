@@ -69,7 +69,7 @@ def db(monkeypatch, tmp_path):
                     sender="agent-alpha",
                     recipient="hub-coordinator",
                     amount=100,
-                    wallet_address="ait1" + "c1" * 20,
+                    wallet_address="0xe0383C465aF763F2489B61Ec169bB06E485DAB95",
                     status=CoinRequestStatus.APPROVED,
                     approval_mode="manual",
                     approved_by="cli",

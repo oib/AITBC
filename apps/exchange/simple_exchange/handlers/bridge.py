@@ -141,9 +141,10 @@ class BridgeMixin:
             return (True, 0)  # no multi-sig configured; gate is open
 
         try:
-            from eth_keys import keys
+            from eth_hash.auto import keccak
+            from aitbc.crypto.signature_recovery import SignatureMalformed, recover_address
         except Exception:
-            # eth_keys not available; cannot verify signatures
+            # secp256k1 dependencies not available; cannot verify signatures
             return (False, 0)
 
         message = f"BRIDGE_WITHDRAW:{eth_address}:{ait_amount}".encode()
@@ -153,12 +154,10 @@ class BridgeMixin:
                 sig_hex = sig.get("signature", "").removeprefix("0x")
                 if not sig_hex:
                     continue
-                signature = keys.Signature(bytes.fromhex(sig_hex))
-                public_key = signature.recover_public_key_from_msg(message)
-                addr = public_key.to_address().lower()
+                addr = recover_address(keccak(message), bytes.fromhex(sig_hex)).lower()
                 if addr in signers:
                     valid.add(addr)
-            except Exception:
+            except (ValueError, SignatureMalformed):
                 continue
 
         return (len(valid) >= threshold, len(valid))

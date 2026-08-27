@@ -10,8 +10,12 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from aitbc import ValidationError
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address_strict
+
 from eth_account import Account
-from eth_utils import keccak, to_checksum_address
+from eth_utils import is_address, keccak, to_checksum_address
 
 from .http_client import get_logger
 
@@ -124,20 +128,12 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
         if field not in tx_data:
             return False, f"Missing required field: {field}"
 
-    # Validate address format (0x-prefixed Ethereum-style, or legacy ait1/aitbc1)
+    # Validate address format (canonical 0x-prefixed secp256k1/EVM only)
     to_address = tx_data["to"]
-    if to_address.startswith("0x"):
-        if len(to_address) != 42:
-            return False, "Invalid recipient address format: 0x address must be 42 chars"
-        if not all(c.lower() in "0123456789abcdef" for c in to_address[2:]):
-            return False, "Invalid recipient address format: invalid characters"
-    elif to_address.startswith("ait"):
-        if len(to_address) < 50 or len(to_address) > 70:
-            return False, "Invalid recipient address format: invalid length"
-        if not all(c.lower() in "0123456789abcdef" for c in to_address[3:]):
-            return False, "Invalid recipient address format: invalid characters"
-    else:
-        return False, "Invalid recipient address format: must start with '0x' or 'ait'"
+    try:
+        validate_address_strict(to_address)
+    except ValidationError as exc:
+        return False, f"Invalid recipient address format: {exc}"
 
     # Validate amount
     try:
@@ -268,11 +264,12 @@ class MultisigSecurityManager:
         if not verify_signature(challenge, signature, signer_address):
             return False, f"Invalid signature for signer {signer_address}"
 
-        # Check if signer is authorized
+        # Check if signer is authorized (compare canonical addresses)
         tx_data = challenge_data["tx_data"]
         authorized_signers = tx_data.get("required_signers", [])
+        canonical_signer = canonical_address(signer_address)
 
-        if signer_address not in authorized_signers:
+        if canonical_signer not in {canonical_address(addr) for addr in authorized_signers}:
             return False, f"Signer {signer_address} is not authorized"
 
         return True, "Signature verified successfully"
@@ -285,58 +282,48 @@ class MultisigSecurityManager:
             self._save(challenges)
 
 
-def bech32_to_hex(bech32_address: str) -> str:
+def _canonical_address(address: str) -> str:
     """
-    Convert AITBC address to hex (0x) address format.
+    Return the canonical 0x address unchanged.
 
     AITBC now uses Ethereum-style 0x checksum addresses natively.
-    Legacy aitbc1/ait1 prefixed addresses are stripped and converted
-    to 0x format for backward compatibility.
+    Legacy non-0x prefixes are rejected.
 
     Args:
-        bech32_address: AITBC address (e.g., "0xc10f0e4f..." or legacy "aitbc1c10f0e4f...")
+        address: AITBC address in 0x format (e.g., "0xc10f0e4f...")
 
     Returns:
-        Hex address (e.g., "0xc10f0e4f...")
+        The same 0x address.
+
+    Raises:
+        ValueError: If the address is empty, legacy-prefixed, or not a valid 0x address.
     """
-    if not bech32_address:
+    if not address:
         raise ValueError("Address cannot be empty")
 
-    # Already in 0x format — return as-is
-    if bech32_address.startswith("0x"):
-        return bech32_address
+    if not address.startswith("0x"):
+        raise ValueError(f"Legacy address format is not supported: {address}")
 
-    # Legacy aitbc1 prefix (backward compat)
-    if bech32_address.startswith("aitbc1"):
-        hex_part = bech32_address[6:]
-    elif bech32_address.startswith("ait1"):
-        hex_part = bech32_address[4:]
-    else:
-        hex_part = bech32_address
+    try:
+        if not is_address(address):
+            raise ValueError(f"Invalid 0x address: {address}")
+    except ImportError:
+        import re
 
-    return "0x" + hex_part
+        if not re.match(r"^0x[0-9a-fA-F]{40}$", address):
+            raise ValueError(f"Invalid 0x address: {address}") from None
+
+    return address
 
 
-def hex_to_bech32(hex_address: str) -> str:
-    """
-    Convert hex address to AITBC address format.
+def bech32_to_hex(address: str) -> str:
+    """Backward-compatible alias for :func:`_canonical_address`."""
+    return _canonical_address(address)
 
-    AITBC now uses 0x-prefixed addresses natively. This function
-    returns the 0x format directly. Legacy aitbc1 prefix is no longer used.
 
-    Args:
-        hex_address: Hex address (e.g., "0xc10f0e4f..." or "c10f0e4f...")
-
-    Returns:
-        AITBC address in 0x format (e.g., "0xc10f0e4f...")
-    """
-    if not hex_address:
-        raise ValueError("Address cannot be empty")
-
-    if hex_address.startswith("0x"):
-        return hex_address
-
-    return "0x" + hex_address
+def hex_to_bech32(address: str) -> str:
+    """Backward-compatible alias for :func:`_canonical_address`."""
+    return _canonical_address(address)
 
 
 # Global security manager instance

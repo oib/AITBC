@@ -127,7 +127,7 @@ asyncio.run(agent_websocket_listener("my-agent", "localhost:8000"))
             "result": {
                 "action": "coin_request_received",
                 "amount": 100,
-                "wallet_address": "aitbc1abc...",
+                "wallet_address": "0xB304b44D76f48A4e1837d53E7d17EcDD6b642438",
                 "status": "pending_approval"
             },
             "success": True

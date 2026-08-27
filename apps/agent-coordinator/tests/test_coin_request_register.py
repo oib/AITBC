@@ -23,8 +23,8 @@ from agent_app.services import faucet_policy
 
 from .conftest import API_KEY, PAYOUT, signed_transactions, stored_request
 
-WALLET = "ait1" + "ab" * 20
-ATTACKER_WALLET = "ait1" + "ee" * 20
+WALLET = "0xf3290d4F0D96a2Dd231C44362c57d5ad0AF0A281"
+ATTACKER_WALLET = "0x3476E0ee27BC5959c00de93834a9a3d033d32DAA"
 TREASURY_DRAIN = 3_600_000_000_000
 
 

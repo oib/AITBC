@@ -201,7 +201,7 @@ Do NOT trust `read_file` alone when debugging file modification issues. The term
 Wallet files are at `/root/.aitbc/wallets/<name>.json`. They contain:
 - `private_key`: hex string with `0x` prefix (32 bytes = 64 hex chars + `0x`)
 - `public_key`: hex string with `0x` prefix
-- `address`: AITBC address starting with `aitbc1`
+- `address`: AITBC address starting with `0x` (EIP-55)
 
 When loading the private key for signing, strip the `0x` prefix:
 ```python
@@ -230,8 +230,8 @@ The `/rpc/transaction` endpoint expects a specific JSON schema. Key points:
 
 ```json
 {
-  "from": "aitbc1...",
-  "to": "aitbc1...",
+  "from": "0x...",
+  "to": "0x...",
   "amount": 1,
   "fee": 10,
   "nonce": 0,

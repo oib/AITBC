@@ -70,7 +70,7 @@ curl -X POST "http://localhost:8203/v1/agent/messages/send" \
   -d '{
     "sender": "my-node",
     "recipient": "owl-hub",
-    "content": "REQUEST_COINS: 1000 ait coins to address ait1xyz123abc",
+    "content": "REQUEST_COINS: 1000 ait coins to address 0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
     "message_type": "direct",
     "timestamp": "2026-05-30T17:00:00Z"
   }'
@@ -90,7 +90,7 @@ aitbc-cli coin-requests list
 **Natural language:**
 
 ```
-REQUEST_COINS: 1000 ait coins to address ait1xyz123abc
+REQUEST_COINS: 1000 ait coins to address 0x71C7656EC7ab88b098defB751B7401B5f6d8976F
 ```
 
 **JSON format:**
@@ -99,7 +99,7 @@ REQUEST_COINS: 1000 ait coins to address ait1xyz123abc
 {
   "cmd": "REQUEST_COINS",
   "amount": 1000,
-  "to_address": "ait1xyz123abc"
+  "to_address": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
 }
 ```
 

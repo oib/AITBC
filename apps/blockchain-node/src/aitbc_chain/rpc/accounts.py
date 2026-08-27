@@ -31,15 +31,15 @@ _logger = get_logger(__name__)
 async def get_account(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
-    canonical = canonical_address(address)
-    body = canonical.removeprefix("0x")
-    address = f"ait1{body}" if canonical.startswith("0x") and len(body) == 40 else address
-    cache_key = f"account_balance:{chain_id}:{address.lower()}"
+    evm_addr = canonical_address(address)
+    if not evm_addr.startswith("0x"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account address")
+    cache_key = f"account_balance:{chain_id}:{evm_addr.lower()}"
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached  # type: ignore[no-any-return]
     with session_scope(chain_id) as session:
-        account = session.exec(select(Account).where(Account.address == address).where(Account.chain_id == chain_id)).first()
+        account = session.exec(select(Account).where(Account.address == evm_addr).where(Account.chain_id == chain_id)).first()
         if not account:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
         result = {"address": account.address, "balance": account.balance, "nonce": account.nonce, "chain_id": account.chain_id}
@@ -66,18 +66,17 @@ async def get_account_details(request: Request, address: str, chain_id: str | No
         Account details or 404 if not found
     """
     chain_id = get_chain_id(chain_id)
-    canonical = canonical_address(address)
-    body = canonical.removeprefix("0x")
-    address = f"ait1{body}" if canonical.startswith("0x") and len(body) == 40 else canonical
-    address = address.lower().strip()
-    cache_key = f"account_details:{chain_id}:{address}"
+    evm_addr = canonical_address(address)
+    if not evm_addr.startswith("0x"):
+        raise HTTPException(status_code=400, detail="Invalid account address")
+    cache_key = f"account_details:{chain_id}:{evm_addr.lower()}"
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached  # type: ignore[no-any-return]
     with session_scope(chain_id) as session:
-        account = session.get(Account, (chain_id, address))
+        account = session.get(Account, (chain_id, evm_addr))
         if not account:
-            raise HTTPException(status_code=404, detail=f"Account {address} not found on chain {chain_id}")
+            raise HTTPException(status_code=404, detail=f"Account {evm_addr} not found on chain {chain_id}")
         result = {
             "success": True,
             "address": account.address,
@@ -111,9 +110,7 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
     address = canonical_address(address)
-    if not address.startswith("0x"):
-        address = "0x" + address
-    if not all(c in "0123456789abcdef" for c in address[2:]) or len(address) != 42:
+    if not address.startswith("0x") or len(address) != 42:
         raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
     with session_scope(chain_id) as session:
         existing_account = session.get(Account, (chain_id, address))

@@ -4,7 +4,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 ALLOWED_FILES = {
-    "aitbc/crypto/crypto.py",
+    "aitbc/crypto/signature_recovery.py",
     "tests/unit/test_signature_centralization.py",
 }
 

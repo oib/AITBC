@@ -260,7 +260,7 @@ def withdraw_eth(ctx, amount: Decimal, address: str):
             from web3 import Web3
 
             # Get bridge configuration
-            _ = getattr(config, "bridge_contract_address", "0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA")
+            _ = getattr(config, "bridge_contract_address", None)
             eth_rpc_url = getattr(config, "eth_rpc_url", os.environ.get("ETH_RPC_URL"))
             bridge_private_key = getattr(config, "bridge_private_key", os.environ.get("BRIDGE_PRIVATE_KEY"))
 

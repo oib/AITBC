@@ -55,5 +55,5 @@ marketplace offers exist for them.
 - The canonical CLI `aitbc ai submit` accepts `--type`, `--input`, and
   `--output-format`.
 - `aitbc market offer` on-chain listing currently requires a provider bond and
-  correct `0x`/`ait1` address spelling; the service-level marketplace offers in
+  correct `0x` address spelling; the service-level marketplace offers in
   step 5 are a working default-shop alternative.

@@ -67,7 +67,7 @@ def generate_agent_wallet() -> str:
 
 def generate_staker_address() -> str:
     """Generate a random staker address"""
-    return f"ait1{''.join(random.choices('0123456789abcdef', k=40))}"
+    return f"0x{''.join(random.choices('0123456789abcdef', k=40))}"
 
 
 def generate_agent_metrics(tier: str = "GOLD") -> dict[str, Any]:

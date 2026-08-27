@@ -96,15 +96,14 @@ class TestValidationProperties:
 
     # These two encoded an API that no longer exists, which is most of why the file was
     # skipped. validate_address is non-raising now (validate_address_strict raises), and
-    # addresses moved to Ethereum-style 0x with legacy ait1/aitbc1 kept for back-compat --
-    # a bare "ait"-prefixed string is no longer valid.
+    # addresses moved to Ethereum-style 0x; legacy ait1/aitbc1 strings are rejected.
 
     @given(st.text(alphabet="0123456789abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=30))
     @settings(max_examples=50)
-    def test_validate_legacy_address_accepted(self, suffix):
-        """Legacy ait1/aitbc1 addresses stay valid while migration is outstanding."""
-        assert validate_address(f"ait1{suffix}")
-        assert validate_address(f"aitbc1{suffix}")
+    def test_validate_legacy_address_rejected(self, suffix):
+        """Legacy ait1/aitbc1 addresses are rejected after migration to 0x."""
+        assert validate_address(f"ait1{suffix}") is False
+        assert validate_address(f"aitbc1{suffix}") is False
 
     @given(st.text(min_size=1, max_size=50).filter(lambda x: not re.match(r"^ait(bc)?1[a-z0-9]+$", x)))
     @settings(max_examples=50)

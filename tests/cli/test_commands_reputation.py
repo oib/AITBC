@@ -13,7 +13,7 @@ for existence only; the working commands (``leaderboard``, ``feedback``,
 ``create-profile``) are fully exercised with mocked HTTP.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

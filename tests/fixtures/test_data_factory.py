@@ -13,11 +13,11 @@ class TestDataFactory:
 
     # Common test addresses
     TEST_ADDRESSES = {
-        "alice": "aitbc1alice00000000000000000000000000000000000",
-        "bob": "aitbc1bob0000000000000000000000000000000000000",
-        "charlie": "aitbc1charl0000000000000000000000000000000000",
-        "miner1": "aitbc1miner1000000000000000000000000000000000",
-        "miner2": "aitbc1miner2000000000000000000000000000000000",
+        "alice": "0xF1fF672A618e7b47212EEecaFd84fa72bADecd86",
+        "bob": "0x176aC203870FBDB8c04Ca5d316392850062cd8fe",
+        "charlie": "0xE11fCD3725859CA1112Fa5D54785dFAfD0f73ed1",
+        "miner1": "0x47aC2661093139E93a1EEFa1e77a7aE00061F7C6",
+        "miner2": "0xA7de945072569F27F85589E69c5CfFeD1a913A13",
     }
 
     # Common test IDs

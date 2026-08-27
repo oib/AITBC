@@ -171,7 +171,7 @@ REDIS_URL=redis://localhost:6379/0
   "user_id": "test-user-001",
   "email": "test@example.com",
   "role": "user",
-  "wallet_address": "ait1testuser001"
+  "wallet_address": "0x7bf96B6b4b75aF28149Afa237d5C717B3Fe0ED73"
 }
 ```
 

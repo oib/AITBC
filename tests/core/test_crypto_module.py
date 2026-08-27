@@ -136,10 +136,10 @@ class TestVerifySignature:
 
         assert crypto.verify_signature(digest_hex, signature, address) is True
 
-    def test_verify_signature_accepts_an_unprefixed_address(self):
+    def test_verify_signature_rejects_an_unprefixed_address(self):
         digest_hex, signature, address = self._digest_and_signature()
 
-        assert crypto.verify_signature(digest_hex, signature, address.removeprefix("0x")) is True
+        assert crypto.verify_signature(digest_hex, signature, address.removeprefix("0x")) is False
 
     def test_verify_signature_invalid(self):
         from eth_account import Account
@@ -321,9 +321,9 @@ class TestValidateEthereumAddress:
         assert result is False
 
     def test_validate_address_legacy_prefix(self):
-        # Legacy ait1/aitbc1 prefix addresses are accepted
+        # Legacy ait1/aitbc1 prefix addresses are rejected
         result = crypto.validate_ethereum_address("ait1abc123")
-        assert result is True
+        assert result is False
 
 
 # ============================================================================

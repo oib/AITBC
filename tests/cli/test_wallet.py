@@ -44,7 +44,7 @@ def temp_wallet():
     """Create temporary wallet file"""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         wallet_data = {
-            "address": "aitbc1test",
+            "address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
             "balance": 100.0,
             "private_key": "a" * 64,
             "transactions": [{"type": "earn", "amount": 50.0, "description": "Test job", "timestamp": "2024-01-01T00:00:00"}],
@@ -93,17 +93,21 @@ class TestWalletCommands:
 
             def mock_get(path):
                 if "/balance" in path:
-                    return {"balance": state["balance"], "address": "aitbc1test"}
+                    return {"balance": state["balance"], "address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"}
                 if "/v1/wallets" in path and "transactions" not in path:
-                    return {"items": [{"wallet_id": "test_wallet", "metadata": {"address": "aitbc1test"}}]}
+                    return {
+                        "items": [
+                            {"wallet_id": "test_wallet", "metadata": {"address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"}}
+                        ]
+                    }
                 if "/transactions" in path:
                     return {
                         "transactions": [
                             {
                                 "transaction_id": "tx1",
                                 "tx_hash": "0xabc",
-                                "sender": "aitbc1sender",
-                                "recipient": "aitbc1test",
+                                "sender": "0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C",
+                                "recipient": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
                                 "value": 50.0,
                                 "fee": 1.0,
                                 "status": "confirmed",
@@ -193,7 +197,7 @@ class TestWalletCommands:
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data["balance"] == 100.0
-        assert data["address"] == "aitbc1test"
+        assert data["address"] == "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"
 
     def test_balance_new_wallet(self, runner, mock_config, tmp_path):
         """Test balance with new wallet — balance delegates to blockchain RPC, not local file."""
@@ -273,7 +277,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["address"] == "aitbc1test"
+        assert data["address"] == "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"
 
     def test_stats_command(self, runner, temp_wallet, mock_config):
         """Test wallet statistics"""
@@ -292,7 +296,7 @@ class TestWalletCommands:
         """Test successful send command"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "send", "aitbc1recipient", "25.0"],
+            ["--wallet-path", temp_wallet, "send", "0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd", "25.0"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -304,15 +308,23 @@ class TestWalletCommands:
         """Test payment request command"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "request-payment", "aitbc1payer", "50.0", "--description", "Service payment"],
+            [
+                "--wallet-path",
+                temp_wallet,
+                "request-payment",
+                "0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f",
+                "50.0",
+                "--description",
+                "Service payment",
+            ],
             obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert "payment_request" in data
-        assert data["payment_request"]["from_address"] == "aitbc1payer"
-        assert data["payment_request"]["to_address"] == "aitbc1test"
+        assert data["payment_request"]["from_address"] == "0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f"
+        assert data["payment_request"]["to_address"] == "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"
         assert Decimal(data["payment_request"]["amount"]) == Decimal("50")
 
     def test_send_insufficient_balance(self, runner, temp_wallet, mock_config):

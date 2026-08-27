@@ -241,7 +241,7 @@ def test_fund_wallet():
     _clear()
     result = json.loads(
         aitbc_mcp_cli_tools.fund_wallet(
-            address="0xTest",
+            address="0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C",
             amount_ait="5.0",
             dry_run=False,
             confirm=True,
@@ -251,7 +251,7 @@ def test_fund_wallet():
     assert result["returncode"] == 0
     cmd = _last_command()
     assert "wallet fund" in cmd
-    assert "0xTest" in cmd
+    assert "0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C" in cmd
     assert "--amount-ait=5.0" in cmd
 
 
@@ -299,7 +299,7 @@ def test_send_aitbc_from_wallet():
     _clear()
     result = json.loads(
         aitbc_mcp_cli_tools.send_aitbc_from_wallet(
-            to_address="aitbc1receiver",
+            to_address="0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f",
             amount="1.5",
             wallet_name="test-wallet-3",
             fee="0.001",
@@ -312,7 +312,7 @@ def test_send_aitbc_from_wallet():
     cmd = _last_command()
     assert cmd.startswith("AITBC_WALLET_DIR=/var/lib/aitbc/wallets")
     assert "wallet --wallet-name=test-wallet-3 send" in cmd
-    assert "aitbc1receiver" in cmd
+    assert "0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f" in cmd
     assert "1.5" in cmd
     assert "--fee=0.001" in cmd
 
@@ -322,8 +322,8 @@ def test_nested_market_escrow_create():
     result = json.loads(
         aitbc_mcp_cli_tools.create_market_escrow(
             job_id="job-1234",
-            buyer="aitbc1buyer",
-            provider="aitbc1provider",
+            buyer="0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd",
+            provider="0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
             amount="1.0",
             wallet="test-wallet-3",
             dry_run=False,
@@ -335,8 +335,8 @@ def test_nested_market_escrow_create():
     cmd = _last_command()
     assert "market --wallet=test-wallet-3 escrow create" in cmd
     assert "job-1234" in cmd
-    assert "aitbc1buyer" in cmd
-    assert "aitbc1provider" in cmd
+    assert "0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd" in cmd
+    assert "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d" in cmd
     assert "1.0" in cmd
 
 

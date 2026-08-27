@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.validation import validate_address
 
 # A miner declares its payout address at registration, and it is stored in
 # ``Miner.capabilities`` rather than ``Miner.extra_metadata`` on purpose:
@@ -25,10 +26,10 @@ WALLET_CAPABILITY_KEY = "wallet_address"
 def same_address(left: str | None, right: str | None) -> bool:
     """Return True when both strings spell the same on-chain address.
 
-    ``canonical_address`` folds the legacy ``ait1``/``aitbc1`` spellings onto the
-    ``0x`` form and lowercases, so a checksummed address and its legacy twin
-    compare equal -- the same comparison the chain's own escrow routes make.
-    A missing address is never equal to anything, including another missing one.
+    ``canonical_address`` returns the EIP-55 ``0x`` form for valid secp256k1
+    addresses and lowercases anything else, so two spellings of the same valid
+    address compare equal only if they are both ``0x``. A missing address is
+    never equal to anything, including another missing one.
     """
     if not left or not right:
         return False
@@ -36,7 +37,7 @@ def same_address(left: str | None, right: str | None) -> bool:
 
 
 def looks_like_wallet_address(value: str | None) -> bool:
-    """Return True when this string is an address the chain could actually pay.
+    """Return True when this string is a 0x address the chain could actually pay.
 
     Marketplace offers carry a ``provider_address`` field that is not always an
     address: live listings name ``aitbc-miner-1`` and ``aitbc3-provider`` there, and
@@ -45,16 +46,13 @@ def looks_like_wallet_address(value: str | None) -> bool:
     job -- catching that at submit time is the difference between a rejected request
     and money locked to a payee that does not exist.
 
-    The canonical form is what recovery produces: ``0x`` followed by forty hex digits.
-    :func:`canonical_address` folds the legacy ``ait1``/``aitbc1`` spellings onto it,
-    so all three spellings of a real address pass and nothing else does.
+    The canonical form is what recovery produces: an EIP-55 ``0x`` address of forty
+    hex digits. :func:`canonical_address` lowercases anything else, so legacy
+    ``ait1``/``aitbc1`` spellings are rejected here.
     """
     if not value:
         return False
-    canonical = canonical_address(value)
-    if not canonical.startswith("0x") or len(canonical) != 42:
-        return False
-    return all(character in "0123456789abcdef" for character in canonical[2:])
+    return validate_address(canonical_address(value))
 
 
 def miner_wallet_address(miner: Any) -> str | None:

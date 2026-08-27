@@ -71,11 +71,11 @@ def _compute_tx_signing_hash(tx: dict[str, Any]) -> str:
 
 
 def _to_canonical(address: str) -> str:
-    """Return the ait1/canonical form of an address, falling back to input."""
-    try:
-        return canonical_address(address)
-    except Exception:
-        return str(address)
+    """Return the canonical EIP-55 0x form of an address, falling back to input."""
+    evm = canonical_address(address)
+    if evm.startswith("0x"):
+        return evm
+    return str(address)
 
 
 async def _create_account_if_missing(address: str, chain_id: str) -> bool:
@@ -319,7 +319,7 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
             _logger.warning("ESCROW_RELEASE TX skipped: could not create provider account (provider=%s)", provider)
             return None
 
-        # Re-resolve after creation; use canonical ait1 form for the state layer.
+        # Re-resolve after creation; use canonical 0x form for the state layer.
         recipient = await _resolve_chain_account(provider) or _NODE_WALLET
         if not recipient:
             _logger.warning("ESCROW_RELEASE TX skipped: could not resolve recipient (provider=%s)", provider)

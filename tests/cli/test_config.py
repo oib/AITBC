@@ -439,7 +439,9 @@ class TestConfigCommands:
         profiles_dir.mkdir(parents=True, exist_ok=True)
 
         profile_file = profiles_dir / "load_me.yaml"
-        profile_file.write_text(yaml.dump({"coordinator_api_url": "http://127.0.0.1:8203", "agent_coordinator_url": "http://127.0.0.1:8107"}))
+        profile_file.write_text(
+            yaml.dump({"coordinator_api_url": "http://127.0.0.1:8203", "agent_coordinator_url": "http://127.0.0.1:8107"})
+        )
 
         # Patch Path.home to return tmp_path
         with patch("pathlib.Path.home") as mock_home:

@@ -2,6 +2,7 @@
 # AITBC Miner Management Integration Script
 # This script integrates the miner management functionality with the main AITBC CLI
 
+set -euo pipefail
 echo "🤖 AITBC Miner Management Integration"
 echo "=================================="
 
@@ -33,7 +34,7 @@ echo ""
 
 # Test registration (with test data)
 echo "📝 Testing registration command:"
-$MINER_CMD register --miner-id integration-test --wallet ait113e1941cb60f3bb945ec9d412527b6048b73eb2d --gpu-memory 2048 --models qwen3:8b --pricing 0.45 --region integration-test 2>/dev/null | grep "Status:"
+$MINER_CMD register --miner-id integration-test --wallet 0x13E1941CB60f3bB945ec9D412527B6048b73EB2D --gpu-memory 2048 --models qwen3:8b --pricing 0.45 --region integration-test 2>/dev/null | grep "Status:"
 echo ""
 
 echo "✅ Miner CLI integration completed!"

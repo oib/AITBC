@@ -295,9 +295,9 @@ def validate_address(address: str) -> bool:
     """
     Validate AITBC/Ethereum address format.
 
-    Matches an 0x-prefixed hex address (20 bytes) or a legacy ``ait1/aitbc1``
-    address. Checksummed validation is handled by the stricter
-    :func:`aitbc.utils.validation.validate_address` when needed.
+    Matches an 0x-prefixed hex address (20 bytes). Legacy ``ait1/aitbc1``
+    addresses are no longer accepted. Checksummed validation is handled by the
+    stricter :func:`aitbc.utils.validation.validate_address` when needed.
 
     Args:
         address: Address string
@@ -307,15 +307,13 @@ def validate_address(address: str) -> bool:
     """
     if not address:
         return False
-    if address.startswith("0x"):
-        try:
-            from eth_utils import is_address
+    if not (address.startswith("0x") and len(address) == 42):
+        return False
+    try:
+        from eth_utils import is_address
 
-            return bool(is_address(address))
-        except Exception:
-            import re
+        return bool(is_address(address))
+    except Exception:
+        import re
 
-            return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
-    import re
-
-    return bool(re.match(r"^ait(bc)?1[a-z0-9]+$", address))
+        return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))

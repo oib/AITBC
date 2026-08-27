@@ -21,7 +21,7 @@ Latest confirmed offer on hub:
 offer_id : sw_offer_20260603125540_49d92c3c
 service  : whisper / base
 price    : 0.02 AIT/per_audio_min
-provider : aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+provider : 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 ```
 
 ---
@@ -112,7 +112,7 @@ aitbc market list | grep whisper
 
 Tell the hub agent:
 
-> "Use `aitbc market transcribe` with offer ID `sw_offer_20260603125540_49d92c3c` to transcribe my audio file. The provider is aitbc3 (`aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f`), running Whisper base on an RTX 4060 Ti. Price is 0.02 AIT per audio minute. Payment is metered via blockchain escrow and released automatically after transcription."
+> "Use `aitbc market transcribe` with offer ID `sw_offer_20260603125540_49d92c3c` to transcribe my audio file. The provider is aitbc3 (`0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F`), running Whisper base on an RTX 4060 Ti. Price is 0.02 AIT per audio minute. Payment is metered via blockchain escrow and released automatically after transcription."
 
 The hub can also discover the offer programmatically:
 

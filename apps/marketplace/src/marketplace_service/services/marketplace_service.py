@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus
 
 from ..config import settings
@@ -785,26 +786,14 @@ class MarketplaceService:
             logger.error("Error in _update_service_rating: %s: %s", type(e).__name__, str(e))
             raise
 
-    def _canonical_ait_address(self, address: str) -> str:
-        """Return a canonical ait1 spelling for address comparison.
+    def _canonical_address(self, address: str) -> str:
+        """Return the canonical 0x spelling for address comparison.
 
-        The chain stores whatever the signer wrote, so a buyer wallet may be
-        passed as an `0x` address while the node keeps it as `0x` or re-spells
-        it as `ait1`. Comparing after stripping the `0x`/`ait1`/`aitbc1`
-        prefixes and lower-casing avoids mismatches from formatting.
+        The chain stores EIP-55 secp256k1/EVM addresses, so comparing the
+        canonical `0x` form produced by :func:`canonical_address` removes
+        formatting differences without accepting legacy `ait1`/`aitbc1` spellings.
         """
-        value = (address or "").lower().strip()
-        if value.startswith("0x"):
-            body = value[2:]
-        elif value.startswith("aitbc1"):
-            body = value[len("aitbc1") :]
-        elif value.startswith("ait1"):
-            body = value[len("ait1") :]
-        else:
-            body = value
-        if len(body) == 40 and all(c in "0123456789abcdef" for c in body):
-            return f"ait1{body}"
-        return value
+        return canonical_address(address or "")
 
     async def complete_bid(
         self,
@@ -841,10 +830,10 @@ class MarketplaceService:
             if tx.get("status") != "confirmed":
                 raise ValueError(f"Transaction {tx_hash} is not confirmed")
 
-            tx_sender = self._canonical_ait_address(str(tx.get("sender", "")))
-            tx_recipient = self._canonical_ait_address(str(tx.get("recipient", "")))
-            expected_sender = self._canonical_ait_address(bid.buyer)
-            expected_recipient = self._canonical_ait_address(offer.provider or "")
+            tx_sender = self._canonical_address(str(tx.get("sender", "")))
+            tx_recipient = self._canonical_address(str(tx.get("recipient", "")))
+            expected_sender = self._canonical_address(bid.buyer)
+            expected_recipient = self._canonical_address(offer.provider or "")
 
             if expected_sender and tx_sender != expected_sender:
                 raise ValueError(f"Transaction sender {tx_sender} does not match buyer {expected_sender}")

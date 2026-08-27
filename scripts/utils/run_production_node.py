@@ -6,10 +6,16 @@ Sets up environment, initializes genesis if needed, and starts the node.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+from eth_account import Account
+
+# Deterministic 0x address for the genesis proposer; matches _derive_address("aitbc1genesis").
+PROPOSER_ID = Account.from_key(hashlib.sha256(b"aitbc1genesis").digest()).address
 
 # Configuration
 CHAIN_ID = "ait-mainnet"
@@ -28,7 +34,7 @@ if not PROPOSER_KEY_FILE.exists():
 os.environ["CHAIN_ID"] = CHAIN_ID
 os.environ["SUPPORTED_CHAINS"] = CHAIN_ID
 os.environ["DB_PATH"] = str(DB_PATH)
-os.environ["PROPOSER_ID"] = "aitbc1genesis"
+os.environ["PROPOSER_ID"] = PROPOSER_ID
 # PROPOSER_KEY will be read from keystore by the node? Currently .env expects hex directly.
 # We can read the keystore, decrypt, and set PROPOSER_KEY, but the node doesn't support that out of box.
 # So we require that PROPOSER_KEY is set in .env file manually after key generation.
@@ -45,7 +51,14 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 if not DB_PATH.exists():
     print("[*] Database not found. Initializing production genesis...")
     result = subprocess.run(
-        [sys.executable, "/opt/aitbc/scripts/init_production_genesis.py", "--chain-id", CHAIN_ID, "--db-path", str(DB_PATH)],
+        [
+            sys.executable,
+            "/opt/aitbc/scripts/utils/init_production_genesis.py",
+            "--chain-id",
+            CHAIN_ID,
+            "--db-path",
+            str(DB_PATH),
+        ],
         check=False,
     )
     if result.returncode != 0:

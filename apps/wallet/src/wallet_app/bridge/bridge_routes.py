@@ -6,6 +6,7 @@ REST API endpoints for bridge operations.
 from decimal import Decimal
 from typing import Annotated, Any
 
+from aitbc.utils.validation import validate_address_strict
 from fastapi import APIRouter, Depends, HTTPException
 
 from wallet_app.deps import require_admin_api_key
@@ -255,6 +256,10 @@ async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
     ait_address = body.get("ait_address") or ""
     if not ait_address:
         raise HTTPException(status_code=400, detail="ait_address is required")
+    try:
+        ait_address = validate_address_strict(ait_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid ait_address: {exc}") from exc
 
     import os
 
@@ -355,6 +360,10 @@ async def bridge_estimate(eth_amount: Decimal, ait_address: str) -> dict[str, An
         raise HTTPException(status_code=400, detail="eth_amount must be positive")
     if not ait_address:
         raise HTTPException(status_code=400, detail="ait_address is required")
+    try:
+        ait_address = validate_address_strict(ait_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid ait_address: {exc}") from exc
 
     ait_amount = await calculate_ait_amount(eth_amount)
     if ait_amount is None:

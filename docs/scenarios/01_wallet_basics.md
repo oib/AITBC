@@ -80,7 +80,7 @@ Wallet encryption is enabled. Your private key will be encrypted at rest.
 Enter password for wallet 'my-agent-wallet':
 Confirm password:
 Wallet 'my-agent-wallet' created successfully
-my-agent-wallet  hd   aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2  /home/user/.aitbc/wallets/my-agent-wallet.json
+my-agent-wallet  hd   0xFcC9fc2df09814507dBda31f89265c487003CC9c  /home/user/.aitbc/wallets/my-agent-wallet.json
 ```
 
 ### Step 2: Create a Simple Wallet (No Encryption)
@@ -96,7 +96,7 @@ aitbc wallet create test-wallet --type simple --no-encrypt
 
 ```
 Wallet 'test-wallet' created successfully
-test-wallet  simple  aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6  /home/user/.aitbc/wallets/test-wallet.json
+test-wallet  simple  0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8  /home/user/.aitbc/wallets/test-wallet.json
 ```
 
 ### Step 3: List All Wallets
@@ -110,8 +110,8 @@ aitbc wallet list
 **Expected output:**
 
 ```
-my-agent-wallet: aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2
-test-wallet: aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6
+my-agent-wallet: 0xFcC9fc2df09814507dBda31f89265c487003CC9c
+test-wallet: 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8
 ```
 
 ### Step 4: Switch the Active Wallet
@@ -127,7 +127,7 @@ aitbc wallet switch test-wallet
 ```
 Switched to wallet 'test-wallet'
 active_wallet  test-wallet
-address        aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6
+address        0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8
 ```
 
 ### Step 5: Back Up a Wallet
