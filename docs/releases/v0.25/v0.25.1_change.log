@@ -1,0 +1,104 @@
+# v0.25.1 — Open follow-ups and design notes
+
+**Baseline**: `v0.25.0` shipped on `066b80b8c`.
+**Date**: 2026-08-27.
+
+This is a planning/follow-up document. It captures open work, design intent, and live-validation gaps identified after the v0.25.0 release. Items here are not yet committed code; they feed the next patch or sprint.
+
+## Live validation follow-ups
+
+- `aitbc` (10.1.223.93) resync after chain reset converged at height 77 with all nodes; head hash matches across `hub.aitbc`, `aitbc3`, `hub2.aitbc`, and `aitbc`.
+- Wallet round-trip after 0x migration: `100 AIT` genesis → default send succeeded; balances consistent across RPC nodes.
+- Service health: all blockchain, RPC, wallet, coordinator, marketplace, miner, pool-hub, edge, GPU, trading, and governance services active on validated nodes.
+- `hub2.aitbc` recovery service still exits with `226/NAMESPACE`; non-critical.
+- `keystore.db` and `wallet_ledger.db` metadata migration from legacy `ait1`/`aitbc1` to `0x` was manual; future migrations should cover daemon databases.
+- Stuck TEE job escrow refund validated end-to-end through `aitbc market escrow refund`.
+
+## Open operational tasks
+
+### T1 — Rotate exposed live keys
+- `GENESIS_PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `BOND_SLASH_PRIVATE_KEY` are confirmed identical on the hub. `ESCROW_RELEASE_PRIVATE_KEY` is a separate key.
+- Generate replacement keys using `aitbc/crypto/signing.py` helpers (not generic `eth_keys`), migrate on-chain funds, update `/etc/aitbc/node.env` and `aitbc-coordinator-api.env`, and restart affected services one node at a time.
+- Requires explicit operator authorization and a documented fund-migration plan.
+
+### T2 — Enable bridge release on `aitbc1`
+- `aitbc1` currently has `BRIDGE_RELEASE_ENABLED=false`. Enable once the multi-validator chain is stable and the bridge validator set is refreshed.
+- Reconcile `BRIDGE_MULTISIG_VALIDATORS` and threshold with the actual number of registered bridge signers.
+
+### T3 — Validate and confirm pending bridge transfers
+- Five bridge transfers remain pending; `confirm_transfer` does not verify the `BRIDGE_RELEASE` transaction is sealed before crediting the recipient.
+- Confirm the real destination chain for each transfer before executing; `ait-shop-island` is not a running chain instance.
+
+### T4 — Gate job acceptance on `computation_correct`
+- Trace `pending_acceptance -> accepted` and `pending_acceptance -> release` transitions.
+- Ensure a `computation_correct=false` result blocks acceptance, not just release.
+
+### T5 — Fault-tolerant validator set
+- Current two-validator, `min-attestations=1` setup is not BFT — one unreachable validator stalls the chain.
+- Short-term option: add a third validator and set `MULTI_VALIDATOR_MIN_ATTESTATIONS=2`.
+- Long-term option: wire `PBFTConsensus` into production with view-change and checkpointing.
+
+### T6 — Consolidate overlapping CLI groups
+- `market`/`marketplace`/`operations marketplace` and `governance`/`operations governance` still overlap.
+- Pick canonical groups, implement aliases/deprecations, add functional tests, and update `docs/scenarios/`.
+
+### T7 — `bridge_state_root` null on P2P-synced blocks
+- `bridge_state_root` is populated by the proposer but not carried over when a block is received via P2P sync.
+- Followers see `bridge_state_root: null`; validation logic that assumes a non-null value can produce false positives.
+- Inspect block serialization, P2P import path, proposer logic, and chain DB storage.
+
+### T8 — Gitea issue/PR visibility
+- `tea` is not installed on the live nodes; unauthenticated Gitea API calls fail.
+- Options: install and configure `tea`, or continue using the Gitea web UI and IDE-local tracking.
+
+## SyncManager design plan
+
+The sync logic is still spread across `aitbc-blockchain-node`, `aitbc-blockchain-sync`, `aitbc-blockchain-p2p`, and the RPC service. A full `SyncManager` rewrite is conditional on Phase 0 proving insufficient.
+
+### Phase 0 — immediate catch-up
+- Reuse the existing `aitbc-blockchain-sync` oneshot.
+- Remove `CPUQuota=50%`; use `CPUWeight=200`/`IOWeight=200`.
+- Run against a stopped validator.
+- Optional self-expiring signature-validation skip tied to `config.py` validation.
+
+### Phases 1–5 — conditional full rewrite
+- Consolidate all block and state synchronization into a long-running `SyncManager` service.
+- Single writer during catch-up; `aitbc-blockchain-node` produces/validates once synced.
+- Automatic mode switching between gossip push, bulk pull, parallel pull, and state sync.
+- PBFT-aware `get_sync_status()` / `force_catch_up()` hooks.
+- Self-healing backoff and clean `SIGTERM` handling.
+
+## Design cycle gaps and wish list
+
+### Still open
+
+| # | Gap | Status |
+|---|-----|--------|
+| 1 | Real customer on-ramp (ETH→AIT `buy` still keystore-gated; no faucet play) | Open |
+| 2 | Reputation does not rank miners or offers | Open |
+| 3 | Automatic provider reinvestment / performance bonds (CLI shells only) | Partial |
+| 4 | Fee market is fixed; dynamic pricing was deprecated in v0.5.0 | Open |
+| 6 | Result verification is improved but not fully independent: `receipt_model` proves deterministic model execution; TEE requires a registered enclave. Independent manufacturer attestation and open-ended semantic proof are future work. | Partial |
+| 7 | Hub RPC/coordinator/exchange bind `127.0.0.1`; customers reach via nginx or SSH tunnel | Operational |
+| 8 | Shop already forked once; follower divergence handling is new and needs soak + alerting | Operational |
+| 10 | JWT for jobs is not `aitbc login`; operators scrape env files | Open |
+| 11 | Island credential file ownership vs `blockchain-secrets.env` root:600 still fights `aitbc market offer` as root | Open |
+| 13 | Architecture system-flow still shows `aitbc-cli.sh` and Tendermint 26657 | Open |
+| 15 | Dual command groups confuse operators | Open |
+| 16 | Many CLI groups simulate when the service is hub-only; scenarios must label live vs simulated | Open |
+| 17 | Intermediate 21–35 were written as bug tickets, not operator plays | Open |
+
+### P1 wish list still outstanding
+- P1.2 Customer and shop dashboards talking to live APIs (mock web UI is not a product).
+- P1.3 Enable bridge merkle proofs/multi-sig or document hub as trusted custodian.
+- P1.4 Soak MultiValidatorPoA; drop single-proposer default.
+- P1.6 Island credential/secrets ownership that works for `aitbc` as `aitbc` user.
+- P1.8 Honest architecture rewrite of `docs/architecture/1_system-flow.md`.
+
+## References
+
+- `DESIGN_CYCLE.md` — product picture, maturity map, gaps, wish list.
+- `LIVE_VALIDATION_SUMMARY.md` — live reset, validation results, follow-ups.
+- `plan.md` — open tasks and proposed resolution paths.
+- `SyncManager.md` — sync consolidation design plan.
+- `TASKLIST.md` — session task tracking and closed sprint items.
