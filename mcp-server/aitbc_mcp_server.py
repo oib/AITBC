@@ -975,10 +975,10 @@ def run_aitbc_command(
     """Run an `aitbc` CLI command on the selected node.
 
     Examples of ``command``:
-    - ``blockchain height``
+    - ``blockchain status``
     - ``wallet list``
     - ``market list``
-    - ``ai list``
+    - ``ai jobs``
     - ``zk health``
     """
     ok, tokens = _safe_command(command)
@@ -3150,6 +3150,12 @@ import aitbc_mcp_rpc_tools  # noqa: F401  # registers more RPC tools
 # ---------------------------------------------------------------------------
 
 import aitbc_mcp_zk_tools  # noqa: F401  # registers ZK tools
+
+# ---------------------------------------------------------------------------
+# Additional typed liquidity-pool tools from the companion module
+# ---------------------------------------------------------------------------
+
+import aitbc_mcp_liquidity_tools  # noqa: F401  # registers liquidity tools
 
 
 # ---------------------------------------------------------------------------
