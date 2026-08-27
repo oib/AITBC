@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from aitbc_mcp_server import (
+    NodeRole,
     _host_for_role,
     _json,
     _run_http,
@@ -41,7 +42,7 @@ def _call_zk(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_zk_health(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -56,7 +57,7 @@ def get_zk_health(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_zk_info(
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -87,7 +88,7 @@ def generate_zk_proof(
         Field(description="Timeout in seconds; proof generation can take 60-180s.", ge=30, le=300),
     ] = 180,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -120,7 +121,7 @@ def verify_zk_proof(
         Field(description="Circuit to verify against (uses proof metadata if omitted)."),
     ] = None,
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
@@ -145,7 +146,7 @@ def verify_zk_job_receipt(
         Field(description="Completed AI job ID whose stored ZK receipt proof should be verified."),
     ],
     role: Annotated[
-        Literal["hub", "customer", "shop", "follower"] | None,
+        NodeRole | None,
         Field(description="Node role to query."),
     ] = None,
     host: Annotated[
