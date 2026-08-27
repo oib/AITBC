@@ -1561,3 +1561,17 @@ path is implemented and unit-tested; the live cycle is blocked by the DB.
     matched across all RPC nodes.
 - fix(ops): migrated `keystore.db` and `wallet_ledger.db` metadata from legacy
   `ait1`/`aitbc1` to canonical `0x` on `hub.aitbc` and `aitbc3`.
+
+## Fix — ZK proof generation blocked by systemd MemoryDenyWriteExecute
+
+The `aitbc-coordinator-api` systemd unit used `MemoryDenyWriteExecute=yes`, which
+prevents the Node.js V8 JIT from allocating read/write/execute memory pages.
+snarkjs spawns a Node worker for Groth16 proof generation, so every call to
+`/v1/zk/generate` crashed with the V8 fatal error
+`Check failed: 12 == (*__errno_location())`.
+
+Changed `MemoryDenyWriteExecute` to `no` in
+`apps/coordinator-api/aitbc-coordinator-api.service` with a comment explaining
+that snarkjs/Node requires RWX pages. Restarted `aitbc-coordinator-api` on
+`hub.aitbc` and validated that `/v1/zk/generate` and end-to-end ZK-gated jobs
+produce verified `receipt_model` proofs and release escrow.
