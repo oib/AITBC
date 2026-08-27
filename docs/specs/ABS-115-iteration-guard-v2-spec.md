@@ -1,7 +1,7 @@
 # ABS-115 Design Spec — Iteration-Guard v2 (real bounces + two-level counting)
 
 **Ticket**: ABS-115 (epic ABS-114) · **Status**: accepted (architect review 2026-07-07: approve-with-changes, findings F1–F7 incorporated below; #PATH_DECISION (a) confirmed) · **Date**: 2026-07-07
-**Supersedes**: the counting model of specs/ABS-12-iteration-guard-spec.md §1 (the rest of ABS-12 —
+**Supersedes**: the counting model of docs/specs/ABS-12-iteration-guard-spec.md §1 (the rest of ABS-12 —
 cap-from-marker, fail-open, interface, wiring — stays in force unchanged).
 
 ## 0. Defect being fixed
