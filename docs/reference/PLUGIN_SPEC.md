@@ -1,12 +1,79 @@
 # AITBC Plugin Interface Specification
 
-> **Status: DEPRECATED (2026-06-18)** — The standalone `plugins/` directory and `aitbc.plugins` module were removed in v0.4.25. Real Ollama integration now lives in `apps/coordinator-api/src/app/routers/inference.py`, `apps/coordinator-api/src/app/services/gpu_worker.py`, and `apps/miner/production_miner.py`. The marketplace plugin registry endpoints (`/v1/marketplace/plugins/*`) remain functional.
+> **Status (2026-08-28):** `plugins/` is now the default **brand/white-label plugin** directory. The historical general-purpose `BasePlugin`/CLI/blockchain plugin interface below is **deprecated** and was removed in v0.4.25. Ollama integration lives in `apps/coordinator-api/src/app/routers/inference.py`, `apps/coordinator-api/src/app/services/gpu_worker.py`, and `apps/miner/production_miner.py`. Marketplace plugin registry endpoints (`/v1/marketplace/plugins/*`) remain functional.
 
-## Overview
+## Brand plugin system (active)
 
-This document preserves the original plugin specification for reference. The AITBC platform previously supported a plugin architecture for extending functionality through well-defined interfaces.
+The current plugin system is a small set of Python modules that provide brand-specific naming for wallets, tokens, DAOs, and marketplace roles.
 
-## Plugin Architecture
+### Layout
+
+- Default plugin directory: `plugins/` at the repo root (or override with `AITBC_PLUGINS_DIR`).
+- Each brand is a single `.py` file in that directory.
+- The active brand is selected with `AITBC_ACTIVE_PLUGIN=<name>` (file stem).
+- Example plugins in this checkout: `plugins/hermes.py`, `plugins/openclaw.py`, `plugins/whitelabel_demo.py`.
+
+### Plugin file contract
+
+A brand plugin module must export:
+
+```python
+from aitbc_agent_core.branding import BrandSettings
+from aitbc_agent_core.roles import Role
+
+brand = BrandSettings(
+    name="...",
+    token_symbol="...",
+    token_name="...",
+    network_name="...",
+    dao_name="...",
+    wallet_name="...",
+    explorer_name="...",
+)
+
+roles = {
+    Role.PROVIDER: "...",
+    Role.CONSUMER: "...",
+    Role.VALIDATOR: "...",
+    Role.ARBITER: "...",
+}
+
+identity_method = "did:..."
+```
+
+`roles` keys may be `Role` enum values or their string values. `identity_method` is optional and defaults to `did:aitbc`.
+
+### Loading
+
+`aitbc_agent_core.plugins.PluginManager` loads a brand plugin by name from `plugins/`:
+
+```python
+from aitbc_agent_core.plugins import PluginManager
+pm = PluginManager()
+plugin = pm.load("whitelabel_demo")
+```
+
+`get_active_brand()` returns the brand for `AITBC_ACTIVE_PLUGIN`, or `BrandSettings.default()` if unset. This is consumed by the wallet, coordinator, trading, and CLI UIs.
+
+### CLI commands
+
+- `aitbc brand show` — display the active brand.
+- `aitbc plugin list` — list `.py` files in `AITBC_PLUGINS_DIR` (defaults to `/opt/aitbc/plugins`).
+- `aitbc plugin load <name>` — load and display a plugin's brand and roles.
+- `aitbc plugin create --name <name>` — write a skeleton brand plugin.
+
+### Notes
+
+- `plugins/hermes.py` and `plugins/openclaw.py` are legacy project codenames preserved as valid brand-plugin examples.
+- The `aitbc` CLI `plugin install/uninstall/package` commands manage **CLI command plugins** in `$HOME/.aitbc/plugins/`, which is a separate extension mechanism.
+
+## Historical plugin interface (deprecated)
+
+### Overview
+
+This section preserves the original general-purpose plugin specification for reference. The AITBC platform previously supported a plugin architecture for extending functionality through well-defined interfaces.
+
+### Plugin Architecture
 
 ### Core Concepts
 
