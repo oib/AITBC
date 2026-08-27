@@ -3,7 +3,7 @@ Description=AITBC Blockchain Sync Service (bulk catch-up)
 After=network.target postgresql.service aitbc-blockchain-rpc.service
 
 [Service]
-Type=oneshot
+Type=simple
 User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
@@ -15,6 +15,8 @@ ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-node/aitbc-block
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-blockchain-sync
+Restart=on-failure
+RestartSec=5
 # Security hardening (v0.5.0)
 PrivateTmp=yes
 NoNewPrivileges=yes
