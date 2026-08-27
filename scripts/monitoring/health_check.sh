@@ -49,7 +49,7 @@ declare -A ALL_SERVICE_ENDPOINTS=(
 
 # Role lists match scripts/deployment/setup.sh get_services_for_role().
 # Units without an HTTP health port (node, p2p, miner, recovery, backup,
-# bridge-monitor, sync) stay off the endpoint map and are still covered by
+# bridge-monitor) stay off the endpoint map and are still covered by
 # the systemd status check when they appear in ROLE_SERVICES.
 _BASE_SERVICES=(
     aitbc-blockchain-node
@@ -73,8 +73,6 @@ _HUB_SERVICES=(
     aitbc-blockchain-explorer
 )
 _FOLLOWER_SERVICES=(
-    aitbc-blockchain-sync
-    aitbc-blockchain-sync.timer
     aitbc-blockchain-explorer
 )
 _SHOP_SERVICES=(

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
-from dataclasses import dataclass
+from collections import OrderedDict
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -16,7 +18,11 @@ from .config import settings
 from .database import init_db, session_scope
 from .gossip.broker import TopicSubscription, create_backend, gossip_broker
 from .logger import get_logger
+from .metrics import metrics_registry
+from .subscription_client import SubscriptionClient
 from .sync import ChainSync
+from .sync_divergence import clear_divergence, report_divergence
+from .sync_validator import ImportResult
 
 logger = get_logger(__name__)
 
@@ -28,6 +34,7 @@ class SyncMode(StrEnum):
     SYNCED = "synced"
     STATE_SYNC = "state_sync"
     ERROR = "error"
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -45,21 +52,38 @@ class ChainSyncState:
     bulk_error_count: int = 0
     gossip_sub: TopicSubscription | None = None
     error_count: int = 0
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 class SyncManager:
     """Owns all block and state sync for one or more chains.
 
     Runs in its own process or can be embedded in aitbc-blockchain-node.
+    When embedded it does not take over the node's gossip_broker lifecycle
+    and does not start a separate database initialisation path.
     """
 
     def __init__(
         self,
         chains: list[str] | None = None,
         node_id: str | None = None,
+        proposer_id: str | None = None,
+        production_chains: list[str] | None = None,
+        use_gossip: bool | None = None,
+        use_subscription: bool | None = None,
+        own_gossip: bool = False,
+        skip_init_db: bool = False,
     ) -> None:
         self._chains = chains or self._resolve_chains()
         self._node_id = node_id or settings.proposer_id or settings.p2p_node_id or "unknown"
+        self._proposer_id = proposer_id or settings.proposer_id or ""
+        self._production_chains = set(production_chains or self._resolve_production_chains())
+        self._use_gossip = use_gossip if use_gossip is not None else getattr(settings, "sync_manager_use_gossip", True)
+        self._use_subscription = (
+            use_subscription if use_subscription is not None else getattr(settings, "sync_manager_use_subscription", True)
+        )
+        self._own_gossip = own_gossip
+        self._skip_init_db = skip_init_db
         self._source_resolver = SyncSourceResolver(
             sync_sources=settings.chain_sync_sources,
             default_url=settings.default_peer_rpc_url,
@@ -68,7 +92,18 @@ class SyncManager:
         self._chain_states: dict[str, ChainSyncState] = {}
         self._stop_event = asyncio.Event()
         self._tasks: list[asyncio.Task[Any]] = []
+        self._subscription_clients: list[SubscriptionClient] = []
         self._gossip_started = False
+
+        # Block-level deduplication so multiple push paths (gossip and
+        # subscription) cannot import the same block twice.
+        self._dedup_ttl = getattr(settings, "sync_manager_block_dedup_ttl", 300.0)
+        self._dedup_max_size = getattr(settings, "sync_manager_block_dedup_max_size", 10000)
+        self._seen_blocks: OrderedDict[tuple[str, str], float] = OrderedDict()
+
+        # Rejection/divergence counters that outlive a single ChainSync call.
+        self._rejection_counts: dict[str, int] = {}
+        self._consecutive_divergence: dict[str, int] = {}
 
     @staticmethod
     def _resolve_chains() -> list[str]:
@@ -76,6 +111,14 @@ class SyncManager:
         if not chains and settings.chain_id:
             chains = [settings.chain_id]
         return chains
+
+    @staticmethod
+    def _resolve_production_chains() -> list[str]:
+        """Return the list of chains this node is configured to produce blocks for."""
+        chains_str = getattr(settings, "block_production_chains", "")
+        if not chains_str:
+            return []
+        return [c.strip() for c in chains_str.split(",") if c.strip()]
 
     def get_sync_status(self, chain_id: str) -> dict[str, Any]:
         state = self._chain_states.get(chain_id)
@@ -93,13 +136,14 @@ class SyncManager:
     async def start(self) -> None:
         logger.info("Starting SyncManager", extra={"chains": self._chains, "node_id": self._node_id})
 
-        backend = create_backend(
-            settings.gossip_backend,
-            broadcast_url=settings.gossip_broadcast_url,
-            websocket_url=settings.gossip_websocket_url,
-        )
-        await gossip_broker.set_backend(backend)
-        self._gossip_started = True
+        if self._own_gossip:
+            backend = create_backend(
+                settings.gossip_backend,
+                broadcast_url=settings.gossip_broadcast_url,
+                websocket_url=settings.gossip_websocket_url,
+            )
+            await gossip_broker.set_backend(backend)
+            self._gossip_started = True
 
         for chain_id in self._chains:
             self._register_static_peers(chain_id)
@@ -107,7 +151,8 @@ class SyncManager:
         for chain_id in self._chains:
             state = ChainSyncState(chain_id=chain_id)
             self._chain_states[chain_id] = state
-            init_db(chain_id)
+            if not self._skip_init_db:
+                init_db(chain_id)
             state.chain_sync = ChainSync(
                 session_factory=lambda cid=chain_id: session_scope(cid),
                 chain_id=chain_id,
@@ -124,6 +169,11 @@ class SyncManager:
     async def stop(self) -> None:
         logger.info("Stopping SyncManager")
         self._stop_event.set()
+        for client in self._subscription_clients:
+            try:
+                await client.stop()
+            except Exception as e:
+                logger.warning("Error stopping subscription client: %s", e)
         for state in self._chain_states.values():
             if state.bulk_task and not state.bulk_task.done():
                 state.bulk_task.cancel()
@@ -131,7 +181,24 @@ class SyncManager:
             if not task.done():
                 task.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
-        await gossip_broker.shutdown()
+        if self._own_gossip:
+            await gossip_broker.shutdown()
+
+    def register_sync_peer(
+        self,
+        chain_id: str,
+        peer_id: str,
+        rpc_url: str,
+        block_range: tuple[int, int],
+        has_state: bool = True,
+    ) -> None:
+        """Register a peer with the ChainSync for a given chain."""
+        state = self._chain_states.get(chain_id)
+        if state and state.chain_sync:
+            state.chain_sync.register_sync_peer(peer_id, rpc_url, block_range, has_state)
+        self._peer_tracker.register_peer(
+            PeerCapability(peer_id=peer_id, rpc_url=rpc_url, block_range=block_range, has_state=has_state)
+        )
 
     async def force_catch_up(self, chain_id: str) -> None:
         state = self._chain_states.get(chain_id)
@@ -155,27 +222,237 @@ class SyncManager:
                 continue
             if not url.startswith("http"):
                 url = f"http://{url}"
-            self._peer_tracker.register_peer(
-                PeerCapability(
-                    peer_id=url,
-                    rpc_url=url,
-                    block_range=(0, 2**31 - 1),
-                    has_state=True,
-                )
+            self.register_sync_peer(
+                chain_id=chain_id,
+                peer_id=url,
+                rpc_url=url,
+                block_range=(0, 2**31 - 1),
+                has_state=True,
             )
             logger.info("Registered parallel sync peer", extra={"chain_id": chain_id, "peer": url})
 
+    def _should_sync_remote(self, chain_id: str, source_url: str | None) -> bool:
+        """Do not pull a chain from the default peer if we produce it locally."""
+        if not source_url:
+            return False
+        if not self._source_resolver.is_fallback_source(chain_id):
+            return True
+        if (
+            chain_id in self._production_chains
+            and settings.blockchain_mode == "hub"
+            and not settings.multi_validator_consensus_enabled
+        ):
+            logger.info(
+                "Skipping sync for locally-produced chain %s (no remote source configured)",
+                chain_id,
+            )
+            return False
+        return True
+
+    def _should_skip_block(self, chain_id: str, block_data: dict[str, Any]) -> bool:
+        """Skip blocks this node produced itself."""
+        if settings.blockchain_mode != "hub":
+            return False
+        if block_data.get("proposer") != self._proposer_id:
+            return False
+        if chain_id in self._production_chains:
+            return True
+        return False
+
+    def _prune_seen_blocks(self) -> None:
+        now = time.monotonic()
+        expired: list[tuple[str, str]] = []
+        for key, ts in self._seen_blocks.items():
+            if now - ts > self._dedup_ttl:
+                expired.append(key)
+            else:
+                break
+        for key in expired:
+            del self._seen_blocks[key]
+        while len(self._seen_blocks) > self._dedup_max_size:
+            self._seen_blocks.popitem(last=False)
+
+    def _block_hash(self, block_data: dict[str, Any]) -> str:
+        if isinstance(block_data, dict) and "hash" in block_data:
+            return str(block_data["hash"])
+        payload = json.dumps(block_data, sort_keys=True, default=str)
+        return "0x" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    async def handle_block(
+        self,
+        chain_id: str,
+        block_data: dict[str, Any],
+        source: str = "gossip",
+    ) -> ImportResult:
+        """Import a block through a deduplication layer.
+
+        This is the single entry point for all block push paths (gossip,
+        subscription, or future transports).
+        """
+        if not isinstance(block_data, dict):
+            logger.warning("Unexpected block message type", extra={"type": type(block_data), "source": source})
+            return ImportResult(accepted=False, height=-1, block_hash="", reason="Non-dict block message")
+
+        if self._should_skip_block(chain_id, block_data):
+            logger.debug(
+                "Skipping self-proposed block %s from %s",
+                block_data.get("height"),
+                source,
+            )
+            return ImportResult(
+                accepted=False,
+                height=block_data.get("height", -1),
+                block_hash=block_data.get("hash", ""),
+                reason="Self-proposed block",
+            )
+
+        block_hash = self._block_hash(block_data)
+        state = self._chain_states.get(chain_id)
+        if not state or not state.chain_sync:
+            return ImportResult(
+                accepted=False,
+                height=block_data.get("height", -1),
+                block_hash=block_hash,
+                reason="Chain not managed by SyncManager",
+            )
+
+        async with state.lock:
+            self._prune_seen_blocks()
+            key = (chain_id, block_hash)
+            now = time.monotonic()
+            if key in self._seen_blocks and now - self._seen_blocks[key] <= self._dedup_ttl:
+                logger.debug(
+                    "Block already imported (dedup)",
+                    extra={"chain_id": chain_id, "height": block_data.get("height"), "hash": block_hash, "source": source},
+                )
+                return ImportResult(
+                    accepted=False,
+                    height=block_data.get("height", -1),
+                    block_hash=block_hash,
+                    reason="Block already imported (dedup)",
+                )
+
+            result = state.chain_sync.import_block(
+                block_data,
+                transactions=block_data.get("transactions"),
+                skip_state_root_validation=not settings.sync_state_root_validation_enabled,
+            )
+
+            if result.accepted:
+                self._seen_blocks[key] = now
+                state.last_push_at = time.time()
+                state.last_local_height = block_data.get("height", state.last_local_height)
+                if state.mode in (SyncMode.CATCH_UP, SyncMode.ERROR):
+                    state.mode = SyncMode.PUSH
+                self._reset_rejection_counts(chain_id)
+                self._consecutive_divergence.pop(chain_id, None)
+                clear_divergence(chain_id)
+                logger.info(
+                    "Block imported via %s sync",
+                    source,
+                    extra={
+                        "chain_id": chain_id,
+                        "height": block_data.get("height"),
+                        "hash": block_hash,
+                        "source": source,
+                    },
+                )
+                if source == "subscription":
+                    metrics_registry.increment("subscription_blocks_received_total")
+                metrics_registry.increment("sync_manager_blocks_received_total")
+                return result
+
+            logger.debug(
+                "Block not accepted via %s (height=%s): %s",
+                source,
+                block_data.get("height"),
+                result.reason,
+                extra={"chain_id": chain_id, "hash": block_hash, "source": source, "reason": result.reason},
+            )
+
+            if "Gap detected" in result.reason:
+                state.mode = SyncMode.CATCH_UP
+                await self._maybe_force_bulk(chain_id)
+            elif result.diverged:
+                self._consecutive_divergence[chain_id] = self._consecutive_divergence.get(chain_id, 0) + 1
+                threshold = getattr(settings, "divergence_after_rejections", 3)
+                if self._consecutive_divergence[chain_id] >= threshold:
+                    div = state.chain_sync.detect_divergence(
+                        self._source_resolver.get_sync_source(chain_id) or "",
+                        block_data.get("height", -1),
+                        block_hash,
+                    )
+                    if div is not None:
+                        report_divergence(chain_id, div)
+            else:
+                self._consecutive_divergence.pop(chain_id, None)
+                if self._is_state_root_rejection(result.reason):
+                    rejection_count = state.chain_sync._rejection_counts.get(chain_id, 0)
+                    threshold = settings.auto_resync_after_rejections
+                    if rejection_count >= threshold and settings.auto_resync_enabled:
+                        logger.warning(
+                            "State root rejection threshold reached (%s/%s) for chain %s, forcing catch-up",
+                            rejection_count,
+                            threshold,
+                            chain_id,
+                        )
+                        await self._maybe_force_bulk(chain_id)
+
+            return result
+
+    @staticmethod
+    def _is_state_root_rejection(reason: str) -> bool:
+        return "state root" in reason.lower()
+
+    def _reset_rejection_counts(self, chain_id: str) -> None:
+        state = self._chain_states.get(chain_id)
+        if state and state.chain_sync:
+            state.chain_sync._reset_rejection_counter(chain_id)
+
+    async def _maybe_force_bulk(self, chain_id: str) -> None:
+        """Start a bulk pull for chain_id if one is not already running."""
+        state = self._chain_states.get(chain_id)
+        if not state or not state.chain_sync:
+            return
+
+        source_url = self._source_resolver.get_sync_source(chain_id)
+        if not self._should_sync_remote(chain_id, source_url):
+            return
+
+        if state.bulk_task and not state.bulk_task.done():
+            return
+
+        state.bulk_task = create_task_with_logging(
+            self._bulk_pull(chain_id, source_url),
+            name=f"sync_manager_bulk_{chain_id}",
+        )
+
     async def _chain_loop(self, chain_id: str) -> None:
         state = self._chain_states[chain_id]
-        gossip_task: asyncio.Task | None = None
 
-        if getattr(settings, "sync_manager_use_gossip", True):
+        if self._use_gossip:
             state.gossip_sub = await gossip_broker.subscribe(f"blocks.{chain_id}")
             gossip_task = create_task_with_logging(
                 self._gossip_consumer(chain_id),
                 name=f"sync_manager_gossip_{chain_id}",
             )
             self._tasks.append(gossip_task)
+
+        if self._use_subscription:
+            source_url = self._source_resolver.get_sync_source(chain_id)
+            if source_url and self._should_sync_remote(chain_id, source_url):
+                client = SubscriptionClient(
+                    source_url,
+                    self._node_id,
+                    chain_id,
+                    on_block=block_data_callback(self, chain_id),
+                )
+                self._subscription_clients.append(client)
+                sub_task = create_task_with_logging(
+                    client.start(),
+                    name=f"sync_manager_subscription_{chain_id}",
+                )
+                self._tasks.append(sub_task)
 
         while not self._stop_event.is_set():
             interval = getattr(settings, "sync_manager_poll_interval", 5.0)
@@ -210,29 +487,7 @@ class SyncManager:
                 if not isinstance(block_data, dict):
                     logger.warning("Unexpected gossip message type", extra={"type": type(block_data)})
                     continue
-                height = block_data.get("height", 0)
-                if not state.chain_sync:
-                    continue
-                try:
-                    result = state.chain_sync.import_block(
-                        block_data,
-                        transactions=block_data.get("transactions"),
-                        skip_state_root_validation=False,
-                    )
-                except Exception as import_exc:
-                    logger.warning("Gossip import raised exception at height %s: %s", height, import_exc)
-                    logger.debug("Gossip import traceback", exc_info=True)
-                    continue
-                if result.accepted:
-                    state.last_push_at = time.time()
-                    state.last_local_height = height
-                    if state.mode in (SyncMode.CATCH_UP, SyncMode.ERROR):
-                        state.mode = SyncMode.PUSH
-                elif "Gap detected" in result.reason:
-                    logger.info("Gossip gap at %s, switching to bulk pull", height)
-                    state.mode = SyncMode.CATCH_UP
-                else:
-                    logger.debug("Gossip block %s not accepted: %s", height, result.reason)
+                await self.handle_block(chain_id, block_data, source="gossip")
         except asyncio.CancelledError:
             pass
         finally:
@@ -270,8 +525,12 @@ class SyncManager:
             return poll
 
         source_url = self._source_resolver.get_sync_source(chain_id)
-        if not source_url:
-            state.mode = SyncMode.DISCONNECTED
+        if not source_url or not self._should_sync_remote(chain_id, source_url):
+            state.mode = (
+                SyncMode.SKIPPED
+                if source_url and not self._should_sync_remote(chain_id, source_url)
+                else SyncMode.DISCONNECTED
+            )
             return poll
 
         try:
@@ -317,15 +576,20 @@ class SyncManager:
         if not state.chain_sync:
             return 0
 
-        self._peer_tracker.register_peer(
-            PeerCapability(
-                peer_id=source_url,
-                rpc_url=source_url,
-                block_range=(0, 2**31 - 1),
-                has_state=True,
-            )
+        state.chain_sync.register_sync_peer(
+            source_url,
+            source_url,
+            (0, 2**31 - 1),
+            has_state=True,
         )
 
         logger.info("Starting bulk pull", extra={"chain_id": chain_id, "source": source_url})
         imported = await state.chain_sync.bulk_import_from(source_url)
         return imported
+
+
+def block_data_callback(manager: SyncManager, chain_id: str) -> Any:
+    """Build a callback the SubscriptionClient can call when a block arrives."""
+    from functools import partial
+
+    return partial(manager.handle_block, chain_id, source="subscription")

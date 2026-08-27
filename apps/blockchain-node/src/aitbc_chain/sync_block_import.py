@@ -448,7 +448,7 @@ class BlockImportMixin(SyncBase):
                     block_data["height"],
                     block_data.get("state_root"),
                 )
-                self._check_and_trigger_resync(self._chain_id)
+
                 return self._make_import_result(
                     accepted=False,
                     height=block_data["height"],
@@ -465,7 +465,7 @@ class BlockImportMixin(SyncBase):
                     expected_root.hex(),
                     computed_root.hex(),  # type: ignore[union-attr]
                 )
-                self._check_and_trigger_resync(self._chain_id)
+
                 return self._make_import_result(
                     accepted=False,
                     height=block_data["height"],
