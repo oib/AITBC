@@ -229,8 +229,12 @@ async def build_withdraw(body: BuildWithdrawRequest, chain_id: str | None = None
         account = session.get(Account, (resolved, body.address))
         if not account:
             raise HTTPException(status_code=404, detail=f"Account {body.address} not found")
-        if stake.locked_until and stake.locked_until > datetime.now(UTC):
-            raise HTTPException(status_code=400, detail=f"Stake still locked until {stake.locked_until.isoformat()}")
+        if stake.locked_until:
+            locked_until = stake.locked_until
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=UTC)
+            if locked_until > datetime.now(UTC):
+                raise HTTPException(status_code=400, detail=f"Stake still locked until {stake.locked_until.isoformat()}")
         tx = {
             "type": "LIQUIDITY_WITHDRAW",
             "from": body.address,
