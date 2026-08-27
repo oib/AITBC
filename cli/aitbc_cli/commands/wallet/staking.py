@@ -320,6 +320,8 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
         "payload": {
             "pool_id": pool,
             "lock_days": lock_days,
+            "to": _pool_main_address(),
+            "amount": amount_seconds,
         },
     }
 
@@ -388,6 +390,8 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
         "payload": {
             "pool_id": "main",
             "stake_id": stake_id,
+            "to": hex_address,
+            "amount": 0,
         },
     }
 
@@ -435,6 +439,8 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
         "payload": {
             "pool_id": "main",
             "stake_id": stake_id,
+            "to": hex_address,
+            "amount": 0,
         },
     }
 
