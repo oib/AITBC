@@ -265,7 +265,7 @@ Definition-of-Ready checklist (`docs/sop/DEFINITION_OF_READY.md`, new).
 
 Executable as a spec-level simulation: `python3 tests/workflow-v2-sim.py` (all sixteen pass;
 mutation checks confirm the suite fails when the JOIN rule, SKIP-FORWARD, or the rework counter
-is removed). Evidence: [docs/agent-outputs/qa-validations/DRAFT-workflow-v2-sim-results.md](../docs/agent-outputs/qa-validations/DRAFT-workflow-v2-sim-results.md).
+is removed). Evidence: [docs/agent-outputs/qa-validations/DRAFT-workflow-v2-sim-results.md](../agent-outputs/qa-validations/DRAFT-workflow-v2-sim-results.md).
 The **executable definition** of the landed workflow is `tests/e2e-workflow-v3.sh` (ABS-80) — the
 same S1–S16 scenarios re-run as deterministic bash dry-runs against the real `scripts/orchestrator.sh`
 + mock adapter; it is the epic's exit gate (like ABS-55 for ABS-36). The python sim is retained as

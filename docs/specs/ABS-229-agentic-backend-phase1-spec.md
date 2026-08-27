@@ -1,7 +1,7 @@
 # ABS-229 — Agentic Delivery Backend, Phase 1: Tracker Core (Spec)
 
 **Epic:** ABS-229 · **Stories:** ABS-233…ABS-242 · **ADR:** ADR-A-0021 (proposed) ·
-**Vision:** `specs/DRAFT-agentic-backend-vision.md`
+**Vision:** `docs/specs/DRAFT-agentic-backend-vision.md`
 **Date:** 2026-07-12 · **Amended:** 2026-07-15 (ABS-313 design constraints — see change markers `[A-313]`)
 **Status:** groomed; S1/S2 delivered, S3/S4 restarted against this amended spec (Operator decision 2026-07-15)
 

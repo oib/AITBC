@@ -2,8 +2,8 @@
 
 **Parent:** ABS-230 (Phase-2 ops surface) · **Module:** `backend/packages/webhooks`
 **Related:** ADR-A-0004 (human-provisioned secrets), ADR-A-0010 (one write path),
-`patterns_library/api/webhook-handler.md`, `specs/DRAFT-agentic-backend-vision.md` §4,
-`specs/ABS-229-agentic-backend-phase1-spec.md` §13.
+`patterns_library/api/webhook-handler.md`, `docs/specs/DRAFT-agentic-backend-vision.md` §4,
+`docs/specs/ABS-229-agentic-backend-phase1-spec.md` §13.
 
 ## §1 Goal
 
