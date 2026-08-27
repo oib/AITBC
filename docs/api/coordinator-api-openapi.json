@@ -6495,7 +6495,7 @@
             }
           },
           "400": {
-            "description": "No ZK proof stored for this job",
+            "description": "No ZK proof stored for this job / Job does not specify a supported deterministic model / No model circuit registered for {model_id}",
             "content": {
               "application/json": {
                 "schema": {
