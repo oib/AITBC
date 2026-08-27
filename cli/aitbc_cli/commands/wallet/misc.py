@@ -1,7 +1,7 @@
 """Misc wallet commands for AITBC CLI"""
 
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from decimal import InvalidOperation
 from pathlib import Path
 
@@ -30,40 +30,54 @@ def rewards(ctx):
     staking = wallet_data.get("staking", [])
     liquidity = wallet_data.get("liquidity", [])
 
+    from decimal import Decimal as _Decimal
+
+    def _as_number(value):
+        if value is None:
+            return _Decimal("0")
+        try:
+            return _Decimal(str(value))
+        except (InvalidOperation, ValueError, TypeError, ArithmeticError):
+            return _Decimal("0")
+
     # Staking rewards
-    staking_rewards = sum(s.get("rewards", 0) for s in staking if s.get("status") == "completed")
-    active_staking = sum(s["amount"] for s in staking if s.get("status") == "active")
+    staking_rewards = sum(_as_number(s.get("rewards", 0)) for s in staking if s.get("status") == "completed")
+    active_staking = sum(_as_number(s["amount"]) for s in staking if s.get("status") == "active")
 
     # Liquidity rewards
-    liq_rewards = sum(r.get("rewards", 0) for r in liquidity if r.get("status") == "completed")
-    active_liquidity = sum(r["amount"] for r in liquidity if r.get("status") == "active")
+    liq_rewards = sum(_as_number(r.get("rewards", 0)) for r in liquidity if r.get("status") == "completed")
+    active_liquidity = sum(_as_number(r["amount"]) for r in liquidity if r.get("status") == "active")
 
     # Estimate pending rewards for active positions
-    pending_staking = 0
+    pending_staking = _Decimal("0")
     for s in staking:
         if s.get("status") == "active":
             start = datetime.fromisoformat(s["start_date"])
-            days = max((datetime.now() - start).total_seconds() / 86400, 0)
-            pending_staking += s["amount"] * (s["apy"] / 100) * (days / 365)
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=UTC)
+            days = _Decimal(str(max((datetime.now(UTC) - start).total_seconds() / 86400, 0)))
+            pending_staking += _as_number(s["amount"]) * (_as_number(s["apy"]) / _Decimal("100")) * (days / _Decimal("365"))
 
-    pending_liquidity = 0
+    pending_liquidity = _Decimal("0")
     for r in liquidity:
         if r.get("status") == "active":
             start = datetime.fromisoformat(r["start_date"])
-            days = max((datetime.now() - start).total_seconds() / 86400, 0)
-            pending_liquidity += r["amount"] * (r["apy"] / 100) * (days / 365)
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=UTC)
+            days = _Decimal(str(max((datetime.now(UTC) - start).total_seconds() / 86400, 0)))
+            pending_liquidity += _as_number(r["amount"]) * (_as_number(r["apy"]) / _Decimal("100")) * (days / _Decimal("365"))
 
     output(
         {
-            "staking_rewards_earned": round(staking_rewards, 6),
-            "staking_rewards_pending": round(pending_staking, 6),
-            "staking_active_amount": active_staking,
-            "liquidity_rewards_earned": round(liq_rewards, 6),
-            "liquidity_rewards_pending": round(pending_liquidity, 6),
-            "liquidity_active_amount": active_liquidity,
-            "total_earned": round(staking_rewards + liq_rewards, 6),
-            "total_pending": round(pending_staking + pending_liquidity, 6),
-            "total_staked": active_staking + active_liquidity,
+            "staking_rewards_earned": str(round(staking_rewards, 6)),
+            "staking_rewards_pending": str(round(pending_staking, 6)),
+            "staking_active_amount": str(active_staking),
+            "liquidity_rewards_earned": str(round(liq_rewards, 6)),
+            "liquidity_rewards_pending": str(round(pending_liquidity, 6)),
+            "liquidity_active_amount": str(active_liquidity),
+            "total_earned": str(round(staking_rewards + liq_rewards, 6)),
+            "total_pending": str(round(pending_staking + pending_liquidity, 6)),
+            "total_staked": str(active_staking + active_liquidity),
         },
         ctx.obj.get("output_format", "table"),
     )
