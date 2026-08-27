@@ -119,6 +119,27 @@ if [ -d "$WALLETS_DIR" ]; then
         || error "Wallets backup FAILED"
 fi
 
+# ── Legacy wallet directories (pre-standard) ──────────────────────────────────
+# Plain-text file wallets may still live under ~/.aitbc/wallets on nodes that
+# have not yet migrated to /var/lib/aitbc/wallets. Back them up until the
+# migration is complete so private keys are not lost. Backup artifacts are
+# restricted to root:aitbc-services.
+LEGACY_WALLET_DIRS=(
+    "/home/aitbc/.aitbc/wallets"
+    "/root/.aitbc/wallets"
+)
+for LEGACY_WALLET_DIR in "${LEGACY_WALLET_DIRS[@]}"; do
+    if [ -d "$LEGACY_WALLET_DIR" ]; then
+        log "Backing up legacy wallet directory ${LEGACY_WALLET_DIR}..."
+        _legacy_parent=$(dirname "$LEGACY_WALLET_DIR")
+        _legacy_name=$(basename "$LEGACY_WALLET_DIR")
+        _legacy_suffix=$(echo "$LEGACY_WALLET_DIR" | tr '/' '_')
+        tar czf "${BACKUP_DIR}/wallets-legacy${_legacy_suffix}.tar.gz" -C "${_legacy_parent}" "${_legacy_name}" \
+            && log "Legacy wallets ${LEGACY_WALLET_DIR}: OK" \
+            || error "Legacy wallets ${LEGACY_WALLET_DIR} backup FAILED"
+    fi
+done
+
 # ── Service Configuration ─────────────────────────────────────────────────────
 log "Backing up service configurations..."
 tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" /etc/aitbc/ 2>/dev/null \
