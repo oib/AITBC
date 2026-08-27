@@ -83,6 +83,11 @@ class CLIConfig(BaseAITBCConfig):
     # Authentication
     api_key: str | None = Field(default=None, description="API key for authentication")
 
+    # Default AIT recipient for bridge minting
+    wallet_address: str | None = Field(
+        default=None, alias="WALLET_ADDRESS", description="Default AIT recipient for exchange minting"
+    )
+
     # Request settings
     timeout: int = Field(default=30, description="Request timeout in seconds")
 
@@ -131,6 +136,7 @@ def _cli_env_files() -> list[str]:
         "/etc/aitbc/blockchain.env",
         "/etc/aitbc/blockchain-secrets.env",
         "/etc/aitbc/node.env",
+        "/etc/aitbc/exchange.env",
     ]
     return [p for p in candidates if os.access(p, os.R_OK)]
 

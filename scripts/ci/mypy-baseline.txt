@@ -1,4 +1,6 @@
 aitbc/wallet/confidential.py: error: Unused "type: ignore" comment  [unused-ignore]
+apps/blockchain-node/src/aitbc_chain/contracts/escrow.py: error: Item "None" of "datetime | None" has no attribute "is_"  [union-attr]
+apps/blockchain-node/src/aitbc_chain/contracts/escrow.py: error: Item "datetime" of "datetime | None" has no attribute "is_"  [union-attr]
 apps/blockchain-node/src/aitbc_chain/observability/exporters.py: error: Unused "type: ignore" comment  [unused-ignore]
 apps/blockchain-node/src/aitbc_chain/rpc/routers/core.py: error: Returning Any from function declared to return "list[dict[str, Any]]"  [no-any-return]
 apps/blockchain-node/src/aitbc_chain/rpc/routers/core.py: error: Unused "type: ignore" comment  [unused-ignore]
