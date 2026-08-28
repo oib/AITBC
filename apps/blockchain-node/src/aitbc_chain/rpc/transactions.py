@@ -261,6 +261,10 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
                 order_id = payload.get("order_id", "")
                 if order_id:
                     cancelled_ids.add(str(order_id))
+                order_ids = payload.get("order_ids") or []
+                if not isinstance(order_ids, list):
+                    order_ids = [order_ids]
+                cancelled_ids.update(str(oid) for oid in order_ids)
                 cancelled_ids.add(str(tx.tx_hash))
         matches = [
             {
