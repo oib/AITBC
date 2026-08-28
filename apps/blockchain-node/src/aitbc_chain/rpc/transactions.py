@@ -242,6 +242,36 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}") from e
 
 
+@rate_limit(rate=10, per=60)
+async def match_marketplace(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Return active marketplace listings that could be matched against bids."""
+    chain_id = get_chain_id(chain_id)
+    with session_scope(chain_id) as session:
+        offers = session.exec(
+            select(Transaction)
+            .where(Transaction.chain_id == chain_id)
+            .where(Transaction.type == "GPU_MARKETPLACE")
+            .where(Transaction.status == "confirmed")
+        ).all()
+        matches = [
+            {
+                "offer_tx_hash": tx.tx_hash,
+                "seller": tx.sender,
+                "description": (tx.payload or {}).get("description", ""),
+                "service_type": (tx.payload or {}).get("service_type", ""),
+                "model": (tx.payload or {}).get("model", ""),
+                "price": (tx.payload or {}).get("price", 0),
+                "price_unit": (tx.payload or {}).get("price_unit", ""),
+            }
+            for tx in offers
+        ]
+        return {
+            "chain_id": chain_id,
+            "matches": matches,
+            "total": len(matches),
+        }
+
+
 @rate_limit(rate=200, per=60)
 async def query_transactions(
     request: Request,
