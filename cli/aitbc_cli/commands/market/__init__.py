@@ -149,18 +149,22 @@ def get_wallet_address() -> str:
 
 def get_account_nonce(address: str, chain_id: str) -> int:
     """Query blockchain for current account nonce"""
-    try:
-        from aitbc.network import AITBCHTTPClient
+    from aitbc.network import AITBCHTTPClient
 
-        config = get_config()
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
-        nonce = response.get("nonce", 0)
-        return int(nonce) if nonce is not None else 0
-    except Exception as e:
-        error(f"Failed to get account nonce: {e}")
-        return 0
+    config = get_config()
+    rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    # Prefer the local blockchain RPC; the hub discovery URL may not expose /rpc.
+    for base_url in (rpc_url, f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"):
+        try:
+            http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
+            response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
+            nonce = response.get("nonce", 0)
+            return int(nonce) if nonce is not None else 0
+        except Exception as e:
+            logger.debug("Failed to get nonce from %s: %s", base_url, e)
+            continue
+    error(f"Failed to get account nonce for {address}")
+    return 0
 
 
 def get_next_nonce(wallet_address: str | None = None) -> int:

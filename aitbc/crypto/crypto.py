@@ -37,6 +37,23 @@ def derive_ethereum_address(private_key: str) -> str:
         raise ValueError(f"Failed to derive address from private key: {e}") from e
 
 
+def sign_transaction_data(tx_data: dict[str, Any], private_key: str) -> str:
+    """Sign a transaction dict with a secp256k1 private key.
+
+    Produces the same 65-byte hex signature that the blockchain RPC expects.
+    The signed message is the keccak256 hash of the canonical JSON encoding of
+    the transaction fields, excluding the ``signature`` field and the internal
+    ``value`` alias when ``amount`` is present.
+    """
+    excluded = {"signature", "sig", "tx_hash"}
+    if "amount" in tx_data:
+        excluded.add("value")
+    unsigned = {k: v for k, v in tx_data.items() if k not in excluded}
+    message = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+    tx_hash = keccak256_hash(message)
+    return sign_transaction_hash(tx_hash, private_key)
+
+
 def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
     """Sign an already-computed 32-byte hash with a private key.
 

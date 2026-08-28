@@ -16,6 +16,7 @@ import click
 from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from aitbc.crypto.crypto import sign_transaction_data
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -409,7 +410,11 @@ def cancel(ctx, order_id: str):
         chain_id = get_chain_id()
         island_id = get_island_id()
 
-        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        if not private_key:
+            error("Cancelling an offer requires a wallet private key")
+            raise click.Abort()
+
         cancel_data = {
             "from": wallet_address,
             "to": "0x0000000000000000000000000000000000000000",
@@ -428,15 +433,17 @@ def cancel(ctx, order_id: str):
             },
         }
 
+        cancel_data["signature"] = sign_transaction_data(cancel_data, private_key)
+
         try:
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            rpc_url = _get_blockchain_rpc_url(config)
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
-            rpc_url = _get_blockchain_rpc_url(config)
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
