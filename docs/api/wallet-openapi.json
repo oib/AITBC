@@ -1057,6 +1057,52 @@
         }
       }
     },
+    "/v1/bridge/polling": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Set Bridge Polling",
+        "description": "Enable or disable the automatic bridge polling loop (admin operation).",
+        "operationId": "set_bridge_polling_v1_bridge_polling_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Set Bridge Polling V1 Bridge Polling Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bridge/price": {
       "get": {
         "tags": [
