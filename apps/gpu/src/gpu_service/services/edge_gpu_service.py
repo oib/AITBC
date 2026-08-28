@@ -89,7 +89,7 @@ class EdgeGPUService:
         """Discover GPUs using nvidia-smi command"""
         try:
             result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=index,name,memory.total,driver_version", "--format=csv,noheader,nounits"],
+                ["nvidia-smi", "--query-gpu=index,name,memory.total,driver_version,uuid", "--format=csv,noheader,nounits"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -109,6 +109,7 @@ class EdgeGPUService:
                             "name": parts[1],
                             "memory_mb": int(parts[2]),
                             "driver_version": parts[3] if len(parts) > 3 else "unknown",
+                            "uuid": parts[4] if len(parts) > 4 else "",
                         }
                     )
             return gpus
@@ -152,14 +153,21 @@ class EdgeGPUService:
             registered_count = 0
             gpu_list = []
             for gpu_info in discovered_gpus:
+                hardware_uuid = gpu_info.get("uuid")
                 gpu_id = f"gpu_{miner_id}_{gpu_info['index']}"
-                stmt = select(GPURegistry).where(GPURegistry.id == gpu_id)
+
+                if hardware_uuid:
+                    stmt = select(GPURegistry).where(GPURegistry.hardware_uuid == hardware_uuid)
+                else:
+                    stmt = select(GPURegistry).where(GPURegistry.id == gpu_id)
                 result = await self.session.execute(stmt)
                 existing = result.scalar_one_or_none()
                 if existing:
                     existing.model = gpu_info["name"]
                     existing.memory_gb = gpu_info["memory_mb"] // 1024
                     existing.cuda_version = gpu_info["driver_version"]
+                    if hardware_uuid:
+                        existing.hardware_uuid = hardware_uuid
                     existing.status = "available"
                     gpu_list.append(
                         {
@@ -179,6 +187,7 @@ class EdgeGPUService:
                         memory_gb=gpu_info["memory_mb"] // 1024,
                         cuda_version=gpu_info["driver_version"],
                         status="available",
+                        hardware_uuid=hardware_uuid,
                         capabilities=["edge", "inference"],
                     )
                     self.session.add(new_gpu)
