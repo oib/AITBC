@@ -93,9 +93,16 @@ agent_print_followup() {
         poetry_version=$(poetry --version 2>/dev/null | sed 's/^Poetry //; s/[()]//g; s/version //' || echo unknown)
     fi
 
+    local status="completed"
+    if [ "${AITBC_AGENT_FOLLOWUP_ERRORS:-0}" -gt 0 ]; then
+        status="needs-investigation"
+    elif [ "${AITBC_AGENT_FOLLOWUP_WARNINGS:-0}" -gt 0 ]; then
+        status="completed-with-warnings"
+    fi
+
     echo ""
     echo "### AITBC AGENT FOLLOW-UP ###"
-    echo "status: needs-investigation"
+    echo "status: $status"
     echo "script: $script_name"
     echo "node_role: $node_role"
     echo "repo_path: $repo_path"
