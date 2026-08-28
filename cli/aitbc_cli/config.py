@@ -80,6 +80,14 @@ class CLIConfig(BaseAITBCConfig):
     hub_discovery_url: str | None = Field(
         default=None, description="Hub discovery DNS for cross-node operations (from HUB_DISCOVERY_URL env var)"
     )
+    hub_proposer_id: str | None = Field(
+        default=None,
+        description="Hub block proposer address (from HUB_PROPOSER_ID env var). Used by follower/customer nodes to build escrow transactions.",
+    )
+    hub_blockchain_rpc_url: str = Field(
+        default="",
+        description="Hub blockchain RPC URL (from HUB_BLOCKCHAIN_RPC_URL env var). Falls back to hub_discovery_url + /rpc.",
+    )
 
     # Authentication
     api_key: str | None = Field(default=None, description="API key for authentication")
@@ -123,6 +131,9 @@ class CLIConfig(BaseAITBCConfig):
                 if not rpc.endswith("/rpc"):
                     rpc = f"{rpc}/rpc"
                 self.exchange_service_url = rpc
+        if not self.hub_blockchain_rpc_url and self.hub_discovery_url:
+            # Follower/customer nodes talk to the hub's public blockchain RPC.
+            self.hub_blockchain_rpc_url = f"https://{self.hub_discovery_url}/rpc"
         return self
 
     @property
