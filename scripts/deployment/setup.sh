@@ -1217,6 +1217,24 @@ EOF
     success "Secure credentials setup completed"
 }
 
+# Generate or verify the hub proposer wallet
+setup_proposer_wallet() {
+    if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
+        return 0
+    fi
+    if [ ! -f "/opt/aitbc/venv/bin/python" ]; then
+        warning "Virtual environment not found, cannot generate proposer wallet"
+        return 0
+    fi
+    log "Setting up hub proposer wallet..."
+    if /opt/aitbc/venv/bin/python /opt/aitbc/scripts/deployment/init_proposer.py; then
+        success "Proposer wallet configured"
+    else
+        warning "Proposer wallet setup failed — check /opt/aitbc/scripts/deployment/init_proposer.py"
+    fi
+}
+
+
 # Setup Python virtual environments
 setup_venvs() {
     log "Setting up Python virtual environments..."
@@ -1622,6 +1640,10 @@ main() {
     echo "[STEP 10/12] Setting up virtual environments..."
     setup_venvs
     echo "[STEP 10/12] ✓ Virtual environments created"
+
+    echo "[STEP 10.5/12] Setting up hub proposer wallet (if hub)..."
+    setup_proposer_wallet
+    echo "[STEP 10.5/12] ✓ Proposer wallet configured"
 
     echo "[STEP 11/12] Installing systemd services..."
     install_services
