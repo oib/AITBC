@@ -117,8 +117,8 @@ echo "3. 🏛️ GENESIS BLOCK CONSENSUS"
 echo "============================"
 
 run_test_verbose "Genesis block hash consistency" "
-    LOCAL_GENESIS=$(curl -s http://localhost:$GENESIS_PORT/rpc/block/1 | jq .hash)
-    REMOTE_GENESIS=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/block/1 | jq .hash')
+    LOCAL_GENESIS=$(curl -s http://localhost:$GENESIS_PORT/rpc/blocks/1 | jq .hash)
+    REMOTE_GENESIS=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/blocks/1 | jq .hash')
     echo \"Local genesis: \$LOCAL_GENESIS\"
     echo \"Remote genesis: \$REMOTE_GENESIS\"
     [ \"\$LOCAL_GENESIS\" = \"\$REMOTE_GENESIS\" ]
