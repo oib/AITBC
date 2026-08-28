@@ -62,7 +62,7 @@ class TestAccountCommands:
         mock_client.get.assert_called_once()
         # The address should appear in the RPC path that was requested.
         requested_path = mock_client.get.call_args[0][0]
-        assert "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C" in requested_path
+        assert "0x5e2d7c7a4f8e9b1c3d5a2e8f4c6b8a0d2e4f6a8c" in requested_path.lower()
 
     @patch("aitbc_cli.commands.account.AITBCHTTPClient")
     def test_account_get_command_with_chain_id(self, mock_http_class, runner, mock_blockchain_rpc):

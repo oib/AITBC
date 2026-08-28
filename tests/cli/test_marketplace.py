@@ -44,6 +44,13 @@ def mock_http_client(monkeypatch):
 
         def get(self, path, **kwargs):
             calls["get"].append((self.base_url, path, kwargs))
+            if path == "/health" or path.endswith("/health"):
+                return {
+                    "supported_chains": ["ait-hub.aitbc.bubuit.net"],
+                    "proposer_id": "0x1111111111111111111111111111111111111111",
+                }
+            if "/rpc/account/" in path:
+                return {"balance": 1000000000, "nonce": 0}
             return {"supported_chains": ["ait-hub.aitbc.bubuit.net"]}
 
         def post(self, path, **kwargs):
@@ -52,11 +59,16 @@ def mock_http_client(monkeypatch):
                 return {"contract_id": "escrow-abc"}
             if path == "/v1/transactions":
                 return {"transaction_id": "tx-123"}
+            if path == "/rpc/transaction":
+                return {"transaction_hash": "0xabc123"}
             return {}
 
     # Patch the AITBCHTTPClient class everywhere it is imported in market modules.
     monkeypatch.setattr("aitbc_cli.commands.marketplace_cmd.AITBCHTTPClient", FakeClient)
     monkeypatch.setattr("aitbc_cli.commands.market.escrow.AITBCHTTPClient", FakeClient)
+    # ``create_signed_escrow_lock`` and the escrow helpers import the client into
+    # their own namespace, so patch those copies too.
+    monkeypatch.setattr("aitbc_cli.utils.escrow.AITBCHTTPClient", FakeClient)
     # ``marketplace_cmd.list`` re-imports AITBCHTTPClient inside the command body.
     monkeypatch.setattr("aitbc_cli.utils.http_client.AITBCHTTPClient", FakeClient)
     return calls

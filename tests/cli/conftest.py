@@ -82,6 +82,49 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 @pytest.fixture(autouse=True)
+def _mock_payment_wallet(monkeypatch):
+    """Provide a deterministic default wallet for payment commands.
+
+    Commands such as ``aitbc ai submit`` and ``aitbc market escrow create`` call
+    :func:`aitbc_cli.utils.wallet_loader.load_wallet_for_payment` and need a
+    usable signing key.  This fixture intercepts that call and returns a
+    temporary secp256k1 keypair so the tests never hit the wallet daemon.
+    """
+    try:
+        from eth_account import Account
+
+        _account = Account.create()
+        _address = _account.address
+        _private_key = _account.key.hex()
+    except Exception:
+        _address = "0x" + "ab" * 20
+        _private_key = "ab" * 32
+
+    def _load_wallet_for_payment(ctx, *args, **kwargs):
+        # ``wallet_name`` and ``wallet_path`` are ignored; the tests only need
+        # a canonical address and a private key that can sign transactions.
+        return _address, _private_key, kwargs.get("wallet_name") or "default"
+
+    # The commands import ``load_wallet_for_payment`` at module load time, so
+    # patching the definition is not enough: we patch the bound names in each
+    # command module that uses it.
+    targets = [
+        "aitbc_cli.utils.wallet_loader.load_wallet_for_payment",
+        "aitbc_cli.utils.load_wallet_for_payment",
+        "aitbc_cli.commands.ai.load_wallet_for_payment",
+        "aitbc_cli.commands.market.escrow.load_wallet_for_payment",
+        "aitbc_cli.commands.market.load_wallet_for_payment",
+        "aitbc_cli.commands.exchange_island.load_wallet_for_payment",
+        "aitbc_cli.commands.ipfs.load_wallet_for_payment",
+    ]
+    for target in targets:
+        try:
+            monkeypatch.setattr(target, _load_wallet_for_payment)
+        except AttributeError:
+            pass
+
+
+@pytest.fixture(autouse=True)
 def _cli_default_obj(monkeypatch):
     """Auto-use fixture that patches ``CliRunner.invoke`` to set ``ctx.obj``.
 
