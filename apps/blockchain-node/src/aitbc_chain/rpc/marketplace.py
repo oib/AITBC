@@ -117,27 +117,44 @@ async def marketplace_listings() -> dict[str, Any]:
             rows = cursor.fetchall()
             conn.close()
 
+            cancelled_ids: set[str] = set()
+            offer_rows: list[tuple[Any, ...]] = []
+
             for tx_id, sender, payload_json, timestamp in rows:
                 try:
                     payload = json.loads(payload_json) if payload_json else {}
-                    listing = {
-                        "listing_id": f"tx_{tx_id}",
-                        "seller_address": sender,
-                        "item_type": payload.get("item_type", "GPU"),
-                        "price": payload.get("price", 0.0),
-                        "description": payload.get("description", ""),
-                        "gpu_name": payload.get("gpu_name", ""),
-                        "gpu_device": payload.get("gpu_device", ""),
-                        "gpu_uuid": payload.get("gpu_uuid", ""),
-                        "gpu_model": payload.get("gpu_model") or payload.get("gpu_name", ""),
-                        "memory_gb": payload.get("memory_gb"),
-                        "compute_capability": payload.get("compute_capability", ""),
-                        "status": "active",
-                        "created_at": timestamp or datetime.now().isoformat(),
-                    }
-                    listings.append(listing)
+                    action = payload.get("action", "")
+                    order_id = payload.get("order_id", "")
+                    listing_id = f"tx_{tx_id}"
+                    if action in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled":
+                        if order_id:
+                            cancelled_ids.add(order_id)
+                        cancelled_ids.add(listing_id)
+                        continue
+                    offer_rows.append((tx_id, sender, payload, timestamp))
                 except json.JSONDecodeError:
                     continue
+
+            for tx_id, sender, payload, timestamp in offer_rows:
+                listing_id = f"tx_{tx_id}"
+                if listing_id in cancelled_ids:
+                    continue
+                listing = {
+                    "listing_id": listing_id,
+                    "seller_address": sender,
+                    "item_type": payload.get("item_type", "GPU"),
+                    "price": payload.get("price", 0.0),
+                    "description": payload.get("description", ""),
+                    "gpu_name": payload.get("gpu_name", ""),
+                    "gpu_device": payload.get("gpu_device", ""),
+                    "gpu_uuid": payload.get("gpu_uuid", ""),
+                    "gpu_model": payload.get("gpu_model") or payload.get("gpu_name", ""),
+                    "memory_gb": payload.get("memory_gb"),
+                    "compute_capability": payload.get("compute_capability", ""),
+                    "status": "active",
+                    "created_at": timestamp or datetime.now().isoformat(),
+                }
+                listings.append(listing)
 
         # Merge on-chain listings with in-memory listings
         listings.extend(_marketplace_listings)
