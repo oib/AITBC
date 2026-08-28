@@ -436,14 +436,14 @@ def cancel(ctx, order_id: str):
         cancel_data["signature"] = sign_transaction_data(cancel_data, private_key)
 
         try:
-            rpc_url = _get_blockchain_rpc_url(config)
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            rpc_url = _get_blockchain_rpc_url(config)
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Offer {order_id} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
