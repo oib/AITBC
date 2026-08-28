@@ -57,6 +57,7 @@ def _escrow_create(
     amount: Decimal | None,
     config,
     private_key: str | None = None,
+    node_wallet: str | None = None,
 ) -> str | None:
     """Create an on-chain escrow for a paid job.
 
@@ -68,6 +69,10 @@ def _escrow_create(
     The chain's smallest unit is the compute-unit (1 AIT = 36_000_000).
     Estimates that round to zero compute-units are rounded up to one compute-unit
     so the lock transaction is valid and the provider can be paid.
+
+    ``node_wallet`` is the hub proposer address that will hold the escrow.
+    On follower/customer nodes the local RPC has no proposer, so callers should
+    pass the hub's proposer (``HUB_PROPOSER_ID`` or ``--proposer``).
     """
     from ...utils.escrow import create_signed_escrow_lock
 
@@ -85,6 +90,13 @@ def _escrow_create(
         info(f"Rounding escrow up to minimum {min_escrow_ait} AIT (1 compute-unit)")
         amount = min_escrow_ait
 
+    # Follower/customer nodes have no local proposer; use the configured hub proposer.
+    if not node_wallet:
+        node_wallet = getattr(config, "hub_proposer_id", None) or None
+    if not node_wallet:
+        error("No escrow proposer address available. Set HUB_PROPOSER_ID, or run on a hub/proposer node.")
+        raise click.Abort()
+
     rpc_url = _get_blockchain_rpc_url(config)
     try:
         lock_tx, signature = create_signed_escrow_lock(
@@ -95,6 +107,7 @@ def _escrow_create(
             provider,
             amount,
             private_key,
+            node_wallet=node_wallet,
         )
     except Exception as e:
         error(f"Failed to build escrow lock transaction: {e}")
