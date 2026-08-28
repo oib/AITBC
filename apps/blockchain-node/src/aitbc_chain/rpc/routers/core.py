@@ -84,10 +84,25 @@ async def get_block_route(request: Request, height: int, chain_id: str | None = 
     return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
 
 
+def _log_legacy_block_caller(request: Request) -> None:
+    client_host = request.client.host if request.client else "unknown"
+    x_forwarded = request.headers.get("x-forwarded-for", "")
+    if x_forwarded:
+        client_host = x_forwarded.split(",")[0].strip() or client_host
+    user_agent = request.headers.get("user-agent", "unknown")
+    _logger.info(
+        "Legacy /rpc/block called by %s (UA: %s) path=%s",
+        client_host,
+        user_agent,
+        request.url.path,
+    )
+
+
 @router.get("/block", summary="Get a block (head by default, or by query height)")
 @rate_limit(rate=200, per=60)
 async def get_block_alias_route(request: Request, height: int | None = None, chain_id: str | None = None) -> dict[str, Any]:
     """Get the head block, or a specific block if height is provided."""
+    _log_legacy_block_caller(request)
     if height is None:
         head = await get_head(request, chain_id)
         height = head.get("height", 0)
@@ -98,6 +113,7 @@ async def get_block_alias_route(request: Request, height: int | None = None, cha
 @rate_limit(rate=200, per=60)
 async def get_block_path_alias_route(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height (singular alias for /blocks/{height})."""
+    _log_legacy_block_caller(request)
     return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
 
 
