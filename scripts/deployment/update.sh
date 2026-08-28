@@ -694,8 +694,12 @@ verify_proposer() {
     if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
         # shellcheck disable=SC1090
         source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
-        blockchain_mode="${BLOCKCHAIN_MODE:-}"
     fi
+    if [ -f "$NODE_ENV_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$NODE_ENV_FILE" 2>/dev/null
+    fi
+    blockchain_mode="${BLOCKCHAIN_MODE:-}"
 
     if [ "$blockchain_mode" = "hub" ]; then
         log "Verifying hub proposer..."
@@ -716,18 +720,14 @@ verify_proposer() {
     fi
 
     log "Verifying follower/customer boarding..."
-    if [ -f /etc/aitbc/node.env ]; then
-        # shellcheck disable=SC1091
-        source /etc/aitbc/node.env 2>/dev/null
-    fi
 
-    if [ -n "$HUB_PROPOSER_ID" ] && [ -n "$HUB_BLOCKCHAIN_RPC_URL" ]; then
+    if [ -n "${HUB_PROPOSER_ID:-}" ] && [ -n "${HUB_BLOCKCHAIN_RPC_URL:-}" ]; then
         success "Follower boarding configured: HUB_PROPOSER_ID=$HUB_PROPOSER_ID"
         return 0
     fi
 
     local hub_base="${HUB_DISCOVERY_URL:-}"
-    if [ -z "$hub_base" ] && [ -n "$DEFAULT_PEER_RPC_URL" ]; then
+    if [ -z "$hub_base" ] && [ -n "${DEFAULT_PEER_RPC_URL:-}" ]; then
         hub_base="$DEFAULT_PEER_RPC_URL"
     fi
     if [ -n "$hub_base" ]; then
