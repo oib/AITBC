@@ -47,7 +47,7 @@ class TestMessagingCommands:
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
     def test_messaging_send_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``messaging send`` sends a message via the mocked RPC."""
+        """``messaging send`` posts a forum message via the mocked RPC."""
         mock_client = mock_http_class.return_value
         mock_client.post.return_value = {"status": "sent", "message_id": "test123"}
 
@@ -61,9 +61,10 @@ class TestMessagingCommands:
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
         args, kwargs = mock_client.post.call_args
-        assert "/rpc/messaging/send" in args[0]
-        assert kwargs["json"]["recipient"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
-        assert kwargs["json"]["message"] == "Hello"
+        assert "/rpc/contracts/messaging/messages/post" in args[0]
+        assert kwargs["json"]["agent_id"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
+        assert kwargs["json"]["agent_address"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
+        assert kwargs["json"]["content"] == "Hello"
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
     def test_messaging_send_falls_back_on_network_error(self, mock_http_class, runner):
@@ -94,7 +95,7 @@ class TestMessagingCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/rpc/messaging/list" in mock_client.get.call_args[0][0]
+        assert "/rpc/contracts/messaging/messages/search" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
     def test_messaging_list_falls_back_on_network_error(self, mock_http_class, runner):
@@ -120,13 +121,25 @@ class TestMessagingCommands:
 
         result = runner.invoke(
             messaging,
-            ["topic", "--title", "Test Topic", "--description", "Test Description"],
+            [
+                "topic",
+                "--agent-id",
+                "test-agent",
+                "--agent-address",
+                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+                "--title",
+                "Test Topic",
+                "--description",
+                "Test Description",
+            ],
         )
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
         args, kwargs = mock_client.post.call_args
-        assert "/rpc/messaging/topic" in args[0]
+        assert "/rpc/contracts/messaging/topics/create" in args[0]
+        assert kwargs["json"]["agent_id"] == "test-agent"
+        assert kwargs["json"]["agent_address"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         assert kwargs["json"]["title"] == "Test Topic"
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
@@ -140,7 +153,17 @@ class TestMessagingCommands:
 
         result = runner.invoke(
             messaging,
-            ["topic", "--title", "Test Topic", "--description", "Test Description"],
+            [
+                "topic",
+                "--agent-id",
+                "test-agent",
+                "--agent-address",
+                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+                "--title",
+                "Test Topic",
+                "--description",
+                "Test Description",
+            ],
         )
 
         assert result.exit_code != 0
