@@ -163,7 +163,8 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
     address = canonical_address(address)
     if not address.startswith("0x"):
         address = "0x" + address
-    if not all(c in "0123456789abcdef" for c in address[2:]) or len(address) != 42:
+    # Allow both lower-case and EIP-55 checksum hex characters (V23-66).
+    if not all(c in "0123456789abcdefABCDEF" for c in address[2:]) or len(address) != 42:
         raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
     if amount > 36000000000:
         amount = 36000000000
