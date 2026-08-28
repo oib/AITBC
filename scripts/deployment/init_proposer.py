@@ -4,6 +4,10 @@
 Run after the Python venv exists so eth_account is available.
 It writes /var/lib/aitbc/data/keystore/proposer.json and sets
 proposer_id in /etc/aitbc/blockchain.env and /etc/aitbc/credentials/proposer_id.
+
+This script is deliberately conservative: if a proposer_id is already
+configured and a keystore with a matching address exists, it leaves the
+existing wallet alone and only ensures the configuration is consistent.
 """
 
 from __future__ import annotations
@@ -45,6 +49,38 @@ def _set_env(path: Path, key: str, value: str) -> None:
     path.write_text("\n".join(new_lines) + "\n")
 
 
+def _find_matching_keystore(proposer_id: str) -> Path | None:
+    """Return an existing keystore file that contains the proposer_id key.
+
+    The node searches several directories for JSON key files, so this script
+    checks the same places before it would overwrite a live proposer wallet.
+    """
+    if not proposer_id:
+        return None
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    target = canonical_address(proposer_id)
+    candidates: list[Path] = [
+        Path("/var/lib/aitbc/data/keystore"),
+        Path("/var/lib/aitbc/keystore"),
+        Path("/var/lib/aitbc/wallets"),
+    ]
+    for directory in candidates:
+        if not directory.exists():
+            continue
+        for kf in directory.glob("*.json"):
+            try:
+                data = json.loads(kf.read_text())
+                address = data.get("address", "")
+                if not address:
+                    continue
+                if canonical_address(address) == target:
+                    return kf
+            except Exception:
+                continue
+    return None
+
+
 def main() -> int:
     env_path = Path("/etc/aitbc/blockchain.env")
     creds_path = Path("/etc/aitbc/credentials/proposer_id")
@@ -57,23 +93,40 @@ def main() -> int:
         return 1
 
     env = _read_env(env_path)
-    blockchain_mode = env.get("BLOCKCHAIN_MODE", "follower")
+    node_env = _read_env(Path("/etc/aitbc/node.env"))
+    blockchain_mode = env.get("BLOCKCHAIN_MODE") or node_env.get("BLOCKCHAIN_MODE", "follower")
     if blockchain_mode != "hub":
         print("Node is not a hub; skipping proposer wallet generation")
         return 0
 
+    existing_proposer = env.get("proposer_id") or node_env.get("proposer_id") or ""
+
+    # If a wallet already exists for the configured proposer, never overwrite it.
+    existing_keystore = _find_matching_keystore(existing_proposer) if existing_proposer else None
+    if existing_proposer and existing_keystore:
+        _set_env(env_path, "proposer_id", existing_proposer)
+        creds_path.write_text(existing_proposer)
+        print(f"Existing proposer keystore found at {existing_keystore}, proposer_id={existing_proposer}")
+        return 0
+
+    # If a proposer is configured but the key is missing, do not generate a new
+    # one: the operator must restore or supply the matching key.
+    if existing_proposer and not existing_keystore:
+        print(
+            f"WARNING: proposer_id is set to {existing_proposer} but no matching keystore was found.",
+            file=sys.stderr,
+        )
+        print(
+            "Refusing to generate a new wallet because it would replace the live proposer. "
+            "Place the existing proposer keystore under /var/lib/aitbc/data/keystore/ and rerun.",
+            file=sys.stderr,
+        )
+        return 1
+
     keystore_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(keystore_dir, 0o700)
 
-    if keystore_file.exists():
-        data = json.loads(keystore_file.read_text())
-        address = data.get("address", "")
-        if address:
-            _set_env(env_path, "proposer_id", address)
-            creds_path.write_text(address)
-            print(f"Existing proposer keystore found, proposer_id set to {address}")
-            return 0
-
+    # No configured proposer: generate a new one for this hub.
     from eth_account import Account
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
