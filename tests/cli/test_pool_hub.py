@@ -1,9 +1,12 @@
 """Tests for the aitbc pool-hub CLI commands."""
 
+import os
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
+
+os.environ["AITBC_SKIP_ENV_FILES"] = "1"
 
 
 @pytest.fixture
@@ -12,6 +15,10 @@ def runner():
 
 
 class TestPoolHubCommands:
+    @pytest.fixture(autouse=True)
+    def _mock_pool_hub_node_role(self, monkeypatch):
+        monkeypatch.setenv("NODE_ROLE", "hub")
+
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
     def test_status_shows_miners_online(self, mock_http_class, runner):
         mock_client = mock_http_class.return_value
