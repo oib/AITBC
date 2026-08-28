@@ -159,6 +159,39 @@ def _ipfs_unpin_cid(ipfs_api: str, cid: str) -> bool:
         return False
 
 
+def _ipfs_object_size(ipfs_api: str, cid: str) -> int | None:
+    """Return the dag cumulative size in bytes for a CID, or None if unreachable."""
+    try:
+        response = requests.post(
+            f"{ipfs_api.rstrip('/')}/api/v0/object/stat",
+            params={"arg": cid},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+        cumulative = data.get("CumulativeSize")
+        if cumulative is not None:
+            return int(cumulative)
+    except Exception:
+        pass
+    return None
+
+
+def _active_customer_ipfs_usage(buyer_address: str, offer_id: str) -> int:
+    """Sum the stored size of active rentals for the same buyer/offer."""
+    total = 0
+    for rental in _load_rentals():
+        if (
+            rental.get("buyer_address") == buyer_address
+            and rental.get("offer_id") == offer_id
+            and rental.get("status") == "active"
+        ):
+            size = rental.get("size")
+            if size:
+                total += int(size)
+    return total
+
+
 def _ipfs_swarm_connect(ipfs_api: str, multiaddr: str) -> bool:
     """Attempt to connect the local IPFS daemon to a provider multiaddr."""
     try:
@@ -432,16 +465,37 @@ def host(
 
     # If a local file is supplied, add it to the IPFS daemon first.
     file_path = Path(cid_or_file)
+    content_size: int | None = None
     if file_path.exists() and file_path.is_file():
         cid = _ipfs_add_file(ipfs_api, file_path)
         if not cid:
             error(f"Failed to add file to IPFS at {ipfs_api}")
             raise click.Abort()
+        content_size = file_path.stat().st_size
         success(f"Added file to IPFS: {cid}")
     else:
         cid = cid_or_file.strip()
         if not cid:
             error("CID cannot be empty")
+            raise click.Abort()
+
+    # Determine the object size for quota enforcement.
+    if content_size is None:
+        content_size = _ipfs_object_size(ipfs_api, cid)
+
+    disk_quota_mb = offer.get("disk_quota_mb")
+    if disk_quota_mb:
+        quota_bytes = int(disk_quota_mb) * 1024 * 1024
+        used_bytes = _active_customer_ipfs_usage(buyer, offer.get("offer_id", offer_id_or_plugin_id))
+        item_size = content_size if content_size is not None else 0
+        if used_bytes + item_size > quota_bytes:
+            if content_size is None:
+                error(f"Could not determine size of {cid}; offer disk quota is {disk_quota_mb} MB per customer")
+            else:
+                error(
+                    f"Object size {item_size / (1024 * 1024):.2f} MB would exceed "
+                    f"the {disk_quota_mb} MB per-customer quota for this offer (already using {used_bytes / (1024 * 1024):.2f} MB)"
+                )
             raise click.Abort()
 
     # Attempt to connect to the provider's public multiaddr so the island can replicate.
@@ -481,6 +535,8 @@ def host(
         "expires_at": (datetime.now(UTC) + timedelta(days=days)).isoformat(),
         "pinned": pinned,
         "status": "active",
+        "size": content_size,
+        "disk_quota_mb": disk_quota_mb,
     }
     _save_rental(rental)
 
