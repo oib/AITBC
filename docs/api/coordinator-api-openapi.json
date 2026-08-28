@@ -10291,18 +10291,16 @@
     "/v1/auth/nonce": {
       "post": {
         "tags": [
-          "authentication"
+          "users"
         ],
-        "summary": "Request an authentication nonce",
-        "description": "Return a fresh nonce that the caller must sign to log in.",
-        "operationId": "auth_nonce_v1_auth_nonce_post",
+        "summary": "Get Login Nonce",
+        "description": "Issue a short-lived nonce that must be signed to log in or register.",
+        "operationId": "get_login_nonce_v1_auth_nonce_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Data"
+                "$ref": "#/components/schemas/UserNonceRequest"
               }
             }
           },
@@ -10314,9 +10312,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Auth Nonce V1 Auth Nonce Post"
+                  "$ref": "#/components/schemas/UserNonceResponse"
                 }
               }
             }
@@ -10327,6 +10323,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid wallet address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10399,18 +10405,16 @@
     "/v1/login": {
       "post": {
         "tags": [
-          "authentication"
+          "users"
         ],
-        "summary": "Log in with a wallet-signed nonce",
-        "description": "Verify a wallet-signed nonce and issue a client JWT.",
-        "operationId": "auth_login_v1_login_post",
+        "summary": "Login User",
+        "description": "Log in (or auto-register) with a signed wallet-address nonce challenge.",
+        "operationId": "login_user_v1_login_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Data"
+                "$ref": "#/components/schemas/UserLogin"
               }
             }
           },
@@ -10422,9 +10426,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Auth Login V1 Login Post"
+                  "$ref": "#/components/schemas/UserProfile"
                 }
               }
             }
@@ -10439,8 +10441,28 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid wallet address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Invalid wallet address / Invalid or expired nonce / Invalid signature format / Signature verification failed",
+            "description": "Invalid or expired nonce / Invalid wallet signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found for wallet",
             "content": {
               "application/json": {
                 "schema": {
