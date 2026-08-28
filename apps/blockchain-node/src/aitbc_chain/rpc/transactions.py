@@ -253,6 +253,15 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
             .where(Transaction.type == "GPU_MARKETPLACE")
             .where(Transaction.status == "confirmed")
         ).all()
+        cancelled_ids: set[str] = set()
+        for tx in offers:
+            payload = tx.payload or {}
+            action = payload.get("action", "")
+            if action in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled":
+                order_id = payload.get("order_id", "")
+                if order_id:
+                    cancelled_ids.add(str(order_id))
+                cancelled_ids.add(str(tx.tx_hash))
         matches = [
             {
                 "offer_tx_hash": tx.tx_hash,
@@ -270,6 +279,9 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
                 "compute_capability": (tx.payload or {}).get("compute_capability", ""),
             }
             for tx in offers
+            if (tx.payload or {}).get("action") not in ("cancel", "cancelled")
+            and str((tx.payload or {}).get("status", "")).lower() != "cancelled"
+            and str(tx.tx_hash) not in cancelled_ids
         ]
         return {
             "chain_id": chain_id,
