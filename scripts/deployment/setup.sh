@@ -1450,7 +1450,7 @@ install_services() {
 #!/bin/sh
 set -e
 . /opt/aitbc/venv/bin/activate
-exec aitbc "$@"
+exec /opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"
 EOF
     chmod +x /usr/local/bin/aitbc
     log "aitbc CLI installed to /usr/local/bin/aitbc"
