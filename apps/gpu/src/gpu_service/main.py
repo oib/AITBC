@@ -609,8 +609,8 @@ async def register_gpu(
                 if hardware_uuid:
                     existing_gpu.hardware_uuid = hardware_uuid
             existing_gpu.status = "available"
-            await session.commit()
             gpu_id = existing_gpu.id
+            await session.commit()
         else:
             new_gpu = GPURegistry(
                 id=gpu_id,
@@ -629,7 +629,7 @@ async def register_gpu(
         return {"gpu_id": gpu_id, "miner_id": miner_id, "status": "registered"}
     except Exception as e:
         await session.rollback()
-        logger.error("GPU registration error: %s", e)
+        logger.exception("GPU registration error: %s", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
