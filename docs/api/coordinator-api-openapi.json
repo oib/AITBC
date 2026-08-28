@@ -33915,6 +33915,17 @@
             ],
             "title": "Gpu Memory Gb"
           },
+          "disk_quota_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Quota Mb"
+          },
           "gpu_count": {
             "anyOf": [
               {
