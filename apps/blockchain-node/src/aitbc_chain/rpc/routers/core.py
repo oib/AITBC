@@ -79,6 +79,21 @@ async def get_height_route(request: Request, chain_id: str | None = None) -> dic
     return {"height": head.get("height", 0)}
 
 
+@router.get("/proposer", summary="Get the current block proposer address")
+@rate_limit(rate=60, per=60)
+async def get_proposer_route() -> dict[str, Any]:
+    """Return the block proposer address for this hub.
+
+    Follower/customer nodes use this to build escrow transactions without
+    reaching the private /health endpoint of the blockchain RPC.
+    """
+    return {
+        "proposer_id": settings.proposer_id,
+        "chain_id": settings.chain_id,
+        "supported_chains": [c.strip() for c in settings.supported_chains.split(",") if c.strip()],
+    }
+
+
 @router.get("/blocks/{height}", summary="Get block by height")
 @rate_limit(rate=200, per=60)
 async def get_block_route(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
