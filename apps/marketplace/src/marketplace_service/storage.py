@@ -2,12 +2,17 @@
 Database session management for Marketplace service
 """
 
+import json
 import os
 import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
 
 from aitbc_shared import MarketplaceOffer
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from aitbc.aitbc_logging import get_logger
@@ -25,6 +30,60 @@ DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
 DATABASE_URL = os.getenv("MARKETPLACE_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
 engine = create_async_engine(DATABASE_URL, echo=False)
 logger.info("Storage module loaded: engine=%s, DATABASE_URL=%s", engine, os.getenv("MARKETPLACE_DATABASE_URL", "not set"))
+
+
+def _format_default_value(value: Any) -> str | None:
+    """Convert a Python default value into an SQL literal for ALTER TABLE."""
+    if value is None:
+        return None
+    if isinstance(value, int | float | bool):
+        return str(value)
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, str):
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+    if isinstance(value, list | dict):
+        return f"'{json.dumps(value).replace(chr(39), chr(39) + chr(39))}'"
+    if isinstance(value, datetime):
+        return f"'{value.isoformat()}'"
+    return None
+
+
+def _ensure_table_columns_sync(conn, table) -> None:
+    """Add columns that exist in the model but are missing from the live table."""
+    inspector = inspect(conn)
+    dialect = conn.dialect
+
+    if table.name not in inspector.get_table_names():
+        return
+
+    existing_column_names = {col["name"] for col in inspector.get_columns(table.name)}
+
+    for col in table.columns:
+        if col.name in existing_column_names:
+            continue
+
+        type_str = dialect.type_compiler.process(col.type)
+        parts = [f"{col.name} {type_str}"]
+
+        default_literal: str | None = None
+        if col.default is not None and col.default.arg is not None:
+            default_literal = _format_default_value(col.default.arg)
+        elif col.server_default is not None and col.server_default.arg is not None:
+            default_literal = str(col.server_default.arg)
+
+        if default_literal is not None:
+            parts.append(f"DEFAULT {default_literal}")
+
+        if col.nullable is False and default_literal is not None and default_literal != "NULL":
+            parts.append("NOT NULL")
+
+        try:
+            conn.execute(text(f"ALTER TABLE {table.name} ADD COLUMN {' '.join(parts)}"))
+            logger.info("Added missing column %s.%s", table.name, col.name)
+        except Exception as e:
+            logger.warning("Could not add column %s.%s: %s", table.name, col.name, e)
 
 
 async def init_db() -> None:
@@ -50,6 +109,8 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(marketplace_metadata.create_all)
         await conn.run_sync(lambda sync_conn: shared.create(sync_conn, checkfirst=True))
+        for table in list(marketplace_metadata.sorted_tables) + [shared]:
+            await conn.run_sync(lambda sync_conn, t=table: _ensure_table_columns_sync(sync_conn, t))
     logger.info("Marketplace service database initialized")
 
 
