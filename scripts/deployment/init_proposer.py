@@ -57,7 +57,8 @@ def main() -> int:
         return 1
 
     env = _read_env(env_path)
-    blockchain_mode = env.get("BLOCKCHAIN_MODE", "follower")
+    node_env = _read_env(Path("/etc/aitbc/node.env"))
+    blockchain_mode = env.get("BLOCKCHAIN_MODE") or node_env.get("BLOCKCHAIN_MODE", "follower")
     if blockchain_mode != "hub":
         print("Node is not a hub; skipping proposer wallet generation")
         return 0
