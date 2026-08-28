@@ -1803,3 +1803,69 @@ def force_sync_chain(
 ) -> str:
     """Force blockchain reorganization to sync with a specified peer."""
     return _http_write_tool(role, host, "blockchain-rpc", "force-sync", peer_data, dry_run, confirm)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_ipfs_rental_token(
+    access_key: Annotated[
+        str,
+        Field(description="The rental access key (public identifier)."),
+    ],
+    access_secret: Annotated[
+        str,
+        Field(description="The rental access secret."),
+    ],
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Validate an IPFS rental access token and return its CID and metadata."""
+    return _http_read_tool(
+        role,
+        host,
+        "marketplace",
+        f"v1/marketplace/ipfs/rental/{access_key}",
+        {"access_secret": access_secret},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def register_ipfs_rental_token(
+    token: Annotated[
+        dict[str, Any],
+        Field(
+            description="IPFS rental token data (access_key, access_secret, rental_id, offer_id, cid, buyer_address, provider_address, escrow_contract_id, status, expires_at, disk_quota_mb, size, ipfs_api, public_endpoint)."
+        ),
+    ],
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to submit to."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Register an IPFS rental access token with the marketplace service."""
+    return _http_write_tool(
+        role,
+        host,
+        "marketplace",
+        "v1/marketplace/ipfs/rental-token",
+        token,
+        dry_run,
+        confirm,
+    )
