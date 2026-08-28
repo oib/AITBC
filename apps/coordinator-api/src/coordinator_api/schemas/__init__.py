@@ -416,6 +416,7 @@ class MarketplaceOfferView(BaseModel):
     created_at: datetime
     gpu_model: str | None = None
     gpu_memory_gb: int | None = None
+    disk_quota_mb: int | None = None
     gpu_count: int | None = 1
     cuda_version: str | None = None
     price_per_hour: Decimal | None = None

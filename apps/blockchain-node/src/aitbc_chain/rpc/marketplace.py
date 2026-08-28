@@ -163,6 +163,7 @@ async def marketplace_listings() -> dict[str, Any]:
                     "gpu_uuid": payload.get("gpu_uuid", ""),
                     "gpu_model": payload.get("gpu_model") or payload.get("gpu_name", ""),
                     "memory_gb": payload.get("memory_gb"),
+                    "disk_quota_mb": payload.get("disk_quota_mb"),
                     "compute_capability": payload.get("compute_capability", ""),
                     "endpoint": payload.get("endpoint", ""),
                     "status": "active",

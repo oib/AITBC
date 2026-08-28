@@ -76,6 +76,7 @@ class MarketplaceService:
             created_at=offer.created_at,
             gpu_model=offer.gpu_model,
             gpu_memory_gb=offer.gpu_memory_gb,
+            disk_quota_mb=offer.disk_quota_mb,
             gpu_count=offer.gpu_count,
             cuda_version=offer.cuda_version,
             price_per_hour=offer.price_per_hour,
