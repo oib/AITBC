@@ -316,6 +316,21 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
         }
 
 
+@rate_limit(rate=10, per=60)
+async def list_accounts(request: Request, chain_id: str | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+    """List accounts on the blockchain."""
+    chain_id = get_chain_id(chain_id)
+    with session_scope(chain_id) as session:
+        accounts = session.exec(select(Account).where(Account.chain_id == chain_id).offset(offset).limit(limit)).all()
+        return {
+            "chain_id": chain_id,
+            "accounts": [{"address": acc.address, "balance": acc.balance, "nonce": acc.nonce} for acc in accounts],
+            "total": len(accounts),
+            "limit": limit,
+            "offset": offset,
+        }
+
+
 async def get_state_delta(request: Request, from_height: int, to_height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Return state delta (changed accounts) between two block heights.
 
