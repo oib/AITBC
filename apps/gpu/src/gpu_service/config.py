@@ -10,6 +10,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from aitbc_shared.core.config import ServiceSettings
 
+from pydantic import Field
 from pydantic_settings import SettingsConfigDict
 
 
@@ -18,9 +19,9 @@ class Settings(ServiceSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
-    # API key for state-changing GPU marketplace endpoints
+    # API key for state-changing GPU marketplace endpoints (shared with the CLI)
     auth_enabled: bool = True
-    api_key: str | None = None
+    api_key: str | None = Field(default=None, alias="GPU_API_KEY")
 
     # Blockchain integration
     blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL
