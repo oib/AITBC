@@ -401,6 +401,16 @@ class BlockImportMixin(SyncBase):
                             recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
                             session.add(recipient_acct)
                             session.flush()
+                    # Bump tx_data nonce/value to the live account state before
+                    # applying, mirroring the block producer.  Blocks may contain
+                    # multiple same-sender transactions that share the stored nonce
+                    # (e.g. parallel-validated GPU_MARKETPLACE offers); the follower
+                    # must apply them with the current account nonce, not the stored
+                    # one, or the second transaction fails and the state root diverges.
+                    if raw_from not in {"faucet", "bridge_release", "bridge_refund"} and sender_acct is not None:
+                        tx_data["nonce"] = sender_acct.nonce
+                    if "value" not in tx_data and "amount" in tx_data:
+                        tx_data["value"] = tx_data["amount"]
                     state_transition = get_state_transition()
                     success, error_msg = state_transition.apply_transaction(session, self._chain_id, tx_data, tx_hash)
                     if not success:
