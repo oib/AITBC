@@ -1153,11 +1153,11 @@
         }
       }
     },
-    "/v1/ipfs/rental-token": {
+    "/v1/marketplace/ipfs/rental-token": {
       "post": {
         "summary": "Register Ipfs Rental Token",
         "description": "Register an access token for a paid IPFS rental.",
-        "operationId": "register_ipfs_rental_token_v1_ipfs_rental_token_post",
+        "operationId": "register_ipfs_rental_token_v1_marketplace_ipfs_rental_token_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1176,7 +1176,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "title": "Response Register Ipfs Rental Token V1 Ipfs Rental Token Post"
+                  "title": "Response Register Ipfs Rental Token V1 Marketplace Ipfs Rental Token Post"
                 }
               }
             }
@@ -1209,11 +1209,11 @@
         }
       }
     },
-    "/v1/ipfs/rental/{access_key}": {
+    "/v1/marketplace/ipfs/rental/{access_key}": {
       "get": {
         "summary": "Get Ipfs Rental Token",
         "description": "Validate an IPFS rental token and return its details.",
-        "operationId": "get_ipfs_rental_token_v1_ipfs_rental__access_key__get",
+        "operationId": "get_ipfs_rental_token_v1_marketplace_ipfs_rental__access_key__get",
         "parameters": [
           {
             "name": "access_key",
@@ -1240,7 +1240,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "title": "Response Get Ipfs Rental Token V1 Ipfs Rental  Access Key  Get"
+                  "title": "Response Get Ipfs Rental Token V1 Marketplace Ipfs Rental  Access Key  Get"
                 }
               }
             }
