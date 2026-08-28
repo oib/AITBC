@@ -1023,6 +1023,40 @@
         }
       }
     },
+    "/v1/bridge/poll": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Trigger Bridge Poll",
+        "description": "Manually trigger one bridge poll cycle (admin operation).",
+        "operationId": "trigger_bridge_poll_v1_bridge_poll_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Trigger Bridge Poll V1 Bridge Poll Post"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bridge/price": {
       "get": {
         "tags": [

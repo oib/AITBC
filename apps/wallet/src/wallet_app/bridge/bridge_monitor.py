@@ -39,6 +39,16 @@ GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
 DEFAULT_RECIPIENT = os.getenv("WALLET_ADDRESS", "")
 MIN_ETH_DEPOSIT = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
 
+_db_initialized = False
+
+
+def _ensure_db() -> None:
+    """Initialize the bridge database exactly once per process."""
+    global _db_initialized
+    if not _db_initialized:
+        init_db()
+        _db_initialized = True
+
 
 def _canonical_address(address: str) -> str | None:
     """Normalize a 0x address to its canonical EIP-55 form.
@@ -262,6 +272,48 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         update_deposit_status(deposit_id, "pending")
 
 
+async def poll_once() -> dict[str, Any]:
+    """
+    Run a single bridge poll cycle.
+
+    Returns a summary of the poll, including how many transactions were
+    scanned and how many new deposits were recorded.
+    """
+    if not BRIDGE_ENABLED:
+        return {
+            "scanned": 0,
+            "recorded": 0,
+            "skipped": True,
+            "reason": "BRIDGE_ENABLED=false",
+        }
+
+    if not ETH_WALLET_ADDRESS:
+        return {
+            "scanned": 0,
+            "recorded": 0,
+            "skipped": True,
+            "reason": "ETH_WALLET_ADDRESS not set",
+        }
+
+    _ensure_db()
+
+    transactions = await get_eth_transactions(ETH_WALLET_ADDRESS)
+    recorded = 0
+    for tx in transactions:
+        try:
+            if await process_transaction(tx):
+                recorded += 1
+        except Exception as e:
+            logger.error("Error processing tx %s: %s", tx.get("hash", ""), e)
+
+    return {
+        "scanned": len(transactions),
+        "recorded": recorded,
+        "skipped": False,
+        "address": ETH_WALLET_ADDRESS,
+    }
+
+
 async def monitor_loop() -> None:
     """
     Main monitoring loop that polls for new transactions.
@@ -277,15 +329,13 @@ async def monitor_loop() -> None:
     logger.info("Starting bridge monitor for address %s", ETH_WALLET_ADDRESS)
     logger.info("Polling interval: %ss", POLL_INTERVAL)
 
-    init_db()
+    _ensure_db()
 
     while True:
         try:
-            transactions = await get_eth_transactions(ETH_WALLET_ADDRESS)
-
-            for tx in transactions:
-                await process_transaction(tx)
-
+            summary = await poll_once()
+            if not summary.get("skipped"):
+                logger.info("Bridge poll completed: %s", summary)
         except Exception as e:
             logger.error("Error in monitor loop: %s", e)
 
