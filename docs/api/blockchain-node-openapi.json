@@ -2229,6 +2229,31 @@
         }
       }
     },
+    "/rpc/proposer": {
+      "get": {
+        "tags": [
+          "rpc",
+          "core"
+        ],
+        "summary": "Get the current block proposer address",
+        "description": "Return the block proposer address for this hub.\n\nFollower/customer nodes use this to build escrow transactions without\nreaching the private /health endpoint of the blockchain RPC.",
+        "operationId": "get_proposer_route_rpc_proposer_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Proposer Route Rpc Proposer Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/blocks/{height}": {
       "get": {
         "tags": [
@@ -11713,6 +11738,31 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/proposer": {
+      "get": {
+        "tags": [
+          "v1",
+          "core"
+        ],
+        "summary": "Get the current block proposer address",
+        "description": "Return the block proposer address for this hub.\n\nFollower/customer nodes use this to build escrow transactions without\nreaching the private /health endpoint of the blockchain RPC.",
+        "operationId": "get_proposer_route_v1_proposer_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Proposer Route V1 Proposer Get"
                 }
               }
             }
