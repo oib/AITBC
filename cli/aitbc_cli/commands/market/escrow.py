@@ -94,6 +94,14 @@ def _escrow_create(
     if not node_wallet:
         node_wallet = getattr(config, "hub_proposer_id", None) or None
     if not node_wallet:
+        # Try local /health discovery (hub/proposer nodes) before giving up.
+        from ...utils.escrow import get_node_wallet
+
+        try:
+            node_wallet = get_node_wallet(ctx, _get_blockchain_rpc_url(config))
+        except Exception:
+            pass
+    if not node_wallet:
         error("No escrow proposer address available. Set HUB_PROPOSER_ID, or run on a hub/proposer node.")
         raise click.Abort()
 
