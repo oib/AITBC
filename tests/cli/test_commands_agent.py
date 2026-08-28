@@ -40,7 +40,7 @@ class TestAgentCommands:
         runner = CliRunner()
         result = runner.invoke(
             agent,
-            ["send", "hello world", "--to-agent", "hub-coordinator"],
+            ["send", "hello world", "--from-agent", "test-sender", "--to-agent", "hub-coordinator"],
         )
 
         assert result.exit_code == 0, result.output
@@ -48,8 +48,9 @@ class TestAgentCommands:
         # Verify the endpoint and payload
         call_args = mock_client.post.call_args
         assert "/api/v1/agent/messages/send" in call_args[0][0]
-        assert call_args[1]["json"]["message"] == "hello world"
-        assert call_args[1]["json"]["to_agent"] == "hub-coordinator"
+        assert call_args[1]["json"]["sender"] == "test-sender"
+        assert call_args[1]["json"]["recipient"] == "hub-coordinator"
+        assert call_args[1]["json"]["content"]["message"] == "hello world"
         mock_success.assert_any_call("Message sent via Agent Coordinator")
         mock_error.assert_not_called()
 

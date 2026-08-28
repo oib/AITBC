@@ -97,7 +97,7 @@ class TestAICommands:
         assert "/v1/jobs" == posted_path
         assert posted_body["payload"]["type"] == "inference"
         assert posted_body["payload"]["prompt"] == "Hello world"
-        assert posted_body["payment_amount"] == 5.0
+        assert posted_body["payment_amount"] == "5.0"
         assert posted_body["payment_currency"] == "AITBC"
         assert "job_test_123" in result.output
 
@@ -132,7 +132,7 @@ class TestAICommands:
 
         assert result.exit_code == 0, result.output
         posted_body = mock_client.post.call_args.kwargs.get("json")
-        assert posted_body["payment_amount"] == 1.0
+        assert posted_body["payment_amount"] == "1.0"
         assert posted_body["payment_currency"] == "INVALID_CURRENCY"
 
     @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
