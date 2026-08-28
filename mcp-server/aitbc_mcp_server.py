@@ -3066,8 +3066,8 @@ def list_gpus(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List all registered GPUs on the node."""
-    return _http_read_tool(role, host, "blockchain-rpc", "gpus")
+    """List all registered GPUs on the node via the local gpu-service."""
+    return _aitbc_cli_read_tool(role, host, "gpu", "list-gpus")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -3085,8 +3085,8 @@ def get_gpu_info(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Get GPU registration and status information."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"gpu/info/{gpu_id}")
+    """Get GPU registration and status information from the local gpu-service."""
+    return _http_read_tool(role, host, "gpu", f"v1/gpu/{gpu_id}")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
