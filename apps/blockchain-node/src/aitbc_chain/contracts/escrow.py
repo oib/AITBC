@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.units import units_to_ait
 
 logger = get_logger(__name__)
 
@@ -199,7 +200,7 @@ class EscrowManager:
                     )
                     if contract_id in self.escrow_contracts:
                         continue
-                    amount = Decimal(str(record.amount))
+                    amount = units_to_ait(record.amount)
                     contract = EscrowContract(
                         contract_id=contract_id,
                         job_id=record.job_id,
@@ -250,7 +251,7 @@ class EscrowManager:
                 contract_id = (
                     "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
                 )
-                amount = Decimal(str(record.amount))
+                amount = units_to_ait(record.amount)
                 state = EscrowState.FUNDED
                 if record.released_at:
                     state = EscrowState.RELEASED

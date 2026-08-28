@@ -1,0 +1,23 @@
+# v0.24.2 — P0 Phase 1–3: docs, auth, sync alerts
+
+## P0 Phase 1 — Documentation and config honesty (2026-08-21)
+
+- docs/releases/STATUS.md now distinguishes payment escrow (live) from bridge HTLC gating.
+- docs/architecture/1_system-flow.md rewritten to describe the current CLI-driven flow.
+- docs/architecture/active_apps.md updated to v0.10.18 and notes deprecated/parked entries.
+- docs/scenarios/27_cli_commands.md adds command-family clarity step (market vs marketplace, governance vs operations governance).
+- docs/scenarios/README.md and docs/README.md cross-link releases/STATUS.md and note the P0 pass.
+
+## P0 Phase 2 — aitbc auth login (2026-08-21)
+
+- New CLI group `aitbc auth` with `login`, `logout`, and `status`.
+- `aitbc auth login` performs a wallet-signed nonce challenge against the coordinator `/v1/auth/nonce` and `/v1/login` endpoints and stores the returned JWT in the CLI credential store.
+- `aitbc ai submit` falls back to the stored coordinator JWT when `--api-key` is not supplied.
+- Scenarios 07 and 34 replace the Python `from aitbc.auth import create_access_token` snippet with `aitbc auth login`.
+
+## P0 Phase 3 — sync status divergence alerts (2026-08-21)
+
+- `aitbc sync status` now accepts `--hub-url` and compares the local chain head against the hub head.
+- New output fields: Hub height, Hub hash, Height gap, Divergence.
+- `--alert` exits non-zero when the height gap exceeds `--gap-threshold` (default 5) or the hub hash at the same height differs.
+- `HUB_UNREACHABLE` is reported separately from `BEHIND_BY_N` / `HASH_MISMATCH` so operators do not get false positives when the hub RPC is not reachable.

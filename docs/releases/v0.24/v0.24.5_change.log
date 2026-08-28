@@ -1,0 +1,112 @@
+# v0.24.5 — P1.1–1.4: reputation, dashboards, governance, bridge, consensus
+
+## P1.6 — Island credential and secrets ownership for the `aitbc` user
+
+- `cli/aitbc_cli/commands/node.py` now `chown aitbc:aitbc 0600`s `/var/lib/aitbc/island_credentials.json` after it is written.
+- `cli/aitbc_cli/config.py` only loads env files that are readable by the current user, so the CLI does not crash when `blockchain-secrets.env` (or other root-only files) are `0600`.
+- `get_config()` also tolerates an unreadable current-working-directory `.aitbc.yaml`.
+- `cli/aitbc_cli/utils/island_credentials.py` imports `get_config` at module level so callers can use the existing RPC fallback and tests can mock it.
+- `scripts/deployment/setup.sh` and `scripts/deployment/unify_service_users.sh` now (re)own `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` 0600.
+- Updated scenario 34 to reflect that the CLI skips root-only env files.
+- Fixed `tests/cli/test_utils_island_credentials.py` to mock the fallback path.
+
+## P1.1 Phase A — Reputation-aware sorting for `aitbc market list`
+
+- Added `--sort {reputation,price,availability,default}` to `aitbc market list`.
+- `reputation` (and the default) sorts by `avg_rating` desc, `rating_count` desc,
+  then `price` asc, then availability/capacity.
+- `price` sorts by price ascending, with reputation as tie-breaker.
+- `availability` sorts active/available/open offers first, then by capacity,
+  reputation, and price.
+- Added `tests/cli/test_market_offers.py` covering the sorting keys.
+- Updated scenario 34 to demonstrate `--sort`.
+
+## P1.2 — Customer and shop dashboards
+
+- Added `aitbc dashboard customer` and `aitbc dashboard shop`.
+- Customer dashboard queries `/v1/jobs` and the wallet daemon, summarising
+  job states, payment statuses, recent jobs, and wallet balances.
+- Shop dashboard queries monitoring metrics, miner jobs/earnings, GPU
+  discovery, marketplace offers, and wallet balances.
+- `cli/aitbc_cli/core/main.py` now registers the `dashboard` command group.
+- Added `tests/cli/test_dashboard.py` covering customer and shop flows.
+- Updated scenario 34 with `dashboard customer` and `dashboard shop` steps.
+
+Also fixed `aitbc ai` (P1.5 follow-up): all AI commands now normalise the
+configured `coordinator_api_url` so `/v1` is not doubled when the hub URL
+already ends in `/v1`.
+
+## P1.7 — Governance `propose → vote → close → execute` lifecycle
+
+- Added `close_proposal` to `GovernanceService`, which tallies votes and
+  transitions an active proposal to `succeeded` (quorum + approval met) or
+  `defeated` (voting ended without meeting thresholds).
+- Added `POST /v1/governance/proposals/{proposal_id}/close` to the governance
+  service.
+- Added `aitbc governance close <proposal-id>` to the CLI.
+- Updated `aitbc governance` commands to pull `governance_service_url` from
+  CLI config instead of only the hardcoded localhost default.
+- Added `tests/cli/test_governance_group.py` for the `close` command.
+- Updated scenario 17 to document the full `propose → vote → close → execute`
+  flow.
+
+Live validation: `aitbc governance status` works. `propose`/`close`/`execute`
+fail against the running aitbc3 governance service because the governance DB
+has `invalid page in block 4 of relation base/16399/2610` corruption. The code
+path is implemented and unit-tested; the live cycle is blocked by the DB.
+
+## P1.7 update — governance DB recovered and lifecycle live-validated
+
+- Dropped and recreated the corrupt `aitbc_governance` PostgreSQL database on aitbc3.
+- Ran `alembic upgrade head` to rebuild the schema.
+- Fixed `governance_service.py` for PostgreSQL use:
+  - parse ISO datetime strings from the CLI
+  - auto-create governance profiles for proposer/voter
+  - normalise vote numbers to `Decimal`
+  - set proposal status to `active` on creation
+- Live-validated the full `propose → vote → close → execute` cycle:
+  ```bash
+  aitbc governance propose --title 'Gas2' --description 'Gas2' --proposer-id aitbc3 --voting-days 1
+  aitbc governance vote --proposal-id prop_b9f8d532 --voter-id aitbc3 --vote for --voting-power 1000000
+  aitbc governance close prop_b9f8d532
+  aitbc governance execute prop_b9f8d532
+  ```
+- For the live aitbc3 test environment, `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false`
+  was added to `/etc/aitbc/aitbc-governance.env` because on-chain submission is
+  disabled there and no block height is recorded. In a production deployment with
+  `enable_onchain_submission=true`, the timelock should remain enabled.
+
+## P1.1 Phase B — reputation-aware job dispatch
+
+- Added `min_reputation` to `Constraints` in `apps/coordinator-api/src/coordinator_api/custom_types.py`.
+- Updated `JobService` to compute miner reputation from `reputation_score` metadata
+  or from the historical `jobs_completed / (jobs_completed + jobs_failed)` ratio.
+- `acquire_next_job` now:
+  - rejects jobs whose `min_reputation` the miner does not meet;
+  - defers a job to a higher-reputation online miner when one is available.
+- Added `--min-reputation` to `aitbc ai submit`.
+- Live validation on aitbc3 (coordinator SQLite + manual test miners):
+  - low-reputation miner skipped a `min_reputation: 0.5` job;
+  - high-reputation miner received the same job when it polled;
+  - low-reputation miner received a `min_reputation: 0.1` job once the
+    higher-reputation miners were offline.
+
+## P1.3 — bridge trusted-custodian documentation
+
+- Audited bridge verification code in `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py`,
+  `aitbc/bridge/multisig.py`, and `aitbc/bridge/proof.py`. Multi-signature and
+  Merkle-proof verification are implemented and regression-tested, but they are
+  gated by flags that default to `False`:
+  - `bridge_release_enabled`
+  - `bridge_multisig_enabled`
+  - `bridge_require_merkle_proof`
+- Updated `docs/releases/STATUS.md` to reflect the actual default (`False`) for
+  `bridge_release_enabled` and documented the trusted-custodian default.
+- Added an "Operational security model" section to
+  `docs/features/2-bridge-cross-chain.md`.
+- Updated `docs/architecture/bridge-threat-model.md` to state that the default
+  deployment is a trusted-custodian bridge.
+- Added a "Security Model" note to `docs/scenarios/20_cross_chain_transfer.md`.
+- Extended `bridge_security_status` to report `require_merkle_proof`,
+  `verification_mode`, and `trusted_custodian`.
+- Ran bridge unit/security tests successfully.

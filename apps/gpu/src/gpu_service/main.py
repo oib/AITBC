@@ -19,6 +19,7 @@ from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -431,7 +432,7 @@ async def submit_transaction(
                 "from": provider_address,
                 "to": "0x0000000000000000000000000000000000000000",
                 "amount": 0,
-                "fee": 36,
+                "fee": DEFAULT_TX_FEE_UNITS,
                 "nonce": 0,
                 "type": "GPU_REGISTER",
                 "value": 0,

@@ -20,6 +20,7 @@ from ..logger import get_logger
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.units import DEFAULT_FAUCET_UNITS, MAX_FAUCET_UNITS
 
 _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 _cache = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
@@ -157,7 +158,7 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
     """
     chain_id = get_chain_id(faucet_data.get("chain_id"))
     address = faucet_data.get("address")
-    amount = faucet_data.get("amount", 3600000000)
+    amount = faucet_data.get("amount", DEFAULT_FAUCET_UNITS)
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
     address = canonical_address(address)
@@ -166,8 +167,8 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
     # Allow both lower-case and EIP-55 checksum hex characters (V23-66).
     if not all(c in "0123456789abcdefABCDEF" for c in address[2:]) or len(address) != 42:
         raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
-    if amount > 36000000000:
-        amount = 36000000000
+    if amount > MAX_FAUCET_UNITS:
+        amount = MAX_FAUCET_UNITS
     from ..config import settings as chain_settings
     from ..mempool import get_mempool
 

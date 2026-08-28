@@ -28,6 +28,7 @@ from aitbc.config.hub import hub_agent_url
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.marketplace import BlockchainRPCClient
 from aitbc.rewards import REWARD_PER_SHARE, RewardPolicy
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ..models import RewardPayout
 
@@ -84,7 +85,7 @@ class PoolHubBlockchainClient:
 
         Args:
             miner_address: Miner's wallet address (recipient)
-            amount: Reward amount in compute-seconds (smallest unit)
+            amount: Reward amount in compute-units (smallest unit)
             job_id: Job ID for tracking (included in payload)
 
         Returns:
@@ -111,7 +112,7 @@ class PoolHubBlockchainClient:
             "from": self._signer_address,
             "to": miner_address,
             "amount": amount,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": await self._rpc.get_nonce(self._signer_address, self._chain_id),
             "payload": {"purpose": "mining_reward", "job_id": job_id},
             "type": "TRANSFER",

@@ -204,6 +204,7 @@ def multi_chain_mempool(multi_chain_setup):
 
     Returns an InMemoryMempool instance configured for multi-chain operation.
     """
+    from aitbc.utils import DEFAULT_TX_FEE_UNITS
     from aitbc_chain.mempool import InMemoryMempool
 
     pool = InMemoryMempool(max_size=10_000, min_fee=0, chain_id=multi_chain_setup.hub_chain_id)
@@ -215,7 +216,7 @@ def multi_chain_mempool(multi_chain_setup):
             "from": "0xtest_sender",
             "to": "0xtest_recipient",
             "amount": 100,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": 0,
             "type": "TRANSFER",
             "payload": {},

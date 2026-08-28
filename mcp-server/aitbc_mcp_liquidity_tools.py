@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Annotated, Any
 
 from mcp.types import ToolAnnotations
@@ -16,12 +15,7 @@ from aitbc_mcp_server import (
     mcp,
 )
 
-_SECONDS_PER_AIT = 3600
-
-
-def _ait_to_seconds(ait: str) -> int:
-    """Convert an AIT string to compute-seconds."""
-    return int(Decimal(str(ait)) * _SECONDS_PER_AIT)
+from aitbc.utils.units import ait_to_units
 
 
 def _call_liquidity(
@@ -147,10 +141,10 @@ def build_liquidity_deposit(
     """Build an unsigned on-chain liquidity deposit transaction."""
     body = {
         "address": address,
-        "amount": _ait_to_seconds(amount_ait),
+        "amount": ait_to_units(amount_ait),
         "pool_id": pool_id,
         "lock_days": lock_days,
-        "fee": _ait_to_seconds(fee_ait),
+        "fee": ait_to_units(fee_ait),
     }
     return _json(_call_liquidity(role, host, "liquidity/build-deposit", method="POST", body=body))
 
@@ -187,7 +181,7 @@ def build_liquidity_withdraw(
         "address": address,
         "stake_id": stake_id,
         "pool_id": pool_id,
-        "fee": _ait_to_seconds(fee_ait),
+        "fee": ait_to_units(fee_ait),
     }
     return _json(_call_liquidity(role, host, "liquidity/build-withdraw", method="POST", body=body))
 
@@ -224,6 +218,6 @@ def build_liquidity_claim(
         "address": address,
         "stake_id": stake_id,
         "pool_id": pool_id,
-        "fee": _ait_to_seconds(fee_ait),
+        "fee": ait_to_units(fee_ait),
     }
     return _json(_call_liquidity(role, host, "liquidity/build-claim", method="POST", body=body))

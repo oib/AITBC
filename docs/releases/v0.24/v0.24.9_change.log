@@ -1,0 +1,220 @@
+# v0.24.9 — Cross-island bridge multi-sig and Merkle proof verification
+
+## Operator user and CLI wallet hardening
+
+- Created `/home/aitbc` as the `aitbc` operator home on `aitbc3` and `hub.aitbc`.
+- Migrated CLI wallets from `/root/.aitbc/wallets` to `/home/aitbc/.aitbc/wallets`.
+- Set wallet directory `0700` and wallet files `0600`.
+- Updated `aitbc` user home to `/home/aitbc` (with a service restart on both nodes).
+- Removed `/root/.aitbc/wallets` and left a note pointing operators to run `sudo -u aitbc aitbc <command>`.
+- Documented the operator user / wallet locations in `AGENTS.md`.
+
+- `cli/aitbc_cli/commands/wallet/basic.py`: `aitbc wallet balance <name>` now falls back to a local file wallet when the wallet daemon returns 404, so file-only wallets (e.g. `customer-wallet`, `shop-wallet`) can be queried.
+
+
+- P2.4: automatic reinvestment from released escrow.
+  - `aitbc ai submit --auto-reinvest-pct <pct>` creates an auto-stake order.
+  - On escrow release the blockchain node stakes `pct%` of the payment for the provider.
+  - Job status shows `reinvest_status: staked` and `reinvest_stake_id`.
+  - Scenario docs: `docs/scenarios/40_auto_reinvestment.md`.
+- Added `HUB_COORDINATOR_URL=http://hub.aitbc.bubuit.net/c/v1` to `/etc/aitbc/blockchain.env` on `aitbc3` and `hub.aitbc` so the `aitbc` operator user resolves the coordinator URL correctly without relying on a per-user `.aitbc.yaml`.
+- Validated `sudo -u aitbc aitbc ai submit --payment 1.0 --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F --model llama3.2:3b --prompt "What is 2+2?" --wait` on `hub.aitbc`: job completed, payment released, escrow tx `0x867529e7b692e222bb3406ec4b6ed51b86e8411da99654be14d962b38a913c74`.
+
+- `aitbc-miner.service`: set `HOME=/var/lib/aitbc` so `ProtectHome=yes` does not break Whisper temp paths after the operator home move.
+- `aitbc-pool-hub.service`: set `HOME=/var/lib/aitbc` and `PGSSLMODE=disable` so the hub pool-hub starts cleanly with the new `aitbc` home.
+- Shop miner now registers and heartbeats with the hub pool-hub (`HUB_POOL_HUB_URL=http://hub.aitbc.bubuit.net/pool-hub`); `aitbc pool-hub status` on both nodes reports `miners_online: 1`.
+- Disabled `aitbc-pool-hub.service` on `aitbc3` (shop/follower) and pointed the shop miner at the hub pool-hub.
+
+
+- P2.5: Whisper, FFmpeg, and Ollama default shop offers.
+  - `aitbc-miner` publishes default `whisper/base`, `ffmpeg/h264-transcode`, and
+    `ollama/llama3.2:3b` software offers on startup and every 5 minutes by running
+    the canonical `aitbc market offer` command.
+  - `aitbc market offer` now works from shop nodes: it picks a wallet with a
+    non-zero on-chain balance, falls back to the hub island (`ait-hub`), and
+    registers the offer with the hub marketplace service.
+  - Software-only marketplace listings no longer require a prior on-chain bond
+    (hardware GPU bundles still do when `MARKET_BOND_MIN_AMOUNT` is set).
+  - `aitbc market list` shows the default offers from the shop.
+  - `aitbc market transcribe`, `aitbc market process`, and `aitbc market run`
+    execute Whisper, FFmpeg, and Ollama jobs against the shop's public endpoints
+    and release escrow on completion.
+  - `apps/ffmpeg/main.py` maps consumer codec names (h264/hevc) to the correct
+    FFmpeg encoders (`h264_nvenc`, etc.) and fixes bitrate/bufsize formatting.
+  - `cli/aitbc_cli/commands/market/jobs.py` coerces `Decimal` costs to `float`
+    before JSON and uses the offer's public endpoint for Ollama inference.
+  - `examples/nginx/nginx-aitbc.conf.example` and `scripts/setup/install-nginx-node.sh`
+    include `ffmpeg` and `whisper` upstream/location blocks on the correct ports.
+  - Scenario docs: `docs/scenarios/41_whisper_ffmpeg_shop_offers.md` and
+    `docs/scenarios/50_default_shop_offers.md`.
+- Validated end-to-end ZK receipt verification: submitted `aitbc ai submit --wallet default --payment 1.0 --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F --model llama3.2:3b --prompt "What is the capital of France?" --zk-proof-required --wait`; the completed receipt shows `zk_status: verified` and `aitbc zk verify --proof-id f714b502099b4813931d8594b9b57650` returns `verified: true, computation_correct: true, privacy_preserved: true`.
+
+
+- P2.6: real IPFS daemon behind `aitbc ipfs`.
+  - `aitbc ipfs upload|download|pin|list` now use the local Kubo HTTP API
+    (`http://127.0.0.1:5001` by default, overridable with `IPFS_API_URL`).
+  - Falls back to the filesystem stub when the daemon is not reachable.
+  - Cross-node `aitbc ipfs download` validated over the public IPFS swarm
+    from `aitbc3` to `hub.aitbc` and back.
+  - `tests/cli/test_ipfs.py` updated to exercise the daemon-aware code path.
+  - Scenario docs: `docs/scenarios/42_ipfs_daemon.md`.
+
+- P2.7: compliance, plugins, and white-label expansion.
+  - `aitbc brand` and `aitbc brand list` show active brand settings and available
+    plugins.
+  - `aitbc plugin list` and `aitbc plugin load` discover and load Python brand
+    plugins from a configured directory.
+  - `aitbc plugin create` now writes a `.py` file with `brand`, `roles`, and
+    `identity_method` that `PluginManager` can load immediately, plus an optional
+    manifest for documentation.
+  - `aitbc compliance check` and `aitbc compliance classify` expose the policy
+    engine without requiring a job submission.
+  - `aitbc ai submit --compliance-framework <fw> --classification <label>`
+    validates the label against the selected framework before submitting and
+    attaches `data_classification` to the job constraints.
+  - `whitelabel_demo.py` sample brand plugin under `plugins/`.
+  - Lazily evaluated `get_active_brand()` in `wallet/staking.py` to avoid startup
+    crashes when `AITBC_ACTIVE_PLUGIN` is set.
+  - Scenario docs: `docs/scenarios/43_compliance_plugins_white_label.md`.
+- Wired coordinator reputation into dispatch: `JobService` now loads `AgentReputation.trust_score` (0-1000, normalized to 0-1) when choosing the best miner, and `miner.py` records successful/failed job completions into the reputation service.
+- `aitbc market list` now enriches offers with the canonical coordinator `trust_score` when the provider is a known agent, and the default sort prefers live trust score over marketplace avg_rating.
+
+- Implemented P1.1: job completion records update `AgentReputation`; dispatch prefers `trust_score`; `aitbc market list` fetches and sorts by live reputation.
+
+
+- Scenario 37: ZK high-value jobs.
+  - Added `docs/scenarios/37_zk_high_value_jobs.md` documenting the P2.1 ZK
+    receipt proof flow.
+  - Live-validated on hub: payment 15 AIT inference job `324860acec664b5eac8fad85cc2cd873`
+    completed with `zk_status`: `verified` and `zk_proof_id` set.
+  - Linked from `docs/scenarios/README.md`.
+- Registered `aitbc zk` CLI command (it existed but was not loaded in `core/main.py`).
+- Validated scenario 37: `aitbc ai submit --payment 15 --zk-proof-required` produces a verified `zk_proof` in the receipt, releases escrow, and `aitbc zk verify --job-id` confirms `verified: true`.
+
+- Registered missing CLI commands `aitbc auth` and `aitbc dashboard` in `core/main.py`.
+
+- Fixed `aitbc auth login` URL normalization: strip trailing `/v1` from configured `coordinator_api_url` to avoid `/v1/v1/auth/nonce`.
+
+- Updated scenario 34 (`docs/scenarios/34_hub_customer_node_e2e.md`) to v1.5, covering `aitbc auth login`, `aitbc dashboard`, `aitbc zk verify`, `aitbc reputation`, and trust-aware `aitbc market list`.
+
+- `DatabaseConfig` now supports `DATABASE_URL`/`DATABASE_ADAPTER` for PostgreSQL without switching live SQLite deployments that only set `DATABASE_URL`.
+- Removed the `AgentReputation.agent_id` foreign key to `ai_agent_workflows.id` so reputation profiles can be created for miners and other non-workflow agents.
+
+- Hardened cross-chain bridge: reject same-chain locks, enforce `bridge_max_lock_amount`, and add a configurable `bridge_refund_delay_seconds` to prevent instant refunds.
+* 838616dae fix(escrow,cli): load escrow contracts from DB and add aitbc ai refund command
+* a9edec4df fix(payments): make PaymentService.refund_payment idempotent and preserve refund_tx_hash
+* 3510a2313 fix(escrow): expose refund_tx_hash and refunded_at in /escrow/{job_id}
+* b0ed7463d fix(escrow): await async get_or_load_contract in _find_contract_id
+* 9d0b03ce6 fix(escrow): treat Escrow.amount as AIT, not compute-seconds
+* 5e5f2fda9 feat(cli,blockchain): market escrow refund tries coordinator, blockchain route is idempotent
+* 43c61d67f fix(cli): import Any in market escrow module
+* 91049b566 fix(cli): quote default hub hostname in market escrow refund
+* 381cf5b17 fix(escrow): deterministic contract_id for loaded escrows
+* df6dd0274 test(escrow,payments): regression tests for refund path
+- MultiValidatorPoA wired into live aitbc-blockchain-node: proposers rotate round-robin, blocks carry proposer signature plus validator attestations in block_metadata, and sync validates attestation threshold.
+- fix(sync): persist block_metadata when importing blocks so followers retain attestations.
+* 55359ceba feat(agent-coordinator): REST message send tries WebSocket first
+* 3c72e13e0 feat(agent-coordinator): make POST /messages/subscribe real
+* 0225bc91c feat(agent-coordinator): wire protocol send/broadcast to ConnectionManager
+
+* 0a35f4ae3 feat(governance): execute governance proposals on-chain with GOVERNANCE_EXECUTE tx and chain_parameter table
+* b3d692d61 fix(governance): use mempool-computed transaction hash for execution
+* e0b0bee2d fix(sync): include block_metadata in blocks-range so followers can validate multi-validator attestations
+- Governance proposals can now be executed on-chain: `aitbc operations governance execute` submits a signed `GOVERNANCE_EXECUTE` transaction to the mempool, and the next block applies the `execution_payload` (currently `parameter_change`) to the on-chain `chain_parameter` table.
+- Added `ChainParameter` model and `genesis_private_key`/`genesis_address` settings.
+- CLI `aitbc operations governance proposal` now accepts `--params` for the execution payload.
+- Documented island credential ownership (`aitbc:aitbc`, mode 0600) in `docs/ops/aitbc-cli-live-setup.md`.
+* 1de9b1d2c fix(cli/sdk): align messaging routes with deployed endpoints
+
+* eb1b607ab feat(coordinator-auth): wallet-based /v1/auth/nonce and /v1/login for CLI auth
+* 3a6f2df21 fix(cli): include payment_id in ai refund request body
+- `aitbc auth login --wallet <name>` now works end-to-end: it signs a coordinator-issued nonce and stores a client JWT for authenticated CLI commands.
+- Added coordinator `/v1/auth/nonce` and `/v1/login` endpoints that verify wallet signatures and issue `client` JWTs.
+- `aitbc ai refund --job-id <id>` now sends the required `payment_id` in the refund body and successfully refunds failed jobs.
+* 93a20cf91 feat(agent-coordinator): add key exchange endpoints and public-key registry
+* a0a8acbc7 feat(agent-coordinator): add delivery guarantees, idempotency, and SQLite fallback
+* ad2583e6d fix(agent-coordinator): correct relative import for WebSocket connection manager
+
+* 4830d69cc feat(tee): enforce signed quote path and auto-refund on TEE attestation failure
+* fb4988f3b fix(tee): use session.get/fresh job and flush to persist TEE failure
+* c9246c9e6 test(tee): add signed quote serialization and tampering tests
+- `aitbc tee attest` and `aitbc tee verify` now use self-contained Ed25519-signed quotes with base64 JSON serialization.
+- `TEEAttestationService` verifies the embedded signature and measurement before marking a quote as verified.
+- TEE attestation failures during job completion now trigger an automatic escrow refund instead of leaving the job stuck.
+* 981634d3e feat(cli,scenarios): add agent-msg scenario, tests, and CLI polish
+* c0cd93187 fix(tee): use explicit SQL update to persist TEE failure state
+- TEE attestation failures now correctly update job.state to FAILED, set the error message, and refund the escrowed payment.
+* 47585f03a fix(cli,agent-coordinator): peers and messaging route order
+* 05d0c7e91 docs(scenarios): align agent-msg receive output with live validation
+* 86286b420 feat(tee): auto-generate TEE quote for high-value and explicit TEE jobs
+- High-value jobs (payment >= COORDINATOR_TEE_HIGH_VALUE_THRESHOLD, default 10 AIT) now trigger automatic TEE quote generation and verification before escrow release.
+- Explicit --tee-attestation-required jobs also have their TEE quote auto-generated and verified if the miner does not provide one.
+- Mirrors the existing P2.1 ZK high-value gating.
+* 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
+- Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by `aitbc tee attest`.
+- The quote is placed at the top level of the `/v1/miners/{job_id}/result` payload so the coordinators can verify it before escrow release.
+* 13fd324e9 fix(miner): send full signed TEE quote at top level for all job types
+- Miner now attaches a real, signed base64 JSON TEE quote to job results, matching the format produced by aitbc tee attest.
+- The quote is placed at the top level of the /v1/miners/{job_id}/result payload so the coordinator TEE attestation service can verify it before escrow release.
+
+- feat(cli,coordinator-api): TEE attestation CLI (register, status) and confidential job flags
+  - Add `aitbc tee register` and `aitbc tee status` wired to /v1/tee/enclaves.
+  - Add `--confidential` and `--enclave-measurement` to `aitbc ai submit`.
+  - Extend `Constraints` with `confidential` and `required_enclave_measurement`.
+  - Add CLI unit tests in `cli/tests/test_tee.py` and `cli/tests/test_ai_tee_submit.py`.
+
+* 30f32e93b feat(miner,coordinator): respect confidential/required_enclave_measurement in TEE gate
+- _tee_required_for now treats confidential jobs and jobs with required_enclave_measurement as TEE-gated.
+- The coordinator checks the quote measurement against required_enclave_measurement and the enclave_id against tee_enclave_id.
+- production_miner.py falls back to required_enclave_measurement to generate the quote when tee_enclave_id is not set.
+
+- docs(scenarios): add scenario 46 for confidential TEE jobs and update README
+  - New scenario documents aitbc tee register/status, aitbc tee attest, and
+    aitbc ai submit --confidential --enclave-measurement end-to-end.
+  - Live validation on hub.aitbc/aitbc3 produced a released escrow with
+    tee_status: verified and confidential: true in the job constraints.
+  - Append validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- feat(cli): add aitbc zk command group for circuits, health, and verify
+  - New `aitbc zk circuits` lists available ZK circuits from /v1/zk/info.
+  - New `aitbc zk health` checks ZK service status.
+  - New `aitbc zk verify` re-verifies a job receipt proof or a user-supplied proof.
+  - Add CLI unit tests in cli/tests/test_zk.py.
+
+- docs(scenarios): add scenario 47 for ZK high-value jobs and live validation
+  - New scenario documents aitbc zk health/circuits/verify and
+    aitbc ai submit --zk-proof-required end-to-end.
+  - Live validation on hub.aitbc/aitbc3 produced released escrow with
+    zk_status: verified and a Groth16 zk_proof in the receipt.
+  - Append validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- ops(hub): enable ZK verification in aitbc-coordinator-api
+  - Add Environment=COORDINATOR_ENABLE_ZK_VERIFICATION=true override and
+    restart the service.
+
+- feat(coordinator,cli): performance bond eligibility and high-value job matching
+  - New /v1/marketplace/providers/{id}/bonds endpoints (create, status, lock,
+    release, slash, eligibility, get-by-id).
+  - Add bond_required/min_bond_amount to job Constraints.
+  - Add --bond-required and --min-bond-amount to aitbc ai submit.
+  - Rewrite aitbc bond CLI with create, status, top-up, lock, release, slash.
+  - JobService gates high-value/forced jobs to miners with active/locked bonds.
+
+- docs(scenarios): add scenario 48 for performance-bond high-value jobs
+  - New scenario documents aitbc bond create/status and aitbc ai submit
+    --bond-required end-to-end.
+  - Append live validation summary to LIVE_VALIDATION_SUMMARY.md.
+
+- fix(auth): add performance-bond routes to coordinator security matrix.
+- fix(coordinator): add missing os import in jobs.py.
+
+- feat(coordinator,blockchain): trigger auto-reinvest on escrow release
+  - aitbc ai submit --auto-reinvest-pct wires the percentage through job
+    constraints, payment meta_data, and the escrow release call.
+  - _auto_stake uses canonical provider addresses to create an on-chain Stake.
+  - The receipt now exposes reinvest_status, reinvest_stake_id and
+    reinvest_amount.
+
+- docs(scenarios): add scenario 49 for auto-reinvest from released escrow
+  - Documents the end-to-end flow, expected receipt fields, and on-chain stake
+    verification query.

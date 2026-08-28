@@ -47,7 +47,7 @@ GENESIS_FILE = {
         "chain_id": CHAIN_ID,
         "state_root": "0xe135ccc691cadc7ac5e1353d26ae3fdd376566f10ad5b9f9151534d65b0cc7df",
     },
-    "allocations": [{"address": "0xF5A930bBC90c15dB0bbf28f8485D18eEf24c3F43", "balance": 3600000000000, "nonce": 0}],
+    "allocations": [{"address": "0xF5A930bBC90c15dB0bbf28f8485D18eEf24c3F43", "balance": 36000000000000000, "nonce": 0}],
 }
 
 

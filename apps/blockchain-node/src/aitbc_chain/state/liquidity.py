@@ -21,8 +21,6 @@ from ..models import Account, LiquidityDistribution, LiquidityPool, LiquiditySta
 
 logger = get_logger(__name__)
 
-_SECONDS_PER_AIT = 3600
-
 
 def _env_or_derived(label: bytes, env_var: str) -> str:
     """Return a canonical address from env or deterministically derived from a label."""
@@ -55,9 +53,9 @@ def _tier_apy(lock_days: int) -> Decimal:
     return Decimal("0.03")
 
 
-def _apy_reward_seconds(amount: int, apy: Decimal, elapsed_seconds: float) -> int:
-    """Compute fixed APY reward in compute-seconds for a given elapsed time."""
-    years = Decimal(str(elapsed_seconds)) / Decimal("31536000")  # 365 * 24 * 3600
+def _apy_reward_units(amount: int, apy: Decimal, elapsed_seconds: float) -> int:
+    """Compute fixed APY reward in compute-units for a given elapsed time."""
+    years = Decimal(str(elapsed_seconds)) / Decimal("31536000")  # 365 * 24 * 3600 (true seconds)
     reward = Decimal(amount) * apy * years
     return int(reward.to_integral_value(rounding=ROUND_FLOOR))
 
@@ -107,7 +105,7 @@ def _distribute_to_pool(
     session: Session,
     chain_id: str,
     pool_id: str,
-    amount_seconds: int,
+    amount_units: int,
     source: str,
 ) -> bool:
     """Add fee/emission rewards to the global reward-per-share for a pool.
@@ -116,16 +114,16 @@ def _distribute_to_pool(
     before this helper is called, so the treasury account balance matches the
     rewards tracked by reward_per_share.
     """
-    if amount_seconds <= 0:
+    if amount_units <= 0:
         return True
     pool = _get_or_create_pool(session, chain_id, pool_id)
     if pool.total_staked <= 0:
         # No active stakes yet; keep the distribution as treasury balance.
-        logger.info("Pool %s has no active stakes; %s reward %s held in treasury", pool_id, source, amount_seconds)
+        logger.info("Pool %s has no active stakes; %s reward %s held in treasury", pool_id, source, amount_units)
         return True
 
     reward_before = pool.reward_per_share
-    increment = _scaled_reward_per_share_increment(amount_seconds, pool.total_staked)
+    increment = _scaled_reward_per_share_increment(amount_units, pool.total_staked)
     pool.reward_per_share += increment
     pool.last_distribution_at = datetime.now(UTC)
     pool.updated_at = datetime.now(UTC)
@@ -134,7 +132,7 @@ def _distribute_to_pool(
     dist = LiquidityDistribution(
         chain_id=chain_id,
         pool_id=pool_id,
-        amount=amount_seconds,
+        amount=amount_units,
         source=source,
         reward_per_share_before=reward_before,
         reward_per_share_after=pool.reward_per_share,
@@ -142,8 +140,8 @@ def _distribute_to_pool(
     )
     session.add(dist)
     logger.info(
-        "Distributed %s compute-seconds to pool %s from %s; rps %s -> %s",
-        amount_seconds,
+        "Distributed %s compute-units to pool %s from %s; rps %s -> %s",
+        amount_units,
         pool_id,
         source,
         reward_before,
@@ -155,7 +153,7 @@ def _distribute_to_pool(
 def _realize_fixed_apy(session: Session, chain_id: str, pool: LiquidityPool, stake: LiquidityStake) -> int:
     """Realize fixed APY for a stake by moving emission treasury into the pool reward pool.
 
-    Returns the number of compute-seconds added to the pool reward-per-share.
+    Returns the number of compute-units added to the pool reward-per-share.
     """
     if stake.status != "active" or stake.amount <= 0:
         return 0
@@ -164,7 +162,7 @@ def _realize_fixed_apy(session: Session, chain_id: str, pool: LiquidityPool, sta
         created = created.replace(tzinfo=UTC)
     elapsed = (datetime.now(UTC) - created).total_seconds()
     apy = _tier_apy(stake.lock_days)
-    fixed = _apy_reward_seconds(stake.amount, apy, elapsed)
+    fixed = _apy_reward_units(stake.amount, apy, elapsed)
     if fixed <= 0:
         return 0
 
@@ -193,12 +191,12 @@ def _pending_rewards(stake: LiquidityStake, pool: LiquidityPool) -> int:
     """
     if stake.status != "active" or stake.amount <= 0:
         return 0
-    share_seconds = int(
+    share_units = int(
         (Decimal(stake.amount) * (pool.reward_per_share - stake.reward_per_share_at_stake)).to_integral_value(
             rounding=ROUND_FLOOR
         )
     )
-    return max(0, share_seconds - stake.rewards_claimed)
+    return max(0, share_units - stake.rewards_claimed)
 
 
 def _generate_stake_id() -> str:

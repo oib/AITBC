@@ -12,6 +12,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus
+from aitbc.utils.units import ait_to_units
 
 from ..config import settings
 from ..domain.marketplace import Bid, MarketplaceOffer, ServiceRating, SoftwareService
@@ -849,11 +850,11 @@ class MarketplaceService:
             if expected_recipient and tx_recipient != expected_recipient:
                 raise ValueError(f"Transaction recipient {tx_recipient} does not match provider {expected_recipient}")
 
-            # price is stored in AIT; on-chain value is in compute-seconds (1 AIT = 3600)
-            required_value = int(bid.price * Decimal("3600"))
+            # price is stored in AIT; on-chain value is in compute-units (1 AIT = 36_000_000)
+            required_value = ait_to_units(bid.price)
             tx_value = int(tx.get("value", 0) or 0)
             if required_value > 0 and tx_value < required_value:
-                raise ValueError(f"Transaction value {tx_value} compute-seconds is less than required {required_value}")
+                raise ValueError(f"Transaction value {tx_value} compute-units is less than required {required_value}")
 
             bid.status = "completed"
             bid.tx_hash = tx_hash

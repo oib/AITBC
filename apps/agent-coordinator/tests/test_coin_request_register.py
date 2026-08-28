@@ -25,7 +25,9 @@ from .conftest import API_KEY, PAYOUT, signed_transactions, stored_request
 
 WALLET = "0xf3290d4F0D96a2Dd231C44362c57d5ad0AF0A281"
 ATTACKER_WALLET = "0x3476E0ee27BC5959c00de93834a9a3d033d32DAA"
-TREASURY_DRAIN = 3_600_000_000_000
+from aitbc.utils.units import ait_to_units
+
+TREASURY_DRAIN = ait_to_units(1_000_000_000)
 
 
 def _register(client, key: str | None = API_KEY, **overrides):

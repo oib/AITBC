@@ -1,0 +1,78 @@
+# v0.24.16 — AI job lifecycle, dashboards, IPFS, and MCP server
+
+## ZK live service validation and aitbc3 startup fix (2026-08-25)
+
+- Live `_attach_zk_proof` on `hub.aitbc` and `aitbc3`:
+  - ZK-required job with `model: "llama3.2:3b"` correctly returns
+    `zk_status="unsupported_model"` and `computation_correct=False`.
+  - ZK-required job with `model: "linear-1"` returns `zk_status="verified"`,
+    `computation_correct=True`, and a `receipt_model` Groth16 proof.
+- Fixed `aitbc3` `aitbc-coordinator-api` startup crash caused by
+  `model_registry` calling `node`/Poseidon at module import time.
+  `model_hash` is now computed lazily via `ModelCircuit.get_model_hash()`.
+- Both coordinators now restart cleanly and `/health` returns 200.
+
+## Phase 3 — AI job lifecycle and dashboard sync (2026-08-26)
+
+- `aitbc ai cancel --refund` cancels a job and refunds the escrowed payment in one step.
+- `aitbc ai refund` now fails with a clear auth message when the user is not logged in.
+- `aitbc dashboard customer` and `aitbc dashboard shop` now show real wallet balances
+  (daemon + blockchain fallback) and override `payment_status` with the on-chain escrow state.
+- `cli/aitbc_cli/commands/market/escrow.py` exposes a shared `refund_escrow` helper used
+  by `ai cancel --refund` as a blockchain refund fallback.
+- Live: pushed to Gitea, pulled on `hub.aitbc` and `aitbc3`;
+  `aitbc dashboard customer`/`shop` show canonical addresses and formatted AIT balances.
+
+## Phase 4 — Agent and discovery UX (2026-08-26)
+
+- `aitbc agent status [AGENT_ID]` now defaults to the single local agent and
+  lists local candidates when multiple agents exist.
+- `aitbc agent inbox` now defaults to the single local agent when `--agent-id` is omitted.
+- `aitbc agent discover agents` probes the coordinator first and prints a clear
+  `sudo systemctl start aitbc-agent-coordinator` message when the service is down.
+- `get_agent_status` now queries the coordinator and distinguishes a reachable
+  coordinator that does not know the agent ("not registered") from an unreachable one.
+- Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
+  `aitbc agent status` without an agent_id resolves to the local default.
+
+## Phase 5 — Dashboard and observability (2026-08-26)
+
+- `aitbc dashboard customer` and `aitbc dashboard shop` already canonicalize
+  addresses and fall back to on-chain balances when the wallet daemon is
+  unavailable (completed in Phase 3).
+- `aitbc market run ... --track` now creates a lightweight coordinator job
+  record via `POST /v1/jobs` with `source: "market_run"` after a successful
+  direct offer execution (Ollama, Whisper, FFmpeg).
+- Tracked market-run jobs appear in `aitbc ai jobs` and the customer/shop
+  dashboards with the original `market_job_id`, `offer_id`, `actual_cost_ait`,
+  and `result_hash` in the payload.
+- Tracking is best-effort: if no client token is available, the command succeeds
+  with a warning and skips the coordinator record.
+- Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
+  `aitbc market run ollama-llama3.2-3b hello --max-tokens 10000 --track`
+  created a tracked job and `aitbc dashboard customer` displayed it.
+
+## Phase 6.1 — Real `aitbc system check` (2026-08-26)
+
+- `aitbc system check` now reports real systemd state and HTTP health for all
+  AITBC services, plus `ollama` when it is installed and running.
+- Services without a documented HTTP endpoint (e.g. `aitbc-blockchain-node`,
+  `aitbc-miner`) are reported as "process-only" rather than unreachable.
+- Each reachable service is probed on its documented `/health` endpoint (or the
+  IPFS `/api/v0/version` and Ollama `/api/tags` endpoints where applicable).
+- The active wallet balance is checked and a warning is printed if it falls
+  below the listing fee (36 compute-seconds / 0.01 AIT).
+- Output respects `--format` and supports table/json/yaml/csv via the standard
+  `OUTPUT_FORMAT_OPTION`.
+
+## Phase 6.2 — `aitbc ipfs host` paid pinning (2026-08-26)
+
+- New `aitbc ipfs host <offer_id_or_plugin_id> <cid_or_file> --days N`.
+  - Resolves an IPFS marketplace offer by `plugin_id` or `offer_id`.
+  - Verifies `service_type == "ipfs"` and `price_unit == "per_day"`.
+  - Uploads a file to the local Kubo API if a path is given, or uses the CID as-is.
+  - Locks escrow for `price * days` using the wallet specified by `--wallet`.
+  - Pins the CID on the local IPFS daemon and records the rental.
+- `aitbc ipfs rentals` lists recorded rentals.
+- `aitbc ipfs unpin <rental_id>` unpins a CID and can optionally request an
+  escrow refund with `--refund`.
