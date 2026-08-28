@@ -371,7 +371,7 @@ def exchange_status(ctx):
 @click.argument("amount", type=DECIMAL)
 @click.option("--ait-address", help="AIT address that will receive minted AIT (defaults to the sending wallet address)")
 @click.option(
-    "--bridge-address", default="0x818018F30d8F5FB7AE7a64f25895F15110923748", help="Sepolia ETH bridge deposit address"
+    "--bridge-address", default=None, help="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)"
 )
 @click.option("--gas", "gas_limit", default=30000, type=int, help="Gas limit for the deposit transaction")
 @click.pass_context
@@ -400,6 +400,11 @@ def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: s
 
         if not ait_address:
             ait_address = address
+        if not bridge_address:
+            bridge_address = os.environ.get("BRIDGE_ETH_ADDRESS")
+        if not bridge_address:
+            error("Bridge deposit address is required: set --bridge-address or BRIDGE_ETH_ADDRESS")
+            raise click.Abort()
         if not Web3.is_address(ait_address):
             error(f"Invalid AIT recipient address: {ait_address}")
             raise click.Abort()
