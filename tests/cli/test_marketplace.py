@@ -51,6 +51,8 @@ def mock_http_client(monkeypatch):
                 }
             if "/rpc/account/" in path:
                 return {"balance": 1000000000, "nonce": 0}
+            if path == "/health":
+                return {"supported_chains": ["ait-hub.aitbc.bubuit.net"], "proposer_id": "0xFe2d63FE87Db282083b9159e5857Cac788af9E03"}
             return {"supported_chains": ["ait-hub.aitbc.bubuit.net"]}
 
         def post(self, path, **kwargs):
