@@ -931,6 +931,18 @@ class MarketplaceService:
             logger.error("Error in get_service_by_offer_id: %s: %s", type(e).__name__, str(e))
             raise
 
+    def _parse_iso_dt(self, value: Any) -> Any:
+        """Parse an ISO 8601 datetime string or return a datetime object."""
+        from datetime import datetime
+
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        raise ValueError(f"Invalid datetime value: {value!r}")
+
     async def register_ipfs_rental_token(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register an access token for a paid IPFS rental."""
         from datetime import UTC, datetime
@@ -943,6 +955,12 @@ class MarketplaceService:
             access_key = data.get("access_key")
             if not access_key:
                 raise ValueError("access_key is required")
+
+            # Normalize string timestamps into datetime objects for SQLite.
+            for field in ("created_at", "updated_at", "expires_at"):
+                if field in data:
+                    data[field] = self._parse_iso_dt(data[field])
+
             stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
             result = await self.session.execute(stmt)
             existing = result.scalar_one_or_none()
@@ -951,7 +969,8 @@ class MarketplaceService:
                 existing.cid = data.get("cid") or existing.cid
                 existing.escrow_contract_id = data.get("escrow_contract_id") or existing.escrow_contract_id
                 existing.status = data.get("status") or existing.status
-                existing.expires_at = data.get("expires_at") or existing.expires_at
+                if "expires_at" in data:
+                    existing.expires_at = data["expires_at"]
                 existing.updated_at = datetime.now(UTC)
                 await self.session.commit()
                 await self.session.refresh(existing)
