@@ -128,6 +128,9 @@ async def marketplace_listings() -> dict[str, Any]:
                     order_ids = payload.get("order_ids") or []
                     if not isinstance(order_ids, list):
                         order_ids = [order_ids]
+                    replaces = payload.get("replaces") or []
+                    if not isinstance(replaces, list):
+                        replaces = [replaces]
                     listing_id = f"tx_{tx_id}"
                     if action in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled":
                         if order_id:
@@ -135,6 +138,7 @@ async def marketplace_listings() -> dict[str, Any]:
                         cancelled_ids.update(str(oid) for oid in order_ids)
                         cancelled_ids.add(listing_id)
                         continue
+                    cancelled_ids.update(str(r) for r in replaces)
                     offer_rows.append((tx_id, sender, payload, timestamp))
                 except json.JSONDecodeError:
                     continue
@@ -146,6 +150,9 @@ async def marketplace_listings() -> dict[str, Any]:
                 listing = {
                     "listing_id": listing_id,
                     "seller_address": sender,
+                    "provider_address": payload.get("provider_address") or sender,
+                    "service_type": payload.get("service_type", ""),
+                    "model": payload.get("model", ""),
                     "item_type": payload.get("item_type", "GPU"),
                     "price": payload.get("price", 0.0),
                     "description": payload.get("description", ""),
