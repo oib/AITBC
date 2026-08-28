@@ -248,7 +248,10 @@ def _run_ollama(
             },
         )
         if release_result and release_result.get("tx_hash"):
-            success(f"Payment released: {actual_cost:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
+            success(
+                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
+            )
         else:
             warning("Escrow release submitted but no tx_hash returned")
     else:
@@ -430,7 +433,10 @@ def _run_whisper(
             f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
-            success(f"Payment released: {actual_cost:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
+            success(
+                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
+            )
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 
@@ -585,7 +591,10 @@ def _run_ffmpeg(
             f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
-            success(f"Payment released: {actual_cost:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
+            success(
+                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
+            )
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 
