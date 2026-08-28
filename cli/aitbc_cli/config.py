@@ -42,6 +42,7 @@ class CLIConfig(BaseAITBCConfig):
         description="Exchange Service URL. Hub-only locally; empty means resolve from HUB_DISCOVERY_URL / HUB_EXCHANGE_URL.",
     )
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
+    gpu_api_key: str | None = Field(default=None, description="API key for the local GPU service")
     marketplace_service_url: str = Field(default="http://127.0.0.1:8102", description="Marketplace Service URL")
     coordinator_api_url: str = Field(default="", description="Coordinator API URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
@@ -137,6 +138,7 @@ def _cli_env_files() -> list[str]:
         "/etc/aitbc/blockchain-secrets.env",
         "/etc/aitbc/node.env",
         "/etc/aitbc/exchange.env",
+        "/etc/aitbc/aitbc-gpu.env",
     ]
     return [p for p in candidates if os.access(p, os.R_OK)]
 
