@@ -798,9 +798,31 @@ def offer(
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
+        # Build public endpoint so remote buyers know where to send jobs
+        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0}
+        _local_port = _local_ports.get(service_type, 8110)
+        if service_type == "ipfs" and ipfs_port:
+            _local_port = ipfs_port
+        _hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        _base_domain = _hub_hostname.removeprefix("hub.")
+        _node_hostname = socket.getfqdn()
+        # If FQDN doesn't end with the base domain, construct it from short hostname + base domain
+        if _base_domain and not _node_hostname.endswith(_base_domain):
+            _node_hostname = f"{socket.gethostname()}.{_base_domain}"
+        # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
+        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs"}
+        _nginx_path = _nginx_paths.get(service_type, service_type)
+        if service_type == "ipfs":
+            _public_endpoint = ipfs_public_multiaddr or f"https://{_node_hostname}/{_nginx_path}"
+            _local_endpoint = f"http://localhost:{_local_port}"
+        else:
+            _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
+            _local_endpoint = f"http://localhost:{_local_port}"
+
         # Find any existing active offers for the same service/model/GPU from this
-        # provider so the new offer can replace them. This keeps the marketplace from
-        # accumulating duplicate default offers every time the miner republishes.
+        # provider. If a single identical one already exists, skip the republish.
+        # Otherwise the new offer will replace older/different ones so the marketplace
+        # does not accumulate duplicate default offers every time the miner refreshes.
         replaces: list[str] = []
         try:
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
@@ -815,31 +837,60 @@ def offer(
                         and listing.get("listing_id")
                     ):
                         replaces.append(listing["listing_id"])
+                # If there is exactly one matching active offer and it is identical to
+                # the one we are about to publish, skip the transaction entirely.
+                if len(replaces) == 1:
+                    listing = next(lst for lst in listings_result.get("listings", []) if lst.get("listing_id") == replaces[0])
+                    expected_description = description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}"
+                    is_identical = (
+                        float(listing.get("price", 0)) == float(price)
+                        and listing.get("price_unit") == unit
+                        and listing.get("description", "") == expected_description
+                        and listing.get("gpu_name", "") == (gpu_name or "")
+                        and listing.get("gpu_model", "") == (gpu_model or "")
+                        and str(listing.get("gpu_device", "")) == str(gpu_device or "")
+                        and listing.get("memory_gb") == gpu_memory_gb
+                        and listing.get("compute_capability", "") == (compute_capability or "")
+                        and listing.get("endpoint", "") == _public_endpoint
+                    )
+                    if is_identical:
+                        info(
+                            f"Identical {service_type}/{model_or_variant} offer already active ({listing['listing_id']}); skipping"
+                        )
+                        return
                 if replaces:
                     info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
         except Exception:
             logger.debug("Could not query existing marketplace listings for replacement", exc_info=True)
 
-        # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0}
-        _local_port = _local_ports.get(service_type, 8110)
-        if service_type == "ipfs" and ipfs_port:
-            _local_port = ipfs_port
-        _hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
-        _base_domain = _hub_hostname.removeprefix("hub.")
-        _node_hostname = socket.getfqdn()
-        # If FQDN doesn't include domain, construct it from short hostname + base domain
-        if _base_domain and _base_domain not in _node_hostname:
-            _node_hostname = f"{socket.gethostname()}.{_base_domain}"
-        # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs"}
-        _nginx_path = _nginx_paths.get(service_type, service_type)
-        if service_type == "ipfs":
-            _public_endpoint = ipfs_public_multiaddr or f"https://{_node_hostname}/{_nginx_path}"
-            _local_endpoint = f"http://localhost:{_local_port}"
-        else:
-            _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
-            _local_endpoint = f"http://localhost:{_local_port}"
+        # Avoid racing with a pending (unconfirmed) offer for the same service/model/GPU.
+        # The chain produces blocks every ~5 minutes, so a pending offer from a recent
+        # refresh would otherwise not be visible in marketplace/listings and could lead
+        # to duplicate listings in the same block.
+        try:
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            mempool_result = http_client.get("/rpc/mempool?limit=100")
+            if mempool_result and isinstance(mempool_result, dict):
+                for tx in mempool_result.get("transactions", []):
+                    if tx.get("from") != wallet_address:
+                        continue
+                    if tx.get("type") != "GPU_MARKETPLACE":
+                        continue
+                    payload = tx.get("payload") or {}
+                    if payload.get("action") not in ("offer", "software_offer"):
+                        continue
+                    if (
+                        payload.get("service_type") == service_type
+                        and payload.get("model") == model_or_variant
+                        and payload.get("gpu_uuid") == (gpu_uuid or "N/A")
+                    ):
+                        info(
+                            f"Pending {service_type}/{model_or_variant} offer already in mempool "
+                            f"(tx_hash: {tx.get('tx_hash', 'unknown')}); skipping to avoid duplicate"
+                        )
+                        return
+        except Exception:
+            logger.debug("Could not query mempool for pending offers", exc_info=True)
 
         offer_data = {
             "from": wallet_address,

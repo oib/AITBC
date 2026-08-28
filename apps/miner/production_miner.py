@@ -103,8 +103,9 @@ def publish_default_offers(ollama_models: list[str]) -> None:
     """Publish default Whisper, FFmpeg and Ollama software offers.
 
     This is the shop-side equivalent of running `aitbc market offer` for each
-    supported default service. It is idempotent: the marketplace service
-    updates an existing offer with the same (service_type, model) key.
+    supported default service. The CLI skips the transaction when an identical
+    active offer already exists, so this can be called every refresh cycle
+    without creating duplicate listings.
     """
     for offer in DEFAULT_SOFTWARE_OFFERS:
         if offer["service_type"] == "ollama" and offer["model"] not in ollama_models:
@@ -131,7 +132,10 @@ def publish_default_offers(ollama_models: list[str]) -> None:
                 env.setdefault("SHOP_WALLET_ADDRESS", MINER_WALLET_ADDRESS)
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
             if result.returncode == 0:
-                logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
+                if "skipping" in (result.stdout or "").lower():
+                    logger.info("Default offer unchanged: %s/%s", offer["service_type"], offer["model"])
+                else:
+                    logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
             else:
                 logger.warning(
                     "Default offer %s/%s failed (rc=%s): stderr=%s stdout=%s",
