@@ -228,7 +228,7 @@ def _lookup_ipfs_rental(access_key: str, access_secret: str) -> dict[str, Any] |
     """Validate an access token against the hub marketplace service."""
     try:
         client = _hub_marketplace_client()
-        result = client.get(f"/v1/ipfs/rental/{access_key}", params={"access_secret": access_secret})
+        result = client.get(f"/v1/marketplace/ipfs/rental/{access_key}", params={"access_secret": access_secret})
         if result and not result.get("error"):
             return result
     except NetworkError as e:
@@ -644,7 +644,7 @@ def host(
     try:
         client = _hub_marketplace_client()
         client.post(
-            "/v1/ipfs/rental-token",
+            "/v1/marketplace/ipfs/rental-token",
             json={
                 "access_key": access_key,
                 "access_secret": access_secret,
