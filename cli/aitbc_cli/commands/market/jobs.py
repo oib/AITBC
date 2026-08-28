@@ -196,7 +196,7 @@ def _run_ollama(
     estimated_tokens = max_tokens
     estimated_cost = (Decimal(estimated_tokens) / 1000) * price
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer.get("offer_id")}{wallet_address}'.encode()).hexdigest()[:8]}"
-    info(f"Locking escrow: ~{estimated_cost:.4f} AIT (est. {estimated_tokens} tokens)")
+    info(f"Locking escrow: ~{estimated_cost:.8f} AIT (est. {estimated_tokens} tokens)")
     contract_id = _escrow_create(
         ctx,
         job_id,
@@ -232,7 +232,7 @@ def _run_ollama(
     tokens_used = resp_data.get("eval_count", len(response_text.split()) * 2)
     actual_cost = (Decimal(tokens_used) / 1000) * price
 
-    info(f"Done in {elapsed:.2f}s — {tokens_used} tokens — actual cost: {actual_cost:.4f} AIT")
+    info(f"Done in {elapsed:.2f}s — {tokens_used} tokens — actual cost: {actual_cost:.8f} AIT")
     click.echo(f"\n{response_text}\n")
 
     # Release metered escrow for actual tokens used
@@ -248,7 +248,7 @@ def _run_ollama(
             },
         )
         if release_result and release_result.get("tx_hash"):
-            success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            success(f"Payment released: {actual_cost:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
         else:
             warning("Escrow release submitted but no tx_hash returned")
     else:
@@ -332,7 +332,7 @@ def _run_whisper(
     estimated_cost = Decimal(str(duration_minutes)) * price if price_unit == "per_audio_min" else price
 
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
-    info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.4f} AIT")
+    info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.8f} AIT")
     contract_id = _escrow_create(
         ctx,
         job_id,
@@ -373,7 +373,7 @@ def _run_whisper(
     actual_cost = Decimal(str(actual_duration_minutes)) * price if price_unit == "per_audio_min" else price
     result_hash = resp_data.get("result_hash", "")
 
-    info(f"Done in {elapsed:.1f}s — {resp_data.get('duration_seconds', 0):.1f}s audio — actual cost: {actual_cost:.4f} AIT")
+    info(f"Done in {elapsed:.1f}s — {resp_data.get('duration_seconds', 0):.1f}s audio — actual cost: {actual_cost:.8f} AIT")
 
     # Post software_job TX as proof of work
     job_tx_hash = None
@@ -430,7 +430,7 @@ def _run_whisper(
             f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
-            success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            success(f"Payment released: {actual_cost:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 
@@ -491,7 +491,7 @@ def _run_ffmpeg(
     # Estimate cost (assume 6 min default if unknown)
     estimated_hours = Decimal("0.1")
     estimated_cost = estimated_hours * price if price_unit == "per_processing_hour" else price
-    info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.4f} AIT")
+    info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.8f} AIT")
 
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
     contract_id = _escrow_create(
@@ -541,7 +541,7 @@ def _run_ffmpeg(
     actual_cost = Decimal(str(actual_hours)) * price if price_unit == "per_processing_hour" else price
     result_hash = resp_data.get("result_hash", "")
 
-    info(f"Done in {elapsed:.1f}s — {actual_hours:.4f} hours processing — actual cost: {actual_cost:.4f} AIT")
+    info(f"Done in {elapsed:.1f}s — {actual_hours:.4f} hours processing — actual cost: {actual_cost:.8f} AIT")
     info(f"Output file: {resp_data.get('output_path')}")
 
     # Post software_job TX as proof of work
@@ -585,7 +585,7 @@ def _run_ffmpeg(
             f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
-            success(f"Payment released: {actual_cost:.4f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+            success(f"Payment released: {actual_cost:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 

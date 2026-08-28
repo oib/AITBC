@@ -10,7 +10,7 @@ import click
 
 from ...auth import AuthManager
 from ...config import get_config
-from ...utils import error, output, success
+from ...utils import error, info, output, success
 from ...utils.http_client import AITBCHTTPClient, get_logger
 
 # Initialize logger
@@ -62,12 +62,26 @@ def _escrow_create(
     the buyer and the blockchain RPC can settle it on-chain.  Without it, the
     helper aborts because the chain refuses to lock escrow without a buyer
     signature.
+
+    The chain's smallest unit is the compute-second (1 AIT = 3600 seconds).
+    Estimates that round to zero seconds are rounded up to one compute-second
+    so the lock transaction is valid and the provider can be paid.
     """
     from ...utils.escrow import create_signed_escrow_lock
 
     if not private_key:
         error("Escrow creation requires a buyer-signed transaction. Use --wallet to select a wallet with a private key.")
         raise click.Abort()
+
+    if not amount or amount <= 0:
+        error("Escrow amount must be positive")
+        raise click.Abort()
+
+    # 1 AIT = 3600 compute-seconds; 0.000277... AIT = 1 second.
+    min_escrow_ait = Decimal(1) / Decimal(3600)
+    if amount < min_escrow_ait:
+        info(f"Rounding escrow up to minimum {min_escrow_ait:.8f} AIT (1 compute-second)")
+        amount = min_escrow_ait
 
     rpc_url = _get_blockchain_rpc_url(config)
     try:
@@ -77,7 +91,7 @@ def _escrow_create(
             job_id,
             buyer,
             provider,
-            amount or Decimal("0"),
+            amount,
             private_key,
         )
     except Exception as e:
