@@ -77,7 +77,11 @@ def discover_gpu_specs() -> dict[str, Any]:
     """Auto-discover GPU specifications using nvidia-smi"""
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=index,name,memory.total,driver_version,compute_cap", "--format=csv,noheader,nounits"],
+            [
+                "nvidia-smi",
+                "--query-gpu=index,name,memory.total,driver_version,compute_cap,uuid",
+                "--format=csv,noheader,nounits",
+            ],
             capture_output=True,
             text=True,
             timeout=10,
@@ -95,6 +99,7 @@ def discover_gpu_specs() -> dict[str, Any]:
                     "memory_gb": int(parts[2]) / 1024,
                     "cuda_version": parts[3] if len(parts) > 3 else "",
                     "compute_capability": parts[4] if len(parts) > 4 else "",
+                    "uuid": parts[5] if len(parts) > 5 else "",
                 }
         return {}
     except FileNotFoundError:
@@ -580,8 +585,20 @@ async def register_gpu(
                 logger.info("Auto-discovered GPU specs: %s", specs)
             else:
                 logger.warning("GPU auto-discovery failed, using defaults")
-        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))
-        existing_gpu = result.scalar_one_or_none()
+
+        # Use the physical GPU UUID (from nvidia-smi) as the canonical key.
+        # This prevents multiple registrations of the same hardware.
+        hardware_uuid = specs.get("uuid") or gpu_data.get("hardware_uuid") or specs.get("hardware_uuid")
+
+        existing_gpu = None
+        if hardware_uuid:
+            result = await session.execute(select(GPURegistry).where(GPURegistry.hardware_uuid == hardware_uuid))
+            existing_gpu = result.scalar_one_or_none()
+
+        if not existing_gpu:
+            result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))
+            existing_gpu = result.scalar_one_or_none()
+
         if existing_gpu:
             if specs:
                 existing_gpu.model = specs.get("model", existing_gpu.model)
@@ -589,8 +606,11 @@ async def register_gpu(
                 existing_gpu.cuda_version = specs.get("cuda_version", existing_gpu.cuda_version)
                 existing_gpu.region = specs.get("region", existing_gpu.region)
                 existing_gpu.capabilities = specs.get("capabilities", existing_gpu.capabilities)
+                if hardware_uuid:
+                    existing_gpu.hardware_uuid = hardware_uuid
             existing_gpu.status = "available"
             await session.commit()
+            gpu_id = existing_gpu.id
         else:
             new_gpu = GPURegistry(
                 id=gpu_id,
@@ -601,6 +621,7 @@ async def register_gpu(
                 region=specs.get("region", ""),
                 price_per_hour=Decimal("0"),
                 status="available",
+                hardware_uuid=hardware_uuid,
                 capabilities=specs.get("capabilities", []),
             )
             session.add(new_gpu)
