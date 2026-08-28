@@ -283,9 +283,12 @@ async def _find_existing_release(job_id: str) -> str | None:
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     amount_seconds = int(amount * 3600)
-    amount_int = amount_seconds if amount_seconds > 0 else int(amount)
-    if amount_int <= 0:
+    if amount <= 0:
         return None
+    # The chain denominates value in whole compute-seconds.  Any positive
+    # release that rounds down to zero seconds would otherwise leave the provider
+    # unpaid, so round up to the smallest transferable unit (1 second).
+    amount_int = max(amount_seconds, 1)
     try:
         # Never pay a job twice: if it already settled, hand back that transaction.
         existing_release = await _find_existing_release(job_id)
