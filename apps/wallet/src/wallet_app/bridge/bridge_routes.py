@@ -12,7 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from wallet_app.deps import require_admin_api_key
 
 from .bridge_db import get_all_deposits, get_deposit_by_id, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
-from .bridge_monitor import poll_once
+from .bridge_monitor import (
+    is_bridge_polling_enabled,
+    poll_once,
+    set_bridge_polling_enabled,
+)
 from .price_api import calculate_ait_amount, get_exchange_rate
 
 exchange_router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
@@ -206,6 +210,7 @@ async def get_bridge_status() -> dict[str, Any]:
         "wallet_address": os.getenv("ETH_WALLET_ADDRESS", ""),
         "rpc_url": os.getenv("ETH_RPC_URL", ""),
         "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30")),
+        "auto_poll": is_bridge_polling_enabled(),
     }
 
 
@@ -222,6 +227,7 @@ async def get_bridge_v1_status() -> dict[str, Any]:
         "network": os.getenv("ETH_NETWORK", "sepolia"),
         "rpc_url": os.getenv("ETH_RPC_URL", ""),
         "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30")),
+        "auto_poll": is_bridge_polling_enabled(),
         "fee_rate": float(os.getenv("BRIDGE_FEE_RATE", "0.005")),
         "min_deposit": os.getenv("MIN_ETH_DEPOSIT", "0.001"),
     }
@@ -244,6 +250,21 @@ async def trigger_bridge_poll(
         "scanned": result.get("scanned", 0),
         "recorded": result.get("recorded", 0),
         "address": result.get("address", ""),
+    }
+
+
+@bridge_router.post("/polling")
+async def set_bridge_polling(
+    body: dict[str, Any],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
+) -> dict[str, Any]:
+    """Enable or disable the automatic bridge polling loop (admin operation)."""
+    enabled = bool(body.get("enabled", True))
+    set_bridge_polling_enabled(enabled)
+    return {
+        "success": True,
+        "message": f"Bridge auto-poll {'enabled' if enabled else 'disabled'}",
+        "auto_poll": enabled,
     }
 
 
