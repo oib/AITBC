@@ -139,14 +139,14 @@ run_migrations() {
         # See the header: blockchain-node's Alembic default is a database no node uses, so
         # this refuses to guess which island was meant.
         if [ "$svc_name" = "blockchain-node" ] && [ -z "$svc_db_url" ]; then
-            warning "  skipping $svc_name: no DATABASE_URL set, and its default target is not"
-            warning "  a database any node uses. Migrate each island explicitly, with the"
-            warning "  service stopped:"
+            log "  skipping $svc_name: no DATABASE_URL set, and its default target is not"
+            log "  a database any node uses. Migrate each island explicitly, with the"
+            log "  service stopped:"
             local island_db
             for island_db in /var/lib/aitbc/data/*/chain.db; do
                 [ -e "$island_db" ] || continue
-                warning "    DATABASE_URL=sqlite:///$island_db \\"
-                warning "      $alembic_bin -c $svc_dir/alembic.ini upgrade head"
+                log "    DATABASE_URL=sqlite:///$island_db \\"
+                log "      $alembic_bin -c $svc_dir/alembic.ini upgrade head"
             done
             skipped=$((skipped + 1))
             continue
