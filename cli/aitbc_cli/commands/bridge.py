@@ -175,7 +175,7 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
 @click.option("--target-chain", required=True, help="Target chain ID for the transfer")
 @click.option("--sender", required=True, help="Sender address (source chain)")
 @click.option("--recipient", required=True, help="Recipient address (target chain)")
-@click.option("--amount", required=True, type=int, help="Amount to bridge (in compute-seconds)")
+@click.option("--amount", required=True, type=int, help="Amount to bridge (in compute-units)")
 @click.option("--asset", default="native", help="Asset type (default: native)")
 @click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
 @click.option("--signature", default="", help="Sender signature authorizing the lock (hex)")

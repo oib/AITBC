@@ -7,6 +7,8 @@ Implements the minimal API endpoints required by the test suite.
 import time
 from typing import Any
 
+from aitbc.utils.units import DEFAULT_FAUCET_UNITS
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -41,7 +43,7 @@ async def get_chain_head():
 
 @app.get("/rpc/balance/{address}")
 async def get_balance(address: str):
-    """Balance breakdown for an address, in compute-seconds.
+    """Balance breakdown for an address, in compute-units.
 
     V23-42: this served `/rpc/getBalance/{address}` returning `{"balance": n}` — a route and a
     shape the real node has never had. It matched the coordinator's client, which is the wrong
@@ -64,7 +66,7 @@ async def get_balance(address: str):
 async def faucet(request: dict[str, Any]):
     """Mint test tokens to an address (devnet only). Was `/rpc/admin/mintFaucet` — see above."""
     address = request.get("address")
-    amount = request.get("amount", 3600000000)
+    amount = request.get("amount", DEFAULT_FAUCET_UNITS)
 
     if address in mock_chain_state["balances"]:
         mock_chain_state["balances"][address] += amount

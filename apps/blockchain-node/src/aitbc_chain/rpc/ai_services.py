@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 from sqlmodel import func as sql_func
 from sqlmodel import select
 
-from aitbc.utils import ait_to_seconds
+from aitbc.utils import ait_to_units
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ..base_models import Transaction, address_spellings
 from ..database import session_scope
@@ -50,7 +51,7 @@ class AIJobRequest(BaseModel):
     payment: float = Field(..., ge=0, description="Payment in AIT")
     parameters: dict[str, Any] | None = Field(default=None, description="Additional job parameters")
     nonce: int = Field(default=0, ge=0, description="Sender account nonce")
-    fee: int = Field(default=36, ge=0, description="Transaction fee in compute-seconds (1 AIT = 3600)")
+    fee: int = Field(default=DEFAULT_TX_FEE_UNITS, ge=0, description="Transaction fee in compute-units (1 AIT = 36_000_000)")
     signature: str = Field(..., description="secp256k1 signature over the job transaction, signed by wallet_address")
 
 
@@ -114,7 +115,7 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
         tx_data: dict[str, Any] = {
             "from": request.wallet_address,
             "to": AI_SERVICE_RECIPIENT,
-            "amount": ait_to_seconds(request.payment),
+            "amount": ait_to_units(request.payment),
             "fee": request.fee,
             "nonce": request.nonce,
             "type": AI_JOB_TX_TYPE,

@@ -1,8 +1,8 @@
-# AITBC Unit System — Compute-Seconds
+# AITBC Unit System — Compute-Units
 
 **Level**: All Levels
 **Prerequisites**: None
-**Last Updated**: 2026-06-23
+**Last Updated**: 2026-08-24
 
 ## Navigation
 
@@ -12,16 +12,25 @@ Home → Docs → Getting Started → Unit System
 
 ## Overview
 
-The AITBC blockchain uses a compute-seconds based unit system where **1 AIT = 3600 seconds** (1 hour of compute). This enables precise billing at the second level while maintaining user-friendly AIT values for display.
+The AITBC blockchain uses **compute-units** as its base accounting unit. The conversion is fixed:
 
-## Why Compute-Seconds?
+**1 AIT = 36,000,000 compute-units**
 
-Traditional cryptocurrencies use arbitrary units (satoshi, wei) that don't map to real-world value. AITBC is different:
+A compute-unit is an **integer** on the wire. User-facing tools and APIs still work in AIT; the CLI and display layer convert AIT to and from compute-units.
 
-- **AIT represents compute time**: 1 AIT = 1 hour of AI inference compute
-- **Second-level precision**: Bill compute resources by the second, not by arbitrary units
-- **Natural math**: Seconds are integers, no floating-point arithmetic at the transaction layer
-- **User-friendly**: Display layer converts seconds → AIT for readability
+## Why 36,000,000?
+
+The previous `1 AIT = 3600` (compute-seconds) scale was too coarse:
+
+- The smallest representable payment was `0.000277... AIT`, which loses sub-second AI work.
+- The marketplace platform fee (2.5%) could not be represented for small jobs.
+- Sub-AIT escrow values truncated to zero in the `Escrow` DB table.
+
+The 36,000,000 scale keeps the integer-money design but adds 10,000× precision:
+
+- Smallest unit: `1 / 36,000,000 AIT` ≈ `2.78 × 10⁻⁸ AIT`
+- 1 Ollama token at `0.001 AIT / 1000 tokens` = `0.000001 AIT` = `36` compute-units
+- 2.5% fee on 1 token = `0.9` compute-units → round up to `1` compute-unit
 
 ## Unit Conversion
 
@@ -29,77 +38,79 @@ Traditional cryptocurrencies use arbitrary units (satoshi, wei) that don't map t
 
 | Unit | Value | Description |
 |------|-------|-------------|
-| 1 AIT | 3600 seconds | 1 hour of compute |
-| 1 minute | 60 seconds | Minimum practical billing unit |
-| 1 second | 1 unit | Smallest billable unit |
+| 1 AIT | 36,000,000 units | Base conversion |
+| 1 unit | 2.78 × 10⁻⁸ AIT | Smallest representable amount |
 
 ### Transaction Fee
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Transaction fee | 36 seconds (0.01 AIT) | ≈ €0.0025 at €0.25/AIT |
-| Minimum fee | 36 seconds | Enforced by consensus |
+| Transaction fee | 360,000 units (0.01 AIT) | Default network fee |
+| Minimum fee | 360,000 units | Enforced by consensus |
 
 ### Common Amounts
 
-| User-Facing | Internal (seconds) | Description |
-|-------------|-------------------|-------------|
-| 0.01 AIT | 36 | Transaction fee |
-| 1 AIT | 3,600 | 1 hour of compute |
-| 100 AIT | 360,000 | Free grant amount |
-| 1,000 AIT | 3,600,000 | Typical stake |
-| 1,000,000 AIT | 3,600,000,000 | Faucet default |
+| User-Facing | Internal (units) | Description |
+|-------------|------------------|-------------|
+| 0.01 AIT | 360,000 | Transaction fee |
+| 1 AIT | 36,000,000 | Base unit |
+| 100 AIT | 3,600,000,000 | Free grant amount |
+| 1,000 AIT | 36,000,000,000 | Typical stake |
+| 1,000,000 AIT | 36,000,000,000,000,000 | Faucet default |
 
 ## How It Works
 
 ### On-Chain Storage
 
-All blockchain data is stored as integer seconds:
+All blockchain data is stored as integer compute-units:
 
 ```sql
 -- Account balances
-account.balance = 360000  -- 100 AIT stored as 360,000 seconds
+account.balance = 3600000000  -- 100 AIT stored as 3,600,000,000 units
 
 -- Transaction values
-transaction.value = 7200  -- 2 AIT stored as 7,200 seconds
-transaction.fee = 36      -- 0.01 AIT stored as 36 seconds
+transaction.value = 72000000  -- 2 AIT stored as 72,000,000 units
+transaction.fee = 360000      -- 0.01 AIT stored as 360,000 units
 
 -- Escrow amounts
-escrow.amount = 18000     -- 5 AIT stored as 18,000 seconds
+escrow.amount = 180000000     -- 5 AIT stored as 180,000,000 units
 ```
 
 ### Display Layer Conversion
 
-User-facing interfaces convert seconds → AIT:
+User-facing interfaces convert units → AIT:
 
 ```python
 from aitbc.utils import format_ait
 
 # Display balance
-balance_seconds = 360000
-print(format_ait(balance_seconds))  # Output: "100 AIT"
+balance_units = 3600000000
+print(format_ait(balance_units))  # Output: "100 AIT"
 
 # Display transaction fee
-fee_seconds = 36
-print(format_ait(fee_seconds))  # Output: "0.01 AIT"
+fee_units = 360000
+print(format_ait(fee_units))  # Output: "0.01 AIT"
+
+# Display a single compute-unit
+print(format_ait(1))  # Output: "0.00000003 AIT"
 ```
 
 ### Transaction Creation
 
-When users create transactions, the CLI converts AIT → seconds:
+When users create transactions, the CLI converts AIT → compute-units:
 
 ```bash
 # User sends 100 AIT
 aitbc wallet send --to address --amount 100
 
 # CLI converts internally
-amount_seconds = 100 * 3600 = 360000
-fee_seconds = 0.01 * 3600 = 36
+amount_units = 100 * 36000000 = 3600000000
+fee_units = 0.01 * 36000000 = 360000
 
-# Blockchain receives integer seconds
+# Blockchain receives integer units
 transaction = {
-    "value": 360000,
-    "fee": 36
+    "value": 3600000000,
+    "fee": 360000
 }
 ```
 
@@ -116,9 +127,9 @@ aitbc wallet balance
 ### Sending Transactions
 
 ```bash
-# Specify amount in AIT (CLI converts to seconds)
+# Specify amount in AIT (CLI converts to units)
 aitbc wallet send --to address --amount 50 --fee 0.01
-# CLI sends: amount=180000 seconds, fee=36 seconds
+# CLI sends: amount=1800000000 units, fee=360000 units
 ```
 
 ### Transaction History
@@ -131,15 +142,15 @@ aitbc wallet transactions
 
 ## API Responses
 
-API responses include both raw seconds and formatted AIT:
+API responses include both raw compute-units and formatted AIT where useful:
 
 ```json
 {
-  "balance": 360000,
+  "balance": 3600000000,
   "balance_ait": "100 AIT",
-  "value": 7200,
+  "value": 72000000,
   "value_ait": "2 AIT",
-  "fee": 36,
+  "fee": 360000,
   "fee_ait": "0.01 AIT"
 }
 ```
@@ -148,39 +159,18 @@ API responses include both raw seconds and formatted AIT:
 
 The explorer displays values in AIT:
 
-- Account balances: `100 AIT` (not `360000`)
-- Transaction values: `2 AIT` (not `7200`)
-- Transaction fees: `0.01 AIT` (not `36`)
+- Account balances: `100 AIT` (not `3600000000`)
+- Transaction values: `2 AIT` (not `72000000`)
+- Transaction fees: `0.01 AIT` (not `360000`)
 
-## Migration (v0.5.10 Hard Fork)
+## Migration (v0.24.0 Hard Fork)
 
-The v0.5.10 release introduced the compute-seconds unit system. All existing on-chain data was migrated by multiplying values by 3600:
+The v0.24.0 release replaced the `1 AIT = 3600` compute-seconds scale with `1 AIT = 36,000,000` compute-units. Because this changes the wire value of every transaction and state root, it requires a coordinated chain reset:
 
-- **Before**: 1 AIT stored as `1` (raw AIT)
-- **After**: 1 AIT stored as `3600` (seconds)
+- **Before v0.24.0**: 1 AIT stored as `3600` compute-seconds
+- **After v0.24.0**: 1 AIT stored as `36,000,000` compute-units
 
-### Migration Script
-
-The migration script `scripts/migration/scale_balances_3600x.py` handles the conversion:
-
-```bash
-# Run migration on each node
-python3 scripts/migration/scale_balances_3600x.py --chain-id ait-hub.aitbc.bubuit.net
-
-# Flush Redis cache after migration
-redis-cli FLUSHDB
-```
-
-### What Was Migrated
-
-- Account balances: `balance * 3600`
-- Transaction values: `value * 3600`
-- Transaction fees: `fee * 3600`
-- Receipt minted amounts: `minted_amount * 3600`
-- Escrow amounts: `amount * 3600`
-- Cross-chain transfers: `amount * 3600`
-- Stakes: `amount * 3600`
-- Genesis allocations: `balance * 3600`
+Nodes must be upgraded together, old chain databases must be wiped, and a new genesis block must be generated before services restart. The old `scripts/migration/scale_balances_3600x.py` script is **not** used; a new genesis is created instead.
 
 ## Implementation Details
 
@@ -189,37 +179,41 @@ redis-cli FLUSHDB
 The `aitbc.utils.units` module provides conversion functions:
 
 ```python
-from aitbc.utils import SECONDS_PER_AIT, seconds_to_ait, ait_to_seconds, format_ait
+from aitbc.utils import UNITS_PER_AIT, ait_to_units, units_to_ait, format_ait
 
 # Constants
-SECONDS_PER_AIT = 3600
+UNITS_PER_AIT = 36_000_000
+DEFAULT_TX_FEE_UNITS = 360_000  # 0.01 AIT
+LIQUIDITY_FEE_UNITS = 36_000_000  # 1 AIT
+DEFAULT_FAUCET_UNITS = 36_000_000_000_000_000  # 1,000,000 AIT
 
-# Convert seconds to AIT (float)
-ait = seconds_to_ait(3600)  # Returns: 1.0
+# Convert units to AIT (Decimal)
+ait = units_to_ait(36000000)  # Returns: Decimal("1")
 
-# Convert AIT to seconds (int)
-seconds = ait_to_seconds(1.0)  # Returns: 3600
+# Convert AIT to units (int)
+units = ait_to_units("1.5")  # Returns: 54000000
 
 # Format as human-readable string
-formatted = format_ait(3600)  # Returns: "1 AIT"
-formatted = format_ait(36)   # Returns: "0.01 AIT"
+formatted = format_ait(36000000)   # Returns: "1 AIT"
+formatted = format_ait(360000)     # Returns: "0.01 AIT"
+formatted = format_ait(1)          # Returns: "0.00000003 AIT"
 ```
 
 ### Database Schema
 
-All amount/fee/balance columns use `INTEGER` type (seconds):
+All amount/fee/balance columns use `INTEGER` type (compute-units):
 
 ```sql
 CREATE TABLE account (
     address TEXT PRIMARY KEY,
-    balance INTEGER NOT NULL,  -- in seconds
+    balance INTEGER NOT NULL,  -- in compute-units
     nonce INTEGER DEFAULT 0
 );
 
 CREATE TABLE transaction (
     tx_hash TEXT PRIMARY KEY,
-    value INTEGER NOT NULL,    -- in seconds
-    fee INTEGER NOT NULL,      -- in seconds
+    value INTEGER NOT NULL,    -- in compute-units
+    fee INTEGER NOT NULL,      -- in compute-units
     ...
 );
 ```
@@ -228,43 +222,43 @@ CREATE TABLE transaction (
 
 ### For Developers
 
-1. **Always store seconds**: Database columns and blockchain state use integer seconds
+1. **Always store units**: Database columns and blockchain state use integer compute-units
 2. **Convert for display**: Use `format_ait()` when showing values to users
-3. **Convert input**: Use `ait_to_seconds()` when processing user input in AIT
-4. **Document units**: Add comments like `# in compute-seconds (1 AIT = 3600)`
+3. **Convert input**: Use `ait_to_units()` when processing user input in AIT
+4. **Document units**: Add comments like `# in compute-units (1 AIT = 36_000_000)`
 
 ### For Users
 
 1. **Think in AIT**: Use AIT values in CLI commands and API calls
-2. **Ignore raw seconds**: The display layer handles conversion automatically
+2. **Ignore raw units**: The display layer handles conversion automatically
 3. **Check explorer**: Use the blockchain explorer to verify values in AIT
 
 ## Common Questions
 
 ### Q: Why not use floating-point AIT on-chain?
 
-**A**: Floating-point arithmetic can cause rounding errors and consensus issues. Integer seconds are deterministic and precise.
+**A**: Floating-point arithmetic can cause rounding errors and consensus issues. Integer compute-units are deterministic and precise.
 
 ### Q: How do I read raw blockchain data?
 
-**A**: Divide by 3600 to convert seconds to AIT. For example, `balance / 3600 = AIT`.
+**A**: Divide by `36,000,000` to convert units to AIT. For example, `balance / 36_000_000 = AIT`.
 
 ### Q: What happens if I send a fractional AIT amount?
 
-**A**: The CLI converts it to seconds (e.g., `0.5 AIT → 1800 seconds`). The blockchain stores the integer value.
+**A**: The CLI converts it to compute-units (e.g., `0.5 AIT → 18,000,000 units`). The blockchain stores the integer value.
 
 ### Q: Can I send less than 0.01 AIT?
 
-**A**: The minimum transaction fee is 0.01 AIT (36 seconds), but you can send smaller amounts (e.g., 0.001 AIT = 3.6 seconds, rounded to 4 seconds).
+**A**: The minimum transaction fee is 0.01 AIT (360,000 units), but you can send smaller amounts (e.g., `0.000001 AIT = 36 units`). Positive sub-fee payments round up to `1` compute-unit when necessary.
 
 ## See Also
 
 - [AIT Value Model](./ait-value-model.md) - AIT pricing and economic model
 - [Blockchain Architecture](../architecture/4_blockchain-node.md) - Technical implementation
-- [v0.5.10 Release Notes](../releases/v0.5/v0.5.10_change.log) - Hard fork details
+- [v0.24.0 Release Notes](../releases/v0.24.0/change.log) - Hard fork details
 
 ---
 
-**Last Updated**: 2026-06-23
-**Version**: 1.0
+**Last Updated**: 2026-08-24
+**Version**: 2.0
 **Status**: Active documentation

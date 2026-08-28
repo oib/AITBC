@@ -43,6 +43,7 @@ from aitbc.crypto import TransactionService  # noqa: E402
 from aitbc.db import get_db_session, init_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc.utils import format_ait  # noqa: E402
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS  # noqa: E402
 
 
 def _agent_api_base() -> str:
@@ -336,7 +337,7 @@ def execute(ctx, request_id):
 
         # Check balance before submission
         balance = tx_service.get_balance(tx_service.genesis_address)
-        total_required = (req.amount or 0) + 36  # amount + fee
+        total_required = (req.amount or 0) + DEFAULT_TX_FEE_UNITS  # amount + fee
         if balance < total_required:
             click.echo(
                 f"Error: Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}"
@@ -351,7 +352,9 @@ def execute(ctx, request_id):
         if req.wallet_address is None or req.amount is None:
             click.echo("Error: Missing wallet_address or amount in request")
             return
-        signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=36)
+        signed_tx = tx_service.generate_signed_transaction(
+            to_address=req.wallet_address, amount=req.amount, fee=DEFAULT_TX_FEE_UNITS
+        )
 
         if not signed_tx:
             click.echo("Error: Failed to generate signed transaction")

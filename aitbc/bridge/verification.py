@@ -98,7 +98,7 @@ def check_finality(
     Args:
         header: The block header to check.
         config: Finality threshold configuration.
-        transfer_amount: The transfer amount in compute-seconds.
+        transfer_amount: The transfer amount in compute-units.
 
     Returns:
         ``(has_finality, required_confirmations)``.

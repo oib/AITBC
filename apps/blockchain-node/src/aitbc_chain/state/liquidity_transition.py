@@ -105,7 +105,7 @@ def apply_liquidity_deposit(
     _invalidate_account_cache(chain_id, sender, cache)
     _invalidate_account_cache(chain_id, main_addr, cache)
     logger.info("LIQUIDITY_DEPOSIT %s: %s staked %s in pool %s", tx_hash, sender, value, pool_id)
-    return (True, f"Deposited {value} compute-seconds to pool {pool_id}")
+    return (True, f"Deposited {value} compute-units to pool {pool_id}")
 
 
 def apply_liquidity_claim(
@@ -180,7 +180,7 @@ def apply_liquidity_claim(
     _invalidate_account_cache(chain_id, sender, cache)
     _invalidate_account_cache(chain_id, pool_treasury_address(), cache)
     logger.info("LIQUIDITY_CLAIM %s: %s claimed %s from pool %s", tx_hash, sender, rewards, pool_id)
-    return (True, f"Claimed {rewards} compute-seconds")
+    return (True, f"Claimed {rewards} compute-units")
 
 
 def apply_liquidity_withdraw(
@@ -266,4 +266,4 @@ def apply_liquidity_withdraw(
     if rewards > 0:
         _invalidate_account_cache(chain_id, pool_treasury_address(), cache)
     logger.info("LIQUIDITY_WITHDRAW %s: %s withdrew %s + %s rewards", tx_hash, sender, stake.amount, rewards)
-    return (True, f"Withdrew {total_return} compute-seconds")
+    return (True, f"Withdrew {total_return} compute-units")

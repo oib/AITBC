@@ -7,7 +7,7 @@ from typing import Any
 
 import click
 
-from aitbc.utils.units import ait_to_seconds, seconds_to_ait
+from aitbc.utils.units import ait_to_units, units_to_ait
 
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.validation import validate_address
@@ -140,7 +140,7 @@ def stake(ctx, amount: Decimal, duration: int):
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(rpc_url)
 
-    amount_seconds = ait_to_seconds(amount)
+    amount_seconds = ait_to_units(amount)
     sign_data = {
         "address": hex_address.lower().strip(),
         "amount": amount_seconds,
@@ -174,7 +174,7 @@ def stake(ctx, amount: Decimal, duration: int):
                 "amount": str(amount),
                 "duration_days": duration,
                 "locked_until": result.get("locked_until"),
-                "remaining_balance": str(seconds_to_ait(result.get("remaining_balance", 0))),
+                "remaining_balance": str(units_to_ait(result.get("remaining_balance", 0))),
                 "chain_id": chain_id,
             },
             ctx.obj.get("output_format", "table"),
@@ -236,8 +236,8 @@ def unstake(ctx, stake_id: str):
             {
                 "wallet": wallet_name,
                 "stake_id": stake_id,
-                "amount": str(seconds_to_ait(result.get("amount", 0))),
-                "new_balance": str(seconds_to_ait(result.get("new_balance", 0))),
+                "amount": str(units_to_ait(result.get("amount", 0))),
+                "new_balance": str(units_to_ait(result.get("new_balance", 0))),
                 "status": result.get("status"),
                 "chain_id": chain_id,
             },
@@ -278,10 +278,10 @@ def staking_info(ctx):
                 "wallet": wallet_name,
                 "address": sender_address,
                 "chain_id": chain_id,
-                "total_staked": str(seconds_to_ait(result.get("total_staked", 0))),
+                "total_staked": str(units_to_ait(result.get("total_staked", 0))),
                 "active_stake_count": result.get("active_stake_count"),
                 "active_stakes": [
-                    {**s, "amount": str(seconds_to_ait(s.get("amount", 0)))} for s in result.get("active_stakes", [])
+                    {**s, "amount": str(units_to_ait(s.get("amount", 0)))} for s in result.get("active_stakes", [])
                 ],
             },
             ctx.obj.get("output_format", "table"),
@@ -308,8 +308,8 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
     hex_address = canonical_address(wallet_data["address"])
-    amount_seconds = int(ait_to_seconds(amount))
-    fee_seconds = int(ait_to_seconds(fee))
+    amount_seconds = int(ait_to_units(amount))
+    fee_seconds = int(ait_to_units(fee))
 
     tx = {
         "type": "LIQUIDITY_DEPOSIT",
@@ -379,7 +379,7 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
     hex_address = canonical_address(wallet_data["address"])
-    fee_seconds = int(ait_to_seconds(fee))
+    fee_seconds = int(ait_to_units(fee))
 
     tx = {
         "type": "LIQUIDITY_CLAIM",
@@ -428,7 +428,7 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
     hex_address = canonical_address(wallet_data["address"])
-    fee_seconds = int(ait_to_seconds(fee))
+    fee_seconds = int(ait_to_units(fee))
 
     tx = {
         "type": "LIQUIDITY_WITHDRAW",

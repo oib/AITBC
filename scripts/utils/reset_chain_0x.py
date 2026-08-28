@@ -29,6 +29,7 @@ from eth_account import Account as EthAccount
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "blockchain-node" / "src"))
 
+from aitbc.utils.units import ait_to_units
 from aitbc_chain.config import ChainSettings
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.base_models import Account, Block
@@ -91,13 +92,13 @@ def main() -> int:
     agent_operator = node_env.get("AGENT_ECONOMICS_OPERATOR_ADDRESS") or blockchain_env.get(
         "AGENT_ECONOMICS_OPERATOR_ADDRESS", ""
     )
-    for addr, amount in [(escrow_release, 18_000_000), (agent_operator, 18_000_000)]:
+    for addr, amount in [(escrow_release, ait_to_units(5000)), (agent_operator, ait_to_units(5000))]:
         if addr and addr not in {genesis_address} | wallets:
             service_balances[addr] = amount
 
-    allocations: list[dict[str, object]] = [{"address": genesis_address, "balance": 3_600_000_000_000, "nonce": 0}]
+    allocations: list[dict[str, object]] = [{"address": genesis_address, "balance": ait_to_units(1_000_000_000), "nonce": 0}]
     for addr in sorted(wallets):
-        allocations.append({"address": addr, "balance": 3_600_000_000, "nonce": 0})
+        allocations.append({"address": addr, "balance": ait_to_units(1_000_000), "nonce": 0})
     for addr, balance in sorted(service_balances.items()):
         allocations.append({"address": addr, "balance": balance, "nonce": 0})
     for name in [
@@ -113,7 +114,7 @@ def main() -> int:
         "aitbc1developer2",
         "aitbc1tester",
     ]:
-        allocations.append({"address": _derive_address(name), "balance": 1_000_000, "nonce": 0})
+        allocations.append({"address": _derive_address(name), "balance": ait_to_units(1_000_000), "nonce": 0})
 
     if data_dir.exists():
         ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")

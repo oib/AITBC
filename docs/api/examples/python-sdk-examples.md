@@ -96,7 +96,7 @@ result = client.wallet.send_payment(       # POST /v1/wallets/{wallet_id}/send
     recipient="wallet-456",
     amount=1000,                           # integer base units, not a decimal string
     password="<WALLET_PASSWORD>",          # unlocks the stored key; required
-    fee=36,
+    fee=360000,                            # 0.01 AIT default fee (1 AIT = 36_000_000 units)
     chain_id="ait-mainnet",                # optional; daemon default if omitted
 )
 print(result["tx_hash"], result["status"])

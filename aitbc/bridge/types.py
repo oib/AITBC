@@ -40,7 +40,7 @@ class BridgeTransfer:
     target_chain: str
     sender: str
     recipient: str
-    amount: int  # in compute-seconds (1 AIT = 3600)
+    amount: int  # in compute-units (1 AIT = 36_000_000)
     asset: str = "native"
     status: BridgeStatus = BridgeStatus.PENDING
     source_tx_hash: str | None = None

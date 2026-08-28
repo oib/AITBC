@@ -23,12 +23,14 @@ from aitbc.db import agent_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from agent_app.routers import coin_requests  # noqa: E402
 
+from aitbc.utils.units import ait_to_units
+
 API_KEY = "test-coordinator-api-key"
-TREASURY_BALANCE = 3_600_000_000_000
+TREASURY_BALANCE = ait_to_units(1_000_000_000)
 TX_HASH = "0x" + "cd" * 32
 
-# Under the hub's automatic ceiling of 360000, so the faucet policy approves it unattended.
-PAYOUT = 100
+# Under the hub's automatic ceiling (100 AIT), so the faucet policy approves it unattended.
+PAYOUT = 1_000_000
 
 
 class FakeTransactionService:

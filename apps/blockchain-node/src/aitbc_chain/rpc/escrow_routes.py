@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 from eth_utils import keccak
 
 from ..contracts.escrow import EscrowState, get_escrow_manager
@@ -187,15 +188,9 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
 _RELEASE_LOOKUP_LIMIT = int(os.getenv("ESCROW_RELEASE_LOOKUP_LIMIT", "10"))
 
 
-def _ait_to_seconds(amount_ait: Decimal) -> int:
-    """Convert AIT amount to compute-seconds (1 AIT = 3600)."""
-    seconds = int(amount_ait * 3600)
-    return seconds if seconds > 0 else int(amount_ait)
-
-
 def _fee_for(amount: int) -> int:
     """Default network fee for an escrow transaction."""
-    return max(36, amount // 100)
+    return max(DEFAULT_TX_FEE_UNITS, amount // 100)
 
 
 def _build_lock_tx(
@@ -206,18 +201,18 @@ def _build_lock_tx(
     nonce: int,
     fee: int | None = None,
 ) -> tuple[dict[str, Any], int]:
-    """Build the canonical ESCROW_LOCK transaction dict and return it with the seconds amount."""
-    amount_seconds = _ait_to_seconds(amount_dec)
-    if amount_seconds <= 0:
+    """Build the canonical ESCROW_LOCK transaction dict and return it with the compute-unit amount."""
+    amount_units = ait_to_units(amount_dec)
+    if amount_units <= 0:
         raise ValueError("escrow amount must be positive")
     if not _NODE_WALLET:
         raise ValueError("NODE_WALLET_ADDRESS / GENESIS_WALLET_ADDRESS not configured")
     if fee is None:
-        fee = _fee_for(amount_seconds)
+        fee = _fee_for(amount_units)
     tx: dict[str, Any] = {
         "from": _to_canonical(buyer),
         "to": _to_canonical(_NODE_WALLET),
-        "amount": amount_seconds,
+        "amount": amount_units,
         "fee": fee,
         "nonce": nonce,
         "type": "ESCROW_LOCK",
@@ -228,7 +223,7 @@ def _build_lock_tx(
             "provider": _to_canonical(provider),
         },
     }
-    return tx, amount_seconds
+    return tx, amount_units
 
 
 async def _submit_lock_tx(signed_lock_tx: dict[str, Any]) -> str:
@@ -282,13 +277,12 @@ async def _find_existing_release(job_id: str) -> str | None:
 
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
-    amount_seconds = int(amount * 3600)
     if amount <= 0:
         return None
-    # The chain denominates value in whole compute-seconds.  Any positive
-    # release that rounds down to zero seconds would otherwise leave the provider
-    # unpaid, so round up to the smallest transferable unit (1 second).
-    amount_int = max(amount_seconds, 1)
+    # The chain denominates value in whole compute-units.  Any positive
+    # release that rounds down to zero units would otherwise leave the provider
+    # unpaid, so round up to the smallest transferable unit (1 compute-unit).
+    amount_int = max(ait_to_units(amount), 1)
     try:
         # Never pay a job twice: if it already settled, hand back that transaction.
         existing_release = await _find_existing_release(job_id)
@@ -453,8 +447,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="lock_tx from must be the buyer") from None
     if _to_canonical(tx_to_submit.get("to", "")) != _to_canonical(expected_tx["to"]):
         raise HTTPException(status_code=400, detail="lock_tx to must be the node wallet") from None
-    if int(tx_to_submit.get("amount", 0)) != _ait_to_seconds(amount_dec):
-        raise HTTPException(status_code=400, detail=f"lock_tx amount must be {_ait_to_seconds(amount_dec)}") from None
+    amount_units = ait_to_units(amount_dec)
+    if int(tx_to_submit.get("amount", 0)) != amount_units:
+        raise HTTPException(status_code=400, detail=f"lock_tx amount must be {amount_units} compute-units") from None
     payload = tx_to_submit.get("payload") or {}
     if payload.get("job_id") != job_id:
         raise HTTPException(status_code=400, detail="lock_tx payload job_id mismatch") from None
@@ -479,6 +474,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     await mgr.fund_contract(contract_id, lock_tx_hash)
 
     try:
+        amount_units = ait_to_units(amount_dec)
         with session_scope() as session:
             existing = session.get(Escrow, (job_id, _CHAIN_ID))
             if existing:
@@ -486,14 +482,14 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                 existing.lock_tx_hash = lock_tx_hash
                 existing.buyer = _to_canonical(buyer)
                 existing.provider = _to_canonical(provider)
-                existing.amount = int(amount_dec)
+                existing.amount = amount_units
             else:
                 escrow_record = Escrow(
                     job_id=job_id,
                     chain_id=_CHAIN_ID,
                     buyer=_to_canonical(buyer),
                     provider=_to_canonical(provider),
-                    amount=int(amount_dec),
+                    amount=amount_units,
                     status="locked",
                     lock_tx_hash=lock_tx_hash,
                 )
@@ -551,7 +547,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     "contract_id": getattr(record, "contract_id", None) or "",
                     "job_id": job_id,
                     "message": "Escrow already released",
-                    "released_amount": str(record.amount),
+                    "released_amount": str(units_to_ait(record.amount)),
                     "tx_hash": record.job_tx_hash or "",
                     "released_at": record.released_at.isoformat(),
                 }
@@ -641,9 +637,9 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 if 0 < pct <= 100:
                     reinvest_amount_ait = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
                     if reinvest_amount_ait > 0:
-                        reinvest_amount_seconds = int(reinvest_amount_ait * 3600)
-                        if reinvest_amount_seconds > 0:
-                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_seconds, _CHAIN_ID)
+                        reinvest_amount_units = ait_to_units(reinvest_amount_ait)
+                        if reinvest_amount_units > 0:
+                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_units, _CHAIN_ID)
                             reinvest_amount = reinvest_amount_ait
                         _logger.info(
                             "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
@@ -768,6 +764,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     "lock_tx_hash": db_record.lock_tx_hash if db_record else None,
                 }
     if db_record:
+        record_amount_ait = str(units_to_ait(db_record.amount))
         return {
             "job_id": job_id,
             "contract_id": None,
@@ -775,9 +772,9 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
             or ("refunded" if db_record.refunded_at else ("released" if db_record.released_at else "funded")),
             "buyer": db_record.buyer,
             "provider": db_record.provider,
-            "amount": str(db_record.amount),
-            "released_amount": str(db_record.amount) if db_record.released_at else "0",
-            "refunded_amount": str(db_record.amount) if db_record.refunded_at else "0",
+            "amount": record_amount_ait,
+            "released_amount": record_amount_ait if db_record.released_at else "0",
+            "refunded_amount": record_amount_ait if db_record.refunded_at else "0",
             "created_at": db_record.created_at.isoformat(),
             "released_at": db_record.released_at.isoformat() if db_record.released_at else None,
             "refunded_at": db_record.refunded_at.isoformat() if db_record.refunded_at else None,

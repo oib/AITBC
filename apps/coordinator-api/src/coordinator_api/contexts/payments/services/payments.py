@@ -21,6 +21,7 @@ from aitbc_agent_core import get_active_brand
 
 from ....config import settings
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc.utils.validation import validate_address
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
@@ -173,13 +174,13 @@ class PaymentService:
         nonce: int,
         fee: int | None = None,
     ) -> tuple[dict[str, Any], int]:
-        """Build the canonical ESCROW_LOCK transaction. Amount is in compute-seconds."""
+        """Build the canonical ESCROW_LOCK transaction. Amount is in compute-units."""
         amount_ait = payment.amount
-        amount_seconds = int(amount_ait * 3600)
-        if amount_seconds <= 0:
-            amount_seconds = int(amount_ait)
+        amount_units = ait_to_units(amount_ait)
+        if amount_units <= 0:
+            amount_units = ait_to_units(Decimal("1"))
         if fee is None:
-            fee = max(36, amount_seconds // 100)
+            fee = max(DEFAULT_TX_FEE_UNITS, amount_units // 100)
         node_wallet = self._get_node_wallet_address()
         if not node_wallet:
             raise ValueError("NODE_WALLET_ADDRESS or GENESIS_WALLET_ADDRESS not configured")
@@ -192,7 +193,7 @@ class PaymentService:
         return {
             "from": buyer,
             "to": node_wallet,
-            "amount": amount_seconds,
+            "amount": amount_units,
             "fee": fee,
             "nonce": nonce,
             "type": "ESCROW_LOCK",
@@ -202,7 +203,7 @@ class PaymentService:
                 "job_id": payment.job_id,
                 "provider": provider,
             },
-        }, amount_seconds
+        }, amount_units
 
     async def _create_token_escrow(
         self,

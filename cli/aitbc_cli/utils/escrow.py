@@ -14,7 +14,7 @@ from typing import Any
 from aitbc.crypto.crypto import sign_transaction_hash
 from eth_utils import keccak
 
-from aitbc.utils import ait_to_seconds
+from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units
 
 from .address import to_canonical
 from .error_handling import abort
@@ -59,13 +59,13 @@ def build_escrow_lock_tx(
     buyer_canon = to_canonical(buyer)
     provider_canon = to_canonical(provider)
     node_canon = to_canonical(node_wallet)
-    amount_seconds = ait_to_seconds(amount_ait)
+    amount_units = ait_to_units(amount_ait)
     if fee is None:
-        fee = max(36, amount_seconds // 100)
+        fee = max(DEFAULT_TX_FEE_UNITS, amount_units // 100)
     return {
         "from": buyer_canon,
         "to": node_canon,
-        "amount": amount_seconds,
+        "amount": amount_units,
         "fee": fee,
         "nonce": nonce,
         "type": "ESCROW_LOCK",

@@ -189,7 +189,7 @@ class HTLCContract:
         swap = htlc.initiate_swap(
             initiator="0xalice",
             participant="0xbob",
-            amount=3600,
+            amount=36000000,  # 1 AIT in compute-units
             hashlock=secret_hash,
             timelock=block_height,
         )
@@ -226,7 +226,7 @@ class HTLCContract:
             session: Active DB session.
             initiator: Sender address (funds debited from here).
             participant: Recipient address (funds credited on completion).
-            amount: Amount to lock (in compute-seconds).
+            amount: Amount to lock (in compute-units).
             hashlock: SHA256 hash of the secret.
             timelock: Block height after which the swap can be refunded.
             token: "native" or token contract address.

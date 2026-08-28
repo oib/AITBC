@@ -117,10 +117,10 @@ class SupportedToken(SQLModel, table=True):
     token_symbol: str = Field(index=True)
     token_name: str = Field(default="")
     decimals: int = Field(default=18)
-    bridge_limit: Decimal = Field(default=Decimal("3600000000.0"), gt=0)  # Maximum bridge amount (1M AIT = 3.6B seconds)
+    bridge_limit: Decimal = Field(default=Decimal("36000000000000000"), gt=0)  # Maximum bridge amount in AIT (1M AIT)
     fee_percentage: Decimal = Field(default=Decimal("0.5"), ge=0)  # Bridge fee percentage
-    min_amount: Decimal = Field(default=Decimal("0.01"), gt=0)  # Minimum bridge amount
-    max_amount: Decimal = Field(default=Decimal("3600000000.0"), gt=0)  # Maximum bridge amount (1M AIT = 3.6B seconds)
+    min_amount: Decimal = Field(default=Decimal("0.01"), gt=0)  # Minimum bridge amount in AIT
+    max_amount: Decimal = Field(default=Decimal("36000000000000000"), gt=0)  # Maximum bridge amount in AIT (1M AIT)
     requires_whitelist: bool = Field(default=False)
     is_active: bool = Field(default=True, index=True)
     is_wrapped: bool = Field(default=False)  # Whether it's a wrapped token

@@ -1,0 +1,152 @@
+# v0.24.11 — Bridge multi-signature and Merkle enforcement live validation
+
+## P1 Phase 3 — Follower state-root validation and replay cache (2026-08-23)
+
+- fix(state): `compute_state_root_full` now reads account rows with raw SQL
+  instead of the ORM identity map, so blocks that update account balances via
+  `session.execute(text(...))` are validated against the real DB state.
+- fix(sync): `import_block` resets the in-memory `StateTransition` replay
+  cache per block, so a rejected transaction no longer poisons the next import
+  attempt with a false "replay attack" warning.
+- fix(consensus): `PoAProposer` also resets the replay cache at the start of
+  each block proposal.
+- fix(consensus): `FAUCET`, `BRIDGE_REFUND` and `BRIDGE_LOCK` transactions
+  are now recorded in a block the same way as `MESSAGE`/`BRIDGE_RELEASE`: the
+  pre-registered transaction already updated the account state, so the proposer
+  just sets `block_height` instead of re-running the state transition. This
+  stops the repeated "sender account not found for ..." warnings and anchors
+  the funding/bridge records on-chain.
+- fix(sync): WebSocket/push block imports on follower nodes now skip
+  state-root validation, matching the bulk pull path. The hub proposer still
+  computes state roots from stale in-memory state and needs a restart to use
+  the corrected `compute_state_root_full` path; until then, validation would
+  reject every push block.
+- fix(consensus): the pre-registered transaction query in `PoAProposer` now
+  uses `Transaction.block_height.is_(None)` to correctly select records with a
+  NULL `block_height`. The previous `Transaction.block_height is None` was a
+  Python `True` literal, so the query never returned any pre-registered
+  `FAUCET`/`BRIDGE_REFUND`/`BRIDGE_LOCK` records and they were never anchored.
+- fix(state): `StateTransition` now treats `FAUCET`, `BRIDGE_RELEASE`, and
+  `BRIDGE_REFUND` as pre-registered credit transactions: they do not require a
+  sender account, do not debit a sender, and only credit the recipient. This
+  allows follower nodes to apply the same state change the hub RPC made when the
+  transaction was created.
+- fix(sync): `sync_block_import` no longer creates a zero-balance sender account
+- perf(sync): initial resync bulk batch size now uses the full gap up to the
+  configured `initial_sync_max_batch_size` instead of a conservative 500 + gap/20
+  formula. This roughly halves resync time for large gaps.
+  for `FAUCET`/`BRIDGE_RELEASE`/`BRIDGE_REFUND` before applying them, preventing
+  extra `faucet`/`bridge_*` accounts from polluting the follower state trie.
+- Quality gates: mypy clean, no float money, OpenAPI drift check, and
+  `pytest apps/blockchain-node/tests` all pass.
+- fix(database): switch blockchain chain database from StaticPool to NullPool
+  - Each Session now opens and closes a fresh SQLite connection, preventing long-lived read transactions from holding stale WAL snapshots across proposer/RPC processes.
+  - Consolidated SQLite pragma setup into _set_sqlite_pragmas() so all new connections get WAL, tuning and busy_timeout settings.
+- fix(cli): `aitbc node island join` now chowns `/var/lib/aitbc/island_credentials.json` to `aitbc:aitbc` mode 0600 after writing, matching `aitbc node join`.
+- fix(cli): `aitbc market offer` error now points to `aitbc node island join` instead of the non-writing `aitbc edge island join`.
+- docs(design): mark P1.6 and operations gap #11 (island credential ownership) as fixed in `DESIGN_CYCLE.md`.
+- docs(architecture): rewrite `docs/architecture/1_system-flow.md` to the live v0.10.18 flow
+  - Documents `aitbc auth login`, `aitbc ai submit --wait`, reputation-aware dispatch, and the `ESCROW_RELEASE_PRIVATE_KEY` signer.
+  - Removes stale "not yet" notes for shipped P0.1, P0.6, P1.1, P1.5, and P0.3.
+  - Closes `DESIGN_CYCLE.md` P1.8 and operations gap #13.
+- docs(bridge): reconcile `STATUS.md` with live trusted-custodian bridge defaults
+  - `v0.7.1` and `v0.7.2` rows now note multi-sig/Merkle are implemented but disabled by default.
+  - Closes `DESIGN_CYCLE.md` P1.3.
+- docs(scenarios): canonicalize `aitbc auth login` for coordinator authentication
+  - Updated `docs/scenarios/README.md`, `07_ai_job_submission.md`, `25_job_payment_failure.md`, `35_fire_and_forget_logging_b10_b11.md`, `46_tee_confidential_jobs.md`, `47_zk_high_value_jobs.md`, `48_performance_bonds_high_value.md`, `49_auto_reinvest_escrow.md` to use `aitbc auth login` instead of scraping `JWT_SECRET` from `/etc/aitbc/*.env`.
+  - Closes `DESIGN_CYCLE.md` operations gap #10.
+- docs(design): close operations gap #8 — follower divergence handling now has bulk resync, regression tests, and Prometheus metrics/alerting.
+- fix(cli): collapse legacy command groups to reduce operator confusion
+  - `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`.
+  - Group docstrings and `cli/README.md` clarify that `aitbc market`, `aitbc ai`, `aitbc agent`, and `aitbc governance` are the preferred command groups.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #15.
+- feat(ops): `aitbc-ipfs` now uses a Python wrapper (`apps/ipfs/ipfs-daemon.py`)
+  that runs `ipfs daemon` and reformats Kubo/go-log and logfmt output to the
+  AITBC journal style (`[LEVEL] [component] caller: message: key=value`). This
+  makes the IPFS service consistent with every other AITBC service.
+
+- docs(scenarios): add live-vs-simulated CLI output table and scenario notes
+  - `docs/scenarios/README.md` now lists which CLI groups can fall back to simulated output and why.
+  - Scenarios 04, 06, 11, 12, 27, 33, 34, and 42 include a `> **Live vs. simulated:**` note explaining live and simulated behavior.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #16.
+- fix(state,sync): handle FAUCET/BRIDGE_* as pre-registered credit transactions on followers
+- fix(state): BRIDGE_LOCK is now a pre-registered debit transaction on
+  followers. The sender is debited and the nonce is incremented, but no
+  bridge_lock account is created, and the tx nonce is not checked against the
+  current sender nonce. This prevents the extra bridge_lock account that caused
+  the resynced aitbc3 state root to diverge from the hub.
+- fix(sync): re-enable state-root validation for push imports in
+  `subscription_client.py` now that the hub proposer computes correct roots and
+  pre-registered transactions are handled consistently.
+- docs(monitoring): update `scripts/monitoring/monitoring-setup.md` to match shop-node-only `prometheus.yml`
+  - Clarifies that the sample Prometheus config scrapes only the local node by default.
+  - Comments out hub and shop coordinator/marketplace targets that are not reachable from a follower.
+- fix(sync): re-enable state-root validation for push imports
+- fix(sync): state snapshots are now skipped when the follower is more
+  than `state_sync_max_gap` (default 10) blocks behind the peer. This prevents
+  the account/nonce snapshot from making old transactions fail their nonce
+  checks and producing thousands of misleading warnings during initial resyncs.
+- docs(scenarios): reframe intermediate scenarios 21–35 as operator plays
+  - `docs/scenarios/README.md` now calls them "operator hardening plays" and clarifies A/B ids are change-log cross-references.
+  - Added a `> **Operator play:**` note to scenarios 21–35.
+  - Renamed a few scenario titles to remove "Fix" framing.
+  - Closes `DESIGN_CYCLE.md` docs/CLI honesty gap #17.
+- feat(metrics): add mempool, bridge, subscription and sync lag/failure metrics to blockchain node
+  - `metrics.py` now exports `mempool_pending_count/size/added/drained/evicted`, `bridge_*`, `subscription_*`, `sync_lag_blocks`, `sync_failures_total`.
+  - `mempool.py` and `subscription_client.py` now increment the new Prometheus counters/gauges.
+  - `observability/exporters.py` now uses a `ThreadingHTTPServer` `_MetricsHandler` that merges `prometheus_client` default and legacy `metrics_registry` output on `AITBC_NODE_METRICS_PORT` (default 9009).
+- feat(metrics): wire bridge and sync failure metrics
+  - `rpc/bridge.py` now sets `bridge_initialized`, `bridge_pending_transfers`, `bridge_release_enabled`, and `bridge_total_locked_amount` when `bridge_health` and `bridge_security_status` are called.
+  - `sync_block_import.py` increments `sync_failures_total` with a short reason label for every rejected block.
+- fix(sync): skip state sync when follower is far behind peer
+- fix(consensus): `BROADCAST SKIPPED` warning in `poa.py` now includes the
+  chain_id, so it is clear which chain has no subscribers when a node supports
+  multiple chains.
+- feat(monitoring): update `scripts/monitoring/aitbc_rules.yml` with recording rules and new alerts
+  - Adds `aitbc:block_interval_seconds:rate5m`, `aitbc:rpc_requests_per_second:rate5m`, `aitbc:rpc_error_rate:ratio5m`, and `aitbc:bridge_locked_amount` recording rules.
+  - Adds `SyncLagHigh` and `MempoolFull` alerts.
+  - Updates `RpcErrorsSpiking` to use the combined client/server error rate.
+- fix(metrics): remove stray `import re` that broke Python `from __future__` import ordering in `metrics.py`
+- fix(metrics): import subscription_messages_received_total in subscription_client
+- fix(metrics): add missing `re` import to `metrics.py` so the legacy
+  `MetricsRegistry.render_prometheus()` path does not raise `NameError` when
+  `/metrics` is scraped.
+- docs(scenarios): add Scenario 51 — Multi-Validator PoA Soak
+  - Documents how to configure `VALIDATOR_SET`/`VALIDATOR_KEYS`, run the consensus unit and soak tests, and observe proposer rotation locally before enabling `MULTI_VALIDATOR_CONSENSUS_ENABLED` in production.
+  - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.4 to reflect that the implementation is shipped and live enablement is operator-gated.
+- docs(scenarios): add Scenario 52 — Wallet Key Mismatch Recovery
+  - Documents the operator recovery path for a wallet whose stored key does not match the expected address.
+  - Closes `DESIGN_CYCLE.md` operations gap #12.
+- docs(scenarios): add Scenario 53 — Customer and Shop Dashboards
+  - Documents the live `aitbc dashboard customer` and `aitbc dashboard shop` paths, the required `aitbc auth login` roles, and service health checks for empty sections.
+  - Updates `docs/scenarios/README.md` and `docs/DESIGN_CYCLE.md` P1.2 to reflect that the CLI dashboard is live and the web UI mock is out-of-repo.
+
+- feat(bridge): P1.3 cross-chain bridge with block-anchored Merkle proofs
+  - Add `bridge_state_root` to `Block` and `BridgeBlockHeader` models and SDK types.
+  - Block hash commits to both account `state_root` and `bridge_state_root`.
+  - Block proposer signs the canonical block header JSON, matching the bridge verifier.
+  - Bridge state root is computed from `BRIDGE_LOCK` events during block production.
+  - `build_proof` rebuilds the bridge event trie from the source block and verifies it matches the committed `bridge_state_root`.
+  - `_validate_proof` verifies the Merkle proof against `BridgeBlockHeader.bridge_state_root`.
+  - Block header and validator attestations are verified as M-of-N signatures over the canonical header message.
+  - Bridge locks are added to the mempool so the next produced block anchors them.
+  - Closes `DESIGN_CYCLE.md` P1.3 bridge multi-signature and Merkle-proof verification.
+
+- fix(bridge): live ait-hub -> ait-shop-island transfer succeeded
+  - build_proof now returns the real account state_root in proof.state_root
+    and the bridge event trie root in proof.bridge_state_root.
+  - _validate_proof checks the proof bridge_state_root against the stored
+    BridgeBlockHeader bridge root, preserving account state root in the
+    canonical block-header signature.
+  - Validated end-to-end: lock on hub, block inclusion at height 12493,
+    Merkle proof, block header + validator signature verification, and
+    release on aitbc3.
+
+2026-08-24 — Multi-validator / multi-key consensus
+- Activated `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` on `hub.aitbc` with a two-validator set and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`.
+- Verified both `VALIDATOR_KEYS` derive to their declared `ait1` addresses before activation.
+- Observed round-robin proposer rotation from height 13282 and one attestation per block.
+- Fixed `bridge_state_root` and `chain_id` serialization in `poa.py` broadcast and `rpc/blocks.py` so followers can verify multi-validator blocks.
+- Restored `aitbc3` follower sync to the hub chain.
+- Documented honest assessment: this is local multi-key rotation, not independent distributed consensus.
+- Fixed coordinator nonce routes in `payments.py` and `bond_slashing.py` to use `/rpc/accounts/{address}`.

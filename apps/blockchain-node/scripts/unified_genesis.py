@@ -30,6 +30,8 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from eth_account import Account
 from eth_keys import keys
 
+from aitbc.utils.units import units_to_ait
+
 try:
     from aitbc_chain.config import BlockchainConfig  # noqa: F401
     from aitbc_chain.models import Account, Block  # noqa: F401
@@ -124,7 +126,7 @@ def create_genesis_allocations(genesis_address: str, additional_allocations: lis
     allocations = [
         {
             "address": genesis_address,
-            "balance": 3600000000000,  # 1 billion AIT for genesis (3.6 trillion seconds)
+            "balance": 36000000000000000,  # 1 billion AIT for genesis (36 quadrillion compute-units)
             "nonce": 0,
         }
     ]
@@ -286,8 +288,8 @@ def main():
 
     print(f"Total allocations: {len(allocations)}")
     for alloc in allocations[:3]:  # Show first 3
-        balance_ait = alloc["balance"] / 3600  # Convert seconds to AIT
-        print(f"  - {alloc['address']}: {balance_ait:.0f} AIT ({alloc['balance']} seconds)")
+        balance_ait = units_to_ait(alloc["balance"])  # Convert compute-units to AIT
+        print(f"  - {alloc['address']}: {balance_ait} AIT ({alloc['balance']} compute-units)")
 
     # Save genesis configuration
     print("\n💾 Saving Genesis Configuration...")

@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Any
 
 from aitbc.blockchain.rpc_client import BlockchainClient as BaseBlockchainClient
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class BlockchainClient(BaseBlockchainClient):
             "from": sender,
             "to": sender,  # Governance txs are self-directed (no value transfer)
             "amount": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": nonce,
             "payload": payload,
             "type": tx_type,

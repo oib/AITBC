@@ -1,0 +1,62 @@
+# v0.24.6 — P2: bonds, ZK high-value, validation sweep
+
+## P1.4 — MultiValidatorPoA soak
+
+- Added `apps/blockchain-node/tests/consensus/test_multi_validator_poa_soak.py`
+  with 1000+ round soak tests covering:
+  - round-robin proposer distribution,
+  - dynamic validator additions and removals,
+  - network partition tolerance,
+  - 100 consecutive PBFT consensus attempts.
+- Ran the full `apps/blockchain-node/tests/consensus/` suite successfully
+  (50 tests passing).
+- Updated `docs/blockchain/4_consensus.md`, `docs/DESIGN_CYCLE.md`, and
+  `docs/releases/STATUS.md` to be explicit that the live network remains
+  single-validator PoA by default (`multi_validator_consensus_enabled=False`)
+  and that MultiValidatorPoA/PBFT is opt-in.
+
+## P2.3 — On-chain performance bonds (foundation)
+
+- Added `Bond` table and `StateTransition` handling for `BOND_LOCK`, `BOND_RELEASE`, and `BOND_SLASH` transaction types.
+- Bond collateral is locked in a deterministic bond escrow account; slashed funds move to a burn address; releases return funds to the provider after the lock period.
+- Added read-only `/rpc/bond/{bond_id}` and `/rpc/bond/provider/{provider}` endpoints.
+- Added `apps/blockchain-node/tests/test_bond.py` covering lock, release, and slash.
+
+## P2.3 follow-up — bond CLI and /rpc/bond routes
+
+- `aitbc bond create` signs a `BOND_LOCK` transaction from a local wallet and submits it to the blockchain.
+- `aitbc bond status` queries `/rpc/bond/{bond_id}` and `/rpc/bond/provider/{provider}`.
+- `aitbc bond release` signs a `BOND_RELEASE` transaction.
+- Bond query router is mounted under `/rpc/bond`.
+- Live validation: bond locked on chain, queryable by ID.
+
+## P2.3 live validation — lock and release on chain
+
+- Created `BOND_LOCK` tx and queried it: bond is active and queryable.
+- Released the same bond with `BOND_RELEASE` after a 0-day lock and verified
+  status=\`released\`, amount=0, and released_tx_hash recorded.
+- Account balance recovered the locked collateral after the release.
+- CLI now fetches the real provider nonce before signing each bond transaction.
+
+## Validation sweep
+
+- Ran governance, AI CLI, dashboard, marketplace, reputation, island
+  credentials, and broader unit/app test suites on `aitbc3`.
+- Fixed test drift discovered by the sweep:
+  - `StubSession.execute()` signature in governance timelock tests.
+  - `blockchain_rpc_url` expectations (`127.0.0.1` vs `localhost`).
+  - `get_rpc_endpoint()` fallback test.
+  - `hub_agent_url()` default path and `HUB_HERMES_URL` handling.
+  - `agent_comm` CLI paths (`/v1/agents/...`).
+  - `messaging topic` network-error behaviour and `CLIError` handling.
+  - OpenAPI drift guard `files:` pattern for `aitbc_agent_core/`.
+  - Regenerated `docs/api/*.json` so the drift guard passes.
+- Full suite passing: ~3700 tests.
+
+## P2.3 marketplace bond eligibility
+
+- `submit_marketplace_transaction` in `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`
+  now checks for an active bond before accepting `offer`/`software_offer`
+  GPU_MARKETPLACE transactions. The threshold is controlled by
+  `MARKET_BOND_MIN_AMOUNT` (compute-seconds); a value of 0 disables the check.
+- Bond check uses the active bond table and expires matured bonds.

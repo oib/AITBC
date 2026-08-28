@@ -9,6 +9,7 @@ fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 from unittest.mock import patch
 
 import pytest
+from aitbc.utils import ait_to_units
 
 
 class TestTransactionsCommands:
@@ -162,10 +163,10 @@ class TestTransactionsCommands:
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
         assert "/rpc/estimateFee" in mock_client.post.call_args[0][0]
-        # --amount is AIT; the node is asked in compute-seconds
-        assert mock_client.post.call_args[1]["json"]["value"] == 100 * 3600
-        # ...and the node's answer comes back in seconds, so 50 seconds is not 50 AIT
-        assert "0.0139 AIT" in result.output
+        # --amount is AIT; the node is asked in compute-units
+        assert mock_client.post.call_args[1]["json"]["value"] == ait_to_units(100)
+        # ...and the node's answer comes back in compute-units, so 50 units is not 50 AIT
+        assert "0.00000139 AIT" in result.output
 
     @patch("aitbc_cli.commands.transactions.AITBCHTTPClient")
     def test_transactions_estimate_fee_network_error_default(self, mock_http_class, runner):
@@ -190,8 +191,8 @@ class TestTransactionsCommands:
         )
 
         assert result.exit_code == 0, result.output
-        # the 36-second default used to print as "36.0 AIT"
-        assert "0.0100 AIT (default)" in result.output
+        # the default fee is 0.01 AIT (360_000 compute-units)
+        assert "0.01 AIT (default)" in result.output
 
 
 if __name__ == "__main__":

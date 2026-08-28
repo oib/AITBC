@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from aitbc.utils import ait_to_units
 from aitbc_chain.base_models import Escrow
 from aitbc_chain.contracts.escrow import EscrowManager, EscrowState, create_escrow_manager
 from aitbc_chain.rpc.escrow_routes import refund_escrow
@@ -52,7 +53,7 @@ def _insert_escrow(session, job_id: str, released_at=None, refunded_at=None, ref
         chain_id=CHAIN_ID,
         buyer=BUYER,
         provider=PROVIDER,
-        amount=5,
+        amount=ait_to_units(5),
         created_at=datetime.now(UTC),
         released_at=released_at,
         refunded_at=refunded_at,
@@ -97,8 +98,8 @@ class TestEscrowManagerPersistence:
         contract2 = asyncio.run(manager.get_or_load_contract("job-refunded-2"))
         assert contract2 is contract
 
-    def test_get_or_load_contract_uses_ait_amount_not_compute_seconds(self, manager, session):
-        """Loaded contract amount is in AIT (DB amount), not divided by 3600."""
+    def test_get_or_load_contract_uses_ait_amount_not_compute_units(self, manager, session):
+        """Loaded contract amount is in AIT (DB stores compute-units, 1 AIT = 36_000_000)."""
         _insert_escrow(session, "job-active-2")
 
         contract = asyncio.run(manager.get_or_load_contract("job-active-2"))

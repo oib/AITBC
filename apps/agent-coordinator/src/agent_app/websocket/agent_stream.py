@@ -7,6 +7,7 @@ Includes automatic handler triggering for PING, REQUEST_COINS, etc.
 import json
 import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -357,8 +358,8 @@ async def hello_handler(
 
 
 # ── Coin transfer constants ──────────────────────────────────
-INITIAL_COIN_AMOUNT = 360000  # AIT granted automatically on first request per node (100 AIT = 360000 seconds)
-TRANSACTION_FEE = 36  # blockchain transaction fee (matches RPC default, 0.01 AIT = 36 seconds)
+INITIAL_COIN_AMOUNT = ait_to_units(100)  # AIT granted automatically on first request per node (100 AIT)
+TRANSACTION_FEE = DEFAULT_TX_FEE_UNITS  # blockchain transaction fee (matches RPC default, 0.01 AIT)
 
 
 def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:

@@ -32,7 +32,7 @@ def get(ctx, address, rpc_url, chain_id):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         account_data = http_client.get(f"/rpc/account/{canonical}", params=params)
 
-        # balance is in compute-seconds; expose the human-readable AIT string too.
+        # balance is in compute-units; expose the human-readable AIT string too.
         if "balance" in account_data:
             account_data["balance_ait"] = format_ait(account_data["balance"])
 

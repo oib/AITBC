@@ -18,6 +18,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
 # Transaction fields covered by the signature, in the exact shape the node
@@ -86,7 +87,7 @@ class TransactionService:
         return 0
 
     def generate_signed_transaction(
-        self, to_address: str, amount: int, fee: int = 36, chain_id: str | None = None
+        self, to_address: str, amount: int, fee: int = DEFAULT_TX_FEE_UNITS, chain_id: str | None = None
     ) -> dict[str, Any] | None:
         """
         Generate a signed blockchain transaction.

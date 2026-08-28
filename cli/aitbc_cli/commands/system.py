@@ -12,7 +12,7 @@ from typing import Any
 
 import click
 
-from aitbc.utils.units import ait_to_seconds, format_ait
+from aitbc.utils.units import ait_to_units, format_ait
 
 from ..config import get_config
 from ..utils import error, output, success, warning, OUTPUT_FORMAT_OPTION
@@ -61,8 +61,8 @@ _PROCESS_ONLY_SERVICES = frozenset(
     }
 )
 
-# A listing/offer publish costs 36 compute-seconds (0.01 AIT).
-_LISTING_FEE_SECONDS = ait_to_seconds(Decimal("0.01"))
+# A listing/offer publish costs 0.01 AIT (360_000 compute-units).
+_LISTING_FEE_UNITS = ait_to_units(Decimal("0.01"))
 
 
 @click.group()
@@ -203,15 +203,15 @@ def _check_wallet_balance(config) -> dict[str, Any] | None:
         rpc_url = getattr(config, "blockchain_rpc_url", "http://127.0.0.1:8202")
         rpc_client = AITBCHTTPClient(base_url=rpc_url.rstrip("/"), timeout=3, max_retries=0)
         account = rpc_client.get(f"/rpc/account/{canonical}")
-        balance_seconds = int(account.get("balance", 0))
-        balance_ait = format_ait(balance_seconds)
+        balance_units = int(account.get("balance", 0))
+        balance_ait = format_ait(balance_units)
 
-        if balance_seconds < _LISTING_FEE_SECONDS:
+        if balance_units < _LISTING_FEE_UNITS:
             return {
                 "service": "wallet",
                 "running": True,
                 "reachable": None,
-                "notes": f"{wallet_id} ({canonical}) balance {balance_ait} is below listing fee ({format_ait(_LISTING_FEE_SECONDS)})",
+                "notes": f"{wallet_id} ({canonical}) balance {balance_ait} is below listing fee ({format_ait(_LISTING_FEE_UNITS)})",
             }
         return {
             "service": "wallet",

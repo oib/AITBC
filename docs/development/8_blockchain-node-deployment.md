@@ -107,7 +107,7 @@ WantedBy=multi-user.target
 | POST | `/rpc/sendTx` | Submit transaction |
 | POST | `/rpc/importBlock` | Import block from peer |
 | GET | `/rpc/syncStatus` | Sync status |
-| POST | `/rpc/faucet` | Mint devnet funds (amount in compute-seconds, 1 AIT = 3600) |
+| POST | `/rpc/faucet` | Mint devnet funds (amount in compute-units, 1 AIT = 36_000_000) |
 
 ## Monitoring
 

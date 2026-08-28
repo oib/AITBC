@@ -1,0 +1,99 @@
+# v0.24.14 — Open design-review gaps and recovery
+
+## ML inference ZK constraint fix (2026-08-24)
+
+- Promoted the authoring-tree `IsZero` implementation of `ml_inference_verification.circom`
+  into the coordinator circuit directory.
+- Regenerated `ml_inference_verification.r1cs`, `.wasm`, `_0000.zkey`, `_0001.zkey` and
+  `verification_key.json` on `hub.aitbc`.
+- `scripts/zk/build-circuits.sh` now includes `ml_inference_verification` in its rebuild list.
+- `zk_proofs.py` now decodes the per-circuit success public signal:
+  - `ml_inference_verification`: `public_signals[0]` must be `"1"`.
+  - `ml_training_verification` and `modular_ml_components`: last public signal must be `"1"`.
+  - Receipt circuits: `computation_correct` follows Groth16 verification.
+- Added `TestTheInferenceCircuitVerifiesCorrectness` in `test_v2394_zk_circuit_constraints.py`
+  covering correct inference, wrong inference, and tampered public signals.
+- Verified `make test`, `make test-apps`, `make typecheck`, and `make no-float-money` pass.
+
+## Open design-review gaps (2026-08-25)
+
+- **G3 — dispatch/acceptance-gate wiring:** the ZK fix is live, but `computation_correct` is not yet wired into the job-acceptance gate, so a bad result is correctly detected but not yet blocked. Smallest remaining piece.
+- **G6 — settlement/trust-minimization:** the two-validator consensus stall recovered 2026-08-25 after fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy; a validator key-rotation runbook now exists. `PBFTConsensus` is still not wired into production, so the live two-validator, `min-attestations=1` setup is not BFT and can still stall if one validator is unreachable.
+- **G5 — dispute-ruling paths:** reject and dispute-ruling are now live-proven, not just test-covered; residual gap is smaller than previously listed.
+- **Bridge — multi-sig/Merkle enforcement:** multi-sig/Merkle verification is live-enabled on `hub.aitbc` and `aitbc3` (`bridge_release_enabled=true`, `multisig_enabled=true`, `require_merkle_proof=true`); `aitbc1` (validator/follower) still has `bridge_release_enabled=false`. Five bridge transfers remain pending and no `aitbc bridge confirm` has been run.
+- **G8 — CLI surface gate removed, consolidation still open:** the `--show-deprecated` visibility gate was removed, so `aitbc --help` now shows all 67 top-level groups (tests pass). The underlying command overlaps (`market` / `marketplace` / `operations marketplace`, `governance` / `operations governance`) remain unconsolidated and are only smoke-tested via `--help`; the G8 closure is for visibility, not consolidation.
+
+## Doc-sync verification and follow-up (2026-08-25)
+
+- Verified the `docs/releases/STATUS.md` and `docs/releases/v0.24/v0.24.0_change.log` updates from commit `31ab0d797` on `hub.aitbc`:
+  - `git blame` confirms the added lines trace to that commit.
+  - The `Open design-review gaps` table is a genuine 5-row table and its content matches the rest of `STATUS.md`.
+  - Independent inspection of the live payment-release code confirms it still gates on `receipt_public.verified` for high-value jobs, not on `computation_correct`, so the G3 remaining gap is accurate.
+- Closed two operational loose ends identified during verification:
+  - `aitbc1` was one commit behind; ran `git pull` to fast-forward it to `main`.
+  - `aitbc3` venv had `pre-commit==4.2.0`; reinstalled `pre-commit==4.5.1` to match the project lockfile.
+
+## G3 — computation_correct wired into escrow release (2026-08-25)
+
+- `_attach_zk_proof` records `computation_correct` from `zk_proof_service.verify_proof` and sets
+  `zk_status` to `computation_incorrect` when the proof is valid but the result is wrong.
+- `PaymentService.release_payment` refuses to release escrow when `computation_correct` is `False`,
+  closing the gate for `pending_acceptance -> release`.
+- Added `apps/coordinator-api/tests/test_zk_computation_correct_gate.py` with four tests covering
+  `computation_correct=True` (pass), `computation_correct=False` (blocked in attach and in release),
+  and the `release_payment` path.
+- Live enablement requires restarting `aitbc-coordinator-api` on `hub.aitbc`.
+
+## G6 / G8 — validator key rotation process and CLI surface gate removal (2026-08-25)
+
+### G6
+
+- Added `docs/operations/validator-key-rotation.md` defining a live-key-free
+  validator and recovery key rotation runbook.
+- Added `docs/operations/validator-key-rotation.env.example` as the git-tracked
+  template; real values are loaded from host-local `/etc/aitbc` or an external
+  secrets manager at runtime.
+- The runbook explicitly forbids committing private keys to git and cross-references
+  `docs/operations/SECRET_ROTATION.md` and `docs/operations/SECRET_ROTATION_LOG.md`.
+- The larger `PBFTConsensus` wiring and genuine BFT/fault tolerance remain open.
+
+### G8
+
+- Removed `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py`.
+- `cli/aitbc_cli/core/main.py` no longer uses a validated-command allowlist and no
+  longer accepts `--show-deprecated`.
+- `marketplace` and `operations` are no longer hidden from `aitbc --help`; their
+  short help notes the preferred replacement group.
+- Updated `cli/tests/test_cli_surface.py`, `test_cli_basic.py`, and
+  `test_cli_comprehensive.py` to match the unified surface.
+- **Residual (honest):** removing the gate does not consolidate the overlapping
+  groups. `market`, `marketplace`, and `operations marketplace` still hit different
+  backends; `governance` and `operations governance` are likewise unconsolidated.
+  G8 is closed for the visibility gate; the command consolidation underneath is
+  still open.
+
+### Bridge status
+
+- `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`. `aitbc bridge
+  security-status` reports `release_enabled: true`, `multisig_enabled: true`,
+  `require_merkle_proof: true`, and `trusted_custodian: false`. A controlled
+  confirm/release validation run is pending operator-provided confirmer credentials.
+
+## Bridge release enabled; consensus recovered; confirmations remain pending (2026-08-25)
+
+- `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`; the
+  `aitbc-coordinator-api` service on hub was restarted after the env edit, and
+  `/proc/<pid>/environ` confirms the flag is loaded.
+- `aitbc bridge security-status` reports `release_enabled: true`,
+  `multisig_enabled: true`, `require_merkle_proof: true`,
+  `trusted_custodian: false`.
+- The two-validator chain **recovered** after fixing `hub.aitbc`'s sync source to
+  `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse
+  proxy. All three live nodes now advance every ~60s with matching heads (e.g.
+  height 14588) and each produced block carries valid cross-validator
+  `block_metadata`.
+- `aitbc1` still has `BRIDGE_RELEASE_ENABLED=false`. Five bridge transfers
+  remain pending. `confirm_transfer` credits the recipient synchronously without
+  verifying the `BRIDGE_RELEASE` transaction is sealed in a produced block, so no
+  `aitbc bridge confirm` is run without explicit authorization after consensus is
+  verified robust and transaction-sealing prerequisites are proven.

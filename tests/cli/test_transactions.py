@@ -52,7 +52,7 @@ def mock_http_client(monkeypatch):
     }
 
     class FakeClient:
-        def __init__(self, base_url=None, timeout=10):
+        def __init__(self, base_url=None, timeout=10, **kwargs):
             self.base_url = base_url or "http://127.0.0.1:8202"
 
         def get(self, path, **kwargs):

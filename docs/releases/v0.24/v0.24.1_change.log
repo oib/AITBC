@@ -1,0 +1,105 @@
+# v0.24.1 — V23 port fixes and CLI foundation
+
+## Scenarios are CLI-first plays of the live software (2026-08-21)
+
+`docs/scenarios/` is now the operator manual for the software **as it runs**, not a mix of curl tickets and planned features. `aitbc` is the primary tool in every play. Curl / `journalctl` / `pytest` are validation only.
+
+- Added `docs/DESIGN_CYCLE.md`: current closed economic loop, maturity map, gaps, and P0-P2 wish list.
+- Intermediate scenarios 21-36 rewritten onto real CLI groups (`start`, `system`, `bridge`, `ai`, `gpu`, `market`, `transactions`, `exchange-island`, `pool-hub`, …).
+- Beginner 06 uses `AIT/ETH` only (`exchange-island` does not accept `AIT/BTC`). Beginner 11 leads with `aitbc ipfs` / `aitbc oracle`. Beginner 17 distinguishes `aitbc governance` (port 8105) from `aitbc operations governance` (RPC).
+- CLI gap closed: `aitbc ai submit --currency` so scenario 25 can force `payment_status=skipped` without raw HTTP.
+
+## V23-95 — Corrected ML circuits ported to the build tree
+
+The `modular_ml_components` and `ml_training_verification` circuits were corrected in the coordinator-api tree under V23-94; this release ports the same fixed-point learning-rate checks to the `apps/zk-circuits` build tree and re-runs the ceremony so both trees hold byte-identical, contributed keys. `tests/unit/test_v2395_zk_circuit_tree_parity.py` now fails if the two trees diverge again.
+
+## V23-96 — Pool Hub serves /health and describes outages instead of crashing
+
+`pool-hub` now exposes a real `/health` endpoint. Before this change the `/health` path returned 404 and the monitoring infrastructure never watched the service. The monitoring and `health_check.sh endpoints` checks now treat `aitbc-pool-hub` as a first-class service.
+
+## V23-97 — `is_not` operator fixed so billing sync can build a query
+
+The Pool Hub SLA/billing query builder now emits the `is_not` operator correctly, allowing `/v1/sla/violations?resolved=true` to return 200 instead of 500. The CLI also aborts with a clear message when asked for per-pool SLA or when the host is unreachable.
+
+## CLI — raw JSON, `balance_ait`, and `aitbc update`
+
+- `aitbc account get` now shows `balance_ait` alongside the raw compute-seconds balance.
+- `aitbc wallet balance` preserves the daemon's `balance`/`balance_ait` fields.
+- `aitbc --output json` returns unwrapped machine-readable JSON.
+- `aitbc update` pulls the latest `main` and runs `scripts/deployment/update.sh` in one command.
+
+## Block-scoped pre-registered transactions
+
+- Added `block_scoped_preregistered_transactions` feature flag (default `False`).
+- `FAUCET`, `BRIDGE_LOCK`, `BRIDGE_RELEASE`, and `BRIDGE_REFUND` can now be queued in the mempool and applied only when a block is produced/imported.
+- When enabled, off-chain RPCs no longer credit/debit `Account` balances directly; `state_transition.apply_transaction` applies them at block time.
+- The default path remains unchanged until the flag is enabled and orphan records are cleaned.
+
+## V23-92 follow-up — shop/follower nodes stop treating hub-only services as local
+
+`aitbc-exchange` (8106) and `aitbc-agent-coordinator` (8107) are hub-only. V23-92 already stopped coin-request notifications from defaulting to `localhost:8107`. The same default was still sitting in CLI config, pool-hub miner registration, and `health_check.sh`, so a shop node would report those units as down. Off-hub URLs now come from `HUB_DISCOVERY_URL` / `HUB_AGENT_URL` / `HUB_EXCHANGE_URL` in `/etc/aitbc/{blockchain,node}.env` (no baked-in hostname). `health_check.sh` now resolves the node role the same way `setup.sh` does and probes only that role's units and HTTP ports.
+
+## Shop-chain fork recovery and live scenario follow-ups
+
+Replay of Scenario 34 on 2026-08-20 found the shop node (`aitbc3`) forked from the hub at height 6815 (local proposer `0x19e7e376…` vs hub genesis). Bulk sync then logged `Unhandled import case` on every next-height import because the parent was not the shop tip.
+
+- `import_block` now reports that case as `diverged=True` (`Divergent chain: next block parent … is not our head …`) instead of falling through.
+- Shop was reset with `scripts/ops/reset-follower-to-genesis.sh` (DB backups left on disk) and pull-synced back to hub height.
+- `aitbc market offer` as root can load `aitbc`-owned `island_credentials.json` (mode 0600). Importing the CLI as a non-root service user no longer crashes on unreadable `/etc/aitbc/blockchain-secrets.env`.
+- Scenario 34 JWT generation uses `aitbc.auth.create_access_token`; exchange examples use `/api/orders/orderbook` and `POST /api/orders` with `X-Api-Key`.
+
+## Live verification
+
+After the merges and restart on the hub node:
+- `/health` returns 200 with `db`, `redis`, and `miners_online` status.
+- `/v1/sla/violations?resolved=true` returns 200.
+- `aitbc pool-hub status` and `aitbc pool-hub sla` return live data instead of simulated.
+- `poolhub_miners_online` is exported on `/metrics` for Prometheus.
+
+## Hub↔shop paid AI jobs and marketplace offers
+
+This batch of fixes completes the live two-node flow between `hub.aitbc` (customer) and `aitbc3` (shop/miner):
+
+- `ESCROW_RELEASE` transactions are now signed with the genesis wallet key before being submitted to `POST /rpc/transactions/marketplace`, so paid AI jobs settle on-chain.
+- The blockchain RPC `/rpc/transactions` query and `get_chain_id()` now default an empty or missing `chain_id` to the node-configured `chain_id`.
+- `GPU_MARKETPLACE` offer transactions with `amount=0` are accepted without a secp256k1 signature, while value-carrying transactions still require a valid signature.
+- The `aitbc market offer` command now posts to the correct `/v1/marketplace/offer` endpoint (the old `/v1/marketplace/software-services` path did not exist).
+- `qa-cycle.py` no longer reads `GITEA_TOKEN` from a repo file; it uses the `GITEA_TOKEN` environment variable or `~/.gitea_token`.
+- Legacy `http://127.0.0.1:18000` and `18001` references were removed from test scripts, completion, and example comments.
+- `scripts/testing/run_all_tests.sh` was updated to use current, valid CLI options and now passes 9/9 CLI smoke tests.
+
+## Scenario replay and follow-up fixes (2026-08-20)
+
+- `6200888ca` `fix(cli/agent-comm)`: `aitbc agent-comm` now uses the `/v1`
+  coordinator mount after Hermes was renamed to agent. `register` and
+  `discover` work live from `aitbc3`.
+- `2b8508c28` `fix(cli/wallet)`: `aitbc wallet unstake` surfaces the real
+  RPC rejection body (e.g. stake lock expiry) instead of a generic 400.
+
+
+Continuing the live two-node validation on `aitbc3` and `hub.aitbc`:
+
+- `5886697ac` `fix(cli/transactions)`: `aitbc transactions status` and `pending` now fall back to the configured hub `blockchain_rpc_url` instead of `localhost:8202`.
+- `e4171eb0c` `fix(cli/messaging)`: `aitbc messaging topic` falls back to a deterministic simulated topic when the RPC is unavailable, matching `send`/`list`.
+- `21fd6f317` `fix(cli/reputation)`: `aitbc reputation` no longer double-prepends `/v1` to coordinator paths.
+- `110cd9bb0` `fix(cli/wallet)`: `aitbc wallet stake` no longer calls `.token_symbol` on a string brand.
+- `e1cd871dd` `fix(cli/exchange-island)`: `aitbc exchange-island` falls back to `exchange_service_url` when island credentials lack an RPC endpoint.
+- `5f573315f` `fix(cli/wallet)`: `stake` and `unstake` now send canonical lower-case addresses in the JSON payload.
+
+Replayed scenarios 01-02, 04, 06 (partial, exchange not deployed), 08, 10-14, 16 (auth still open), 17-22, 28-33, and 36.
+
+## Session task-list close-outs
+
+The following items from `TASKLIST.md` were completed during the v0.24.0 validation cycle and are recorded here for traceability:
+
+- `aitbc wallet list` now includes file wallets alongside daemon wallets (`0ae4bb389`).
+- `aitbc mining status/list` works on the shop node after blockchain RPC auth canonicalises bech32 addresses.
+- `aitbc market offer` 400s fixed: `my-agent-wallet` funded from genesis and offer re-published (`6b9ede797`).
+- `aitbc pool-hub` and hub URL resolution now fall back to `HUB_P2P_HOST` / `HUB_RPC_URL` on follower nodes.
+- `aitbc-blockchain-p2p` is installed and active on `aitbc3` after resetting the local PostgreSQL WAL and creating the `aitbc_mempool` database.
+- Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `hub.aitbc` to a clean working tree.
+- Documented wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
+- Scrubbed historical `.gitea_token.sh` from gitea history (done from `aitbc3`).
+- Extended `docs/scenarios/34_hub_customer_node_e2e.md` with paid-job + escrow + GPU offer steps (`b18468450`).
+- Patched scenario 34 exchange paths and JWT import (`e8966aba1` on gitea `main`).
+- Simulated fallbacks made deterministic for `aitbc reputation` and `aitbc exchange-island` (`d6958ed00`).
