@@ -932,15 +932,21 @@ class MarketplaceService:
             raise
 
     def _parse_iso_dt(self, value: Any) -> Any:
-        """Parse an ISO 8601 datetime string or return a datetime object."""
-        from datetime import datetime
+        """Parse an ISO 8601 datetime string into a naive UTC datetime."""
+        from datetime import UTC, datetime
 
         if value is None:
             return None
         if isinstance(value, datetime):
+            if value.tzinfo is not None:
+                # Convert aware datetimes to naive UTC for consistent storage.
+                return value.astimezone(UTC).replace(tzinfo=None)
             return value
         if isinstance(value, str):
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+            return parsed
         raise ValueError(f"Invalid datetime value: {value!r}")
 
     async def register_ipfs_rental_token(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -1010,7 +1016,8 @@ class MarketplaceService:
                 return None
             if token.status != "active":
                 return None
-            if token.expires_at and token.expires_at < datetime.now(UTC):
+            # Compare naive UTC datetimes; SQLite returns naive values.
+            if token.expires_at and token.expires_at < datetime.now(UTC).replace(tzinfo=None):
                 token.status = "expired"
                 await self.session.commit()
                 return None
