@@ -35,7 +35,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `gpu` — Local GPU service commands for hardware management. Subcommands: `discover`, `list-gpus`, `register`, `unregister`, `update`
 - `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `list`, `query`, `register`
 - `grant` — DAO grant proposal commands.. Subcommands: `create`, `disburse`, `list`, `vote`
-- `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `host`, `list`, `pin`, `rentals`, `unpin`, `upload`
+- `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `host`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload`
 - `list` — Legacy wallet list alias
 - `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
 - `marketplace` — Global chain marketplace commands. Subcommands: `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions`

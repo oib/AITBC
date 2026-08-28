@@ -1153,6 +1153,126 @@
         }
       }
     },
+    "/v1/ipfs/rental-token": {
+      "post": {
+        "summary": "Register Ipfs Rental Token",
+        "description": "Register an access token for a paid IPFS rental.",
+        "operationId": "register_ipfs_rental_token_v1_ipfs_rental_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Token Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Register Ipfs Rental Token V1 Ipfs Rental Token Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ipfs/rental/{access_key}": {
+      "get": {
+        "summary": "Get Ipfs Rental Token",
+        "description": "Validate an IPFS rental token and return its details.",
+        "operationId": "get_ipfs_rental_token_v1_ipfs_rental__access_key__get",
+        "parameters": [
+          {
+            "name": "access_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Access Key"
+            }
+          },
+          {
+            "name": "access_secret",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Access Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Ipfs Rental Token V1 Ipfs Rental  Access Key  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid, expired, or unknown IPFS rental token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/knowledge-graph": {
       "post": {
         "summary": "Create Graph",

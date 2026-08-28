@@ -930,3 +930,91 @@ class MarketplaceService:
         except Exception as e:
             logger.error("Error in get_service_by_offer_id: %s: %s", type(e).__name__, str(e))
             raise
+
+    async def register_ipfs_rental_token(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Register an access token for a paid IPFS rental."""
+        from datetime import UTC, datetime
+
+        from sqlalchemy import select
+
+        from ..domain.marketplace import IpfsRentalToken
+
+        try:
+            access_key = data.get("access_key")
+            if not access_key:
+                raise ValueError("access_key is required")
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
+            result = await self.session.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if existing:
+                existing.access_secret = data.get("access_secret") or existing.access_secret
+                existing.cid = data.get("cid") or existing.cid
+                existing.escrow_contract_id = data.get("escrow_contract_id") or existing.escrow_contract_id
+                existing.status = data.get("status") or existing.status
+                existing.expires_at = data.get("expires_at") or existing.expires_at
+                existing.updated_at = datetime.now(UTC)
+                await self.session.commit()
+                await self.session.refresh(existing)
+                logger.info("Updated IPFS rental token: %s", access_key)
+                return self._ipfs_token_to_dict(existing)
+            token = IpfsRentalToken(**data)
+            if not token.created_at:
+                token.created_at = datetime.now(UTC)
+            if not token.updated_at:
+                token.updated_at = datetime.now(UTC)
+            self.session.add(token)
+            await self.session.commit()
+            await self.session.refresh(token)
+            logger.info("Registered IPFS rental token: %s", access_key)
+            return self._ipfs_token_to_dict(token)
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error("Error in register_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_ipfs_rental_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
+        """Validate an IPFS rental token and return its details."""
+        from datetime import UTC, datetime
+
+        from sqlalchemy import select
+
+        from ..domain.marketplace import IpfsRentalToken
+
+        try:
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
+            result = await self.session.execute(stmt)
+            token = result.scalar_one_or_none()
+            if not token:
+                return None
+            if token.access_secret != access_secret:
+                return None
+            if token.status != "active":
+                return None
+            if token.expires_at and token.expires_at < datetime.now(UTC):
+                token.status = "expired"
+                await self.session.commit()
+                return None
+            return self._ipfs_token_to_dict(token)
+        except Exception as e:
+            logger.error("Error in get_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
+            raise
+
+    def _ipfs_token_to_dict(self, token: Any) -> dict[str, Any]:
+        """Serialize an IpfsRentalToken."""
+        return {
+            "access_key": token.access_key,
+            "rental_id": token.rental_id,
+            "offer_id": token.offer_id,
+            "cid": token.cid,
+            "buyer_address": token.buyer_address,
+            "provider_address": token.provider_address,
+            "escrow_contract_id": token.escrow_contract_id,
+            "ipfs_api": token.ipfs_api,
+            "public_endpoint": token.public_endpoint,
+            "disk_quota_mb": token.disk_quota_mb,
+            "size": token.size,
+            "status": token.status,
+            "created_at": token.created_at.isoformat() if token.created_at else None,
+            "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+        }
