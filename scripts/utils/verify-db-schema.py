@@ -30,6 +30,7 @@ import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+from collections.abc import Collection
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("verify-db-schema")
@@ -504,19 +505,139 @@ KNOWN_DBS: dict[str, Any] = {
 }
 
 
-def _known_db_paths() -> set[Path]:
+DB_SERVICE_MAP: dict[str, str | None] = {
+    "blockchain": "aitbc-blockchain-node",
+    "coordinator": "aitbc-coordinator-api",
+    "governance": "aitbc-governance",
+    "trading": "aitbc-trading",
+    "gpu": "aitbc-gpu",
+    "edge": "aitbc-edge",
+    "marketplace": "aitbc-marketplace",
+    "exchange": "aitbc-exchange",
+    "hermes": "aitbc-agent-coordinator",
+    "agent_management": "aitbc-agent-coordinator",
+    "agent_coordinator": "aitbc-agent-coordinator",
+    "agent_coin_requests": "aitbc-agent-coordinator",
+    "keystore": "aitbc-wallet",
+    "wallet_ledger": "aitbc-wallet",
+}
+
+
+def _get_node_role() -> str:
+    """Read node role from environment files, matching link-systemd.sh logic."""
+    env: dict[str, str] = {}
+    for env_file in ("/etc/aitbc/blockchain.env", "/etc/aitbc/node.env"):
+        p = Path(env_file)
+        if not p.exists():
+            continue
+        for line in p.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            value = value.strip().strip("\"'")
+            if key in ("BLOCKCHAIN_MODE", "MARKET_ROLE", "HARDWARE_PROFILE"):
+                env[key] = value
+    mode = env.get("BLOCKCHAIN_MODE", "follower")
+    market = env.get("MARKET_ROLE", "customer")
+    hw = env.get("HARDWARE_PROFILE", "nogpu")
+    return f"{mode}:{market}:{hw}"
+
+
+def _get_allowed_services(role: str) -> set[str] | None:
+    """Return the set of aitbc-* service basenames for a role, or None for all."""
+    if role == "all":
+        return None
+    parts = role.split(":")
+    if len(parts) != 3:
+        return None
+    mode, market, _ = parts
+
+    infra = {"aitbc-load-secrets", "aitbc-recovery"}
+    base = {
+        "aitbc-blockchain-node",
+        "aitbc-blockchain-rpc",
+        "aitbc-wallet",
+        "aitbc-recovery",
+        "aitbc-monitoring",
+        "aitbc-backup",
+        "aitbc-trading",
+        "aitbc-governance",
+    }
+    hub = {
+        "aitbc-blockchain-p2p",
+        "aitbc-coordinator-api",
+        "aitbc-api-gateway",
+        "aitbc-exchange",
+        "aitbc-marketplace",
+        "aitbc-bridge-monitor",
+        "aitbc-blockchain-event-bridge",
+        "aitbc-agent-coordinator",
+        "aitbc-blockchain-explorer",
+    }
+    follower = {"aitbc-blockchain-explorer"}
+    shop = {
+        "aitbc-gpu",
+        "aitbc-miner",
+        "aitbc-coordinator-api",
+        "aitbc-edge",
+        "aitbc-pool-hub",
+        "aitbc-marketplace",
+    }
+
+    services: set[str] = set(infra) | set(base)
+    if mode == "hub":
+        services |= hub
+    else:
+        services |= follower
+    if market == "shop":
+        services |= shop
+    return services
+
+
+def _is_service_linked(service: str | None) -> bool:
+    if not service:
+        return True
+    return (Path("/etc/systemd/system") / f"{service}.service").exists()
+
+
+def _role_filter(role: str | None) -> set[str] | None:
+    """Return allowed service set for a role.
+
+    If role is None and environment files are present, derive the role from them.
+    If no environment files are present, fall back to actually linked systemd units.
+    Returns None to mean 'all' (no filtering).
+    """
+    if role == "all":
+        return None
+    if role:
+        return _get_allowed_services(role)
+    env_present = any(Path(f).exists() for f in ("/etc/aitbc/blockchain.env", "/etc/aitbc/node.env"))
+    if env_present:
+        return _get_allowed_services(_get_node_role())
+    systemd_dir = Path("/etc/systemd/system")
+    links = list(systemd_dir.glob("aitbc-*.service"))
+    if not links:
+        return None
+    return {link.stem for link in links}
+
+
+def _known_db_paths(selected: Collection[str] | None = None) -> set[Path]:
     paths: set[Path] = set()
-    for cfg in KNOWN_DBS.values():
+    for name, cfg in KNOWN_DBS.items():
+        if selected is not None and name not in selected:
+            continue
         if "path" in cfg:
             paths.add(Path(cfg["path"]).resolve())
     return paths
 
 
-def _auto_discover(checked: set[Path]) -> list[str]:
+def _auto_discover(checked: set[Path], unselected_known: set[Path] | None = None) -> list[str]:
     """Return warnings for non-empty SQLite files that are not in the known set.
 
     Skips legacy, backup and test databases (pre-migrate*, backup*, test_*) and
     non-active chain databases so the output is not swamped by old copies.
+    Also skips known DBs that belong to services not linked for this node role.
     """
     warnings: list[str] = []
     data_dir = _data_dir()
@@ -548,19 +669,41 @@ def _auto_discover(checked: set[Path]) -> list[str]:
             if rel.parent.name not in active_chain_ids:
                 continue  # old / test island chain db
 
+        if unselected_known and resolved in unselected_known:
+            continue
+
         if _actual_tables(db_path):
             warnings.append(f"Unverified database (not in schema registry): {db_path}")
     return warnings
 
 
-def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[str], list[str], list[str]]:
+def check_all(
+    dbs: list[str] | None = None, role: str | None = None, repair: bool = False
+) -> tuple[list[str], list[str], list[str]]:
     _setup_pythonpath()
     errors: list[str] = []
     warnings: list[str] = []
     actions: list[str] = []
-    checked_paths: set[Path] = _known_db_paths()
 
-    selected = dbs or list(KNOWN_DBS.keys())
+    allowed_services = _role_filter(role)
+    selected: list[str]
+    if dbs:
+        selected = list(dbs)
+    else:
+        selected = []
+        for name in KNOWN_DBS:
+            if name == "blockchain":
+                continue
+            svc = DB_SERVICE_MAP.get(name)
+            if allowed_services is None or (svc and svc in allowed_services):
+                selected.append(name)
+        if allowed_services is None or "aitbc-blockchain-node" in allowed_services:
+            selected.append("blockchain")
+
+    all_known_paths = _known_db_paths()
+    checked_paths: set[Path] = _known_db_paths(set(selected) - {"blockchain"})
+    unselected_known_paths = all_known_paths - checked_paths
+
     for name in selected:
         if name == "blockchain" or name.endswith("-chain"):
             continue
@@ -584,7 +727,7 @@ def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[
         elif cfg["type"] == "static":
             errors.extend(_check_static_db(db_path, cfg["tables"], cfg.get("required_tables")))
 
-    if dbs is None or "blockchain" in dbs or any(n.startswith("blockchain") for n in (dbs or [])):
+    if "blockchain" in selected:
         chain_dbs = _collect_chain_dbs()
         if not chain_dbs:
             warnings.append("No active chain database found")
@@ -603,15 +746,18 @@ def check_all(dbs: list[str] | None = None, repair: bool = False) -> tuple[list[
                     errors.extend(_check_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"]))
 
     if dbs is None:
-        warnings.extend(_auto_discover(checked_paths))
+        warnings.extend(_auto_discover(checked_paths, unselected_known_paths))
 
     return errors, warnings, actions
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify AITBC DB schemas")
-    parser.add_argument("--all", action="store_true", help="Check all known databases")
+    parser.add_argument("--all", action="store_true", help="Check all known databases for this node role")
     parser.add_argument("--db", action="append", help="Check specific DB by name (may be repeated)")
+    parser.add_argument(
+        "--role", default=None, help="Node role for filtering (e.g. hub:customer:nogpu, follower:shop:gpu, or 'all')"
+    )
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     parser.add_argument(
         "--repair",
@@ -630,7 +776,14 @@ def main() -> int:
     if not args.all and not args.db:
         parser.error("use --all or --db <name>")
 
-    errors, warnings, actions = check_all(args.db, repair=args.repair)
+    role = args.role
+    if not role:
+        if any(Path(f).exists() for f in ("/etc/aitbc/blockchain.env", "/etc/aitbc/node.env")):
+            role = _get_node_role()
+        else:
+            role = None
+
+    errors, warnings, actions = check_all(args.db, role=role, repair=args.repair)
 
     if args.json:
         print(json.dumps({"errors": errors, "warnings": warnings, "actions": actions}))
