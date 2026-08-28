@@ -10,6 +10,8 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, error, info, success, warning
+from ...utils.wallet_loader import load_wallet_for_payment
+from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.utils import ait_to_units
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -362,4 +364,76 @@ def exchange_status(ctx):
         raise click.Abort() from e
     except Exception as e:
         error(f"Error getting status: {e}")
+        raise click.Abort() from e
+
+
+@exchange.command(name="deposit-eth")
+@click.argument("amount", type=DECIMAL)
+@click.option("--ait-address", help="AIT address that will receive minted AIT (defaults to the sending wallet address)")
+@click.option(
+    "--bridge-address", default="0x818018F30d8F5FB7AE7a64f25895F15110923748", help="Sepolia ETH bridge deposit address"
+)
+@click.option("--gas", "gas_limit", default=30000, type=int, help="Gas limit for the deposit transaction")
+@click.pass_context
+def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: str, gas_limit: int):
+    """Deposit Sepolia ETH to the bridge and mint AIT.
+
+    The transaction data field is set to the AIT recipient address so the
+    bridge monitor can credit the minted AIT to the right wallet.
+    """
+    try:
+        from web3 import Web3
+
+        eth_rpc = EthereumRPCClient()
+        w3 = eth_rpc._get_web3()
+
+        wallet_name = ctx.obj.get("market_wallet")
+        wallet_path = ctx.obj.get("market_wallet_path")
+        password = ctx.obj.get("market_password")
+        address, private_key, _ = load_wallet_for_payment(
+            ctx,
+            wallet_name=wallet_name,
+            wallet_path=wallet_path,
+            password=password,
+            require_private_key=True,
+        )
+
+        if not ait_address:
+            ait_address = address
+        if not Web3.is_address(ait_address):
+            error(f"Invalid AIT recipient address: {ait_address}")
+            raise click.Abort()
+        if not Web3.is_address(bridge_address):
+            error(f"Invalid bridge deposit address: {bridge_address}")
+            raise click.Abort()
+        if amount <= 0:
+            error("Amount must be greater than 0")
+            raise click.Abort()
+
+        value_wei = w3.to_wei(str(amount), "ether")
+        gas_price = w3.eth.gas_price
+        nonce = w3.eth.get_transaction_count(address, "pending")
+
+        tx = {
+            "nonce": nonce,
+            "to": Web3.to_checksum_address(bridge_address),
+            "value": value_wei,
+            "gas": gas_limit,
+            "gasPrice": gas_price,
+            "chainId": 11155111,
+            "data": Web3.to_checksum_address(ait_address),
+        }
+        signed = w3.eth.account.sign_transaction(tx, private_key)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+
+        success(f"Deposited {amount} Sepolia ETH to bridge {bridge_address}")
+        info(f"Sepolia tx hash: {tx_hash.hex()}")
+        info(f"AIT recipient: {Web3.to_checksum_address(ait_address)}")
+        info("The bridge monitor will mint AIT once the deposit is confirmed.")
+
+    except ImportError:
+        error("web3.py not installed. Install with: pip install web3")
+        raise click.Abort() from None
+    except Exception as e:
+        error(f"Error depositing ETH: {e}")
         raise click.Abort() from e

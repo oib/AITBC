@@ -49,8 +49,10 @@ class BridgeMonitor:
         init_db()
         logger.info("BridgeMonitor initialized - watching %s", self.bridge_eth_address)
 
-    def parse_ait_recipient(self, tx_data: str) -> str | None:
+    def parse_ait_recipient(self, tx_data: str | bytes) -> str | None:
         """Parse AIT recipient address from transaction data field."""
+        if isinstance(tx_data, bytes | bytearray):
+            tx_data = "0x" + tx_data.hex()
         if not tx_data or tx_data == "0x":
             return None
         try:
