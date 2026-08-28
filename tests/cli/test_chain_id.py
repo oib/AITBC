@@ -132,7 +132,7 @@ class TestGetChainIdFromHealth:
         result = get_chain_id_from_health("http://localhost:8202", timeout=10)
 
         assert result == "ait-hub.aitbc.bubuit.net"
-        mock_client_class.assert_called_once_with(base_url="http://localhost:8202", timeout=10)
+        mock_client_class.assert_called_once_with(base_url="http://localhost:8202", timeout=10, max_retries=0)
 
 
 class TestGetChainId:

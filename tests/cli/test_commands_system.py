@@ -82,7 +82,7 @@ class TestSystemCommands:
         result = runner.invoke(system, ["check"])
 
         assert result.exit_code == 0, result.output
-        assert "Service Check" in result.output
+        assert "System Health Check" in result.output
 
     def test_system_check_with_service(self, runner):
         """``system check --service`` checks a specific service."""
@@ -124,7 +124,7 @@ class TestSystemCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/api/v1/status" in mock_client.get.call_args[0][0]
+        assert "/health" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.system.get_config")
     @patch("aitbc_cli.commands.system.AITBCHTTPClient")

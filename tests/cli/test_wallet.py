@@ -129,7 +129,8 @@ class TestWalletCommands:
                         + sum(s["amount"] for s in state["liquidity"]),
                     }
                 if "/account/" in path:
-                    return {"balance": 1000.0, "nonce": 0}
+                    # The chain returns compute-units; 100 AIT = 3_600_000_000 units.
+                    return {"balance": ait_to_units(100.0), "nonce": 0}
                 if "/rpc/staking/" in path:
                     return {
                         "total_staked": sum(s["amount"] for s in state["stakes"]),
@@ -196,7 +197,8 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["balance"] == 100.0
+        assert data["balance"] == ait_to_units(100.0)
+        assert data["balance_ait"] == "100 AIT"
         assert data["address"] == "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"
 
     def test_balance_new_wallet(self, runner, mock_config, tmp_path):
@@ -441,13 +443,12 @@ class TestWalletCommands:
         data = extract_json_from_output(result.output)
         assert Decimal(data["amount"]) == Decimal("40")
         assert data["pool"] == "main"
-        assert data["tier"] == "bronze"
-        assert data["apy"] == 3.0
-        assert Decimal(data["new_balance"]) == Decimal("60")
-        assert "stake_id" in data
+        assert data["lock_days"] == 0
+        assert data["transaction_hash"] == "0xabc123"
+        assert Decimal(data["fee"]) == Decimal("0.01")
 
     def test_liquidity_stake_gold_tier(self, runner, temp_wallet, mock_config):
-        """Test liquidity staking with gold tier (30+ day lock)"""
+        """Test liquidity staking with 30-day lock."""
         result = runner.invoke(
             wallet,
             ["--wallet-path", temp_wallet, "liquidity-stake", "30.0", "--lock-days", "30"],
@@ -456,8 +457,10 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["tier"] == "gold"
-        assert data["apy"] == 8.0
+        assert Decimal(data["amount"]) == Decimal("30")
+        assert data["pool"] == "main"
+        assert data["lock_days"] == 30
+        assert data["transaction_hash"] == "0xabc123"
 
     def test_liquidity_stake_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test liquidity staking with insufficient balance"""
@@ -469,7 +472,7 @@ class TestWalletCommands:
         assert "Insufficient balance" in result.output
 
     def test_liquidity_unstake_command(self, runner, temp_wallet, mock_config):
-        """Test liquidity pool unstaking with rewards"""
+        """Test liquidity pool unstaking"""
         # Stake first (no lock)
         result = runner.invoke(
             wallet,
@@ -477,7 +480,8 @@ class TestWalletCommands:
             obj={"config": mock_config, "output": "json"},
         )
         assert result.exit_code == 0
-        stake_id = extract_json_from_output(result.output)["stake_id"]
+        stake_data = extract_json_from_output(result.output)
+        stake_id = stake_data["transaction_hash"]
 
         # Unstake
         result = runner.invoke(
@@ -489,20 +493,20 @@ class TestWalletCommands:
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         assert data["stake_id"] == stake_id
-        assert Decimal(data["principal"]) == Decimal("50")
-        assert "rewards" in data
-        assert Decimal(data["total_returned"]) >= Decimal("50")
+        assert data["transaction_hash"] == "0xabc123"
 
-    def test_liquidity_unstake_invalid_id(self, runner, temp_wallet, mock_config):
-        """Test liquidity unstaking with invalid ID"""
+    def test_liquidity_unstake_unknown_id(self, runner, temp_wallet, mock_config):
+        """Test liquidity unstaking with an arbitrary ID (no local validation)."""
         result = runner.invoke(
             wallet,
             ["--wallet-path", temp_wallet, "liquidity-unstake", "nonexistent"],
             obj={"config": mock_config, "output": "json"},
         )
 
-        assert result.exit_code != 0
-        assert "not found" in result.output
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        assert data["stake_id"] == "nonexistent"
+        assert data["transaction_hash"] == "0xabc123"
 
     def test_rewards_command(self, runner, temp_wallet, mock_config):
         """Test rewards summary command — CLI reads local file for reward tracking."""

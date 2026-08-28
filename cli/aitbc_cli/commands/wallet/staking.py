@@ -15,6 +15,7 @@ from aitbc.utils.validation import validate_address
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient
+from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 
 
@@ -307,6 +308,12 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
         return
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    balance = _wallet_amount(wallet_data.get("balance", 0))
+    if balance < amount + fee:
+        error(f"Insufficient balance. Available: {balance}, Required: {amount + fee}")
+        ctx.exit(1)
+        return
+
     hex_address = canonical_address(wallet_data["address"])
     amount_seconds = int(ait_to_units(amount))
     fee_seconds = int(ait_to_units(fee))

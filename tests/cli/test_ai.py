@@ -80,7 +80,7 @@ def test_ai_submit_reaches_local_coordinator(mock_config, mock_http_client):
     payload = kwargs["json"]
     assert payload["payload"]["prompt"] == "Hello local model"
     assert payload["payload"]["model"] == "llama2"
-    assert payload["payment_amount"] == 0.5
+    assert payload["payment_amount"] == "0.5"
     assert payload["payment_currency"] == "AITBC"
 
 
