@@ -69,17 +69,18 @@ def _make_cid_path(cid: str) -> Path:
     return IPFS_DIR / cid
 
 
-def _daemon_available() -> bool:
+def _daemon_available(ipfs_api: str = IPFS_API) -> bool:
     try:
-        requests.post(f"{IPFS_API}/api/v0/id", timeout=2)
+        requests.post(f"{ipfs_api}/api/v0/id", timeout=2)
         return True
     except requests.RequestException:
         return False
 
 
 def _api_post(path: str, **kwargs: Any) -> requests.Response:
+    ipfs_api = kwargs.pop("ipfs_api", IPFS_API)
     timeout = kwargs.pop("timeout", TIMEOUT)
-    return requests.post(f"{IPFS_API}{path}", timeout=timeout, **kwargs)
+    return requests.post(f"{ipfs_api}{path}", timeout=timeout, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +330,9 @@ def download(
     the hub marketplace service. If --rental-id is provided, the CID is resolved
     from the local rental record.
     """
+    rental: dict[str, Any] | None = None
+    token: dict[str, Any] | None = None
+
     if rental_id:
         rental = next((r for r in _load_rentals() if r.get("rental_id") == rental_id), None)
         if not rental:
@@ -360,10 +364,15 @@ def download(
         error("Provide a CID, --rental-id, or --access-key/--access-secret")
         raise click.Abort()
 
-    if _daemon_available():
+    # Prefer the daemon that was used for the rental.
+    ipfs_api = IPFS_API
+    if rental_id or access_key:
+        ipfs_api = (rental or token or {}).get("ipfs_api") or os.environ.get("IPFS_API_URL") or "http://127.0.0.1:5001"
+
+    if _daemon_available(ipfs_api):
         try:
             for _attempt in range(1, 60 if wait else 1):
-                response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30)
+                response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
                 if response.status_code == 200:
                     break
                 if not wait:
@@ -373,7 +382,7 @@ def download(
 
                 time.sleep(2)
             else:
-                response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30)
+                response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
             response.raise_for_status()
             data = response.content
         except requests.RequestException:
