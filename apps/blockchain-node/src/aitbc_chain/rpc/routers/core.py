@@ -23,6 +23,7 @@ from ..accounts import (
     get_balance_breakdown,
     get_state_delta,
     get_state_snapshot,
+    list_accounts,
     reconcile_balance,
 )
 from ..blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block
@@ -32,6 +33,7 @@ from ..sync import export_chain, force_sync, get_sync_config, import_chain
 from ..transactions import (
     TransactionRequest,
     query_transactions,
+    match_marketplace,
     submit_marketplace_transaction,
     submit_transaction,
 )
@@ -262,6 +264,13 @@ async def submit_marketplace_transaction_route(request: Request, tx_data: dict[s
     return await submit_marketplace_transaction(request, tx_data)  # type: ignore[no-any-return]
 
 
+@router.get("/transactions/marketplace/match", summary="Match marketplace offers")
+@rate_limit(rate=10, per=60)
+async def match_marketplace_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Return active marketplace listings for price discovery / matching."""
+    return await match_marketplace(request, chain_id)  # type: ignore[no-any-return]
+
+
 @router.get("/transactions", summary="Query transactions")
 @rate_limit(rate=200, per=60)
 async def query_transactions_route(
@@ -289,6 +298,18 @@ async def get_transaction_route(request: Request, tx_hash: str, chain_id: str | 
     from ..transactions import get_transaction
 
     return await get_transaction(request, tx_hash, chain_id)  # type: ignore[no-any-return]
+
+
+@router.get("/accounts", summary="List accounts")
+@rate_limit(rate=10, per=60)
+async def list_accounts_route(
+    request: Request,
+    limit: int = 100,
+    offset: int = 0,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
+    """List blockchain accounts with optional pagination."""
+    return await list_accounts(request, chain_id, limit, offset)  # type: ignore[no-any-return]
 
 
 @router.get("/account/{address}", summary="Get account information")
