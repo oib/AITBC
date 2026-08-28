@@ -96,6 +96,8 @@ class GPURegistry(GpuBase, table=True):
     status: str = Field(default="available", index=True)  # available, booked, offline
     # v0.6.6: Chain awareness — which chain this GPU offer is registered on
     chain_id: str = Field(default="ait-hub", index=True)
+    # v0.6.6: Physical GPU UUID from nvidia-smi, used to deduplicate registrations.
+    hardware_uuid: str | None = Field(default=None, index=True)
     capabilities: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
