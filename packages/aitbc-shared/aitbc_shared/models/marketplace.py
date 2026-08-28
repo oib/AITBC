@@ -30,6 +30,7 @@ class MarketplaceOffer(SQLModel, table=True):
     # GPU-specific fields
     gpu_model: str | None = Field(default=None, index=True)
     gpu_memory_gb: int | None = Field(default=None)
+    disk_quota_mb: int | None = Field(default=None)  # Per-customer disk quota, e.g. 100 for IPFS
     gpu_count: int | None = Field(default=1)
     cuda_version: str | None = Field(default=None)
     price_per_hour: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))

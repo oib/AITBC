@@ -61,6 +61,7 @@ class SoftwareService(MarketplaceBase, table=True):
     status: str = Field(default="active", index=True)  # active, inactive
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    disk_quota_mb: int | None = Field(default=None)  # Per-customer disk quota (e.g. 100 MB for IPFS)
     avg_rating: float = Field(default=0.0)  # Average service rating (1-5 scale)
     rating_count: int = Field(default=0)  # Number of ratings received
     # Blockchain-related fields

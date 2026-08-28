@@ -264,6 +264,9 @@ def list_offers(
                                 "Node ID": offer.get("node_id", "N/A"),
                                 "GPU": f"{offer.get('gpu_name', 'N/A')} ({offer.get('gpu_device', 'N/A')})",
                                 "Memory (GB)": offer.get("gpu_memory_gb") or "N/A",
+                                "Disk Quota (MB)": offer.get("disk_quota_mb")
+                                if offer.get("disk_quota_mb") is not None
+                                else "N/A",
                                 "Endpoint": public_ep[:30] + "..." if len(public_ep) > 30 else public_ep,
                                 "Status": offer.get("status", "unknown"),
                                 "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust"
@@ -382,6 +385,7 @@ def list_offers(
                     "Model": payload.get("model", ""),
                     "GPU": gpu_name_display[:35] + "..." if len(gpu_name_display) > 35 else gpu_name_display,
                     "Memory (GB)": payload.get("memory_gb", "N/A"),
+                    "Disk Quota (MB)": payload.get("disk_quota_mb", "N/A"),
                     "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
                     "Rating": rating_display,
                     "Status": payload.get("status", "active"),
@@ -636,6 +640,12 @@ def providers(ctx):
 @click.option("--gpu-name", help="GPU name from nvidia-smi (auto-detected if omitted)")
 @click.option("--gpu-device", help="GPU device ID (0, 1, 2, etc.) for multi-GPU servers")
 @click.option("--gpu-offer-id", help="GPU marketplace offer ID for cross-reference")
+@click.option(
+    "--disk-quota-mb",
+    type=int,
+    default=None,
+    help="Per-customer disk quota in MB (default 100 for IPFS, unset for GPU services)",
+)
 @click.pass_context
 def offer(
     ctx,
@@ -648,6 +658,7 @@ def offer(
     gpu_name: str | None,
     gpu_device: str | None,
     gpu_offer_id: str | None,
+    disk_quota_mb: int | None,
 ):
     """List a hardware+software bundle offer (Ollama/Whisper/FFmpeg/IPFS) in the marketplace"""
     try:
@@ -666,6 +677,9 @@ def offer(
         ipfs_port = 0
         ipfs_peer_id = ""
         ipfs_public_multiaddr = ""
+
+        if disk_quota_mb is None and service_type == "ipfs":
+            disk_quota_mb = 100
 
         # Auto-detect GPU info from nvidia-smi if not provided and not cloud
         gpu_uuid = None
@@ -852,6 +866,7 @@ def offer(
                         and listing.get("gpu_model", "") == (gpu_model or "")
                         and str(listing.get("gpu_device", "")) == str(gpu_device or "")
                         and listing.get("memory_gb") == gpu_memory_gb
+                        and listing.get("disk_quota_mb") == disk_quota_mb
                         and listing.get("compute_capability", "") == (compute_capability or "")
                         and listing.get("endpoint", "") == _public_endpoint
                     )
@@ -923,6 +938,7 @@ def offer(
                 "gpu_uuid": gpu_uuid,
                 "gpu_offer_id": gpu_offer_id,
                 "memory_gb": gpu_memory_gb,
+                "disk_quota_mb": disk_quota_mb,
                 "compute_capability": compute_capability,
                 "replaces": replaces,
                 "status": "active",
@@ -977,6 +993,7 @@ def offer(
                     "gpu_uuid": gpu_uuid,
                     "gpu_offer_id": gpu_offer_id,
                     "gpu_memory_gb": gpu_memory_gb,
+                    "disk_quota_mb": disk_quota_mb,
                     "compute_capability": compute_capability,
                     "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                     "status": "active",
