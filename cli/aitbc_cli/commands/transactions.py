@@ -13,7 +13,8 @@ from eth_keys import keys
 from eth_utils import keccak
 
 from aitbc import ValidationError
-from aitbc.utils import ait_to_seconds, format_ait
+from aitbc.utils import ait_to_units, format_ait
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
@@ -26,9 +27,9 @@ from ..utils.wallet_paths import wallet_dir
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://127.0.0.1:8202"
-# The chain settles in integer compute-seconds (3600 = 1 AIT), so the default fee is
-# expressed in those units too: 36 seconds = 0.01 AIT.
-DEFAULT_FEE_SECONDS = 36
+# The chain settles in integer compute-units (1 AIT = 36_000_000), so the default fee is
+# expressed in those units too: 360_000 compute-units = 0.01 AIT.
+DEFAULT_FEE_UNITS = DEFAULT_TX_FEE_UNITS
 # Use the same wallet directory as wallet create command
 
 
@@ -112,9 +113,9 @@ def _send_transaction_impl(
     except Exception:
         actual_nonce = 0
 
-    # Convert AIT to compute-seconds (chain unit)
-    amount_seconds = ait_to_seconds(amount)
-    fee_seconds = ait_to_seconds(fee)
+    # Convert AIT to compute-units (chain unit)
+    amount_seconds = ait_to_units(amount)
+    fee_seconds = ait_to_units(fee)
 
     # The TransactionRequest model adds to/amount to payload, so we include them up front
     # and sign over the exact dict the verifier will hash.
@@ -445,8 +446,8 @@ def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: st
         test_tx = {
             "sender": "",
             "recipient": to_address,
-            "value": ait_to_seconds(amount),
-            "fee": DEFAULT_FEE_SECONDS,
+            "value": ait_to_units(amount),
+            "fee": DEFAULT_FEE_UNITS,
             "nonce": 0,
             "type": "transfer",
             "payload": {},
@@ -455,15 +456,15 @@ def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: st
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             fee_data = http_client.post("/rpc/estimateFee", json=test_tx)
-            # the node answers in compute-seconds; printing that number next to "AIT"
+            # the node answers in compute-units; printing that number next to "AIT"
             # reported the 36-second default -- 0.01 AIT -- as "36.0 AIT".
-            estimated_fee = fee_data.get("estimated_fee", DEFAULT_FEE_SECONDS)
+            estimated_fee = fee_data.get("estimated_fee", DEFAULT_FEE_UNITS)
             success(f"Estimated fee: {format_ait(estimated_fee)}")
         except NetworkError:
-            success(f"Estimated fee: {format_ait(DEFAULT_FEE_SECONDS)} (default)")
+            success(f"Estimated fee: {format_ait(DEFAULT_FEE_UNITS)} (default)")
     except Exception as e:
         error(f"Error estimating fee: {e}")
-        success(f"Estimated fee: {format_ait(DEFAULT_FEE_SECONDS)} (default)")
+        success(f"Estimated fee: {format_ait(DEFAULT_FEE_UNITS)} (default)")
 
 
 @transactions.command()

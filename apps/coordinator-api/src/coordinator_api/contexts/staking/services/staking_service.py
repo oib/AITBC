@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.utils.units import ait_to_seconds
+from aitbc.utils.units import ait_to_units
 
 from ..domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
@@ -67,8 +67,8 @@ class StakingService:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 raise ValueError("Agent not supported for staking")
-            min_seconds = 360000  # 100 AIT in compute-seconds
-            if ait_to_seconds(amount) < min_seconds:
+            min_units = ait_to_units(Decimal("100"))  # 100 AIT in compute-units
+            if ait_to_units(amount) < min_units:
                 raise ValueError("Stake amount must be at least 100 AITBC")
             current_apy = await self.calculate_apy(agent_wallet, lock_period)
             end_time = datetime.now(UTC) + timedelta(days=lock_period)

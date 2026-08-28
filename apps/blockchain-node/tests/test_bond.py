@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine, select
 
+from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from aitbc_chain.base_models import Account, Bond
 from aitbc_chain.database import chain_metadata
 from aitbc_chain.state.state_transition import StateTransition, _BOND_BURN_ADDRESS, _BOND_ESCROW_ADDRESS, _to_ait_address
@@ -59,7 +60,7 @@ def test_bond_lock_records_bond_and_moves_funds(session):
     provider_addr = derive_ethereum_address(private_key)
 
     escrow = _BOND_ESCROW_ADDRESS
-    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1000000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1_000_000, nonce=0))
     session.add(Account(chain_id=chain_id, address=escrow, balance=0, nonce=0))
     session.commit()
 
@@ -69,7 +70,7 @@ def test_bond_lock_records_bond_and_moves_funds(session):
             "to": escrow,
             "amount": 5000,
             "value": 5000,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": 0,
             "type": "BOND_LOCK",
             "chain_id": chain_id,
@@ -81,7 +82,7 @@ def test_bond_lock_records_bond_and_moves_funds(session):
 
     provider = session.get(Account, (chain_id, provider_addr))
     escrow_account = session.get(Account, (chain_id, escrow))
-    assert provider.balance == 1000000 - 5000 - 36
+    assert provider.balance == 1_000_000 - 5000 - DEFAULT_TX_FEE_UNITS
     assert escrow_account.balance == 5000
 
     bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
@@ -99,7 +100,7 @@ def test_bond_release_after_lock_expired(session):
     provider_addr = derive_ethereum_address(private_key)
     escrow = _BOND_ESCROW_ADDRESS
 
-    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1_000_000, nonce=0))
     session.add(Account(chain_id=chain_id, address=escrow, balance=5000, nonce=0))
     session.add(
         Bond(
@@ -120,7 +121,7 @@ def test_bond_release_after_lock_expired(session):
             "to": provider_addr,
             "amount": 0,
             "value": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": 0,
             "type": "BOND_RELEASE",
             "chain_id": chain_id,
@@ -132,7 +133,7 @@ def test_bond_release_after_lock_expired(session):
 
     provider = session.get(Account, (chain_id, provider_addr))
     escrow_account = session.get(Account, (chain_id, escrow))
-    assert provider.balance == 1000 - 36 + 5000
+    assert provider.balance == 1_000_000 - DEFAULT_TX_FEE_UNITS + 5000
     assert escrow_account.balance == 0
 
     bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
@@ -155,8 +156,8 @@ def test_bond_slash_by_authority(session, monkeypatch):
     burn = _BOND_BURN_ADDRESS
 
     st = StateTransition()
-    session.add(Account(chain_id=chain_id, address=authority_addr, balance=1000, nonce=0))
-    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=authority_addr, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1_000_000, nonce=0))
     session.add(Account(chain_id=chain_id, address=escrow, balance=5000, nonce=0))
     session.add(Account(chain_id=chain_id, address=burn, balance=0, nonce=0))
     session.add(
@@ -178,7 +179,7 @@ def test_bond_slash_by_authority(session, monkeypatch):
             "to": burn,
             "amount": 0,
             "value": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": 0,
             "type": "BOND_SLASH",
             "chain_id": chain_id,

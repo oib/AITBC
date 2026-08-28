@@ -15,7 +15,7 @@ from ...utils.address import to_eip55
 from ...utils.http_client import AITBCHTTPClient, NetworkError
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import wallet_search_dirs
-from aitbc.utils import ait_to_seconds, format_ait
+from aitbc.utils import ait_to_units, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
 
@@ -303,8 +303,8 @@ def info(ctx):
     }
 
     if "balance" in wallet_data:
-        # the local wallet file holds AIT; format_ait takes compute-seconds
-        wallet_info["balance"] = format_ait(ait_to_seconds(wallet_data["balance"]))
+        # the local wallet file holds AIT; format_ait takes compute-units
+        wallet_info["balance"] = format_ait(ait_to_units(wallet_data["balance"]))
 
     output(wallet_info, ctx.obj.get("output_format", "table"))
 
@@ -504,9 +504,9 @@ def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
     output(
         {
             "wallet": wallet_name,
-            "amount": format_ait(ait_to_seconds(amount)),
+            "amount": format_ait(ait_to_units(amount)),
             "job_id": job_id,
-            "new_balance": format_ait(ait_to_seconds(wallet_data["balance"])),
+            "new_balance": format_ait(ait_to_units(wallet_data["balance"])),
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -554,9 +554,9 @@ def spend(ctx, amount: Decimal, description: str):
     output(
         {
             "wallet": wallet_name,
-            "amount": format_ait(ait_to_seconds(amount)),
+            "amount": format_ait(ait_to_units(amount)),
             "description": description,
-            "new_balance": format_ait(ait_to_seconds(wallet_data["balance"])),
+            "new_balance": format_ait(ait_to_units(wallet_data["balance"])),
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -662,8 +662,8 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
 
     # Create transaction with modern payload format
     # Convert AIT to seconds for blockchain
-    amount_seconds = ait_to_seconds(amount)
-    fee_seconds = ait_to_seconds(fee)
+    amount_seconds = ait_to_units(amount)
+    fee_seconds = ait_to_units(fee)
 
     transaction = {
         "type": "TRANSFER",
@@ -771,9 +771,9 @@ def stats(ctx):
         {
             "wallet": wallet_name,
             "address": wallet_data["address"],
-            "current_balance": format_ait(ait_to_seconds(wallet_data.get("balance", 0))),
-            "total_earned": format_ait(ait_to_seconds(total_earned)),
-            "total_spent": format_ait(ait_to_seconds(total_spent)),
+            "current_balance": format_ait(ait_to_units(wallet_data.get("balance", 0))),
+            "total_earned": format_ait(ait_to_units(total_earned)),
+            "total_spent": format_ait(ait_to_units(total_spent)),
             "jobs_completed": jobs_completed,
             "transaction_count": len(transactions),
             "wallet_created": wallet_data.get("created_at"),

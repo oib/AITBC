@@ -8,6 +8,8 @@ from typing import Any
 
 import click
 
+from aitbc.utils.units import units_to_ait
+
 from ...auth import AuthManager
 from ...config import get_config
 from ...utils import error, info, output, success
@@ -63,8 +65,8 @@ def _escrow_create(
     helper aborts because the chain refuses to lock escrow without a buyer
     signature.
 
-    The chain's smallest unit is the compute-second (1 AIT = 3600 seconds).
-    Estimates that round to zero seconds are rounded up to one compute-second
+    The chain's smallest unit is the compute-unit (1 AIT = 36_000_000).
+    Estimates that round to zero compute-units are rounded up to one compute-unit
     so the lock transaction is valid and the provider can be paid.
     """
     from ...utils.escrow import create_signed_escrow_lock
@@ -77,10 +79,10 @@ def _escrow_create(
         error("Escrow amount must be positive")
         raise click.Abort()
 
-    # 1 AIT = 3600 compute-seconds; 0.000277... AIT = 1 second.
-    min_escrow_ait = Decimal(1) / Decimal(3600)
+    # 1 AIT = 36_000_000 compute-units; 0.0000000277... AIT = 1 compute-unit.
+    min_escrow_ait = units_to_ait(1)
     if amount < min_escrow_ait:
-        info(f"Rounding escrow up to minimum {min_escrow_ait:.8f} AIT (1 compute-second)")
+        info(f"Rounding escrow up to minimum {min_escrow_ait} AIT (1 compute-unit)")
         amount = min_escrow_ait
 
     rpc_url = _get_blockchain_rpc_url(config)

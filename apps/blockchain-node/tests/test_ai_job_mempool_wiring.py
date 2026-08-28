@@ -25,6 +25,7 @@ from eth_utils import keccak
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc_chain.rpc.ai_services import AI_JOB_TX_TYPE, AI_SERVICE_RECIPIENT
 from aitbc_chain.rpc.router import router
 from aitbc_chain.rpc.utils import get_chain_id
@@ -35,7 +36,6 @@ PK_HEX = "4c0883a69102937d6231471b5dbb6204fe512961708279e1c1d4f0e0a1d9d2e3"
 ADDR = keys.PrivateKey(bytes.fromhex(PK_HEX)).public_key.to_checksum_address()
 
 PAYMENT_AIT = 2.0
-SECONDS_PER_AIT = 3600
 
 
 def _sign(tx_data: dict[str, Any]) -> str:
@@ -46,7 +46,7 @@ def _sign(tx_data: dict[str, Any]) -> str:
     return pk.sign_msg_hash(keccak(message)).to_bytes().hex()
 
 
-def _job_request(signature: str | None = None, nonce: int = 0, fee: int = 36) -> dict[str, Any]:
+def _job_request(signature: str | None = None, nonce: int = 0, fee: int = DEFAULT_TX_FEE_UNITS) -> dict[str, Any]:
     """Build an /ai/submit body, signing the exact tx the endpoint will rebuild."""
     body = {
         "wallet_address": ADDR,
@@ -60,7 +60,7 @@ def _job_request(signature: str | None = None, nonce: int = 0, fee: int = 36) ->
     tx_data = {
         "from": ADDR,
         "to": AI_SERVICE_RECIPIENT,
-        "amount": int(PAYMENT_AIT * SECONDS_PER_AIT),
+        "amount": ait_to_units(PAYMENT_AIT),
         "fee": fee,
         "nonce": nonce,
         "type": AI_JOB_TX_TYPE,
@@ -113,9 +113,9 @@ class TestAIJobReachesMempool:
         tx = mempool.add.call_args.args[0]
         assert tx["from"] == ADDR
         assert tx["to"] == AI_SERVICE_RECIPIENT
-        # Payment is quoted in AIT but the chain settles in compute-seconds.
-        assert tx["amount"] == int(PAYMENT_AIT * SECONDS_PER_AIT)
-        assert tx["fee"] == 36
+        # Payment is quoted in AIT but the chain settles in compute-units.
+        assert tx["amount"] == ait_to_units(PAYMENT_AIT)
+        assert tx["fee"] == DEFAULT_TX_FEE_UNITS
         # The proposer upper-cases type when persisting; it must already match
         # what the job queries look for.
         assert tx["type"] == AI_JOB_TX_TYPE

@@ -13,6 +13,8 @@ from typing import Any
 
 import click
 
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
+
 from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.wallet_loader import load_wallet_for_payment
@@ -111,7 +113,7 @@ def _build_exchange_tx(
         "from": address,
         "to": address,
         "amount": 0,
-        "fee": 36,
+        "fee": DEFAULT_TX_FEE_UNITS,
         "nonce": nonce,
         "type": "EXCHANGE",
         "chain_id": chain_id,

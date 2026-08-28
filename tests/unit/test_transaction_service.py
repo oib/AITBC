@@ -12,6 +12,7 @@ and request model are importable here because the repo ``tests/conftest.py`` add
 import pytest
 from eth_keys import keys
 
+from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from aitbc.crypto.transaction_service import _canonical_signing_message
 
 # Deterministic secp256k1 test key and its derived Ethereum address.
@@ -39,7 +40,7 @@ def test_canonical_message_is_pinned_to_node_format() -> None:
         "from": ADDR,
         "to": TO_ADDR,
         "amount": 100,
-        "fee": 36,
+        "fee": DEFAULT_TX_FEE_UNITS,
         "nonce": 0,
         "payload": {"amount": 100},
         "type": "TRANSFER",
@@ -47,7 +48,7 @@ def test_canonical_message_is_pinned_to_node_format() -> None:
         "chain_id": "ait-hub",  # NOW included in the signed message (B6 fix)
     }
     expected = (
-        '{"amount":100,"chain_id":"ait-hub","fee":36,"from":"' + ADDR + '","nonce":0,'
+        '{"amount":100,"chain_id":"ait-hub","fee":' + str(DEFAULT_TX_FEE_UNITS) + ',"from":"' + ADDR + '","nonce":0,'
         '"payload":{"amount":100},"to":"' + TO_ADDR + '","type":"TRANSFER"}'
     )
     assert _canonical_signing_message(tx) == expected.encode()

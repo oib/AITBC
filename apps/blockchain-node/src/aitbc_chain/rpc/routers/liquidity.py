@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
-from aitbc.utils import seconds_to_ait
+from aitbc.utils import units_to_ait
+from aitbc.utils.units import LIQUIDITY_FEE_UNITS
 
 from ...database import session_scope
 from ...logger import get_logger
@@ -30,24 +31,24 @@ router = APIRouter(prefix="/liquidity", tags=["liquidity"])
 
 class BuildDepositRequest(BaseModel):
     address: str
-    amount: int  # compute-seconds
+    amount: int  # compute-units
     lock_days: int = 0
     pool_id: str = "main"
-    fee: int = 3600  # 1 AIT default
+    fee: int = LIQUIDITY_FEE_UNITS  # 1 AIT default
 
 
 class BuildClaimRequest(BaseModel):
     address: str
     stake_id: str
     pool_id: str = "main"
-    fee: int = 3600
+    fee: int = LIQUIDITY_FEE_UNITS
 
 
 class BuildWithdrawRequest(BaseModel):
     address: str
     stake_id: str
     pool_id: str = "main"
-    fee: int = 3600
+    fee: int = LIQUIDITY_FEE_UNITS
 
 
 def _resolve_chain_id(chain_id_arg: str | None) -> str:
@@ -68,7 +69,7 @@ async def list_pools(chain_id: str | None = None) -> dict[str, Any]:
                     "pool_id": p.pool_id,
                     "token": p.token,
                     "total_staked": p.total_staked,
-                    "total_staked_ait": seconds_to_ait(p.total_staked),
+                    "total_staked_ait": units_to_ait(p.total_staked),
                     "reward_per_share": str(p.reward_per_share),
                     "status": p.status,
                     "last_distribution_at": p.last_distribution_at.isoformat() if p.last_distribution_at else None,
@@ -92,7 +93,7 @@ async def get_pool(pool_id: str, chain_id: str | None = None) -> dict[str, Any]:
             "pool_id": pool.pool_id,
             "token": pool.token,
             "total_staked": pool.total_staked,
-            "total_staked_ait": seconds_to_ait(pool.total_staked),
+            "total_staked_ait": units_to_ait(pool.total_staked),
             "reward_per_share": str(pool.reward_per_share),
             "status": pool.status,
             "main_address": pool_main_address(),
@@ -125,13 +126,13 @@ async def list_stakes(address: str, chain_id: str | None = None) -> dict[str, An
                     "pool_id": s.pool_id,
                     "address": s.address,
                     "amount": s.amount,
-                    "amount_ait": seconds_to_ait(s.amount),
+                    "amount_ait": units_to_ait(s.amount),
                     "lock_days": s.lock_days,
                     "locked_until": locked_until,
                     "reward_per_share_at_stake": str(s.reward_per_share_at_stake),
                     "rewards_claimed": s.rewards_claimed,
                     "rewards_pending": rewards,
-                    "rewards_pending_ait": seconds_to_ait(rewards),
+                    "rewards_pending_ait": units_to_ait(rewards),
                     "status": s.status,
                     "created_at": s.created_at.isoformat(),
                 }
@@ -161,7 +162,7 @@ async def get_stake_rewards(stake_id: str, chain_id: str | None = None) -> dict[
             "stake_id": stake_id,
             "address": stake.address,
             "rewards_pending": rewards,
-            "rewards_pending_ait": seconds_to_ait(rewards),
+            "rewards_pending_ait": units_to_ait(rewards),
         }
 
 

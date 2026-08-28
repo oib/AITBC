@@ -100,7 +100,7 @@ def get_wallet_address() -> str:
     """Get a funded provider address from the wallet service.
 
     P2.5: marketplace offers require a sender with enough balance to pay the
-    listing fee (36 compute-seconds) and, historically, picked my-agent-wallet
+    listing fee (36 compute-units) and, historically, picked my-agent-wallet
     even when it had a zero balance. We now prefer a wallet that can actually
     afford the transaction.
     """

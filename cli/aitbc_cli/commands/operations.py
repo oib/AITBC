@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
@@ -451,7 +452,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
             "chain_id": chain_id,
             "from": sender_address,
             "nonce": actual_nonce,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "payload": {"recipient": agent, "amount": 0, "message": message},
         }
 

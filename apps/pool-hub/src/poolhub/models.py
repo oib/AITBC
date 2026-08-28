@@ -226,7 +226,7 @@ class RewardPayout(Base):
     miner_id: Mapped[str] = mapped_column(String(64), index=True)
     chain_id: Mapped[str] = mapped_column(String(64), index=True)
     epoch_number: Mapped[int] = mapped_column(Integer, index=True)
-    amount: Mapped[int] = mapped_column(Integer)  # in compute-seconds
+    amount: Mapped[int] = mapped_column(Integer)  # in compute-units
     tx_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, paid, failed
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

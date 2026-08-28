@@ -19632,8 +19632,8 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Fee",
-            "description": "Transaction fee in compute-seconds (1 AIT = 3600)",
-            "default": 36
+            "description": "Transaction fee in compute-units (1 AIT = 36_000_000)",
+            "default": 360000
           },
           "signature": {
             "type": "string",
@@ -20038,7 +20038,7 @@
           "fee": {
             "type": "integer",
             "title": "Fee",
-            "default": 3600
+            "default": 36000000
           }
         },
         "type": "object",
@@ -20071,7 +20071,7 @@
           "fee": {
             "type": "integer",
             "title": "Fee",
-            "default": 3600
+            "default": 36000000
           }
         },
         "type": "object",
@@ -20099,7 +20099,7 @@
           "fee": {
             "type": "integer",
             "title": "Fee",
-            "default": 3600
+            "default": 36000000
           }
         },
         "type": "object",
@@ -21004,8 +21004,10 @@
           },
           "fee": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Fee",
-            "default": 36
+            "description": "Transaction fee in compute-units",
+            "default": 360000
           },
           "nonce": {
             "type": "integer",

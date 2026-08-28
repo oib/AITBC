@@ -75,7 +75,7 @@ If the customer wallet has no AIT, use the faucet on the blockchain node:
 aitbc wallet fund customer-wallet --amount-ait 1.0
 ```
 
-**Expected output:** `success` with a `FAUCET` transaction. The amount is in AIT on the CLI and converted to compute-seconds (1 AIT = 3600 compute-seconds) before the request.
+**Expected output:** `success` with a `FAUCET` transaction. The amount is in AIT on the CLI and converted to compute-units (1 AIT = 36_000_000 compute-units) before the request.
 
 ### Step 1: Submit an AI job
 

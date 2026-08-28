@@ -2,7 +2,7 @@
 
 **Level**: All Levels
 **Prerequisites**: None
-**Last Updated**: 2026-06-23
+**Last Updated**: 2026-08-24
 
 ## Navigation
 
@@ -74,13 +74,13 @@ Reference value: ≈ €0.25 per compute hour.
 
 ## Unit System
 
-**Important**: The blockchain internally uses compute-seconds as the base unit, where 1 AIT = 3600 seconds (1 hour of compute).
+**Important**: The blockchain internally uses **compute-units** as the base unit, where **1 AIT = 36,000,000 compute-units**.
 
-- **Internal representation**: All on-chain values (balances, amounts, fees) are stored as integer seconds
-- **User-facing display**: The CLI, APIs, and explorer convert seconds → AIT for readability
-- **Transaction creation**: When you send "100 AIT", the CLI converts it to 360,000 seconds internally
+- **Internal representation**: All on-chain values (balances, amounts, fees) are stored as integer compute-units
+- **User-facing display**: The CLI, APIs, and explorer convert compute-units → AIT for readability
+- **Transaction creation**: When you send "100 AIT", the CLI converts it to 3,600,000,000 compute-units internally
 
-This enables precise billing at the second level while maintaining user-friendly AIT display.
+This enables precise billing for sub-AIT AI work while maintaining user-friendly AIT display.
 
 ## Transaction Fees
 
@@ -88,7 +88,7 @@ AITBC keeps fees simple and almost invisible.
 
 | Fee Type | Rate | Detail |
 |----------|------|--------|
-| Wallet Transfers | 0.01 AIT (fixed) | ≈ €0.0025 per transaction (36 compute-seconds internally) |
+| Wallet Transfers | 0.01 AIT (fixed) | ≈ €0.0025 per transaction (360,000 compute-units internally) |
 | AI Compute Marketplace | 0.5% | Service fee on compute jobs (19.9 AIT → provider, 0.1 AIT → network) |
 
 ### Fee Distribution

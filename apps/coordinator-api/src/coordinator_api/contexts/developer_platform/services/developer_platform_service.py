@@ -16,6 +16,7 @@ from sqlalchemy import desc, func
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.units import ait_to_units
 
 from ...blockchain.services.blockchain import get_balance, mint_tokens
 from ..domain.developer_platform import (
@@ -193,7 +194,7 @@ class DeveloperPlatformService:
         payload = {
             "from": "treasury",
             "to": developer.wallet_address,
-            "amount": int(bounty.reward_amount * 3600),  # AIT → compute-seconds
+            "amount": ait_to_units(bounty.reward_amount),  # AIT → compute-units
             "type": "BOUNTY_REWARD",
             "metadata": {"bounty_id": str(bounty.id), "developer": developer.wallet_address},
         }

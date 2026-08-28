@@ -60,8 +60,8 @@ def main() -> None:
     parser.add_argument(
         "--balance",
         type=int,
-        default=3_600_000_000_000,
-        help="Treasury balance in compute-seconds",
+        default=36_000_000_000_000_000,
+        help="Treasury balance in compute-units (1 billion AIT)",
     )
     parser.add_argument(
         "--out",
