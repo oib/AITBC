@@ -1227,7 +1227,7 @@ setup_proposer_wallet() {
         return 0
     fi
     log "Setting up hub proposer wallet..."
-    if /opt/aitbc/venv/bin/python /opt/aitbc/scripts/deployment/init_proposer.py; then
+    if PYTHONPATH=/opt/aitbc /opt/aitbc/venv/bin/python /opt/aitbc/scripts/deployment/init_proposer.py; then
         success "Proposer wallet configured"
     else
         warning "Proposer wallet setup failed — check /opt/aitbc/scripts/deployment/init_proposer.py"
