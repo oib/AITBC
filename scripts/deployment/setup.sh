@@ -980,6 +980,30 @@ EOF
         set_env_node "ENABLE_BLOCK_PRODUCTION" "false"
         set_env_node "BLOCK_PRODUCTION_CHAINS" ""
         set_env_node "AUTO_SYNC_ENABLED" "true"
+
+        # Boarding an open island: discover the hub proposer and the public
+        # blockchain RPC so customer/follower nodes can pay for offers without
+        # needing a local proposer wallet.
+        log "Fetching hub proposer from $OPEN_ISLAND_HUB/rpc/proposer"
+        HUB_PROPOSER_ID=""
+        HUB_DISCOVERY_HOST="$(printf '%s' "$OPEN_ISLAND_HUB" | sed 's|^https*://||; s|/.*$||')"
+        HUB_BLOCKCHAIN_RPC="${OPEN_ISLAND_HUB%/}/rpc"
+        if command -v curl >/dev/null 2>&1; then
+            HUB_PROPOSER_RESPONSE=$(curl -sfL --max-time 15 "${OPEN_ISLAND_HUB%/}/rpc/proposer" 2>/dev/null || true)
+            if [ -n "$HUB_PROPOSER_RESPONSE" ]; then
+                HUB_PROPOSER_ID=$(printf '%s' "$HUB_PROPOSER_RESPONSE" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("proposer_id",""))' 2>/dev/null || true)
+            fi
+        fi
+        if [ -n "$HUB_PROPOSER_ID" ]; then
+            set_env_node "HUB_PROPOSER_ID" "$HUB_PROPOSER_ID"
+            set_env_node "HUB_DISCOVERY_URL" "$HUB_DISCOVERY_HOST"
+            set_env_node "HUB_BLOCKCHAIN_RPC_URL" "$HUB_BLOCKCHAIN_RPC"
+            set_env_node "BLOCKCHAIN_RPC_URL" "$HUB_BLOCKCHAIN_RPC"
+            success "Hub proposer configured: $HUB_PROPOSER_ID"
+        else
+            warning "Could not fetch hub proposer from $OPEN_ISLAND_HUB/rpc/proposer"
+            warning "Customer payments may fail until HUB_PROPOSER_ID is set"
+        fi
     fi
 
     # Use pre-configured node.env example if available AND no existing config
