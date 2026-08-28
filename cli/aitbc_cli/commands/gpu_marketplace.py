@@ -25,7 +25,7 @@ def discover(ctx):
     """Auto-discover GPU specifications using nvidia-smi"""
     try:
         config = get_config()
-        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
         result = http_client.get("/v1/gpu/discover")
         success("GPU discovery completed")
         output(result, ctx.obj.get("output_format", "table"))
@@ -44,7 +44,7 @@ def register(ctx, gpu_id: str, specs: str | None):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
 
         gpu_data = {"gpu_id": gpu_id}
 
@@ -70,7 +70,7 @@ def unregister(ctx, gpu_id: str):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
         result = http_client.delete(f"/v1/gpu/{gpu_id}")
         success(f"GPU {gpu_id} unregistered successfully")
         output(result, ctx.obj.get("output_format", "table"))
@@ -90,7 +90,7 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
 
         update_data = {}
 
@@ -131,7 +131,7 @@ def list_gpus_cmd(ctx):
 
         # Query GPU service for registered GPUs
         try:
-            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
             response = http_client.get("/v1/transactions")
             # The gpu-service returns the transaction list directly, or a dict with
             # an 'error' key when the DB query fails.
