@@ -532,7 +532,7 @@ ensure_aitbc_wrapper() {
     local expected='#!/bin/sh
 set -e
 . /opt/aitbc/venv/bin/activate
-exec aitbc "$@"'
+exec /opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"'
 
     if [ -f "$wrapper" ] && diff -q <(printf '%s\n' "$expected") "$wrapper" >/dev/null 2>&1; then
         log "aitbc wrapper already up to date"
