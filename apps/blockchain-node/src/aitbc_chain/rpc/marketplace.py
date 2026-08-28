@@ -125,10 +125,14 @@ async def marketplace_listings() -> dict[str, Any]:
                     payload = json.loads(payload_json) if payload_json else {}
                     action = payload.get("action", "")
                     order_id = payload.get("order_id", "")
+                    order_ids = payload.get("order_ids") or []
+                    if not isinstance(order_ids, list):
+                        order_ids = [order_ids]
                     listing_id = f"tx_{tx_id}"
                     if action in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled":
                         if order_id:
                             cancelled_ids.add(order_id)
+                        cancelled_ids.update(str(oid) for oid in order_ids)
                         cancelled_ids.add(listing_id)
                         continue
                     offer_rows.append((tx_id, sender, payload, timestamp))
