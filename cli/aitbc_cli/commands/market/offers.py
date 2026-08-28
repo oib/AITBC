@@ -5,6 +5,7 @@ Marketplace offer commands: list, cancel, status, match, providers, offer
 import hashlib
 import json
 import re
+import subprocess
 import socket
 from datetime import datetime
 from decimal import Decimal
@@ -126,6 +127,50 @@ def _sort_offers(offers: list[dict[str, Any]], sort: str) -> list[dict[str, Any]
     return sorted(offers, key=_reputation_key)
 
 
+def _discover_local_gpus() -> list[dict[str, Any]]:
+    """Discover local NVIDIA GPUs with full specs via nvidia-smi."""
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=index,name,memory.total,compute_cap,uuid",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            logger.debug("nvidia-smi query failed: %s", result.stderr)
+            return []
+        gpus = []
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) < 3:
+                continue
+            gpus.append(
+                {
+                    "index": str(int(parts[0])),
+                    "name": parts[1],
+                    "memory_gb": int(parts[2]) // 1024,
+                    "compute_capability": parts[3] if len(parts) > 3 else "",
+                    "uuid": parts[4] if len(parts) > 4 else "",
+                }
+            )
+        return gpus
+    except FileNotFoundError:
+        logger.debug("nvidia-smi not found - GPU discovery skipped")
+        return []
+    except subprocess.TimeoutExpired:
+        logger.debug("nvidia-smi timeout - GPU discovery skipped")
+        return []
+    except Exception as e:
+        logger.debug("Error running nvidia-smi: %s", e)
+        return []
+
+
 @market.command(name="list")
 @click.option("--provider", help="Filter by provider address")
 @click.option("--status", help="Filter by status (active, inactive)")
@@ -214,6 +259,7 @@ def list_offers(
                                 "Provider": provider_addr[:16] + "..." if len(provider_addr) > 16 else provider_addr,
                                 "Node ID": offer.get("node_id", "N/A"),
                                 "GPU": f"{offer.get('gpu_name', 'N/A')} ({offer.get('gpu_device', 'N/A')})",
+                                "Memory (GB)": offer.get("gpu_memory_gb") or "N/A",
                                 "Endpoint": public_ep[:30] + "..." if len(public_ep) > 30 else public_ep,
                                 "Status": offer.get("status", "unknown"),
                                 "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust"
@@ -331,6 +377,7 @@ def list_offers(
                     "Type": payload.get("service_type", "").upper(),
                     "Model": payload.get("model", ""),
                     "GPU": gpu_name_display[:35] + "..." if len(gpu_name_display) > 35 else gpu_name_display,
+                    "Memory (GB)": payload.get("memory_gb", "N/A"),
                     "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
                     "Rating": rating_display,
                     "Status": payload.get("status", "active"),
@@ -570,43 +617,53 @@ def offer(
 
         # Auto-detect GPU info from nvidia-smi if not provided and not cloud
         gpu_uuid = None
+        gpu_memory_gb = 0
+        compute_capability = ""
+        gpu_model = ""
         if service_type == "ipfs":
             gpu_name = "N/A (IPFS)"
             gpu_device = "N/A"
             gpu_uuid = "N/A"
-        if gpu_name is None and not is_cloud:
-            try:
-                import subprocess
-
-                # Get GPU name, device ID, and UUID
-                result = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    # Parse output: "GPU 0: NVIDIA GeForce RTX 4060 Ti (UUID: GPU-ba5c6553-6396-ab66-5706-17e6de30a93a)"
-                    for line in result.stdout.strip().split("\n"):
-                        if line.startswith("GPU"):
-                            # Extract device ID, name, and UUID
-                            parts = line.split(":")
-                            device_part = parts[0].strip()  # "GPU 0"
-                            gpu_name = parts[1].split("(")[0].strip()  # "NVIDIA GeForce RTX 4060 Ti "
-                            uuid_part = parts[1].split("UUID:")[1].rstrip(")") if "UUID:" in parts[1] else None
-
-                            # Use specified device or default to first GPU
-                            if gpu_device is None:
-                                gpu_device = device_part.split()[1]  # Extract "0" from "GPU 0"
-                                gpu_uuid = uuid_part
-                                info(f"Auto-detected GPU: {gpu_name} (device {gpu_device}, UUID: {gpu_uuid})")
-                                break
-                            elif device_part == f"GPU {gpu_device}":
-                                gpu_uuid = uuid_part
-                                info(f"Auto-detected GPU: {gpu_name} (device {gpu_device}, UUID: {gpu_uuid})")
-                                break
-            except Exception as e:
-                warning(f"Failed to auto-detect GPU info: {e}")
+            gpu_memory_gb = 0
+            compute_capability = "N/A"
+            gpu_model = "N/A"
+        if not is_cloud and service_type != "ipfs":
+            discovered_gpus = _discover_local_gpus()
+            selected_gpu = None
+            if discovered_gpus:
+                if gpu_device is not None:
+                    selected_gpu = next((g for g in discovered_gpus if g["index"] == gpu_device), discovered_gpus[0])
+                elif gpu_name is not None:
+                    selected_gpu = next((g for g in discovered_gpus if g["name"] == gpu_name), discovered_gpus[0])
+                else:
+                    selected_gpu = discovered_gpus[0]
+            if selected_gpu:
+                gpu_name = selected_gpu["name"]
+                gpu_device = selected_gpu["index"]
+                gpu_uuid = selected_gpu["uuid"]
+                gpu_memory_gb = selected_gpu["memory_gb"]
+                compute_capability = selected_gpu["compute_capability"]
+                gpu_model = gpu_name
+                info(
+                    f"Auto-detected GPU: {gpu_name} ({gpu_memory_gb} GB, compute {compute_capability}, "
+                    f"device {gpu_device}, UUID: {gpu_uuid})"
+                )
+            elif gpu_name is None:
+                warning("Failed to auto-detect GPU info")
                 gpu_name = "Unknown GPU"
                 gpu_device = "0"
+                gpu_model = "Unknown GPU"
+            else:
+                gpu_model = gpu_name
+                if gpu_device is None:
+                    gpu_device = "0"
         elif gpu_name is None and is_cloud:
             gpu_name = "N/A (cloud)"
             gpu_device = "N/A"
+            gpu_uuid = "N/A"
+            gpu_memory_gb = 0
+            compute_capability = "N/A"
+            gpu_model = "N/A"
         elif gpu_device is None and not is_cloud:
             gpu_device = "0"  # Default to first GPU
 
@@ -736,9 +793,12 @@ def offer(
                 "context_window": context_window if service_type == "ollama" else None,
                 "deployment_type": deployment_type,
                 "gpu_name": gpu_name,
+                "gpu_model": gpu_model,
                 "gpu_device": gpu_device,
                 "gpu_uuid": gpu_uuid,
                 "gpu_offer_id": gpu_offer_id,
+                "memory_gb": gpu_memory_gb,
+                "compute_capability": compute_capability,
                 "status": "active",
                 "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                 "island_id": island_id,
@@ -787,9 +847,12 @@ def offer(
                     "node_id": provider_node_id,
                     "deployment_type": deployment_type,
                     "gpu_name": gpu_name,
+                    "gpu_model": gpu_model,
                     "gpu_device": gpu_device,
                     "gpu_uuid": gpu_uuid,
                     "gpu_offer_id": gpu_offer_id,
+                    "gpu_memory_gb": gpu_memory_gb,
+                    "compute_capability": compute_capability,
                     "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                     "status": "active",
                 },
