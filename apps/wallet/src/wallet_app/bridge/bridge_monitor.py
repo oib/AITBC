@@ -40,6 +40,7 @@ DEFAULT_RECIPIENT = os.getenv("WALLET_ADDRESS", "")
 MIN_ETH_DEPOSIT = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
 
 _db_initialized = False
+_bridge_polling_enabled = True
 
 
 def _ensure_db() -> None:
@@ -48,6 +49,19 @@ def _ensure_db() -> None:
     if not _db_initialized:
         init_db()
         _db_initialized = True
+
+
+def is_bridge_polling_enabled() -> bool:
+    """Return whether the automatic bridge polling loop is enabled."""
+    return _bridge_polling_enabled
+
+
+def set_bridge_polling_enabled(enabled: bool) -> bool:
+    """Enable or disable the automatic bridge polling loop at runtime."""
+    global _bridge_polling_enabled
+    _bridge_polling_enabled = enabled
+    logger.info("Bridge auto-poll %s", "enabled" if enabled else "disabled")
+    return _bridge_polling_enabled
 
 
 def _canonical_address(address: str) -> str | None:
@@ -332,6 +346,12 @@ async def monitor_loop() -> None:
     _ensure_db()
 
     while True:
+        if not _bridge_polling_enabled:
+            logger.info("Bridge auto-poll disabled, sleeping")
+            while not _bridge_polling_enabled:
+                await asyncio.sleep(1)
+            continue
+
         try:
             summary = await poll_once()
             if not summary.get("skipped"):
@@ -339,7 +359,10 @@ async def monitor_loop() -> None:
         except Exception as e:
             logger.error("Error in monitor loop: %s", e)
 
-        await asyncio.sleep(POLL_INTERVAL)
+        for _ in range(POLL_INTERVAL):
+            if not _bridge_polling_enabled:
+                break
+            await asyncio.sleep(1)
 
 
 def start_monitoring() -> asyncio.Task[None] | None:
