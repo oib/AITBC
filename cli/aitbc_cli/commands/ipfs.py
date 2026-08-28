@@ -458,45 +458,58 @@ def host(
 
     public_endpoint = offer.get("public_endpoint") or ""
 
-    # Load wallet and lock escrow.
-    buyer, private_key, wallet_id = load_wallet_for_payment(
-        ctx, wallet_name=wallet_name, wallet_path=wallet_path, password=password, require_private_key=True
-    )
-
-    # If a local file is supplied, add it to the IPFS daemon first.
+    # Determine the object size as early as possible so we can enforce the
+    # per-customer disk quota before asking for the wallet password or
+    # uploading the file to the IPFS daemon.
     file_path = Path(cid_or_file)
     content_size: int | None = None
     if file_path.exists() and file_path.is_file():
-        cid = _ipfs_add_file(ipfs_api, file_path)
-        if not cid:
-            error(f"Failed to add file to IPFS at {ipfs_api}")
-            raise click.Abort()
         content_size = file_path.stat().st_size
-        success(f"Added file to IPFS: {cid}")
     else:
         cid = cid_or_file.strip()
         if not cid:
             error("CID cannot be empty")
             raise click.Abort()
-
-    # Determine the object size for quota enforcement.
-    if content_size is None:
         content_size = _ipfs_object_size(ipfs_api, cid)
 
     disk_quota_mb = offer.get("disk_quota_mb")
     if disk_quota_mb:
         quota_bytes = int(disk_quota_mb) * 1024 * 1024
-        used_bytes = _active_customer_ipfs_usage(buyer, offer.get("offer_id", offer_id_or_plugin_id))
         item_size = content_size if content_size is not None else 0
-        if used_bytes + item_size > quota_bytes:
+        if item_size > quota_bytes:
             if content_size is None:
                 error(f"Could not determine size of {cid}; offer disk quota is {disk_quota_mb} MB per customer")
             else:
                 error(
-                    f"Object size {item_size / (1024 * 1024):.2f} MB would exceed "
-                    f"the {disk_quota_mb} MB per-customer quota for this offer (already using {used_bytes / (1024 * 1024):.2f} MB)"
+                    f"Object size {item_size / (1024 * 1024):.2f} MB exceeds "
+                    f"the {disk_quota_mb} MB per-customer quota for this offer"
                 )
             raise click.Abort()
+
+    # Load wallet and lock escrow.
+    buyer, private_key, wallet_id = load_wallet_for_payment(
+        ctx, wallet_name=wallet_name, wallet_path=wallet_path, password=password, require_private_key=True
+    )
+
+    used_bytes = _active_customer_ipfs_usage(buyer, offer.get("offer_id", offer_id_or_plugin_id))
+    if disk_quota_mb and used_bytes + item_size > quota_bytes:
+        error(
+            f"This upload would use {item_size / (1024 * 1024):.2f} MB and exceed "
+            f"the {disk_quota_mb} MB per-customer quota for this offer (already using {used_bytes / (1024 * 1024):.2f} MB)"
+        )
+        raise click.Abort()
+
+    # If a local file is supplied, add it to the IPFS daemon now.
+    if file_path.exists() and file_path.is_file():
+        cid = _ipfs_add_file(ipfs_api, file_path)
+        if not cid:
+            error(f"Failed to add file to IPFS at {ipfs_api}")
+            raise click.Abort()
+        # Use the daemon's reported cumulative size when available.
+        daemon_size = _ipfs_object_size(ipfs_api, cid)
+        if daemon_size is not None:
+            content_size = daemon_size
+        success(f"Added file to IPFS: {cid}")
 
     # Attempt to connect to the provider's public multiaddr so the island can replicate.
     if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
@@ -517,6 +530,10 @@ def host(
                 f"Failed to pin CID {cid} on {ipfs_api}. Escrow contract {contract_id} was created; release or refund it manually if needed."
             )
             raise click.Abort()
+
+    # Re-check the daemon-reported size after pin for the rental record.
+    if content_size is None:
+        content_size = _ipfs_object_size(ipfs_api, cid)
 
     rental: dict[str, Any] = {
         "rental_id": job_id,
