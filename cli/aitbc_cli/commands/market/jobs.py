@@ -93,7 +93,14 @@ def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plu
 def _resolve_offer(ctx, offer_id_or_plugin_id: str) -> dict[str, Any]:
     """Resolve an offer by on-chain offer_id or marketplace plugin_id."""
     config = get_config()
-    hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    if hub_host.startswith(("http://", "https://")):
+        hub_url = hub_host.rstrip("/")
+    elif "localhost" in hub_host or "127.0.0.1" in hub_host:
+        hub_url = f"http://{hub_host}"
+    else:
+        # Public hubs are exposed over HTTPS.
+        hub_url = f"https://{hub_host}"
     http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
     # Prefer the marketplace service, which has the liveliest view and plugin_id.
@@ -180,6 +187,7 @@ def _run_ollama(
     stream: bool,
     output_format: str,
     track: bool = False,
+    node_wallet: str | None = None,
 ) -> None:
     """Run an Ollama inference job against a software offer and pay metered escrow."""
     config = get_config()
@@ -207,6 +215,7 @@ def _run_ollama(
         estimated_cost,
         config,
         private_key=private_key,
+        node_wallet=node_wallet,
     )
 
     # Resolve the Ollama endpoint. Customers always reach the public endpoint.
@@ -287,6 +296,7 @@ def _run_whisper(
     fmt: str,
     output_format: str,
     track: bool = False,
+    node_wallet: str | None = None,
 ) -> None:
     """Transcribe audio using a Whisper software offer and pay metered escrow."""
     import subprocess
@@ -346,6 +356,7 @@ def _run_whisper(
         estimated_cost,
         config,
         private_key=private_key,
+        node_wallet=node_wallet,
     )
 
     # Submit audio to Whisper service
@@ -471,6 +482,7 @@ def _run_ffmpeg(
     bitrate: str,
     output_format: str,
     track: bool = False,
+    node_wallet: str | None = None,
 ) -> None:
     """Process video using an FFmpeg software offer and pay metered escrow."""
     import urllib.request as _urllib
@@ -510,6 +522,7 @@ def _run_ffmpeg(
         estimated_cost,
         config,
         private_key=private_key,
+        node_wallet=node_wallet,
     )
 
     # Submit video to FFmpeg service
@@ -632,6 +645,7 @@ def _run_ffmpeg(
 @click.option("--resolution", default="1080p", help="FFmpeg target resolution (e.g. 1080p, 720p)")
 @click.option("--bitrate", default="5M", help="FFmpeg target bitrate (e.g. 5M, 10M)")
 @click.option("--track", is_flag=True, default=False, help="Create a coordinator job record after a successful run")
+@click.option("--proposer", "proposer_id", default=None, help="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def run_job(
@@ -648,6 +662,7 @@ def run_job(
     resolution: str,
     bitrate: str,
     track: bool,
+    proposer_id: str | None,
     output_format: str,
 ) -> None:
     """Run a software offer (Ollama/Whisper/FFmpeg) and pay metered escrow."""
@@ -658,19 +673,57 @@ def run_job(
 
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
 
+        # Use explicit --proposer, then HUB_PROPOSER_ID, then local RPC proposer discovery.
+        config = get_config()
+        node_wallet = proposer_id or config.hub_proposer_id or None
+
         if service_type == "ollama":
-            _run_ollama(ctx, offer, prompt, wallet_address, private_key, max_tokens, stream, output_format, track)
+            _run_ollama(
+                ctx,
+                offer,
+                prompt,
+                wallet_address,
+                private_key,
+                max_tokens,
+                stream,
+                output_format,
+                track,
+                node_wallet=node_wallet,
+            )
         elif service_type == "whisper":
             if not os.path.exists(prompt):
                 error(f"Whisper jobs require an audio file. File not found: {prompt}")
                 raise click.Abort()
-            _run_whisper(ctx, offer, prompt, wallet_address, private_key, language, task, fmt, output_format, track)
+            _run_whisper(
+                ctx,
+                offer,
+                prompt,
+                wallet_address,
+                private_key,
+                language,
+                task,
+                fmt,
+                output_format,
+                track,
+                node_wallet=node_wallet,
+            )
         elif service_type == "ffmpeg":
             if not os.path.exists(prompt):
                 error(f"FFmpeg jobs require a video file. File not found: {prompt}")
                 raise click.Abort()
             _run_ffmpeg(
-                ctx, offer, prompt, wallet_address, private_key, media_format, codec, resolution, bitrate, output_format, track
+                ctx,
+                offer,
+                prompt,
+                wallet_address,
+                private_key,
+                media_format,
+                codec,
+                resolution,
+                bitrate,
+                output_format,
+                track,
+                node_wallet=node_wallet,
             )
         elif service_type == "ipfs":
             error("IPFS hosting jobs are not supported via 'market run'. Use 'aitbc ipfs host' instead.")
