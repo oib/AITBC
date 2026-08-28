@@ -84,6 +84,23 @@ async def get_block_route(request: Request, height: int, chain_id: str | None = 
     return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
 
 
+@router.get("/block", summary="Get a block (head by default, or by query height)")
+@rate_limit(rate=200, per=60)
+async def get_block_alias_route(request: Request, height: int | None = None, chain_id: str | None = None) -> dict[str, Any]:
+    """Get the head block, or a specific block if height is provided."""
+    if height is None:
+        head = await get_head(request, chain_id)
+        height = head.get("height", 0)
+    return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
+
+
+@router.get("/block/{height}", summary="Get block by height (singular alias)")
+@rate_limit(rate=200, per=60)
+async def get_block_path_alias_route(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
+    """Get block by height (singular alias for /blocks/{height})."""
+    return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
+
+
 @router.get("/blocks-range", summary="Get blocks in height range")
 @rate_limit(rate=200, per=60)
 async def get_blocks_range_route(
