@@ -652,6 +652,7 @@ def offer(
         config = get_config()
         chain_id = get_chain_id()
         island_id = get_island_id()
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         # Auto-detect deployment type from model name suffix
@@ -797,6 +798,28 @@ def offer(
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
+        # Find any existing active offers for the same service/model/GPU from this
+        # provider so the new offer can replace them. This keeps the marketplace from
+        # accumulating duplicate default offers every time the miner republishes.
+        replaces: list[str] = []
+        try:
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            listings_result = http_client.get("/rpc/marketplace/listings")
+            if listings_result and isinstance(listings_result, dict):
+                for listing in listings_result.get("listings", []):
+                    if (
+                        listing.get("seller_address") == wallet_address
+                        and listing.get("service_type") == service_type
+                        and listing.get("model") == model_or_variant
+                        and listing.get("gpu_uuid") == (gpu_uuid or "N/A")
+                        and listing.get("listing_id")
+                    ):
+                        replaces.append(listing["listing_id"])
+                if replaces:
+                    info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
+        except Exception:
+            logger.debug("Could not query existing marketplace listings for replacement", exc_info=True)
+
         # Build public endpoint so remote buyers know where to send jobs
         _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0}
         _local_port = _local_ports.get(service_type, 8110)
@@ -848,6 +871,7 @@ def offer(
                 "gpu_offer_id": gpu_offer_id,
                 "memory_gb": gpu_memory_gb,
                 "compute_capability": compute_capability,
+                "replaces": replaces,
                 "status": "active",
                 "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                 "island_id": island_id,
@@ -857,7 +881,6 @@ def offer(
             },
         }
 
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         tx_result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
         success("Software offer listed on marketplace!")
