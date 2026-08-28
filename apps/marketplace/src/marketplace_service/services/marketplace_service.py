@@ -323,6 +323,7 @@ class MarketplaceService:
                                 "avg_rating": 0,
                                 "rating_count": 0,
                                 "chain_id": offer.get("chain_id", chain_id),
+                                "disk_quota_mb": offer.get("disk_quota_mb"),
                                 # Blockchain verification information
                                 "block_height": offer.get("block_height"),
                                 "block_hash": offer.get("block_hash"),
@@ -375,6 +376,7 @@ class MarketplaceService:
                     "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                     "avg_rating": s.avg_rating,
                     "rating_count": s.rating_count,
+                    "disk_quota_mb": s.disk_quota_mb,
                     # Blockchain verification information
                     "block_height": s.block_height,
                     "block_hash": s.block_hash,
@@ -453,6 +455,7 @@ class MarketplaceService:
                 "updated_at": service.updated_at.isoformat() if service.updated_at else None,
                 "avg_rating": service.avg_rating,
                 "rating_count": service.rating_count,
+                "disk_quota_mb": service.disk_quota_mb,
             }
         except Exception as e:
             logger.error("Error in get_software_service: %s: %s", type(e).__name__, str(e))
