@@ -76,6 +76,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         start = time.perf_counter()
         method = request.method
         path = request.url.path
+        query = request.url.query
+        path_with_qs = f"{path}?{query}" if query else path
+        client_host = request.client.host if request.client else "unknown"
+        x_forwarded = request.headers.get("x-forwarded-for", "")
+        if x_forwarded:
+            client_host = x_forwarded.split(",")[0].strip() or client_host
+        user_agent = request.headers.get("user-agent", "unknown")
         try:
             response = await call_next(request)
             duration = time.perf_counter() - start
@@ -84,18 +91,22 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             if response.status_code >= 500:
                 metrics_registry.increment("rpc_server_errors_total")
                 _app_logger.error(
-                    "Server error: %s %s → %d (%.1fms)",
+                    "Server error: %s %s from %s (UA: %s) → %d (%.1fms)",
                     method,
-                    path,
+                    path_with_qs,
+                    client_host,
+                    user_agent,
                     response.status_code,
                     duration * 1000,
                 )
             elif response.status_code >= 400:
                 metrics_registry.increment("rpc_client_errors_total")
                 _app_logger.warning(
-                    "Client error: %s %s → %d (%.1fms)",
+                    "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
                     method,
-                    path,
+                    path_with_qs,
+                    client_host,
+                    user_agent,
                     response.status_code,
                     duration * 1000,
                 )
@@ -106,8 +117,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration = time.perf_counter() - start
             metrics_registry.increment("rpc_unhandled_errors_total")
             _app_logger.exception(
-                f"Unhandled error in request: {method} {path}",
-                extra={"method": method, "path": path, "error": str(exc), "duration_ms": round(duration * 1000, 2)},
+                f"Unhandled error in request: {method} {path_with_qs} from {client_host} (UA: {user_agent})",
+                extra={
+                    "method": method,
+                    "path": path_with_qs,
+                    "client_host": client_host,
+                    "user_agent": user_agent,
+                    "error": str(exc),
+                    "duration_ms": round(duration * 1000, 2),
+                },
             )
             return JSONResponse(status_code=503, content={"detail": f"Internal server error: {str(exc)}"})
 
