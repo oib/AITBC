@@ -1735,10 +1735,22 @@ def register_account(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def request_faucet(
-    faucet_data: Annotated[
-        dict[str, Any],
-        Field(description="Faucet request data (address, etc.)."),
+    address: Annotated[
+        str,
+        Field(description="Wallet address to fund."),
     ],
+    amount: Annotated[
+        int | None,
+        Field(description="Amount to fund; defaults to the faucet’s default."),
+    ] = None,
+    chain_id: Annotated[
+        str | None,
+        Field(description="Chain ID override."),
+    ] = None,
+    faucet_data: Annotated[
+        dict[str, Any] | None,
+        Field(description="Raw faucet request payload (overrides the explicit fields)."),
+    ] = None,
     dry_run: Annotated[
         bool,
         Field(description="Show the command without executing it."),
@@ -1757,6 +1769,12 @@ def request_faucet(
     ] = None,
 ) -> str:
     """Request test tokens from the blockchain faucet."""
+    if faucet_data is None:
+        faucet_data = {"address": address}
+        if amount is not None:
+            faucet_data["amount"] = amount
+        if chain_id is not None:
+            faucet_data["chain_id"] = chain_id
     return _http_write_tool(role, host, "blockchain-rpc", "faucet", faucet_data, dry_run, confirm)
 
 

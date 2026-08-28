@@ -125,6 +125,20 @@ ALL_SERVICE_BASES = {
 # Set of service names available to call_aitbc_http.
 ALL_HTTP_SERVICES = set(ALL_SERVICE_BASES)
 
+
+def _normalize_http_service_name(service: str) -> str:
+    """Normalize a service name, accepting both logical and systemd-style names.
+
+    Allows callers to use either the logical name (e.g. 'blockchain-rpc') or
+    the systemd unit name (e.g. 'aitbc-blockchain-rpc'), and also underscores
+    instead of dashes.
+    """
+    service = service.lower().strip().replace("_", "-")
+    if service.startswith("aitbc-"):
+        service = service[6:]
+    return service
+
+
 # Canonical wallet directory on live AITBC nodes.  Used as AITBC_WALLET_DIR for
 # any CLI command that signs transactions or needs a wallet file.
 DEFAULT_WALLET_DIR = "/var/lib/aitbc/wallets"
@@ -544,6 +558,7 @@ def _run_http(
     The key itself is not returned in the command output; the result only shows
     a ``$API_KEY`` shell variable reference.
     """
+    service = _normalize_http_service_name(service)
     base = ALL_SERVICE_BASES.get(service)
     if not base:
         return {
@@ -584,6 +599,7 @@ def _http_read_tool(
 ) -> str:
     """Helper for read-only HTTP tools."""
     target = _host_for_role(role, host)
+    service = _normalize_http_service_name(service)
     if service not in ALL_HTTP_SERVICES:
         return _json(
             {
@@ -1288,7 +1304,7 @@ def get_ai_job_results(
 def list_market_offers(
     limit: Annotated[
         int | None,
-        Field(description="Maximum number of offers to return.", ge=1),
+        Field(description="Maximum number of offers to return (post-filter).", ge=1),
     ] = None,
     role: Annotated[
         NodeRole | None,
@@ -1299,11 +1315,30 @@ def list_market_offers(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List GPU/software marketplace offers and bids."""
-    options: dict[str, str] = {}
-    if limit is not None:
-        options["limit"] = str(limit)
-    return _aitbc_cli_read_tool(role, host, "market", "list", options=options)
+    """List GPU/software marketplace offers and bids.
+
+    The AITBC CLI ``market list`` does not support a ``--limit`` option, so the
+    limit is applied after fetching the list.
+    """
+    response = _aitbc_cli_read_tool(role, host, "market", "list")
+    if limit is None:
+        return response
+    try:
+        parsed = json.loads(response)
+    except json.JSONDecodeError:
+        return response
+    offers = parsed.get("json")
+    if offers is None:
+        try:
+            stdout = parsed.get("stdout", "[]")
+            offers, _ = json.JSONDecoder().raw_decode(stdout)
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            return response
+    if isinstance(offers, list):
+        offers = offers[:limit]
+        parsed["json"] = offers
+        parsed["stdout"] = json.dumps(offers)
+    return json.dumps(parsed)
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1858,8 +1893,12 @@ def call_aitbc_http(
       - service="blockchain-rpc", path="account/0x..."
       - service="blockchain-rpc", path="blocks-range", params={"limit": "3"}
       - service="coordinator-api", path="v1/jobs", params={"limit": "10"}, auth="miner"
+
+    Service names may be logical ("blockchain-rpc") or systemd-style
+    ("aitbc-blockchain-rpc"); both are accepted.
     """
     target = _host_for_role(role, host)
+    service = _normalize_http_service_name(service)
     if service not in ALL_HTTP_SERVICES:
         return _json(
             {
