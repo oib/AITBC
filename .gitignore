@@ -337,6 +337,7 @@ scripts/deployment/*
 !scripts/deployment/create_aitbc_user.sh
 !scripts/deployment/unify_service_users.sh
 !scripts/deployment/aitbc-logrotate.conf
+!scripts/deployment/init_proposer.py
 scripts/ops/*
 !scripts/ops/*.sh
 scripts/release/*
