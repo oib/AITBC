@@ -262,6 +262,12 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
                 "model": (tx.payload or {}).get("model", ""),
                 "price": (tx.payload or {}).get("price", 0),
                 "price_unit": (tx.payload or {}).get("price_unit", ""),
+                "gpu_name": (tx.payload or {}).get("gpu_name", ""),
+                "gpu_device": (tx.payload or {}).get("gpu_device", ""),
+                "gpu_uuid": (tx.payload or {}).get("gpu_uuid", ""),
+                "gpu_model": (tx.payload or {}).get("gpu_model") or (tx.payload or {}).get("gpu_name", ""),
+                "memory_gb": (tx.payload or {}).get("memory_gb"),
+                "compute_capability": (tx.payload or {}).get("compute_capability", ""),
             }
             for tx in offers
         ]

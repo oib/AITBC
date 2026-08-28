@@ -69,6 +69,12 @@ class MarketplaceListing(BaseModel):
     description: str = Field(..., description="Item description")
     status: str = Field(default="active", description="Listing status")
     created_at: datetime | None = None
+    gpu_name: str | None = Field(default=None, description="GPU name from nvidia-smi")
+    gpu_device: str | None = Field(default=None, description="GPU device index")
+    gpu_uuid: str | None = Field(default=None, description="Physical GPU UUID")
+    gpu_model: str | None = Field(default=None, description="GPU model name")
+    memory_gb: int | None = Field(default=None, description="GPU memory in GB")
+    compute_capability: str | None = Field(default=None, description="CUDA compute capability")
 
 
 class MarketplaceCreateRequest(BaseModel):
@@ -79,6 +85,12 @@ class MarketplaceCreateRequest(BaseModel):
     # not-money: becomes the price field of a listing in the wire format above
     price: float
     description: str
+    gpu_name: str | None = None
+    gpu_device: str | None = None
+    gpu_uuid: str | None = None
+    gpu_model: str | None = None
+    memory_gb: int | None = None
+    compute_capability: str | None = None
 
 
 @router.get("/marketplace/listings", summary="List marketplace items", tags=["marketplace"])
@@ -114,6 +126,12 @@ async def marketplace_listings() -> dict[str, Any]:
                         "item_type": payload.get("item_type", "GPU"),
                         "price": payload.get("price", 0.0),
                         "description": payload.get("description", ""),
+                        "gpu_name": payload.get("gpu_name", ""),
+                        "gpu_device": payload.get("gpu_device", ""),
+                        "gpu_uuid": payload.get("gpu_uuid", ""),
+                        "gpu_model": payload.get("gpu_model") or payload.get("gpu_name", ""),
+                        "memory_gb": payload.get("memory_gb"),
+                        "compute_capability": payload.get("compute_capability", ""),
                         "status": "active",
                         "created_at": timestamp or datetime.now().isoformat(),
                     }
@@ -166,6 +184,12 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
             "item_type": request.item_type,
             "price": request.price,
             "description": description,
+            "gpu_name": request.gpu_name,
+            "gpu_device": request.gpu_device,
+            "gpu_uuid": request.gpu_uuid,
+            "gpu_model": request.gpu_model or request.gpu_name,
+            "memory_gb": request.memory_gb,
+            "compute_capability": request.compute_capability,
             "status": "active",
             "created_at": datetime.now().isoformat(),
         }

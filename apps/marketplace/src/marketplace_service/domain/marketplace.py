@@ -54,6 +54,9 @@ class SoftwareService(MarketplaceBase, table=True):
     gpu_device: str = Field(default="0")  # GPU device ID (0, 1, 2, etc.)
     gpu_uuid: str | None = Field(default=None)  # GPU UUID from nvidia-smi
     gpu_offer_id: str | None = Field(default=None)  # GPU marketplace offer ID
+    gpu_model: str | None = Field(default=None)  # GPU model name
+    gpu_memory_gb: int | None = Field(default=None)  # GPU memory in GB
+    compute_capability: str | None = Field(default=None)  # CUDA compute capability
     description: str = Field(default="")
     status: str = Field(default="active", index=True)  # active, inactive
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
