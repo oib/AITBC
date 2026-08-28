@@ -96,7 +96,7 @@ def discover_gpu_specs() -> dict[str, Any]:
             if len(parts) >= 3 and int(parts[0]) == 0:
                 return {
                     "model": parts[1],
-                    "memory_gb": int(parts[2]) / 1024,
+                    "memory_gb": int(parts[2]) // 1024,
                     "cuda_version": parts[3] if len(parts) > 3 else "",
                     "compute_capability": parts[4] if len(parts) > 4 else "",
                     "uuid": parts[5] if len(parts) > 5 else "",
