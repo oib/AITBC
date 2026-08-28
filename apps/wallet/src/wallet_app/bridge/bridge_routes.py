@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from wallet_app.deps import require_admin_api_key
 
 from .bridge_db import get_all_deposits, get_deposit_by_id, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
+from .bridge_monitor import poll_once
 from .price_api import calculate_ait_amount, get_exchange_rate
 
 exchange_router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
@@ -223,6 +224,26 @@ async def get_bridge_v1_status() -> dict[str, Any]:
         "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30")),
         "fee_rate": float(os.getenv("BRIDGE_FEE_RATE", "0.005")),
         "min_deposit": os.getenv("MIN_ETH_DEPOSIT", "0.001"),
+    }
+
+
+@bridge_router.post("/poll")
+async def trigger_bridge_poll(
+    _admin: Annotated[None, Depends(require_admin_api_key)],
+) -> dict[str, Any]:
+    """Manually trigger one bridge poll cycle (admin operation)."""
+    result = await poll_once()
+    if result.get("skipped"):
+        raise HTTPException(
+            status_code=503,
+            detail=result.get("reason", "Bridge poll skipped"),
+        )
+    return {
+        "success": True,
+        "message": "Bridge poll completed",
+        "scanned": result.get("scanned", 0),
+        "recorded": result.get("recorded", 0),
+        "address": result.get("address", ""),
     }
 
 
