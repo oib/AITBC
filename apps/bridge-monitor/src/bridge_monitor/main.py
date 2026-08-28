@@ -3,13 +3,13 @@
 import asyncio
 import os
 import sys
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 
 from .storage import (
     BridgeDepositStatus,
@@ -101,9 +101,11 @@ class BridgeMonitor:
             logger.error("Cannot submit AIT transfer - no private key")
             return None
         try:
-            import httpx
             import json
-            from cryptography.hazmat.primitives.asymmetric import ed25519
+
+            import httpx
+            from eth_keys import keys
+            from eth_utils import keccak, to_checksum_address
 
             # Get current nonce
             sender_response = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
@@ -112,25 +114,27 @@ class BridgeMonitor:
                 return None
             nonce = int(sender_response.json().get("nonce", 0))
 
-            # Build and sign transaction — quantize to integer AIT units
-            # (ROUND_HALF_UP, not int() truncation which silently drops dust)
-            tx_amount = int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            # Convert decimal AIT to on-chain compute-units (same as aitbc wallet send)
+            tx_amount = ait_to_units(amount)
             transaction = {
-                "from": self.genesis_wallet_address,
-                "to": to_address,
+                "type": "TRANSFER",
+                "chain_id": chain_id,
+                "from": to_checksum_address(self.genesis_wallet_address),
+                "to": to_checksum_address(to_address),
                 "amount": tx_amount,
                 "nonce": nonce,
                 "fee": DEFAULT_TX_FEE_UNITS,
-                "type": "TRANSFER",
+                "payload": {"amount": tx_amount},
             }
-            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(
-                bytes.fromhex(self.genesis_private_key.removeprefix("0x"))
-            )
-            message = json.dumps(transaction, sort_keys=True).encode()
-            signature = private_key.sign(message)
-            transaction["signature"] = signature.hex()
+            private_key_hex = self.genesis_private_key.removeprefix("0x")
+            private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
+            signed_fields = {k: v for k, v in transaction.items() if k != "signature"}
+            message = json.dumps(signed_fields, sort_keys=True, separators=(",", ":")).encode()
+            signature = private_key.sign_msg_hash(keccak(message))
+            transaction["signature"] = signature.to_bytes().hex()
 
-            logger.info("Submitting AIT transfer: %s AIT to %s (nonce=%s)", tx_amount, to_address, nonce)
+            logger.info("Submitting AIT transfer: %s units (%s AIT) to %s (nonce=%s)", tx_amount, amount, to_address, nonce)
             submit_response = httpx.post(
                 f"{self.blockchain_rpc_url}/rpc/transaction",
                 json=transaction,
