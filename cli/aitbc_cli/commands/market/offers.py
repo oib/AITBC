@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Any
 
 import click
+from tabulate import tabulate
 
 from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
@@ -532,11 +533,12 @@ def status(ctx, order_id: str):
 
 
 @market.command()
+@OUTPUT_FORMAT_OPTION
 @click.pass_context
-def match(ctx):
+def match(ctx, output_format: str):
     """Match GPU bids with offers (price discovery)"""
     try:
-        # Load CLI config
+        fmt = resolve_output_format(ctx, output_format)
         config = get_config()
 
         # Query blockchain for matching
@@ -550,7 +552,42 @@ def match(ctx):
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get("/rpc/transactions/marketplace/match")
 
-            output(result, ctx.obj.get("output_format", "table"), title="GPU Market Matches")
+            if fmt in ("json", "yaml"):
+                output(result, fmt, title="GPU Market Matches")
+                return
+
+            matches = (result or {}).get("matches", [])
+            if not matches:
+                info("No matching offers found.")
+                return
+
+            table = []
+            for m in matches:
+                gpu_name = m.get("gpu_name") or "N/A"
+                gpu_device = m.get("gpu_device") or "N/A"
+                gpu_uuid = m.get("gpu_uuid") or "N/A"
+                gpu_display = f"{gpu_name} [GPU {gpu_device}]"
+                table.append(
+                    [
+                        m.get("service_type", "N/A"),
+                        m.get("model", "N/A"),
+                        gpu_display,
+                        gpu_uuid,
+                        m.get("memory_gb") or "N/A",
+                        f"{m.get('price', 0)} AIT/{m.get('price_unit', '')}".rstrip("/"),
+                        (m.get("seller") or "N/A")[:20],
+                        (m.get("description") or "")[:35],
+                    ]
+                )
+            success("GPU Market Matches")
+            click.echo(
+                tabulate(
+                    table,
+                    headers=["Service", "Model", "GPU", "GPU UUID", "Memory (GB)", "Price", "Seller", "Description"],
+                    tablefmt="grid",
+                )
+            )
+            success(f"Total: {len(matches)} offer(s)")
         except NetworkError as e:
             error(f"Network error: {e}")
             raise click.Abort() from e
