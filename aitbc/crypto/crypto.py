@@ -45,13 +45,19 @@ def sign_transaction_data(tx_data: dict[str, Any], private_key: str) -> str:
     the transaction fields, excluding the ``signature`` field and the internal
     ``value`` alias when ``amount`` is present.
     """
+    from eth_keys import keys
+    from eth_utils import keccak
+
     excluded = {"signature", "sig", "tx_hash"}
     if "amount" in tx_data:
         excluded.add("value")
     unsigned = {k: v for k, v in tx_data.items() if k not in excluded}
     message = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
-    tx_hash = keccak256_hash(message)
-    return sign_transaction_hash(tx_hash, private_key)
+    msg_hash = keccak(message)
+    pk_hex = private_key.removeprefix("0x")
+    pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+    sig = pk.sign_msg_hash(msg_hash)
+    return sig.to_hex()
 
 
 def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
