@@ -625,7 +625,7 @@ async def unregister_offer(plugin_id: str, svc: Annotated[MarketplaceService, De
         raise
 
 
-@app.post("/v1/ipfs/rental-token")
+@app.post("/v1/marketplace/ipfs/rental-token")
 async def register_ipfs_rental_token(
     token_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
 ) -> Any:
@@ -643,7 +643,7 @@ async def register_ipfs_rental_token(
         raise
 
 
-@app.get("/v1/ipfs/rental/{access_key}")
+@app.get("/v1/marketplace/ipfs/rental/{access_key}")
 async def get_ipfs_rental_token(
     access_key: str,
     access_secret: str,
