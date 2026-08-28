@@ -28,6 +28,12 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Group-writable lock file mode so that services running as different users
+# (e.g. root for CLI / systemd prep, aitbc for daemons) can share the lock on
+# /var/lib/aitbc/api_keys.json. The /var/lib/aitbc directory is setgid aitbc,
+# so new files inherit the aitbc group.
+_LOCK_FILE_MODE = 0o660
+
 
 class APIKeyManager:
     """API key generation and management with persistent storage.
@@ -45,9 +51,30 @@ class APIKeyManager:
         self.storage_path: str = (
             storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
         )
-        self._lock = filelock.FileLock(f"{self.storage_path}.lock")
+        self._lock_path = f"{self.storage_path}.lock"
+        self._prepare_lock_file()
+        self._lock = filelock.FileLock(self._lock_path, mode=_LOCK_FILE_MODE)
         with self._lock:
             self.api_keys: dict[str, Any] = self._load_keys()
+
+    def _prepare_lock_file(self) -> None:
+        """Create or chmod the lock file so all aitbc-group services can use it."""
+        try:
+            if not os.path.exists(self._lock_path):
+                # Create the file atomically with group-writable mode.  The
+                # parent directory is setgid aitbc, so the group is aitbc.
+                fd = os.open(self._lock_path, os.O_CREAT | os.O_WRONLY, _LOCK_FILE_MODE)
+                os.close(fd)
+                return
+
+            st = os.stat(self._lock_path)
+            current_mode = st.st_mode & 0o777
+            if current_mode != _LOCK_FILE_MODE and st.st_uid == os.geteuid():
+                os.chmod(self._lock_path, _LOCK_FILE_MODE)
+        except (OSError, PermissionError):
+            # If we cannot fix the lock file, FileLock acquisition will report
+            # the real error with a useful path.
+            pass
 
     @staticmethod
     def _hash_key(api_key: str) -> str:
