@@ -265,7 +265,7 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
                 if not isinstance(order_ids, list):
                     order_ids = [order_ids]
                 cancelled_ids.update(str(oid) for oid in order_ids)
-                cancelled_ids.add(str(tx.id))
+                cancelled_ids.add(f"tx_{tx.id}")
         matches = [
             {
                 "offer_tx_hash": tx.tx_hash,
@@ -285,7 +285,7 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
             for tx in offers
             if (tx.payload or {}).get("action") not in ("cancel", "cancelled")
             and str((tx.payload or {}).get("status", "")).lower() != "cancelled"
-            and str(tx.id) not in cancelled_ids
+            and f"tx_{tx.id}" not in cancelled_ids
         ]
         return {
             "chain_id": chain_id,
