@@ -19,9 +19,16 @@ import hashlib
 import json
 import os
 import secrets
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+# Make the repo root and the blockchain-node source tree available when this
+# script is invoked directly without PYTHONPATH (typical for live genesis resets).
+_repo_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_repo_root / "apps" / "blockchain-node" / "src"))
+sys.path.insert(0, str(_repo_root))
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -33,11 +40,9 @@ from eth_keys import keys
 from aitbc.utils.units import units_to_ait
 
 try:
-    from aitbc_chain.config import BlockchainConfig  # noqa: F401
-    from aitbc_chain.models import Account, Block  # noqa: F401
-    from sqlmodel import Session, create_engine, select  # noqa: F401
+    from aitbc_chain.database import init_db
 except ImportError:
-    print("Warning: Could not import blockchain modules, running in wallet-only mode")
+    init_db = None  # type: ignore[assignment]
 
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain_id: str = "ait-mainnet") -> str:
@@ -179,8 +184,8 @@ def initialize_genesis_database(genesis_block: dict, allocations: list[dict], db
 
         # Create genesis block
         cursor.execute(
-            """INSERT INTO block (height, hash, parent_hash, proposer, timestamp, tx_count, chain_id, state_root)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO block (height, hash, parent_hash, proposer, timestamp, tx_count, chain_id, state_root, signature)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 genesis_block["height"],
                 genesis_block["hash"],
@@ -190,6 +195,7 @@ def initialize_genesis_database(genesis_block: dict, allocations: list[dict], db
                 genesis_block["tx_count"],
                 genesis_block["chain_id"],
                 genesis_block.get("state_root", "0x00"),
+                genesis_block.get("signature", ""),
             ),
         )
 
@@ -298,6 +304,11 @@ def main():
 
     # Initialize database
     print("\n🗄️  Initializing Database...")
+    if init_db is not None:
+        try:
+            init_db(args.chain_id)
+        except Exception as exc:
+            print(f"⚠️  Could not initialize database schema via node: {exc}")
     if initialize_genesis_database(genesis_block, allocations, Path(args.db_path)):
         print(f"Database initialized: {args.db_path}")
 
