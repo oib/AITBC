@@ -1,0 +1,70 @@
+# v0.24.10 — Follower state-root validation and replay cache
+
+## V0.24.0 P1.3 — Cross-island bridge multi-sig and proof verification
+
+- `CrossChainBridge` is multi-chain session aware (`_session_for(chain_id)`) and uses per-island chain databases.
+- Bridge lock/confirm/refund/list operations resolve the source/target chain from the request or transfer record.
+- `GET /bridge/transfer/{id}/proof` generates a real Merkle Patricia Trie inclusion proof for a locked transfer.
+- `POST /bridge/block-headers` and `GET /bridge/block-headers/{chain_id}/{height}` store and retrieve remote block headers.
+- `confirm_transfer` validates proof fields, stored block header, state root, Merkle proof, block header signature, multi-signature threshold, finality, and replay/double-spend protection.
+- CLI gains `aitbc bridge proof`, `aitbc bridge sign-proof`, and `aitbc bridge store-header` for producing signed multi-sig proofs and ingesting block headers.
+- `aitbc bridge register-validator` and `BridgeClient.register_validator` support bridge admin authorization when `bridge_release_enabled=true`.
+- Shop node runs an independent island chain `ait-shop-island.aitbc.bubuit.net` (RPC 8302, P2P 8107) alongside the hub follower.
+- Live end-to-end validation on aitbc3: lock 50 compute-seconds on `ait-hub.aitbc.bubuit.net`, generate and sign proof with 2-of-5 validator set, store hub block header, confirm on `ait-shop-island.aitbc.bubuit.net`, recipient balance increased.
+- Quality gates: mypy clean on 9 changed files, no float money violations, OpenAPI drift fixed and spec regenerated, bridge test suite passes.
+- SQLAlchemy session makers set `expire_on_commit=False` so bridge block-header objects remain attached after commit.
+
+- fix(blockchain,bridge): anchor bridge release transactions in island blocks
+  - `confirm_transfer` creates a `bridge_release` system account and a
+    `BRIDGE_RELEASE` Transaction with `block_height=NULL` and
+    `status="confirmed"`; the recipient is credited immediately.
+  - `PoAProposer._propose_block` now drains pre-registered `Transaction`
+    records from the chain DB and includes them in the next block.
+  - Pre-registered `BRIDGE_RELEASE`/`MESSAGE` transactions are recorded in
+    the block without re-running the state transition, avoiding double-credit.
+  - `confirm_transfer` also updates the source-chain `CrossChainTransfer`
+    record to `completed` and sets `target_tx_hash`, so bridge health and
+    balance endpoints reflect the finalised state.
+  - Live on aitbc3: two historical bridge releases anchored in island
+    blocks 10 and 12; a fresh 50-unit hub→island bridge release anchored in
+    island block 18; source account debited correctly.
+  - Quality gates: mypy clean, no float money, OpenAPI drift check passes,
+    `pytest apps/blockchain-node/tests` all green.
+
+- fix(bridge,consensus,state): real source-chain bridge locks and follower sync
+  - `initiate_transfer` rejects source chains the node does not produce when a
+    default peer RPC is configured, preventing followers from creating local
+    source state that is overwritten by upstream sync.
+  - Local bridge locks now create a `bridge_lock` account, mark the
+    `BRIDGE_LOCK` Transaction as `confirmed` with `block_height=NULL`, and let
+    the proposer anchor the lock in a real block.
+  - `PoAProposer` pre-registered transaction bypass now includes `BRIDGE_LOCK`
+    so locks are recorded without double-debiting the sender.
+  - `state_transition` learns `BRIDGE_LOCK`: it lazily creates the
+    `bridge_lock` recipient and transfers the locked amount, allowing
+    followers to apply imported source locks.
+  - `POST /bridge/lock` no longer validates the target chain, so the hub can
+    lock funds for a shop island without an island genesis block.
+  - Live on hub+aitbc3: a 30-unit hub-to-island lock was included in hub
+    block 12240, aitbc3 followed with matching account state, and the island
+    release was anchored in shop island block 40.
+
+- fix(sync): avoid pulling locally-produced island chains from the default hub. The periodic sync task now resolves the sync source per chain and skips chains that fall back to the default peer and are in block_production_chains.  Live on aitbc3: no more HTTP 503 / Failed to fetch remote head for ait-shop-island; hub sync continues normally.
+
+- fix(sync): compute missing tx_hash from block broadcast content.  Block broadcasts from the proposer did not include tx_hash; sync_block_import now computes it, preventing empty-hash UNIQUE constraint failures and replay warnings on block import.
+
+- Historical bridge data archaeology: four pre-v0.24.1 hub-to-island transfers (0x45e3..., 0x3b3b..., 0x6eb4..., 0x4bb3...) were initiated from the shop follower instead of the hub producer.  Their island releases are confirmed in real blocks, but the hub source accounts were never debited.  The new source-chain guard in bridge_transfer.py prevents recurrence.  Reconciling the unbacked 160 compute-seconds is an operator/governance decision and is documented in LIVE_VALIDATION_SUMMARY.md, not a blind code fix.
+
+- PostgreSQL/credential cleanup on aitbc3 and hub.aitbc: removed stale password-bearing env backups, deleted unused postgres_*_password files, removed misleading MEMPOOL_DB_URL lines on aitbc3, redacted stale DATABASE_URL DSN comments, and set /etc/aitbc env/credential permissions to root:aitbc 640/750.
+
+- fix(scripts): secure AITBC backup files and clean PostgreSQL setup fallback
+  - aitbc-backup.sh now skips non-existent PostgreSQL databases, backs up aitbc_poolhub, and chmod 600/750s every backup artifact.
+  - setup.sh fallback no longer creates aitbc_user, aitbc_coordinator, aitbc_exchange, aitbc_wallet, aitbc_marketplace, aitbc_trading, aitbc_gpu, or aitbc_ai PostgreSQL databases; it documents the remaining aitbc_governance, aitbc_mempool, and aitbc_poolhub entries.
+
+- ops(credential,postgres): live credential rotation, stale backup cleanup and database integrity fixes
+  - aitbc3 and hub.aitbc: removed stale /etc/aitbc .env.bak/.backup files, deleted unused postgres_*_password files, removed world-readable full-system backup tarballs, and pruned daily backups older than 30 days.
+  - aitbc3: dropped the unused aitbc_mempool PostgreSQL role (mempool_backend=memory, no database exists).
+  - hub.aitbc: set aitbc_mempool PostgreSQL role to NOSUPERUSER NOCREATEDB NOCREATEROLE.
+  - aitbc3 and hub.aitbc: switched aitbc-governance service to SQLite, commented out PostgreSQL DB_* settings, and fixed the invalid syntax and permissions on /etc/systemd/system/aitbc-governance.service.d/override.conf.
+  - Restarted aitbc-blockchain-p2p and aitbc-blockchain-node on both nodes, plus aitbc-pool-hub on hub; all aitbc-* services are active and logs are clean.
+- ops(permissions): found and secured an extra AITBC git-history backup in /var/backups/aitbc-git-history-1787250425 (347MB) on aitbc3; removed it after hardening permissions, and set /etc/aitbc/.env on hub.aitbc to root:aitbc 640.

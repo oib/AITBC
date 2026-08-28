@@ -1,6 +1,6 @@
 # AITBC Release Notes Summary
 
-**Last Updated**: 2026-08-27
+**Last Updated**: 2026-08-24
 **Version**: 1.2
 
 This document provides a user-friendly summary of AITBC releases, organized by major themes and tracks. For detailed release notes and agent task assignments, see the individual version directories.
@@ -125,6 +125,8 @@ Cross-chain bridge, governance, and atomic settlement features.
 | v0.10.18 | Update Deployment Stabilization | - | ✅ Complete |
 | v0.24.0 | Hub Node Development Special | - | ✅ Complete |
 | v0.25.0 | On-chain Liquidity, Sync Consolidation and MCP Expansion | - | ✅ Complete |
+| v0.25.1 | Open follow-ups and design notes | - | ✅ Complete |
+| v0.25.2 | Compute-unit re-denomination (36,000,000 per AIT) | 2026-08-24 | 🚧 In Progress |
 
 ### Planned Releases
 

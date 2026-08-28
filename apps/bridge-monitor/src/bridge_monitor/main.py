@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from .storage import (
     BridgeDepositStatus,
@@ -119,7 +120,7 @@ class BridgeMonitor:
                 "to": to_address,
                 "amount": tx_amount,
                 "nonce": nonce,
-                "fee": 36,
+                "fee": DEFAULT_TX_FEE_UNITS,
                 "type": "TRANSFER",
             }
             private_key = ed25519.Ed25519PrivateKey.from_private_bytes(

@@ -3,7 +3,7 @@
 **Date:** 2026-08-24
 **Scope:** live two-node network (`hub.aitbc` hub/customer + `aitbc3` shop/miner) on gitea `main`
 **CLI:** `aitbc` 0.10.18 (`aitbc_cli.core.main:main`)
-**Unit system:** 1 AIT = 3600 compute-seconds
+**Unit system:** 1 AIT = 36_000_000 compute-units
 
 This is the product picture used to keep `docs/scenarios/` honest. Scenarios are operator plays of **what the software actually does today**, not a catalog of planned releases. The wish list is what is missing to close the economic loop.
 

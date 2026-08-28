@@ -12,6 +12,8 @@ from typing import Any
 
 import click
 
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
+
 from ...config import get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger
@@ -386,7 +388,7 @@ def _run_whisper(
             "from": wallet_address,
             "to": "0x0000000000000000000000000000000000000000",
             "amount": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
             "type": "GPU_MARKETPLACE",
             "chain_id": chain_id,
@@ -557,7 +559,7 @@ def _run_ffmpeg(
             "from": wallet_address,
             "to": "0x0000000000000000000000000000000000000000",
             "amount": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
             "type": "GPU_MARKETPLACE",
             "chain_id": chain_id,

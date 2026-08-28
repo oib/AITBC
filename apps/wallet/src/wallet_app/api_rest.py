@@ -11,6 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import format_ait
+from aitbc.utils.units import DEFAULT_FAUCET_UNITS
 from aitbc.utils.validation import validate_address
 from eth_utils import to_checksum_address
 
@@ -391,7 +392,7 @@ async def faucet_request(
         import httpx
 
         rpc_url = settings.blockchain_rpc_url
-        response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": 3600000000}, timeout=30.0)
+        response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": DEFAULT_FAUCET_UNITS}, timeout=30.0)
         response.raise_for_status()
         result = response.json()
 

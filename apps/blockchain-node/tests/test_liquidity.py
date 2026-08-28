@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from aitbc.utils.units import LIQUIDITY_FEE_UNITS
 from aitbc_chain.models import Account, LiquidityPool, LiquidityStake
 from aitbc_chain.state.liquidity import (
     _distribute_to_pool,
@@ -21,7 +22,7 @@ from aitbc_chain.state.state_transition import StateTransition
 def funded_account(session):
     """Create a funded test account."""
     address = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
-    account = Account(chain_id="test-chain", address=address, balance=1_000_000, nonce=0)
+    account = Account(chain_id="test-chain", address=address, balance=1_000_000_000, nonce=0)
     session.add(account)
     session.commit()
     return account
@@ -54,7 +55,7 @@ def test_liquidity_deposit(session, funded_account):
             "to": pool_main_address(),
             "amount": 10_000,
             "value": 10_000,
-            "fee": 3600,
+            "fee": LIQUIDITY_FEE_UNITS,
             "nonce": 0,
             "chain_id": "test-chain",
             "payload": {"pool_id": "main", "lock_days": 30},
@@ -72,9 +73,9 @@ def test_liquidity_deposit(session, funded_account):
     assert stake is not None
     assert stake.amount == 10_000
 
-    # Sender balance: 1_000_000 - 10_000 - 3600 = 986_400
+    # Sender balance: 1_000_000_000 - 10_000 - 36_000_000 = 963_990_000
     session.refresh(funded_account)
-    assert funded_account.balance == 986_400
+    assert funded_account.balance == 963_990_000
 
 
 def test_liquidity_claim_and_withdraw(session, funded_account):
@@ -87,7 +88,7 @@ def test_liquidity_claim_and_withdraw(session, funded_account):
             "to": pool_main_address(),
             "amount": 10_000,
             "value": 10_000,
-            "fee": 3600,
+            "fee": LIQUIDITY_FEE_UNITS,
             "nonce": 0,
             "chain_id": "test-chain",
             "payload": {"pool_id": "main", "lock_days": 0},
@@ -102,7 +103,7 @@ def test_liquidity_claim_and_withdraw(session, funded_account):
     assert stake is not None
     stake_id = stake.stake_id
 
-    # Fund the reward treasury with 5_000 compute-seconds
+    # Fund the reward treasury with 5_000 compute-units
     _ensure_pool_accounts(session, "test-chain")
     treasury = session.get(Account, ("test-chain", pool_treasury_address()))
     treasury.balance += 5_000
@@ -137,8 +138,8 @@ def test_liquidity_claim_and_withdraw(session, funded_account):
     assert ok, msg
 
     session.refresh(funded_account)
-    # Balance after deposit was 986_400; after claim fee 100 and reward 5_000 -> 991_300
-    assert funded_account.balance == 991_300
+    # Balance after deposit was 963_990_000; after claim fee 100 and reward 5_000 -> 963_994_900
+    assert funded_account.balance == 963_994_900
 
     withdraw_tx = _make_signed_tx(
         funded_account.address,
@@ -160,8 +161,8 @@ def test_liquidity_claim_and_withdraw(session, funded_account):
     assert ok, msg
 
     session.refresh(funded_account)
-    # After withdraw: 991_300 - 100 fee + 10_000 principal = 1_001_200
-    assert funded_account.balance == 1_001_200
+    # After withdraw: 963_994_900 - 100 fee + 10_000 principal = 964_004_800
+    assert funded_account.balance == 964_004_800
 
     stake_after = session.get(LiquidityStake, (stake_id, "test-chain"))
     assert stake_after.status == "withdrawn"

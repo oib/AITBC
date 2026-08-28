@@ -1,0 +1,60 @@
+# v0.25.2 — Re-denominate base unit to compute-units (36,000,000 per AIT)
+
+**Baseline**: `v0.25.1` shipped on `...`.
+**Date**: 2026-08-24.
+
+This release replaces the previous `1 AIT = 3600` compute-seconds scale with a 10,000× finer `1 AIT = 36,000,000` compute-units scale and performs a coordinated chain reset.
+
+## Motivation
+
+The old `1 AIT = 3600` base unit was too coarse:
+
+- Positive payments below `0.000277... AIT` rounded to `0` on-chain, so providers could be left unpaid.
+- The 2.5% marketplace platform fee was not representable for small jobs.
+- The `Escrow` DB table stored `amount = int(amount_ait)`, losing every sub-AIT amount.
+
+The new `1 AIT = 36,000,000` scale keeps integer-on-the-wire accounting while supporting true micro-billing.
+
+## Changes
+
+### Core unit system
+- `aitbc/utils/units.py` now defines:
+  - `UNITS_PER_AIT = 36_000_000`
+  - `ait_to_units()` / `units_to_ait()` / `format_ait()`
+  - `DEFAULT_TX_FEE_UNITS = 360_000` (0.01 AIT)
+  - `LIQUIDITY_FEE_UNITS = 36_000_000` (1 AIT)
+  - `DEFAULT_FAUCET_UNITS` and `MAX_FAUCET_UNITS`
+- `format_ait()` now displays up to 8 decimal places with trailing-zero stripping so a single compute-unit is visible.
+
+### Blockchain node
+- All `fee: 36` defaults became `DEFAULT_TX_FEE_UNITS`.
+- Liquidity fee defaults became `LIQUIDITY_FEE_UNITS`.
+- Faucet default and max became `DEFAULT_FAUCET_UNITS` / `MAX_FAUCET_UNITS`.
+- Escrow amount is now stored and reloaded in compute-units, not AIT.
+- `EscrowContract.min_milestone_amount` and milestone tolerance are now one compute-unit in AIT.
+- Reward constants (`MINIMUM_PAYOUT`, `BASE_BLOCK_REWARD`, `MAX_REWARD_PER_EPOCH`) scaled by 10,000×.
+- Genesis allocations use the new scale.
+
+### CLI, services, MCP, SDK
+- CLI, marketplace, coordinator, pool-hub, GPU service, wallet app, agent-coordinator, MCP server, and SDK client use the new unit conversions and fee constants.
+- Marketplace offer value check uses `ait_to_units()`.
+- Coordinator staking min/max use `100 * UNITS_PER_AIT` and `100_000 * UNITS_PER_AIT`.
+
+### Tests
+- `test_ait_unit_conversion.py`, `test_wallet.py`, `test_commands_transactions.py`, and blockchain node tests updated to the new scale.
+
+### Documentation and OpenAPI
+- `docs/getting-started/unit-system.md` rewritten for compute-units.
+- `docs/getting-started/ait-value-model.md`, `docs/architecture/README.md`, `docs/architecture/4_blockchain-node.md`, `docs/DESIGN_CYCLE.md`, `docs/development/8_blockchain-node-deployment.md`, and `docs/scenarios/07_ai_job_submission.md` updated.
+- OpenAPI specs regenerated from the updated FastAPI models.
+
+## Operational impact
+
+- This is a **hard fork**. All nodes and services must upgrade together.
+- Old chain data, wallets, offers, and jobs are discarded.
+- A new genesis block must be generated and distributed to `hub.aitbc`, `aitbc3`, and `hub2.aitbc`.
+- Followers must replay from height 0 with state-root validation enabled.
+
+## Deployment
+
+See the implementation plan at `~/.devin/plans/plan-fa387f13d5a2843b.md` and the live reset checklist.

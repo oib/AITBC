@@ -10,7 +10,7 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, error, info, success, warning
-from aitbc.utils import ait_to_seconds
+from aitbc.utils import ait_to_units
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -170,8 +170,8 @@ def mint_ait(ctx, deposit_id: str):
 
             # Build transaction payload for AIT transfer
             fee_ait = Decimal("0.01")
-            amount_seconds = ait_to_seconds(deposit_amount_ait)
-            fee_seconds = ait_to_seconds(fee_ait)
+            amount_seconds = ait_to_units(deposit_amount_ait)
+            fee_seconds = ait_to_units(fee_ait)
 
             tx_payload = {
                 "type": "TRANSFER",

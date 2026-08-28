@@ -1,0 +1,15 @@
+# v0.24.18 — Commit index since v0.23.0
+
+## Fix — ZK proof generation blocked by systemd MemoryDenyWriteExecute
+
+The `aitbc-coordinator-api` systemd unit used `MemoryDenyWriteExecute=yes`, which
+prevents the Node.js V8 JIT from allocating read/write/execute memory pages.
+snarkjs spawns a Node worker for Groth16 proof generation, so every call to
+`/v1/zk/generate` crashed with the V8 fatal error
+`Check failed: 12 == (*__errno_location())`.
+
+Changed `MemoryDenyWriteExecute` to `no` in
+`apps/coordinator-api/aitbc-coordinator-api.service` with a comment explaining
+that snarkjs/Node requires RWX pages. Restarted `aitbc-coordinator-api` on
+`hub.aitbc` and validated that `/v1/zk/generate` and end-to-end ZK-gated jobs
+produce verified `receipt_model` proofs and release escrow.

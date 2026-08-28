@@ -16,7 +16,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
-from aitbc.utils.units import ait_to_seconds
+from aitbc.utils.units import ait_to_units
 
 from ....config import settings
 
@@ -78,7 +78,7 @@ class BlockchainService:
                 "stake_id": stake_id,
                 "user_address": staker_address,
                 "agent_wallet": agent_wallet,
-                "amount": ait_to_seconds(amount),
+                "amount": ait_to_units(amount),
                 "lock_period": lock_period,
             }
         )
@@ -89,7 +89,7 @@ class BlockchainService:
             {
                 "stake_id": stake_id,
                 "user_address": staker_address,
-                "additional_amount": ait_to_seconds(additional_amount),
+                "additional_amount": ait_to_units(additional_amount),
             }
         )
         return self._client().post(f"{RPC}/agent-staking/stake/{stake_id}/add", json=payload, headers=self._headers())
@@ -121,7 +121,7 @@ class BlockchainService:
             {
                 "bounty_id": bounty_id,
                 "user_address": creator_address,
-                "reward_amount": ait_to_seconds(reward_amount),
+                "reward_amount": ait_to_units(reward_amount),
             }
         )
         return self._client().post(f"{RPC}/bounty/deploy", json=payload, headers=self._headers())
@@ -200,7 +200,7 @@ async def mint_tokens(address: str, amount: Decimal) -> dict[str, Any]:
 
 
 def get_balance(address: str) -> Decimal | None:
-    from aitbc.utils.units import seconds_to_ait
+    from aitbc.utils.units import units_to_ait
 
     if not validate_address(address):
         logger.error("Invalid address format")
@@ -211,7 +211,7 @@ def get_balance(address: str) -> Decimal | None:
             f"{RPC}/balance/{address}",
             headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
         )
-        return seconds_to_ait(response.get("available_balance", 0))
+        return units_to_ait(response.get("available_balance", 0))
     except NetworkError as e:
         logger.error("Error getting balance: %s", e)
         return None

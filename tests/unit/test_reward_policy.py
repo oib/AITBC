@@ -108,15 +108,15 @@ def test_reward_epoch_calculate_payouts_proportional() -> None:
 
 
 def test_reward_epoch_calculate_payouts_capped() -> None:
-    # miner-1 has 99% of shares → would get 198000, capped at MAX_REWARD_PER_EPOCH
-    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=200_000)
+    # miner-1 has 99% of shares → would get 9900000000, capped at MAX_REWARD_PER_EPOCH
+    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=10_000_000_000)
     epoch.add_contribution("miner-1", score=99.0, shares=9900)
     epoch.add_contribution("miner-2", score=1.0, shares=100)
     epoch.calculate_payouts()
-    # miner-1: 200000 * 9900/10000 = 198000 → capped at MAX_REWARD_PER_EPOCH
+    # miner-1: 10_000_000_000 * 9900/10000 = 9_900_000_000 → capped at MAX_REWARD_PER_EPOCH
     assert epoch.contributions["miner-1"].reward_amount == MAX_REWARD_PER_EPOCH
-    # miner-2: 200000 * 100/10000 = 2000 → not capped
-    assert epoch.contributions["miner-2"].reward_amount == 2000
+    # miner-2: 10_000_000_000 * 100/10000 = 100_000_000 → not capped
+    assert epoch.contributions["miner-2"].reward_amount == 100_000_000
 
 
 def test_reward_epoch_calculate_payouts_zero_shares() -> None:
@@ -150,7 +150,8 @@ def test_reward_epoch_mark_paid_unknown_miner_raises() -> None:
 
 
 def test_reward_epoch_get_unpaid() -> None:
-    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=100_000)
+    # Each miner receives half the pool → 100_000_000 units, above MINIMUM_PAYOUT.
+    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=200_000_000)
     epoch.add_contribution("miner-1", score=80.0, shares=500)
     epoch.add_contribution("miner-2", score=70.0, shares=500)
     epoch.calculate_payouts()
@@ -161,7 +162,7 @@ def test_reward_epoch_get_unpaid() -> None:
 
 
 def test_reward_epoch_get_unpaid_excludes_paid() -> None:
-    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=100_000)
+    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=200_000_000)
     epoch.add_contribution("miner-1", score=80.0, shares=500)
     epoch.add_contribution("miner-2", score=70.0, shares=500)
     epoch.calculate_payouts()
@@ -172,13 +173,13 @@ def test_reward_epoch_get_unpaid_excludes_paid() -> None:
 
 
 def test_reward_epoch_get_unpaid_below_minimum() -> None:
-    # Set up an epoch where a miner's reward is below MINIMUM_PAYOUT
-    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=100_000)
+    # Set up an epoch where a miner's reward is below MINIMUM_PAYOUT.
+    epoch = RewardEpoch(epoch_number=0, block_start=0, block_end=999, total_reward_pool=40_000_000)
     epoch.add_contribution("miner-1", score=99.0, shares=9990)
     epoch.add_contribution("miner-2", score=1.0, shares=10)
     epoch.calculate_payouts()
-    # miner-1: 100000 * 9990/10000 = 99900 → above MINIMUM_PAYOUT
-    # miner-2: 100000 * 10/10000 = 100 → below MINIMUM_PAYOUT
+    # miner-1: 40_000_000 * 9990/10000 = 39_960_000 → above MINIMUM_PAYOUT
+    # miner-2: 40_000_000 * 10/10000 = 40_000 → below MINIMUM_PAYOUT
     assert epoch.contributions["miner-1"].reward_amount >= MINIMUM_PAYOUT
     assert epoch.contributions["miner-2"].reward_amount < MINIMUM_PAYOUT
     unpaid = epoch.get_unpaid()

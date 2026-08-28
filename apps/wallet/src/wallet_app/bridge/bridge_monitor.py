@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
-from aitbc.utils import ait_to_seconds
+from aitbc.utils import ait_to_units
 
 from aitbc.crypto.signature_recovery import canonical_address
 
@@ -220,8 +220,8 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         from eth_keys import keys as eth_keys
         from eth_utils import keccak
 
-        amount_seconds = ait_to_seconds(amount_ait)
-        fee_seconds = ait_to_seconds(Decimal("0.01"))
+        amount_seconds = ait_to_units(amount_ait)
+        fee_seconds = ait_to_units(Decimal("0.01"))
 
         tx_payload = {
             "type": "TRANSFER",

@@ -14,6 +14,7 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
+from aitbc.utils.units import ait_to_units
 
 from ..domain.staking import PerformanceTier, StakeStatus
 from ...infrastructure.domain.user import Wallet
@@ -46,10 +47,12 @@ class StakeCreateRequest(BaseModel):
     @field_validator("amount")
     @classmethod
     def validate_amount(cls, v: Decimal) -> Decimal:
-        if v < Decimal("360000"):
-            raise ValueError("Minimum stake amount is 100 AITBC (360000 seconds)")
-        if v > Decimal("360000000"):
-            raise ValueError("Maximum stake amount is 100,000 AITBC (360000000 seconds)")
+        min_units = Decimal(ait_to_units(Decimal("100")))
+        max_units = Decimal(ait_to_units(Decimal("100000")))
+        if v < min_units:
+            raise ValueError("Minimum stake amount is 100 AITBC")
+        if v > max_units:
+            raise ValueError("Maximum stake amount is 100,000 AITBC")
         return v
 
 

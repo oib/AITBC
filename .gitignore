@@ -85,6 +85,8 @@ apps/edge/var/
 # Logs & Runtime
 # ===================
 *.log
+!docs/releases/*/*_change.log
+!docs/releases/*/*_release.log
 !docs/releases/*/change.log
 !docs/releases/*/release.log
 logs/

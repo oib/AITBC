@@ -37,7 +37,7 @@ the six widenings found real defects in code the previous pass had reported as c
 ``target_amount``; ``ast.IfExp`` was hiding four coordinator-api violations one pass after
 that app reached zero; reading only ``ast.Name`` annotation targets was hiding
 ``self.earnings`` and ``self.total_spent`` in the agent SDK; and parameter annotations were
-hiding ``ait_to_seconds(ait: float)``, which is the function that turns a user's
+hiding ``ait_to_units(ait: float)``, which is the function that turns a user's
 ``--amount`` into the integer the chain settles. **"Zero violations" only ever means zero of
 what the checker can currently see.**
 """

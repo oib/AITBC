@@ -24,6 +24,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc_chain.config import settings
 from aitbc_chain.contracts.dispute_resolution import dispute_resolution_contract
 from aitbc_chain.cross_chain.bridge import (
@@ -329,9 +330,9 @@ class TestBug4TransactionSignatureVerification:
         tx_data = {
             "from": sender_address,
             "to": "0xrecipient",
-            "amount": 3600,
+            "amount": ait_to_units(1),
             "nonce": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "type": "ESCROW_LOCK",
             "payload": {
                 "job_id": "354a98bb66104d1f95e76e744ee8ab0a",
@@ -343,7 +344,7 @@ class TestBug4TransactionSignatureVerification:
         gossiped = dict(tx_data)
         gossiped["signature"] = signature
         gossiped["tx_hash"] = "0xabea1a7f038dedf89995549f94e656dfe147e9a707a8ebe7dddad6a4d6424081"
-        gossiped["value"] = 3600
+        gossiped["value"] = ait_to_units(1)
         assert verify_transaction_signature(gossiped, signature, sender_address) is True
 
     def test_sign_transaction_data_ignores_gossip_fields_and_value(self) -> None:
@@ -352,9 +353,9 @@ class TestBug4TransactionSignatureVerification:
         tx_data = {
             "from": sender_address,
             "to": "0xrecipient",
-            "amount": 3600,
+            "amount": ait_to_units(1),
             "nonce": 0,
-            "fee": 36,
+            "fee": DEFAULT_TX_FEE_UNITS,
             "type": "ESCROW_LOCK",
             "payload": {
                 "job_id": "354a98bb66104d1f95e76e744ee8ab0a",
@@ -368,7 +369,7 @@ class TestBug4TransactionSignatureVerification:
         gossiped = dict(tx_data)
         gossiped["signature"] = signature
         gossiped["tx_hash"] = "0xabea1a7f038dedf89995549f94e656dfe147e9a707a8ebe7dddad6a4d6424081"
-        gossiped["value"] = 3600
+        gossiped["value"] = ait_to_units(1)
         assert verify_transaction_signature(gossiped, signature, sender_address) is True
 
         # Providing tx_hash or value to the signer itself must not change the signed bytes.
@@ -377,7 +378,7 @@ class TestBug4TransactionSignatureVerification:
         assert sign_transaction_data(with_hash, priv_key.to_hex()) == signature
 
         with_value = dict(tx_data)
-        with_value["value"] = 3600
+        with_value["value"] = ait_to_units(1)
         assert sign_transaction_data(with_value, priv_key.to_hex()) == signature
 
 

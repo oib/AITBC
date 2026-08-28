@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc.crypto.signature_recovery import canonical_address
 
 import aitbc_chain.rpc.escrow_routes as escrow_routes
@@ -27,11 +28,11 @@ def _patch_env(monkeypatch):
 class TestEscrowLockRoutes:
     """Test the escrow route helpers and request validation."""
 
-    def test_build_lock_tx_amount_in_seconds(self, monkeypatch):
+    def test_build_lock_tx_amount_in_units(self, monkeypatch):
         _patch_env(monkeypatch)
-        tx, seconds = escrow_routes._build_lock_tx("job1", BUYER, PROVIDER, Decimal("1.5"), 5)
-        assert seconds == 5400
-        assert tx["amount"] == 5400
+        tx, units = escrow_routes._build_lock_tx("job1", BUYER, PROVIDER, Decimal("1.5"), 5)
+        assert units == ait_to_units(Decimal("1.5"))
+        assert tx["amount"] == ait_to_units(Decimal("1.5"))
         assert tx["from"] == BUYER_CANONICAL
         assert tx["to"] == NODE_WALLET_CANONICAL
         assert tx["type"] == "ESCROW_LOCK"
@@ -40,7 +41,7 @@ class TestEscrowLockRoutes:
 
     def test_compute_signing_hash_excludes_signature_and_value(self, monkeypatch):
         _patch_env(monkeypatch)
-        tx, _ = escrow_routes._build_lock_tx("job1", BUYER, PROVIDER, Decimal("1"), 0, fee=36)
+        tx, _ = escrow_routes._build_lock_tx("job1", BUYER, PROVIDER, Decimal("1"), 0, fee=DEFAULT_TX_FEE_UNITS)
         tx["value"] = tx["amount"]  # normalize_transaction_data adds this
         tx["signature"] = "0x1234"
         h1 = escrow_routes._compute_tx_signing_hash(tx)
