@@ -88,6 +88,29 @@ class Bid(MarketplaceBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
 
 
+class IpfsRentalToken(MarketplaceBase, table=True):
+    """Access token for a paid IPFS rental."""
+
+    __tablename__ = "ipfs_rental_token"
+
+    access_key: str = Field(primary_key=True)
+    access_secret: str = Field(index=True)
+    rental_id: str = Field(default="", index=True)
+    offer_id: str = Field(default="", index=True)
+    cid: str = Field(default="", index=True)
+    buyer_address: str = Field(default="", index=True)
+    provider_address: str = Field(default="", index=True)
+    escrow_contract_id: str = Field(default="")
+    ipfs_api: str = Field(default="")
+    public_endpoint: str = Field(default="")
+    disk_quota_mb: int | None = Field(default=None)
+    size: int | None = Field(default=None)
+    status: str = Field(default="active", index=True)  # active, expired, refunded
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    expires_at: datetime | None = Field(default=None)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
 class ServiceRating(MarketplaceBase, table=True):
     """Service-specific ratings for marketplace offers"""
 

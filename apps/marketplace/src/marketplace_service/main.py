@@ -625,6 +625,43 @@ async def unregister_offer(plugin_id: str, svc: Annotated[MarketplaceService, De
         raise
 
 
+@app.post("/v1/ipfs/rental-token")
+async def register_ipfs_rental_token(
+    token_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
+    """Register an access token for a paid IPFS rental."""
+    try:
+        logger.info("POST /v1/ipfs/rental-token called with data keys: %s", token_data.keys())
+        result = await svc.register_ipfs_rental_token(token_data)
+        logger.info("POST /v1/ipfs/rental-token registered token: %s", result.get("access_key"))
+        return result
+    except ValueError as e:
+        logger.info("Rejecting IPFS rental token registration: %s", e)
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/ipfs/rental-token: %s: %s", type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/ipfs/rental/{access_key}")
+async def get_ipfs_rental_token(
+    access_key: str,
+    access_secret: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+) -> Any:
+    """Validate an IPFS rental token and return its details."""
+    try:
+        logger.info("GET /v1/ipfs/rental/%s called", access_key)
+        result = await svc.get_ipfs_rental_token(access_key, access_secret)
+        if not result:
+            return JSONResponse(status_code=404, content={"error": "Invalid, expired, or unknown IPFS rental token"})
+        logger.info("GET /v1/ipfs/rental/%s returned token", access_key)
+        return result
+    except Exception as e:
+        logger.error("Error in GET /v1/ipfs/rental/%s: %s: %s", access_key, type(e).__name__, str(e))
+        raise
+
+
 @app.post("/v1/knowledge-graph")
 async def create_graph(
     graph_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]

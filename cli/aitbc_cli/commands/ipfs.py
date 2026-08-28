@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 import tempfile
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -21,9 +22,9 @@ import click
 import requests
 
 from ..config import get_config
-from ..utils import OUTPUT_FORMAT_OPTION, error, output, success, warning
+from ..utils import OUTPUT_FORMAT_OPTION, error, info, output, success, warning
 from ..utils.address import to_canonical
-from ..utils.http_client import get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.output import resolve_output_format
 from ..utils.wallet_loader import load_wallet_for_payment
 
@@ -207,6 +208,34 @@ def _ipfs_swarm_connect(ipfs_api: str, multiaddr: str) -> bool:
         return False
 
 
+def _hub_marketplace_client(timeout: int = 15) -> AITBCHTTPClient:
+    """Return an HTTP client for the hub marketplace service."""
+    config = get_config()
+    if config.marketplace_service_url and not config.marketplace_service_url.startswith("http://127.0.0.1"):
+        return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=timeout)
+    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    if hub_host.startswith(("http://", "https://")):
+        hub_url = hub_host.rstrip("/")
+    elif "localhost" in hub_host or "127.0.0.1" in hub_host:
+        hub_url = f"http://{hub_host}"
+    else:
+        # Public hubs are exposed over HTTPS unless the env explicitly says http://
+        hub_url = f"https://{hub_host}"
+    return AITBCHTTPClient(base_url=hub_url, timeout=timeout)
+
+
+def _lookup_ipfs_rental(access_key: str, access_secret: str) -> dict[str, Any] | None:
+    """Validate an access token against the hub marketplace service."""
+    try:
+        client = _hub_marketplace_client()
+        result = client.get(f"/v1/ipfs/rental/{access_key}", params={"access_secret": access_secret})
+        if result and not result.get("error"):
+            return result
+    except NetworkError as e:
+        logger.warning("Could not validate IPFS rental token on hub: %s", e)
+    return None
+
+
 @click.group()
 @click.pass_context
 def ipfs(ctx):
@@ -278,12 +307,59 @@ def upload(ctx, file: str, pin: bool, name: str | None):
 
 
 @ipfs.command()
-@click.argument("cid")
+@click.argument("cid", required=False)
 @click.option("--output", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
+@click.option("--access-key", help="Rental access key (looks up CID from hub)")
+@click.option("--access-secret", help="Rental access secret")
+@click.option("--rental-id", help="Local rental ID (looks up CID and validates access)")
 @click.pass_context
-def download(ctx, cid: str, output: str | None, wait: bool):
-    """Download content by CID from the local Kubo daemon or filesystem fallback."""
+def download(
+    ctx,
+    cid: str | None,
+    output: str | None,
+    wait: bool,
+    access_key: str | None,
+    access_secret: str | None,
+    rental_id: str | None,
+):
+    """Download content by CID from the local Kubo daemon or filesystem fallback.
+
+    If --access-key and --access-secret are provided, the CID is resolved from
+    the hub marketplace service. If --rental-id is provided, the CID is resolved
+    from the local rental record.
+    """
+    if rental_id:
+        rental = next((r for r in _load_rentals() if r.get("rental_id") == rental_id), None)
+        if not rental:
+            error(f"Rental '{rental_id}' not found")
+            raise click.Abort()
+        if rental.get("status") != "active":
+            error(f"Rental '{rental_id}' is not active")
+            raise click.Abort()
+        expires = rental.get("expires_at")
+        if expires and datetime.fromisoformat(expires) < datetime.now(UTC):
+            error(f"Rental '{rental_id}' has expired")
+            raise click.Abort()
+        cid = rental.get("cid")
+        if not cid:
+            error(f"Rental '{rental_id}' has no CID")
+            raise click.Abort()
+
+    if access_key and access_secret:
+        token = _lookup_ipfs_rental(access_key, access_secret)
+        if not token:
+            error("Invalid, expired, or unknown IPFS rental token")
+            raise click.Abort()
+        cid = token.get("cid")
+        if not cid:
+            error("Token has no CID")
+            raise click.Abort()
+
+    if not cid:
+        error("Provide a CID, --rental-id, or --access-key/--access-secret")
+        raise click.Abort()
+
     if _daemon_available():
         try:
             for _attempt in range(1, 60 if wait else 1):
@@ -535,6 +611,11 @@ def host(
     if content_size is None:
         content_size = _ipfs_object_size(ipfs_api, cid)
 
+    # Issue per-rental access credentials. These are the customer's login
+    # credentials for retrieving this CID from the hub.
+    access_key = secrets.token_urlsafe(16)
+    access_secret = secrets.token_urlsafe(32)
+
     rental: dict[str, Any] = {
         "rental_id": job_id,
         "offer_id": offer.get("offer_id", offer_id_or_plugin_id),
@@ -554,11 +635,68 @@ def host(
         "status": "active",
         "size": content_size,
         "disk_quota_mb": disk_quota_mb,
+        "access_key": access_key,
+        "access_secret": access_secret,
     }
+
+    # Register the token with the hub marketplace service so the customer can
+    # retrieve the CID from another node with just access_key + access_secret.
+    try:
+        client = _hub_marketplace_client()
+        client.post(
+            "/v1/ipfs/rental-token",
+            json={
+                "access_key": access_key,
+                "access_secret": access_secret,
+                "rental_id": job_id,
+                "offer_id": offer.get("offer_id", offer_id_or_plugin_id),
+                "cid": cid,
+                "buyer_address": buyer,
+                "provider_address": provider,
+                "escrow_contract_id": contract_id,
+                "ipfs_api": ipfs_api,
+                "public_endpoint": public_endpoint,
+                "disk_quota_mb": disk_quota_mb,
+                "size": content_size,
+                "status": "active",
+                "expires_at": rental["expires_at"],
+            },
+        )
+        info("Registered IPFS rental token with hub")
+    except NetworkError as e:
+        warning(f"Could not register IPFS rental token with hub: {e}")
+
     _save_rental(rental)
 
     success(f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; escrow contract {contract_id}")
     output(rental, output_format, title="IPFS Rental")
+
+
+@ipfs.command(name="token")
+@click.argument("rental_id")
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def token(ctx: click.Context, rental_id: str, output_format: str):
+    """Show the access credentials for an IPFS rental."""
+    output_format = resolve_output_format(ctx, output_format)
+    rental = next((r for r in _load_rentals() if r.get("rental_id") == rental_id), None)
+    if not rental:
+        error(f"Rental '{rental_id}' not found")
+        raise click.Abort()
+    if not rental.get("access_key"):
+        error(f"Rental '{rental_id}' has no access credentials")
+        raise click.Abort()
+    output(
+        {
+            "rental_id": rental.get("rental_id"),
+            "access_key": rental.get("access_key"),
+            "access_secret": rental.get("access_secret"),
+            "cid": rental.get("cid"),
+            "expires_at": rental.get("expires_at"),
+        },
+        output_format,
+        title="IPFS Rental Credentials",
+    )
 
 
 @ipfs.command(name="rentals")
