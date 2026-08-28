@@ -60,7 +60,9 @@ class TestPoolHubCommands:
 
         monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
         monkeypatch.delenv("POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("NODE_ROLE", raising=False)
         monkeypatch.setenv("HUB_DISCOVERY_URL", "https://hub.example.net")
+        monkeypatch.setattr("aitbc_cli.commands.pool_hub._is_hub_node", lambda: False)
         assert _default_pool_hub_url() == "http://hub.example.net/pool-hub"
 
     def test_default_pool_hub_url_falls_back_to_localhost_without_hub_config(self, monkeypatch):
