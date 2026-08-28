@@ -685,6 +685,66 @@ run_health_check() {
     else
         warning "Health check reported issues — see output above"
     fi
+
+    verify_proposer
+}
+
+verify_proposer() {
+    local blockchain_mode=""
+    if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
+        blockchain_mode="${BLOCKCHAIN_MODE:-}"
+    fi
+
+    if [ "$blockchain_mode" = "hub" ]; then
+        log "Verifying hub proposer..."
+        local local_health
+        local_health=$(curl -sf --max-time 10 http://127.0.0.1:8202/health 2>/dev/null || true)
+        if [ -n "$local_health" ]; then
+            local health_proposer
+            health_proposer=$(printf '%s' "$local_health" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("proposer_id",""))' 2>/dev/null || true)
+            if [ -n "$health_proposer" ]; then
+                success "Hub proposer active: $health_proposer"
+            else
+                warning "Local /health did not return a proposer_id — hub block production will fail"
+            fi
+        else
+            warning "Could not reach local blockchain /health for proposer check"
+        fi
+        return 0
+    fi
+
+    log "Verifying follower/customer boarding..."
+    if [ -f /etc/aitbc/node.env ]; then
+        # shellcheck disable=SC1091
+        source /etc/aitbc/node.env 2>/dev/null
+    fi
+
+    if [ -n "$HUB_PROPOSER_ID" ] && [ -n "$HUB_BLOCKCHAIN_RPC_URL" ]; then
+        success "Follower boarding configured: HUB_PROPOSER_ID=$HUB_PROPOSER_ID"
+        return 0
+    fi
+
+    local hub_base="${HUB_DISCOVERY_URL:-}"
+    if [ -z "$hub_base" ] && [ -n "$DEFAULT_PEER_RPC_URL" ]; then
+        hub_base="$DEFAULT_PEER_RPC_URL"
+    fi
+    if [ -n "$hub_base" ]; then
+        hub_base="${hub_base%/}"
+        local hub_rpc="$hub_base/rpc"
+        log "Trying to discover hub proposer from $hub_rpc/proposer"
+        local hub_proposer
+        hub_proposer=$(curl -sfL --max-time 15 "$hub_rpc/proposer" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("proposer_id",""))' 2>/dev/null || true)
+        if [ -n "$hub_proposer" ]; then
+            success "Discovered hub proposer: $hub_proposer — run setup.sh to persist it"
+        else
+            warning "Could not auto-discover hub proposer from $hub_rpc/proposer"
+            warning "Customer payments may fail until HUB_PROPOSER_ID / HUB_BLOCKCHAIN_RPC_URL are set"
+        fi
+    else
+        warning "No HUB_DISCOVERY_URL or DEFAULT_PEER_RPC_URL configured; cannot verify boarding"
+    fi
 }
 
 # ----------------------------------------------------------------------------
