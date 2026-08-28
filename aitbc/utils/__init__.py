@@ -59,7 +59,16 @@ from .time_utils import (
     timestamp_to_iso,
     to_timezone,
 )
-from .units import SECONDS_PER_AIT, ait_to_seconds, format_ait, seconds_to_ait
+from .units import (
+    DEFAULT_FAUCET_UNITS,
+    DEFAULT_TX_FEE_UNITS,
+    LIQUIDITY_FEE_UNITS,
+    MAX_FAUCET_UNITS,
+    UNITS_PER_AIT,
+    ait_to_units,
+    format_ait,
+    units_to_ait,
+)
 from .validation import (
     validate_address,
     validate_address_strict,
@@ -78,11 +87,15 @@ __all__ = [
     # Chain config
     "ChainConfigParser",
     # Units
-    "SECONDS_PER_AIT",
+    "UNITS_PER_AIT",
+    "DEFAULT_TX_FEE_UNITS",
+    "LIQUIDITY_FEE_UNITS",
+    "DEFAULT_FAUCET_UNITS",
+    "MAX_FAUCET_UNITS",
     # Time utils
     "Timer",
     "add_duration",
-    "ait_to_seconds",
+    "ait_to_units",
     "calculate_deadline",
     "ensure_dir",
     "ensure_file_dir",
@@ -133,13 +146,13 @@ __all__ = [
     "resolve_path",
     "retry_until_deadline",
     "save_json",
-    "seconds_to_ait",
     "set_nested_value",
     "sleep_until",
     "string_to_json",
     "subtract_duration",
     "timestamp_to_iso",
     "to_timezone",
+    "units_to_ait",
     # Validation
     "validate_address",
     "validate_address_strict",

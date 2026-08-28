@@ -7,7 +7,8 @@ from pathlib import Path
 
 import click
 
-from aitbc.utils import ait_to_seconds
+from aitbc.utils import ait_to_units
+from aitbc.utils.units import DEFAULT_FAUCET_UNITS
 from aitbc.utils.validation import validate_address_strict
 from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
@@ -101,7 +102,11 @@ def rewards(ctx):
 
 @wallet.command()
 @click.argument("address")
-@click.option("--amount", default=3600000000, help="Amount to request from faucet in compute-seconds (default: 3600000000)")
+@click.option(
+    "--amount",
+    default=DEFAULT_FAUCET_UNITS,
+    help=f"Amount to request from faucet in compute-units (default: {DEFAULT_FAUCET_UNITS})",
+)
 @click.option("--amount-ait", default=None, help="Amount to request from faucet in AIT (overrides --amount)")
 @click.option("--chain-id", help="Chain ID (defaults to node's chain)")
 @click.pass_context
@@ -119,12 +124,12 @@ def fund(ctx, address: str, amount: int, amount_ait: str | None, chain_id: str):
     if not chain_id:
         chain_id = get_chain_id(rpc_url)
 
-    # Convert AIT to compute-seconds if requested
+    # Convert AIT to compute-units if requested
     if amount_ait is not None:
-        # Passed through as a string so ait_to_seconds parses it as a Decimal
+        # Passed through as a string so ait_to_units parses it as a Decimal
         # instead of a float that click already rounded.
         try:
-            amount = int(ait_to_seconds(amount_ait))
+            amount = int(ait_to_units(amount_ait))
         except (InvalidOperation, ValueError):
             error(f"Invalid --amount-ait: {amount_ait}")
             return

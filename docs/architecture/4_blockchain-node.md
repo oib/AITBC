@@ -52,13 +52,13 @@ Prometheus metrics + structured logging
 
 #### Unit System
 
-The blockchain uses compute-seconds as the base unit:
+The blockchain uses compute-units as the base unit:
 
-- **1 AIT = 3600 seconds** (1 hour of compute)
-- All on-chain values (balances, amounts, fees) are stored as integer seconds
-- User-facing interfaces (CLI, APIs, explorer) convert seconds → AIT for display
-- Transaction creation converts AIT → seconds internally
-- This enables precise second-level billing while maintaining user-friendly AIT values
+- **1 AIT = 36,000,000 compute-units** (fixed integer scale)
+- All on-chain values (balances, amounts, fees) are stored as integer compute-units
+- User-facing interfaces (CLI, APIs, explorer) convert compute-units → AIT for display
+- Transaction creation converts AIT → compute-units internally
+- This enables precise sub-AIT billing while maintaining user-friendly AIT values
 
 ## API Reference
 

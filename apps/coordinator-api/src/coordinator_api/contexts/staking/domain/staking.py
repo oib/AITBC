@@ -16,6 +16,8 @@ from typing import Any
 from pydantic import field_validator
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from aitbc.utils.units import ait_to_units
+
 from coordinator_api.validators import validate_ethereum_address, validate_positive_decimal
 
 
@@ -45,7 +47,7 @@ class AgentStake(SQLModel, table=True):
     agent_wallet: str = Field(index=True, max_length=42)
 
     # Stake details
-    amount: Decimal = Field(index=True, gt=0, le=Decimal("360000000.0"))  # type: ignore[call-overload]
+    amount: Decimal = Field(index=True, gt=0, le=Decimal(ait_to_units(Decimal("100000"))))  # type: ignore[call-overload]
     lock_period: int = Field(default=30)  # days
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime
@@ -153,8 +155,8 @@ class StakingPool(SQLModel, table=True):
     distribution_frequency: int = Field(default=1)  # days
 
     # Pool configuration
-    min_stake_amount: Decimal = Field(default=Decimal("360000.0"), gt=0)
-    max_stake_amount: Decimal = Field(default=Decimal("360000000.0"))
+    min_stake_amount: Decimal = Field(default=Decimal(ait_to_units(Decimal("100"))), gt=0)
+    max_stake_amount: Decimal = Field(default=Decimal(ait_to_units(Decimal("100000"))))
     auto_compound_enabled: bool = Field(default=False)
 
     # Performance tracking

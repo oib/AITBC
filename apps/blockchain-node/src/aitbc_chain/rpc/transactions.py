@@ -12,6 +12,7 @@ from sqlmodel import col, select
 from sqlalchemy import literal_column
 
 from aitbc.rate_limiting import rate_limit
+from aitbc.utils import DEFAULT_TX_FEE_UNITS
 
 from ..base_models import Bond, _to_ait_address
 from ..database import session_scope
@@ -29,7 +30,7 @@ class TransactionRequest(BaseModel):
     sender: str = Field(..., alias="from")
     recipient: str = Field(..., alias="to")
     amount: int
-    fee: int = 36
+    fee: int = Field(default=DEFAULT_TX_FEE_UNITS, ge=0, description="Transaction fee in compute-units")
     nonce: int = 0
     type: str = "TRANSFER"
     payload: dict[str, Any] = Field(default_factory=dict)
@@ -210,7 +211,7 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
                         if not _has_active_bond(session, chain_id, sender, min_bond):
                             raise HTTPException(
                                 status_code=403,
-                                detail=f"Active bond of at least {min_bond} compute-seconds required to list",
+                                detail=f"Active bond of at least {min_bond} compute-units required to list",
                             )
             tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
         else:

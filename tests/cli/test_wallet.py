@@ -8,7 +8,7 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
-from aitbc.utils import ait_to_seconds, format_ait, seconds_to_ait
+from aitbc.utils import ait_to_units, format_ait, units_to_ait
 from aitbc_cli.commands.wallet import wallet
 from click.testing import CliRunner
 
@@ -142,7 +142,7 @@ class TestWalletCommands:
                 data = json or {}
                 if "/stake" in path and "/unstake" not in path:
                     amount = data.get("amount", 50.0)
-                    balance_seconds = ait_to_seconds(state["balance"])
+                    balance_seconds = ait_to_units(state["balance"])
                     remaining = balance_seconds - amount
                     stake = {
                         "stake_id": 123,
@@ -150,7 +150,7 @@ class TestWalletCommands:
                         "remaining_balance": remaining,
                         "locked_until": "2024-12-31",
                     }
-                    state["balance"] = seconds_to_ait(remaining)
+                    state["balance"] = units_to_ait(remaining)
                     state["stakes"].append(stake)
                     return stake
                 if "/unstake" in path:
@@ -221,8 +221,8 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        # Balance is now displayed as AIT (seconds / 3600)
-        assert data["new_balance"] == format_ait(ait_to_seconds(125.5))  # 100 + 25.5
+        # Balance is now displayed as AIT (compute-units / 36_000_000)
+        assert data["new_balance"] == format_ait(ait_to_units(125.5))  # 100 + 25.5
         assert data["job_id"] == "job_456"
 
         # Verify wallet file updated (raw seconds value stored)
@@ -243,7 +243,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["new_balance"] == format_ait(ait_to_seconds(70.0))  # 100 - 30
+        assert data["new_balance"] == format_ait(ait_to_units(70.0))  # 100 - 30
         assert data["description"] == "GPU rental"
 
     def test_spend_insufficient_balance(self, runner, temp_wallet, mock_config):
@@ -285,10 +285,10 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        # the wallet file stores AIT; `stats` used to format those as compute-seconds
-        assert data["current_balance"] == format_ait(ait_to_seconds(100.0)) == "100 AIT"
-        assert data["total_earned"] == format_ait(ait_to_seconds(50.0)) == "50 AIT"
-        assert data["total_spent"] == format_ait(ait_to_seconds(0.0)) == "0 AIT"
+        # the wallet file stores AIT; `stats` used to format those as compute-units
+        assert data["current_balance"] == format_ait(ait_to_units(100.0)) == "100 AIT"
+        assert data["total_earned"] == format_ait(ait_to_units(50.0)) == "50 AIT"
+        assert data["total_spent"] == format_ait(ait_to_units(0.0)) == "0 AIT"
         assert data["jobs_completed"] == 1
         assert data["transaction_count"] == 1
 

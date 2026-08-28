@@ -182,8 +182,8 @@ class Transaction(ChainBase, table=True):
 
     # New fields added to schema
     nonce: int = Field(default=0)
-    value: int = Field(default=0)  # in compute-seconds (1 AIT = 3600)
-    fee: int = Field(default=0)  # in compute-seconds (1 AIT = 3600)
+    value: int = Field(default=0)  # in compute-units (1 AIT = 36_000_000)
+    fee: int = Field(default=0)  # in compute-units (1 AIT = 36_000_000)
     type: str = Field(default="TRANSFER", index=True)
     status: str = Field(default="pending")
     timestamp: str | None = Field(default=None)
@@ -228,7 +228,7 @@ class Receipt(ChainBase, table=True):
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
-    minted_amount: int | None = None  # in compute-seconds (1 AIT = 3600)
+    minted_amount: int | None = None  # in compute-units (1 AIT = 36_000_000)
     recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     status: str = Field(default="pending", index=True)  # pending, claimed, invalid
     claimed_at: datetime | None = None
@@ -254,7 +254,7 @@ class Account(ChainBase, table=True):
 
     chain_id: str = Field(primary_key=True)
     address: str = Field(sa_column=Column(AccountAddress(), primary_key=True))
-    balance: int = Field(default=0, sa_type=BigInteger)  # in compute-seconds (1 AIT = 3600)
+    balance: int = Field(default=0, sa_type=BigInteger)  # in compute-units (1 AIT = 36_000_000)
     nonce: int = Field(default=0, sa_type=BigInteger)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -289,7 +289,7 @@ class Escrow(ChainBase, table=True):
     # `foreign.key`, silently dropping the constraint (V23-64).
     buyer: str = Field(sa_column=Column(AccountAddress()))
     provider: str = Field(sa_column=Column(AccountAddress()))
-    amount: int  # in AIT (release/refund multiply by 3600 for compute-seconds)
+    amount: int  # in compute-units (1 AIT = 36_000_000)
     status: str = Field(default="locked")  # locked, released, refunded
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
@@ -309,7 +309,7 @@ class CrossChainTransfer(ChainBase, table=True):
     target_chain: str = Field(index=True)
     sender: str = Field(index=True)
     recipient: str = Field(index=True)
-    amount: int  # in compute-seconds (1 AIT = 3600)
+    amount: int  # in compute-units (1 AIT = 36_000_000)
     asset: str = Field(default="native")
     status: str = Field(default="pending", index=True)  # pending, locked, confirmed, completed, failed, refunded
     source_tx_hash: str | None = None
@@ -378,7 +378,7 @@ class Stake(ChainBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     address: str = Field(index=True)
-    amount: int  # in compute-seconds (1 AIT = 3600)
+    amount: int  # in compute-units (1 AIT = 36_000_000)
     locked_until: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -396,7 +396,7 @@ class AgentStakeRecord(ChainBase, table=True):
     stake_id: str = Field(index=True)
     staker_address: str = Field(index=True)
     agent_wallet: str = Field(index=True)
-    amount: int  # compute-seconds
+    amount: int  # compute-units
     lock_period: int = Field(default=30)
     locked_until: datetime
     status: str = Field(default="active", index=True)  # active, unbonding, completed
@@ -463,7 +463,7 @@ class Bond(ChainBase, table=True):
     chain_id: str = Field(index=True)
     bond_id: str = Field(index=True)
     provider: str = Field(index=True)
-    amount: int = Field(default=0)  # remaining locked amount in compute-seconds
+    amount: int = Field(default=0)  # remaining locked amount in compute-units
     locked_until: datetime | None = None
     status: str = Field(default="active", index=True)  # active, released, slashed
     created_tx_hash: str | None = None

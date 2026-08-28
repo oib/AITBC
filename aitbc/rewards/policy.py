@@ -15,12 +15,14 @@ logger = logging.getLogger(__name__)
 
 # --- Reward policy constants ---
 
-REWARD_PER_SHARE = 1000  # base reward per share (compute-seconds)
+from aitbc.utils.units import UNITS_PER_AIT
+
+REWARD_PER_SHARE = 1000  # fallback share count, not money
 HALVING_INTERVAL = 210_000  # blocks between reward halvings
 REWARD_EPOCH_LENGTH = 1_000  # blocks per reward epoch
-MAX_REWARD_PER_EPOCH = 100_000  # cap per miner per epoch
-MINIMUM_PAYOUT = 3_600  # 1 AIT in compute-seconds (smallest unit)
-BASE_BLOCK_REWARD = 50_000  # base reward per block (before halving)
+MAX_REWARD_PER_EPOCH = 100_000 * 10_000  # cap per miner per epoch (compute-units)
+MINIMUM_PAYOUT = UNITS_PER_AIT  # 1 AIT in compute-units (smallest unit)
+BASE_BLOCK_REWARD = 50_000 * 10_000  # base reward per block (before halving, compute-units)
 
 
 def calculate_block_reward(current_height: int) -> int:
@@ -30,7 +32,7 @@ def calculate_block_reward(current_height: int) -> int:
         current_height: Current block height.
 
     Returns:
-        Block reward in compute-seconds (smallest unit).
+        Block reward in compute-units (smallest unit).
     """
     halvings = current_height // HALVING_INTERVAL
     if halvings >= 64:  # prevent shift overflow (effectively zero reward)
@@ -49,9 +51,9 @@ class MinerContribution:
 
     miner_id: str
     score: float  # contribution score (0-100)
-    shares: int = 0  # compute-seconds contributed
+    shares: int = 0  # compute-units contributed
     jobs_completed: int = 0
-    reward_amount: int = 0  # calculated reward (in compute-seconds)
+    reward_amount: int = 0  # calculated reward (in compute-units)
     paid: bool = False
     paid_at: float | None = None
     tx_hash: str | None = None

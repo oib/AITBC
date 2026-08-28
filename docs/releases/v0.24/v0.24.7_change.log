@@ -1,0 +1,21 @@
+# v0.24.7 — v0.24.0-next live scenario playback fixes
+
+## P2.1 ZK proofs for high-value jobs
+
+- New `receipt_public` Circom circuit with `receiptHash` as a public input.
+- Generated `receipt_public_0001.zkey`, `receipt_public.wasm`, and
+  `verification_key.json` using a fresh power-of-tau 12 ceremony.
+- `ZKProofService` now loads `receipt_public`, computes Poseidon4 inputs
+  with `poseidon-lite`, and verifies proofs against the exported key.
+- `apps/coordinator-api/.../miner.py`: result submission generates and
+  attaches a verified ZK receipt proof when the job payment is above
+  `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD` (default 10 AIT) or the buyer sets
+  `zk_proof_required` in `Constraints`.
+- `apps/coordinator-api/.../payments.py`: `release_payment` blocks escrow
+  release for high-value jobs when `zk_status` is not `verified`.
+- `aitbc ai submit --zk-proof-required` lets buyers force the ZK gate.
+- `JobView` exposes `zk_status` and `zk_proof_id`.
+- `docs/scenarios/38_zk_high_value_jobs.md` added.
+- Operational note: the `aitbc-coordinator-api` systemd unit needs
+  `MemoryDenyWriteExecute=no` so the Node.js subprocesses used by snarkjs
+  can allocate executable memory pages.

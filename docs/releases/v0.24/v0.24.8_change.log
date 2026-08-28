@@ -1,0 +1,56 @@
+# v0.24.8 — Operator user and CLI wallet hardening
+
+## v0.24.0-next — Live scenario playback fixes
+
+### Fixed negative receipt `units`, `duration_ms` and `price`
+
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`: store `requested_at`, `expires_at`, and `completed_at` as UTC.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/domain/job.py`: default `requested_at` and `expires_at` to UTC.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`: prefer `execution_time` from the miner result when computing `duration_ms`, and clamp negative values to 0.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py`: clamp `units`, `unit_price`, and `price` to non-negative values; prefer `duration_ms` only when positive.
+- `apps/miner/production_miner.py`: send `duration_ms` in metrics so the coordinator does not derive it from clock-sensitive timestamps.
+
+### Fixed off-chain governance execution timelock
+
+- `apps/governance/src/governance_service/services/governance_service.py`: when `enable_onchain_submission` is false, query the chain RPC for the current block height at proposal creation and record `voting_ends_block`. Also record the height at close time if it is still missing.
+- `/etc/aitbc/aitbc-governance.env`: the temporary `GOVERNANCE_REQUIRE_EXECUTION_TIMELOCK=false` bypass has been removed.
+
+### Operator documentation
+
+- `docs/ops/aitbc-cli-live-setup.md`: new guide covering coordinator URL, JWT generation, client/shop commands, and governance live setup.
+- `docs/scenarios/34_hub_customer_node_e2e.md`, `docs/scenarios/07_ai_job_submission.md`, `docs/scenarios/17_governance_voting.md`: cross-reference the live setup guide and use the correct `http://hub.aitbc.bubuit.net/c/v1` coordinator URL.
+
+- fix(payments): `PaymentService.refund_payment` now calls the blockchain
+  escrow `/rpc/escrow/{job_id}/refund` endpoint instead of the non-existent
+  wallet `/api/v1/refund` endpoint.
+- fix(jobs): normalize SQLite naive datetimes to UTC-aware before expiry checks;
+  prevents 500 errors from offset-naive vs offset-aware comparisons.
+
+### Additional live playback fixes
+
+- `apps/governance/src/governance_service/services/governance_service.py`:
+  - Resolve proposal/vote `chain_id` to the configured `default_chain_id` so off-chain block-height and voting-power queries target the correct chain database.
+  - Calculate off-chain vote weight from staked governance tokens when `enable_onchain_submission` is `false`.
+- `cli/aitbc_cli/commands/governance.py`: pass `executor_address` as a URL query string for `aitbc governance execute`.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`: normalize naive SQLite datetimes to UTC-aware before comparison.
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py`: derive `started_at` from `completed_at - units` so the receipt duration is internally consistent.
+- `cli/aitbc_cli/commands/dashboard.py`, `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py`, `apps/coordinator-api/src/coordinator_api/schemas/__init__.py`: show `Model` and `Created` columns in the customer dashboard by including `payload`/`result` in `JobView`.
+
+- feat(cli): add `aitbc zk` command group with `health`, `circuits`, and
+  `verify` subcommands; supports `--proof-id`, `--job-id`, and `--proof-file`.
+- feat(coordinator): add `POST /v1/zk/receipt/verify` to verify the stored
+  ZK receipt proof for a completed job.
+
+- `apps/exchange/simple_exchange/handlers/bridge.py` and `handlers/__init__.py`: add `GET /cross-chain/rates` with indicative ETH/AITBC rates and a trusted-custodian status note.
+- `cli/aitbc_cli/commands/dashboard.py`, `apps/coordinator-api/.../routers/miner.py`, `apps/coordinator-api/.../services/jobs.py`: shop dashboard now lists assigned jobs and computes live earnings from completed, released payments.
+- MultiValidatorPoA: consensus unit tests pass; production activation remains gated behind a multi-node soak and security review (`multi_validator_consensus_enabled=false` on live nodes).
+
+- MultiValidatorPoA: `apps/blockchain-node/tests/consensus/test_multi_validator_poa_soak.py` passes; production toggle remains `multi_validator_consensus_enabled=false` until a live multi-node soak is scheduled.
+
+- feat(coordinator,miner,cli): P2.2 TEE attestation for confidential jobs.
+  - Job constraints accept `tee_attestation_required` and `tee_enclave_id`.
+  - `aitbc ai submit` gains `--tee-attestation-required` and `--tee-enclave-id`.
+  - `aitbc ai status` shows `tee_status` and `tee_attestation_id`.
+  - Miner result path generates/verifies TEE quotes and blocks escrow release
+    until `tee_status: verified`.
+  - `aitbc tee attest`, `verify`, `launch` work against live coordinator.

@@ -87,12 +87,12 @@ Review these documents:
 
 ### **Unit System**
 
-The AITBC blockchain uses a compute-seconds based unit system:
+The AITBC blockchain uses a compute-units based unit system:
 
-- **1 AIT = 3600 seconds** (1 hour of compute)
-- All on-chain values are stored as integer seconds
-- User interfaces convert seconds → AIT for display
-- This enables precise second-level billing for AI compute
+- **1 AIT = 36,000,000 compute-units** (fixed integer scale)
+- All on-chain values are stored as integer compute-units
+- User interfaces convert compute-units → AIT for display
+- This enables precise sub-AIT billing for AI compute
 
 See [4_blockchain-node.md](./4_blockchain-node.md) for implementation details.
 

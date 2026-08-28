@@ -139,13 +139,13 @@ aitbc bond status --provider 0x28241C034aDF9ca346BE0C3596FF30e4905bD940
 ```bash
 curl -s -X POST https://hub.aitbc.bubuit.net/rpc/transactions/marketplace \
   -H "Content-Type: application/json" \
-  -d '{"type":"GPU_MARKETPLACE","from":"0x1111111111111111111111111111111111111111","to":"0x0000000000000000000000000000000000000000","amount":0,"fee":36,"nonce":0,"chain_id":"ait-hub.aitbc.bubuit.net","payload":{"action":"software_offer","offer_id":"test","service_type":"whisper","price":0.1,"price_unit":"per_audio_min","provider_address":"0x1111111111111111111111111111111111111111","status":"active"}}'
+  -d '{"type":"GPU_MARKETPLACE","from":"0x1111111111111111111111111111111111111111","to":"0x0000000000000000000000000000000000000000","amount":0,"fee":360000,"nonce":0,"chain_id":"ait-hub.aitbc.bubuit.net","payload":{"action":"software_offer","offer_id":"test","service_type":"whisper","price":0.1,"price_unit":"per_audio_min","provider_address":"0x1111111111111111111111111111111111111111","status":"active"}}'
 ```
 
 **Expected output (when `MARKET_BOND_MIN_AMOUNT` > 0):**
 
 ```json
-{"detail":"Failed to submit marketplace transaction: 403: Active bond of at least 1 compute-seconds required to list"}
+{"detail":"Failed to submit marketplace transaction: 403: Active bond of at least 1 compute-units required to list"}
 ```
 
 ### Unit tests
