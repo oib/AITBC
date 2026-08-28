@@ -398,10 +398,10 @@ def list_offers(
 
 
 @market.command()
-@click.argument("order_id")
+@click.argument("order_ids", nargs=-1)
 @click.pass_context
-def cancel(ctx, order_id: str):
-    """Cancel a hardware+software bundle offer"""
+def cancel(ctx, order_ids: tuple[str, ...]):
+    """Cancel one or more hardware+software bundle offers"""
     try:
         config = get_config()
         credentials = safe_load_credentials()
@@ -415,6 +415,10 @@ def cancel(ctx, order_id: str):
             error("Cancelling an offer requires a wallet private key")
             raise click.Abort()
 
+        if not order_ids:
+            error("At least one order_id is required")
+            raise click.Abort()
+
         cancel_data = {
             "from": wallet_address,
             "to": "0x0000000000000000000000000000000000000000",
@@ -425,7 +429,8 @@ def cancel(ctx, order_id: str):
             "chain_id": chain_id,
             "payload": {
                 "action": "cancel",
-                "order_id": order_id,
+                "order_id": order_ids[0],
+                "order_ids": list(order_ids),
                 "status": "cancelled",
                 "island_id": island_id,
                 "chain_id": chain_id,
@@ -439,13 +444,13 @@ def cancel(ctx, order_id: str):
             hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
-            success(f"Offer {order_id} cancelled successfully!")
+            success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
             rpc_url = _get_blockchain_rpc_url(config)
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
-            success(f"Offer {order_id} cancelled successfully!")
+            success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
