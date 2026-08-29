@@ -1,7 +1,7 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
-  "total_modules": 11,
-  "total_lines": 2792,
+  "total_modules": 10,
+  "total_lines": 2458,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
       "lines": 189,
@@ -42,11 +42,6 @@
       "lines": 45,
       "verdict": "keep",
       "why": "A deliberate stub. Its docstring records that the BFV implementation it replaced was not cryptographically secure and is disabled pending a vetted FHE library. Deleting it deletes a security decision."
-    },
-    "apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_service.py": {
-      "lines": 334,
-      "verdict": "keep",
-      "why": "Documented as a developer surface in docs/development/fhe-service.md."
     },
     "apps/coordinator-api/src/coordinator_api/sdk/enterprise_client.py": {
       "lines": 478,
