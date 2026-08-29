@@ -37,7 +37,38 @@ def test_market_maker_inventory_adjustment() -> None:
         max_position=Decimal("100"),
     )
     strategy.adjust_for_inventory()
-    assert strategy.spread_percent == Decimal("2.20")
+    # overrun = 0.2, erf(0.2) ≈ 0.2227, max_multiplier = 3 -> spread ≈ 2.89
+    assert strategy.spread_percent > Decimal("2.8")
+    assert strategy.spread_percent < Decimal("3.0")
+    assert strategy.spread_percent > Decimal("2.0")
+
+
+def test_market_maker_inventory_adjustment_with_depth() -> None:
+    strategy = MarketMakerStrategy(
+        strategy_id="mm1",
+        agent_id="agent-a",
+        base_price=Decimal("100"),
+        spread_percent=Decimal("2"),
+        inventory=Decimal("120"),
+        max_position=Decimal("100"),
+        meta={"order_book_depth": "2"},
+    )
+    strategy.adjust_for_inventory()
+    # higher order_book_depth makes pressure grow faster
+    assert strategy.spread_percent > Decimal("3.0")
+
+
+def test_market_maker_inventory_adjustment_no_overrun() -> None:
+    strategy = MarketMakerStrategy(
+        strategy_id="mm1",
+        agent_id="agent-a",
+        base_price=Decimal("100"),
+        spread_percent=Decimal("2"),
+        inventory=Decimal("80"),
+        max_position=Decimal("100"),
+    )
+    strategy.adjust_for_inventory()
+    assert strategy.spread_percent == Decimal("2")
 
 
 def test_surge_pricing_below_threshold() -> None:

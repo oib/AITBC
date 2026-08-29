@@ -7,6 +7,7 @@ OpenClaw autonomous economics layer.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
@@ -123,19 +124,37 @@ class MarketMakerStrategy:
         """Return the midpoint between bid and ask."""
         return (self.bid_price() + self.ask_price()) / Decimal("2")
 
+    def _inventory_risk_pressure(self, overrun: Decimal) -> Decimal:
+        """Return an S-shaped pressure in [0, 1] using the error function.
+
+        The steepness is controlled by ``meta["order_book_depth"]`` (a positive
+        Decimal, default 1). A higher depth means the spread widens faster as the
+        position overruns the limit.
+        """
+        depth = Decimal(str(self.meta.get("order_book_depth", "1")))
+        if depth <= 0:
+            depth = Decimal("1")
+        pressure = math.erf(float(overrun * depth))
+        return Decimal(str(pressure))
+
     def adjust_for_inventory(self) -> None:
         """Widen ask and narrow bid when inventory is near max position.
 
-        ponytail: naive linear adjustment; a production model would use an
-        inventory-risk utility function and order-book depth.
+        Uses a smooth inventory-risk utility (sigmoid via ``math.erf``). The
+        ``meta`` key ``order_book_depth`` tunes responsiveness; a real
+        production model would derive this from the actual order book.
         """
         if self.max_position is None or self.max_position == 0:
             return
         ratio = self.inventory / self.max_position
         if ratio <= 1:
             return
-        # Inventory exceeds max position: increase spread by 50% of overrun
-        self.spread_percent = self.spread_percent * (Decimal("1") + (ratio - 1) * Decimal("0.5"))
+        overrun = ratio - 1
+        pressure = self._inventory_risk_pressure(overrun)
+        max_multiplier = Decimal(str(self.meta.get("max_spread_multiplier", "3")))
+        if max_multiplier <= 1:
+            max_multiplier = Decimal("3")
+        self.spread_percent = self.spread_percent * (Decimal("1") + pressure * (max_multiplier - Decimal("1")))
 
 
 class DynamicFeeMarket:
@@ -164,7 +183,7 @@ class DynamicFeeMarket:
         if self.forecast is None:
             return price
         if self.forecast.trend in {DemandTrend.RISING, DemandTrend.VOLATILE}:
-            # ponytail: simple confidence-based boost, capped at 2x the surge price
+            # confidence-based boost, capped at 2x the surge price
             boost = Decimal("1") + self.forecast.confidence
             if boost > Decimal("2"):
                 boost = Decimal("2")
