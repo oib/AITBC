@@ -1,14 +1,15 @@
 """Consent tracking and revocation abstractions for compliance middleware (v0.15.2 §A1).
 
-ponytail: This is an in-memory policy skeleton. Production should persist consent
-records and integrate with the coordinator-api ``consent_record`` table.
+The default ``ConsentTracker`` stores records in memory. A persistent store can be
+injected via ``ConsentStore`` to integrate with the coordinator-api
+``consent_record`` table or any other backend.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from .errors import PolicyViolationError
 from .policies import DataClassification, normalize_classification
@@ -44,11 +45,35 @@ class ConsentRecord:
         return normalize_classification(classification) in self.classifications
 
 
-class ConsentTracker:
-    """In-memory consent tracker used by middleware before DB integration."""
+@runtime_checkable
+class ConsentStore(Protocol):
+    """Backend storage protocol for ``ConsentRecord`` instances."""
+
+    def get(self, subject_id: str, purpose: str) -> ConsentRecord | None:
+        """Return the active consent record or None."""
+
+    def put(self, record: ConsentRecord) -> None:
+        """Persist a consent record."""
+
+
+class _InMemoryConsentStore:
+    """Default in-memory store used when no external store is injected."""
 
     def __init__(self) -> None:
         self._records: dict[tuple[str, str], ConsentRecord] = {}
+
+    def get(self, subject_id: str, purpose: str) -> ConsentRecord | None:
+        return self._records.get((subject_id, purpose))
+
+    def put(self, record: ConsentRecord) -> None:
+        self._records[(record.subject_id, record.purpose)] = record
+
+
+class ConsentTracker:
+    """Consent tracker that delegates storage to a ``ConsentStore``."""
+
+    def __init__(self, store: ConsentStore | None = None) -> None:
+        self._store: ConsentStore = store or _InMemoryConsentStore()
 
     def grant(
         self,
@@ -71,15 +96,16 @@ class ConsentTracker:
             expires_at=datetime.now(UTC) + timedelta(days=expires_in_days),
             meta=meta or {},
         )
-        self._records[(subject_id, purpose)] = record
+        self._store.put(record)
         return record
 
     def revoke(self, subject_id: str, purpose: str) -> None:
         """Revoke consent for a subject and purpose."""
-        key = (subject_id, purpose)
-        if key in self._records:
-            self._records[key].granted = False
-            self._records[key].revoked_at = datetime.now(UTC)
+        record = self._store.get(subject_id, purpose)
+        if record is not None:
+            record.granted = False
+            record.revoked_at = datetime.now(UTC)
+            self._store.put(record)
 
     def require_consent(
         self,
@@ -88,7 +114,7 @@ class ConsentTracker:
         classification: DataClassification | str | None = None,
     ) -> ConsentRecord:
         """Return the active consent record or raise ``PolicyViolationError``."""
-        record = self._records.get((subject_id, purpose))
+        record = self._store.get(subject_id, purpose)
         if record is None or not record.is_active():
             raise PolicyViolationError(f"consent required for {subject_id}/{purpose}")
         if classification is not None and not record.allows(classification):

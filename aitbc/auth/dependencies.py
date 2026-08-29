@@ -205,8 +205,8 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
             detail="Invalid or missing API key",
         )
 
-    # ponytail: constant-time comparison across the configured key list; list
-    # length is not secret, and this avoids a short-circuit timing leak.
+    # Constant-time comparison across the configured key list; list length is
+    # not secret, and this avoids a short-circuit timing leak.
     api_key_str = str(api_key)
     valid = False
     for allowed in allowed_keys:
