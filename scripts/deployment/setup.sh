@@ -1361,13 +1361,6 @@ setup_venvs() {
         warning "CLI directory not found at /opt/aitbc/cli"
     fi
 
-    # Ensure filelock is present — aitbc.auth.api_key imports it but some generated
-    # install profiles do not include it (ponytail: dependency should move to requirements)
-    if ! python3 -c "import filelock" >/dev/null 2>&1; then
-        log "Installing missing filelock dependency..."
-        pip install filelock >/dev/null 2>&1 || warning "Failed to install filelock"
-    fi
-
     success "Virtual environments setup completed"
 }
 
