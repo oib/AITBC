@@ -26,8 +26,8 @@ def get_redis_client() -> AsyncGenerator[Any]:
 async def get_miner_id(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> str:
     """Return the authenticated miner's ID.
 
-    ponytail: Previously returned a static configured miner_id, leaving all service
-    config endpoints unauthenticated. It now resolves the real miner from the
+    Previously returned a static configured miner_id, leaving all service config
+    endpoints unauthenticated. It now resolves the real miner from the
     Authorization header.
     """
     return miner.miner_id

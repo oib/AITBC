@@ -33,7 +33,7 @@ class Settings(ServiceSettings):
     agent_coordinator_url: str = "http://localhost:8107"
 
     # Compute hub RPC endpoint published in marketplace offers.
-    # ponytail: default uses https per V23-13; override via HUB_RPC_URL env var.
+    # Default uses https per V23-13; override via HUB_RPC_URL env var.
     hub_rpc_url: str = "https://hub.aitbc.bubuit.net/rpc"
 
     # Rate limiting (V23-32a). Applied per client IP by RateLimitMiddleware in main.py.
