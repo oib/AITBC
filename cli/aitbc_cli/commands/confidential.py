@@ -38,24 +38,31 @@ def _signing_key() -> bytes:
     return os.getenv("CONFIDENTIAL_SIGNING_KEY", "simulated-tee-key").encode("utf-8")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc confidential balance --wallet-id wallet-1
+
+  aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10"""
+)
 def confidential():
-    """Confidential TEE-signed transaction commands."""
+    """Send and verify confidential TEE-signed transactions and wallet balances."""
     pass
 
 
-@confidential.command()
-@click.argument("wallet-id")
-@click.argument("recipient-id")
-@click.argument("amount")
+@confidential.command(
+    epilog="""Examples:
+
+  aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10
+
+  aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10 --output json"""
+)
+@click.option("--wallet-id", "wallet_id", required=True, help="Wallet ID.")
+@click.option("--recipient-id", "recipient_id", required=True, help="Recipient ID.")
+@click.option("--amount", "amount", required=True, help="Amount of AIT.")
 @click.pass_context
 def send(ctx, wallet_id: str, recipient_id: str, amount: str):
-    """Send a confidential AMOUNT to a recipient.
-
-    AMOUNT is a decimal number, not a commitment -- the argument was named
-    ``amount-commitment`` and passed straight through as the amount, which went unnoticed
-    because the old code hashed the string and so accepted anything (V23-19a).
-    """
+    """Send a confidential amount from a wallet to a recipient."""
     try:
         wallet = ConfidentialWallet(wallet_id=wallet_id, owner_id=wallet_id)
         key = _signing_key()
@@ -104,8 +111,14 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
         abort(ctx, f"Error sending confidential transaction: {e}", from_exception=e)
 
 
-@confidential.command()
-@click.argument("wallet-id")
+@confidential.command(
+    epilog="""Examples:
+
+  aitbc confidential balance --wallet-id wallet-1
+
+  aitbc confidential balance --wallet-id wallet-1 --output json"""
+)
+@click.option("--wallet-id", "wallet_id", required=True, help="Wallet ID.")
 @click.pass_context
 def balance(ctx, wallet_id: str):
     """Show a confidential wallet balance proof."""

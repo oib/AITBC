@@ -13,16 +13,28 @@ from ..config import get_config
 from ..utils import error, output, success, warning
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc config show
+
+  aitbc config set --key timeout --value 60"""
+)
 def config():
-    """Manage CLI configuration"""
+    """Show, set, import, export, reset, and check AITBC CLI configuration."""
     pass
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config show
+
+  aitbc config show --output json"""
+)
 @click.pass_context
 def show(ctx):
-    """Show current configuration"""
+    """Show the current configuration, with API keys redacted."""
     config = ctx.obj.get("config") or get_config()
 
     config_dict = {
@@ -36,20 +48,33 @@ def show(ctx):
     output(config_dict, ctx.obj["output"])
 
 
-@config.command(name="get")
+@config.command(
+    name="get",
+    epilog="""Examples:
+
+  aitbc config get
+
+  aitbc config get --output json""",
+)
 @click.pass_context
 def get(ctx):
-    """Get current configuration (alias for show)"""
+    """Get the current configuration (alias for show)."""
     return ctx.invoke(show)
 
 
-@config.command()
-@click.argument("key")
-@click.argument("value")
+@config.command(
+    epilog="""Examples:
+
+  aitbc config set --key coordinator_api_url --value http://hub.aitbc:8201
+
+  aitbc config set --key timeout --value 60 --global"""
+)
+@click.option("--key", "key", required=True, help="The Key.")
+@click.option("--value", "value", required=True, help="The Value.")
 @click.option("--global", "global_config", is_flag=True, help="Set global config")
 @click.pass_context
 def set(ctx, key: str, value: str, global_config: bool):
-    """Set configuration value"""
+    """Set a configuration value in the local or global config file."""
     # Determine config file path
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -97,10 +122,16 @@ def set(ctx, key: str, value: str, global_config: bool):
     output({"config_file": str(config_file), "key": key, "value": value}, ctx.obj["output"])
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config path
+
+  aitbc config path --global"""
+)
 @click.option("--global", "global_config", is_flag=True, help="Show global config")
 def path(global_config: bool):
-    """Show configuration file path"""
+    """Show the path to the local or global configuration file."""
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
         config_file = config_dir / "config.yaml"
@@ -110,11 +141,17 @@ def path(global_config: bool):
     output({"config_file": str(config_file), "exists": config_file.exists()})
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config edit
+
+  aitbc config edit --global"""
+)
 @click.option("--global", "global_config", is_flag=True, help="Edit global config")
 @click.pass_context
 def edit(ctx, global_config: bool):
-    """Open configuration file in editor"""
+    """Open the configuration file in the default editor."""
     # Determine config file path
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -140,11 +177,17 @@ def edit(ctx, global_config: bool):
     subprocess.run([*editor_cmd, str(config_file)], check=False)
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config reset
+
+  aitbc config reset --global"""
+)
 @click.option("--global", "global_config", is_flag=True, help="Reset global config")
 @click.pass_context
 def reset(ctx, global_config: bool):
-    """Reset configuration to defaults"""
+    """Reset the local or global configuration to defaults."""
     # Determine config file path
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -164,12 +207,18 @@ def reset(ctx, global_config: bool):
     success("Configuration reset to defaults")
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config export
+
+  aitbc config export --format json"""
+)
 @click.option("--format", "output_format", type=click.Choice(["yaml", "json"]), default="yaml", help="Output format")
 @click.option("--global", "global_config", is_flag=True, help="Export global config")
 @click.pass_context
 def export(ctx, output_format: str, global_config: bool):
-    """Export configuration"""
+    """Export the configuration as YAML or JSON, with API keys redacted."""
     # Determine config file path
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
@@ -194,13 +243,19 @@ def export(ctx, output_format: str, global_config: bool):
         click.echo(yaml.dump(config_data, default_flow_style=False))
 
 
-@config.command()
-@click.argument("file_path")
+@config.command(
+    epilog="""Examples:
+
+  aitbc config import --file-path /tmp/aitbc.yaml
+
+  aitbc config import --file-path /tmp/aitbc.yaml --global --merge"""
+)
+@click.option("--file-path", "file_path", required=True, help="Path to the file.")
 @click.option("--merge", is_flag=True, help="Merge with existing config")
 @click.option("--global", "global_config", is_flag=True, help="Import to global config")
 @click.pass_context
 def import_config(ctx, file_path: str, merge: bool, global_config: bool):
-    """Import configuration from file"""
+    """Import a configuration file into the local or global config."""
     import_file = Path(file_path)
 
     if not import_file.exists():
@@ -245,10 +300,16 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
         success(f"Configuration imported to {config_file}")
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config validate
+
+  aitbc config validate --output json"""
+)
 @click.pass_context
 def validate(ctx):
-    """Validate configuration"""
+    """Validate the current configuration for missing or invalid values."""
     config = ctx.obj.get("config") or get_config()
 
     errors = []
@@ -287,9 +348,15 @@ def validate(ctx):
     output(result, ctx.obj["output"])
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config environments
+
+  aitbc config environments --output json"""
+)
 def environments():
-    """List available environments"""
+    """List available configuration environments and their API key status."""
     env_vars = [
         "AITBC_COORDINATOR_URL",
         "AITBC_API_KEY",
@@ -311,17 +378,29 @@ def environments():
     output({"environment_variables": env_data, "note": "Use export VAR=value to set environment variables"})
 
 
-@config.group()
+@config.group(
+    epilog="""Examples:
+
+  aitbc config profiles list
+
+  aitbc config profiles save --name production"""
+)
 def profiles():
-    """Manage configuration profiles"""
+    """Save, load, list, and delete configuration profiles."""
     pass
 
 
-@profiles.command()
-@click.argument("name")
+@profiles.command(
+    epilog="""Examples:
+
+  aitbc config profiles save --name production
+
+  aitbc config profiles save --name shop"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.pass_context
 def save(ctx, name: str):
-    """Save current configuration as a profile"""
+    """Save the current configuration as a named profile."""
     # Build profile data from current config or ctx.obj
     config = get_config()
 
@@ -345,9 +424,15 @@ def save(ctx, name: str):
         success(f"Profile '{name}' saved")
 
 
-@profiles.command()
+@profiles.command(
+    epilog="""Examples:
+
+  aitbc config profiles list
+
+  aitbc config profiles list --output json"""
+)
 def list():
-    """List available profiles"""
+    """List all saved configuration profiles with their settings."""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
 
     if not profiles_dir.exists():
@@ -371,11 +456,17 @@ def list():
     output({"profiles": profiles})
 
 
-@profiles.command()
-@click.argument("name")
+@profiles.command(
+    epilog="""Examples:
+
+  aitbc config profiles load --name production
+
+  aitbc config profiles load --name shop"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.pass_context
 def load(ctx, name: str):
-    """Load a configuration profile"""
+    """Load a saved configuration profile into the current directory."""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profile_file = profiles_dir / f"{name}.yaml"
 
@@ -396,11 +487,17 @@ def load(ctx, name: str):
         success(f"Profile '{name}' loaded")
 
 
-@profiles.command()
-@click.argument("name")
+@profiles.command(
+    epilog="""Examples:
+
+  aitbc config profiles delete --name old-profile
+
+  aitbc config profiles delete --name production"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.pass_context
 def delete(ctx, name: str):
-    """Delete a configuration profile"""
+    """Delete a saved configuration profile from the profiles directory."""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profile_file = profiles_dir / f"{name}.yaml"
 
@@ -416,12 +513,19 @@ def delete(ctx, name: str):
         success(f"Profile '{name}' deleted")
 
 
-@config.command(name="set-secret")
-@click.argument("key")
-@click.argument("value")
+@config.command(
+    name="set-secret",
+    epilog="""Examples:
+
+  aitbc config set-secret --key api_key --value secret123
+
+  aitbc config set-secret --key openai_api_key --value sk-...""",
+)
+@click.option("--key", "key", required=True, help="The Key.")
+@click.option("--value", "value", required=True, help="The Value.")
 @click.pass_context
 def set_secret(ctx, key: str, value: str):
-    """Set an encoded configuration value"""
+    """Set an encoded secret value in the local secrets file."""
     from ..utils import encode_value
 
     config_dir = Path.home() / ".config" / "aitbc"
@@ -453,11 +557,18 @@ def set_secret(ctx, key: str, value: str):
     output({"key": key, "status": "encoded"}, ctx.obj["output"])
 
 
-@config.command(name="get-secret")
-@click.argument("key")
+@config.command(
+    name="get-secret",
+    epilog="""Examples:
+
+  aitbc config get-secret --key api_key
+
+  aitbc config get-secret --key openai_api_key""",
+)
+@click.option("--key", "key", required=True, help="The Key.")
 @click.pass_context
 def get_secret(ctx, key: str):
-    """Get a decoded configuration value"""
+    """Get a decoded secret value from the local secrets file."""
     from ..utils import decode_value
 
     secrets_file = Path.home() / ".config" / "aitbc" / "secrets.json"
@@ -479,11 +590,17 @@ def get_secret(ctx, key: str):
     output({"key": key, "value": decoded}, ctx.obj["output"])
 
 
-@config.command()
+@config.command(
+    epilog="""Examples:
+
+  aitbc config check-keys
+
+  aitbc config check-keys --strict"""
+)
 @click.option("--strict", is_flag=True, help="Exit with error if any required key is missing")
 @click.pass_context
 def check_keys(ctx, strict: bool):
-    """Check which environment API keys are configured."""
+    """Check which environment API keys are configured and required."""
     required_keys = [
         "AITBC_API_KEY",
         "CLIENT_API_KEY",
@@ -545,19 +662,32 @@ def check_keys(ctx, strict: bool):
         ctx.exit(1)
 
 
-@config.command(name="check")
+@config.command(
+    name="check",
+    epilog="""Examples:
+
+  aitbc config check
+
+  aitbc config check --output json""",
+)
 @click.pass_context
 def check(ctx):
     """Check configuration and environment API keys."""
     ctx.invoke(check_keys, strict=False)
 
 
-@config.command()
-@click.argument("key")
+@config.command(
+    epilog="""Examples:
+
+  aitbc config unset --key timeout
+
+  aitbc config unset --key coordinator_api_url --global"""
+)
+@click.option("--key", "key", required=True, help="The Key.")
 @click.option("--global", "global_config", is_flag=True, help="Unset from global config")
 @click.pass_context
 def unset(ctx, key: str, global_config: bool):
-    """Remove a configuration key from the config file."""
+    """Remove a configuration key from the local or global config file."""
     if global_config:
         config_dir = Path.home() / ".config" / "aitbc"
         config_file = config_dir / "config.yaml"
