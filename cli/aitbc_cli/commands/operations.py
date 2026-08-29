@@ -55,30 +55,44 @@ def _get_wallet_password(wallet_name: str) -> str:
     return getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
 
 
-@click.group(hidden=True, deprecated=True)
-def operations():
-    """Deprecated legacy on-chain operations commands.
+@click.group(
+    hidden=True,
+    deprecated=True,
+    epilog="""Examples:
 
-    Use `aitbc marketplace` for on-chain marketplace operations and
-    `aitbc governance` for governance operations. This group will be removed
-    in a future release."""
+  aitbc operations marketplace list-listings
+
+  aitbc operations governance vote --proposal-id prop-123 --vote for""",
+)
+def operations():
+    """Deprecated legacy on-chain operations commands for marketplace, AI, agent, and governance."""
     pass
 
 
 # Marketplace operations
-@operations.group(deprecated=True)
-def marketplace():
-    """Deprecated on-chain marketplace operations subgroup.
+@operations.group(
+    deprecated=True,
+    epilog="""Examples:
 
-    Use `aitbc marketplace` directly. This subgroup will be removed in a
-    future release."""
+  aitbc operations marketplace list-listings
+
+  aitbc operations marketplace create-listing --wallet-name wallet-1 --item-type gpu --price 100""",
+)
+def marketplace():
+    """Deprecated on-chain marketplace operations subgroup."""
     pass
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc operations marketplace list-listings
+
+  aitbc operations marketplace list-listings --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def list_listings(format: str):
-    """List marketplace listings"""
+    """List all marketplace listings."""
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=30)
         data = http_client.get("/rpc/marketplace/listings")
@@ -95,12 +109,16 @@ def list_listings(format: str):
         error(f"Error: {e}")
 
 
-@marketplace.command()
-@click.argument("listing_id")
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc operations marketplace purchase --listing-id listing-123 --quantity 1 --wallet wallet-1"""
+)
+@click.option("--listing-id", "listing_id", required=True, help="The Listing id.")
 @click.option("--quantity", type=int, default=1, help="Quantity to purchase")
 @click.option("--wallet", help="Wallet name for payment")
 def purchase(listing_id: str, quantity: int, wallet: str | None):
-    """Purchase from marketplace listing"""
+    """Purchase a quantity of items from a marketplace listing."""
     try:
         import httpx
 
@@ -179,13 +197,19 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         abort(None, f"Error purchasing: {e}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc operations marketplace create-listing --wallet-name wallet-1 --item-type gpu --price 100
+
+  aitbc operations marketplace create-listing --wallet-name wallet-1 --item-type gpu --price 100 --description 'GPU time'"""
+)
 @click.option("--wallet-name", required=True, help="Seller wallet name")
 @click.option("--item-type", required=True, help="Type of item")
 @click.option("--price", type=DECIMAL, required=True, help="Listing price")
 @click.option("--description", help="Item description")
 def create_listing(wallet_name: str, item_type: str, price: Decimal, description: str | None):
-    """Create a marketplace listing"""
+    """Create a marketplace listing with wallet, item type, and price."""
     try:
         # Get wallet address
         keystore_path = wallet_dir() / f"{wallet_name}.json"
@@ -224,20 +248,32 @@ def create_listing(wallet_name: str, item_type: str, price: Decimal, description
 
 
 # AI operations
-@operations.group()
+@operations.group(
+    epilog="""Examples:
+
+  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10
+
+  aitbc operations ai status"""
+)
 def ai():
-    """Legacy AI operations. Prefer `aitbc ai`."""
+    """Deprecated AI operations subgroup."""
     pass
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10
+
+  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10 --model llama3"""
+)
 @click.option("--wallet-name", required=True, help="Client wallet name")
 @click.option("--job-type", required=True, help="Type of AI job")
 @click.option("--prompt", required=True, help="AI prompt")
 @click.option("--payment", type=DECIMAL, required=True, help="Payment amount")
 @click.option("--model", help="AI model to use")
 def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, model: str | None):
-    """Submit an AI job"""
+    """Submit an AI job with wallet, type, prompt, and payment."""
     try:
         # Get wallet address
         keystore_path = wallet_dir() / f"{wallet_name}.json"
@@ -276,11 +312,17 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, m
         error(f"Error: {e}")
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc operations ai status
+
+  aitbc operations ai status --job-id job-123"""
+)
 @click.option("--job-id", help="Specific job ID")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def status(job_id: str | None, format: str):
-    """Get AI job status"""
+    """Get the status of one or all AI jobs."""
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
         if job_id:
@@ -305,10 +347,14 @@ def status(job_id: str | None, format: str):
         error(f"Error: {e}")
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc operations ai cancel --job-id job-123"""
+)
 @click.option("--job-id", help="Specific job ID")
 def cancel(job_id: str | None):
-    """Cancel an AI job"""
+    """Cancel an AI job by its ID."""
     if not job_id:
         error("Job ID is required")
         return
@@ -324,17 +370,29 @@ def cancel(job_id: str | None):
 
 
 # Agent operations
-@operations.group()
+@operations.group(
+    epilog="""Examples:
+
+  aitbc operations agent list
+
+  aitbc operations agent register --agent-id agent-1"""
+)
 def agent():
-    """Legacy agent operations. Prefer `aitbc agent`."""
+    """Deprecated agent operations subgroup."""
     pass
 
 
-@agent.command()
+@agent.command(
+    epilog="""Examples:
+
+  aitbc operations agent register --agent-id agent-1
+
+  aitbc operations agent register --agent-id agent-1 --status active"""
+)
 @click.option("--agent-id", required=True, help="Agent ID")
 @click.option("--status", type=click.Choice(["active", "inactive", "busy", "offline"]), default="active", help="Agent status")
 def register(agent_id: str, status: str):
-    """Register an agent"""
+    """Register an agent with a status."""
     try:
         agent_config = {"agent_id": agent_id, "status": status}
 
@@ -347,11 +405,17 @@ def register(agent_id: str, status: str):
         error(f"Error: {e}")
 
 
-@agent.command()
+@agent.command(
+    epilog="""Examples:
+
+  aitbc operations agent list
+
+  aitbc operations agent list --status active"""
+)
 @click.option("--status", help="Filter by status")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def list(status: str | None, format: str):
-    """List registered agents"""
+    """List registered agents, optionally filtered by status."""
     try:
         import requests
 
@@ -380,10 +444,14 @@ def list(status: str | None, format: str):
         error(f"Error: {e}")
 
 
-@agent.command()
-@click.argument("agent_id")
+@agent.command(
+    epilog="""Examples:
+
+  aitbc operations agent deregister --agent-id agent-1"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 def deregister(agent_id: str):
-    """Deregister an agent"""
+    """Deregister an agent by its ID."""
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
         _ = http_client.post(f"/v1/agents/{agent_id}/deregister")
@@ -394,7 +462,13 @@ def deregister(agent_id: str):
         error(f"Error: {e}")
 
 
-@agent.command()
+@agent.command(
+    epilog="""Examples:
+
+  aitbc operations agent message --agent 0x... --message 'hello' --wallet wallet-1
+
+  aitbc operations agent message --agent 0x... --message 'hello' --wallet wallet-1 --password-file /tmp/pass"""
+)
 @click.option("--agent", required=True, help="Recipient agent address")
 @click.option("--message", required=True, help="Message content")
 @click.option("--wallet", required=True, help="Wallet name for signing")
@@ -402,7 +476,7 @@ def deregister(agent_id: str):
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def message(agent: str, message: str, wallet: str, password: str | None, password_file: str | None, rpc_url: str | None):
-    """Send message to agent via blockchain transaction"""
+    """Send a message to an agent via a blockchain transaction."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -474,17 +548,27 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
 
 
 # Governance operations
-@operations.group(deprecated=True)
-def governance():
-    """Deprecated on-chain governance operations subgroup.
+@operations.group(
+    deprecated=True,
+    epilog="""Examples:
 
-    Use `aitbc governance` directly. This subgroup will be removed in a future
-    release."""
+  aitbc operations governance proposal --proposal-id prop-1 --title 'Change fee' --description 'Lower fee' --wallet wallet-1
+
+  aitbc operations governance vote --proposal-id prop-1 --vote for""",
+)
+def governance():
+    """Deprecated on-chain governance operations subgroup."""
     pass
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance vote --proposal-id prop-1 --vote for --wallet wallet-1
+
+  aitbc operations governance vote --proposal-id prop-1 --vote for --wallet wallet-1 --voting-power 100"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--vote", type=click.Choice(["for", "against", "abstain"]), required=True, help="Vote option")
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--voting-power", type=int, default=0, help="Voting power to use")
@@ -492,7 +576,7 @@ def governance():
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reason: str | None, format: str):
-    """Vote on a governance proposal on blockchain"""
+    """Cast a vote on a governance proposal using a wallet."""
     config = get_config()
 
     try:
@@ -543,7 +627,13 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
         error(f"Error casting vote: {e}")
 
 
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance proposal --proposal-id prop-1 --title 'Change fee' --description 'Lower fee' --wallet wallet-1
+
+  aitbc operations governance proposal --proposal-id prop-1 --title 'Change fee' --description 'Lower fee' --wallet wallet-1 --voting-days 14"""
+)
 @click.option("--proposal-id", required=True, help="Proposal ID")
 @click.option("--title", required=True, help="Proposal title")
 @click.option("--description", required=True, help="Proposal description")
@@ -568,7 +658,7 @@ def proposal(
     voting_days: int,
     format: str,
 ):
-    """Create a governance proposal on blockchain"""
+    """Create a governance proposal on the blockchain."""
     config = get_config()
 
     try:
@@ -637,12 +727,18 @@ def proposal(
         error(f"Error creating proposal: {e}")
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance get-proposal --proposal-id prop-1
+
+  aitbc operations governance get-proposal --proposal-id prop-1 --output json"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def get_proposal(ctx, proposal_id: str, format: str):
-    """Get a governance proposal from blockchain"""
+    """Get a governance proposal from the blockchain."""
     config = get_config()
 
     try:
@@ -671,14 +767,20 @@ def get_proposal(ctx, proposal_id: str, format: str):
 
 
 # v0.4.12 New CLI Commands
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance stake --address 0x... --amount 1000
+
+  aitbc operations governance stake --address 0x... --amount 1000 --lock-days 60"""
+)
 @click.option("--address", required=True, help="Staker address")
 @click.option("--amount", type=int, required=True, help="Amount of tokens to stake")
 @click.option("--lock-days", type=int, default=30, help="Lock period in days (min 30)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def stake(ctx, address: str, amount: int, lock_days: int, format: str):
-    """Stake tokens for enhanced voting power"""
+    """Stake tokens for enhanced voting power."""
     config = get_config()
 
     try:
@@ -702,14 +804,18 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
         error(f"Error staking tokens: {e}")
 
 
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance delegate --delegator 0x... --delegate 0x... --amount 1000"""
+)
 @click.option("--delegator", required=True, help="Delegator address")
 @click.option("--delegate", required=True, help="Delegate address")
 @click.option("--amount", type=int, required=True, help="Amount of voting power to delegate")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
-    """Delegate voting power to another address"""
+    """Delegate voting power from one address to another."""
     config = get_config()
 
     try:
@@ -729,12 +835,18 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
         error(f"Error delegating voting power: {e}")
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance execute --proposal-id prop-1
+
+  aitbc operations governance execute --proposal-id prop-1 --output json"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def execute(ctx, proposal_id: str, format: str):
-    """Execute a passed proposal"""
+    """Execute a passed governance proposal."""
     config = get_config()
 
     try:
@@ -753,12 +865,18 @@ def execute(ctx, proposal_id: str, format: str):
         error(f"Error executing proposal: {e}")
 
 
-@governance.command()
-@click.argument("address")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc operations governance voting-power --address 0x...
+
+  aitbc operations governance voting-power --address 0x... --output json"""
+)
+@click.option("--address", "address", required=True, help="Blockchain address to fund.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def voting_power(ctx, address: str, format: str):
-    """Get voting power for an address"""
+    """Get voting power for a blockchain address."""
     config = get_config()
 
     try:
