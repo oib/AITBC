@@ -81,7 +81,7 @@ def test_exchange_buy_command_invalid_amount(mock_credentials_file, runner):
     from aitbc_cli.commands.exchange_island import exchange_island
 
     # Use "--" to separate options from positional args so "-10" is not parsed as a flag
-    result = runner.invoke(exchange_island, ["buy", "--", "-10", "ETH"], obj={})
+    result = runner.invoke(exchange_island, ["buy", "--ait-amount=-10", "--quote-currency", "ETH"], obj={})
 
     assert result.exit_code != 0
     assert "must be greater than 0" in result.output
@@ -91,7 +91,7 @@ def test_exchange_sell_command_invalid_amount(mock_credentials_file, runner):
     """Test exchange sell command with invalid amount"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["sell", "--", "-10", "ETH"], obj={})
+    result = runner.invoke(exchange_island, ["sell", "--ait-amount=-10", "--quote-currency", "ETH"], obj={})
 
     assert result.exit_code != 0
     assert "must be greater than 0" in result.output
@@ -101,7 +101,7 @@ def test_exchange_orderbook_invalid_pair(mock_credentials_file, runner):
     """Test exchange orderbook command with invalid pair"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["orderbook", "INVALID/PAIR"], obj={})
+    result = runner.invoke(exchange_island, ["orderbook", "--pair", "INVALID/PAIR"], obj={})
 
     assert result.exit_code != 0
 
@@ -110,7 +110,7 @@ def test_exchange_buy_invalid_currency(mock_credentials_file, runner):
     """Test exchange buy command with invalid currency"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["buy", "100", "INVALID"], obj={})
+    result = runner.invoke(exchange_island, ["buy", "--ait-amount", "100", "--quote-currency", "INVALID"], obj={})
 
     assert result.exit_code != 0
 
@@ -119,7 +119,7 @@ def test_exchange_sell_invalid_currency(mock_credentials_file, runner):
     """Test exchange sell command with invalid currency"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["sell", "100", "INVALID"], obj={})
+    result = runner.invoke(exchange_island, ["sell", "--ait-amount", "100", "--quote-currency", "INVALID"], obj={})
 
     assert result.exit_code != 0
 

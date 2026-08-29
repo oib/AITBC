@@ -58,7 +58,7 @@ def test_bond_create_posts_bonds(runner, mock_client):
 
     result = runner.invoke(
         bond,
-        ["create", "aitbc-miner-1", "--amount", "10.0", "--required-amount", "10.0"],
+        ["create", "--provider-id", "aitbc-miner-1", "--amount", "10.0", "--required-amount", "10.0"],
         obj={"output_format": "table", "api_key": "test-key"},
     )
     assert result.exit_code == 0, result.output
@@ -71,7 +71,9 @@ def test_bond_create_posts_bonds(runner, mock_client):
 def test_bond_status_gets_eligibility(runner, mock_client):
     from aitbc_cli.commands.bond import bond
 
-    result = runner.invoke(bond, ["status", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"})
+    result = runner.invoke(
+        bond, ["status", "--provider-id", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"}
+    )
     assert result.exit_code == 0, result.output
     mock_client.get.assert_called_once_with("/v1/marketplace/providers/aitbc-miner-1/eligibility")
 
@@ -81,7 +83,7 @@ def test_bond_slash_posts_slash(runner, mock_client):
 
     result = runner.invoke(
         bond,
-        ["slash", "aitbc-miner-1", "--reason", "failed high-value job"],
+        ["slash", "--provider-id", "aitbc-miner-1", "--reason", "failed high-value job"],
         obj={"output_format": "table", "api_key": "test-key"},
     )
     assert result.exit_code == 0, result.output
@@ -93,10 +95,14 @@ def test_bond_slash_posts_slash(runner, mock_client):
 def test_bond_lock_and_release(runner, mock_client):
     from aitbc_cli.commands.bond import bond
 
-    result = runner.invoke(bond, ["lock", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"})
+    result = runner.invoke(
+        bond, ["lock", "--provider-id", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"}
+    )
     assert result.exit_code == 0, result.output
     assert mock_client.post.call_args[0][0] == "/v1/marketplace/providers/aitbc-miner-1/bonds/lock"
 
-    result = runner.invoke(bond, ["release", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"})
+    result = runner.invoke(
+        bond, ["release", "--provider-id", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"}
+    )
     assert result.exit_code == 0, result.output
     assert mock_client.post.call_args[0][0] == "/v1/marketplace/providers/aitbc-miner-1/bonds/release"

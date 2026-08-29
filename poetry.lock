@@ -7616,7 +7616,7 @@ test = ["pytest", "tornado (>=4.5)", "typeguard"]
 name = "tenseal"
 version = "0.3.16"
 description = "A Library for Homomorphic Encryption Operations on Tensors"
-optional = true
+optional = false
 python-versions = "*"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" and extra == \"fhe\""
@@ -8985,4 +8985,4 @@ ml = ["opencv-python", "pillow", "torch", "torchvision"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"
-content-hash = "60ffa150910bcef684eb5a5dd5d9efe55abfbab81c2a5444780b600b3804e714"
+content-hash = "27ee0785f8e870bfee1eb6cd35bc33f0a4da4d0fb1130f1dbeb5336818541f53"
