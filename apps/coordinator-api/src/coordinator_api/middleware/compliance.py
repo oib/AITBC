@@ -1,8 +1,9 @@
 """Compliance middleware for data classification and consent enforcement (v0.15.2 §B3).
 
-ponytail: Header-based consent classification is a skeleton. Production should
-read consent from the ``consent_record`` table and classify payloads via a
-data-classification service.
+The middleware delegates consent decisions to a ``ConsentTracker``. Use
+``SQLConsentStore`` from ``coordinator_api.contexts.compliance.services`` to back
+the tracker with the ``consent_record`` table. Payload classification remains
+header-based; a dedicated data-classification service can be used if available.
 """
 
 from __future__ import annotations
