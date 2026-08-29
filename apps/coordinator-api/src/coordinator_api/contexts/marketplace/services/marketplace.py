@@ -87,8 +87,8 @@ class MarketplaceService:
     def update_provider_capacity(self, provider: str, capacity: int) -> MarketplaceOfferView:
         """Publish updated provider capacity after reinvestment or hardware changes.
 
-        ponytail: Updates the most recent offer for the provider. If no offer
-        exists, the caller must create one first; this avoids orphan records.
+        Updates the most recent offer for the provider. If no offer exists, the
+        caller must create one first; this avoids orphan records.
         """
         stmt = (
             select(MarketplaceOffer).where(MarketplaceOffer.provider == provider).order_by(MarketplaceOffer.created_at.desc())  # type: ignore[attr-defined]
