@@ -623,10 +623,10 @@ def create_wallet(
     ] = None,
 ) -> str:
     """Create a new file wallet on the node."""
-    options: dict[str, str | None] = {"type": wallet_type}
+    options: dict[str, str | None] = {"name": name, "type": wallet_type}
     if not encrypt:
         options["no-encrypt"] = None
-    return _run_aitbc_cli_write(role, host, "wallet", "create", [name], options, dry_run, confirm)
+    return _run_aitbc_cli_write(role, host, "wallet", "create", None, options, dry_run, confirm)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -647,10 +647,10 @@ def fund_wallet(
 ) -> str:
     """Fund a wallet address using the blockchain faucet."""
     _validate_evm_address(address, "wallet address")
-    options: dict[str, str | None] = {"amount-ait": amount_ait}
+    options: dict[str, str | None] = {"address": address, "amount-ait": amount_ait}
     if chain_id is not None:
         options["chain-id"] = chain_id
-    return _run_aitbc_cli_write(role, host, "wallet", "fund", [address], options, dry_run, confirm)
+    return _run_aitbc_cli_write(role, host, "wallet", "fund", None, options, dry_run, confirm)
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -666,7 +666,7 @@ def get_wallet_info(
     ] = None,
 ) -> str:
     """Show wallet information (address, balance, nonce, etc.)."""
-    return _aitbc_cli_read_tool(role, host, "wallet", "info", args=[wallet_name])
+    return _aitbc_cli_read_tool(role, host, "wallet", "info", group_options={"wallet-name": wallet_name})
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -682,7 +682,7 @@ def get_wallet_address(
     ] = None,
 ) -> str:
     """Show the address for a named wallet."""
-    return _aitbc_cli_read_tool(role, host, "wallet", "address", args=[wallet_name])
+    return _aitbc_cli_read_tool(role, host, "wallet", "address", group_options={"wallet-name": wallet_name})
 
 
 # ---------------------------------------------------------------------------
@@ -1345,7 +1345,10 @@ def send_aitbc_from_wallet(
         group_options["wallet-path"] = wallet_path
     if use_daemon:
         group_options["use-daemon"] = None
-    subcommand_options: dict[str, str | None] = {}
+    subcommand_options: dict[str, str | None] = {
+        "to-address": to_address,
+        "amount": str(amount),
+    }
     if fee is not None:
         subcommand_options["fee"] = str(fee)
     if rpc_url is not None:
@@ -1355,7 +1358,7 @@ def send_aitbc_from_wallet(
         host,
         "wallet",
         "send",
-        [to_address, str(amount)],
+        None,
         None,
         dry_run,
         confirm,
@@ -1389,16 +1392,21 @@ def spend_aitbc_from_wallet(
         group_options["wallet-path"] = wallet_path
     if use_daemon:
         group_options["use-daemon"] = None
+    subcommand_options: dict[str, str | None] = {
+        "amount": str(amount),
+        "description": description,
+    }
     return _run_aitbc_cli_write(
         role,
         host,
         "wallet",
         "spend",
-        [str(amount), description],
+        None,
         None,
         dry_run,
         confirm,
         group_options=group_options,
+        subcommand_options=subcommand_options,
         env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
     )
 
@@ -1428,7 +1436,10 @@ def record_wallet_earnings(
         group_options["wallet-path"] = wallet_path
     if use_daemon:
         group_options["use-daemon"] = None
-    subcommand_options: dict[str, str | None] = {}
+    subcommand_options: dict[str, str | None] = {
+        "amount": str(amount),
+        "job-id": job_id,
+    }
     if desc is not None:
         subcommand_options["desc"] = desc
     return _run_aitbc_cli_write(
@@ -1436,7 +1447,7 @@ def record_wallet_earnings(
         host,
         "wallet",
         "earn",
-        [str(amount), job_id],
+        None,
         None,
         dry_run,
         confirm,
