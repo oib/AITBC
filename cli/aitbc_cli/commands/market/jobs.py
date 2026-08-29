@@ -770,7 +770,7 @@ def transcribe_job(
 @market.command(name="process")
 @click.argument("offer_id_or_plugin_id")
 @click.argument("input_file", type=click.Path(exists=True))
-@click.option("--format", "output_container", default="mp4", help="Output format (e.g. mp4, webm)")
+@click.option("--output-container", "output_container", default="mp4", help="Output container format (e.g. mp4, webm)")
 @click.option("--codec", default="h264", help="Target codec (e.g. h264, vp9, av1)")
 @click.option("--resolution", default="1080p", help="Target resolution (e.g. 1080p, 720p, 480p)")
 @click.option("--bitrate", default="5M", help="Target bitrate (e.g. 5M, 10M)")
