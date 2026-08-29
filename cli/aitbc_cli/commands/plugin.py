@@ -23,24 +23,32 @@ def _default_roles() -> dict[str, str]:
     }
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc plugin create --name mybrand
+
+  aitbc plugin list"""
+)
 def plugin():
-    """Scaffold and manage AITBC white-label brand plugins."""
+    """Scaffold, list, and load AITBC white-label brand plugins."""
     pass
 
 
-@plugin.command("create")
+@plugin.command(
+    "create",
+    epilog="""Examples:
+
+  aitbc plugin create --name mybrand
+
+  aitbc plugin create --name mybrand --output /tmp/plugins""",
+)
 @click.option("--type", "plugin_type", default="brand", help="Plugin type (metadata only)")
 @click.option("--name", required=True, help="Plugin name")
 @click.option("--output", "output_dir", default=".", help="Output directory")
 @click.pass_context
 def create_plugin(ctx, plugin_type: str, name: str, output_dir: str):
-    """Create a brand plugin skeleton that PluginManager can load.
-
-    Writes a single <name>.py file into <output_dir> with the brand, roles, and
-    identity_method that the white-label loader expects. A plugin-manifest.json
-    is also written for documentation but is not required by the loader.
-    """
+    """Create a brand plugin skeleton that PluginManager can load."""
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -92,7 +100,14 @@ identity_method = "did:{name}"
     )
 
 
-@plugin.command("list")
+@plugin.command(
+    "list",
+    epilog="""Examples:
+
+  aitbc plugin list
+
+  aitbc plugin list --plugins-dir /opt/aitbc/plugins""",
+)
 @click.option(
     "--plugins-dir",
     default=None,
@@ -101,14 +116,21 @@ identity_method = "did:{name}"
 )
 @click.pass_context
 def list_plugins(ctx, plugins_dir: str | None):
-    """List available brand plugins."""
+    """List all available brand plugins in the plugin directory."""
     pm = PluginManager(plugins_dir or os.getenv("AITBC_PLUGINS_DIR", "/opt/aitbc/plugins"))
     names = pm.list_plugins()
     output({"plugins_dir": str(pm.plugins_dir), "plugins": names}, ctx.obj.get("output_format", "table"))
 
 
-@plugin.command("load")
-@click.argument("name")
+@plugin.command(
+    "load",
+    epilog="""Examples:
+
+  aitbc plugin load --name mybrand
+
+  aitbc plugin load --name mybrand --plugins-dir /opt/aitbc/plugins""",
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.option(
     "--plugins-dir",
     default=None,
@@ -117,7 +139,7 @@ def list_plugins(ctx, plugins_dir: str | None):
 )
 @click.pass_context
 def load_plugin(ctx, name: str, plugins_dir: str | None):
-    """Load and display a brand plugin."""
+    """Load and display a brand plugin by name."""
     pm = PluginManager(plugins_dir or os.getenv("AITBC_PLUGINS_DIR", "/opt/aitbc/plugins"))
     loaded = pm.load(name)
     result = {

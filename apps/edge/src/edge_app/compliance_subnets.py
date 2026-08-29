@@ -1,8 +1,7 @@
 """Compliance-aware sub-networks for sensitive edge workloads (v0.15.2 §B1).
 
-ponytail: This is a routing-policy skeleton. Real sub-network segmentation
-needs network-level isolation (VLANs, VPCs, eBPF) and attestation before
-admission.
+This is a routing-policy skeleton. Real sub-network segmentation needs
+network-level isolation (VLANs, VPCs, eBPF) and attestation before admission.
 """
 
 from __future__ import annotations

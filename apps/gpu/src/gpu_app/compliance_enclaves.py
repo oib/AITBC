@@ -1,8 +1,8 @@
 """TEE-backed GPU enclaves for compliance-sensitive compute (v0.15.2 §B1).
 
-ponytail: This is an attestation-policy skeleton. Real GPU TEEs need
-NVIDIA H100 confidential computing or equivalent and a remote attestation
-protocol to prove the enclave image and isolation before admission.
+This is an attestation-policy skeleton. Real GPU TEEs need NVIDIA H100
+confidential computing or equivalent and a remote attestation protocol to prove
+the enclave image and isolation before admission.
 """
 
 from __future__ import annotations

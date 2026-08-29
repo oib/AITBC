@@ -24,14 +24,26 @@ def _load_miner_app():
     return ReinvestmentEngine, ReinvestmentPolicy, Budget
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc reinvest policy --agent-id agent-1
+
+  aitbc reinvest simulate --agent-id agent-1"""
+)
 def reinvest():
-    """Autonomous reinvestment and capacity planning commands."""
+    """Configure and simulate autonomous reinvestment policies for agents."""
     pass
 
 
-@reinvest.command()
-@click.argument("agent-id")
+@reinvest.command(
+    epilog="""Examples:
+
+  aitbc reinvest policy --agent-id agent-1
+
+  aitbc reinvest policy --agent-id agent-1 --staking-pct 50 --reserve-pct 30"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent-id.")
 @click.option("--staking-pct", default="50", help="Percentage directed to staking")
 @click.option("--reserve-pct", default="30", help="Percentage kept in reserve")
 @click.option("--min-reinvest", default="1", help="Minimum amount to reinvest")
@@ -51,8 +63,14 @@ def policy(ctx, agent_id: str, staking_pct: str, reserve_pct: str, min_reinvest:
         abort(ctx, f"Error recording reinvestment policy: {e}", from_exception=e)
 
 
-@reinvest.command()
-@click.argument("agent-id")
+@reinvest.command(
+    epilog="""Examples:
+
+  aitbc reinvest simulate --agent-id agent-1
+
+  aitbc reinvest simulate --agent-id agent-1 --earnings 10 --budget-total 100"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent-id.")
 @click.option("--earnings", default="10", help="Earnings amount to simulate")
 @click.option("--budget-total", default="100", help="Total budget for the agent")
 @click.option("--staking-contract", default="0xSTAKE", help="Staking contract address")
