@@ -188,7 +188,17 @@ def buy_ait_exchange(
         "max-price": str(max_price),
         "wallet": wallet,
     }
-    return _run_aitbc_cli_write(role, host, "exchange-island", "buy", [str(amount), "ETH"], options, dry_run, confirm)
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "exchange-island",
+        "buy",
+        None,
+        options,
+        dry_run,
+        confirm,
+        subcommand_options={"ait-amount": str(amount), "quote-currency": "ETH"},
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -215,7 +225,17 @@ def sell_ait_exchange(
         "min-price": str(min_price),
         "wallet": wallet,
     }
-    return _run_aitbc_cli_write(role, host, "exchange-island", "sell", [str(amount), "ETH"], options, dry_run, confirm)
+    return _run_aitbc_cli_write(
+        role,
+        host,
+        "exchange-island",
+        "sell",
+        None,
+        options,
+        dry_run,
+        confirm,
+        subcommand_options={"ait-amount": str(amount), "quote-currency": "ETH"},
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -235,7 +255,9 @@ def cancel_exchange_order(
 ) -> str:
     """Cancel an island exchange order."""
     options: dict[str, str | None] = {"wallet": wallet}
-    return _run_aitbc_cli_write(role, host, "exchange-island", "cancel", [order_id], options, dry_run, confirm)
+    return _run_aitbc_cli_write(
+        role, host, "exchange-island", "cancel", None, options, dry_run, confirm, subcommand_options={"order-id": order_id}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +289,7 @@ def create_island(
         options["island-name"] = island_name
     if chain_id is not None:
         options["chain-id"] = chain_id
-    return _run_aitbc_cli_write(role, host, "node", "island-create", None, options, dry_run, confirm)
+    return _run_aitbc_cli_write(role, host, "node", ["island", "create"], None, options, dry_run, confirm)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -298,7 +320,15 @@ def join_island(
     if rpc_url is not None:
         options["rpc-url"] = rpc_url
     return _run_aitbc_cli_write(
-        role, host, "node", "island-join", [island_id, island_name, chain_id], options, dry_run, confirm
+        role,
+        host,
+        "node",
+        ["island", "join"],
+        None,
+        options,
+        dry_run,
+        confirm,
+        subcommand_options={"island-id": island_id, "island-name": island_name, "chain-id": chain_id},
     )
 
 
@@ -317,7 +347,9 @@ def leave_island(
     ] = None,
 ) -> str:
     """Leave an AITBC island."""
-    return _run_aitbc_cli_write(role, host, "node", "island-leave", [island_id], {}, dry_run, confirm)
+    return _run_aitbc_cli_write(
+        role, host, "node", ["island", "leave"], None, {}, dry_run, confirm, subcommand_options={"island-id": island_id}
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -406,12 +438,15 @@ def create_market_offer(
         subcommand_options["gpu-name"] = gpu_name
     if gpu_device is not None:
         subcommand_options["gpu-device"] = gpu_device
+    subcommand_options["service-type"] = service_type
+    subcommand_options["model-or-variant"] = model
+    subcommand_options["price"] = str(price)
     return _run_aitbc_cli_write(
         role,
         host,
         "market",
         "offer",
-        [service_type, model, str(price)],
+        None,
         None,
         dry_run,
         confirm,
@@ -537,7 +572,7 @@ def pin_ipfs(
     ] = None,
 ) -> str:
     """Pin a CID on the local IPFS daemon or filesystem index."""
-    return _run_aitbc_cli_write(role, host, "ipfs", "pin", [cid], {}, dry_run, confirm)
+    return _run_aitbc_cli_write(role, host, "ipfs", "pin", None, {}, dry_run, confirm, subcommand_options={"cid": cid})
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -560,7 +595,9 @@ def unpin_ipfs(
     options: dict[str, str | None] = {"reason": reason}
     if refund:
         options["refund"] = None
-    return _run_aitbc_cli_write(role, host, "ipfs", "unpin", [rental_id], options, dry_run, confirm)
+    return _run_aitbc_cli_write(
+        role, host, "ipfs", "unpin", None, options, dry_run, confirm, subcommand_options={"rental-id": rental_id}
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -749,12 +786,14 @@ def run_market_offer(
         subcommand_options["bitrate"] = bitrate
     if track:
         subcommand_options["track"] = None
+    subcommand_options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
+    subcommand_options["prompt"] = prompt
     return _run_aitbc_cli_write(
         role,
         host,
         "market",
         "run",
-        [offer_id_or_plugin_id, prompt],
+        None,
         None,
         dry_run,
         confirm,
@@ -800,12 +839,14 @@ def transcribe_market_offer(
         subcommand_options["task"] = task
     if output_format is not None:
         subcommand_options["output-format"] = output_format
+    subcommand_options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
+    subcommand_options["audio-file"] = audio_file
     return _run_aitbc_cli_write(
         role,
         host,
         "market",
         "transcribe",
-        [offer_id_or_plugin_id, audio_file],
+        None,
         None,
         dry_run,
         confirm,
@@ -848,12 +889,14 @@ def process_market_offer(
         subcommand_options["resolution"] = resolution
     if bitrate is not None:
         subcommand_options["bitrate"] = bitrate
+    subcommand_options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
+    subcommand_options["input-file"] = input_file
     return _run_aitbc_cli_write(
         role,
         host,
         "market",
         "process",
-        [offer_id_or_plugin_id, input_file],
+        None,
         None,
         dry_run,
         confirm,
@@ -887,12 +930,14 @@ def rate_market_service(
         subcommand_options["comment"] = comment
     if reviewer_id is not None:
         subcommand_options["reviewer-id"] = reviewer_id
+    subcommand_options["service-id"] = service_id
+    subcommand_options["rating"] = str(rating)
     return _run_aitbc_cli_write(
         role,
         host,
         "market",
         "rate",
-        [service_id, str(rating)],
+        None,
         None,
         dry_run,
         confirm,
