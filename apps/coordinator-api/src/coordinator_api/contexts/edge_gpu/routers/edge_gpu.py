@@ -3,7 +3,7 @@ Edge GPU Router
 Handles edge GPU management endpoints
 """
 
-import subprocess
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -33,8 +33,8 @@ class GPUMetrics(BaseModel):
     temperature: float
 
 
-def run_nvidia_smi(args: list[str]) -> str:
-    """Run nvidia-smi command and return output"""
+async def run_nvidia_smi(args: list[str]) -> str:
+    """Run nvidia-smi asynchronously and return output."""
     # Validate args to prevent command injection
     # Only allow specific safe nvidia-smi arguments
     safe_args_prefixes = {"--query-gpu", "--format", "--id", "--help", "-q", "-h"}
@@ -46,20 +46,23 @@ def run_nvidia_smi(args: list[str]) -> str:
             return ""
 
     try:
-        # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec
-        # This is acceptable for GPU queries (not a hot path), but could be improved
-        result = subprocess.run(["nvidia-smi"] + args, capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
-            return result.stdout
-        else:
-            return ""
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        proc = await asyncio.create_subprocess_exec(
+            "nvidia-smi",
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10.0)
+        if proc.returncode == 0:
+            return stdout.decode()
+        return ""
+    except (asyncio.TimeoutError, FileNotFoundError):
         return ""
 
 
-def parse_gpu_info() -> list[dict[str, Any]]:
+async def parse_gpu_info() -> list[dict[str, Any]]:
     """Parse GPU information from nvidia-smi"""
-    output = run_nvidia_smi(["--query-gpu=index,name,memory.total", "--format=csv,noheader,nounits"])
+    output = await run_nvidia_smi(["--query-gpu=index,name,memory.total", "--format=csv,noheader,nounits"])
     if not output:
         return []
 
