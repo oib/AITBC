@@ -58,14 +58,18 @@ A generic catch-all remains `call_aitbc_http` for any endpoint not yet wrapped.
 
 ## Installation
 
-On the machine that will host the MCP server:
+The server imports the local `aitbc` package, so it must run from a Python
+environment that has the project and its dependencies installed. Use the
+project venv and make sure `mcp` is present:
 
 ```bash
-cd /opt/aitbc/mcp-server
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+cd /opt/aitbc
+source venv/bin/activate
+pip install -r mcp-server/requirements.txt
 ```
+
+If you want a dedicated MCP venv instead, install the project and
+`mcp-server/requirements.txt` in it so `import aitbc` works.
 
 ## Devin configuration
 
@@ -75,7 +79,7 @@ Add the server to your Devin project or user config:
 {
   "mcpServers": {
     "aitbc": {
-      "command": "/opt/aitbc/mcp-server/.venv/bin/python",
+      "command": "/opt/aitbc/venv/bin/python",
       "args": ["/opt/aitbc/mcp-server/aitbc_mcp_server.py"],
       "env": {
         "AITBC_MCP_SSH_USER": "oib",
@@ -91,11 +95,14 @@ Save project config as `.devin/mcp_config.json` and user secrets in
 
 ### Local IDE (while developing)
 
+For a local staging checkout, use that checkout's venv (it must have `aitbc`
+and `mcp` importable):
+
 ```json
 {
   "mcpServers": {
     "aitbc": {
-      "command": "/home/oib/windsurf/aitbc/.venv-mcp/bin/python",
+      "command": "/home/oib/windsurf/aitbc/venv/bin/python",
       "args": ["/home/oib/windsurf/aitbc/mcp-server/aitbc_mcp_server.py"],
       "env": {
         "AITBC_MCP_LOG_LEVEL": "INFO"
