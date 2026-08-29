@@ -48,12 +48,12 @@ def marketplace(ctx, chain_id: str | None):
 
 
 @marketplace.command()
-@click.argument("chain_id")
-@click.argument("chain_name")
-@click.argument("chain_type")
-@click.argument("description")
-@click.argument("seller_id")
-@click.argument("price")
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
+@click.option("--chain-name", "chain_name", required=True, help="The Chain name.")
+@click.option("--chain-type", "chain_type", required=True, help="The Chain type.")
+@click.option("--description", "description", required=True, help="Free-form description.")
+@click.option("--seller-id", "seller_id", required=True, help="The Seller id.")
+@click.option("--price", "price", required=True, help="The Price.")
 @click.option("--currency", default="ETH", help="Currency for pricing")
 @click.option("--specs", help="Chain specifications (JSON string)")
 @click.option("--metadata", help="Additional metadata (JSON string)")
@@ -139,8 +139,8 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
 
 
 @marketplace.command()
-@click.argument("listing_id")
-@click.argument("buyer_id")
+@click.option("--listing-id", "listing_id", required=True, help="The Listing id.")
+@click.option("--buyer-id", "buyer_id", required=True, help="The Buyer id.")
 @click.option("--payment", default="crypto", help="Payment method")
 @click.pass_context
 def buy(ctx, listing_id, buyer_id, payment):
@@ -177,8 +177,8 @@ def buy(ctx, listing_id, buyer_id, payment):
 
 
 @marketplace.command()
-@click.argument("transaction_id")
-@click.argument("transaction_hash")
+@click.option("--transaction-id", "transaction_id", required=True, help="The Transaction id.")
+@click.option("--transaction-hash", "transaction_hash", required=True, help="The Transaction hash.")
 @click.pass_context
 def complete(ctx, transaction_id, transaction_hash):
     """Complete a marketplace transaction"""
@@ -290,7 +290,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
 
 
 @marketplace.command()
-@click.argument("chain_id")
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def economy(ctx, chain_id, format):
@@ -328,7 +328,7 @@ def economy(ctx, chain_id, format):
 
 
 @marketplace.command()
-@click.argument("user_id")
+@click.option("--user-id", "user_id", required=True, help="The User id.")
 @click.option("--role", type=click.Choice(["buyer", "seller", "both"]), default="both", help="User role")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -538,8 +538,8 @@ def monitor(ctx, realtime, interval):
 
 
 @marketplace.command()
-@click.argument("price", type=DECIMAL)
-@click.argument("quantity", type=float)
+@click.option("--price", "price", required=True, type=DECIMAL, help="The Price.")
+@click.option("--quantity", "quantity", required=True, type=float, help="The Quantity.")
 @click.option("--market", help="Market identifier")
 @click.pass_context
 def bid(ctx, price: Decimal, quantity: float, market: str | None):
@@ -582,8 +582,8 @@ def bids(ctx, market: str | None, limit: int):
 
 
 @marketplace.command()
-@click.argument("price", type=float)
-@click.argument("quantity", type=float)
+@click.option("--price", "price", required=True, type=float, help="The Price.")
+@click.option("--quantity", "quantity", required=True, type=float, help="The Quantity.")
 @click.option("--market", help="Market identifier")
 @click.pass_context
 def ask(ctx, price: Decimal, quantity: float, market: str | None):
