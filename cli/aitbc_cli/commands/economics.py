@@ -21,17 +21,29 @@ def _api_client() -> AITBCHTTPClient | None:
     return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc economics market
+
+  aitbc economics propose --parameter tx_fee --current 0.001 --proposed 0.0005"""
+)
 def economics():
-    """Economic intelligence, modeling, and OpenClaw DAO governance."""
+    """Economic intelligence, modeling, market analysis, and OpenClaw DAO proposals."""
     pass
 
 
-@economics.command()
+@economics.command(
+    epilog="""Examples:
+
+  aitbc economics distributed
+
+  aitbc economics distributed --cost-optimize"""
+)
 @click.option("--cost-optimize", is_flag=True, help="Enable cost optimization")
 @click.pass_context
 def distributed(ctx, cost_optimize):
-    """Distributed cost optimization."""
+    """Run distributed cost optimization for the AITBC economy."""
     try:
         result = {"action": "distributed_optimization", "cost_optimize": cost_optimize, "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Distributed Economics")
@@ -39,11 +51,17 @@ def distributed(ctx, cost_optimize):
         abort(ctx, f"Error in distributed economics: {e}", from_exception=e)
 
 
-@economics.command()
+@economics.command(
+    epilog="""Examples:
+
+  aitbc economics model
+
+  aitbc economics model --type cost-optimization"""
+)
 @click.option("--type", default="cost-optimization", help="Model type")
 @click.pass_context
 def model(ctx, type):
-    """Economic modeling."""
+    """Run an economic model of the configured type."""
     try:
         result = {"action": "economic_modeling", "model_type": type, "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Economic Model")
@@ -51,10 +69,16 @@ def model(ctx, type):
         abort(ctx, f"Error in economic modeling: {e}", from_exception=e)
 
 
-@economics.command()
+@economics.command(
+    epilog="""Examples:
+
+  aitbc economics market
+
+  aitbc economics market --output json"""
+)
 @click.pass_context
 def market(ctx):
-    """Market analysis."""
+    """Run market analysis for the AITBC ecosystem."""
     try:
         result = {"action": "market_analysis", "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Market Economics")
@@ -62,7 +86,13 @@ def market(ctx):
         abort(ctx, f"Error in market analysis: {e}", from_exception=e)
 
 
-@economics.command()
+@economics.command(
+    epilog="""Examples:
+
+  aitbc economics propose --parameter tx_fee --current 0.001 --proposed 0.0005
+
+  aitbc economics propose --parameter block_reward --current 10 --proposed 12 --unit AIT"""
+)
 @click.option("--parameter", required=True, help="Economic parameter name")
 @click.option("--current", required=True, help="Current parameter value")
 @click.option("--proposed", required=True, help="Proposed parameter value")
