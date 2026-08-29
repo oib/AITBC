@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 class BulkSyncMixin(SyncBase):
     """Fetch and import blocks in bulk from remote peers."""
 
-    # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
+    # Protocol base declares the attributes the concrete ChainSync sets.
     _last_bulk_sync_time: int
 
     async def close(self) -> None:

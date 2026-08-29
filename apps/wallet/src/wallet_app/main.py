@@ -168,7 +168,7 @@ app = create_app()
 if __name__ == "__main__":
     import os
 
-    # ponytail: default host is 127.0.0.1; override via WALLET_BIND_HOST for containers
+    # Default host is 127.0.0.1; override via WALLET_BIND_HOST for containers.
     host = os.getenv("WALLET_BIND_HOST", settings.host)
     port = int(os.getenv("WALLET_BIND_PORT", settings.port))
 

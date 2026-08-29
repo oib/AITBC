@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 class BridgeFinalityMixin(BridgeBase):
     """Remote block header storage and cryptographic finality checks."""
 
-    # ponytail: Protocol base declares the attributes the concrete CrossChainBridge sets.
+    # Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     # v0.7.2 §B3-B6: Merkle proof, block header, finality, epoch tracking
     # ------------------------------------------------------------------

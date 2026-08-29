@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 class BridgeValidatorMixin(BridgeBase):
     """Validator set registration, loading, and signature verification."""
 
-    # ponytail: Protocol base declares the attributes the concrete CrossChainBridge sets.
+    # Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     # v0.7.1: Validator set management + multi-sig threshold verification
     # ------------------------------------------------------------------

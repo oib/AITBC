@@ -627,7 +627,7 @@ def check_keys(ctx, strict: bool):
             "required": key in required_keys,
         }
         if value:
-            # ponytail: only report length; never print secrets.
+            # Only report length; never print secrets.
             entry["length"] = len(value)
         elif key in required_keys:
             missing_required.append(key)

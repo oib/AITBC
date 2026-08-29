@@ -18,7 +18,7 @@ def main():
     args = parser.parse_args()
 
     logger.info("Starting AITBC Exchange API Server on %s:%s", args.host, args.port)
-    # ponytail: Imported here so --help is fast; app triggers DB init via lifespan.
+    # Imported here so --help is fast; app triggers DB init via lifespan.
     from .main import app
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="critical", access_log=False)

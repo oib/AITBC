@@ -29,9 +29,9 @@ from coordinator_api.config import settings as app_settings
 # Import SQLModel metadata (populated when domain models are imported).
 # Importing coordinator_api.main pulls in every router, which in turn imports
 # all SQLModel subclasses, so SQLModel.metadata reflects the current schema.
-# ponytail: target_metadata is only needed for autogenerate; stamp/upgrade
-# run hand-written migrations and do not require it. We import it lazily so
-# that a missing/renamed model module never blocks running migrations.
+# target_metadata is only needed for autogenerate; stamp/upgrade run
+# hand-written migrations and do not require it. We import it lazily so that a
+# missing/renamed model module never blocks running migrations.
 try:
     import coordinator_api.main  # noqa: F401 - imports routers to populate metadata
     from sqlmodel import SQLModel
