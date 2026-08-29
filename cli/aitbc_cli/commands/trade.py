@@ -33,13 +33,23 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc trade list
+
+  aitbc trade create --source-chain ait-mainnet --dest-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
+)
 def trade():
-    """Inter-chain trading operations"""
+    """Create, list, and settle inter-chain trading operations."""
     pass
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade create --source-chain ait-mainnet --dest-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
+)
 @click.option("--source-chain", required=True, help="Source chain ID")
 @click.option("--dest-chain", required=True, help="Destination chain ID")
 @click.option("--sender", required=True, help="Sender address (source chain)")
@@ -51,7 +61,7 @@ def trade():
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, price, quantity, format):
-    """Create an inter-chain trade"""
+    """Create a new inter-chain trade between source and destination chains."""
     try:
         client = _get_client()
         params: dict[str, str | int | float | None] = {
@@ -73,7 +83,13 @@ def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, p
         error(f"Error creating trade: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade list
+
+  aitbc trade list --status active --limit 50"""
+)
 @click.option("--status", default=None, help="Filter by status (pending, matched, completed, etc.)")
 @click.option("--source-chain", default=None, help="Filter by source chain")
 @click.option("--dest-chain", default=None, help="Filter by destination chain")
@@ -81,7 +97,7 @@ def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, p
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list(ctx, status, source_chain, dest_chain, limit, format):
-    """List inter-chain trades"""
+    """List inter-chain trades with optional filters."""
     try:
         client = _get_client()
         params: dict[str, str | int] = {"limit": limit}
@@ -99,11 +115,17 @@ def list(ctx, status, source_chain, dest_chain, limit, format):
         error(f"Error listing trades: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade chains
+
+  aitbc trade chains --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def chains(ctx, format):
-    """List registered chains for inter-chain trading"""
+    """List chains that participate in inter-chain trading."""
     try:
         client = _get_client()
         result = client.get("/v1/trading/chains")
@@ -114,12 +136,18 @@ def chains(ctx, format):
         error(f"Error listing chains: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade get --trade-id trade-123
+
+  aitbc trade get --trade-id trade-123 --output json"""
+)
 @click.argument("trade_id")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def get(ctx, trade_id, format):
-    """Get inter-chain trade details"""
+    """Get details of a specific trade."""
     try:
         client = _get_client()
         result = client.get(f"/v1/trading/inter-chain/{trade_id}")
@@ -130,12 +158,18 @@ def get(ctx, trade_id, format):
         error(f"Error getting trade: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade status --trade-id trade-123
+
+  aitbc trade status --trade-id trade-123 --output json"""
+)
 @click.option("--trade-id", required=True, help="Trade ID")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def status(ctx, trade_id, format):
-    """Get inter-chain trade status"""
+    """Get the status of a specific trade."""
     try:
         client = _get_client()
         result = client.get(f"/v1/trading/inter-chain/{trade_id}/status")
@@ -146,13 +180,19 @@ def status(ctx, trade_id, format):
         error(f"Error getting trade status: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade register-chain --chain-id ait-side --endpoint http://localhost:8202
+
+  aitbc trade register-chain --chain-id ait-side --endpoint http://localhost:8202 --output json"""
+)
 @click.option("--chain-id", required=True, help="Chain ID to register")
 @click.option("--endpoint", required=True, help="Blockchain node RPC URL for the chain")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def register_chain(ctx, chain_id, endpoint, format):
-    """Register a new chain in the island registry"""
+    """Register a new chain for inter-chain trading."""
     try:
         client = _get_client()
         params: dict[str, str] = {"chain_id": chain_id, "endpoint": endpoint}
@@ -164,12 +204,18 @@ def register_chain(ctx, chain_id, endpoint, format):
         error(f"Error registering chain: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade health
+
+  aitbc trade health --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", required=True, help="Chain ID to check")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def health(ctx, chain_id, format):
-    """Check chain health"""
+    """Check the health of inter-chain trading for a chain."""
     try:
         client = _get_client()
         result = client.get(f"/v1/trading/chains/{chain_id}/health")
@@ -180,14 +226,20 @@ def health(ctx, chain_id, format):
         error(f"Error checking chain health: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade history
+
+  aitbc trade history --source-chain ait-mainnet --dest-chain ait-side"""
+)
 @click.option("--source-chain", default=None, help="Filter by source chain")
 @click.option("--dest-chain", default=None, help="Filter by destination chain")
 @click.option("--limit", default=50, type=int, help="Max results")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def history(ctx, source_chain, dest_chain, limit, format):
-    """View cross-chain trade history"""
+    """Show the history of inter-chain trades between source and destination chains."""
     try:
         client = _get_client()
         params: dict[str, str | int] = {"limit": limit}
@@ -203,12 +255,18 @@ def history(ctx, source_chain, dest_chain, limit, format):
         error(f"Error getting trade history: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade match --trade-id trade-123
+
+  aitbc trade match --trade-id trade-123 --output json"""
+)
 @click.argument("trade_id")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def match(ctx, trade_id, format):
-    """Attempt to match an inter-chain trade"""
+    """Match a trade with a counterparty or settlement path."""
     try:
         client = _get_client()
         result = client.post(f"/v1/trading/inter-chain/{trade_id}/match")
@@ -219,11 +277,17 @@ def match(ctx, trade_id, format):
         error(f"Error matching trade: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade match-all
+
+  aitbc trade match-all --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def match_all(ctx, format):
-    """Match all pending inter-chain trades"""
+    """Match all open inter-chain trades automatically."""
     try:
         client = _get_client()
         result = client.post("/v1/trading/inter-chain/match-all")
@@ -239,7 +303,13 @@ def match_all(ctx, format):
 # ============================================================================
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade discover
+
+  aitbc trade discover --source-chain ait-mainnet --dest-chain ait-side --service-type gpu"""
+)
 @click.option("--source-chain", default=None, help="Filter by source chain")
 @click.option("--dest-chain", default=None, help="Filter by destination chain")
 @click.option("--service-type", default=None, help="Filter by service type (e.g. gpu_marketplace)")
@@ -251,7 +321,7 @@ def match_all(ctx, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, region, gpu_model, limit, format):
-    """Discover offers across chains with filters"""
+    """Discover trading offers across chains with optional filters."""
     try:
         client = _get_client()
         params: dict[str, str | int | float] = {"limit": limit}
@@ -277,14 +347,20 @@ def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, 
         error(f"Error discovering offers: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade sync
+
+  aitbc trade sync --chain-id ait-mainnet --service-type gpu"""
+)
 @click.option("--chain-id", default=None, help="Sync specific chain (default: all chains)")
 @click.option("--service-type", default=None, help="Sync specific service type")
 @click.option("--force", is_flag=True, default=False, help="Force sync even if offers are fresh")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def sync(ctx, chain_id, service_type, force, format):
-    """Trigger offer sync for a specific chain or all chains"""
+    """Sync trading data for a chain and service type."""
     try:
         client = _get_client()
         params: dict[str, str | bool] = {"force": force}
@@ -300,11 +376,18 @@ def sync(ctx, chain_id, service_type, force, format):
         error(f"Error syncing offers: {e}")
 
 
-@trade.command(name="sync-status")
+@trade.command(
+    name="sync-status",
+    epilog="""Examples:
+
+  aitbc trade sync-status
+
+  aitbc trade sync-status --output json""",
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def sync_status(ctx, format):
-    """Show offer sync status per chain"""
+    """Get the inter-chain trading sync status."""
     try:
         client = _get_client()
         result = client.get("/v1/trading/offers/sync-status")
@@ -320,7 +403,13 @@ def sync_status(ctx, format):
 # ============================================================================
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade watch
+
+  aitbc trade watch --chain-id ait-mainnet --service-type gpu"""
+)
 @click.option("--chain-id", default=None, help="Filter by chain ID")
 @click.option("--service-type", default=None, help="Filter by service type")
 @click.option("--min-price", default=None, type=float, help="Minimum price filter")
@@ -330,7 +419,7 @@ def sync_status(ctx, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, format):
-    """Stream offer changes in real-time via WebSocket subscription"""
+    """Watch for new trading offers matching filters."""
     import asyncio
     import json as _json
 
@@ -367,11 +456,18 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
         error(f"Error watching offers: {e}")
 
 
-@trade.command(name="subscription-status")
+@trade.command(
+    name="subscription-status",
+    epilog="""Examples:
+
+  aitbc trade subscription-status
+
+  aitbc trade subscription-status --output json""",
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def subscription_status(ctx, format):
-    """Show offer subscription health per chain"""
+    """Show the subscription status for trading updates."""
     try:
         client = _get_client()
         result = client.get("/v1/trading/offers/subscription-status")
@@ -382,7 +478,13 @@ def subscription_status(ctx, format):
         error(f"Error getting subscription status: {e}")
 
 
-@trade.command()
+@trade.command(
+    epilog="""Examples:
+
+  aitbc trade search --query gpu
+
+  aitbc trade search --query gpu --chain-id ait-mainnet"""
+)
 @click.option("--query", default="", help="Search query text")
 @click.option("--chain-id", default=None, help="Filter by chain ID")
 @click.option("--service-type", default=None, help="Filter by service type")
@@ -392,7 +494,7 @@ def subscription_status(ctx, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def search(ctx, query, chain_id, service_type, min_price, max_price, limit, format):
-    """Search offers via the optional search index"""
+    """Search trading offers with a query."""
     try:
         client = _get_client()
         params: dict[str, str | int | float] = {"q": query, "limit": limit}
@@ -434,14 +536,19 @@ def _run_settlement_coro(coro):
     return asyncio.run(coro)
 
 
-@trade.command(name="lock-escrow")
+@trade.command(
+    name="lock-escrow",
+    epilog="""Examples:
+
+  aitbc trade lock-escrow --trade-id trade-123""",
+)
 @click.option("--trade-id", required=True, help="Trade ID to lock escrow for")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--timeout", type=int, default=None, help="Escrow timeout in seconds")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def lock_escrow_cmd(ctx, trade_id, node_url, timeout, format):
-    """Lock escrow for a cross-chain trade (v0.9.0)"""
+    """Lock escrow for a trade on the settlement node."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
@@ -473,14 +580,21 @@ def lock_escrow_cmd(ctx, trade_id, node_url, timeout, format):
         error(f"Error locking escrow: {e}")
 
 
-@trade.command(name="settle")
+@trade.command(
+    name="settle",
+    epilog="""Examples:
+
+  aitbc trade settle --trade-id trade-123 --secret '...'
+
+  aitbc trade settle --trade-id trade-123 --secret '...' --node-url http://localhost:8202""",
+)
 @click.option("--trade-id", required=True, help="Trade ID to settle")
 @click.option("--secret", required=True, help="HTLC secret to reveal")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def settle_cmd(ctx, trade_id, secret, node_url, format):
-    """Settle a cross-chain trade by revealing the HTLC secret (v0.9.0)"""
+    """Settle a trade with a secret."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
@@ -509,13 +623,20 @@ def settle_cmd(ctx, trade_id, secret, node_url, format):
         error(f"Error settling trade: {e}")
 
 
-@trade.command(name="settlement-status")
+@trade.command(
+    name="settlement-status",
+    epilog="""Examples:
+
+  aitbc trade settlement-status --trade-id trade-123
+
+  aitbc trade settlement-status --trade-id trade-123 --node-url http://localhost:8202""",
+)
 @click.option("--trade-id", required=True, help="Trade ID to check")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def settlement_status_cmd(ctx, trade_id, node_url, format):
-    """Get settlement status for a cross-chain trade (v0.9.0)"""
+    """Get the settlement status of a trade."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
@@ -554,13 +675,18 @@ def settlement_status_cmd(ctx, trade_id, node_url, format):
         error(f"Error getting settlement status: {e}")
 
 
-@trade.command(name="refund")
+@trade.command(
+    name="refund",
+    epilog="""Examples:
+
+  aitbc trade refund --trade-id trade-123""",
+)
 @click.option("--trade-id", required=True, help="Trade ID to refund")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def refund_cmd(ctx, trade_id, node_url, format):
-    """Trigger refund for a cross-chain trade (v0.9.0)"""
+    """Refund a trade on the settlement node."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig

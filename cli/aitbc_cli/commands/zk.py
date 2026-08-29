@@ -56,18 +56,30 @@ def _load_json_or_file(value: str) -> Any:
     raise ValueError(f"Could not parse JSON from {value}")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc zk circuits
+
+  aitbc zk health"""
+)
 def zk():
-    """Zero-knowledge proof commands."""
+    """Manage zero-knowledge proof circuits, verify proofs, and check service health."""
     pass
 
 
-@zk.command()
+@zk.command(
+    epilog="""Examples:
+
+  aitbc zk circuits
+
+  aitbc zk circuits --coordinator-url http://localhost:8203"""
+)
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def circuits(ctx, coordinator_url: str | None, format: str):
-    """List available ZK circuits and verification status."""
+    """List available zero-knowledge circuits and their verification status."""
     get_config()
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -84,7 +96,13 @@ def circuits(ctx, coordinator_url: str | None, format: str):
         abort(ctx, f"Error listing ZK circuits: {e}", from_exception=e)
 
 
-@zk.command()
+@zk.command(
+    epilog="""Examples:
+
+  aitbc zk verify --job-id job-123
+
+  aitbc zk verify --proof '{"a":"b"}' --public-signals '{"x":1}'"""
+)
 @click.option("--job-id", help="Job ID whose receipt proof should be re-verified")
 @click.option("--proof", help="Proof JSON, @file, or base64 string")
 @click.option("--public-signals", help="Public signals JSON, @file, or base64 string")
@@ -101,7 +119,7 @@ def verify(
     coordinator_url: str | None,
     format: str,
 ):
-    """Verify a ZK proof against the coordinator."""
+    """Verify a zero-knowledge proof against a circuit and public signals."""
     get_config()
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
@@ -143,12 +161,18 @@ def verify(
         abort(ctx, f"Error verifying ZK proof: {e}", from_exception=e)
 
 
-@zk.command()
+@zk.command(
+    epilog="""Examples:
+
+  aitbc zk health
+
+  aitbc zk health --coordinator-url http://localhost:8203"""
+)
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def health(ctx, coordinator_url: str | None, format: str):
-    """Check ZK proof service health."""
+    """Check the zero-knowledge proof service health."""
     get_config()
     try:
         coord_url = _coordinator_base_url(ctx, coordinator_url)
