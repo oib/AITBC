@@ -103,6 +103,7 @@ idna = "3.18"
 hypothesis = "6.156.1"
 bcrypt = "4.3.0"
 zstandard = "0.23.0"
+ollama = "0.4.7"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "9.0.3"
