@@ -13,16 +13,28 @@ from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc gpu discover
+
+  aitbc gpu register --gpu-id gpu-1"""
+)
 def gpu():
-    """Local GPU service commands for hardware management"""
+    """Manage local GPUs: discover, register, unregister, update, and list GPU resources."""
     pass
 
 
-@gpu.command()
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc gpu discover
+
+  aitbc gpu discover --output json"""
+)
 @click.pass_context
 def discover(ctx):
-    """Auto-discover GPU specifications using nvidia-smi"""
+    """Auto-discover local GPU specifications using nvidia-smi."""
     try:
         config = get_config()
         http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
@@ -35,12 +47,18 @@ def discover(ctx):
         error(f"Error discovering GPUs: {e}")
 
 
-@gpu.command()
-@click.argument("gpu_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc gpu register --gpu-id gpu-1
+
+  aitbc gpu register --gpu-id gpu-1 --specs '{"model":"A100"}'"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.option("--specs", help="GPU specifications (JSON string) - auto-discovered if not provided")
 @click.pass_context
 def register(ctx, gpu_id: str, specs: str | None):
-    """Register a GPU with the gpu-service (no island credentials required)"""
+    """Register a GPU with the local GPU service, optionally with JSON specs."""
     config = get_config()
 
     try:
@@ -62,11 +80,15 @@ def register(ctx, gpu_id: str, specs: str | None):
         error(f"Error registering GPU: {e}")
 
 
-@gpu.command()
-@click.argument("gpu_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc gpu unregister --gpu-id gpu-1"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.pass_context
 def unregister(ctx, gpu_id: str):
-    """Unregister/delete a GPU from the gpu-service"""
+    """Unregister or delete a GPU from the local GPU service."""
     config = get_config()
 
     try:
@@ -80,13 +102,19 @@ def unregister(ctx, gpu_id: str):
         error(f"Error unregistering GPU: {e}")
 
 
-@gpu.command()
-@click.argument("gpu_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc gpu update --gpu-id gpu-1 --pricing '{"price_per_hour":10}'
+
+  aitbc gpu update --gpu-id gpu-1 --status active"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.option("--pricing", help="Updated pricing model (JSON string)")
 @click.option("--status", help="Update GPU status")
 @click.pass_context
 def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
-    """Update GPU registration with the gpu-service (no island credentials required)"""
+    """Update GPU registration with new pricing or status."""
     config = get_config()
 
     try:
@@ -121,10 +149,16 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
         error(f"Error updating GPU: {e}")
 
 
-@gpu.command()
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc gpu list-gpus
+
+  aitbc gpu list-gpus --output json"""
+)
 @click.pass_context
 def list_gpus_cmd(ctx):
-    """List local registered GPUs (no island credentials required)"""
+    """List local registered GPUs from the GPU service."""
     try:
         # Load CLI config
         config = get_config()
