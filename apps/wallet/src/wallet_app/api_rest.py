@@ -376,7 +376,7 @@ async def faucet_request(
     """
     from .settings import settings
 
-    # ponytail: Faucet is disabled by default; enable with WALLET_ENABLE_FAUCET=true
+    # Faucet is disabled by default; enable with WALLET_ENABLE_FAUCET=true.
     if not settings.enable_faucet:
         raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Faucet is disabled")
 
