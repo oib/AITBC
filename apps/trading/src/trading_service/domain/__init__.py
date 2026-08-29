@@ -2,6 +2,7 @@
 Trading Service domain models
 """
 
+from .exchange_payment import ExchangePayment
 from .trading import (
     NegotiationStatus,
     SettlementType,
@@ -28,4 +29,5 @@ __all__ = [
     "TradeSettlement",
     "TradeFeedback",
     "TradingAnalytics",
+    "ExchangePayment",
 ]

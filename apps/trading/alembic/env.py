@@ -12,6 +12,7 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Importing the models is what registers them on trading_metadata.
+from trading_service.domain import exchange_payment as _exchange_payment  # noqa: F401
 from trading_service.domain import inter_chain as _inter_chain  # noqa: F401
 from trading_service.domain import trading as _trading  # noqa: F401
 from trading_service.domain.base import trading_metadata
