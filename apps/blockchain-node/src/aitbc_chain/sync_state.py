@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class StateSyncMixin(SyncBase):
     """Pull account state snapshots and deltas from remote peers."""
 
-    # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
+    # Protocol base declares the attributes the concrete ChainSync sets.
 
     async def sync_state_from(self, source_url: str) -> dict[str, Any]:
         """Pull account state snapshot from a peer and reconcile local accounts.

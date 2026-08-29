@@ -39,7 +39,7 @@ logger = get_logger(__name__)
 class BlockImportMixin(SyncBase):
     """Import a single block, append it, and resolve chain forks."""
 
-    # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
+    # Protocol base declares the attributes the concrete ChainSync sets.
     def _make_import_result(self, **kwargs: Any) -> ImportResult:
         """Create an ImportResult and record Prometheus sync failures if rejected."""
         result = ImportResult(**kwargs)
