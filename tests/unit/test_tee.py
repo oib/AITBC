@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from aitbc.compute import TEEExecutionStatus, TEETask, TEETaskInput, TEETaskRunner
 from aitbc.tee import (
@@ -118,48 +120,74 @@ def test_key_provisioning_policy_allows_all_by_default() -> None:
 # A2: session and channel
 
 
-def test_tee_session_establish_and_rotate() -> None:
-    session = TEESession(
+def _x25519_key_pair() -> tuple[bytes, bytes]:
+    """Return a raw (private_key, public_key) X25519 pair."""
+    private_key = X25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    private_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PrivateFormat.Raw,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    return private_bytes, public_key
+
+
+def _established_pair() -> tuple[TEESession, TEESession]:
+    """Create two sessions with matching X25519 shared secrets."""
+    i_priv, i_pub = _x25519_key_pair()
+    r_priv, r_pub = _x25519_key_pair()
+    initiator = TEESession(
         session_id="s1",
         initiator_id="agent-a",
         responder_id="agent-b",
-        initiator_public_key=b"initiator-pubkey",
-        responder_public_key=b"responder-pubkey",
+        initiator_public_key=i_pub,
+        responder_public_key=r_pub,
+        private_key=i_priv,
     )
-    assert session.state == SessionState.PENDING
+    responder = TEESession(
+        session_id="s1",
+        initiator_id="agent-a",
+        responder_id="agent-b",
+        initiator_public_key=i_pub,
+        responder_public_key=r_pub,
+        private_key=r_priv,
+    )
+    initiator.establish()
+    responder.establish()
+    assert initiator.shared_secret == responder.shared_secret
+    assert initiator.shared_secret != b""
+    return initiator, responder
 
-    session.establish()
-    assert session.state == SessionState.ESTABLISHED
-    assert session.shared_secret != b""
 
-    first_secret = session.shared_secret
-    session.rotate_key(b"new-ephemeral")
-    assert session.shared_secret != first_secret
+def test_tee_session_establish_and_rotate() -> None:
+    initiator, _responder = _established_pair()
+    assert initiator.state == SessionState.ESTABLISHED
+
+    first_secret = initiator.shared_secret
+    new_public = (
+        X25519PrivateKey.generate()
+        .public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+    )
+    initiator.rotate_key(new_public)
+    assert initiator.shared_secret != first_secret
 
 
 def test_tee_session_replay_nonce() -> None:
-    session = TEESession(
-        session_id="s1",
-        initiator_id="agent-a",
-        responder_id="agent-b",
-        initiator_public_key=b"initiator-pubkey",
-        responder_public_key=b"responder-pubkey",
-    )
-    session.establish()
-    assert session.next_nonce() == 1
-    assert session.next_nonce() == 2
+    initiator, _responder = _established_pair()
+    assert initiator.next_nonce() == 1
+    assert initiator.next_nonce() == 2
 
 
 def test_tee_channel_encode_and_decode() -> None:
-    session = TEESession(
-        session_id="s1",
-        initiator_id="agent-a",
-        responder_id="agent-b",
-        initiator_public_key=b"initiator-pubkey",
-        responder_public_key=b"responder-pubkey",
-    )
-    session.establish()
-    channel = TEEChannel(channel_id="ch-1", session=session, peer_id="agent-b")
+    initiator, _responder = _established_pair()
+    channel = TEEChannel(channel_id="ch-1", session=initiator, peer_id="agent-b")
     channel.open()
     assert channel.state == ChannelState.OPEN
 
@@ -169,6 +197,19 @@ def test_tee_channel_encode_and_decode() -> None:
 
     received = channel.decode(message)
     assert received == b"hello"
+
+
+def test_tee_channel_round_trip_between_sides() -> None:
+    """A message encoded by the initiator can be decoded by the responder."""
+    initiator, responder = _established_pair()
+    initiator_channel = TEEChannel(channel_id="ch-1", session=initiator, peer_id="agent-b")
+    initiator_channel.open()
+    message = initiator_channel.encode(b"secret payload")
+
+    responder_channel = TEEChannel(channel_id="ch-1", session=responder, peer_id="agent-a")
+    responder_channel.open()
+    received = responder_channel.decode(message)
+    assert received == b"secret payload"
 
 
 # A3: sealed storage
