@@ -53,7 +53,7 @@ class TestBlockchainCommand:
     def test_blockchain_help(self):
         result = run_cli("blockchain", "info", "--help")
         assert result.returncode == 0
-        assert "CHAIN_ID" in result.stdout
+        assert "--chain-id" in result.stdout
         assert "--detailed" in result.stdout
 
     def test_chain_alias_help(self):
@@ -81,7 +81,7 @@ class TestNetworkCommand:
         # `network propagate` doesn't exist; `network force-sync` is the equivalent
         result = run_cli("network", "force-sync", "--help")
         assert result.returncode == 0
-        assert "Force network synchronization" in result.stdout
+        assert "Force the local node to synchronize" in result.stdout
 
 
 class TestMarketplaceCommand:
@@ -115,7 +115,7 @@ class TestAIOperationsCommand:
         # `ai-ops` is not a registered command; `ai status` is the equivalent
         result = run_cli("ai", "status", "--help")
         assert result.returncode == 0
-        assert "AI job status" in result.stdout
+        assert "Show the current status" in result.stdout
 
 
 class TestResourceCommand:
@@ -165,13 +165,13 @@ class TestIntegrationScenarios:
         nested = run_cli("network", "status")
         assert default.returncode == 0
         assert nested.returncode == 0
-        assert "Peer connectivity" in default.stdout
+        assert "Manage peer connectivity" in default.stdout
 
     def test_ai_submit_legacy_alias(self):
         # `ai-submit` is not a registered command; `ai submit` is the equivalent
         result = run_cli("ai", "submit", "--help")
         assert result.returncode == 0
-        assert "Submit an AI job" in result.stdout
+        assert "Submit a new AI job" in result.stdout
 
 
 class TestErrorHandling:

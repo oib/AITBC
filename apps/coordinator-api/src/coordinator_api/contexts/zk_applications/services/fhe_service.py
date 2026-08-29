@@ -58,6 +58,14 @@ class FHEProvider(ABC):
         """Perform inference on encrypted data"""
         pass
 
+    def add(self, a: EncryptedData, b: EncryptedData) -> EncryptedData:
+        """Homomorphically add two encrypted vectors."""
+        raise NotImplementedError("add is not implemented for this provider")
+
+    def multiply_scalar(self, a: EncryptedData, scalar: float) -> EncryptedData:
+        """Homomorphically multiply an encrypted vector by a scalar."""
+        raise NotImplementedError("multiply_scalar is not implemented for this provider")
+
 
 class MockFHEProvider(FHEProvider):
     """Mock FHE provider for testing without real FHE libraries.
@@ -129,6 +137,17 @@ class MockFHEProvider(FHEProvider):
             return self.encrypt(result_array, encrypted_input.context)
         else:
             raise ValueError("Model must contain weights and biases")
+
+    def add(self, a: EncryptedData, b: EncryptedData) -> EncryptedData:
+        """Mock homomorphic addition on plaintext."""
+        pa = self.decrypt(a)
+        pb = self.decrypt(b)
+        return self.encrypt(pa + pb, a.context)
+
+    def multiply_scalar(self, a: EncryptedData, scalar: float) -> EncryptedData:
+        """Mock homomorphic scalar multiplication on plaintext."""
+        pa = self.decrypt(a)
+        return self.encrypt(pa * scalar, a.context)
 
 
 class TenSEALProvider(FHEProvider):
@@ -236,6 +255,34 @@ class TenSEALProvider(FHEProvider):
         else:
             raise ValueError("Model must contain weights and biases")
 
+    def _load_vector(self, encrypted_data: EncryptedData) -> Any:
+        """Deserialize a TenSEAL vector from encrypted data."""
+        if self.ts is None:
+            raise RuntimeError("TenSEAL not initialized")
+        ts_context = self.ts.context_from(encrypted_data.context.public_key)
+        if encrypted_data.context.scheme.lower() == "ckks":
+            return self.ts.ckks_vector_from(ts_context, encrypted_data.ciphertext)
+        if encrypted_data.context.scheme.lower() == "bfv":
+            return self.ts.bfv_vector_from(ts_context, encrypted_data.ciphertext)
+        raise ValueError(f"Unsupported scheme: {encrypted_data.context.scheme}")
+
+    def add(self, a: EncryptedData, b: EncryptedData) -> EncryptedData:
+        """Homomorphically add two encrypted vectors using TenSEAL."""
+        if not self.available:
+            raise RuntimeError("TenSEAL provider is not available")
+        vec_a = self._load_vector(a)
+        vec_b = self._load_vector(b)
+        result = vec_a + vec_b
+        return EncryptedData(ciphertext=result.serialize(), context=a.context, shape=a.shape, dtype=a.dtype)
+
+    def multiply_scalar(self, a: EncryptedData, scalar: float) -> EncryptedData:
+        """Homomorphically multiply an encrypted vector by a scalar."""
+        if not self.available:
+            raise RuntimeError("TenSEAL provider is not available")
+        vec_a = self._load_vector(a)
+        result = vec_a * scalar
+        return EncryptedData(ciphertext=result.serialize(), context=a.context, shape=a.shape, dtype=a.dtype)
+
 
 class ConcreteMLProvider(FHEProvider):
     """Concrete ML provider for neural network inference"""
@@ -281,16 +328,15 @@ class FHEService:
 
     def __init__(self) -> None:
         self.providers: dict[str, FHEProvider] = {}
-        self.default_provider: str = "mock"
         self.providers["mock"] = MockFHEProvider()
         self.default_provider = "mock"
-        logger.info("Mock FHE provider initialized as default")
         tenseal_provider: FHEProvider = TenSEALProvider()
         if tenseal_provider.available:
             self.providers["tenseal"] = tenseal_provider
-            logger.info("TenSEAL provider initialized")
+            self.default_provider = "tenseal"
+            logger.info("TenSEAL provider initialized and set as default")
         else:
-            logger.info("TenSEAL provider not available")
+            logger.info("TenSEAL provider not available; using mock default")
         concrete_provider: FHEProvider = ConcreteMLProvider()
         if concrete_provider.available:
             self.providers["concrete"] = concrete_provider
@@ -328,6 +374,16 @@ class FHEService:
         """Perform inference on encrypted data"""
         fhe_provider = self.get_provider(provider)
         return fhe_provider.encrypted_inference(model, encrypted_input)
+
+    def add(self, a: EncryptedData, b: EncryptedData, provider: str | None = None) -> EncryptedData:
+        """Homomorphically add two encrypted vectors."""
+        fhe_provider = self.get_provider(provider)
+        return fhe_provider.add(a, b)
+
+    def multiply_scalar(self, a: EncryptedData, scalar: float, provider: str | None = None) -> EncryptedData:
+        """Homomorphically multiply an encrypted vector by a scalar."""
+        fhe_provider = self.get_provider(provider)
+        return fhe_provider.multiply_scalar(a, scalar)
 
     def list_providers(self) -> dict[str, bool]:
         """List available FHE providers"""
