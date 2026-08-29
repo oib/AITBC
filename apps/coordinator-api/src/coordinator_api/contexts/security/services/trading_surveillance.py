@@ -85,10 +85,11 @@ class TradingPattern:
 class TradingSurveillance:
     """Main trading surveillance system"""
 
-    def __init__(self) -> None:
+    def __init__(self, seed: int | None = None) -> None:
         self.alerts: list[TradingAlert] = []
         self.patterns: list[TradingPattern] = []
         self._lock = asyncio.Lock()
+        self._rng = np.random.default_rng(seed)
         self.monitoring_symbols: dict[str, bool] = {}
         self.thresholds = {
             "volume_spike_multiplier": 3.0,
@@ -153,15 +154,15 @@ class TradingSurveillance:
         await asyncio.sleep(0.1)
         base_volume = 1000000
         base_price = 50000
-        volume = base_volume * (1 + np.random.normal(0, 0.2))
-        price = base_price * (1 + np.random.normal(0, 0.05))
+        volume = base_volume * (1 + self._rng.normal(0, 0.2))
+        price = base_price * (1 + self._rng.normal(0, 0.05))
         timestamps = [datetime.now() - timedelta(minutes=i) for i in range(60, 0, -1)]
-        volumes = [volume * (1 + np.random.normal(0, 0.3)) for _ in timestamps]
-        prices = [price * (1 + np.random.normal(0, 0.02)) for _ in timestamps]
+        volumes = [volume * (1 + self._rng.normal(0, 0.3)) for _ in timestamps]
+        prices = [price * (1 + self._rng.normal(0, 0.02)) for _ in timestamps]
         users = [f"user_{i}" for i in range(100)]
         user_volumes = {}
         for user in users:
-            user_volumes[user] = np.random.exponential(volume / len(users))
+            user_volumes[user] = self._rng.exponential(volume / len(users))
         total_user_volume = sum(user_volumes.values())
         user_volumes = {k: v / total_user_volume for k, v in user_volumes.items()}
         return {
@@ -173,9 +174,9 @@ class TradingSurveillance:
             "timestamps": timestamps,
             "user_distribution": user_volumes,
             "trade_count": int(volume / 1000),
-            # ponytail: using random for mock data only - not security-sensitive
-            "order_cancellations": int(np.random.poisson(100)),
-            "total_orders": int(np.random.poisson(500)),
+            # Synthetic mock data, not security-sensitive.
+            "order_cancellations": int(self._rng.poisson(100)),
+            "total_orders": int(self._rng.poisson(500)),
         }
 
     async def _detect_pump_and_dump(self, symbol: str, data: dict[str, Any]) -> None:
