@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from time import sleep
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -21,6 +22,7 @@ from aitbc.tee import (
     SealedBlob,
     SessionState,
     TEEChannel,
+    TEEBenchmark,
     TEEError,
     ChannelMessage,
     TEESession,
@@ -333,6 +335,17 @@ def test_quote_serialization_and_signature() -> None:
     assert restored.enclave_id == "enc-1"
     assert restored.measurement == "measurement-1"
     assert AttestationVerifier({"measurement-1"}, require_signature=True).verify(restored)
+
+
+def test_tee_benchmark_summary() -> None:
+    bench = TEEBenchmark(name="latency-test")
+    for delay in (0.001, 0.002, 0.003, 0.004, 0.005):
+        bench.run(f"op-{delay}", sleep, delay, cost_units=1.0)
+    summary = bench.summary()
+    assert summary["count"] == 5.0
+    assert summary["min_ms"] <= summary["p50_ms"] <= summary["p95_ms"] <= summary["p99_ms"] <= summary["max_ms"]
+    assert summary["ops_per_sec"] > 0.0
+    assert summary["peak_memory_bytes"] >= 0.0
 
 
 def test_quote_verifier_rejects_tampered_measurement() -> None:

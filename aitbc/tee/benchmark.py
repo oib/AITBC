@@ -1,7 +1,9 @@
 """TEE latency/cost benchmarking utilities (v0.14.2 §A1).
 
-ponytail: This is a simulator-friendly benchmark harness. Production should
-collect real attestation and enclave execution metrics from the platform.
+This is an in-memory benchmark harness. Production deployments should collect
+real attestation and enclave execution metrics from the platform, but the
+percentile and throughput statistics here still mirror how those metrics are
+summarised.
 """
 
 from __future__ import annotations
@@ -11,6 +13,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Any
+
+import numpy as np
 
 
 @dataclass
@@ -58,13 +62,16 @@ class TEEBenchmark:
         return result
 
     def summary(self) -> dict[str, float]:
-        """Return aggregate latency and throughput statistics."""
+        """Return aggregate latency, throughput, and percentile statistics."""
         if not self.results:
             return {
                 "count": 0.0,
                 "total_ms": 0.0,
                 "avg_ms": 0.0,
                 "min_ms": 0.0,
+                "p50_ms": 0.0,
+                "p95_ms": 0.0,
+                "p99_ms": 0.0,
                 "max_ms": 0.0,
                 "ops_per_sec": 0.0,
                 "peak_memory_bytes": 0.0,
@@ -75,11 +82,15 @@ class TEEBenchmark:
         # Avoid division by zero for instantaneous runs.
         ops_per_sec = 1000.0 / avg if avg > 0 else 0.0
         peak_memory = max(r.memory_bytes for r in self.results)
+        p50, p95, p99 = np.percentile(latencies, [50, 95, 99]).tolist()
         return {
             "count": float(len(self.results)),
             "total_ms": total,
             "avg_ms": avg,
             "min_ms": min(latencies),
+            "p50_ms": p50,
+            "p95_ms": p95,
+            "p99_ms": p99,
             "max_ms": max(latencies),
             "ops_per_sec": ops_per_sec,
             "peak_memory_bytes": float(peak_memory),
