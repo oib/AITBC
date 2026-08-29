@@ -180,6 +180,9 @@ class TestWalletCommands:
                         "total_returned": 52.5,
                     }
                 if "/transaction" in path or "/send" in path or "/sendTx" in path:
+                    amount = data.get("amount")
+                    if amount is not None and Decimal(str(amount)) > ait_to_units(state["balance"]):
+                        raise Exception("Insufficient balance")
                     return {"transaction_hash": "0xabc123", "hash": "0xabc123", "new_balance": 75.0, "tx_hash": "0xabc123"}
                 return {}
 
@@ -217,7 +220,7 @@ class TestWalletCommands:
         """Test earning command"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "earn", "25.5", "job_456", "--desc", "Another test job"],
+            ["--wallet-path", temp_wallet, "earn", "--amount", "25.5", "--job-id", "job_456", "--desc", "Another test job"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -239,7 +242,7 @@ class TestWalletCommands:
         """Test successful spend command"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "spend", "30.0", "GPU rental"],
+            ["--wallet-path", temp_wallet, "spend", "--amount", "30.0", "--description", "GPU rental"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -251,7 +254,9 @@ class TestWalletCommands:
     def test_spend_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test spend with insufficient balance"""
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "spend", "200.0", "Too much"], obj={"config": mock_config, "output": "json"}
+            wallet,
+            ["--wallet-path", temp_wallet, "spend", "--amount", "200.0", "--description", "Too much"],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code != 0
@@ -298,7 +303,15 @@ class TestWalletCommands:
         """Test successful send command"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "send", "0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd", "25.0"],
+            [
+                "--wallet-path",
+                temp_wallet,
+                "send",
+                "--to-address",
+                "0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd",
+                "--amount",
+                "25.0",
+            ],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -314,7 +327,9 @@ class TestWalletCommands:
                 "--wallet-path",
                 temp_wallet,
                 "request-payment",
+                "--to-address",
                 "0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f",
+                "--amount",
                 "50.0",
                 "--description",
                 "Service payment",
@@ -336,7 +351,17 @@ class TestWalletCommands:
         # with a 400 if balance is insufficient. Verify the CLI handles this.
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "send", "999999", "0x" + "ab" * 20, "--password", "test"],
+            [
+                "--wallet-path",
+                temp_wallet,
+                "send",
+                "--amount",
+                "999999",
+                "--to-address",
+                "0x" + "ab" * 20,
+                "--password",
+                "test",
+            ],
             obj={"config": mock_config, "output": "json"},
         )
         # Should fail (exit_code != 0) because RPC rejects insufficient balance
@@ -347,7 +372,11 @@ class TestWalletCommands:
         # v0.5.17 B6: The balance command doesn't create wallet files, but
         # the create command does. Test that create works.
         wallet_path = str(tmp_path / "new_wallet.json")
-        result = runner.invoke(wallet, ["--wallet-path", wallet_path, "create"], obj={"config": mock_config, "output": "json"})
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", wallet_path, "create", "--name", "new_wallet"],
+            obj={"config": mock_config, "output": "json"},
+        )
         # create command may need a password or generate one — just verify it doesn't crash
         assert result.exit_code in (0, 1, 2)
 
@@ -355,7 +384,7 @@ class TestWalletCommands:
         """Test staking tokens"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "stake", "50.0", "--duration", "30"],
+            ["--wallet-path", temp_wallet, "stake", "--amount", "50.0", "--duration", "30"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -373,7 +402,7 @@ class TestWalletCommands:
         # it's submitted. The CLI command itself succeeds (exit_code 0).
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "stake", "999999", "--duration", "30"],
+            ["--wallet-path", temp_wallet, "stake", "--amount", "999999", "--duration", "30"],
             obj={"config": mock_config, "output": "json"},
         )
         # CLI records locally — exit_code 0 is expected; the node would reject
@@ -385,7 +414,7 @@ class TestWalletCommands:
         # First stake
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "stake", "50.0", "--duration", "30"],
+            ["--wallet-path", temp_wallet, "stake", "--amount", "50.0", "--duration", "30"],
             obj={"config": mock_config, "output": "json"},
         )
         assert result.exit_code == 0
@@ -394,7 +423,9 @@ class TestWalletCommands:
 
         # Then unstake
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "unstake", str(stake_id)], obj={"config": mock_config, "output": "json"}
+            wallet,
+            ["--wallet-path", temp_wallet, "unstake", "--stake-id", str(stake_id)],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code == 0
@@ -406,7 +437,7 @@ class TestWalletCommands:
         # v0.5.17 B6: Stake ID validation is now done by blockchain RPC.
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "unstake", "nonexistent_id"],
+            ["--wallet-path", temp_wallet, "unstake", "--stake-id", "nonexistent_id"],
             obj={"config": mock_config, "output": "json"},
         )
         assert result.exit_code != 0
@@ -416,7 +447,7 @@ class TestWalletCommands:
         # Stake first
         runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "stake", "30.0", "--duration", "60"],
+            ["--wallet-path", temp_wallet, "stake", "--amount", "30.0", "--duration", "60"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -435,7 +466,7 @@ class TestWalletCommands:
         """Test liquidity pool staking"""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "liquidity-stake", "40.0", "--pool", "main", "--lock-days", "0"],
+            ["--wallet-path", temp_wallet, "liquidity-stake", "--amount", "40.0", "--pool", "main", "--lock-days", "0"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -451,7 +482,7 @@ class TestWalletCommands:
         """Test liquidity staking with 30-day lock."""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "liquidity-stake", "30.0", "--lock-days", "30"],
+            ["--wallet-path", temp_wallet, "liquidity-stake", "--amount", "30.0", "--lock-days", "30"],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -465,7 +496,9 @@ class TestWalletCommands:
     def test_liquidity_stake_insufficient_balance(self, runner, temp_wallet, mock_config):
         """Test liquidity staking with insufficient balance"""
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "liquidity-stake", "500.0"], obj={"config": mock_config, "output": "json"}
+            wallet,
+            ["--wallet-path", temp_wallet, "liquidity-stake", "--amount", "500.0"],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code != 0
@@ -476,7 +509,7 @@ class TestWalletCommands:
         # Stake first (no lock)
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "liquidity-stake", "50.0", "--pool", "main", "--lock-days", "0"],
+            ["--wallet-path", temp_wallet, "liquidity-stake", "--amount", "50.0", "--pool", "main", "--lock-days", "0"],
             obj={"config": mock_config, "output": "json"},
         )
         assert result.exit_code == 0
@@ -486,7 +519,7 @@ class TestWalletCommands:
         # Unstake
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "liquidity-unstake", stake_id],
+            ["--wallet-path", temp_wallet, "liquidity-unstake", "--stake-id", stake_id],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -499,7 +532,7 @@ class TestWalletCommands:
         """Test liquidity unstaking with an arbitrary ID (no local validation)."""
         result = runner.invoke(
             wallet,
-            ["--wallet-path", temp_wallet, "liquidity-unstake", "nonexistent"],
+            ["--wallet-path", temp_wallet, "liquidity-unstake", "--stake-id", "nonexistent"],
             obj={"config": mock_config, "output": "json"},
         )
 

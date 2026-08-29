@@ -16,10 +16,14 @@ from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import _load_wallet, wallet
 
 
-@wallet.command()
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet rewards"""
+)
 @click.pass_context
 def rewards(ctx):
-    """View all earned rewards (staking + on-chain liquidity)"""
+    """View all earned rewards from staking and on-chain liquidity positions."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -100,8 +104,12 @@ def rewards(ctx):
     )
 
 
-@wallet.command()
-@click.argument("address")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet fund --address 0xAbc... --amount 10"""
+)
+@click.option("--address", "address", required=True, help="Blockchain address to fund.")
 @click.option(
     "--amount",
     default=DEFAULT_FAUCET_UNITS,
@@ -111,7 +119,7 @@ def rewards(ctx):
 @click.option("--chain-id", help="Chain ID (defaults to node's chain)")
 @click.pass_context
 def fund(ctx, address: str, amount: int, amount_ait: str | None, chain_id: str):
-    """Fund wallet using blockchain faucet"""
+    """Fund a wallet address with AITBC from the on-chain faucet."""
     import httpx
 
     from ...config import get_config
@@ -161,11 +169,15 @@ def fund(ctx, address: str, amount: int, amount_ait: str | None, chain_id: str):
         error(f"Error funding wallet: {e}")
 
 
-@wallet.command()
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet export --destination /var/lib/aitbc/wallets/genesis.json"""
+)
 @click.option("--destination", help="Destination file path (default: wallet_name_export.json)")
 @click.pass_context
 def export(ctx, destination: str | None):
-    """Export wallet to JSON file"""
+    """Export the active wallet to a JSON file at the given destination."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -200,12 +212,16 @@ def export(ctx, destination: str | None):
         error(f"Error exporting wallet: {e}")
 
 
-@wallet.command()
-@click.argument("file_path")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet import-wallet --file-path /var/lib/aitbc/wallets/genesis.json --name genesis"""
+)
+@click.option("--file-path", "file_path", required=True, help="Path to the file.")
 @click.option("--name", help="New wallet name (default: from file)")
 @click.pass_context
 def import_wallet(ctx, file_path: str, name: str | None):
-    """Import wallet from JSON file"""
+    """Import a wallet from a JSON file with an optional new name."""
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
 
