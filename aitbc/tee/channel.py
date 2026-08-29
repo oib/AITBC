@@ -1,19 +1,24 @@
 """Encrypted agent-to-agent channels bound to attested identities (v0.14.1 §A2).
 
 ``TEEChannel`` sends and receives messages through an established
-``TEESession``. The actual encryption is a simulator placeholder; production
-relies on AES-GCM or ChaCha20-Poly1305 inside the TEE using the shared secret.
+``TEESession``. Messages are encrypted with AES-GCM using the session's
+X25519 shared secret. Production TEEs should run the AEAD inside the enclave
+so the shared secret never leaves the enclave boundary.
 """
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 from .errors import TEEError
-from .session import TEESession, SessionState
+from .session import TEESession, SessionState, X25519_KEY_SIZE
+
+#: AES-GCM nonce size in bytes.
+GCM_NONCE_SIZE = 12
 
 
 class ChannelState(StrEnum):
@@ -58,11 +63,17 @@ class TEEChannel:
         """Open the channel once the underlying session is established."""
         if self.session.state != SessionState.ESTABLISHED:
             raise TEEError("cannot open channel: session not established")
+        if len(self.session.shared_secret) != X25519_KEY_SIZE:
+            raise TEEError("session shared secret is not a valid AES-GCM key")
         self.state = ChannelState.OPEN
 
     def close(self) -> None:
         """Close the channel."""
         self.state = ChannelState.CLOSED
+
+    def _nonce_bytes(self, nonce: int) -> bytes:
+        """Encode the integer nonce as a fixed-size AES-GCM nonce."""
+        return nonce.to_bytes(GCM_NONCE_SIZE, "big")
 
     def encode(self, payload: bytes | str) -> ChannelMessage:
         """Encode a payload for the channel."""
@@ -70,13 +81,15 @@ class TEEChannel:
             raise TEEError(f"cannot encode on channel in state {self.state}")
         if isinstance(payload, str):
             payload = payload.encode("utf-8")
-        # ponytail: base64 placeholder for enclave-side authenticated encryption.
-        encoded = base64.b64encode(payload)
+
+        nonce = self.session.next_nonce()
+        nonce_bytes = self._nonce_bytes(nonce)
+        ciphertext = AESGCM(self.session.shared_secret).encrypt(nonce_bytes, payload, None)
         message = ChannelMessage(
             message_id=f"{self.channel_id}-{len(self.messages)}",
             sender_id=self.session.initiator_id,
-            payload=encoded,
-            nonce=self.session.next_nonce(),
+            payload=ciphertext,
+            nonce=nonce,
         )
         self.messages.append(message)
         return message
@@ -85,4 +98,5 @@ class TEEChannel:
         """Decode a received message payload."""
         if self.state != ChannelState.OPEN:
             raise TEEError(f"cannot decode on channel in state {self.state}")
-        return base64.b64decode(message.payload)
+        nonce_bytes = self._nonce_bytes(message.nonce)
+        return AESGCM(self.session.shared_secret).decrypt(nonce_bytes, message.payload, None)
