@@ -34,13 +34,25 @@ def _client() -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc resource allocate --agent-id agent-1 --cpu-cores 4 --memory-gb 16
+
+  aitbc resource optimize --agent-id agent-1 --target-metric latency"""
+)
 def resource():
-    """Manage agent resource allocations via coordinator-api"""
+    """Allocate and optimize agent resources through the coordinator API."""
     pass
 
 
-@resource.command()
+@resource.command(
+    epilog="""Examples:
+
+  aitbc resource allocate --agent-id agent-1 --cpu-cores 4 --memory-gb 16
+
+  aitbc resource allocate --agent-id agent-1 --gpu-count 1 --gpu-memory-gb 24 --priority high"""
+)
 @click.option("--agent-id", required=True, help="Agent ID to allocate resources for")
 @click.option("--cpu-cores", type=float, help="Requested CPU cores")
 @click.option("--memory-gb", type=float, help="Requested memory (GB)")
@@ -68,7 +80,7 @@ def allocate(
     optimization_target: str,
     priority: str,
 ):
-    """Allocate resources for an agent task via coordinator-api"""
+    """Allocate CPU, memory, GPU, and storage resources for an agent."""
     task_requirements: dict[str, float] = {}
     for key, val in [
         ("cpu_cores", cpu_cores),
@@ -101,7 +113,13 @@ def allocate(
         ctx.exit(1)
 
 
-@resource.command()
+@resource.command(
+    epilog="""Examples:
+
+  aitbc resource optimize --agent-id agent-1 --target-metric latency --current-latency 100
+
+  aitbc resource optimize --agent-id agent-1 --target-metric accuracy --current-accuracy 0.9"""
+)
 @click.option("--agent-id", required=True, help="Agent ID to optimize")
 @click.option(
     "--target-metric",
@@ -123,7 +141,7 @@ def optimize(
     current_latency: float | None,
     current_throughput: float | None,
 ):
-    """Optimize agent performance via coordinator-api"""
+    """Optimize an agent's performance for a specific target metric."""
     current_performance: dict[str, float] = {}
     if current_accuracy is not None:
         current_performance["accuracy"] = current_accuracy

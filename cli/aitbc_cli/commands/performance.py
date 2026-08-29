@@ -6,17 +6,29 @@ from ..utils import output
 from ..utils.error_handling import abort
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc performance benchmark
+
+  aitbc performance optimize"""
+)
 def performance():
-    """Performance monitoring and optimization"""
+    """Run benchmarks, optimize, and tune system performance."""
     pass
 
 
-@performance.command()
+@performance.command(
+    epilog="""Examples:
+
+  aitbc performance benchmark
+
+  aitbc performance benchmark --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def benchmark(ctx, rpc_url):
-    """Run performance benchmark"""
+    """Run a performance benchmark against the blockchain RPC."""
     try:
         from ..utils.http_client import AITBCHTTPClient, NetworkError
 
@@ -36,11 +48,17 @@ def benchmark(ctx, rpc_url):
         abort(ctx, f"Error running benchmark: {e}", from_exception=e)
 
 
-@performance.command()
+@performance.command(
+    epilog="""Examples:
+
+  aitbc performance optimize
+
+  aitbc performance optimize --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def optimize(ctx, rpc_url):
-    """Optimize system performance"""
+    """Optimize system performance through the blockchain RPC."""
     try:
         from ..utils.http_client import AITBCHTTPClient, NetworkError
 
@@ -59,11 +77,17 @@ def optimize(ctx, rpc_url):
         abort(ctx, f"Error optimizing performance: {e}", from_exception=e)
 
 
-@performance.command()
+@performance.command(
+    epilog="""Examples:
+
+  aitbc performance tune
+
+  aitbc performance tune --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def tune(ctx, rpc_url):
-    """Tune system parameters"""
+    """Tune system parameters through the blockchain RPC."""
     try:
         from ..utils.http_client import AITBCHTTPClient, NetworkError
 

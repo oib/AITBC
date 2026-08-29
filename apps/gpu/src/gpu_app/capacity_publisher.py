@@ -24,9 +24,9 @@ def publish_capacity(
 ) -> dict[str, Any]:
     """Publish or update a provider's compute capacity.
 
-    ponytail: This is a skeleton publisher. It posts to the coordinator API
-    marketplace capacity endpoint; production deployments should use the
-    shared HTTP client with retries and authentication.
+    This is a skeleton publisher. It posts to the coordinator API marketplace
+    capacity endpoint; production deployments should use the shared HTTP client
+    with retries and authentication.
     """
     base = (coordinator_url or os.getenv("COORDINATOR_URL", DEFAULT_COORDINATOR_URL) or "").rstrip("/")
     url = f"{base}/v1/marketplace/providers/{provider_id}/capacity"
