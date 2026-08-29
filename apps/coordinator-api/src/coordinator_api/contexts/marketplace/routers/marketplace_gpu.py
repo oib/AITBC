@@ -336,8 +336,8 @@ async def buy_gpu(
     except Exception as e:
         logger.error("Failed to create job/payment for GPU purchase: %s", e)
 
-    # ponytail: payment failure rolls back booking and GPU; job is cancelled
-    # if payment never succeeded, so we don't return a fake "purchased" status.
+    # Payment failure rolls back booking and GPU; the job is cancelled if payment
+    # never succeeded, so we don't return a fake "purchased" status.
     if payment_status in ("failed", "skipped") or job_id is None:
         if job_id is not None:
             from ....contexts.infrastructure.domain import Job

@@ -53,7 +53,7 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, agent_id: str) -> None:
         """Accept a WebSocket connection from an agent."""
         if agent_id in self.active_connections:
-            # ponytail: close any stale connection with the same agent_id before replacing it,
+            # Close any stale connection with the same agent_id before replacing it,
             # so the socket does not remain half-open and the old task can exit cleanly.
             old_websocket = self.active_connections[agent_id]
             try:
