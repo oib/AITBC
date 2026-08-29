@@ -13,3 +13,16 @@ Changed `MemoryDenyWriteExecute` to `no` in
 that snarkjs/Node requires RWX pages. Restarted `aitbc-coordinator-api` on
 `hub.aitbc` and validated that `/v1/zk/generate` and end-to-end ZK-gated jobs
 produce verified `receipt_model` proofs and release escrow.
+
+## Fix — `aitbc-miner` default offer command uses `--service-type` options
+
+The `aitbc market offer` command moved to option-style arguments
+(`--service-type`, `--model-or-variant`, `--price`), but
+`apps/miner/production_miner.py` still built the command with positional
+arguments. This caused every default offer refresh on `aitbc3` to fail with
+`Missing option '--service-type'`.
+
+Updated `publish_default_offers()` to pass the canonical option flags, keeping
+`--unit` and `--description` as before. With `MINER_WALLET_ADDRESS` exported as
+`SHOP_WALLET_ADDRESS`, the miner now successfully publishes (or skips when
+identical) the Whisper, FFmpeg, and Ollama default offers.
