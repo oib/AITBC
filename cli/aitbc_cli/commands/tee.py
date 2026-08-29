@@ -59,14 +59,26 @@ def _api_client(ctx) -> AITBCHTTPClient | None:
     return AITBCHTTPClient(**client_kwargs)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc tee status --enclave-id enclave-1
+
+  aitbc tee launch --enclave-id enclave-1 --image my-image"""
+)
 def tee():
-    """Trusted Execution Environment (TEE) commands."""
+    """Manage Trusted Execution Environment (TEE) enclaves: attest, launch, register, verify, and check status."""
     pass
 
 
-@tee.command()
-@click.argument("enclave-id")
+@tee.command(
+    epilog="""Examples:
+
+  aitbc tee attest --enclave-id enclave-1
+
+  aitbc tee attest --enclave-id enclave-1 --measurement 0x..."""
+)
+@click.option("--enclave-id", "enclave_id", required=True, help="The Enclave-id.")
 @click.option("--measurement", default="", help="Expected enclave measurement")
 @click.option(
     "--key-file",
@@ -78,7 +90,7 @@ def tee():
 )
 @click.pass_context
 def attest(ctx, enclave_id: str, measurement: str, key_file: str):
-    """Generate a signed attestation quote for an enclave and submit it."""
+    """Attest a TEE enclave and verify its measurement."""
     try:
         signing_key = load_or_create_signing_key(key_file) if key_file else None
         generator = QuoteGenerator(enclave_id, signing_key=signing_key)
@@ -111,7 +123,13 @@ def attest(ctx, enclave_id: str, measurement: str, key_file: str):
         abort(ctx, f"Error generating attestation for {enclave_id}: {e}", from_exception=e)
 
 
-@tee.command()
+@tee.command(
+    epilog="""Examples:
+
+  aitbc tee keygen
+
+  aitbc tee keygen --key-file /etc/aitbc/tee.key"""
+)
 @click.option(
     "--key-file",
     required=True,
@@ -120,13 +138,7 @@ def attest(ctx, enclave_id: str, measurement: str, key_file: str):
 )
 @click.pass_context
 def keygen(ctx, key_file: str):
-    """Create a stable TEE signing key if one doesn't exist, and print its public key.
-
-    Part 4 of the 2026-08-24 TEE fix: pairs with 'aitbc tee attest --key-file'
-    and the miner's TEE_SIGNING_KEY_FILE. The printed public key is what
-    'aitbc tee register' pins verification to. Safe to re-run: an existing
-    key file is left untouched, only its public key is printed again.
-    """
+    """Generate a new TEE enclave signing key."""
     try:
         existed = os.path.exists(key_file)
         seed = load_or_create_signing_key(key_file)
@@ -141,12 +153,18 @@ def keygen(ctx, key_file: str):
         abort(ctx, f"Error generating key at {key_file}: {e}", from_exception=e)
 
 
-@tee.command()
-@click.argument("enclave-id")
+@tee.command(
+    epilog="""Examples:
+
+  aitbc tee launch --enclave-id enclave-1 --image my-image
+
+  aitbc tee launch --enclave-id enclave-1 --image my-image --key-file /etc/aitbc/tee.key"""
+)
+@click.option("--enclave-id", "enclave_id", required=True, help="The Enclave-id.")
 @click.option("--image", default="", help="Enclave image identifier")
 @click.pass_context
 def launch(ctx, enclave_id: str, image: str):
-    """Launch a TEE enclave (simulated when no TEE runtime is present)."""
+    """Launch a TEE enclave with a given image."""
     try:
         config = EnclaveConfig(enclave_id=enclave_id, image=image)
         enclave = Enclave(config=config)
@@ -183,7 +201,13 @@ def _resolve_quote_from_cli(ctx, quote: str, attestation_id: str, job_id: str) -
     return ""
 
 
-@tee.command()
+@tee.command(
+    epilog="""Examples:
+
+  aitbc tee verify --quote quote.bin
+
+  aitbc tee verify --attestation-id att-1 --measurement 0x..."""
+)
 @click.option("--quote", default="", help="Base64-encoded attestation quote")
 @click.option("--attestation-id", default="", help="Stored TEE attestation ID to verify")
 @click.option("--job-id", default="", help="Job whose tee_attestation_id will be verified")
@@ -192,7 +216,7 @@ def _resolve_quote_from_cli(ctx, quote: str, attestation_id: str, job_id: str) -
 @click.option("--mode", type=click.Choice(["zk_only", "tee_only", "both"]), default="tee_only", help="Verification mode")
 @click.pass_context
 def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, zk_proof: str, mode: str):
-    """Verify a signed TEE attestation quote from a job, attestation ID, or raw quote."""
+    """Verify a TEE quote, attestation, or zero-knowledge proof."""
     try:
         if not (quote or attestation_id or job_id):
             abort(ctx, "Provide --quote, --attestation-id, or --job-id")
@@ -238,8 +262,14 @@ def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, 
         abort(ctx, f"Error verifying quote: {e}", from_exception=e)
 
 
-@tee.command()
-@click.argument("enclave-id")
+@tee.command(
+    epilog="""Examples:
+
+  aitbc tee register --enclave-id enclave-1 --public-key '...'
+
+  aitbc tee register --enclave-id enclave-1 --public-key '...' --agent-id agent-1"""
+)
+@click.option("--enclave-id", "enclave_id", required=True, help="The Enclave-id.")
 @click.option("--public-key", default="", help="Base64-encoded Ed25519 public key for the enclave")
 @click.option(
     "--agent-id",
@@ -248,14 +278,7 @@ def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, 
 )
 @click.pass_context
 def register(ctx, enclave_id: str, public_key: str, agent_id: str):
-    """Register a TEE enclave identity with the coordinator.
-
-    Security fix (2026-08-24): this used to fabricate a random placeholder
-    key when --public-key was omitted. Once the coordinator pins future
-    quotes to whatever key is registered here, a placeholder with no
-    matching private key would permanently lock out real attestations for
-    this enclave_id -- so this now requires the real public key instead.
-    """
+    """Register a TEE enclave with its public key and optional agent ID."""
     try:
         client = _api_client(ctx)
         if client is None:
@@ -283,11 +306,17 @@ def register(ctx, enclave_id: str, public_key: str, agent_id: str):
         abort(ctx, f"Error registering enclave {enclave_id}: {e}", from_exception=e)
 
 
-@tee.command()
-@click.argument("enclave-id")
+@tee.command(
+    epilog="""Examples:
+
+  aitbc tee status --enclave-id enclave-1
+
+  aitbc tee status --enclave-id enclave-1 --output json"""
+)
+@click.option("--enclave-id", "enclave_id", required=True, help="The Enclave-id.")
 @click.pass_context
 def status(ctx, enclave_id: str):
-    """Get the registered status of a TEE enclave."""
+    """Check the status of a TEE enclave."""
     try:
         client = _api_client(ctx)
         if client is None:

@@ -8,18 +8,30 @@ from ..utils import output
 from ..utils.error_handling import abort
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc script list
+
+  aitbc script run --script-path /opt/aitbc/scripts/setup.sh"""
+)
 def script():
-    """Script execution and management"""
+    """Run scripts and list available scripts."""
     pass
 
 
-@script.command()
+@script.command(
+    epilog="""Examples:
+
+  aitbc script run --script-path /opt/aitbc/scripts/setup.sh
+
+  aitbc script run --script-path /opt/aitbc/scripts/setup.sh --args '--verbose'"""
+)
 @click.option("--script-path", required=True, help="Path to script file")
 @click.option("--args", help="Script arguments")
 @click.pass_context
 def run(ctx, script_path, args):
-    """Run a script"""
+    """Run a script with optional arguments."""
     try:
         import subprocess
 
@@ -36,11 +48,17 @@ def run(ctx, script_path, args):
         abort(ctx, f"Error running script: {e}", from_exception=e)
 
 
-@script.command()
+@script.command(
+    epilog="""Examples:
+
+  aitbc script list
+
+  aitbc script list --script-dir /opt/aitbc/scripts"""
+)
 @click.option("--script-dir", default="/opt/aitbc/scripts", help="Scripts directory")
 @click.pass_context
 def list(ctx, script_dir):
-    """List available scripts"""
+    """List available scripts in the script directory."""
     try:
         scripts_path = Path(script_dir)
         if not scripts_path.exists():
