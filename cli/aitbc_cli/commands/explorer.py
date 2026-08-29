@@ -11,9 +11,15 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc explorer chain-head
+
+  aitbc explorer block --height 100"""
+)
 def explorer():
-    """Blockchain Explorer commands - access blockchain data via Explorer API"""
+    """Explore the blockchain: blocks, transactions, addresses, providers, stats, and supported chains."""
     pass
 
 
@@ -23,10 +29,16 @@ def get_explorer_client() -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer chain-head
+
+  aitbc explorer chain-head --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", help="Chain ID to query")
 def chain_head(chain_id: str | None):
-    """Get current chain head (latest block)"""
+    """Get the current chain head and its latest block height."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -43,12 +55,18 @@ def chain_head(chain_id: str | None):
         error(f"Error getting chain head: {e}")
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer latest-blocks
+
+  aitbc explorer latest-blocks --limit 20 --offset 0"""
+)
 @click.option("--limit", default=10, help="Number of blocks to return")
 @click.option("--offset", default=0, help="Offset for pagination")
 @click.option("--chain-id", help="Chain ID to query")
 def latest_blocks(limit: int, offset: int, chain_id: str | None):
-    """Get latest blocks"""
+    """List the latest blocks with optional limit, offset, and chain filters."""
     try:
         client = get_explorer_client()
         params: dict[str, str | int | None] = {"limit": limit, "offset": offset}
@@ -66,12 +84,18 @@ def latest_blocks(limit: int, offset: int, chain_id: str | None):
         error(f"Error getting latest blocks: {e}")
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer non-empty-blocks
+
+  aitbc explorer non-empty-blocks --limit 20 --chain-id ait-mainnet"""
+)
 @click.option("--limit", default=10, help="Number of blocks to return")
 @click.option("--offset", default=0, help="Offset for pagination")
 @click.option("--chain-id", help="Chain ID to query")
 def non_empty_blocks(limit: int, offset: int, chain_id: str | None):
-    """Get non-empty blocks (blocks with transactions)"""
+    """List non-empty blocks with optional limit, offset, and chain filters."""
     try:
         client = get_explorer_client()
         params: dict[str, str | int | None] = {"limit": limit, "offset": offset}
@@ -89,11 +113,17 @@ def non_empty_blocks(limit: int, offset: int, chain_id: str | None):
         error(f"Error getting non-empty blocks: {e}")
 
 
-@explorer.command()
-@click.argument("height", type=int)
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer block --height 100
+
+  aitbc explorer block --height 100 --chain-id ait-mainnet"""
+)
+@click.option("--height", "height", required=True, type=int, help="The Height.")
 @click.option("--chain-id", help="Chain ID to query")
 def block(height: int, chain_id: str | None):
-    """Get block by height"""
+    """Get a block by its height on the specified chain."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -110,11 +140,17 @@ def block(height: int, chain_id: str | None):
         error(f"Error getting block: {e}")
 
 
-@explorer.command()
-@click.argument("block_hash")
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer block-by-hash --block-hash 0x...
+
+  aitbc explorer block-by-hash --block-hash 0x... --chain-id ait-mainnet"""
+)
+@click.option("--block-hash", "block_hash", required=True, help="The Block hash.")
 @click.option("--chain-id", help="Chain ID to query")
 def block_by_hash(block_hash: str, chain_id: str | None):
-    """Get block by hash"""
+    """Get a block by its hash on the specified chain."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -131,11 +167,17 @@ def block_by_hash(block_hash: str, chain_id: str | None):
         error(f"Error getting block by hash: {e}")
 
 
-@explorer.command()
-@click.argument("tx_hash")
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer transaction --tx-hash 0x...
+
+  aitbc explorer transaction --tx-hash 0x... --chain-id ait-mainnet"""
+)
+@click.option("--tx-hash", "tx_hash", required=True, help="The Tx hash.")
 @click.option("--chain-id", help="Chain ID to query")
 def transaction(tx_hash: str, chain_id: str | None):
-    """Get transaction by hash (alias for transaction-by-hash)"""
+    """Get a transaction summary by its hash."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -152,11 +194,17 @@ def transaction(tx_hash: str, chain_id: str | None):
         error(f"Error getting transaction: {e}")
 
 
-@explorer.command()
-@click.argument("tx_hash")
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer transaction-by-hash --tx-hash 0x...
+
+  aitbc explorer transaction-by-hash --tx-hash 0x... --chain-id ait-mainnet"""
+)
+@click.option("--tx-hash", "tx_hash", required=True, help="The Tx hash.")
 @click.option("--chain-id", help="Chain ID to query")
 def transaction_by_hash(tx_hash: str, chain_id: str | None):
-    """Get transaction by hash (full details)"""
+    """Get full transaction details by its hash."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -173,12 +221,18 @@ def transaction_by_hash(tx_hash: str, chain_id: str | None):
         error(f"Error getting transaction details: {e}")
 
 
-@explorer.command()
-@click.argument("address")
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer search-transactions --address 0x...
+
+  aitbc explorer search-transactions --address 0x... --limit 50"""
+)
+@click.option("--address", "address", required=True, help="Blockchain address to fund.")
 @click.option("--limit", default=100, help="Number of transactions to return")
 @click.option("--chain-id", help="Chain ID to query")
 def search_transactions(address: str, limit: int, chain_id: str | None):
-    """Search transactions by address or node ID"""
+    """Search transactions for an address with a result limit."""
     try:
         client = get_explorer_client()
         params = {"address": address, "limit": limit}
@@ -196,12 +250,18 @@ def search_transactions(address: str, limit: int, chain_id: str | None):
         error(f"Error searching transactions: {e}")
 
 
-@explorer.command()
-@click.argument("address")
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer blocks-by-address --address 0x...
+
+  aitbc explorer blocks-by-address --address 0x... --limit 20"""
+)
+@click.option("--address", "address", required=True, help="Blockchain address to fund.")
 @click.option("--limit", default=50, help="Number of blocks to return")
 @click.option("--chain-id", help="Chain ID to query")
 def blocks_by_address(address: str, limit: int, chain_id: str | None):
-    """Get blocks containing transactions for a given address"""
+    """Get blocks containing transactions for a given address."""
     try:
         client = get_explorer_client()
         params = {"address": address, "limit": limit}
@@ -219,11 +279,17 @@ def blocks_by_address(address: str, limit: int, chain_id: str | None):
         error(f"Error getting blocks by address: {e}")
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer activity-timeline
+
+  aitbc explorer activity-timeline --period 24h --chain-id ait-mainnet"""
+)
 @click.option("--period", default="24h", help="Time period (1h, 24h, 7d, 30d)")
 @click.option("--chain-id", help="Chain ID to query")
 def activity_timeline(period: str, chain_id: str | None):
-    """Get activity timeline (daily transaction counts)"""
+    """Get the daily transaction activity timeline for a period."""
     try:
         client = get_explorer_client()
         params = {"period": period}
@@ -243,10 +309,16 @@ def activity_timeline(period: str, chain_id: str | None):
         error(f"Error getting activity timeline: {e}")
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer network-stats
+
+  aitbc explorer network-stats --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", help="Chain ID to query")
 def network_stats(chain_id: str | None):
-    """Get network statistics (total AIT, active offers, unique nodes)"""
+    """Get network-wide statistics for a chain."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -263,11 +335,17 @@ def network_stats(chain_id: str | None):
         error(f"Error getting network stats: {e}")
 
 
-@explorer.command()
-@click.argument("provider_id")
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer provider-reputation --provider-id provider-1
+
+  aitbc explorer provider-reputation --provider-id provider-1 --chain-id ait-mainnet"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="The Provider id.")
 @click.option("--chain-id", help="Chain ID to query")
 def provider_reputation(provider_id: str, chain_id: str | None):
-    """Get provider reputation score"""
+    """Get reputation information for a provider by ID."""
     try:
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
@@ -284,11 +362,17 @@ def provider_reputation(provider_id: str, chain_id: str | None):
         error(f"Error getting provider reputation: {e}")
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer top-addresses
+
+  aitbc explorer top-addresses --limit 50 --chain-id ait-mainnet"""
+)
 @click.option("--limit", default=20, help="Number of addresses to return")
 @click.option("--chain-id", help="Chain ID to query")
 def top_addresses(limit: int, chain_id: str | None):
-    """Get top addresses by transaction count and volume"""
+    """List the top addresses by balance on a chain."""
     try:
         client = get_explorer_client()
         params: dict[str, str | int] = {"limit": limit}
@@ -306,9 +390,15 @@ def top_addresses(limit: int, chain_id: str | None):
         error(f"Error getting top addresses: {e}")
 
 
-@explorer.command()
+@explorer.command(
+    epilog="""Examples:
+
+  aitbc explorer chains
+
+  aitbc explorer chains --output json"""
+)
 def chains():
-    """List all supported chains"""
+    """List all supported chains and their basic configuration."""
     try:
         client = get_explorer_client()
         result = client.get("/api/chains")
