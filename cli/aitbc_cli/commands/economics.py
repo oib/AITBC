@@ -130,13 +130,19 @@ def propose(ctx, parameter, current, proposed, unit, proposer_id):
         abort(ctx, f"Error submitting economic proposal: {e}", from_exception=e)
 
 
-@economics.command()
-@click.argument("proposal-id")
+@economics.command(
+    epilog="""Examples:
+
+  aitbc economics vote --proposal-id prop-123 --vote for
+
+  aitbc economics vote --proposal-id prop-123 --vote against --voting-power 10"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal-id.")
 @click.option("--vote", type=click.Choice(["for", "against", "abstain"]), required=True, help="Vote choice")
 @click.option("--voting-power", default=1.0, help="Voting power to apply")
 @click.pass_context
 def vote(ctx, proposal_id, vote, voting_power):
-    """Vote on an OpenClaw DAO economic parameter proposal."""
+    """Vote for, against, or abstain on an OpenClaw DAO economic parameter proposal."""
     client = _api_client()
     try:
         if client is None:
@@ -153,11 +159,17 @@ def vote(ctx, proposal_id, vote, voting_power):
         abort(ctx, f"Error voting on proposal {proposal_id}: {e}", from_exception=e)
 
 
-@economics.command()
-@click.argument("proposal-id")
+@economics.command(
+    epilog="""Examples:
+
+  aitbc economics status --proposal-id prop-123
+
+  aitbc economics status --proposal-id prop-123 --output json"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal-id.")
 @click.pass_context
 def status(ctx, proposal_id):
-    """Show the status of an OpenClaw DAO economic parameter proposal."""
+    """Show the status of an OpenClaw DAO economic parameter proposal by proposal ID."""
     client = _api_client()
     try:
         if client is None:
