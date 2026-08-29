@@ -2,8 +2,9 @@
 Redis cache wrapper for distributed caching
 """
 
-import json
 from typing import Any
+
+import orjson
 
 from aitbc.aitbc_logging import get_logger
 
@@ -35,26 +36,21 @@ class RedisCache:
                 raw = self._client.get(key)
             except Exception as e:
                 logger.warning("Redis GET failed for key %s: %s", key, e)
-            else:
-                if raw is None:
-                    return None
-                if isinstance(raw, bytes):
-                    raw = raw.decode("utf-8")
-                try:
-                    return json.loads(raw)
-                except json.JSONDecodeError:
-                    # ponytail: legacy primitive stored without JSON encoding
-                    return raw
-                except Exception as e:
-                    logger.warning("Redis GET decode failed for key %s: %s", key, e)
-                    return raw
+                return None
+            if raw is None:
+                return None
+            try:
+                return orjson.loads(raw)
+            except Exception as e:
+                logger.warning("Redis GET decode failed for key %s: %s", key, e)
+                return None
         return self._data.get(key)
 
     def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         if self._client:
             try:
-                serialized = json.dumps(value)
-            except (TypeError, ValueError) as e:
+                serialized = orjson.dumps(value, default=str)
+            except (TypeError, ValueError, orjson.JSONEncodeError) as e:
                 logger.warning("Redis cache value for key %s is not JSON serializable: %s", key, e)
                 return False
             try:
@@ -81,12 +77,18 @@ _global_redis_cache: RedisCache | None = None
 
 
 def get_cache(
-    redis_url: str | None = None, max_connections: int = 10, timeout: int = 5, default_ttl: int = 3600
+    redis_url: str | None = None,
+    max_connections: int = 10,
+    timeout: int = 5,
+    default_ttl: int = 3600,
 ) -> RedisCache:
     """Get or create a Redis cache instance."""
     global _global_redis_cache
     if _global_redis_cache is None:
         _global_redis_cache = RedisCache(
-            redis_url=redis_url, max_connections=max_connections, timeout=timeout, default_ttl=default_ttl
+            redis_url=redis_url,
+            max_connections=max_connections,
+            timeout=timeout,
+            default_ttl=default_ttl,
         )
     return _global_redis_cache
