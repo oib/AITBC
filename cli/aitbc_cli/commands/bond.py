@@ -52,14 +52,26 @@ def _api_client(ctx, coordinator_url: str | None = None, timeout: int | None = N
     return AITBCHTTPClient(**client_kwargs)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc bond create --provider-id provider-1 --amount 100
+
+  aitbc bond status --provider-id provider-1"""
+)
 def bond():
-    """Provider performance bond lifecycle commands."""
+    """Manage provider performance bonds through their lifecycle: create, top-up, lock, release, slash, and appeal."""
     pass
 
 
-@bond.command()
-@click.argument("provider-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond create --provider-id provider-1 --amount 100
+
+  aitbc bond create --provider-id provider-1 --amount 100 --required-amount 200"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--amount", default="0.0", help="Amount to lock as a performance bond")
 @click.option("--required-amount", default="0.0", help="Required bond amount for this provider")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
@@ -84,8 +96,14 @@ def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, 
         abort(ctx, f"Error creating bond for {provider_id}: {e}", from_exception=e)
 
 
-@bond.command()
-@click.argument("provider-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond status --provider-id provider-1
+
+  aitbc bond status --provider-id provider-1 --output json"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -101,8 +119,14 @@ def status(ctx, provider_id, coordinator_url, format):
         abort(ctx, f"Error fetching bond status for {provider_id}: {e}", from_exception=e)
 
 
-@bond.command()
-@click.argument("provider-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond top-up --provider-id provider-1 --amount 50
+
+  aitbc bond top-up --provider-id provider-1 --amount 50 --bond-id bond-123"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--amount", default="0.0", help="Amount to add to the bond")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
 @click.option("--coordinator-url", help="Coordinator URL")
@@ -123,8 +147,14 @@ def top_up(ctx, provider_id, amount, bond_id, coordinator_url, format):
         abort(ctx, f"Error topping up bond for {provider_id}: {e}", from_exception=e)
 
 
-@bond.command()
-@click.argument("provider-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond lock --provider-id provider-1
+
+  aitbc bond lock --provider-id provider-1 --output json"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -140,13 +170,19 @@ def lock(ctx, provider_id, coordinator_url, format):
         abort(ctx, f"Error locking bond for {provider_id}: {e}", from_exception=e)
 
 
-@bond.command()
-@click.argument("provider-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond release --provider-id provider-1
+
+  aitbc bond release --provider-id provider-1 --output json"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def release(ctx, provider_id, coordinator_url, format):
-    """Release a locked provider bond."""
+    """Release a previously locked provider bond."""
     try:
         client = _api_client(ctx, coordinator_url)
         result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds/release")
@@ -157,14 +193,20 @@ def release(ctx, provider_id, coordinator_url, format):
         abort(ctx, f"Error releasing bond for {provider_id}: {e}", from_exception=e)
 
 
-@bond.command()
-@click.argument("provider-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond slash --provider-id provider-1 --reason 'missed deadline'
+
+  aitbc bond slash --provider-id provider-1"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--reason", default="", help="Reason for the slash")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def slash(ctx, provider_id, reason, coordinator_url, format):
-    """Slash a provider's bond."""
+    """Slash a provider's bond with an optional reason."""
     try:
         client = _api_client(ctx, coordinator_url)
         payload = {"reason": reason} if reason else {}
@@ -176,15 +218,21 @@ def slash(ctx, provider_id, reason, coordinator_url, format):
         abort(ctx, f"Error slashing bond for {provider_id}: {e}", from_exception=e)
 
 
-@bond.command()
-@click.argument("bond-id")
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond appeal --bond-id bond-123 --reason 'false positive'
+
+  aitbc bond appeal --bond-id bond-123 --reason 'false positive' --evidence ipfs://Qm..."""
+)
+@click.option("--bond-id", "bond_id", required=True, help="Bond ID.")
 @click.option("--reason", default="", help="Reason for the appeal")
 @click.option("--evidence", default="", help="Evidence URL or CID")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def appeal(ctx, bond_id, reason, evidence, coordinator_url, format):
-    """Appeal a slashing decision for a bond."""
+    """Appeal a slashing decision for a bond with optional evidence."""
     try:
         client = _api_client(ctx, coordinator_url)
         result = client.post(
