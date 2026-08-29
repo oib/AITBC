@@ -27,8 +27,8 @@ async def require_admin_api_key(
 ) -> dict[str, Any]:
     """Require an API key for admin/minting endpoints.
 
-    ponytail: In production, set WALLET_API_KEY (or reuse COORDINATOR_API_KEY)
-    and pass it as the X-API-Key header. The faucet is disabled by default.
+    In production, set WALLET_API_KEY (or reuse COORDINATOR_API_KEY) and pass it
+    as the X-API-Key header. The faucet is disabled by default.
     """
     authenticator = APIKeyAuthenticator(
         expected_key=config.api_key,

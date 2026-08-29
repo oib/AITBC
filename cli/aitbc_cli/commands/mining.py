@@ -63,18 +63,30 @@ def _client(rpc_url: str, wallet_address: str | None = None) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=rpc_url, headers=headers, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc mining start --wallet-name wallet-1
+
+  aitbc mining status --wallet wallet-1"""
+)
 def mining():
-    """Mining operations commands"""
+    """Start, stop, and monitor mining operations using a wallet."""
     pass
 
 
-@mining.command()
-@click.argument("wallet_name")
+@mining.command(
+    epilog="""Examples:
+
+  aitbc mining start --wallet-name wallet-1
+
+  aitbc mining start --wallet-name wallet-1 --threads 4"""
+)
+@click.option("--wallet-name", "wallet_name", required=True, help="The Wallet name.")
 @click.option("--threads", type=int, default=1, help="Number of mining threads")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def start(wallet_name: str, threads: int, rpc_url: str | None):
-    """Start mining with specified wallet"""
+    """Start mining with a specified wallet and optional thread count."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -104,11 +116,17 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
         error(f"Error: {e}")
 
 
-@mining.command()
+@mining.command(
+    epilog="""Examples:
+
+  aitbc mining stop
+
+  aitbc mining stop --wallet wallet-1"""
+)
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def stop(wallet_name: str | None, rpc_url: str | None):
-    """Stop mining"""
+    """Stop mining operations for a wallet."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -133,11 +151,17 @@ def stop(wallet_name: str | None, rpc_url: str | None):
         error(f"Error: {e}")
 
 
-@mining.command()
+@mining.command(
+    epilog="""Examples:
+
+  aitbc mining status
+
+  aitbc mining status --wallet wallet-1"""
+)
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def status(wallet_name: str | None, rpc_url: str | None):
-    """Get mining status"""
+    """Get the current mining status for a wallet."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -162,11 +186,18 @@ def status(wallet_name: str | None, rpc_url: str | None):
         error(f"Error: {e}")
 
 
-@mining.command(name="list")
+@mining.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc mining list
+
+  aitbc mining list --wallet wallet-1""",
+)
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def list_miners(wallet_name: str | None, rpc_url: str | None):
-    """List active miners"""
+    """List active miners for a wallet."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 

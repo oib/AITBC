@@ -27,18 +27,30 @@ def _monitoring_client(ctx: click.Context, timeout: int = 10) -> AITBCHTTPClient
     return AITBCHTTPClient(base_url=base_url, headers=headers, timeout=timeout)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc monitor dashboard
+
+  aitbc monitor metrics --period 24h"""
+)
 def monitor():
-    """Monitoring, metrics, and alerting commands"""
+    """Monitor coordinator services, view metrics, manage alerts, and inspect campaign statistics."""
     pass
 
 
-@monitor.command()
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor dashboard
+
+  aitbc monitor dashboard --refresh 5 --duration 60"""
+)
 @click.option("--refresh", type=int, default=5, help="Refresh interval in seconds")
 @click.option("--duration", type=int, default=0, help="Duration in seconds (0 = indefinite)")
 @click.pass_context
 def dashboard(ctx, refresh: int, duration: int):
-    """Real-time system dashboard"""
+    """Show a real-time system dashboard with service status."""
     start_time = time.time()
 
     try:
@@ -72,12 +84,18 @@ def dashboard(ctx, refresh: int, duration: int):
         console.print("\n[bold]Dashboard stopped[/bold]")
 
 
-@monitor.command()
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor metrics --period 24h
+
+  aitbc monitor metrics --period 7d --export /tmp/metrics.json"""
+)
 @click.option("--period", default="24h", help="Time period (1h, 24h, 7d, 30d)")
 @click.option("--export", "export_path", type=click.Path(), help="Export metrics to file")
 @click.pass_context
 def metrics(ctx, period: str, export_path: str | None):
-    """Collect and display system metrics"""
+    """Collect and display system metrics for a time period."""
     multipliers = {"h": 3600, "d": 86400}
     unit = period[-1]
     value = int(period[:-1])
@@ -110,7 +128,13 @@ def metrics(ctx, period: str, export_path: str | None):
     output(metrics_data, ctx.obj["output_format"])
 
 
-@monitor.command()
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor alerts --action list
+
+  aitbc monitor alerts --action create --name high-load --type cpu --threshold 90"""
+)
 @click.argument("action", type=click.Choice(["add", "list", "remove", "test"]))
 @click.option("--name", help="Alert name")
 @click.option(
@@ -123,7 +147,7 @@ def metrics(ctx, period: str, export_path: str | None):
 @click.option("--webhook", help="Webhook URL for notifications")
 @click.pass_context
 def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold: float | None, webhook: str | None):
-    """Configure monitoring alerts"""
+    """Configure or query monitoring alerts by name, type, and threshold."""
     alerts_dir = Path.home() / ".aitbc" / "alerts"
     alerts_dir.mkdir(parents=True, exist_ok=True)
     alerts_file = alerts_dir / "alerts.json"
@@ -194,11 +218,17 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
             output({"status": "no_webhook", "alert": alert}, ctx.obj["output_format"])
 
 
-@monitor.command()
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor history --period 24h
+
+  aitbc monitor history --period 7d"""
+)
 @click.option("--period", default="7d", help="Analysis period (1d, 7d, 30d)")
 @click.pass_context
 def history(ctx, period: str):
-    """Historical data analysis"""
+    """Show historical monitoring data for a period."""
     multipliers = {"h": 3600, "d": 86400}
     unit = period[-1]
     value = int(period[:-1])
@@ -232,14 +262,20 @@ def history(ctx, period: str):
     output(analysis, ctx.obj["output_format"])
 
 
-@monitor.command()
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor webhooks --action list
+
+  aitbc monitor webhooks --action create --name alert-hook --url https://example.com/hook --events alert"""
+)
 @click.argument("action", type=click.Choice(["add", "list", "remove", "test"]))
 @click.option("--name", help="Webhook name")
 @click.option("--url", help="Webhook URL")
 @click.option("--events", help="Comma-separated event types (job_completed,miner_offline,alert)")
 @click.pass_context
 def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | None):
-    """Manage webhook notifications"""
+    """Register, list, or remove monitoring webhooks."""
     webhooks_dir = Path.home() / ".aitbc" / "webhooks"
     webhooks_dir.mkdir(parents=True, exist_ok=True)
     webhooks_file = webhooks_dir / "webhooks.json"
@@ -349,11 +385,17 @@ def _ensure_campaigns():
     return campaigns_file
 
 
-@monitor.command()
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor campaigns
+
+  aitbc monitor campaigns --status active"""
+)
 @click.option("--status", type=click.Choice(["active", "ended", "all"]), default="all", help="Filter by status")
 @click.pass_context
 def campaigns(ctx, status: str):
-    """List active incentive campaigns"""
+    """List active or completed monitoring campaigns."""
     campaigns_file = _ensure_campaigns()
     with open(campaigns_file) as f:
         data = json.load(f)
@@ -378,11 +420,18 @@ def campaigns(ctx, status: str):
     output(campaign_list, ctx.obj["output_format"])
 
 
-@monitor.command(name="campaign-stats")
+@monitor.command(
+    name="campaign-stats",
+    epilog="""Examples:
+
+  aitbc monitor campaign-stats
+
+  aitbc monitor campaign-stats --campaign-id campaign-1""",
+)
 @click.argument("campaign_id", required=False)
 @click.pass_context
 def campaign_stats(ctx, campaign_id: str | None):
-    """Campaign performance metrics (TVL, participants, rewards)"""
+    """Show statistics for a monitoring campaign."""
     campaigns_file = _ensure_campaigns()
     with open(campaigns_file) as f:
         data = json.load(f)

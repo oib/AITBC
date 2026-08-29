@@ -1,7 +1,7 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
-  "total_modules": 12,
-  "total_lines": 3285,
+  "total_modules": 11,
+  "total_lines": 2792,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
       "lines": 189,
@@ -32,11 +32,6 @@
       "lines": 220,
       "verdict": "keep",
       "why": "Documented with a working usage example in docs/marketplace/advanced-marketplace/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
-    },
-    "apps/coordinator-api/src/coordinator_api/contexts/security/services/trading_surveillance.py": {
-      "lines": 493,
-      "verdict": "keep",
-      "why": "The security context has zero references in main.py -- it is unwired end to end. Retiring a whole bounded context is a larger decision than this guard should force."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/trading/domain/amm.py": {
       "lines": 360,
