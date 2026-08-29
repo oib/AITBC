@@ -26,18 +26,30 @@ def _api_client() -> AITBCHTTPClient | None:
     return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc compliance check
+
+  aitbc compliance classify --label 'Restricted PHI'"""
+)
 def compliance():
-    """Compliance policy, classification, and audit commands."""
+    """Check policies, classify data labels, and export compliance audit trails."""
     pass
 
 
-@compliance.command()
+@compliance.command(
+    epilog="""Examples:
+
+  aitbc compliance check --framework hipaa --classification phi
+
+  aitbc compliance check --framework gdpr --classification pii"""
+)
 @click.option("--framework", default="hipaa", help="Compliance framework to check against")
 @click.option("--classification", default="phi", help="Data classification label")
 @click.pass_context
 def check(ctx, framework: str, classification: str):
-    """Check whether a classification is allowed by a policy."""
+    """Check whether a data classification is allowed by a compliance policy."""
     try:
         policy = load_policy_template(ComplianceFramework(framework))
         label = normalize_classification(classification)
@@ -54,11 +66,17 @@ def check(ctx, framework: str, classification: str):
         abort(ctx, f"Error checking compliance: {e}", from_exception=e)
 
 
-@compliance.command()
-@click.argument("label")
+@compliance.command(
+    epilog="""Examples:
+
+  aitbc compliance classify --label 'Restricted PHI'
+
+  aitbc compliance classify --label 'public'"""
+)
+@click.option("--label", "label", required=True, help="The Label.")
 @click.pass_context
 def classify(ctx, label: str):
-    """Normalize a data classification label."""
+    """Normalize a data classification label to the canonical format."""
     try:
         normalized = normalize_classification(label)
         result = {
@@ -78,7 +96,14 @@ def classify(ctx, label: str):
         abort(ctx, f"Error normalizing classification {label}: {e}", from_exception=e)
 
 
-@compliance.command("export-audit")
+@compliance.command(
+    "export-audit",
+    epilog="""Examples:
+
+  aitbc compliance export-audit
+
+  aitbc compliance export-audit --output-file /tmp/audit.json""",
+)
 @click.option("--output-file", default="audit-export.json", help="File to write exported audit records")
 @click.pass_context
 def export_audit(ctx, output_file: str):
