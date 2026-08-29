@@ -14,13 +14,18 @@ from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import wallet
 
 
-@wallet.command(name="multisig-create")
-@click.argument("signers", nargs=-1, required=True)
+@wallet.command(
+    name="multisig-create",
+    epilog="""Examples:
+
+  aitbc wallet multisig-create --signers 0xA... --signers 0xB... --threshold 2 --name team-wallet""",
+)
+@click.option("--signers", "signers", required=True, multiple=True, help="One or more signer addresses.")
 @click.option("--threshold", type=int, required=True, help="Required signatures to approve")
 @click.option("--name", required=True, help="Multisig wallet name")
 @click.pass_context
 def multisig_create(ctx, signers: tuple, threshold: int, name: str):
-    """Create a multi-signature wallet"""
+    """Create a multi-signature wallet with a threshold and a list of signers."""
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
     multisig_path = wallet_dir / f"{name}_multisig.json"
@@ -62,14 +67,19 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     )
 
 
-@wallet.command(name="multisig-propose")
+@wallet.command(
+    name="multisig-propose",
+    epilog="""Examples:
+
+  aitbc wallet multisig-propose --wallet team-wallet --to-address 0xAbc... --amount 5.0""",
+)
 @click.option("--wallet", "wallet_name", required=True, help="Multisig wallet name")
-@click.argument("to_address")
-@click.argument("amount", type=DECIMAL)
+@click.option("--to-address", "to_address", required=True, help="Destination address.")
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--description", help="Transaction description")
 @click.pass_context
 def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, description: str | None):
-    """Propose a multisig transaction"""
+    """Propose a multi-signature payment to a destination address."""
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
@@ -116,13 +126,18 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
     )
 
 
-@wallet.command(name="multisig-sign")
+@wallet.command(
+    name="multisig-sign",
+    epilog="""Examples:
+
+  aitbc wallet multisig-sign --wallet team-wallet --tx-id tx-1234 --signer 0xAbc...""",
+)
 @click.option("--wallet", "wallet_name", required=True, help="Multisig wallet name")
-@click.argument("tx_id")
+@click.option("--tx-id", "tx_id", required=True, help="Transaction ID.")
 @click.option("--signer", required=True, help="Signer address")
 @click.pass_context
 def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
-    """Sign a pending multisig transaction"""
+    """Sign a pending multi-signature transaction with the given signer address."""
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 

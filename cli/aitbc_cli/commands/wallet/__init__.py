@@ -154,14 +154,20 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
     return wallet_data
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc wallet --wallet-name genesis balance
+
+  aitbc wallet send --to-address 0xAbc... --amount 1.5"""
+)
 @click.option("--wallet-name", help="Name of the wallet to use")
 @click.option("--wallet-path", help="Direct path to wallet file (overrides --wallet-name)")
 @click.option("--use-daemon", is_flag=True, default=True, help="Use wallet daemon for operations")
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bool, chain_id: str | None):
-    """Manage your wallets and transactions"""
+    """Create, manage, and transact with AITBC wallets on the active chain."""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
 
