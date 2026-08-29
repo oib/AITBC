@@ -5,7 +5,6 @@ ZK Proof generation service for privacy-preserving receipt attestation
 import asyncio
 import json
 import os
-import subprocess
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -510,20 +509,25 @@ class ZKProofService:
                 f.write(script)
                 script_file = f.name
             try:
-                # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
-                # This is acceptable for ZK proof verification (CPU-intensive, not a hot path), but could be improved
-                result = subprocess.run(
-                    ["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir), env=_node_env()
+                proc = await asyncio.create_subprocess_exec(
+                    "node",
+                    script_file,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(self.circuits_dir),
+                    env=_node_env(),
                 )
-                if result.returncode != 0:
-                    logger.error("Proof verification failed: %s", result.stderr)
+                stdout, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    error = stderr.decode()
+                    logger.error("Proof verification failed: %s", error)
                     return {
                         "verified": False,
                         "computation_correct": False,
                         "privacy_preserved": False,
-                        "error": result.stderr,
+                        "error": error,
                     }
-                is_verified = result.stdout.strip() == "true"
+                is_verified = stdout.decode().strip() == "true"
                 success_index = CIRCUIT_SUCCESS_SIGNALS.get(circuit_name)
                 if is_verified and success_index is not None:
                     if success_index == -1:
@@ -597,16 +601,18 @@ class ZKProofService:
             )
             script_file = f.name
         try:
-            result = subprocess.run(
-                ["node", script_file],
-                capture_output=True,
-                text=True,
+            proc = await asyncio.create_subprocess_exec(
+                "node",
+                script_file,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
                 cwd=str(self.circuits_dir),
                 env=_node_env(),
             )
-            if result.returncode != 0:
-                raise RuntimeError(f"Poseidon4 computation failed: {result.stderr}")
-            return int(result.stdout.strip())
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Poseidon4 computation failed: {stderr.decode()}")
+            return int(stdout.decode().strip())
         finally:
             os.unlink(script_file)
 
@@ -641,14 +647,18 @@ class ZKProofService:
                 f.write(script)
                 script_file = f.name
             try:
-                # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
-                # This is acceptable for ZK proof verification (CPU-intensive, not a hot path), but could be improved
-                result = subprocess.run(
-                    ["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir), env=_node_env()
+                proc = await asyncio.create_subprocess_exec(
+                    "node",
+                    script_file,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(self.circuits_dir),
+                    env=_node_env(),
                 )
-                if result.returncode != 0:
-                    raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {result.stderr}")
-                return dict(json.loads(result.stdout))
+                stdout, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {stderr.decode()}")
+                return dict(json.loads(stdout.decode()))
             finally:
                 os.unlink(script_file)
         finally:

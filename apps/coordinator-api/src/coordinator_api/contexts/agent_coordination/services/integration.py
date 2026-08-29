@@ -424,23 +424,39 @@ class AgentDeploymentManager:
             raise
 
     async def _deploy_agent_systemd(self, instance: AgentDeploymentInstance, config: AgentDeploymentConfig) -> None:
-        """Deploy agent instance using systemd service"""
-        # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
-        # This is acceptable for systemd deployment (not a hot path), but could be improved
+        """Deploy agent instance using systemd service asynchronously."""
         service_name = f"aitbc-agent-{instance.instance_id}"
         service_file = f"/etc/systemd/system/{service_name}.service"
         service_content = f'[Unit]\nDescription=AITBC Agent Instance {instance.instance_id}\nDocumentation=https://github.com/aitbc/blockchain\nAfter=network.target aitbc-blockchain-node.service\nRequires=aitbc-blockchain-node.service\n\n[Service]\nType=simple\nUser=root\nGroup=root\nWorkingDirectory=/opt/aitbc\nEnvironmentFile=/etc/aitbc/.env\nEnvironment="AGENT_ID={instance.instance_id}"\nEnvironment="AGENT_PORT={instance.port}"\nEnvironment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-agent-sdk/src:/opt/aitbc"\nEnvironment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"\nExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py\n\nRestart=always\nRestartSec=10\nStandardOutput=journal\nStandardError=journal\nSyslogIdentifier=AgentInstance-{instance.instance_id}\n\n# Security settings\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\n\n[Install]\nWantedBy=multi-user.target\n'
+
+        async def _exec(cmd: list[str]) -> None:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _stdout, stderr = await proc.communicate()
+            if proc.returncode is not None and proc.returncode != 0:
+                raise subprocess.CalledProcessError(proc.returncode, cmd, output=_stdout, stderr=stderr)
+
         try:
             with open(service_file, "w") as f:
                 f.write(service_content)
             os.chmod(service_file, 420)
-            subprocess.run(["systemctl", "daemon-reload"], check=True, capture_output=True)
-            subprocess.run(["systemctl", "enable", service_name], check=True, capture_output=True)
-            subprocess.run(["systemctl", "start", service_name], check=True, capture_output=True)
+            await _exec(["systemctl", "daemon-reload"])
+            await _exec(["systemctl", "enable", service_name])
+            await _exec(["systemctl", "start", service_name])
             max_wait = 30
             for _i in range(max_wait):
-                result = subprocess.run(["systemctl", "is-active", service_name], capture_output=True, text=True)
-                if result.stdout.strip() == "active":
+                proc = await asyncio.create_subprocess_exec(
+                    "systemctl",
+                    "is-active",
+                    service_name,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, _ = await proc.communicate()
+                if stdout.decode().strip() == "active":
                     logger.info("Service %s is active", service_name)
                     break
                 await asyncio.sleep(1)
@@ -458,8 +474,15 @@ class AgentDeploymentManager:
         """Check health of individual instance"""
         try:
             service_name = f"aitbc-agent-{instance.instance_id}"
-            result = subprocess.run(["systemctl", "is-active", service_name], capture_output=True, text=True)
-            service_active = result.stdout.strip() == "active"
+            proc = await asyncio.create_subprocess_exec(
+                "systemctl",
+                "is-active",
+                service_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            service_active = stdout.decode().strip() == "active"
             health_status = "unhealthy"
             response_time = 0.0
             if service_active and instance.endpoint_url:
@@ -557,20 +580,29 @@ class AgentDeploymentManager:
             raise
 
     async def _remove_deployment_instance(self, instance_id: str) -> None:
-        """Remove deployment instance"""
-        # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
-        # This is acceptable for systemd cleanup (not a hot path), but could be improved
+        """Remove deployment instance asynchronously."""
+
+        async def _exec(cmd: list[str]) -> None:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _stdout, stderr = await proc.communicate()
+            if proc.returncode is not None and proc.returncode != 0:
+                raise subprocess.CalledProcessError(proc.returncode, cmd, output=_stdout, stderr=stderr)
+
         try:
             instance = self.session.get(AgentDeploymentInstance, instance_id)
             if instance:
                 service_name = f"aitbc-agent-{instance.instance_id}"
                 service_file = f"/etc/systemd/system/{service_name}.service"
                 try:
-                    subprocess.run(["systemctl", "stop", service_name], check=True, capture_output=True)
-                    subprocess.run(["systemctl", "disable", service_name], check=True, capture_output=True)
+                    await _exec(["systemctl", "stop", service_name])
+                    await _exec(["systemctl", "disable", service_name])
                     if os.path.exists(service_file):
                         os.remove(service_file)
-                    subprocess.run(["systemctl", "daemon-reload"], check=True, capture_output=True)
+                    await _exec(["systemctl", "daemon-reload"])
                     logger.info("Removed systemd service: %s", service_name)
                 except subprocess.CalledProcessError as e:
                     logger.warning("Failed to remove systemd service %s: %s", service_name, e.stderr)
