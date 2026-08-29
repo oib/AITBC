@@ -105,18 +105,28 @@ def _initialize_tracing() -> None:
         import os
 
         from opentelemetry import trace
-        from opentelemetry.exporter.jaeger.thrift import JaegerExporter
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
-        jaeger_host = os.environ.get("JAEGER_HOST", "localhost")
-        jaeger_port = int(os.environ.get("JAEGER_PORT", 6831))
         trace.set_tracer_provider(TracerProvider())
         tracer_provider = trace.get_tracer_provider()
-        jaeger_exporter = JaegerExporter(agent_host_name=jaeger_host, agent_port=jaeger_port)
-        span_processor = BatchSpanProcessor(jaeger_exporter)
-        tracer_provider.add_span_processor(span_processor)  # type: ignore[attr-defined]
-        logger.info("Jaeger tracing exporter configured: %s:%s", jaeger_host, jaeger_port)
+
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+            endpoint = os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+            if endpoint:
+                exporter: ConsoleSpanExporter | OTLPSpanExporter = OTLPSpanExporter(endpoint=endpoint)
+            else:
+                logger.debug("OTEL_EXPORTER_OTLP_ENDPOINT not configured, falling back to console span exporter")
+                exporter = ConsoleSpanExporter()
+        except ImportError:
+            logger.debug("OTLP gRPC exporter not available, falling back to console span exporter")
+            exporter = ConsoleSpanExporter()
+
+        span_processor = BatchSpanProcessor(exporter)
+        tracer_provider.add_span_processor(span_processor)  # type: ignore[arg-type]
+        logger.info("Tracing exporter configured: %s", type(exporter).__name__)
     except ImportError:
         logger.warning("opentelemetry packages not installed, skipping tracing exporter")
     except Exception as e:

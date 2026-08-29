@@ -102,17 +102,24 @@ tenseal = {version = "0.3.16", optional = true, markers = "platform_machine == '
 idna = "3.18"
 hypothesis = "6.156.1"
 bcrypt = "4.3.0"
+eth-utils = "6.0.0"
+eth-keys = "0.8.0"
 mcp = "2.1.1"
 networkx = "3.4.2"
+ping3 = "5.1.5"
 # Optional search / sqlcipher / language / security extras
 meilisearch = {version = "0.43.0", optional = true}
 sqlcipher3-binary = {version = "0.6.0", optional = true}
 nltk = {version = "3.10.3", optional = true}
 spacy = {version = "3.8.16", optional = true}
+opentelemetry-sdk = {version = "1.44.0", optional = true}
+opentelemetry-exporter-otlp = {version = "1.44.0", optional = true}
 openai = {version = "1.78.1", optional = true}
 deepl = {version = "1.32.0", optional = true}
 google-cloud-translate = {version = "3.27.0", optional = true}
 langdetect = {version = "1.0.9", optional = true}
+fasttext = {version = "0.9.3", optional = true}
+polyglot = {version = "16.7.4", optional = true}
 detect-secrets = {version = "1.5.0", optional = true}
 zstandard = "0.23.0"
 ollama = "0.4.7"
@@ -140,6 +147,7 @@ tqdm = "4.68.1"
 ipython = "9.5.0"
 fakeredis = "2.36.2"
 openapi-spec-validator = "0.9.0"
+libcst = "1.9.0"
 pip-audit = "2.10.1"
 
 [tool.mypy]
@@ -558,8 +566,9 @@ fhe = ["tenseal"]
 ml = ["torch", "torchvision", "pillow", "opencv-python"]
 search = ["meilisearch"]
 sqlcipher = ["sqlcipher3-binary"]
-language = ["nltk", "spacy", "openai", "deepl", "google-cloud-translate", "langdetect"]
+language = ["nltk", "spacy", "openai", "deepl", "google-cloud-translate", "langdetect", "fasttext", "polyglot"]
 security = ["detect-secrets"]
+observability = ["opentelemetry-sdk", "opentelemetry-exporter-otlp"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
