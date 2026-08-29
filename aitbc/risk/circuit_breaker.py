@@ -83,7 +83,7 @@ class CircuitBreaker:
     @property
     def _effective_threshold(self) -> Decimal:
         """Normalize threshold to a 0–100 scale."""
-        # ponytail: thresholds <= 1 are treated as fractions; >1 as percentages.
+        # Thresholds <= 1 are treated as fractions; >1 as percentages.
         if self.threshold <= 1:
             return self.threshold * Decimal("100")
         return self.threshold

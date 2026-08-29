@@ -115,8 +115,8 @@ def liquidate_bond(
 ) -> LiquidationEvent:
     """Liquidate a bond and return a ``LiquidationEvent``.
 
-    ponytail: this helper only updates in-memory state; on-chain settlement and
-    slashing transfer are the responsibility of Agent B services.
+    This helper only updates in-memory state; on-chain settlement and slashing
+    transfer are the responsibility of Agent B services.
     """
     if bond.status in {BondStatus.RELEASED, BondStatus.LIQUIDATED}:
         raise LiquidationError(f"bond already {bond.status}")
