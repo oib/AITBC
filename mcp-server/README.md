@@ -71,6 +71,24 @@ pip install -r mcp-server/requirements.txt
 If you want a dedicated MCP venv instead, install the project and
 `mcp-server/requirements.txt` in it so `import aitbc` works.
 
+The live nodes also need the `aitbc` CLI. If it is not already at
+`/opt/aitbc/venv/bin/aitbc`, install it in the project venv:
+
+```bash
+cd /opt/aitbc
+source venv/bin/activate
+pip install -e cli/
+```
+
+To make `aitbc` callable from any directory on a node, either symlink it into
+a `PATH` directory or add the venv `bin/` directory to the SSH user's `PATH`:
+
+```bash
+ln -s /opt/aitbc/venv/bin/aitbc /usr/local/bin/aitbc
+# or, in the SSH user's shell profile:
+export PATH="/opt/aitbc/venv/bin:$PATH"
+```
+
 ## Devin configuration
 
 Add the server to your Devin project or user config:
@@ -83,6 +101,7 @@ Add the server to your Devin project or user config:
       "args": ["/opt/aitbc/mcp-server/aitbc_mcp_server.py"],
       "env": {
         "AITBC_MCP_SSH_USER": "oib",
+        "AITBC_MCP_AITBC_CLI": "/opt/aitbc/venv/bin/aitbc",
         "AITBC_MCP_LOG_LEVEL": "INFO"
       }
     }
@@ -105,6 +124,7 @@ and `mcp` importable):
       "command": "/home/oib/windsurf/aitbc/venv/bin/python",
       "args": ["/home/oib/windsurf/aitbc/mcp-server/aitbc_mcp_server.py"],
       "env": {
+        "AITBC_MCP_AITBC_CLI": "/home/oib/windsurf/aitbc/venv/bin/aitbc",
         "AITBC_MCP_LOG_LEVEL": "INFO"
       }
     }
@@ -172,7 +192,10 @@ Recommended `.devin/config.json`:
 
 * The MCP host (Devin) must be able to reach `aitbc3` and `hub.aitbc` via
   passwordless SSH.
-* The SSH user must be able to run `sudo -n /opt/aitbc/venv/bin/aitbc ...` and
+* The `aitbc` CLI must be installed on each live node and available at the
+  default path `/opt/aitbc/venv/bin/aitbc`, or wherever `AITBC_MCP_AITBC_CLI`
+  is configured to point (see [Installation](#installation) above).
+* The SSH user must be able to run `sudo -n <AITBC_MCP_AITBC_CLI> ...` and
   `sudo -n systemctl ...` on the live nodes.
 
 ## The aitbc CLI pivot

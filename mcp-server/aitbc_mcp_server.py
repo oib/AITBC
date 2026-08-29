@@ -66,7 +66,7 @@ SSH_OPTS = [
     "StrictHostKeyChecking=accept-new",
 ]
 
-AITBC_CLI = "/opt/aitbc/venv/bin/aitbc"
+AITBC_CLI = os.getenv("AITBC_MCP_AITBC_CLI", "/opt/aitbc/venv/bin/aitbc")
 
 # Scripts/cron jobs the server is allowed to execute.
 ALLOWED_SCRIPT_PREFIXES = (
