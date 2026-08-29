@@ -117,7 +117,8 @@ def get_exchange_orderbook(
     options: dict[str, str | None] = {}
     if limit is not None:
         options["limit"] = str(limit)
-    return _aitbc_cli_read_tool(role, host, "exchange-island", "orderbook", args=[pair], options=options)
+    options["pair"] = pair
+    return _aitbc_cli_read_tool(role, host, "exchange-island", "orderbook", options=options)
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -351,7 +352,8 @@ def get_node_island_info(
     options: dict[str, str | None] = {}
     if node_url is not None:
         options["node-url"] = node_url
-    return _aitbc_cli_read_tool(role, host, "node", "island-island-info", args=[island_id], options=options)
+    options["island-id"] = island_id
+    return _aitbc_cli_read_tool(role, host, "node", ["island", "island-info"], options=options)
 
 
 # ---------------------------------------------------------------------------
@@ -512,12 +514,12 @@ def download_ipfs(
     ] = None,
 ) -> str:
     """Download IPFS content by CID."""
-    options: dict[str, str | None] = {}
+    subcommand_options: dict[str, str | None] = {"cid": cid}
     if output is not None:
-        options["output"] = output
+        subcommand_options["output"] = output
     if wait:
-        options["wait"] = None
-    return _aitbc_cli_read_tool(role, host, "ipfs", "download", args=[cid], options=options, timeout=120)
+        subcommand_options["wait"] = None
+    return _aitbc_cli_read_tool(role, host, "ipfs", "download", options=subcommand_options, timeout=120)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -920,7 +922,8 @@ def get_market_service_ratings(
         options["limit"] = str(limit)
     if offset is not None:
         options["offset"] = str(offset)
-    return _aitbc_cli_read_tool(role, host, "market", "ratings", args=[service_id], options=options)
+    options["service-id"] = service_id
+    return _aitbc_cli_read_tool(role, host, "market", "ratings", options=options)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -996,7 +999,7 @@ def get_market_order_status(
     ] = None,
 ) -> str:
     """Show the status of a marketplace order."""
-    return _aitbc_cli_read_tool(role, host, "market", "status", args=[order_id])
+    return _aitbc_cli_read_tool(role, host, "market", "status", options={"order-id": order_id})
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1185,7 +1188,7 @@ def get_market_escrow_status(
         host,
         "market",
         ["escrow", "status"],
-        args=[job_id],
+        options={"job-id": job_id},
         group_options={"wallet": wallet},
     )
 
