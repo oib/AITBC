@@ -92,7 +92,7 @@ def marketplace():
 )
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def list_listings(format: str):
-    """List all marketplace listings."""
+    """List all available marketplace listings from the on-chain marketplace."""
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=30)
         data = http_client.get("/rpc/marketplace/listings")
@@ -251,12 +251,12 @@ def create_listing(wallet_name: str, item_type: str, price: Decimal, description
 @operations.group(
     epilog="""Examples:
 
-  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10
+  aitbc operations ai status
 
-  aitbc operations ai status"""
+  aitbc operations ai submit-job --wallet-name wallet-1 --job-type infer --prompt 'hello' --payment 10"""
 )
 def ai():
-    """Deprecated AI operations subgroup."""
+    """Deprecated AI operations subgroup for submitting and monitoring jobs."""
     pass
 
 
@@ -375,10 +375,10 @@ def cancel(job_id: str | None):
 
   aitbc operations agent list
 
-  aitbc operations agent register --agent-id agent-1"""
+  aitbc operations agent deregister --agent-id agent-1"""
 )
 def agent():
-    """Deprecated agent operations subgroup."""
+    """Deprecated agent operations subgroup for registering and messaging agents."""
     pass
 
 
@@ -846,7 +846,7 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def execute(ctx, proposal_id: str, format: str):
-    """Execute a passed governance proposal."""
+    """Execute a passed governance proposal on the blockchain."""
     config = get_config()
 
     try:

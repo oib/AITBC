@@ -15,8 +15,8 @@ from .reinvestment import ReinvestmentEngine, ReinvestmentPolicy
 def _publish_capacity_for_agent(agent_id: str, actions: list[Any]) -> None:
     """Best-effort capacity publish after a reinvestment action.
 
-    ponytail: If the GPU app publisher is not importable (e.g. not on PYTHONPATH)
-    the publish is skipped silently. Production should wire a real publisher.
+    If the GPU app publisher is not importable (e.g. not on PYTHONPATH) the
+    publish is skipped silently. Production should wire a real publisher.
     """
     try:
         from gpu_app.capacity_publisher import publish_capacity
@@ -31,9 +31,9 @@ def _publish_capacity_for_agent(agent_id: str, actions: list[Any]) -> None:
 class ReinvestmentWorker:
     """Poll a provider's earnings and dispatch reinvestment actions.
 
-    ponytail: This is a skeleton worker. A production implementation will plug
-    in a real earnings source (blockchain events, marketplace payouts) and an
-    on-chain transaction dispatcher.
+    This is a skeleton worker. A production implementation will plug in a real
+    earnings source (blockchain events, marketplace payouts) and an on-chain
+    transaction dispatcher.
     """
 
     def __init__(

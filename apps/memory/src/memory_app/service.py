@@ -1,7 +1,7 @@
 """Memory service business logic.
 
-ponytail: in-memory storage only. Persistence, distributed replication,
-and key management are upgrade paths for future releases.
+In-memory storage only. Persistence, distributed replication, and key
+management are upgrade paths for future releases.
 """
 
 from __future__ import annotations
@@ -33,9 +33,9 @@ def _derive_fernet_key(master_key: str, salt: bytes) -> bytes:
     Uses PBKDF2-HMAC-SHA256 with the provided salt instead of a raw SHA-256 digest,
     which closes the unsalted-KDF finding while remaining Fernet-compatible.
 
-    ponytail: the salt is generated per store instance. Because this service is
-    in-memory-only, a per-process salt is acceptable; persistence would require
-    storing the salt alongside each encrypted blob.
+    The salt is generated per store instance. Because this service is in-memory
+    only, a per-process salt is acceptable; persistence would require storing the
+    salt alongside each encrypted blob.
     """
     digest = hashlib.pbkdf2_hmac("sha256", master_key.encode("utf-8"), salt, 100_000, dklen=32)
     return base64.urlsafe_b64encode(digest)
@@ -54,8 +54,8 @@ class MemoryStore:
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}
         self._master_key: str | None = settings.memory_master_key
-        # ponytail: per-instance salt. For an in-memory service this is fine; persisted
-        # storage would require storing the salt with each encrypted blob.
+        # Per-instance salt. For an in-memory service this is fine; persisted storage
+        # would require storing the salt with each encrypted blob.
         self._salt: bytes = secrets.token_bytes(16)
         self._fernet = None
         if self._master_key:

@@ -41,20 +41,32 @@ def _save_listings(listings: list[dict[str, Any]]) -> None:
     LISTINGS_FILE.write_text(json.dumps(listings, indent=2))
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc oracle store --cid Qm... --price 10
+
+  aitbc oracle listings"""
+)
 @click.pass_context
 def oracle(ctx):
     """Local data oracle for agent data availability announcements."""
     ctx.ensure_object(dict)
 
 
-@oracle.command()
+@oracle.command(
+    epilog="""Examples:
+
+  aitbc oracle store --cid Qm... --price 10
+
+  aitbc oracle store --cid Qm... --price 10 --description 'training data'"""
+)
 @click.option("--cid", required=True, help="Content identifier to announce")
 @click.option("--price", required=True, help="Price for the data set (in AIT)")
 @click.option("--description", default="", help="Description of the data")
 @click.pass_context
 def store(ctx, cid: str, price: str, description: str):
-    """Announce a CID for sale on the data oracle."""
+    """Announce a CID for sale on the local data oracle."""
     if not (IPFS_DIR / cid).exists():
         result = {"success": False, "error": f"CID not found in local IPFS store: {cid}"}
         click.echo(json.dumps(result))
@@ -87,9 +99,15 @@ def store(ctx, cid: str, price: str, description: str):
     click.echo(json.dumps(result))
 
 
-@oracle.command()
+@oracle.command(
+    epilog="""Examples:
+
+  aitbc oracle listings
+
+  aitbc oracle listings --output json"""
+)
 @click.pass_context
 def listings(ctx):
-    """List active data oracle announcements."""
+    """List all active data oracle announcements."""
     result = {"success": True, "data": {"listings": _load_listings()}}
     click.echo(json.dumps(result))

@@ -48,13 +48,25 @@ def _prometheus_get(url: str, path: str, params: dict[str, Any] | None = None, t
         return {}
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc prometheus targets
+
+  aitbc prometheus query --expr 'up'"""
+)
 def prometheus():
-    """Query Prometheus and inspect scrape targets, rules, and alerts."""
+    """Query Prometheus, inspect targets, rules, alerts, and validate configuration."""
     pass
 
 
-@prometheus.command()
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus targets
+
+  aitbc prometheus targets --prometheus-url http://127.0.0.1:9090"""
+)
 @click.option("--prometheus-url", default=None, help="Prometheus base URL (default: http://127.0.0.1:9090)")
 @click.pass_context
 def targets(ctx: click.Context, prometheus_url: str | None):
@@ -79,7 +91,13 @@ def targets(ctx: click.Context, prometheus_url: str | None):
     output(result, ctx.obj["output_format"])
 
 
-@prometheus.command()
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus rules
+
+  aitbc prometheus rules --prometheus-url http://127.0.0.1:9090"""
+)
 @click.option("--prometheus-url", default=None, help="Prometheus base URL (default: http://127.0.0.1:9090)")
 @click.pass_context
 def rules(ctx: click.Context, prometheus_url: str | None):
@@ -98,14 +116,20 @@ def rules(ctx: click.Context, prometheus_url: str | None):
     output({"groups": result}, ctx.obj["output_format"])
 
 
-@prometheus.command()
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus alerts
+
+  aitbc prometheus alerts --watch --interval 15"""
+)
 @click.option("--prometheus-url", default=None, help="Prometheus base URL (default: http://127.0.0.1:9090)")
 @click.option("--watch", is_flag=True, help="Poll continuously and emit firing alerts")
 @click.option("--interval", type=int, default=15, help="Poll interval in seconds (watch mode)")
 @click.option("--emit/--no-emit", default=True, help="Emit one structured log line per firing alert (watch mode)")
 @click.pass_context
 def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval: int, emit: bool):
-    """Show current Prometheus alerts. In watch mode, emit each firing alert to stdout/journal."""
+    """Show current Prometheus alerts and optionally watch for firing alerts."""
     url = _prometheus_url(ctx, prometheus_url)
 
     def _fetch() -> list[dict[str, Any]]:
@@ -171,8 +195,14 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
         click.echo("\nWatch stopped")
 
 
-@prometheus.command()
-@click.argument("expr", required=True)
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus query --expr 'up'
+
+  aitbc prometheus query --expr 'up' --prometheus-url http://127.0.0.1:9090"""
+)
+@click.option("--expr", "expr", required=True, help="The Expr.")
 @click.option("--prometheus-url", default=None, help="Prometheus base URL (default: http://127.0.0.1:9090)")
 @click.option("--time", default=None, help="Evaluation timestamp (RFC3339 or Unix)")
 @click.option("--timeout", default=30, help="Query timeout in seconds")
@@ -187,7 +217,13 @@ def query(ctx: click.Context, expr: str, prometheus_url: str | None, time: str |
     output(data.get("data", {}), ctx.obj["output_format"])
 
 
-@prometheus.command()
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus check
+
+  aitbc prometheus check --config /etc/prometheus/prometheus.yml --rules /etc/prometheus/aitbc_rules.yml"""
+)
 @click.option("--config", "config_path", default="/etc/prometheus/prometheus.yml", help="Prometheus config file")
 @click.option("--rules", "rules_path", default="/etc/prometheus/aitbc_rules.yml", help="Prometheus rules file")
 @click.pass_context
@@ -237,11 +273,17 @@ def check(ctx: click.Context, config_path: str, rules_path: str):
         error("Prometheus config or rules validation failed")
 
 
-@prometheus.command()
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus series
+
+  aitbc prometheus series --prometheus-url http://127.0.0.1:9090"""
+)
 @click.option("--prometheus-url", default=None, help="Prometheus base URL (default: http://127.0.0.1:9090)")
 @click.pass_context
 def series(ctx: click.Context, prometheus_url: str | None):
-    """Show count of currently loaded metric series (cardinality check)."""
+    """Show the count of currently loaded metric series for cardinality."""
     url = _prometheus_url(ctx, prometheus_url)
     data = _prometheus_get(url, "/api/v1/label/__name__/values")
     names = data.get("data", [])
