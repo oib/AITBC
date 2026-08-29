@@ -16,13 +16,25 @@ from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logge
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc exchange register --name binance --api-key key
+
+  aitbc exchange status --exchange-name binance"""
+)
 def exchange():
-    """Exchange integration and trading management commands"""
+    """Register exchanges, create trading pairs, add liquidity, and monitor trading activity."""
     pass
 
 
-@exchange.command()
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange register --name binance --api-key key
+
+  aitbc exchange register --name binance --api-key key --secret-key secret --sandbox"""
+)
 @click.option("--name", required=True, help="Exchange name (e.g., Binance, Coinbase, Kraken)")
 @click.option("--api-key", required=True, help="Exchange API key")
 @click.option("--secret-key", help="Exchange API secret key")
@@ -30,7 +42,7 @@ def exchange():
 @click.option("--description", help="Exchange description")
 @click.pass_context
 def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool, description: str | None):
-    """Register a new exchange integration"""
+    """Register a new exchange integration with API credentials and optional sandbox mode."""
     exchange_config = {
         "name": name,
         "api_key": api_key,
@@ -60,7 +72,13 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
     output({"exchange": name, "status": "registered", "sandbox": sandbox, "created_at": exchange_config["created_at"]})
 
 
-@exchange.command()
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange create-pair --base-asset AITBC --quote-asset ETH --exchange binance
+
+  aitbc exchange create-pair --base-asset AITBC --quote-asset ETH --exchange binance --min-order-size 0.001"""
+)
 @click.option("--base-asset", required=True, help="Base asset symbol (e.g., AITBC)")
 @click.option("--quote-asset", required=True, help="Quote asset symbol (e.g., ETH)")
 @click.option("--exchange", required=True, help="Exchange name")
@@ -71,7 +89,7 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
 def create_pair(
     ctx, base_asset: str, quote_asset: str, exchange: str, min_order_size: float, price_precision: int, quantity_precision: int
 ):
-    """Create a new trading pair"""
+    """Create a new trading pair on a registered exchange with precision and minimum order size."""
     pair_symbol = f"{base_asset}/{quote_asset}"
 
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
@@ -106,7 +124,13 @@ def create_pair(
     output(pair_config)
 
 
-@exchange.command()
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange start-trading --pair AITBC/ETH --price 0.0001
+
+  aitbc exchange start-trading --pair AITBC/ETH --base-liquidity 10000 --quote-liquidity 10000"""
+)
 @click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/ETH)")
 @click.option("--price", type=DECIMAL, help="Initial price for the pair")
 @click.option("--base-liquidity", type=float, default=10000, help="Base asset liquidity amount")
@@ -114,7 +138,7 @@ def create_pair(
 @click.option("--exchange", help="Exchange name (if not specified, uses first available)")
 @click.pass_context
 def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, quote_liquidity: float, exchange: str | None):
-    """Start trading for a specific pair"""
+    """Start trading for a specific pair with optional initial price and liquidity."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
@@ -164,14 +188,20 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
     )
 
 
-@exchange.command()
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange monitor
+
+  aitbc exchange monitor --real-time --interval 30"""
+)
 @click.option("--pair", help="Trading pair symbol (e.g., AITBC/ETH)")
 @click.option("--exchange", help="Exchange name")
 @click.option("--real-time", is_flag=True, help="Enable real-time monitoring")
 @click.option("--interval", type=int, default=60, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interval: int):
-    """Monitor exchange trading activity"""
+    """Monitor exchange trading activity across registered pairs and exchanges."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
@@ -221,14 +251,20 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
         warning(f"Real-time monitoring enabled. Updates every {interval} seconds.")
 
 
-@exchange.command()
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange add-liquidity --pair AITBC/ETH --amount 1000
+
+  aitbc exchange add-liquidity --pair AITBC/ETH --amount 1000 --side buy"""
+)
 @click.option("--pair", required=True, help="Trading pair symbol (e.g., AITBC/ETH)")
 @click.option("--amount", type=DECIMAL, required=True, help="Liquidity amount")
 @click.option("--side", type=click.Choice(["buy", "sell"]), default="both", help="Side to provide liquidity")
 @click.option("--exchange", help="Exchange name")
 @click.pass_context
 def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | None):
-    """Add liquidity to a trading pair"""
+    """Add liquidity to a trading pair on the specified side."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered. Use 'aitbc exchange register' first.")
@@ -282,10 +318,16 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
     )
 
 
-@exchange.command()
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange list
+
+  aitbc exchange list --output json"""
+)
 @click.pass_context
 def list(ctx):
-    """List all registered exchanges and trading pairs"""
+    """List all registered exchanges and their trading pairs."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         warning("No exchanges registered.")
@@ -308,11 +350,17 @@ def list(ctx):
     output(exchange_list, title="Registered Exchanges")
 
 
-@exchange.command()
-@click.argument("exchange_name")
+@exchange.command(
+    epilog="""Examples:
+
+  aitbc exchange status --exchange-name binance
+
+  aitbc exchange status --exchange-name binance --output json"""
+)
+@click.option("--exchange-name", "exchange_name", required=True, help="The Exchange name.")
 @click.pass_context
 def status(ctx, exchange_name: str):
-    """Get status of a specific exchange"""
+    """Get the status and configuration of a specific registered exchange."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
         error("No exchanges registered.")
