@@ -25,9 +25,15 @@ logger = get_logger(__name__)
 def escrow_group():
     """Create and return the escrow group"""
 
-    @click.group()
+    @click.group(
+        epilog="""Examples:
+
+  aitbc market escrow status --job-id job-123
+
+  aitbc market escrow create --job-id job-123 --buyer 0x... --provider 0x..."""
+    )
     def escrow():
-        """Manage blockchain escrow for GPU jobs"""
+        """Manage on-chain escrow for GPU jobs."""
         pass
 
     return escrow
@@ -143,11 +149,16 @@ def _escrow_create(
         raise click.Abort() from e
 
 
-@escrow.command(name="release")
-@click.argument("job_id")
+@escrow.command(
+    name="release",
+    epilog="""Examples:
+
+  aitbc market escrow release --job-id job-123""",
+)
+@click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
 @click.pass_context
 def escrow_release(ctx, job_id: str):
-    """Release escrow funds to the provider after job completion"""
+    """Release escrow funds to the provider after job completion."""
     try:
         config = get_config()
         rpc_url = _get_blockchain_rpc_url(config)
@@ -248,20 +259,34 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
         raise click.Abort() from e
 
 
-@escrow.command(name="refund")
-@click.argument("job_id")
+@escrow.command(
+    name="refund",
+    epilog="""Examples:
+
+  aitbc market escrow refund --job-id job-123
+
+  aitbc market escrow refund --job-id job-123 --reason 'job_failed'""",
+)
+@click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.pass_context
 def escrow_refund(ctx, job_id: str, reason: str):
-    """Refund escrow back to the buyer (coordinator first, then blockchain fallback)."""
+    """Refund escrow back to the buyer."""
     refund_escrow(ctx, job_id, reason)
 
 
-@escrow.command(name="status")
-@click.argument("job_id")
+@escrow.command(
+    name="status",
+    epilog="""Examples:
+
+  aitbc market escrow status --job-id job-123
+
+  aitbc market escrow status --job-id job-123 --output json""",
+)
+@click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
 @click.pass_context
 def escrow_status(ctx, job_id: str):
-    """Check on-chain escrow state for a job"""
+    """Check the on-chain escrow state for a job."""
     try:
         config = get_config()
         rpc_url = _get_blockchain_rpc_url(config)
@@ -289,16 +314,23 @@ def escrow_status(ctx, job_id: str):
         raise click.Abort() from e
 
 
-@escrow.command(name="create")
-@click.argument("job_id")
-@click.argument("buyer")
-@click.argument("provider")
-@click.argument("amount", required=False)
+@escrow.command(
+    name="create",
+    epilog="""Examples:
+
+  aitbc market escrow create --job-id job-123 --buyer 0x... --provider 0x...
+
+  aitbc market escrow create --job-id job-123 --buyer 0x... --provider 0x... --amount 100""",
+)
+@click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
+@click.option("--buyer", "buyer", required=True, help="The Buyer.")
+@click.option("--provider", "provider", required=True, help="The Provider.")
+@click.option("--amount", "amount", required=False, help="Amount of AIT.")
 @click.option("--wallet", "wallet_name", help="Wallet name to sign the escrow lock")
 @click.option("--password", help="Wallet password")
 @click.pass_context
 def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, password):
-    """Create an on-chain escrow for a job"""
+    """Create an on-chain escrow for a job with buyer, provider, and optional amount."""
     try:
         from decimal import Decimal as _Decimal
         from ...utils.money import wallet_amount
