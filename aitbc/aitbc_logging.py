@@ -118,8 +118,8 @@ def _get_log_file_path(service_name: str) -> Path | None:
     if not log_dir:
         return None
     log_path = Path(log_dir)
-    # ponytail: refuse relative/placeholder env values to avoid writing a log
-    # tree into whatever directory happens to be the current working directory.
+    # Refuse relative/placeholder env values to avoid writing a log tree into
+    # whatever directory happens to be the current working directory.
     if not log_path.is_absolute():
         return None
     service_path = log_path / service_name
