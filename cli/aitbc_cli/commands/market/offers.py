@@ -175,7 +175,14 @@ def _discover_local_gpus() -> list[dict[str, Any]]:
         return []
 
 
-@market.command(name="list")
+@market.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc market list
+
+  aitbc market list --provider provider-1""",
+)
 @click.option("--provider", help="Filter by provider address")
 @click.option("--status", help="Filter by status (active, inactive)")
 @click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg)")
@@ -197,7 +204,7 @@ def list_offers(
     mine: bool,
     output_format: str,
 ):
-    """List blockchain marketplace offers and bids"""
+    """List blockchain marketplace offers and bids, optionally filtered."""
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
@@ -404,11 +411,17 @@ def list_offers(
         raise click.Abort() from e
 
 
-@market.command()
-@click.argument("order_ids", nargs=-1)
+@market.command(
+    epilog="""Examples:
+
+  aitbc market cancel --order-ids order-1
+
+  aitbc market cancel --order-ids order-1 order-2"""
+)
+@click.option("--order-ids", "order_ids", required=True, multiple=True, help="The Order ids.")
 @click.pass_context
 def cancel(ctx, order_ids: tuple[str, ...]):
-    """Cancel one or more hardware+software bundle offers"""
+    """Cancel one or more hardware and software bundle offers by order IDs."""
     try:
         config = get_config()
         credentials = safe_load_credentials()
@@ -465,11 +478,17 @@ def cancel(ctx, order_ids: tuple[str, ...]):
         raise click.Abort() from e
 
 
-@market.command()
-@click.argument("order_id")
+@market.command(
+    epilog="""Examples:
+
+  aitbc market status
+
+  aitbc market status --output json"""
+)
+@click.option("--order-id", "order_id", required=True, help="The Order id.")
 @click.pass_context
 def status(ctx, order_id: str):
-    """Check the status of a GPU order including on-chain escrow"""
+    """Check the status of a GPU order including on-chain escrow."""
     try:
         config = get_config()
         blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
@@ -538,11 +557,17 @@ def status(ctx, order_id: str):
         raise click.Abort() from e
 
 
-@market.command()
+@market.command(
+    epilog="""Examples:
+
+  aitbc market match
+
+  aitbc market match --output json"""
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def match(ctx, output_format: str):
-    """Match GPU bids with offers (price discovery)"""
+    """Match GPU bids with offers for price discovery."""
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
@@ -603,10 +628,16 @@ def match(ctx, output_format: str):
         raise click.Abort() from e
 
 
-@market.command()
+@market.command(
+    epilog="""Examples:
+
+  aitbc market providers
+
+  aitbc market providers --output json"""
+)
 @click.pass_context
 def providers(ctx):
-    """Query island members for GPU providers"""
+    """Query island members for available GPU providers."""
     try:
         # Load CLI config
         _ = get_config()
@@ -625,10 +656,23 @@ def providers(ctx):
 # ---------------------------------------------------------------------------
 
 
-@market.command(name="offer")
-@click.argument("service_type", type=click.Choice(["ollama", "whisper", "ffmpeg", "ipfs"]))
-@click.argument("model_or_variant")
-@click.argument("price", type=DECIMAL)
+@market.command(
+    name="offer",
+    epilog="""Examples:
+
+  aitbc market offer --service-type ollama --model-or-variant llama3 --price 1.0
+
+  aitbc market offer --service-type whisper --model-or-variant base --price 0.5""",
+)
+@click.option(
+    "--service-type",
+    "service_type",
+    required=True,
+    type=click.Choice(["ollama", "whisper", "ffmpeg", "ipfs"]),
+    help="The Service type.",
+)
+@click.option("--model-or-variant", "model_or_variant", required=True, help="The Model or variant.")
+@click.option("--price", "price", required=True, type=DECIMAL, help="The Price.")
 @click.option(
     "--unit",
     default="per_1k_tokens",
@@ -660,7 +704,7 @@ def offer(
     gpu_offer_id: str | None,
     disk_quota_mb: int | None,
 ):
-    """List a hardware+software bundle offer (Ollama/Whisper/FFmpeg/IPFS) in the marketplace"""
+    """List a hardware and software bundle offer in the marketplace."""
     try:
         config = get_config()
         chain_id = get_chain_id()

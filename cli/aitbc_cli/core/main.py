@@ -96,10 +96,17 @@ __version__ = "0.10.18"
 logger = get_logger(__name__)
 
 
-@click.command(name="list")
+@click.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc list
+
+  aitbc list --output json""",
+)
 @click.pass_context
 def list_wallets(ctx):
-    """Legacy wallet list alias"""
+    """Legacy alias for 'aitbc wallet list' that lists all locally stored wallets."""
     # Forward to the wallet group's list subcommand so global flags in ctx.obj are preserved.
     ctx.invoke(
         wallet,

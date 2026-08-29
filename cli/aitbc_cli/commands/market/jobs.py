@@ -630,9 +630,16 @@ def _run_ffmpeg(
         _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, "ffmpeg", result_hash)
 
 
-@market.command(name="run")
-@click.argument("offer_id_or_plugin_id")
-@click.argument("prompt")
+@market.command(
+    name="run",
+    epilog="""Examples:
+
+  aitbc market run --offer-id-or-plugin-id offer-1 --prompt 'hello'
+
+  aitbc market run --offer-id-or-plugin-id offer-1 --prompt 'hello' --max-tokens 256""",
+)
+@click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
+@click.option("--prompt", "prompt", required=True, help="The Prompt.")
 @click.option("--max-tokens", type=int, default=512, help="Max tokens to generate (Ollama)")
 @click.option("--stream", is_flag=True, default=False, help="Stream the response (Ollama)")
 @click.option("--language", default=None, help="Language code for Whisper (e.g. en, de)")
@@ -737,9 +744,16 @@ def run_job(
         raise click.Abort() from e
 
 
-@market.command(name="transcribe")
-@click.argument("offer_id_or_plugin_id")
-@click.argument("audio_file", type=click.Path(exists=True))
+@market.command(
+    name="transcribe",
+    epilog="""Examples:
+
+  aitbc market transcribe --offer-id-or-plugin-id offer-1 --audio-file /tmp/audio.mp3
+
+  aitbc market transcribe --offer-id-or-plugin-id offer-1 --audio-file /tmp/audio.mp3 --language en""",
+)
+@click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
+@click.option("--audio-file", "audio_file", required=True, type=click.Path(exists=True), help="The Audio file.")
 @click.option("--language", default=None, help="Language code (e.g. en, de, fr). Auto-detect if omitted.")
 @click.option(
     "--task", default="transcribe", type=click.Choice(["transcribe", "translate"]), help="transcribe or translate to English"
@@ -756,7 +770,7 @@ def transcribe_job(
     fmt: str,
     output_format: str,
 ):
-    """Transcribe audio using a Whisper software offer and pay metered escrow"""
+    """Transcribe audio using a Whisper software offer and pay metered escrow."""
     try:
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
@@ -767,9 +781,16 @@ def transcribe_job(
         raise click.Abort() from e
 
 
-@market.command(name="process")
-@click.argument("offer_id_or_plugin_id")
-@click.argument("input_file", type=click.Path(exists=True))
+@market.command(
+    name="process",
+    epilog="""Examples:
+
+  aitbc market process --offer-id-or-plugin-id offer-1 --input-file /tmp/in.mp4
+
+  aitbc market process --offer-id-or-plugin-id offer-1 --input-file /tmp/in.mp4 --output-container webm""",
+)
+@click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
+@click.option("--input-file", "input_file", required=True, type=click.Path(exists=True), help="The Input file.")
 @click.option("--output-container", "output_container", default="mp4", help="Output container format (e.g. mp4, webm)")
 @click.option("--codec", default="h264", help="Target codec (e.g. h264, vp9, av1)")
 @click.option("--resolution", default="1080p", help="Target resolution (e.g. 1080p, 720p, 480p)")
@@ -786,7 +807,7 @@ def process_video(
     bitrate: str,
     output_format: str,
 ):
-    """Process video using FFmpeg software offer and pay metered escrow"""
+    """Process a video using an FFmpeg software offer and pay metered escrow."""
     try:
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
