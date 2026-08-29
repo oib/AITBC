@@ -37,13 +37,25 @@ def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AIT
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc governance propose --title 'Increase block reward' --description '...'
+
+  aitbc governance list"""
+)
 def governance():
-    """Governance operations — on-chain proposals, voting, and execution"""
+    """Create, vote, execute, and inspect OpenClaw DAO governance proposals."""
     pass
 
 
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance propose --title 'Increase block reward' --description 'Raise reward to 12 AIT'
+
+  aitbc governance propose --title 'Update fee' --description 'Lower tx fee' --category economics"""
+)
 @click.option("--title", required=True, help="Proposal title")
 @click.option("--description", required=True, help="Proposal description")
 @click.option(
@@ -68,7 +80,7 @@ def propose(
     voting_days: int,
     format: str,
 ):
-    """Create a governance proposal"""
+    """Create a new governance proposal with title, description, and optional category."""
     from datetime import UTC, datetime, timedelta
 
     try:
@@ -101,7 +113,13 @@ def propose(
         error(f"Error creating proposal: {e}")
 
 
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance vote --proposal-id prop-123 --vote for
+
+  aitbc governance vote --proposal-id prop-123 --vote against --voting-power 100"""
+)
 @click.option("--proposal-id", required=True, help="Proposal ID to vote on")
 @click.option("--voter-id", required=True, help="Voter profile ID")
 @click.option("--vote", type=click.Choice(["for", "against", "abstain"]), required=True, help="Vote choice")
@@ -122,7 +140,7 @@ def vote(
     voting_power: float,
     format: str,
 ):
-    """Cast a vote on a governance proposal"""
+    """Vote for, against, or abstain on a governance proposal."""
     try:
         client = _get_client(ctx)
         vote_data = {
@@ -141,14 +159,20 @@ def vote(
         error(f"Error casting vote: {e}")
 
 
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance list
+
+  aitbc governance list --status active --category economics"""
+)
 @click.option("--status", default=None, help="Filter by status (draft, active, succeeded, defeated, executed, cancelled)")
 @click.option("--category", default=None, help="Filter by category")
 @click.option("--proposer-id", default=None, help="Filter by proposer ID")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list(ctx, status: str | None, category: str | None, proposer_id: str | None, format: str):
-    """List governance proposals"""
+    """List governance proposals with optional status, category, and proposer filters."""
     try:
         client = _get_client(ctx)
         params: dict[str, str] = {}
@@ -166,13 +190,19 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
         error(f"Error listing proposals: {e}")
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance execute --proposal-id prop-123
+
+  aitbc governance execute --proposal-id prop-123 --executor-address 0x..."""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--executor-address", default="", help="Executor wallet address (for on-chain execution)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def execute(ctx, proposal_id: str, executor_address: str, format: str):
-    """Execute a passed proposal (after timelock expires)"""
+    """Execute an approved governance proposal on-chain."""
     try:
         client = _get_client(ctx)
         query = ""
@@ -186,12 +216,18 @@ def execute(ctx, proposal_id: str, executor_address: str, format: str):
         error(f"Error executing proposal: {e}")
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance close --proposal-id prop-123
+
+  aitbc governance close --proposal-id prop-123 --output json"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def close(ctx, proposal_id: str, format: str):
-    """Close an active proposal and tally the result"""
+    """Close a governance proposal and tally the final votes."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/close")
@@ -202,11 +238,17 @@ def close(ctx, proposal_id: str, format: str):
         error(f"Error closing proposal: {e}")
 
 
-@governance.command()
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance status
+
+  aitbc governance status --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def status(ctx, format: str):
-    """Get governance service status and configuration"""
+    """Show the global status of the governance system."""
     try:
         client = _get_client(ctx)
         result = client.get("/v1/governance/status")
@@ -217,12 +259,18 @@ def status(ctx, format: str):
         error(f"Error getting governance status: {e}")
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance get --proposal-id prop-123
+
+  aitbc governance get --proposal-id prop-123 --output json"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def get(ctx, proposal_id: str, format: str):
-    """Get a specific governance proposal by ID"""
+    """Get details of a specific governance proposal."""
     try:
         client = _get_client(ctx)
         result = client.get(f"/v1/governance/proposals/{proposal_id}")
@@ -238,13 +286,19 @@ def get(ctx, proposal_id: str, format: str):
 # ============================================================================
 
 
-@governance.command()
-@click.argument("proposal_id")
+@governance.command(
+    epilog="""Examples:
+
+  aitbc governance propagate --proposal-id prop-123 --target-chains ait-side-1,ait-side-2
+
+  aitbc governance propagate --proposal-id prop-123 --target-chains ait-side-1"""
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--target-chains", required=True, help="Comma-separated list of target chain IDs")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def propagate(ctx, proposal_id: str, target_chains: str, format: str):
-    """Propagate a proposal to one or more target chains (v0.7.4)"""
+    """Propagate a governance proposal to a comma-separated list of target chains."""
     try:
         chains = [c.strip() for c in target_chains.split(",") if c.strip()]
         if not chains:
@@ -262,12 +316,19 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
         error(f"Error propagating proposal: {e}")
 
 
-@governance.command(name="aggregate-votes")
-@click.argument("proposal_id")
+@governance.command(
+    name="aggregate-votes",
+    epilog="""Examples:
+
+  aitbc governance aggregate-votes --proposal-id prop-123
+
+  aitbc governance aggregate-votes --proposal-id prop-123 --output json""",
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def aggregate_votes(ctx, proposal_id: str, format: str):
-    """Aggregate votes for a proposal from all chains (v0.7.4)"""
+    """Aggregate and tally cross-chain votes for a proposal."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
@@ -278,12 +339,19 @@ def aggregate_votes(ctx, proposal_id: str, format: str):
         error(f"Error aggregating votes: {e}")
 
 
-@governance.command(name="execute-cross-chain")
-@click.argument("proposal_id")
+@governance.command(
+    name="execute-cross-chain",
+    epilog="""Examples:
+
+  aitbc governance execute-cross-chain --proposal-id prop-123
+
+  aitbc governance execute-cross-chain --proposal-id prop-123 --output json""",
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def execute_cross_chain(ctx, proposal_id: str, format: str):
-    """Execute a proposal on all chains after approval (v0.7.4)"""
+    """Execute a governance proposal across target chains."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain")
