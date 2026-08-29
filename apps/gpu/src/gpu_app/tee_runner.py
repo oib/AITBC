@@ -1,7 +1,7 @@
 """GPU-side TEE confidential compute task runner for Agent B v0.14.1 B2.
 
-ponytail: This is a skeleton executor. Real deployment needs a TEE-capable
-GPU runtime (e.g. NVIDIA Confidential Computing or a local simulator) and a
+This is a skeleton executor. Real deployment needs a TEE-capable GPU runtime
+(e.g. NVIDIA Confidential Computing or a local simulator) and a
 remote-attestation handshake before any payload is decrypted.
 """
 

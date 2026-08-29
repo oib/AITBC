@@ -146,19 +146,33 @@ def _simulated_metrics() -> dict[str, Any]:
     }
 
 
-@click.group(name="reputation")
+@click.group(
+    name="reputation",
+    epilog="""Examples:
+
+  aitbc reputation profile --agent-id agent-1
+
+  aitbc reputation leaderboard""",
+)
 @click.pass_context
 def reputation(ctx):
-    """Reputation management commands"""
+    """Manage and query agent reputation profiles, trust scores, and feedback."""
     ctx.ensure_object(dict)
 
 
-@reputation.command("profile")
-@click.argument("agent_id")
+@reputation.command(
+    "profile",
+    epilog="""Examples:
+
+  aitbc reputation profile --agent-id agent-1
+
+  aitbc reputation profile --agent-id agent-1 --output json""",
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def get_profile(ctx, agent_id: str, format: str):
-    """Get reputation profile for an agent"""
+    """Get the reputation profile for an agent."""
     try:
         http_client = _coordinator_client(ctx)
         try:
@@ -195,12 +209,19 @@ def get_profile(ctx, agent_id: str, format: str):
         abort(ctx, f"Error getting reputation profile: {e}", from_exception=e)
 
 
-@reputation.command("trust-score")
-@click.argument("agent_id")
+@reputation.command(
+    "trust-score",
+    epilog="""Examples:
+
+  aitbc reputation trust-score --agent-id agent-1
+
+  aitbc reputation trust-score --agent-id agent-1 --output json""",
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def trust_score(ctx, agent_id: str, format: str):
-    """Get detailed trust score breakdown for an agent"""
+    """Get a detailed trust score breakdown for an agent."""
     try:
         http_client = _coordinator_client(ctx)
         try:
@@ -234,14 +255,21 @@ def trust_score(ctx, agent_id: str, format: str):
         abort(ctx, f"Error getting trust score: {e}", from_exception=e)
 
 
-@reputation.command("leaderboard")
+@reputation.command(
+    "leaderboard",
+    epilog="""Examples:
+
+  aitbc reputation leaderboard
+
+  aitbc reputation leaderboard --category trust_score --limit 20""",
+)
 @click.option("--category", default="trust_score", help="Category to rank by")
 @click.option("--limit", type=int, default=10, help="Number of results")
 @click.option("--region", default=None, help="Filter by region")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def leaderboard(ctx, category: str, limit: int, region: str | None, format: str):
-    """Get reputation leaderboard"""
+    """Get the agent reputation leaderboard."""
     try:
         params: dict[str, Any] = {"category": category, "limit": limit}
         if region:
@@ -284,11 +312,18 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
         abort(ctx, f"Error getting leaderboard: {e}", from_exception=e)
 
 
-@reputation.command("metrics")
+@reputation.command(
+    "metrics",
+    epilog="""Examples:
+
+  aitbc reputation metrics
+
+  aitbc reputation metrics --output json""",
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def metrics(ctx, format: str):
-    """Get overall reputation system metrics"""
+    """Get overall reputation system metrics."""
     try:
         http_client = _coordinator_client(ctx)
         try:
@@ -325,11 +360,16 @@ def metrics(ctx, format: str):
         abort(ctx, f"Error getting metrics: {e}", from_exception=e)
 
 
-@reputation.command("create-profile")
-@click.argument("agent_id")
+@reputation.command(
+    "create-profile",
+    epilog="""Examples:
+
+  aitbc reputation create-profile --agent-id agent-1""",
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 @click.pass_context
 def create_profile(ctx, agent_id: str):
-    """Create a new reputation profile for an agent"""
+    """Create a new reputation profile for an agent."""
     try:
         http_client = _coordinator_client(ctx)
         resp = http_client.post(_reputation_endpoint(f"/profile/{agent_id}"))
@@ -346,9 +386,16 @@ def create_profile(ctx, agent_id: str):
         abort(ctx, f"Error creating profile: {e}", from_exception=e)
 
 
-@reputation.command("feedback")
-@click.argument("agent_id")
-@click.argument("reviewer_id")
+@reputation.command(
+    "feedback",
+    epilog="""Examples:
+
+  aitbc reputation feedback --agent-id agent-1 --reviewer-id reviewer-1
+
+  aitbc reputation feedback --agent-id agent-1 --reviewer-id reviewer-1 --overall 5 --text 'great work'""",
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+@click.option("--reviewer-id", "reviewer_id", required=True, help="The Reviewer id.")
 @click.option("--overall", type=float, default=3.0, help="Overall rating (1-5)")
 @click.option("--performance", type=float, default=3.0, help="Performance rating (1-5)")
 @click.option("--communication", type=float, default=3.0, help="Communication rating (1-5)")
@@ -369,7 +416,7 @@ def add_feedback(
     text: str,
     tag: tuple,
 ):
-    """Add community feedback for an agent"""
+    """Add community feedback for an agent."""
     try:
         ratings = {
             "overall": overall,
