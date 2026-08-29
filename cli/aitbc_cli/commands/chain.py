@@ -13,13 +13,25 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc blockchain list
+
+  aitbc blockchain status --chain-id ait-mainnet"""
+)
 def chain():
-    """Multi-chain management commands"""
+    """Manage AITBC blockchains: list, create, migrate, backup, monitor, and control nodes."""
     pass
 
 
-@chain.command()
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain list
+
+  aitbc blockchain list --type main --sort nodes"""
+)
 @click.option(
     "--type", "chain_type", type=click.Choice(["main", "topic", "private", "all"]), default="all", help="Filter by chain type"
 )
@@ -35,11 +47,7 @@ def chain():
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL (used with --island)")
 @click.pass_context
 def list(ctx, chain_type, show_private, sort, island, node_url):
-    """List all available chains.
-
-    Use --island without a value to list the islands attached to the local node.
-    Use --island <ID> to filter chains by island ID.
-    """
+    """List all available chains with optional type, island, and sorting filters."""
     import asyncio
 
     # Bare --island: list attached islands from the node
@@ -117,12 +125,18 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
         abort(ctx, f"Error listing chains: {str(e)}", from_exception=e)
 
 
-@chain.command()
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain status --chain-id ait-mainnet
+
+  aitbc blockchain status --chain-id ait-mainnet --detailed --metrics"""
+)
 @click.option("--chain-id", help="Specific chain ID to check status (shows all if not specified)")
 @click.option("--detailed", is_flag=True, help="Show detailed status information")
 @click.pass_context
 def status(ctx, chain_id, detailed):
-    """Check status of chains"""
+    """Check the status and optional details or metrics of a chain."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -183,13 +197,19 @@ def status(ctx, chain_id, detailed):
         abort(ctx, f"Error getting chain status: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain info --chain-id ait-mainnet
+
+  aitbc blockchain info --chain-id ait-mainnet --detailed --metrics"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--detailed", is_flag=True, help="Show detailed information")
 @click.option("--metrics", is_flag=True, help="Show performance metrics")
 @click.pass_context
 def info(ctx, chain_id, detailed, metrics):
-    """Get detailed information about a chain"""
+    """Get detailed information and optional metrics about a chain."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -250,13 +270,19 @@ def info(ctx, chain_id, detailed, metrics):
         abort(ctx, f"Error getting chain info: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("config_file", type=click.Path(exists=True))
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain create --config-file /tmp/chain.json
+
+  aitbc blockchain create --config-file /tmp/chain.json --dry-run"""
+)
+@click.option("--config-file", "config_file", required=True, type=click.Path(exists=True), help="The Config file.")
 @click.option("--node", help="Target node for chain creation")
 @click.option("--dry-run", is_flag=True, help="Show what would be created without actually creating")
 @click.pass_context
 def create(ctx, config_file, node, dry_run):
-    """Create a new chain from configuration file"""
+    """Create a new chain from a JSON configuration file."""
     try:
         import yaml
 
@@ -306,13 +332,19 @@ def create(ctx, config_file, node, dry_run):
         abort(ctx, f"Error creating chain: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain delete --chain-id ait-mainnet --confirm
+
+  aitbc blockchain delete --chain-id ait-mainnet --force"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--force", is_flag=True, help="Force deletion without confirmation")
 @click.option("--confirm", is_flag=True, help="Confirm deletion")
 @click.pass_context
 def delete(ctx, chain_id, force, confirm):
-    """Delete a chain permanently"""
+    """Delete a chain permanently after confirmation."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -355,12 +387,16 @@ def delete(ctx, chain_id, force, confirm):
         abort(ctx, f"Error deleting chain: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
-@click.argument("node_id")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain add --chain-id ait-mainnet --node-id node-1"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
+@click.option("--node-id", "node_id", required=True, help="The Node id.")
 @click.pass_context
 def add(ctx, chain_id, node_id):
-    """Add a chain to a specific node"""
+    """Add a chain to a specific node."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -378,13 +414,19 @@ def add(ctx, chain_id, node_id):
         abort(ctx, f"Error adding chain to node: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
-@click.argument("node_id")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain remove --chain-id ait-mainnet --node-id node-1
+
+  aitbc blockchain remove --chain-id ait-mainnet --node-id node-1 --migrate"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
+@click.option("--node-id", "node_id", required=True, help="The Node id.")
 @click.option("--migrate", is_flag=True, help="Migrate to another node before removal")
 @click.pass_context
 def remove(ctx, chain_id, node_id, migrate):
-    """Remove a chain from a specific node"""
+    """Remove a chain from a specific node, optionally migrating first."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -400,15 +442,21 @@ def remove(ctx, chain_id, node_id, migrate):
         abort(ctx, f"Error removing chain from node: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
-@click.argument("from_node")
-@click.argument("to_node")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain migrate --chain-id ait-mainnet --from-node node-1 --to-node node-2
+
+  aitbc blockchain migrate --chain-id ait-mainnet --from-node node-1 --to-node node-2 --dry-run"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
+@click.option("--from-node", "from_node", required=True, help="The From node.")
+@click.option("--to-node", "to_node", required=True, help="The To node.")
 @click.option("--dry-run", is_flag=True, help="Show migration plan without executing")
 @click.option("--verify", is_flag=True, help="Verify migration after completion")
 @click.pass_context
 def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
-    """Migrate a chain between nodes"""
+    """Migrate a chain between two nodes with optional dry-run and verify."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -449,14 +497,20 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
         abort(ctx, f"Error during migration: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain backup --chain-id ait-mainnet
+
+  aitbc blockchain backup --chain-id ait-mainnet --path /var/backups --compress --verify"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--path", help="Backup directory path")
 @click.option("--compress", is_flag=True, help="Compress backup")
 @click.option("--verify", is_flag=True, help="Verify backup integrity")
 @click.pass_context
 def backup(ctx, chain_id, path, compress, verify):
-    """Backup chain data"""
+    """Back up chain data to a directory with optional compression and verify."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -482,13 +536,19 @@ def backup(ctx, chain_id, path, compress, verify):
         abort(ctx, f"Error during backup: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("backup_file", type=click.Path(exists=True))
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain restore --backup-file /tmp/backup.tar
+
+  aitbc blockchain restore --backup-file /tmp/backup.tar --node aitbc3"""
+)
+@click.option("--backup-file", "backup_file", required=True, type=click.Path(exists=True), help="The Backup file.")
 @click.option("--node", help="Target node for restoration")
 @click.option("--verify", is_flag=True, help="Verify restoration")
 @click.pass_context
 def restore(ctx, backup_file, node, verify):
-    """Restore chain from backup"""
+    """Restore a chain from a backup file on a target node."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -511,14 +571,20 @@ def restore(ctx, backup_file, node, verify):
         abort(ctx, f"Error during restoration: {str(e)}", from_exception=e)
 
 
-@chain.command()
-@click.argument("chain_id")
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain monitor --chain-id ait-mainnet
+
+  aitbc blockchain monitor --chain-id ait-mainnet --realtime --interval 10"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--realtime", is_flag=True, help="Real-time monitoring")
 @click.option("--export", help="Export monitoring data to file")
 @click.option("--interval", default=5, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, chain_id, realtime, export, interval):
-    """Monitor chain activity"""
+    """Monitor chain activity in real time or export snapshots."""
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
@@ -602,18 +668,20 @@ def monitor(ctx, chain_id, realtime, export, interval):
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
-@chain.command(name="sync-status")
+@chain.command(
+    name="sync-status",
+    epilog="""Examples:
+
+  aitbc blockchain sync-status
+
+  aitbc blockchain sync-status --chain-id ait-mainnet --node-url http://aitbc3:8202""",
+)
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--all-chains", is_flag=True, help="Show status for all supported chains (default: node's configured chains)")
 @click.option("--chain-id", default=None, help="Show status for a specific chain only")
 @click.pass_context
 def sync_status(ctx, node_url, all_chains, chain_id):
-    """Show synchronization status per chain (block height, last hash, sync source).
-
-    Queries the local node's /head and /network-info endpoints. When --all-chains
-    is set, iterates over every chain in the node's supported_chains list and
-    reports per-chain sync status. Use --chain-id to check a single chain.
-    """
+    """Show synchronization status per chain and connected node."""
     client = AITBCHTTPClient(base_url=node_url)
     try:
         network_info = client.get("/rpc/network-info")
@@ -684,17 +752,20 @@ def sync_status(ctx, node_url, all_chains, chain_id):
     output(rows, ctx.obj.get("output_format", "table"), title="Chain Sync Status")
 
 
-@chain.command(name="start")
-@click.argument("chain_id")
+@chain.command(
+    name="start",
+    epilog="""Examples:
+
+  aitbc blockchain start --chain-id ait-mainnet
+
+  aitbc blockchain start --chain-id ait-mainnet --type micro""",
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--type", "chain_type", type=click.Choice(["bilateral", "micro"]), default="micro", help="Chain type")
 @click.pass_context
 def start_cmd(ctx, chain_id, node_url, chain_type):
-    """Start a secondary chain on the local node (v0.6.4).
-
-    Sends a POST /chains/start request to the node's MultiChainManager.
-    The chain must not already be running and must not be the default chain.
-    """
+    """Start a secondary chain on the local node."""
     client = AITBCHTTPClient(base_url=node_url)
     try:
         result = client.post("/rpc/chains/start", json={"chain_id": chain_id, "chain_type": chain_type})
@@ -709,16 +780,19 @@ def start_cmd(ctx, chain_id, node_url, chain_type):
         abort(ctx, f"Failed to start chain {chain_id}: {result.get('message', 'unknown error')}")
 
 
-@chain.command(name="stop")
-@click.argument("chain_id")
+@chain.command(
+    name="stop",
+    epilog="""Examples:
+
+  aitbc blockchain stop --chain-id ait-mainnet
+
+  aitbc blockchain stop --chain-id ait-mainnet --node-url http://aitbc3:8202""",
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.pass_context
 def stop_cmd(ctx, chain_id, node_url):
-    """Stop a secondary chain on the local node (v0.6.4).
-
-    Sends a POST /chains/stop request to the node's MultiChainManager.
-    The default chain cannot be stopped.
-    """
+    """Stop a secondary chain on the local node."""
     client = AITBCHTTPClient(base_url=node_url)
     try:
         result = client.post("/rpc/chains/stop", json={"chain_id": chain_id, "chain_type": "micro"})
@@ -733,16 +807,19 @@ def stop_cmd(ctx, chain_id, node_url):
         abort(ctx, f"Failed to stop chain {chain_id}: {result.get('message', 'unknown error')}")
 
 
-@chain.command(name="instances")
+@chain.command(
+    name="instances",
+    epilog="""Examples:
+
+  aitbc blockchain instances
+
+  aitbc blockchain instances --island island-1""",
+)
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--island", default=None, help="Filter chains by island ID")
 @click.pass_context
 def instances_cmd(ctx, node_url, island):
-    """List all chain instances on the local node (v0.6.4).
-
-    Queries the node's /chains endpoint (MultiChainManager) for all chain
-    instances and their status. Use --island to filter by island ID.
-    """
+    """List all chain instances on the local node."""
     client = AITBCHTTPClient(base_url=node_url)
     try:
         result = client.get("/rpc/chains")
@@ -779,19 +856,33 @@ def instances_cmd(ctx, node_url, island):
 # ============================================================================
 
 
-@chain.group(name="consensus")
+@chain.group(
+    name="consensus",
+    epilog="""Examples:
+
+  aitbc blockchain consensus status --chain-id ait-mainnet
+
+  aitbc blockchain consensus validators --chain-id ait-mainnet""",
+)
 def consensus_group():
-    """Consensus-related commands (v0.7.4)"""
+    """Inspect consensus status, validators, and slashing history for a chain."""
     pass
 
 
-@consensus_group.command(name="status")
+@consensus_group.command(
+    name="status",
+    epilog="""Examples:
+
+  aitbc blockchain consensus status
+
+  aitbc blockchain consensus status --chain-id ait-mainnet --node-url http://aitbc3:8202""",
+)
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--chain-id", default="ait-hub", help="Chain ID to query consensus status for")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def consensus_status(ctx, node_url: str, chain_id: str, format: str):
-    """Show consensus mode, view, sequence, epoch, and fault tolerance (v0.7.5)"""
+    """Show consensus mode, view, sequence, epoch, and fault tolerance for a chain."""
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
@@ -819,13 +910,20 @@ def consensus_status(ctx, node_url: str, chain_id: str, format: str):
         error(f"Error getting consensus status: {e}")
 
 
-@consensus_group.command(name="validators")
+@consensus_group.command(
+    name="validators",
+    epilog="""Examples:
+
+  aitbc blockchain consensus validators
+
+  aitbc blockchain consensus validators --chain-id ait-mainnet --output json""",
+)
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--chain-id", default="ait-hub", help="Chain ID to query validators for")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def consensus_validators(ctx, node_url: str, chain_id: str, format: str):
-    """List active validators (address, stake, reputation, role, last_proposed) (v0.7.5)"""
+    """List active validators with address, stake, reputation, role, and last proposed."""
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
@@ -875,13 +973,20 @@ def _slash_rate(event: dict) -> str:
         return "N/A"
 
 
-@consensus_group.command(name="slashing-history")
+@consensus_group.command(
+    name="slashing-history",
+    epilog="""Examples:
+
+  aitbc blockchain consensus slashing-history
+
+  aitbc blockchain consensus slashing-history --chain-id ait-mainnet""",
+)
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--chain-id", default="ait-hub", help="Chain ID to query slashing history for")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def consensus_slashing_history(ctx, node_url: str, chain_id: str, format: str):
-    """Show slashing events (validator, condition, amount, block height) (v0.7.5)"""
+    """Show slashing events with validator, condition, amount, and block height."""
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
