@@ -42,7 +42,8 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         return body
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        # ponytail: actual body read limits chunked / spoofed Content-Length
+        # Read the actual request body; this enforces the size limit regardless of
+        # a chunked transfer or a spoofed Content-Length header.
         request._body = await self._read_body_with_limit(request)
 
         # Process request
