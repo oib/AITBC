@@ -237,14 +237,26 @@ def _lookup_ipfs_rental(access_key: str, access_secret: str) -> dict[str, Any] |
     return None
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc ipfs upload --file /tmp/data.txt
+
+  aitbc ipfs download --cid Qm..."""
+)
 @click.pass_context
 def ipfs(ctx):
-    """Content-addressed storage via IPFS (Kubo daemon with filesystem fallback)."""
+    """Upload, download, pin, and rent IPFS content via the Kubo daemon or filesystem fallback."""
     ctx.ensure_object(dict)
 
 
-@ipfs.command()
+@ipfs.command(
+    epilog="""Examples:
+
+  aitbc ipfs upload --file /tmp/data.txt
+
+  aitbc ipfs upload --file /tmp/data.txt --name 'my file' --pin"""
+)
 @click.option("--file", required=True, type=click.Path(exists=True, readable=True), help="File to upload")
 @click.option("--pin", is_flag=True, default=True, help="Pin uploaded content")
 @click.option("--name", default=None, help="Human-readable name for the upload")
@@ -307,8 +319,14 @@ def upload(ctx, file: str, pin: bool, name: str | None):
     click.echo(json.dumps({"success": True, "data": {"cid": cid, "size": len(data), "name": name or file_path.name}}))
 
 
-@ipfs.command()
-@click.argument("cid", required=False)
+@ipfs.command(
+    epilog="""Examples:
+
+  aitbc ipfs download --cid Qm...
+
+  aitbc ipfs download --cid Qm... --output /tmp/data.txt --wait"""
+)
+@click.option("--cid", "cid", required=False, help="The Cid.")
 @click.option("--output", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
 @click.option("--access-key", help="Rental access key (looks up CID from hub)")
@@ -324,12 +342,7 @@ def download(
     access_secret: str | None,
     rental_id: str | None,
 ):
-    """Download content by CID from the local Kubo daemon or filesystem fallback.
-
-    If --access-key and --access-secret are provided, the CID is resolved from
-    the hub marketplace service. If --rental-id is provided, the CID is resolved
-    from the local rental record.
-    """
+    """Download content by CID, access key, or rental ID and optionally write it to a file."""
     rental: dict[str, Any] | None = None
     token: dict[str, Any] | None = None
 
@@ -409,11 +422,17 @@ def download(
     click.echo(json.dumps({"success": True, "data": {"cid": cid, "file_path": file_path, "size": len(data)}}))
 
 
-@ipfs.command()
-@click.argument("cid")
+@ipfs.command(
+    epilog="""Examples:
+
+  aitbc ipfs pin --cid Qm...
+
+  aitbc ipfs pin --cid Qm... --output json"""
+)
+@click.option("--cid", "cid", required=True, help="The Cid.")
 @click.pass_context
 def pin(ctx, cid: str):
-    """Pin content by CID on the local Kubo daemon or the filesystem index."""
+    """Pin content by CID on the local Kubo daemon or filesystem index."""
     if _daemon_available():
         try:
             response = _api_post("/api/v0/pin/add", params={"arg": cid})
@@ -451,10 +470,17 @@ def pin(ctx, cid: str):
     click.echo(json.dumps({"success": True, "data": {"pinned": True, "cid": cid}}))
 
 
-@ipfs.command(name="list")
+@ipfs.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc ipfs list
+
+  aitbc ipfs list --output json""",
+)
 @click.pass_context
 def list_items(ctx):
-    """List pinned IPFS content from the local Kubo daemon or filesystem index."""
+    """List uploaded and pinned IPFS items."""
     if _daemon_available():
         try:
             response = _api_post("/api/v0/pin/ls", params={"stream": "true"}, stream=True)
@@ -488,9 +514,16 @@ def list_items(ctx):
 # ---------------------------------------------------------------------------
 
 
-@ipfs.command(name="host")
-@click.argument("offer_id_or_plugin_id")
-@click.argument("cid_or_file")
+@ipfs.command(
+    name="host",
+    epilog="""Examples:
+
+  aitbc ipfs host --offer-id-or-plugin-id offer-1 --cid-or-file Qm... --days 7
+
+  aitbc ipfs host --offer-id-or-plugin-id offer-1 --cid-or-file /tmp/data.txt --wallet wallet-1""",
+)
+@click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
+@click.option("--cid-or-file", "cid_or_file", required=True, help="The Cid or file.")
 @click.option("--days", type=int, default=1, help="Rental duration in days")
 @click.option("--wallet", "wallet_name", help="Wallet to pay for the rental")
 @click.option("--wallet-path", "wallet_path", help="Direct wallet file path")
@@ -509,7 +542,7 @@ def host(
     pin: bool,
     output_format: str,
 ):
-    """Rent IPFS hosting for a CID or file through a marketplace IPFS offer."""
+    """Host IPFS content for a marketplace offer or plugin for a number of days."""
     from .market.escrow import _escrow_create
     from .market.jobs import _resolve_offer
 
@@ -681,12 +714,19 @@ def host(
     output(rental, output_format, title="IPFS Rental")
 
 
-@ipfs.command(name="token")
-@click.argument("rental_id")
+@ipfs.command(
+    name="token",
+    epilog="""Examples:
+
+  aitbc ipfs token --rental-id rental-123
+
+  aitbc ipfs token --rental-id rental-123 --output json""",
+)
+@click.option("--rental-id", "rental_id", required=True, help="The Rental id.")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def token(ctx: click.Context, rental_id: str, output_format: str):
-    """Show the access credentials for an IPFS rental."""
+    """Get an access token for an IPFS rental."""
     output_format = resolve_output_format(ctx, output_format)
     rental = next((r for r in _load_rentals() if r.get("rental_id") == rental_id), None)
     if not rental:
@@ -708,7 +748,14 @@ def token(ctx: click.Context, rental_id: str, output_format: str):
     )
 
 
-@ipfs.command(name="rentals")
+@ipfs.command(
+    name="rentals",
+    epilog="""Examples:
+
+  aitbc ipfs rentals
+
+  aitbc ipfs rentals --output json""",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def rentals(ctx: click.Context, output_format: str):
@@ -718,14 +765,21 @@ def rentals(ctx: click.Context, output_format: str):
     output(items, output_format, title="IPFS Rentals")
 
 
-@ipfs.command(name="unpin")
-@click.argument("rental_id")
+@ipfs.command(
+    name="unpin",
+    epilog="""Examples:
+
+  aitbc ipfs unpin --rental-id rental-123
+
+  aitbc ipfs unpin --rental-id rental-123 --refund --reason 'buyer_requested'""",
+)
+@click.option("--rental-id", "rental_id", required=True, help="The Rental id.")
 @click.option("--refund", is_flag=True, help="Refund the escrow for this rental")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def unpin(ctx: click.Context, rental_id: str, refund: bool, reason: str, output_format: str):
-    """Unpin a CID and end an IPFS rental."""
+    """Unpin a CID and end an IPFS rental with an optional refund."""
     from .market.escrow import refund_escrow
 
     output_format = resolve_output_format(ctx, output_format)
