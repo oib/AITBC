@@ -18,20 +18,32 @@ from ..utils.simulation import make_rng
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc simulate blockchain --blocks 10
+
+  aitbc simulate run --scenario price"""
+)
 def simulate():
-    """Simulate blockchain scenarios and test environments"""
+    """Run simulations for blockchain, wallets, prices, networks, and AI jobs."""
     pass
 
 
-@simulate.command()
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate blockchain --blocks 10
+
+  aitbc simulate blockchain --blocks 10 --transactions 50 --delay 1"""
+)
 @click.option("--blocks", default=10, help="Number of blocks to simulate")
 @click.option("--transactions", default=50, help="Number of transactions per block")
 @click.option("--delay", default=1.0, help="Delay between blocks (seconds)")
 @click.option("--output", default="table", type=click.Choice(["table", "json", "yaml"]))
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def blockchain(blocks, transactions, delay, output, seed):
-    """Simulate blockchain block production and transactions"""
+    """Simulate blockchain block generation and transactions."""
     click.echo(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
 
     rng, use_real_sleeps = make_rng(seed)
@@ -87,14 +99,20 @@ def blockchain(blocks, transactions, delay, output, seed):
     click.echo(f"  Average TPS: {total_txs / (blocks * max(delay, 0.1)):.2f}")
 
 
-@simulate.command()
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate wallets --wallets 5
+
+  aitbc simulate wallets --wallets 5 --balance 1000 --transactions 10"""
+)
 @click.option("--wallets", default=5, help="Number of wallets to simulate")
 @click.option("--balance", default=1000.0, help="Initial balance for each wallet")
 @click.option("--transactions", default=20, help="Number of transactions to simulate")
 @click.option("--amount-range", default="1.0-100.0", help="Transaction amount range (min-max)")
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def wallets(wallets, balance, transactions, amount_range, seed):
-    """Simulate wallet creation and transactions"""
+    """Simulate wallet creation and transactions with configurable balance."""
     click.echo(f"Simulating {wallets} wallets with {balance:.2f} AIT initial balance")
 
     rng, _ = make_rng(seed)
@@ -141,14 +159,20 @@ def wallets(wallets, balance, transactions, amount_range, seed):
         click.echo(f"  {wallet['name']}: {wallet['balance']:.2f} AIT")
 
 
-@simulate.command()
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate price --price 1.0
+
+  aitbc simulate price --price 1.0 --volatility 0.1 --timesteps 100"""
+)
 @click.option("--price", default=100.0, help="Starting AIT price")
 @click.option("--volatility", default=0.05, help="Price volatility (0.0-1.0)")
 @click.option("--timesteps", default=100, help="Number of timesteps to simulate")
 @click.option("--delay", default=0.1, help="Delay between timesteps (seconds)")
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def price(price, volatility, timesteps, delay, seed):
-    """Simulate AIT price movements"""
+    """Simulate AIT price movements with configurable volatility."""
     click.echo(f"Simulating AIT price from {price:.2f} with {volatility:.2f} volatility")
 
     rng, use_real_sleeps = make_rng(seed)
@@ -185,13 +209,19 @@ def price(price, volatility, timesteps, delay, seed):
     click.echo(f"  Total Change: {((current_price - price) / price * 100):+.2f}%")
 
 
-@simulate.command()
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate network --nodes 10
+
+  aitbc simulate network --nodes 10 --network-delay 100 --failure-rate 0.05"""
+)
 @click.option("--nodes", default=3, help="Number of nodes to simulate")
 @click.option("--network-delay", default=0.1, help="Network delay in seconds")
 @click.option("--failure-rate", default=0.05, help="Node failure rate (0.0-1.0)")
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def network(nodes, network_delay, failure_rate, seed):
-    """Simulate network topology and node failures"""
+    """Simulate network nodes, delays, and failure rates."""
     click.echo(f"Simulating network with {nodes} nodes, {network_delay}s delay, {failure_rate:.2f} failure rate")
 
     rng, use_real_sleeps = make_rng(seed)
@@ -273,14 +303,20 @@ def network(nodes, network_delay, failure_rate, seed):
         click.echo(f"  {status_icon} {node['id']}: height {node['height']}, connections: {len(connected_to)}")
 
 
-@simulate.command()
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate ai-jobs --jobs 10
+
+  aitbc simulate ai-jobs --jobs 10 --models 'llama3' --duration-range '10-60'"""
+)
 @click.option("--jobs", default=10, help="Number of AI jobs to simulate")
 @click.option("--models", default="text-generation,image-generation", help="Available models (comma-separated)")
 @click.option("--duration-range", default="30-300", help="Job duration range in seconds (min-max)")
 @click.option("--delay", default=1.0, help="Delay between job status checks (seconds)")
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def ai_jobs(jobs, models, duration_range, delay, seed):
-    """Simulate AI job submission and processing"""
+    """Simulate AI job submissions and completions."""
     click.echo(f"Simulating {jobs} AI jobs with models: {models}")
 
     rng, use_real_sleeps = make_rng(seed)
@@ -360,13 +396,19 @@ def ai_jobs(jobs, models, duration_range, delay, seed):
             click.echo(f"    {model}: {count} jobs")
 
 
-@simulate.command()
-@click.argument("scenario")
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate run --scenario price
+
+  aitbc simulate run --scenario blockchain --params '{"blocks":10}'"""
+)
+@click.option("--scenario", "scenario", required=True, help="The Scenario.")
 @click.option("--params", help="Simulation parameters (JSON string)")
 @click.option("--async-run", is_flag=True, help="Run simulation asynchronously")
 @click.pass_context
 def run(ctx, scenario: str, params: str | None, async_run: bool):
-    """Run a simulation scenario via coordinator-api"""
+    """Run a named simulation scenario with optional parameters."""
     config = get_config()
 
     try:
@@ -389,11 +431,17 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
         ctx.exit(1)
 
 
-@simulate.command()
-@click.argument("simulation_id")
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate status --simulation-id sim-123
+
+  aitbc simulate status --simulation-id sim-123 --output json"""
+)
+@click.option("--simulation-id", "simulation_id", required=True, help="The Simulation id.")
 @click.pass_context
 def status(ctx, simulation_id: str):
-    """Get simulation status from coordinator-api"""
+    """Get the status of a running simulation."""
     config = get_config()
 
     try:
@@ -409,11 +457,17 @@ def status(ctx, simulation_id: str):
         ctx.exit(1)
 
 
-@simulate.command()
-@click.argument("simulation_id")
+@simulate.command(
+    epilog="""Examples:
+
+  aitbc simulate result --simulation-id sim-123
+
+  aitbc simulate result --simulation-id sim-123 --output json"""
+)
+@click.option("--simulation-id", "simulation_id", required=True, help="The Simulation id.")
 @click.pass_context
 def result(ctx, simulation_id: str):
-    """Get simulation results from coordinator-api"""
+    """Get the results of a completed simulation."""
     config = get_config()
 
     try:

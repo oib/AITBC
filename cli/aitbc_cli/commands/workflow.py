@@ -13,18 +13,30 @@ from ..config import get_config
 from ..utils import error, success
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc workflow list
+
+  aitbc workflow run --workflow-name gpu-marketplace"""
+)
 def workflow():
-    """Workflow management commands"""
+    """List, run, stop, and check the status of coordinator workflows."""
     pass
 
 
-@workflow.command()
-@click.argument("workflow_name")
+@workflow.command(
+    epilog="""Examples:
+
+  aitbc workflow run --workflow-name gpu-marketplace
+
+  aitbc workflow run --workflow-name ai-job-processing --config /tmp/workflow.yaml"""
+)
+@click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
 @click.option("--config", help="Workflow configuration file")
 @click.option("--dry-run", is_flag=True, help="Dry run without executing")
 def run(workflow_name: str, config: str | None, dry_run: bool):
-    """Run a workflow"""
+    """Run a workflow by name with optional configuration."""
     try:
         import httpx
 
@@ -78,10 +90,16 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         return
 
 
-@workflow.command()
+@workflow.command(
+    epilog="""Examples:
+
+  aitbc workflow list
+
+  aitbc workflow list --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 def list(format: str):
-    """List available workflows"""
+    """List all available workflows from the coordinator."""
     workflows = [
         {"name": "gpu-marketplace", "status": "active", "steps": 5},
         {"name": "ai-job-processing", "status": "active", "steps": 3},
@@ -96,10 +114,14 @@ def list(format: str):
             click.echo(f"  - {wf['name']}: {wf['status']} ({wf['steps']} steps)")
 
 
-@workflow.command()
-@click.argument("workflow_name")
+@workflow.command(
+    epilog="""Examples:
+
+  aitbc workflow status --workflow-name gpu-marketplace"""
+)
+@click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
 def status(workflow_name: str):
-    """Get workflow status"""
+    """Get the execution status of a workflow by name."""
     try:
         import httpx
 
@@ -133,10 +155,14 @@ def status(workflow_name: str):
         error(f"Error getting workflow status: {e}")
 
 
-@workflow.command()
-@click.argument("workflow_name")
+@workflow.command(
+    epilog="""Examples:
+
+  aitbc workflow stop --workflow-name exec-123"""
+)
+@click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
 def stop(workflow_name: str):
-    """Stop a running workflow"""
+    """Stop a running workflow by its execution ID."""
     try:
         import httpx
 

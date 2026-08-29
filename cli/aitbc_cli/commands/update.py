@@ -11,11 +11,17 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 UPDATE_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "update.sh"
 
 
-@click.command()
+@click.command(
+    epilog="""Examples:
+
+  aitbc update
+
+  aitbc update --remote origin --branch main"""
+)
 @click.option("--remote", default="origin", help="Git remote to pull from (default: origin)")
 @click.option("--branch", default="main", help="Branch to update to (default: main)")
 def update(remote: str, branch: str):
-    """Pull the latest code and run scripts/deployment/update.sh."""
+    """Pull the latest code from git and run the deployment update script."""
     git_dir = REPO_ROOT / ".git"
     if not git_dir.is_dir():
         error(f"{REPO_ROOT} is not a git repository. Install or clone AITBC first.")

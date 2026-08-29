@@ -269,7 +269,7 @@ def trust_score(ctx, agent_id: str, format: str):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def leaderboard(ctx, category: str, limit: int, region: str | None, format: str):
-    """Get the agent reputation leaderboard."""
+    """Get the agent reputation leaderboard ranked by category."""
     try:
         params: dict[str, Any] = {"category": category, "limit": limit}
         if region:
@@ -323,7 +323,7 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def metrics(ctx, format: str):
-    """Get overall reputation system metrics."""
+    """Get overall reputation system metrics and level distribution."""
     try:
         http_client = _coordinator_client(ctx)
         try:

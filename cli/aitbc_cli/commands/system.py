@@ -65,15 +65,25 @@ _PROCESS_ONLY_SERVICES = frozenset(
 _LISTING_FEE_UNITS = ait_to_units(Decimal("0.01"))
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc system check
+
+  aitbc system status"""
+)
 def system():
-    """System management commands"""
+    """Check AITBC service health, display configuration, and manage systemd services."""
     pass
 
 
-@system.command()
+@system.command(
+    epilog="""Examples:
+
+  aitbc system architect"""
+)
 def architect():
-    """System architecture analysis"""
+    """Display a summary of the AITBC system architecture."""
     click.echo("=== AITBC System Architecture ===")
     click.echo("✅ Data: /var/lib/aitbc/data")
     click.echo("✅ Config: /etc/aitbc")
@@ -81,9 +91,13 @@ def architect():
     click.echo("✅ Repository: Clean")
 
 
-@system.command()
+@system.command(
+    epilog="""Examples:
+
+  aitbc system audit"""
+)
 def audit():
-    """Audit system compliance"""
+    """Run a system audit and report compliance status."""
     click.echo("=== System Audit ===")
     click.echo("FHS Compliance: ✅")
     click.echo("Repository Clean: ✅")
@@ -230,12 +244,18 @@ def _check_wallet_balance(config) -> dict[str, Any] | None:
         return None
 
 
-@system.command()
+@system.command(
+    epilog="""Examples:
+
+  aitbc system check
+
+  aitbc system check --service blockchain-node"""
+)
 @click.option("--service", help="Check a specific systemd service")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def check(ctx: click.Context, service: str | None, output_format: str):
-    """Check AITBC systemd service health and the active wallet balance."""
+    """Check AITBC systemd service health and active wallet balance."""
     output_format = resolve_output_format(ctx, output_format)
     config = get_config()
 
@@ -281,11 +301,17 @@ def check(ctx: click.Context, service: str | None, output_format: str):
     output(results, output_format, title="System Health Check")
 
 
-@system.command()
+@system.command(
+    epilog="""Examples:
+
+  aitbc system restart --service blockchain-node
+
+  aitbc system restart --service wallet"""
+)
 @click.option("--service", required=True, help="Service to restart (e.g., blockchain-node, wallet)")
 @click.pass_context
 def restart(ctx, service: str):
-    """Restart a systemd service"""
+    """Restart a systemd service by name."""
     service_name = f"aitbc-{service}" if not service.startswith("aitbc-") else service
 
     try:
@@ -303,10 +329,16 @@ def restart(ctx, service: str):
         error(f"Error restarting service: {e}")
 
 
-@system.command()
+@system.command(
+    epilog="""Examples:
+
+  aitbc system status
+
+  aitbc system status --output json"""
+)
 @click.pass_context
 def status(ctx):
-    """Get system status from coordinator-api"""
+    """Get system status from the coordinator API."""
     config = get_config()
 
     try:
@@ -320,11 +352,17 @@ def status(ctx):
         error(f"Error fetching status: {e}")
 
 
-@system.command()
+@system.command(
+    epilog="""Examples:
+
+  aitbc system config
+
+  aitbc system config --show-secrets"""
+)
 @click.option("--show-secrets", is_flag=True, help="Show sensitive values like API keys")
 @click.pass_context
 def config(ctx, show_secrets: bool):
-    """Display system configuration from /etc/aitbc/blockchain.env"""
+    """Display AITBC system configuration from /etc/aitbc/blockchain.env."""
     config_path = Path("/etc/aitbc/blockchain.env")
 
     if not config_path.exists():
