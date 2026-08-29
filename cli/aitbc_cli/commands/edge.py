@@ -16,16 +16,28 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc edge status
+
+  aitbc edge island list"""
+)
 def edge():
-    """Edge API commands for island, GPU, database, serve, and metrics operations"""
+    """Edge API commands for island, GPU, database, serve, and metrics operations."""
     pass
 
 
-@edge.command()
+@edge.command(
+    epilog="""Examples:
+
+  aitbc edge status
+
+  aitbc edge status --output json"""
+)
 @click.pass_context
 def status(ctx):
-    """Get edge status from coordinator-api"""
+    """Get edge status from the coordinator API."""
     config = get_config()
 
     try:
@@ -39,10 +51,16 @@ def status(ctx):
         error(f"Error fetching edge status: {e}")
 
 
-@edge.command()
+@edge.command(
+    epilog="""Examples:
+
+  aitbc edge balance
+
+  aitbc edge balance --output json"""
+)
 @click.pass_context
 def balance(ctx):
-    """Get edge wallet balance from coordinator-api"""
+    """Get edge wallet balance from the coordinator API."""
     config = get_config()
 
     try:
@@ -56,13 +74,19 @@ def balance(ctx):
         error(f"Error fetching edge balance: {e}")
 
 
-@edge.command()
-@click.argument("to_address")
-@click.argument("amount", type=DECIMAL)
+@edge.command(
+    epilog="""Examples:
+
+  aitbc edge transfer --to-address 0x... --amount 100
+
+  aitbc edge transfer --to-address 0x... --amount 100 --note payment"""
+)
+@click.option("--to-address", "to_address", required=True, help="Destination address.")
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--note", help="Transfer note")
 @click.pass_context
 def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
-    """Transfer edge tokens to another address"""
+    """Transfer edge tokens to another address with an optional note."""
     config = get_config()
 
     try:
@@ -87,20 +111,32 @@ def get_edge_client():
     return httpx.Client(base_url=base_url, timeout=30.0)
 
 
-@edge.group()
+@edge.group(
+    epilog="""Examples:
+
+  aitbc edge island list
+
+  aitbc edge island get --island-id island-1"""
+)
 def island():
-    """Island operations via Edge API"""
+    """Manage and query edge islands, including join, leave, bridge, and list."""
     pass
 
 
-@island.command()
-@click.argument("island_id")
-@click.argument("island_name")
-@click.argument("chain_id")
+@island.command(
+    epilog="""Examples:
+
+  aitbc edge island join --island-id island-1 --island-name test --chain-id ait-mainnet --role follower
+
+  aitbc edge island join --island-id island-1 --island-name hub --chain-id ait-mainnet --role hub --is-hub"""
+)
+@click.option("--island-id", "island_id", required=True, help="The Island id.")
+@click.option("--island-name", "island_name", required=True, help="The Island name.")
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--role", default="compute-provider", help="Island role")
 @click.option("--is-hub", is_flag=True, help="Mark as hub node")
 def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: bool):
-    """Join an island"""
+    """Join an island with the given ID, name, chain, and role."""
     try:
         client = get_edge_client()
         response = client.post(
@@ -119,10 +155,14 @@ def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: boo
         error(f"Error joining island: {str(e)}")
 
 
-@island.command()
-@click.argument("island_id")
+@island.command(
+    epilog="""Examples:
+
+  aitbc edge island leave --island-id island-1"""
+)
+@click.option("--island-id", "island_id", required=True, help="The Island id.")
 def leave(island_id: str):
-    """Leave an island"""
+    """Leave an island by its ID."""
     try:
         client = get_edge_client()
         response = client.post("/v1/islands/leave", json={"island_id": island_id})
@@ -138,9 +178,16 @@ def leave(island_id: str):
         error(f"Error leaving island: {str(e)}")
 
 
-@island.command(name="list")
+@island.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc edge island list
+
+  aitbc edge island list --output json""",
+)
 def list_islands():
-    """List all islands"""
+    """List all registered edge islands and their basic info."""
     try:
         client = get_edge_client()
         response = client.get("/v1/islands/")
@@ -156,10 +203,16 @@ def list_islands():
         error(f"Error listing islands: {str(e)}")
 
 
-@island.command()
-@click.argument("island_id")
+@island.command(
+    epilog="""Examples:
+
+  aitbc edge island get --island-id island-1
+
+  aitbc edge island get --island-id island-1 --output json"""
+)
+@click.option("--island-id", "island_id", required=True, help="The Island id.")
 def get(island_id: str):
-    """Get island details"""
+    """Get details of a specific edge island."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/islands/{island_id}")
@@ -170,10 +223,16 @@ def get(island_id: str):
         error(f"Error getting island details: {str(e)}")
 
 
-@island.command()
-@click.argument("target_island_id")
+@island.command(
+    epilog="""Examples:
+
+  aitbc edge island bridge --target-island-id island-2
+
+  aitbc edge island bridge --target-island-id island-2 --output json"""
+)
+@click.option("--target-island-id", "target_island_id", required=True, help="The Target island id.")
 def bridge(target_island_id: str):
-    """Request bridge to another island"""
+    """Request a bridge to another island."""
     try:
         client = get_edge_client()
         response = client.post("/v1/islands/bridge", json={"target_island_id": target_island_id})
@@ -189,18 +248,30 @@ def bridge(target_island_id: str):
         error(f"Error requesting bridge: {str(e)}")
 
 
-@edge.group()
+@edge.group(
+    epilog="""Examples:
+
+  aitbc edge gpu list-gpus
+
+  aitbc edge gpu get-gpu --gpu-id gpu-1"""
+)
 def gpu():
-    """GPU operations via Edge API"""
+    """Manage and query edge GPU resources."""
     pass
 
 
-@gpu.command()
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc edge gpu list-gpus
+
+  aitbc edge gpu list-gpus --edge-optimized --min-memory-gb 16"""
+)
 @click.option("--architecture", help="Filter by GPU architecture")
 @click.option("--edge-optimized", is_flag=True, help="Filter edge-optimized GPUs")
 @click.option("--min-memory-gb", type=int, help="Minimum memory in GB")
 def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int | None):
-    """List available GPUs"""
+    """List available edge GPUs with optional architecture and memory filters."""
     try:
         client = get_edge_client()
         params: dict[str, str | int | bool] = {}
@@ -224,10 +295,16 @@ def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int
         error(f"Error listing GPUs: {str(e)}")
 
 
-@gpu.command()
-@click.argument("gpu_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc edge gpu get-gpu --gpu-id gpu-1
+
+  aitbc edge gpu get-gpu --gpu-id gpu-1 --output json"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 def get_gpu(gpu_id: str):
-    """Get GPU details"""
+    """Get details of a specific edge GPU."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/gpu/{gpu_id}")
@@ -238,10 +315,14 @@ def get_gpu(gpu_id: str):
         error(f"Error getting GPU details: {str(e)}")
 
 
-@gpu.command()
-@click.argument("gpu_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc edge gpu remove-gpu --gpu-id gpu-1"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 def remove_gpu(gpu_id: str):
-    """Remove GPU from listing"""
+    """Remove a GPU from the listing."""
     try:
         client = get_edge_client()
         response = client.delete(f"/v1/gpu/{gpu_id}")
@@ -252,10 +333,16 @@ def remove_gpu(gpu_id: str):
         error(f"Error removing GPU: {str(e)}")
 
 
-@gpu.command()
-@click.argument("miner_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc edge gpu scan-gpus --miner-id miner-1
+
+  aitbc edge gpu scan-gpus --miner-id miner-1 --output json"""
+)
+@click.option("--miner-id", "miner_id", required=True, help="The Miner id.")
 def scan_gpus(miner_id: str):
-    """Scan GPUs for a miner"""
+    """Scan GPUs for a miner by miner ID."""
     try:
         client = get_edge_client()
         response = client.post("/v1/gpu/scan", json={"miner_id": miner_id})
@@ -267,11 +354,17 @@ def scan_gpus(miner_id: str):
         error(f"Error scanning GPUs: {str(e)}")
 
 
-@gpu.command()
-@click.argument("gpu_id")
+@gpu.command(
+    epilog="""Examples:
+
+  aitbc edge gpu gpu-metrics --gpu-id gpu-1
+
+  aitbc edge gpu gpu-metrics --gpu-id gpu-1 --limit 50"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.option("--limit", type=int, default=100, help="Number of metrics to return")
 def gpu_metrics(gpu_id: str, limit: int):
-    """Get GPU metrics"""
+    """Get metrics for a specific edge GPU."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/gpu/{gpu_id}/metrics", params={"limit": limit})
@@ -282,18 +375,28 @@ def gpu_metrics(gpu_id: str, limit: int):
         error(f"Error getting GPU metrics: {str(e)}")
 
 
-@edge.group()
+@edge.group(
+    epilog="""Examples:
+
+  aitbc edge database list-dbs
+
+  aitbc edge database init-db --database-id db-1 --island-id island-1 --capacity-gb 100"""
+)
 def database():
-    """Database operations via Edge API"""
+    """Initialize, list, get, delete, and sync edge databases."""
     pass
 
 
-@database.command()
-@click.argument("database_id")
-@click.argument("island_id")
-@click.argument("capacity_gb", type=int)
+@database.command(
+    epilog="""Examples:
+
+  aitbc edge database init-db --database-id db-1 --island-id island-1 --capacity-gb 100"""
+)
+@click.option("--database-id", "database_id", required=True, help="The Database id.")
+@click.option("--island-id", "island_id", required=True, help="The Island id.")
+@click.option("--capacity-gb", "capacity_gb", required=True, type=int, help="The Capacity gb.")
 def init_db(database_id: str, island_id: str, capacity_gb: int):
-    """Initialize edge database"""
+    """Initialize a new edge database on an island."""
     try:
         client = get_edge_client()
         response = client.post(
@@ -311,10 +414,16 @@ def init_db(database_id: str, island_id: str, capacity_gb: int):
         error(f"Error initializing database: {str(e)}")
 
 
-@database.command()
+@database.command(
+    epilog="""Examples:
+
+  aitbc edge database list-dbs
+
+  aitbc edge database list-dbs --island-id island-1"""
+)
 @click.option("--island-id", help="Filter by island ID")
 def list_dbs(island_id: str | None):
-    """List edge databases"""
+    """List edge databases, optionally filtered by island."""
     try:
         client = get_edge_client()
         params = {}
@@ -334,10 +443,16 @@ def list_dbs(island_id: str | None):
         error(f"Error listing databases: {str(e)}")
 
 
-@database.command()
-@click.argument("database_id")
+@database.command(
+    epilog="""Examples:
+
+  aitbc edge database get-db --database-id db-1
+
+  aitbc edge database get-db --database-id db-1 --output json"""
+)
+@click.option("--database-id", "database_id", required=True, help="The Database id.")
 def get_db(database_id: str):
-    """Get database details"""
+    """Get details of a specific edge database."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/database/{database_id}")
@@ -348,10 +463,14 @@ def get_db(database_id: str):
         error(f"Error getting database details: {str(e)}")
 
 
-@database.command()
-@click.argument("database_id")
+@database.command(
+    epilog="""Examples:
+
+  aitbc edge database delete-db --database-id db-1"""
+)
+@click.option("--database-id", "database_id", required=True, help="The Database id.")
 def delete_db(database_id: str):
-    """Delete database"""
+    """Delete an edge database by its ID."""
     try:
         client = get_edge_client()
         response = client.delete(f"/v1/database/{database_id}")
@@ -362,10 +481,14 @@ def delete_db(database_id: str):
         error(f"Error deleting database: {str(e)}")
 
 
-@database.command()
-@click.argument("database_id")
+@database.command(
+    epilog="""Examples:
+
+  aitbc edge database sync-db --database-id db-1"""
+)
+@click.option("--database-id", "database_id", required=True, help="The Database id.")
 def sync_db(database_id: str):
-    """Sync database"""
+    """Sync an edge database by its ID."""
     try:
         client = get_edge_client()
         response = client.post(f"/v1/database/{database_id}/sync")
@@ -394,19 +517,31 @@ def sync_db(database_id: str):
         error(f"Error syncing database: {str(e)}")
 
 
-@edge.group()
+@edge.group(
+    epilog="""Examples:
+
+  aitbc edge serve list-requests
+
+  aitbc edge serve submit-request --gpu-id gpu-1 --model-name model-1 --input-data '{"x":1}'"""
+)
 def serve():
-    """Serve operations via Edge API"""
+    """Submit, list, cancel, and retrieve edge compute requests."""
     pass
 
 
-@serve.command()
-@click.argument("gpu_id")
-@click.argument("model_name")
-@click.argument("input_data")
+@serve.command(
+    epilog="""Examples:
+
+  aitbc edge serve submit-request --gpu-id gpu-1 --model-name model-1 --input-data '{"x":1}'
+
+  aitbc edge serve submit-request --gpu-id gpu-1 --model-name model-1 --input-data '{"x":1}' --priority high"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
+@click.option("--model-name", "model_name", required=True, help="The Model name.")
+@click.option("--input-data", "input_data", required=True, help="The Input data.")
 @click.option("--priority", default="normal", help="Request priority")
 def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str):
-    """Submit compute request"""
+    """Submit a compute request to a GPU with model name and input data."""
     try:
         import json
 
@@ -427,11 +562,17 @@ def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str)
         error(f"Error submitting compute request: {str(e)}")
 
 
-@serve.command()
+@serve.command(
+    epilog="""Examples:
+
+  aitbc edge serve list-requests
+
+  aitbc edge serve list-requests --gpu-id gpu-1 --status pending"""
+)
 @click.option("--gpu-id", help="Filter by GPU ID")
 @click.option("--status", help="Filter by status")
 def list_requests(gpu_id: str | None, status: str | None):
-    """List compute requests"""
+    """List compute requests, optionally filtered by GPU and status."""
     try:
         client = get_edge_client()
         params = {}
@@ -453,10 +594,16 @@ def list_requests(gpu_id: str | None, status: str | None):
         error(f"Error listing requests: {str(e)}")
 
 
-@serve.command()
-@click.argument("request_id")
+@serve.command(
+    epilog="""Examples:
+
+  aitbc edge serve get-request --request-id req-123
+
+  aitbc edge serve get-request --request-id req-123 --output json"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 def get_request(request_id: str):
-    """Get compute request details"""
+    """Get details of a specific compute request."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/serve/requests/{request_id}")
@@ -467,10 +614,14 @@ def get_request(request_id: str):
         error(f"Error getting request details: {str(e)}")
 
 
-@serve.command()
-@click.argument("request_id")
+@serve.command(
+    epilog="""Examples:
+
+  aitbc edge serve cancel-request --request-id req-123"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 def cancel_request(request_id: str):
-    """Cancel compute request"""
+    """Cancel a compute request by its ID."""
     try:
         client = get_edge_client()
         response = client.post(f"/v1/serve/requests/{request_id}/cancel")
@@ -481,10 +632,16 @@ def cancel_request(request_id: str):
         error(f"Error cancelling request: {str(e)}")
 
 
-@serve.command()
-@click.argument("request_id")
+@serve.command(
+    epilog="""Examples:
+
+  aitbc edge serve get-result --request-id req-123
+
+  aitbc edge serve get-result --request-id req-123 --output json"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 def get_result(request_id: str):
-    """Get compute result"""
+    """Get the result of a compute request by its ID."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/serve/requests/{request_id}/result")
@@ -495,17 +652,29 @@ def get_result(request_id: str):
         error(f"Error getting result: {str(e)}")
 
 
-@edge.group()
+@edge.group(
+    epilog="""Examples:
+
+  aitbc edge metrics list-metrics
+
+  aitbc edge metrics record --gpu-id gpu-1 --metrics '{"temp":60}'"""
+)
 def metrics():
-    """Metrics operations via Edge API"""
+    """Record, list, get, and delete edge GPU metrics."""
     pass
 
 
-@metrics.command()
-@click.argument("gpu_id")
-@click.argument("metrics")
+@metrics.command(
+    epilog="""Examples:
+
+  aitbc edge metrics record --gpu-id gpu-1 --metrics '{"temperature":60}'
+
+  aitbc edge metrics record --gpu-id gpu-1 --metrics '{"memory_used":1024}'"""
+)
+@click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
+@click.option("--metrics", "metrics", required=True, help="The Metrics.")
 def record(gpu_id: str, metrics: str):
-    """Record edge metrics"""
+    """Record metrics for a GPU as a JSON object."""
     try:
         import json
 
@@ -523,11 +692,17 @@ def record(gpu_id: str, metrics: str):
         error(f"Error recording metrics: {str(e)}")
 
 
-@metrics.command()
+@metrics.command(
+    epilog="""Examples:
+
+  aitbc edge metrics list-metrics
+
+  aitbc edge metrics list-metrics --gpu-id gpu-1 --limit 50"""
+)
 @click.option("--gpu-id", help="Filter by GPU ID")
 @click.option("--limit", type=int, default=100, help="Number of metrics to return")
 def list_metrics(gpu_id: str | None, limit: int):
-    """List edge metrics"""
+    """List edge metrics, optionally filtered by GPU."""
     try:
         client = get_edge_client()
         params: dict[str, str | int | None] = {"limit": limit}
@@ -547,10 +722,16 @@ def list_metrics(gpu_id: str | None, limit: int):
         error(f"Error listing metrics: {str(e)}")
 
 
-@metrics.command()
-@click.argument("metric_id")
+@metrics.command(
+    epilog="""Examples:
+
+  aitbc edge metrics get-metric --metric-id metric-123
+
+  aitbc edge metrics get-metric --metric-id metric-123 --output json"""
+)
+@click.option("--metric-id", "metric_id", required=True, help="The Metric id.")
 def get_metric(metric_id: str):
-    """Get metric details"""
+    """Get details of a specific edge metric."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/metrics/{metric_id}")
@@ -561,10 +742,14 @@ def get_metric(metric_id: str):
         error(f"Error getting metric details: {str(e)}")
 
 
-@metrics.command()
-@click.argument("metric_id")
+@metrics.command(
+    epilog="""Examples:
+
+  aitbc edge metrics delete-metric --metric-id metric-123"""
+)
+@click.option("--metric-id", "metric_id", required=True, help="The Metric id.")
 def delete_metric(metric_id: str):
-    """Delete metric"""
+    """Delete an edge metric by its ID."""
     try:
         client = get_edge_client()
         response = client.delete(f"/v1/metrics/{metric_id}")
