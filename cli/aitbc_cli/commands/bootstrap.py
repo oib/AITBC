@@ -10,18 +10,31 @@ from ..services.env_validator import validate_env
 from ..utils import output, success, warning
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc bootstrap bootstrap-env
+
+  aitbc bootstrap bootstrap-env --output /tmp/.env"""
+)
 def bootstrap():
-    """Bootstrap local development and configuration files."""
+    """Generate starter environment and configuration files for AITBC development."""
     pass
 
 
-@bootstrap.command("bootstrap-env")
+@bootstrap.command(
+    "bootstrap-env",
+    epilog="""Examples:
+
+  aitbc bootstrap bootstrap-env
+
+  aitbc bootstrap bootstrap-env --output /tmp/.env --overwrite""",
+)
 @click.option("--output", "output_path", default=".env", help="Output .env file path")
 @click.option("--overwrite", is_flag=True, help="Overwrite existing .env")
 @click.pass_context
 def bootstrap_env(ctx, output_path: str, overwrite: bool):
-    """Generate a starter .env file and validate it."""
+    """Generate a starter .env file and validate it, optionally overwriting an existing one."""
     target = Path(output_path)
     if target.exists() and not overwrite:
         warning(f"{output_path} already exists; use --overwrite to replace")
