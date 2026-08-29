@@ -37,6 +37,10 @@ def _kebab(name: str) -> str:
     return name.replace("_", "-")
 
 
+def _snake(name: str) -> str:
+    return name.replace("-", "_")
+
+
 def _human(name: str) -> str:
     return " ".join(name.replace("_", " ").split()).capitalize()
 
@@ -67,7 +71,7 @@ def _make_option_decorator(decorator: cst.Decorator) -> cst.Decorator:
 
     new_args: list[cst.Arg] = [
         cst.Arg(value=cst.SimpleString(f'"--{_kebab(var_name)}"')),
-        cst.Arg(value=cst.SimpleString(f'"{var_name}"')),
+        cst.Arg(value=cst.SimpleString(f'"{_snake(var_name)}"')),
     ]
 
     # required

@@ -214,18 +214,30 @@ def _model_for_job(job: dict[str, Any]) -> str:
     )
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc dashboard customer
+
+  aitbc dashboard shop"""
+)
 def dashboard():
-    """Operational dashboards for customers and shops."""
+    """Display operational dashboards for customers and shop operators."""
     pass
 
 
-@dashboard.command()
+@dashboard.command(
+    epilog="""Examples:
+
+  aitbc dashboard customer
+
+  aitbc dashboard customer --limit 10 --wallet-limit 5"""
+)
 @click.option("--limit", type=int, default=20, help="Number of recent jobs to show")
 @click.option("--wallet-limit", type=int, default=10, help="Number of wallet balances to show")
 @click.pass_context
 def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
-    """Customer dashboard: jobs, payments, and wallets."""
+    """Show the customer dashboard with jobs, payments, and wallet balances."""
     try:
         config = ctx.obj["config"]
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
@@ -308,12 +320,18 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
         raise click.Abort() from e
 
 
-@dashboard.command()
+@dashboard.command(
+    epilog="""Examples:
+
+  aitbc dashboard shop
+
+  aitbc dashboard shop --miner-id shop-1 --limit 20"""
+)
 @click.option("--miner-id", help="Miner ID for this shop (optional; defaults to island id)")
 @click.option("--limit", type=int, default=20, help="Number of marketplace offers to show")
 @click.pass_context
 def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
-    """Shop dashboard: miners, GPUs, offers, jobs, and earnings."""
+    """Show the shop dashboard with GPUs, offers, jobs, and earnings."""
     try:
         config = ctx.obj["config"]
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
