@@ -2319,7 +2319,7 @@
           "marketplace-gpu"
         ],
         "summary": "Submit Ollama Task",
-        "description": "Ollama task submission endpoint.\n\nponytail: real queue/job dispatch is not implemented; returns 501 until\na persistent task queue and Ollama worker integration are wired.",
+        "description": "Submit an Ollama inference task to the persistent Redis queue.",
         "operationId": "submit_ollama_task_v1_tasks_ollama_post",
         "parameters": [
           {
@@ -2368,16 +2368,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Ollama task dispatch is not implemented",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
