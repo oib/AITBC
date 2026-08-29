@@ -55,8 +55,8 @@ def get_engine() -> Engine:
 def init_db() -> Engine:
     """Initialize database engine and ensure the SQLite data directory exists.
 
-    ponytail: schema management is Alembic's job. Do not call create_all() here;
-    it can create unmanaged schema objects that drift from the migration graph.
+    Schema management is Alembic's job. Do not call create_all() here; it can
+    create unmanaged schema objects that drift from the migration graph.
     """
     engine = get_engine()
     if "sqlite" in str(engine.url):
@@ -124,8 +124,8 @@ async def get_async_session() -> AsyncSession:
 async def init_async_db() -> None:
     """Initialize async database engine.
 
-    ponytail: schema management is Alembic's job. Do not call create_all() here;
-    it can create unmanaged schema objects that drift from the migration graph.
+    Schema management is Alembic's job. Do not call create_all() here; it can
+    create unmanaged schema objects that drift from the migration graph.
     """
     engine = await get_async_engine()
     # Just ensure the engine is created; schema is managed by Alembic.
