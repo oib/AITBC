@@ -40,16 +40,30 @@ def _sign_transaction(tx_payload: dict, private_key: str) -> str:
     return sign_transaction_hash("0x" + keccak(message).hex(), private_key)
 
 
-@market.group(name="exchange")
+@market.group(
+    name="exchange",
+    epilog="""Examples:
+
+  aitbc market exchange price
+
+  aitbc market exchange deposit-eth --amount 0.1""",
+)
 def exchange():
-    """ETH-AIT exchange and bridge operations"""
+    """ETH-AIT exchange and bridge operations for marketplace payments."""
     pass
 
 
-@exchange.command(name="price")
+@exchange.command(
+    name="price",
+    epilog="""Examples:
+
+  aitbc market exchange price
+
+  aitbc market exchange price --output json""",
+)
 @click.pass_context
 def exchange_price(ctx):
-    """Get current ETH-AIT exchange rate"""
+    """Get the current ETH-AIT exchange rate."""
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
@@ -76,12 +90,19 @@ def exchange_price(ctx):
         raise click.Abort() from e
 
 
-@exchange.command(name="list-deposits")
+@exchange.command(
+    name="list-deposits",
+    epilog="""Examples:
+
+  aitbc market exchange list-deposits
+
+  aitbc market exchange list-deposits --status confirmed""",
+)
 @click.option("--status", default="pending", help="Filter by status (pending, verified, completed, rejected)")
 @click.option("--limit", default=50, help="Maximum number of results")
 @click.pass_context
 def list_deposits(ctx, status: str, limit: int):
-    """List ETH deposits"""
+    """List ETH deposits and their status."""
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
@@ -113,11 +134,18 @@ def list_deposits(ctx, status: str, limit: int):
         raise click.Abort() from e
 
 
-@exchange.command(name="mint-ait")
-@click.argument("deposit_id")
+@exchange.command(
+    name="mint-ait",
+    epilog="""Examples:
+
+  aitbc market exchange mint-ait --deposit-id dep-123
+
+  aitbc market exchange mint-ait --deposit-id dep-123 --output json""",
+)
+@click.option("--deposit-id", "deposit_id", required=True, help="The Deposit id.")
 @click.pass_context
 def mint_ait(ctx, deposit_id: str):
-    """Mint AIT tokens for a verified ETH deposit"""
+    """Mint AIT tokens for a verified ETH deposit."""
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
@@ -235,12 +263,19 @@ def mint_ait(ctx, deposit_id: str):
         raise click.Abort() from e
 
 
-@exchange.command(name="withdraw-eth")
-@click.argument("amount", type=DECIMAL)
-@click.argument("address")
+@exchange.command(
+    name="withdraw-eth",
+    epilog="""Examples:
+
+  aitbc market exchange withdraw-eth --amount 0.1 --address 0x...
+
+  aitbc market exchange withdraw-eth --amount 0.1 --address 0x... --output json""",
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
+@click.option("--address", "address", required=True, help="Blockchain address to fund.")
 @click.pass_context
 def withdraw_eth(ctx, amount: Decimal, address: str):
-    """Withdraw ETH from bridge wallet (admin only)"""
+    """Withdraw ETH from the bridge wallet (admin only)."""
     try:
         config = get_config()
 
@@ -343,10 +378,17 @@ def withdraw_eth(ctx, amount: Decimal, address: str):
         raise click.Abort() from e
 
 
-@exchange.command(name="status")
+@exchange.command(
+    name="status",
+    epilog="""Examples:
+
+  aitbc market exchange status
+
+  aitbc market exchange status --output json""",
+)
 @click.pass_context
 def exchange_status(ctx):
-    """Get bridge service status"""
+    """Get the current bridge service status."""
     try:
         config = get_config()
         client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=10, api_key=config.api_key)
@@ -367,8 +409,15 @@ def exchange_status(ctx):
         raise click.Abort() from e
 
 
-@exchange.command(name="deposit-eth")
-@click.argument("amount", type=DECIMAL)
+@exchange.command(
+    name="deposit-eth",
+    epilog="""Examples:
+
+  aitbc market exchange deposit-eth --amount 0.1
+
+  aitbc market exchange deposit-eth --amount 0.1 --ait-address 0x...""",
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--ait-address", help="AIT address that will receive minted AIT (defaults to the sending wallet address)")
 @click.option(
     "--bridge-address", default=None, help="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)"
@@ -376,11 +425,7 @@ def exchange_status(ctx):
 @click.option("--gas", "gas_limit", default=30000, type=int, help="Gas limit for the deposit transaction")
 @click.pass_context
 def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: str, gas_limit: int):
-    """Deposit Sepolia ETH to the bridge and mint AIT.
-
-    The transaction data field is set to the AIT recipient address so the
-    bridge monitor can credit the minted AIT to the right wallet.
-    """
+    """Deposit Sepolia ETH to the bridge and mint AIT."""
     try:
         from web3 import Web3
 

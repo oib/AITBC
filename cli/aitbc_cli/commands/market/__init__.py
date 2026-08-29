@@ -205,17 +205,20 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
     )
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc market list
+
+  aitbc market run --offer-id-or-plugin-id offer-1 --prompt 'hello'"""
+)
 @click.option("--wallet", "market_wallet", help="Wallet name for market payments")
 @click.option("--wallet-path", "market_wallet_path", help="Direct wallet file path (overrides --wallet)")
 @click.option("--password", "market_password", help="Wallet password")
 @click.option("--password-file", "market_password_file", type=click.Path(exists=True), help="Wallet password file")
 @click.pass_context
 def market(ctx, market_wallet, market_wallet_path, market_password, market_password_file):
-    """GPU and software marketplace offers (miner-published, coordinator-backed).
-
-    For global cross-chain listings and bridge operations, use `aitbc marketplace`.
-    """
+    """GPU and software marketplace offers published by shop miners and backed by the coordinator."""
     ctx.ensure_object(dict)
     ctx.obj["market_wallet"] = market_wallet
     ctx.obj["market_wallet_path"] = market_wallet_path

@@ -13,14 +13,21 @@ logger = get_logger(__name__)
 from . import get_wallet_address, market
 
 
-@market.command(name="rate")
-@click.argument("service_id")
-@click.argument("rating", type=float)
+@market.command(
+    name="rate",
+    epilog="""Examples:
+
+  aitbc market rate --service-id offer-1 --rating 5
+
+  aitbc market rate --service-id offer-1 --rating 4 --comment 'great service'""",
+)
+@click.option("--service-id", "service_id", required=True, help="The Service id.")
+@click.option("--rating", "rating", required=True, type=float, help="The Rating.")
 @click.option("--comment", help="Optional comment/review text")
 @click.option("--reviewer-id", help="Reviewer ID (defaults to wallet address)")
 @click.pass_context
 def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
-    """Rate a marketplace service offer (1-5 scale)"""
+    """Rate a marketplace service offer on a 1-5 scale."""
     try:
         # Validate rating scale
         if not (1.0 <= rating <= 5.0):
@@ -73,13 +80,20 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
         raise click.Abort() from e
 
 
-@market.command(name="ratings")
-@click.argument("service_id")
+@market.command(
+    name="ratings",
+    epilog="""Examples:
+
+  aitbc market ratings --service-id offer-1
+
+  aitbc market ratings --service-id offer-1 --limit 20""",
+)
+@click.option("--service-id", "service_id", required=True, help="The Service id.")
 @click.option("--limit", default=50, help="Number of ratings to return")
 @click.option("--offset", default=0, help="Offset for pagination")
 @click.pass_context
 def ratings(ctx, service_id: str, limit: int, offset: int):
-    """View ratings for a marketplace service offer"""
+    """View ratings for a marketplace service offer."""
     try:
         # Call marketplace service API
         client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
@@ -113,12 +127,19 @@ def ratings(ctx, service_id: str, limit: int, offset: int):
         raise click.Abort() from e
 
 
-@market.command(name="sync-ratings")
+@market.command(
+    name="sync-ratings",
+    epilog="""Examples:
+
+  aitbc market sync-ratings
+
+  aitbc market sync-ratings --output json""",
+)
 @click.option("--remote-url", default="https://aitbc3.aitbc.bubuit.net/api", help="Remote marketplace service URL")
 @click.option("--limit", default=100, help="Number of ratings to sync")
 @click.pass_context
 def sync_ratings(ctx, remote_url: str, limit: int):
-    """Sync ratings to/from remote marketplace node"""
+    """Sync ratings to and from a remote marketplace node."""
     try:
         # Get local unsynced ratings
         local_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
