@@ -22,19 +22,31 @@ def _fmt(ctx: click.Context, command_format: str) -> str:
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc analytics dashboard
+
+  aitbc analytics monitor --chain-id ait-mainnet"""
+)
 def analytics():
-    """Chain analytics and monitoring commands"""
+    """Analyze, monitor, predict, and optimize AITBC chain performance and resource usage."""
     pass
 
 
-@analytics.command()
+@analytics.command(
+    epilog="""Examples:
+
+  aitbc analytics summary
+
+  aitbc analytics summary --chain-id ait-mainnet --hours 12"""
+)
 @click.option("--chain-id", help="Specific chain ID to analyze")
 @click.option("--hours", default=24, help="Time range in hours")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def summary(ctx, chain_id, hours, format):
-    """Get performance summary for chains"""
+    """Get a performance summary for one chain or a cross-chain analysis."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
@@ -100,13 +112,19 @@ def summary(ctx, chain_id, hours, format):
         abort(ctx, f"Error getting analytics summary: {str(e)}", from_exception=e)
 
 
-@analytics.command()
+@analytics.command(
+    epilog="""Examples:
+
+  aitbc analytics monitor --chain-id ait-mainnet
+
+  aitbc analytics monitor --realtime --interval 10"""
+)
 @click.option("--realtime", is_flag=True, help="Real-time monitoring")
 @click.option("--interval", default=30, help="Update interval in seconds")
 @click.option("--chain-id", help="Monitor specific chain")
 @click.pass_context
 def monitor(ctx, realtime, interval, chain_id):
-    """Monitor chain performance in real-time"""
+    """Monitor chain performance in real time or take a single snapshot."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
@@ -221,13 +239,19 @@ def monitor(ctx, realtime, interval, chain_id):
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
-@analytics.command()
+@analytics.command(
+    epilog="""Examples:
+
+  aitbc analytics predict
+
+  aitbc analytics predict --chain-id ait-mainnet --hours 6"""
+)
 @click.option("--chain-id", help="Specific chain ID for predictions")
 @click.option("--hours", default=24, help="Prediction time horizon in hours")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def predict(ctx, chain_id, hours, format):
-    """Predict chain performance"""
+    """Predict future chain performance for a single chain or all chains."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
@@ -286,12 +310,18 @@ def predict(ctx, chain_id, hours, format):
         abort(ctx, f"Error generating predictions: {str(e)}", from_exception=e)
 
 
-@analytics.command()
+@analytics.command(
+    epilog="""Examples:
+
+  aitbc analytics optimize
+
+  aitbc analytics optimize --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", help="Specific chain ID for recommendations")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def optimize(ctx, chain_id, format):
-    """Get optimization recommendations"""
+    """Get optimization recommendations for one chain or all chains."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
@@ -355,13 +385,19 @@ def optimize(ctx, chain_id, format):
         abort(ctx, f"Error getting optimization recommendations: {str(e)}", from_exception=e)
 
 
-@analytics.command()
+@analytics.command(
+    epilog="""Examples:
+
+  aitbc analytics alerts
+
+  aitbc analytics alerts --severity critical --hours 6"""
+)
 @click.option("--severity", type=click.Choice(["all", "critical", "warning"]), default="all", help="Alert severity filter")
 @click.option("--hours", default=24, help="Time range in hours")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def alerts(ctx, severity, hours, format):
-    """View performance alerts"""
+    """View performance alerts filtered by severity and time range."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
@@ -399,11 +435,17 @@ def alerts(ctx, severity, hours, format):
         abort(ctx, f"Error getting alerts: {str(e)}", from_exception=e)
 
 
-@analytics.command()
+@analytics.command(
+    epilog="""Examples:
+
+  aitbc analytics dashboard
+
+  aitbc analytics dashboard --format json"""
+)
 @click.option("--format", type=click.Choice(["json"]), default="json", help="Output format")
 @click.pass_context
 def dashboard(ctx, format):
-    """Get complete dashboard data"""
+    """Export a complete dashboard data snapshot as JSON."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)

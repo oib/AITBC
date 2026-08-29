@@ -208,13 +208,25 @@ def _wait_for_job(
         abort(ctx, f"Wait for job {job_id} cancelled by user")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc ai submit --prompt 'transcribe audio'
+
+  aitbc ai status --job-id job-123"""
+)
 def ai():
-    """AI job submission and inspection"""
+    """Submit, pay for, and inspect AI jobs and services through the coordinator."""
     pass
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai submit --prompt 'transcribe audio'
+
+  aitbc ai submit --prompt 'generate summary' --model gpt-4o --wallet genesis"""
+)
 @click.option("--wallet", help="Wallet name")
 @click.option("--type", "job_type", help="Job type")
 @click.option("--prompt", help="Job prompt")
@@ -301,7 +313,7 @@ def submit(
     poll_interval,
     format,
 ):
-    """Submit an AI job"""
+    """Submit a new AI job to the coordinator with a prompt and optional model."""
     config = get_config()
 
     try:
@@ -466,7 +478,14 @@ def submit(
         abort(ctx, f"Error submitting job: {e}", from_exception=e)
 
 
-@ai.command(name="pay")
+@ai.command(
+    name="pay",
+    epilog="""Examples:
+
+  aitbc ai pay --job-id job-123 --wallet genesis
+
+  aitbc ai pay --job-id job-123 --wallet genesis --password mypass""",
+)
 @click.option("--job-id", required=True, help="Job ID to pay for")
 @click.option("--wallet", required=True, help="Wallet name to sign the escrow lock")
 @click.option("--buyer-address", help="Override buyer/customer address")
@@ -497,7 +516,7 @@ def pay(
     password_file,
     format,
 ):
-    """Create an escrow payment for an existing job (two-step payment flow)."""
+    """Create an escrow payment for an existing AI job."""
     config = get_config()
 
     try:
@@ -572,14 +591,20 @@ def pay(
         abort(ctx, f"Error paying for job: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai jobs
+
+  aitbc ai jobs --status running --limit 20"""
+)
 @click.option("--limit", type=int, default=10, help="Limit results")
 @click.option("--status", help="Filter by status")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def jobs(ctx, limit, status, coordinator_url, format):
-    """List AI jobs"""
+    """List AI jobs from the coordinator with optional status and limit filters."""
     get_config()
 
     try:
@@ -602,13 +627,19 @@ def jobs(ctx, limit, status, coordinator_url, format):
         abort(ctx, f"Error listing jobs: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai status --job-id job-123
+
+  aitbc ai status --job-id job-123 --output json"""
+)
 @click.option("--job-id", help="Job ID")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def status(ctx, job_id, coordinator_url, format):
-    """Show AI job status"""
+    """Show the current status of an AI job by job ID."""
     get_config()
 
     try:
@@ -631,13 +662,19 @@ def status(ctx, job_id, coordinator_url, format):
         abort(ctx, f"Error getting job status: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai accept --job-id job-123
+
+  aitbc ai accept --job-id job-123 --wallet genesis"""
+)
 @click.option("--job-id", required=True, help="Job ID to accept")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def accept(ctx, job_id, coordinator_url, format):
-    """Accept a completed job and release the escrowed payment."""
+    """Accept a completed AI job and release the escrowed payment."""
     get_config()
 
     try:
@@ -658,13 +695,19 @@ def accept(ctx, job_id, coordinator_url, format):
         abort(ctx, f"Error accepting job: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai refund --job-id job-123 --reason 'job failed'
+
+  aitbc ai refund --job-id job-123 --reason timeout"""
+)
 @click.option("--job-id", required=True, help="Job ID to refund")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.pass_context
 def refund(ctx, job_id, reason, coordinator_url):
-    """Refund an escrowed payment for a failed or cancelled job."""
+    """Refund an escrowed payment for a failed or cancelled AI job."""
     get_config()
 
     try:
@@ -696,7 +739,14 @@ def refund(ctx, job_id, reason, coordinator_url):
         abort(ctx, f"Error refunding job: {e}", from_exception=e)
 
 
-@ai.command(name="refund-sweep")
+@ai.command(
+    name="refund-sweep",
+    epilog="""Examples:
+
+  aitbc ai refund-sweep
+
+  aitbc ai refund-sweep --limit 50 --reason 'stuck jobs'""",
+)
 @click.option("--limit", type=int, default=100, help="Maximum completed jobs to inspect")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--dry-run", is_flag=True, help="Count candidates without refunding")
@@ -704,7 +754,7 @@ def refund(ctx, job_id, reason, coordinator_url):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
-    """Refund all client-owned jobs stuck in escrowed/pending_acceptance with failed ZK."""
+    """Refund all client-owned AI jobs stuck in an incomplete state."""
     get_config()
 
     try:
@@ -757,18 +807,30 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
         abort(ctx, f"Error running refund sweep: {e}", from_exception=e)
 
 
-@ai.group()
+@ai.group(
+    epilog="""Examples:
+
+  aitbc ai service status --name my-service
+
+  aitbc ai service"""
+)
 def service():
-    """AI service management"""
+    """Manage and inspect AI services registered with the coordinator."""
     pass
 
 
-@service.command()
+@service.command(
+    epilog="""Examples:
+
+  aitbc ai service list
+
+  aitbc ai service list --output json"""
+)
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list(ctx, coordinator_url, format):
-    """List available AI services"""
+    """List available AI services registered with the coordinator."""
     get_config()
 
     try:
@@ -788,13 +850,19 @@ def list(ctx, coordinator_url, format):
         abort(ctx, f"Error listing services: {e}", from_exception=e)
 
 
-@service.command()
+@service.command(
+    epilog="""Examples:
+
+  aitbc ai service status --name my-service
+
+  aitbc ai service status --name my-service --output json"""
+)
 @click.option("--name", help="Service name")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def service_status(ctx, name, coordinator_url, format):
-    """Check AI service status"""
+    """Show the status of a named AI service."""
     get_config()
 
     try:
@@ -817,13 +885,19 @@ def service_status(ctx, name, coordinator_url, format):
         abort(ctx, f"Error getting service status: {e}", from_exception=e)
 
 
-@service.command()
+@service.command(
+    epilog="""Examples:
+
+  aitbc ai service test --name my-service
+
+  aitbc ai service test --name my-service --output json"""
+)
 @click.option("--name", help="Service name")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def test(ctx, name, coordinator_url, format):
-    """Test AI service endpoint"""
+    """Test an AI service endpoint by service name."""
     get_config()
 
     try:
@@ -847,13 +921,19 @@ def test(ctx, name, coordinator_url, format):
         abort(ctx, f"Error testing service: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai results --job-id job-123
+
+  aitbc ai results --job-id job-123 --output json"""
+)
 @click.option("--job-id", help="Job ID")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def results(ctx, job_id, coordinator_url, format):
-    """Show AI job results"""
+    """Show the results of a completed AI job by job ID."""
     get_config()
 
     try:
@@ -876,7 +956,13 @@ def results(ctx, job_id, coordinator_url, format):
         abort(ctx, f"Error getting job results: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai cancel --job-id job-123
+
+  aitbc ai cancel --job-id job-123 --refund --reason 'customer requested'"""
+)
 @click.option("--job-id", required=True, help="Job ID")
 @click.option("--wallet", help="Wallet name (optional)")
 @click.option("--password", help="Wallet password")
@@ -887,7 +973,7 @@ def results(ctx, job_id, coordinator_url, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordinator_url, format):
-    """Cancel AI job and optionally refund the payment."""
+    """Cancel an AI job and optionally refund the payment to the customer."""
     get_config()
 
     try:
@@ -940,12 +1026,18 @@ def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordin
         abort(ctx, f"Error cancelling job: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai stats
+
+  aitbc ai stats --output json"""
+)
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def stats(ctx, coordinator_url, format):
-    """AI service statistics"""
+    """Show aggregate AI service statistics from the coordinator."""
     get_config()
 
     try:
@@ -965,12 +1057,18 @@ def stats(ctx, coordinator_url, format):
         abort(ctx, f"Error getting statistics: {e}", from_exception=e)
 
 
-@ai.command()
+@ai.command(
+    epilog="""Examples:
+
+  aitbc ai distribution-stats
+
+  aitbc ai distribution-stats --output json"""
+)
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def distribution_stats(ctx, coordinator_url, format):
-    """Task distribution statistics from agent coordinator"""
+    """Show task distribution statistics from the agent coordinator."""
     get_config()
 
     try:

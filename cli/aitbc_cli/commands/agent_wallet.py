@@ -8,17 +8,29 @@ from ..utils import output
 from ..utils.error_handling import abort
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc agent-wallet balance --agent-id agent-1
+
+  aitbc agent-wallet stake --agent-id agent-1 --amount 100"""
+)
 def agent_wallet():
-    """Agent-owned wallet, staking, and rebalancing commands."""
+    """Show and manage agent-owned wallets, staking, and rebalancing allocations."""
     pass
 
 
-@agent_wallet.command()
-@click.argument("agent-id")
+@agent_wallet.command(
+    epilog="""Examples:
+
+  aitbc agent-wallet balance --agent-id agent-1
+
+  aitbc agent-wallet balance --agent-id agent-1 --output json"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="Agent ID.")
 @click.pass_context
 def balance(ctx, agent_id: str):
-    """Show the agent wallet balance and allocation."""
+    """Show the wallet balance and allocation for a given agent ID."""
     try:
         result = {
             "agent_id": agent_id,
@@ -33,13 +45,19 @@ def balance(ctx, agent_id: str):
         abort(ctx, f"Error fetching agent wallet balance: {e}", from_exception=e)
 
 
-@agent_wallet.command()
-@click.argument("agent-id")
+@agent_wallet.command(
+    epilog="""Examples:
+
+  aitbc agent-wallet stake --agent-id agent-1 --amount 100
+
+  aitbc agent-wallet stake --agent-id agent-1 --amount 100 --contract 0xStakeContract"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="Agent ID.")
 @click.option("--amount", default="0", help="Amount to stake")
 @click.option("--contract", default="", help="Staking contract address")
 @click.pass_context
 def stake(ctx, agent_id: str, amount: str, contract: str):
-    """Stake AITBC on behalf of an agent."""
+    """Stake AITBC on behalf of a specified agent ID."""
     try:
         result = {
             "agent_id": agent_id,
@@ -53,13 +71,19 @@ def stake(ctx, agent_id: str, amount: str, contract: str):
         abort(ctx, f"Error staking for agent {agent_id}: {e}", from_exception=e)
 
 
-@agent_wallet.command()
-@click.argument("agent-id")
+@agent_wallet.command(
+    epilog="""Examples:
+
+  aitbc agent-wallet rebalance --agent-id agent-1 --earnings 50
+
+  aitbc agent-wallet rebalance --agent-id agent-1 --earnings 50 --reinvest-pct 75"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="Agent ID.")
 @click.option("--earnings", default="0", help="Earnings to reinvest")
 @click.option("--reinvest-pct", default="50", help="Percentage of earnings to reinvest")
 @click.pass_context
 def rebalance(ctx, agent_id: str, earnings: str, reinvest_pct: str):
-    """Rebalance an agent wallet by reinvesting earnings."""
+    """Rebalance an agent wallet by reinvesting the specified earnings."""
     try:
         result = {
             "agent_id": agent_id,
