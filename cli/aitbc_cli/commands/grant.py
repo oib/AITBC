@@ -18,13 +18,25 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc grant create --developer-id dev-1 --title 'AI SDK' --requested-amount 1000
+
+  aitbc grant vote --grant-id grant-123 --vote for"""
+)
 def grant():
-    """DAO grant proposal commands."""
+    """Create, vote on, and disburse funds from DAO grant proposals."""
     pass
 
 
-@grant.command()
+@grant.command(
+    epilog="""Examples:
+
+  aitbc grant create --developer-id dev-1 --title 'AI SDK' --requested-amount 1000
+
+  aitbc grant create --developer-id dev-1 --title 'AI SDK' --description 'Improve SDK' --requested-amount 1000 --voting-days 14"""
+)
 @click.option("--developer-id", required=True, help="Developer ID")
 @click.option("--title", required=True, help="Grant title")
 @click.option("--description", default="", help="Grant description")
@@ -41,7 +53,7 @@ def create(
     voting_days: int,
     format: str,
 ):
-    """Create a new grant proposal."""
+    """Create a new DAO grant proposal."""
     try:
         client = _get_client()
         payload = {
@@ -59,7 +71,14 @@ def create(
         error(f"Error creating grant: {e}")
 
 
-@grant.command("list")
+@grant.command(
+    "list",
+    epilog="""Examples:
+
+  aitbc grant list
+
+  aitbc grant list --status active --developer-id dev-1 --limit 50""",
+)
 @click.option("--status", default=None, help="Filter by status")
 @click.option("--developer-id", default=None, help="Filter by developer ID")
 @click.option("--limit", type=int, default=100, help="Maximum number of grants")
@@ -74,7 +93,7 @@ def list_grants(
     offset: int,
     format: str,
 ):
-    """List grant proposals."""
+    """List DAO grant proposals with optional status, developer, and pagination filters."""
     try:
         client = _get_client()
         params: dict[str, str | int] = {"limit": limit, "offset": offset}
@@ -90,14 +109,20 @@ def list_grants(
         error(f"Error listing grants: {e}")
 
 
-@grant.command()
-@click.argument("grant_id")
+@grant.command(
+    epilog="""Examples:
+
+  aitbc grant vote --grant-id grant-123 --vote for
+
+  aitbc grant vote --grant-id grant-123 --vote for --voting-power 100"""
+)
+@click.option("--grant-id", "grant_id", required=True, help="The Grant id.")
 @click.option("--vote", type=click.Choice(["for", "against", "abstain"]), required=True, help="Vote choice")
 @click.option("--voting-power", type=float, default=0.0, help="Voting power")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
-    """Cast a vote on a grant proposal."""
+    """Cast a vote for, against, or abstain on a grant proposal."""
     try:
         client = _get_client()
         result = client.post(f"/v1/grants/{grant_id}/vote", json={"vote": vote, "voting_power": voting_power})
@@ -108,14 +133,20 @@ def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
         error(f"Error voting on grant: {e}")
 
 
-@grant.command()
-@click.argument("grant_id")
+@grant.command(
+    epilog="""Examples:
+
+  aitbc grant disburse --grant-id grant-123
+
+  aitbc grant disburse --grant-id grant-123 --milestone-id ms-1 --amount 500"""
+)
+@click.option("--grant-id", "grant_id", required=True, help="The Grant id.")
 @click.option("--milestone-id", default=None, help="Milestone to disburse")
 @click.option("--amount", default=None, help="Amount to disburse (decimal string)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def disburse(ctx, grant_id: str, milestone_id: str | None, amount: str | None, format: str):
-    """Disburse funds for a grant or milestone."""
+    """Disburse funds for a grant or a specific milestone."""
     try:
         client = _get_client()
         payload = {"milestone_id": milestone_id, "amount": amount}
