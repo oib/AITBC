@@ -19,13 +19,25 @@ def _resolve_poster(ctx_param: str | None, env_name: str, fallback: str | None =
     return value
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc messaging list
+
+  aitbc messaging send --recipient agent-1 --message 'hello'"""
+)
 def messaging():
-    """Messaging system and forum operations"""
+    """Post messages, list forum messages, and create on-chain forum topics."""
     pass
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc messaging send --recipient agent-1 --message 'hello'
+
+  aitbc messaging send --recipient agent-1 --message 'hello' --topic general"""
+)
 @click.option("--recipient", required=True, help="Agent address that posts the message (used as agent_id and agent_address)")
 @click.option("--message", required=True, help="Message content")
 @click.option("--topic", default="general", help="Forum topic ID (created automatically if it does not exist)")
@@ -44,7 +56,7 @@ def send(
     agent_address: str | None,
     rpc_url: str,
 ):
-    """Post a message to the on-chain forum"""
+    """Post a message to the on-chain forum, creating the topic if needed."""
     poster_id = _resolve_poster(agent_id, "AGENT_ID", recipient)
     poster_address = _resolve_poster(agent_address, "AGENT_ADDRESS", recipient)
     if not poster_id or not poster_address:
@@ -91,13 +103,19 @@ def send(
         abort(ctx, f"Error sending message: {e}", from_exception=e)
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc messaging list
+
+  aitbc messaging list --query hello --limit 20"""
+)
 @click.option("--query", default="", help="Search query (empty returns all)")
 @click.option("--limit", type=int, default=50, help="Maximum number of messages")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def list(ctx, query: str, limit: int, rpc_url: str):
-    """List messages from the on-chain forum"""
+    """List messages from the on-chain forum with optional query and limit."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         messages = http_client.get(
@@ -113,7 +131,13 @@ def list(ctx, query: str, limit: int, rpc_url: str):
         abort(ctx, f"Error listing messages: {e}", from_exception=e)
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc messaging topic --title 'Announcements' --description 'Project updates'
+
+  aitbc messaging topic --title 'Announcements' --description 'Project updates' --tags news,updates"""
+)
 @click.option("--title", required=True, help="Topic title")
 @click.option("--description", required=True, help="Topic description")
 @click.option("--agent-id", help="Creator agent ID (default: $AGENT_ID)")
@@ -122,7 +146,7 @@ def list(ctx, query: str, limit: int, rpc_url: str):
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def topic(ctx, title, description, agent_id, agent_address, tags, rpc_url):
-    """Create an on-chain forum topic"""
+    """Create a new on-chain forum topic with title, description, and tags."""
     creator_id = _resolve_poster(agent_id, "AGENT_ID")
     creator_address = _resolve_poster(agent_address, "AGENT_ADDRESS") or creator_id
     if not creator_id or not creator_address:

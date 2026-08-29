@@ -1,8 +1,8 @@
 """Financial regulatory (PCI/GLBA) compliance module (v0.15.2 §B2).
 
-ponytail: This is a policy skeleton. Real PCI/GLBA enforcement needs a
-hardware-backed signing key, a tamper-evident audit sink, and integration
-with a token vault for PAN handling.
+This is a policy skeleton. Real PCI/GLBA enforcement needs a hardware-backed
+signing key, a tamper-evident audit sink, and integration with a token vault
+for PAN handling.
 """
 
 from __future__ import annotations
