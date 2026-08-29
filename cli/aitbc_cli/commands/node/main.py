@@ -32,17 +32,29 @@ except ImportError:
         click.echo(message)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc node list
+
+  aitbc node add --node-id node-1 --endpoint http://localhost:8202"""
+)
 def node():
-    """Node management commands"""
+    """Manage nodes, islands, hubs, bridges, and chains in the federated mesh."""
     pass
 
 
-@node.command()
-@click.argument("node_id")
+@node.command(
+    epilog="""Examples:
+
+  aitbc node info --node-id node-1
+
+  aitbc node info --node-id node-1 --output json"""
+)
+@click.option("--node-id", "node_id", required=True, help="The Node id.")
 @click.pass_context
 def node_info(ctx, node_id):
-    """Get detailed node information"""
+    """Get detailed information about a configured node."""
     try:
         config = load_multichain_config()
 
@@ -95,12 +107,18 @@ def node_info(ctx, node_id):
         raise click.Abort() from e
 
 
-@node.command()
+@node.command(
+    epilog="""Examples:
+
+  aitbc node chains
+
+  aitbc node chains --show-private --node-id node-1"""
+)
 @click.option("--show-private", is_flag=True, help="Show private chains")
 @click.option("--node-id", help="Specific node ID to query")
 @click.pass_context
 def chains(ctx, show_private, node_id):
-    """List chains hosted on all nodes"""
+    """List chains hosted on all nodes or a specific node."""
     try:
         config = load_multichain_config()
 
@@ -159,11 +177,17 @@ def chains(ctx, show_private, node_id):
         raise click.Abort() from e
 
 
-@node.command()
+@node.command(
+    epilog="""Examples:
+
+  aitbc node list
+
+  aitbc node list --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list(ctx, format):
-    """List all configured nodes"""
+    """List all configured nodes and their connection settings."""
     try:
         config = load_multichain_config()
 
@@ -189,15 +213,21 @@ def list(ctx, format):
         raise click.Abort() from e
 
 
-@node.command()
-@click.argument("node_id")
-@click.argument("endpoint")
+@node.command(
+    epilog="""Examples:
+
+  aitbc node add --node-id node-1 --endpoint http://localhost:8202
+
+  aitbc node add --node-id node-1 --endpoint http://localhost:8202 --timeout 30"""
+)
+@click.option("--node-id", "node_id", required=True, help="The Node id.")
+@click.option("--endpoint", "endpoint", required=True, help="The Endpoint.")
 @click.option("--timeout", default=30, help="Request timeout in seconds")
 @click.option("--max-connections", default=10, help="Maximum concurrent connections")
 @click.option("--retry-count", default=3, help="Number of retry attempts")
 @click.pass_context
 def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
-    """Add a new node to configuration"""
+    """Add a new node to the local configuration."""
     try:
         config = load_multichain_config()
 
@@ -232,12 +262,18 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
         raise click.Abort() from e
 
 
-@node.command()
-@click.argument("node_id")
+@node.command(
+    epilog="""Examples:
+
+  aitbc node remove --node-id node-1
+
+  aitbc node remove --node-id node-1 --force"""
+)
+@click.option("--node-id", "node_id", required=True, help="The Node id.")
 @click.option("--force", is_flag=True, help="Force removal without confirmation")
 @click.pass_context
 def remove(ctx, node_id, force):
-    """Remove a node from configuration"""
+    """Remove a node from the local configuration."""
     try:
         config = load_multichain_config()
 
