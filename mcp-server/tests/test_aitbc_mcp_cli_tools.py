@@ -51,8 +51,8 @@ def test_buy_ait_exchange():
     assert "aitbc" in cmd
     assert "exchange-island" in cmd
     assert "buy" in cmd
-    assert "1.0" in cmd
-    assert "ETH" in cmd
+    assert "--ait-amount=1.0" in cmd
+    assert "--quote-currency=ETH" in cmd
     assert "--max-price=0.00076" in cmd
     assert "--wallet=genesis" in cmd
 
@@ -72,7 +72,8 @@ def test_sell_ait_exchange():
     assert result["returncode"] == 0
     cmd = _last_command()
     assert "exchange-island sell" in cmd
-    assert "2.0" in cmd
+    assert "--ait-amount=2.0" in cmd
+    assert "--quote-currency=ETH" in cmd
     assert "--min-price=0.00075" in cmd
     assert "--wallet=hub2-shop" in cmd
 
@@ -101,8 +102,7 @@ def test_create_island():
     )
     assert result["returncode"] == 0
     cmd = _last_command()
-    assert "node" in cmd
-    assert "island-create" in cmd
+    assert "node island create" in cmd
     assert "--island-id=ait-test-island" in cmd
     assert "--island-name=test" in cmd
     assert "--chain-id=ait-test" in cmd
@@ -125,10 +125,10 @@ def test_join_island():
     )
     assert result["returncode"] == 0
     cmd = _last_command()
-    assert "node island-join" in cmd
-    assert "ait-test-island" in cmd
-    assert "test" in cmd
-    assert "ait-test" in cmd
+    assert "node island join" in cmd
+    assert "--island-id=ait-test-island" in cmd
+    assert "--island-name=test" in cmd
+    assert "--chain-id=ait-test" in cmd
     assert "--hub=hub.aitbc.bubuit.net" in cmd
     assert "--rpc-url=https://hub.aitbc.bubuit.net/rpc" in cmd
     assert "--is-hub" not in cmd
@@ -149,6 +149,7 @@ def test_join_island_as_hub():
     )
     assert result["returncode"] == 0
     cmd = _last_command()
+    assert "node island join" in cmd
     assert "--is-hub" in cmd
 
 
