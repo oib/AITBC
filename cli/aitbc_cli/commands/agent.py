@@ -107,9 +107,16 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
         return None
 
 
-@click.group(name="agent")
+@click.group(
+    name="agent",
+    epilog="""Examples:
+
+  aitbc agent-msg ping --agent hub-coordinator
+
+  aitbc agent-msg send --message 'hello' --to-agent agent-2""",
+)
 def messaging():
-    """Agent messaging commands (ping, send, receive, peers, request-coins)."""
+    """Send and receive messages, pings, and coin requests through the Agent Coordinator."""
     pass
 
 
@@ -118,7 +125,13 @@ def _resolve_agent_id(from_agent: str | None) -> str | None:
     return from_agent or os.getenv("AGENT_ID")
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc agent-msg send --message 'hello' --to-agent agent-2
+
+  aitbc agent-msg send --message 'urgent' --to-agent agent-2 --priority high --ttl 60"""
+)
 @click.argument("message")
 @click.option("--from-agent", "from_agent", help="Sender agent ID (default: $AGENT_ID)")
 @click.option("--to-agent", required=True, help="Target agent ID")
@@ -141,7 +154,7 @@ def send(
     encrypt: bool,
     coordinator_url: str | None,
 ):
-    """Send a message via the Agent Coordinator."""
+    """Send a direct or broadcast message to another agent through the coordinator."""
     config = get_config()
     sender = _resolve_agent_id(from_agent)
     if not sender:
@@ -173,7 +186,13 @@ def send(
         error(f"Error sending message: {e}")
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc agent-msg receive
+
+  aitbc agent-msg receive --from-agent agent-1 --unread-only --limit 10"""
+)
 @click.option("--from-agent", "from_agent", help="Agent ID whose inbox to read (default: $AGENT_ID)")
 @click.option("--limit", type=int, default=20, show_default=True, help="Number of messages to return")
 @click.option("--unread-only", is_flag=True, help="Only return unread messages")
@@ -186,7 +205,7 @@ def receive(
     unread_only: bool,
     coordinator_url: str | None,
 ):
-    """Receive messages from the Agent Coordinator inbox."""
+    """Receive messages from the Agent Coordinator inbox for the configured agent."""
     config = get_config()
     agent_id = _resolve_agent_id(from_agent)
     if not agent_id:
@@ -209,11 +228,17 @@ def receive(
         error(f"Error receiving messages: {e}")
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc agent-msg peers
+
+  aitbc agent-msg peers --coordinator-url http://hub.aitbc:8107"""
+)
 @click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context
 def peers(ctx, coordinator_url: str | None):
-    """List Agent Coordinator peers"""
+    """List the peers currently known to the Agent Coordinator."""
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
 
@@ -228,7 +253,13 @@ def peers(ctx, coordinator_url: str | None):
         error(f"Error fetching peers: {e}")
 
 
-@messaging.command()
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc agent-msg ping --agent hub-coordinator
+
+  aitbc agent-msg ping --agent shop-agent --sender hub-coordinator --timeout 10"""
+)
 @click.option("--agent", default="hub-coordinator", show_default=True, help="Recipient agent ID to ping")
 @click.option(
     "--sender",
@@ -244,13 +275,7 @@ def peers(ctx, coordinator_url: str | None):
 @click.option("--timeout", type=int, default=10, show_default=True, help="Seconds to wait for a PONG reply")
 @click.pass_context
 def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int):
-    """Ping a remote agent via WebSocket and wait for its PONG reply.
-
-    Connects to the Agent Coordinator's WebSocket stream
-    (/api/v1/agent/messages/stream?agent_id=<sender>), sends a PING message
-    to the target agent, and waits for the automatic PONG response from the
-    coordinator's built-in ping_handler.
-    """
+    """Ping a remote agent via WebSocket and wait for its PONG reply."""
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
     api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
@@ -294,7 +319,14 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
     _asyncio.run(_ping())
 
 
-@messaging.command(name="request-coins")
+@messaging.command(
+    name="request-coins",
+    epilog="""Examples:
+
+  aitbc agent-msg request-coins
+
+  aitbc agent-msg request-coins --wallet genesis --amount 100""",
+)
 @click.option(
     "--wallet",
     default=None,
@@ -321,15 +353,7 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
 @click.option("--timeout", type=int, default=15, show_default=True, help="Seconds to wait for a response")
 @click.pass_context
 def request_coins(ctx, wallet: str | None, amount: int, sender: str, coordinator_url: str | None, timeout: int):
-    """Request free AIT tokens from the hub via WebSocket.
-
-    Sends a REQUEST_COINS message to the hub's Agent Coordinator. First-time
-    requests are auto-approved and 100 AIT is transferred immediately. Subsequent
-    requests return pending_approval and require manual approval by the hub operator.
-
-    The wallet address is auto-detected from local wallet files (~/.aitbc/wallets/).
-    Use --wallet to specify a particular wallet by name.
-    """
+    """Request free AIT tokens from the hub via WebSocket for the configured wallet."""
     wallet_address = _resolve_wallet_address(wallet)
     if not wallet_address:
         return
