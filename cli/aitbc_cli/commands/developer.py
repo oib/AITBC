@@ -18,13 +18,25 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc developer register --wallet-address 0x...
+
+  aitbc developer list"""
+)
 def developer():
-    """Developer registry commands."""
+    """Register and list developers in the DAO grant registry."""
     pass
 
 
-@developer.command()
+@developer.command(
+    epilog="""Examples:
+
+  aitbc developer register --wallet-address 0x...
+
+  aitbc developer register --wallet-address 0x... --name Alice --github-handle alice"""
+)
 @click.option("--wallet-address", required=True, help="Developer wallet address")
 @click.option("--name", default=None, help="Developer name")
 @click.option("--email", default=None, help="Developer email")
@@ -39,7 +51,7 @@ def register(
     github_handle: str | None,
     format: str,
 ):
-    """Register a developer in the DAO grant registry."""
+    """Register a developer in the DAO grant registry with optional name, email, and GitHub handle."""
     try:
         client = _get_client()
         payload = {
@@ -56,14 +68,21 @@ def register(
         error(f"Error registering developer: {e}")
 
 
-@developer.command("list")
+@developer.command(
+    "list",
+    epilog="""Examples:
+
+  aitbc developer list
+
+  aitbc developer list --active-only --limit 50 --offset 0""",
+)
 @click.option("--active-only/--all", default=True, help="List only active developers")
 @click.option("--limit", type=int, default=100, help="Maximum number of developers")
 @click.option("--offset", type=int, default=0, help="Offset for pagination")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list_developers(ctx, active_only: bool, limit: int, offset: int, format: str):
-    """List registered developers."""
+    """List registered developers with optional active-only, limit, and offset filters."""
     try:
         client = _get_client()
         params = {"active_only": active_only, "limit": limit, "offset": offset}

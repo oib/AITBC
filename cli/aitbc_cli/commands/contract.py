@@ -7,18 +7,30 @@ from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc contract deploy --contract-name MyContract
+
+  aitbc contract call --contract-address 0x... --method getBalance"""
+)
 def contract():
-    """Smart contract operations"""
+    """Deploy smart contracts and call methods on deployed contract addresses."""
     pass
 
 
-@contract.command()
+@contract.command(
+    epilog="""Examples:
+
+  aitbc contract deploy --contract-name MyContract
+
+  aitbc contract deploy --contract-name MyContract --rpc-url http://aitbc3:8202"""
+)
 @click.option("--contract-name", required=True, help="Contract name")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def deploy(ctx, contract_name, rpc_url):
-    """Deploy smart contract"""
+    """Deploy a named smart contract to the blockchain."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/contracts/deploy", json={"contract_name": contract_name})
@@ -29,14 +41,20 @@ def deploy(ctx, contract_name, rpc_url):
         abort(ctx, f"Error deploying contract: {e}", from_exception=e)
 
 
-@contract.command()
+@contract.command(
+    epilog="""Examples:
+
+  aitbc contract call --contract-address 0x... --method getBalance
+
+  aitbc contract call --contract-address 0x... --method setValue --args '["hello"]'"""
+)
 @click.option("--contract-address", required=True, help="Contract address")
 @click.option("--method", required=True, help="Method to call")
 @click.option("--args", help="Method arguments (JSON array)")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def call(ctx, contract_address, method, args, rpc_url):
-    """Call smart contract method"""
+    """Call a method on a deployed smart contract with optional arguments."""
     try:
         import json
 
