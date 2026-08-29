@@ -19,9 +19,15 @@ from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import wallet_dir
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc auth login --wallet genesis
+
+  aitbc auth status"""
+)
 def auth():
-    """Authentication and session management."""
+    """Log in, log out, and view stored AITBC coordinator session credentials."""
     pass
 
 
@@ -62,7 +68,13 @@ def _resolve_private_key(
     raise ValueError("Provide --wallet, --private-key, or --private-key-file")
 
 
-@auth.command()
+@auth.command(
+    epilog="""Examples:
+
+  aitbc auth login --wallet genesis
+
+  aitbc auth login --wallet genesis --coordinator-url http://hub.aitbc:8201"""
+)
 @click.option("--wallet", help="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")
 @click.option("--password", help="Wallet password (or WALLET_PASSWORD env var)")
 @click.option("--private-key", help="Raw hex private key (use only in CI/scripts)")
@@ -167,11 +179,17 @@ def login(
         error("Login succeeded but token could not be stored")
 
 
-@auth.command()
+@auth.command(
+    epilog="""Examples:
+
+  aitbc auth status
+
+  aitbc auth status --environment staging"""
+)
 @click.option("--environment", default="default", help="Credential environment name")
 @click.pass_context
 def status(ctx, environment: str):
-    """Show stored authentication credentials (values are masked)."""
+    """Show the stored authentication credentials for an environment."""
     manager = AuthManager()
     creds = manager.list_credentials(environment=environment)
     if not creds:
@@ -180,11 +198,17 @@ def status(ctx, environment: str):
     output(creds, ctx.obj.get("output_format", "table"), title="Stored Credentials")
 
 
-@auth.command()
+@auth.command(
+    epilog="""Examples:
+
+  aitbc auth logout
+
+  aitbc auth logout --environment staging"""
+)
 @click.option("--environment", default="default", help="Credential environment name")
 @click.pass_context
 def logout(ctx, environment: str):
-    """Delete the stored coordinator credential."""
+    """Delete the stored coordinator credential for an environment."""
     manager = AuthManager()
     if manager.delete_credential("client", environment=environment):
         success(f"Logged out of environment '{environment}'")
