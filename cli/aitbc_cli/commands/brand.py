@@ -20,16 +20,29 @@ def _get_brand() -> BrandSettings:
     return BrandSettings.from_env()
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc brand show
+
+  aitbc brand list"""
+)
 def brand():
-    """Show and manage white-label brand settings."""
+    """Show and manage white-label brand settings and plugins."""
     pass
 
 
-@brand.command(name="show")
+@brand.command(
+    name="show",
+    epilog="""Examples:
+
+  aitbc brand show
+
+  aitbc brand show --output json""",
+)
 @click.pass_context
 def show_brand(ctx):
-    """Display the active brand configuration."""
+    """Display the active brand configuration from the environment or plugin."""
     b = _get_brand()
     result = {
         "source": os.getenv("AITBC_ACTIVE_PLUGIN", "environment/defaults"),
@@ -38,10 +51,17 @@ def show_brand(ctx):
     output(result, ctx.obj.get("output_format", "table"), title="Brand")
 
 
-@brand.command(name="list")
+@brand.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc brand list
+
+  aitbc brand list --output json""",
+)
 @click.pass_context
 def list_plugins(ctx):
-    """List available brand plugins."""
+    """List available brand plugins in the configured plugin directory."""
     pm = PluginManager(os.getenv("AITBC_PLUGINS_DIR", "/opt/aitbc/plugins"))
     names = pm.list_plugins()
     result = {"plugins_dir": str(pm.plugins_dir), "plugins": names}

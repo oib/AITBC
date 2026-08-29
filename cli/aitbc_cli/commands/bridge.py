@@ -137,9 +137,15 @@ def _get_bridge_client(rpc_url: str) -> BridgeClient:
     return BridgeClient(BridgeConfig(rpc_url=rpc_url))
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc bridge status
+
+  aitbc bridge lock --target-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
+)
 def bridge():
-    """Cross-chain bridge management"""
+    """Manage cross-chain bridge transfers, validators, proofs, and block headers."""
     pass
 
 
@@ -171,7 +177,13 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
     return private_key
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge lock --target-chain ait-side --sender 0xAbc... --recipient 0xC10... --amount 100
+
+  aitbc bridge lock --target-chain ait-side --amount 50 --wallet-name genesis"""
+)
 @click.option("--target-chain", required=True, help="Target chain ID for the transfer")
 @click.option("--sender", required=True, help="Sender address (source chain)")
 @click.option("--recipient", required=True, help="Recipient address (target chain)")
@@ -184,7 +196,7 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, signature, wallet_name, wallet_password, rpc_url):
-    """Lock funds for a cross-chain bridge transfer"""
+    """Lock funds for a cross-chain bridge transfer."""
 
     if wallet_name:
         private_key = _load_private_key(wallet_name, wallet_password)
@@ -218,7 +230,13 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
         abort(ctx, f"Bridge lock failed: {e}", from_exception=e)
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge confirm --transfer-id tx-123 --confirmer 0xAbc... --proof-file /tmp/proof.json
+
+  aitbc bridge confirm --transfer-id tx-123 --confirmer-private-key 0x... --proof-file /tmp/proof.json"""
+)
 @click.option("--transfer-id", required=True, help="Transfer ID to confirm")
 @click.option("--confirmer", required=True, help="Confirmer address")
 @click.option("--signature", default="", help="Confirmer signature (hex)")
@@ -227,7 +245,7 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof_file, rpc_url):
-    """Confirm and release a cross-chain bridge transfer"""
+    """Confirm and release a cross-chain bridge transfer using a proof file."""
     try:
         proof = json.loads(Path(proof_file).read_text())
     except Exception as e:
@@ -254,14 +272,20 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
         abort(ctx, f"Bridge confirm failed: {e}", from_exception=e)
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x...
+
+  aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x... --rpc-url http://aitbc3:8202/rpc"""
+)
 @click.option("--transfer-id", required=True, help="Transfer ID to refund")
 @click.option("--sender", required=True, help="Original sender address")
 @click.option("--signature", required=True, help="Sender signature authorizing the unlock")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def unlock(ctx, transfer_id, sender, signature, rpc_url):
-    """Refund/cancel a pending bridge transfer"""
+    """Refund or cancel a pending bridge transfer."""
 
     async def _unlock():
         client = _get_bridge_client(rpc_url)
@@ -279,12 +303,18 @@ def unlock(ctx, transfer_id, sender, signature, rpc_url):
         abort(ctx, f"Bridge unlock failed: {e}", from_exception=e)
 
 
-@bridge.command()
-@click.argument("transfer-id", required=False)
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge status
+
+  aitbc bridge status --transfer-id tx-123"""
+)
+@click.option("--transfer-id", "transfer_id", required=False, help="Transfer ID.")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def status(ctx, transfer_id, rpc_url):
-    """Get bridge service status or a specific transfer status"""
+    """Get bridge service status or a specific transfer status."""
     if not transfer_id:
         result = _event_bridge_status()
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Status")
@@ -302,10 +332,14 @@ def status(ctx, transfer_id, rpc_url):
         abort(ctx, f"Failed to get bridge status: {e}", from_exception=e)
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge start"""
+)
 @click.pass_context
 def start(ctx):
-    """Start the blockchain event bridge service"""
+    """Start the blockchain event bridge service."""
     ok, msg = _systemctl("start")
     if not ok:
         abort(ctx, f"Failed to start bridge service: {msg}")
@@ -319,10 +353,14 @@ def start(ctx):
     output(result, ctx.obj.get("output_format", "table"), title="Bridge Started")
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge stop"""
+)
 @click.pass_context
 def stop(ctx):
-    """Stop the blockchain event bridge service"""
+    """Stop the blockchain event bridge service."""
     ok, msg = _systemctl("stop")
     if not ok:
         abort(ctx, f"Failed to stop bridge service: {msg}")
@@ -334,12 +372,18 @@ def stop(ctx):
     )
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge pending
+
+  aitbc bridge pending --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", default=None, help="Filter by chain ID")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def pending(ctx, chain_id, rpc_url):
-    """List pending bridge transfers"""
+    """List pending bridge transfers, optionally filtered by chain."""
 
     async def _pending():
         client = _get_bridge_client(rpc_url)
@@ -353,12 +397,18 @@ def pending(ctx, chain_id, rpc_url):
         abort(ctx, f"Failed to list pending transfers: {e}", from_exception=e)
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge balance --chain-id ait-mainnet
+
+  aitbc bridge balance --chain-id ait-mainnet --output json"""
+)
 @click.option("--chain-id", required=True, help="Chain ID to query balance for")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def balance(ctx, chain_id, rpc_url):
-    """Get bridge balance for a chain (total locked amount)"""
+    """Get the total locked bridge balance for a chain."""
 
     async def _balance():
         client = _get_bridge_client(rpc_url)
@@ -372,11 +422,17 @@ def balance(ctx, chain_id, rpc_url):
         abort(ctx, f"Failed to get bridge balance: {e}", from_exception=e)
 
 
-@bridge.command()
+@bridge.command(
+    epilog="""Examples:
+
+  aitbc bridge health
+
+  aitbc bridge health --rpc-url http://aitbc3:8202/rpc"""
+)
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def health(ctx, rpc_url):
-    """Check bridge health status"""
+    """Check the bridge service health and connected node status."""
 
     async def _health():
         client = _get_bridge_client(rpc_url)
@@ -390,11 +446,18 @@ def health(ctx, rpc_url):
         abort(ctx, f"Bridge health check failed: {e}", from_exception=e)
 
 
-@bridge.command(name="security-status")
+@bridge.command(
+    name="security-status",
+    epilog="""Examples:
+
+  aitbc bridge security-status
+
+  aitbc bridge security-status --output json""",
+)
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def security_status(ctx, rpc_url):
-    """Get bridge security status (multi-sig config, validator count, etc.)"""
+    """Get bridge security status, multi-sig configuration, and threshold."""
 
     async def _security_status():
         client = _get_bridge_client(rpc_url)
@@ -408,7 +471,14 @@ def security_status(ctx, rpc_url):
         abort(ctx, f"Failed to get bridge security status: {e}", from_exception=e)
 
 
-@bridge.command(name="register-validator")
+@bridge.command(
+    name="register-validator",
+    epilog="""Examples:
+
+  aitbc bridge register-validator --chain-id ait-mainnet --address 0xAbc... --public-key 0xPub... --private-key 0xPriv...
+
+  aitbc bridge register-validator --chain-id ait-mainnet --address 0xAbc... --public-key 0xPub... --private-key 0xPriv... --admin-private-key 0xAdmin...""",
+)
 @click.option("--chain-id", required=True, help="Chain ID the validator serves")
 @click.option("--address", required=True, help="Validator's checksum address (0x...)")
 @click.option("--public-key", required=True, help="Validator's secp256k1 public key hex (0x...)")
@@ -425,7 +495,7 @@ def security_status(ctx, rpc_url):
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def register_validator(ctx, chain_id, address, public_key, private_key, admin_private_key, admin_address, epoch, rpc_url):
-    """Register a bridge validator for multi-sig operations"""
+    """Register a bridge validator for multi-sig operations on a chain."""
 
     # Sign the registration request
     from aitbc.crypto.crypto import sign_transaction_hash
@@ -471,15 +541,18 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
         abort(ctx, f"Validator registration failed: {e}", from_exception=e)
 
 
-@bridge.command(name="oracle-status")
+@bridge.command(
+    name="oracle-status",
+    epilog="""Examples:
+
+  aitbc bridge oracle-status
+
+  aitbc bridge oracle-status --rpc-url http://aitbc3:8202/rpc""",
+)
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def oracle_status(ctx, rpc_url):
-    """Get bridge oracle/verification status (v0.7.2)
-
-    Reports: verification mode, finality config, block header counts,
-    release fence status, multi-sig status.
-    """
+    """Get bridge oracle and verification status."""
 
     async def _oracle_status():
         client = _get_bridge_client(rpc_url)
@@ -493,8 +566,15 @@ def oracle_status(ctx, rpc_url):
         abort(ctx, f"Failed to get bridge oracle status: {e}", from_exception=e)
 
 
-@bridge.command(name="proof")
-@click.argument("transfer-id")
+@bridge.command(
+    name="proof",
+    epilog="""Examples:
+
+  aitbc bridge proof --transfer-id tx-123
+
+  aitbc bridge proof --transfer-id tx-123 --source-chain ait-mainnet --block-height 100""",
+)
+@click.option("--transfer-id", "transfer_id", required=True, help="Transfer ID.")
 @click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
 @click.option("--block-height", default=1, type=int, help="Block height to anchor the proof")
 @click.option("--block-hash", default=None, help="Block hash to anchor the proof")
@@ -502,11 +582,7 @@ def oracle_status(ctx, rpc_url):
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
 def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, rpc_url):
-    """Build a Merkle proof for a locked bridge transfer and write it to a file.
-
-    The proof is unsigned. Use ``aitbc bridge sign-proof`` to add validator
-    signatures before confirming.
-    """
+    """Build a Merkle proof for a locked bridge transfer."""
 
     async def _proof():
         client = _get_bridge_client(rpc_url)
@@ -531,7 +607,14 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, 
         abort(ctx, f"Failed to build bridge proof: {e}", from_exception=e)
 
 
-@bridge.command(name="sign-proof")
+@bridge.command(
+    name="sign-proof",
+    epilog="""Examples:
+
+  aitbc bridge sign-proof --proof-file /tmp/proof.json --private-key 0x...
+
+  aitbc bridge sign-proof --proof-file /tmp/proof.json --private-key 0x... --private-key 0x... --output /tmp/signed-proof.json""",
+)
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="Unsigned proof JSON file")
 @click.option(
     "--private-key",
@@ -542,11 +625,7 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, 
 @click.option("--output", "-o", default=None, type=click.Path(), help="Output file (defaults to proof-file)")
 @click.pass_context
 def sign_proof(ctx, proof_file, private_key, output):
-    """Sign a bridge proof with one or more validator keys.
-
-    The first key is used for ``proposer_signature``; all keys (including the
-    first) are added to ``validator_signatures`` for threshold verification.
-    """
+    """Sign a bridge proof with one or more validator private keys."""
     try:
         proof = json.loads(Path(proof_file).read_text())
     except Exception as e:
@@ -578,18 +657,21 @@ def sign_proof(ctx, proof_file, private_key, output):
     )
 
 
-@bridge.command(name="store-header")
+@bridge.command(
+    name="store-header",
+    epilog="""Examples:
+
+  aitbc bridge store-header --proof-file /tmp/signed-proof.json --admin-private-key 0x...
+
+  aitbc bridge store-header --proof-file /tmp/signed-proof.json --admin-private-key 0x... --rpc-url http://aitbc3:8202/rpc""",
+)
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="Signed proof JSON file")
 @click.option("--admin-private-key", required=True, help="Private key of a configured bridge admin")
 @click.option("--admin-address", default=None, help="Admin address (defaults to address of admin-private-key)")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL of the target node")
 @click.pass_context
 def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
-    """Store a bridge block header on the target node from a signed proof.
-
-    The block header is signed by the proposer/validator from the proof, then
-    the request is signed by the bridge admin so the target node will accept it.
-    """
+    """Store a bridge block header on the target node from a signed proof."""
     try:
         proof = json.loads(Path(proof_file).read_text())
     except Exception as e:
@@ -630,7 +712,14 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
         abort(ctx, f"Failed to store block header: {e}", from_exception=e)
 
 
-@bridge.command(name="ingest-header")
+@bridge.command(
+    name="ingest-header",
+    epilog="""Examples:
+
+  aitbc bridge ingest-header --source-rpc http://aitbc3:8202/rpc --height 100 --chain-id ait-mainnet
+
+  aitbc bridge ingest-header --source-rpc http://aitbc3:8202/rpc --target-rpc http://hub.aitbc:8202/rpc --height 100""",
+)
 @click.option("--source-rpc", default="http://localhost:8202/rpc", help="RPC URL of the source chain node")
 @click.option(
     "--target-rpc", default="http://localhost:8202/rpc", help="RPC URL to store the header on (defaults to localhost)"
@@ -643,11 +732,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
 @click.option("--output", "-o", default=None, type=click.Path(), help="Write the stored header to a JSON file")
 @click.pass_context
 def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, private_key, proposer, output):
-    """Fetch a block header from a source node and store it as a bridge header.
-
-    By default the source's own proposer signature is forwarded. With --re-sign,
-    the operator can replace it with a signature from a local validator key.
-    """
+    """Fetch a block header from a source node and store it as a bridge header."""
 
     if re_sign:
         if not private_key:
@@ -675,7 +760,14 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
         abort(ctx, f"Failed to ingest block header: {e}", from_exception=e)
 
 
-@bridge.command(name="attest")
+@bridge.command(
+    name="attest",
+    epilog="""Examples:
+
+  aitbc bridge attest --header-file /tmp/header.json --private-key 0x...
+
+  aitbc bridge attest --source-rpc http://aitbc3:8202/rpc --height 100 --private-key 0x...""",
+)
 @click.option("--header-file", type=click.Path(exists=True), help="JSON file with a block header to attest")
 @click.option("--source-rpc", default=None, help="RPC URL to fetch the block from (alternative to --header-file)")
 @click.option("--height", default=None, type=int, help="Block height to fetch from source")
