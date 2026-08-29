@@ -410,13 +410,25 @@ try:
 
     from ..utils import error, info, output, success
 
-    @click.group()
+    @click.group(
+        epilog="""Examples:
+
+  aitbc agent create --name my-agent --type provider
+
+  aitbc agent list"""
+    )
     def agent():
-        """Agent SDK management commands"""
+        """Register, configure, discover, and manage AITBC agents and their workflows."""
         pass
 
-    @agent.command()
-    @click.argument("name")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent create --name shop-agent --type provider
+
+  aitbc agent create --name consumer-1 --type consumer"""
+    )
+    @click.option("--name", "name", required=True, help="Agent name.")
     @click.option(
         "--type", "agent_type", default="provider", type=click.Choice(["provider", "consumer", "general"]), help="Agent type"
     )
@@ -444,7 +456,7 @@ try:
         auto_detect,
         format,
     ):
-        """Create a new agent"""
+        """Create a new agent and register it in the local agent directory."""
         try:
             # Build capabilities
             if auto_detect:
@@ -492,13 +504,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error creating agent: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("agent_id")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent register --agent-id shop-agent
+
+  aitbc agent register --agent-id shop-agent --coordinator-url http://hub.aitbc:8107"""
+    )
+    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def register(ctx, agent_id, coordinator_url, format):
-        """Register an agent with the coordinator"""
+        """Register a local agent with the coordinator by agent ID."""
         try:
             result = asyncio.run(register_agent(agent_id, coordinator_url))
 
@@ -519,15 +537,21 @@ try:
         except Exception as e:
             abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("agent_id")
-    @click.argument("agent_address")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent register-identity --agent-id shop-agent --agent-address 0xAbc...
+
+  aitbc agent register-identity --agent-id hub-agent --agent-address 0xC10... --display-name Hub"""
+    )
+    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+    @click.option("--agent-address", "agent_address", required=True, help="The Agent address.")
     @click.option("--display-name", help="Agent display name")
     @click.option("--agent-type", default="general", help="Agent type (general, provider, consumer)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def register_identity(ctx, agent_id, agent_address, display_name, agent_type, format):
-        """Register agent identity on blockchain"""
+        """Register an agent's identity and address on the blockchain."""
         config = get_config()
 
         try:
@@ -588,12 +612,18 @@ try:
         except Exception as e:
             abort(ctx, f"Error registering identity: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("agent_id")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent get-identity --agent-id shop-agent
+
+  aitbc agent get-identity --agent-id hub-agent --output json"""
+    )
+    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def get_identity(ctx, agent_id, format):
-        """Get agent identity from blockchain"""
+        """Get an agent's on-chain identity record for the given ID."""
         config = get_config()
 
         try:
@@ -620,13 +650,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error getting identity: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("agent_id")
-    @click.argument("verifier_address")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent verify-identity --agent-id shop-agent --verifier-address 0xAbc...
+
+  aitbc agent verify-identity --agent-id provider-1 --verifier-address 0xC10... --output json"""
+    )
+    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+    @click.option("--verifier-address", "verifier_address", required=True, help="The Verifier address.")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def verify_identity(ctx, agent_id, verifier_address, format):
-        """Verify agent identity on blockchain"""
+        """Verify an agent's identity using a verifier address on the blockchain."""
         config = get_config()
 
         try:
@@ -683,13 +719,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("agent_id", required=False)
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent status --agent-id shop-agent
+
+  aitbc agent status --agent-id shop-agent --output json"""
+    )
+    @click.option("--agent-id", "agent_id", required=False, help="The Agent id.")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def status(ctx, agent_id, coordinator_url, format):
-        """Get agent status"""
+        """Get the current status and health of a specified agent."""
         try:
             agent_id = _resolve_agent_id(ctx, agent_id)
             status_data = get_agent_status(agent_id, coordinator_url=coordinator_url)
@@ -708,11 +750,17 @@ try:
         except Exception as e:
             abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
-    @agent.command()
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent capabilities --agent-id shop-agent
+
+  aitbc agent capabilities"""
+    )
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def capabilities(ctx, format):
-        """Show auto-detected system capabilities"""
+        """Show auto-detected system capabilities for a specified agent."""
         try:
             caps = get_agent_capabilities()
 
@@ -733,13 +781,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error detecting capabilities: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("name")
-    @click.argument("key")
-    @click.argument("value")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent config-set --name shop-agent --key region --value eu-west
+
+  aitbc agent config-set --name consumer-1 --key max_price --value 0.001"""
+    )
+    @click.option("--name", "name", required=True, help="Agent name.")
+    @click.option("--key", "key", required=True, help="The Key.")
+    @click.option("--value", "value", required=True, help="The Value.")
     @click.pass_context
     def config_set(ctx, name, key, value):
-        """Set a configuration value for an agent"""
+        """Set a configuration key and value for a named agent."""
         try:
             result = set_agent_config(name, key, value)
 
@@ -751,13 +805,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error setting configuration: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("name")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent config-get --name shop-agent
+
+  aitbc agent config-get --name shop-agent --key region"""
+    )
+    @click.option("--name", "name", required=True, help="Agent name.")
     @click.option("--key", help="Specific configuration key to retrieve")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def config_get(ctx, name, key, format):
-        """Get configuration value(s) for an agent"""
+        """Get configuration value or the full configuration for a named agent."""
         try:
             result = get_agent_config(name, key)
 
@@ -777,11 +837,17 @@ try:
         except Exception as e:
             abort(ctx, f"Error getting configuration: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("name")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent config-validate --name shop-agent
+
+  aitbc agent config-validate --name shop-agent --output json"""
+    )
+    @click.option("--name", "name", required=True, help="Agent name.")
     @click.pass_context
     def config_validate(ctx, name):
-        """Validate agent configuration"""
+        """Validate the configuration of a named agent against the schema."""
         try:
             result = validate_agent_config(name)
 
@@ -793,12 +859,18 @@ try:
         except Exception as e:
             abort(ctx, f"Error validating configuration: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("file_path")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent config-import --file-path /tmp/shop-agent.json
+
+  aitbc agent config-import --file-path /tmp/shop-agent.json --name shop-agent"""
+    )
+    @click.option("--file-path", "file_path", required=True, help="Path to the file.")
     @click.option("--name", help="Override agent name")
     @click.pass_context
     def config_import(ctx, file_path, name):
-        """Import agent configuration from file"""
+        """Import agent configuration from a JSON file."""
         try:
             result = import_agent_config(file_path, name)
 
@@ -810,12 +882,18 @@ try:
         except Exception as e:
             abort(ctx, f"Error importing configuration: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("name")
-    @click.argument("output_path")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent config-export --name shop-agent --output-path /tmp/shop-agent.json
+
+  aitbc agent config-export --name shop-agent --output-path /var/lib/aitbc/agents/shop-agent.json"""
+    )
+    @click.option("--name", "name", required=True, help="Agent name.")
+    @click.option("--output-path", "output_path", required=True, help="The Output path.")
     @click.pass_context
     def config_export(ctx, name, output_path):
-        """Export agent configuration to file"""
+        """Export a named agent's configuration to a JSON file."""
         try:
             result = export_agent_config(name, output_path)
 
@@ -827,11 +905,17 @@ try:
         except Exception as e:
             abort(ctx, f"Error exporting configuration: {str(e)}", from_exception=e)
 
-    @agent.command()
-    @click.argument("job_id")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent job --job-id job-1234
+
+  aitbc agent job --job-id job-1234 --output json"""
+    )
+    @click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
     @click.pass_context
     def job(ctx, job_id: str):
-        """Get specific AI job details from coordinator-api"""
+        """Get specific AI job details from the coordinator API."""
         config = get_config()
 
         try:
@@ -844,12 +928,18 @@ try:
         except Exception as e:
             error(f"Error fetching job: {e}")
 
-    @agent.command()
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent jobs
+
+  aitbc agent jobs --status running --limit 50"""
+    )
     @click.option("--status", help="Filter by job status")
     @click.option("--limit", type=int, default=20, help="Number of jobs to return")
     @click.pass_context
     def jobs(ctx, status: str | None, limit: int):
-        """List AI jobs from coordinator-api"""
+        """List AI jobs from the coordinator API with optional status filters."""
         config = get_config()
 
         try:
@@ -866,13 +956,19 @@ try:
         except Exception as e:
             error(f"Error fetching jobs: {e}")
 
-    @agent.command()
-    @click.argument("task")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent submit --task 'transcribe audio'
+
+  aitbc agent submit --task 'generate summary' --model gpt-4o --priority high"""
+    )
+    @click.option("--task", "task", required=True, help="The Task.")
     @click.option("--model", help="AI model to use")
     @click.option("--priority", default="normal", help="Job priority")
     @click.pass_context
     def submit(ctx, task: str, model: str | None, priority: str):
-        """Submit an AI job to coordinator-api"""
+        """Submit a new AI job task to the coordinator API."""
         config = get_config()
 
         try:
@@ -889,11 +985,17 @@ try:
         except Exception as e:
             error(f"Error submitting job: {e}")
 
-    @agent.command()
-    @click.argument("job_id")
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent cancel --job-id job-1234
+
+  aitbc agent cancel --job-id job-5678 --output json"""
+    )
+    @click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
     @click.pass_context
     def cancel(ctx, job_id: str):
-        """Cancel an AI job via coordinator-api"""
+        """Cancel a running AI job on the coordinator by job ID."""
         config = get_config()
 
         try:
@@ -907,12 +1009,24 @@ try:
             error(f"Error cancelling job: {e}")
 
     # Agent Coordinator integration commands
-    @agent.group()
+    @agent.group(
+        epilog="""Examples:
+
+  aitbc agent discover
+
+  aitbc agent discover agents --capability gpu"""
+    )
     def discover():
-        """Discover agents by capability"""
+        """Discover and filter remote agents by capability, type, and health."""
         pass
 
-    @discover.command()
+    @discover.command(
+        epilog="""Examples:
+
+  aitbc agent discover agents --capability gpu
+
+  aitbc agent discover agents --agent-type provider --limit 10"""
+    )
     @click.option("--capability", help="Filter by capability")
     @click.option("--agent-type", help="Filter by agent type")
     @click.option("--min-health", type=float, default=0.0, help="Minimum health score")
@@ -921,7 +1035,7 @@ try:
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
-        """Discover agents by capability"""
+        """Search remote agents by capability, type, and minimum health score."""
         if not _check_agent_coordinator(coordinator_url, ctx):
             return
         try:
@@ -963,7 +1077,13 @@ try:
         except Exception as e:
             abort(ctx, f"Error discovering agents: {e}", from_exception=e)
 
-    @agent.command()
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent inbox --agent-id shop-agent
+
+  aitbc agent inbox --agent-id shop-agent --unread-only --limit 5"""
+    )
     @click.option("--agent-id", help="Agent ID")
     @click.option("--limit", type=int, default=100, help="Maximum messages")
     @click.option("--unread-only", is_flag=True, help="Only unread messages")
@@ -971,7 +1091,7 @@ try:
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def inbox(ctx, agent_id, limit, unread_only, coordinator_url, format):
-        """View agent inbox"""
+        """View messages in a specified agent's inbox from the coordinator."""
         try:
             import requests
 
@@ -987,7 +1107,13 @@ try:
         except Exception as e:
             abort(ctx, f"Error getting inbox: {e}", from_exception=e)
 
-    @agent.command()
+    @agent.command(
+        epilog="""Examples:
+
+  aitbc agent subscribe --agent-id shop-agent --topic jobs
+
+  aitbc agent subscribe --agent-id shop-agent --topic alerts --filter '{"priority":"high"}'"""
+    )
     @click.option("--agent-id", required=True, help="Agent ID")
     @click.option("--topic", required=True, help="Topic to subscribe to")
     @click.option("--filter", help="Filter criteria (JSON string)")
@@ -995,7 +1121,7 @@ try:
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def subscribe(ctx, agent_id, topic, filter, coordinator_url, format):
-        """Subscribe to topic"""
+        """Subscribe an agent to a message topic on the coordinator."""
         try:
             import requests
 
@@ -1013,12 +1139,24 @@ try:
         except Exception as e:
             abort(ctx, f"Error subscribing to topic: {e}", from_exception=e)
 
-    @agent.group()
+    @agent.group(
+        epilog="""Examples:
+
+  aitbc agent workflow create-workflow --name nightly-cleanup
+
+  aitbc agent workflow execute --workflow-id wf-123"""
+    )
     def workflow():
-        """Workflow management"""
+        """Create and execute multi-step agent workflows."""
         pass
 
-    @workflow.command()
+    @workflow.command(
+        epilog="""Examples:
+
+  aitbc agent workflow create-workflow --name cleanup --steps-file /tmp/steps.json
+
+  aitbc agent workflow create-workflow --name report --description 'Daily report' --steps-file /tmp/report.json"""
+    )
     @click.option("--name", required=True, help="Workflow name")
     @click.option("--description", help="Workflow description")
     @click.option("--steps-file", required=True, type=click.Path(exists=True), help="JSON file with workflow steps")
@@ -1026,7 +1164,7 @@ try:
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def create_workflow(ctx, name, description, steps_file, coordinator_url, format):
-        """Create workflow"""
+        """Create a new multi-step workflow from a steps definition file."""
         try:
             import requests
 
@@ -1049,14 +1187,20 @@ try:
         except Exception as e:
             abort(ctx, f"Error creating workflow: {e}", from_exception=e)
 
-    @workflow.command()
+    @workflow.command(
+        epilog="""Examples:
+
+  aitbc agent workflow execute --workflow-id wf-123 --input-file /tmp/input.json
+
+  aitbc agent workflow execute --workflow-id wf-123 --input-file /tmp/input.json --output json"""
+    )
     @click.option("--workflow-id", required=True, help="Workflow ID")
     @click.option("--input-file", type=click.Path(exists=True), help="JSON file with input parameters")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def execute(ctx, workflow_id, input_file, coordinator_url, format):
-        """Execute workflow"""
+        """Execute a previously created workflow with the given input file."""
         try:
             import requests
 
@@ -1081,13 +1225,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error executing workflow: {e}", from_exception=e)
 
-    @workflow.command()
+    @workflow.command(
+        epilog="""Examples:
+
+  aitbc agent workflow status --workflow-id wf-123
+
+  aitbc agent workflow status --workflow-id wf-123 --output json"""
+    )
     @click.option("--workflow-id", required=True, help="Workflow ID")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def workflow_status(ctx, workflow_id, coordinator_url, format):
-        """Get workflow status"""
+        """Get the current execution status of a workflow by workflow ID."""
         try:
             import requests
 

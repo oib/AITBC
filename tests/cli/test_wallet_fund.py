@@ -31,7 +31,7 @@ class TestWalletFund:
 
         result = runner.invoke(
             wallet,
-            ["fund", "0xAbc1234567890123456789012345678901234567", "--amount-ait", "1.0"],
+            ["fund", "--address", "0xAbc1234567890123456789012345678901234567", "--amount-ait", "1.0"],
         )
 
         assert result.exit_code == 0, result.output
@@ -52,7 +52,7 @@ class TestWalletFund:
 
         result = runner.invoke(
             wallet,
-            ["fund", "0xAbc1234567890123456789012345678901234567", "--amount", "7200"],
+            ["fund", "--address", "0xAbc1234567890123456789012345678901234567", "--amount", "7200"],
         )
 
         assert result.exit_code == 0, result.output
@@ -65,5 +65,5 @@ class TestWalletFund:
 
         from aitbc_cli.commands.wallet import wallet
 
-        result = runner.invoke(wallet, ["fund", "not-an-address"])
+        result = runner.invoke(wallet, ["fund", "--address", "not-an-address"])
         assert "Invalid address" in result.output

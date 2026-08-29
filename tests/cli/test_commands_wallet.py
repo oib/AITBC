@@ -148,7 +148,7 @@ class TestWalletCommands:
 
         result = runner.invoke(
             wallet,
-            ["--wallet-path", str(tmp_path / "newwallet.json"), "create", "newwallet", "--no-encrypt"],
+            ["--wallet-path", str(tmp_path / "newwallet.json"), "create", "--name", "newwallet", "--no-encrypt"],
         )
 
         assert result.exit_code == 0, result.output
@@ -171,7 +171,7 @@ class TestWalletCommands:
 
         result = runner.invoke(
             wallet,
-            ["--wallet-path", str(wallet_path), "create", "existing", "--no-encrypt"],
+            ["--wallet-path", str(wallet_path), "create", "--name", "existing", "--no-encrypt"],
         )
 
         assert result.exit_code == 0, result.output
