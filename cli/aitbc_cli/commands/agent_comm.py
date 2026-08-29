@@ -32,24 +32,36 @@ def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=base_url, headers=headers, timeout=30)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc agent-comm list
+
+  aitbc agent-comm status --agent-id agent-1"""
+)
 def agent_comm():
-    """Cross-chain agent communication commands"""
+    """Register, discover, and communicate with AITBC agents across chains."""
     pass
 
 
-@agent_comm.command()
-@click.argument("agent_id")
-@click.argument("name")
-@click.argument("chain_id")
-@click.argument("endpoint")
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm register --agent-id agent-1 --name 'Shop Agent' --chain-id ait-mainnet --endpoint http://aitbc3:8107
+
+  aitbc agent-comm register --agent-id agent-2 --name 'Hub Agent' --chain-id ait-mainnet --endpoint http://hub.aitbc:8107 --capabilities gpu,storage"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+@click.option("--name", "name", required=True, help="Wallet name.")
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
+@click.option("--endpoint", "endpoint", required=True, help="The Endpoint.")
 @click.option("--capabilities", help="Comma-separated list of capabilities")
 @click.option("--reputation", default=0.5, help="Initial reputation score")
 @click.option("--version", default="1.0.0", help="Agent version")
 @click.option("--agent-type", default="worker", help="Agent type (worker, specialist, etc.)")
 @click.pass_context
 def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version, agent_type):
-    """Register an agent in the cross-chain network"""
+    """Register a new agent in the cross-chain network with its metadata and endpoint."""
     try:
         cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else []
         client = _agent_client(ctx)
@@ -88,14 +100,21 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
         abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
 
-@agent_comm.command(name="list")
+@agent_comm.command(
+    name="list",
+    epilog="""Examples:
+
+  aitbc agent-comm list
+
+  aitbc agent-comm list --status active --chain-id ait-mainnet""",
+)
 @click.option("--chain-id", help="Filter by chain ID")
 @click.option("--status", type=click.Choice(["active", "inactive", "busy", "offline"]), help="Filter by status")
 @click.option("--capabilities", help="Filter by capabilities (comma-separated)")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def list_agents(ctx, chain_id, status, capabilities, output_format):
-    """List registered agents"""
+    """List agents registered in the cross-chain network with optional filters."""
     try:
         client = _agent_client(ctx)
         query: dict[str, Any] = {"status": status or "active", "limit": 100}
@@ -135,13 +154,19 @@ def list_agents(ctx, chain_id, status, capabilities, output_format):
         abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
 
-@agent_comm.command()
-@click.argument("chain_id")
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm discover ait-mainnet
+
+  aitbc agent-comm discover ait-mainnet --capabilities inference"""
+)
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--capabilities", help="Required capabilities (comma-separated)")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def discover(ctx, chain_id, capabilities, output_format):
-    """Discover agents on a specific chain"""
+    """Discover active agents on a specific chain by chain ID."""
     try:
         client = _agent_client(ctx)
         cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else None
@@ -172,12 +197,18 @@ def discover(ctx, chain_id, capabilities, output_format):
         abort(ctx, f"Error discovering agents: {str(e)}", from_exception=e)
 
 
-@agent_comm.command()
-@click.argument("agent_id")
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm status --agent-id agent-1
+
+  aitbc agent-comm status --agent-id agent-1 --format json"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def status(ctx, agent_id, output_format):
-    """Get detailed agent status"""
+    """Get detailed status and metadata for a registered agent."""
     try:
         client = _agent_client(ctx)
         result = client.get(f"/v1/agents/{agent_id}")
@@ -205,11 +236,17 @@ def status(ctx, agent_id, output_format):
         abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
 
-@agent_comm.command()
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm network
+
+  aitbc agent-comm network --format json"""
+)
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def network(ctx, output_format):
-    """Get cross-chain network overview"""
+    """Get an overview of the cross-chain agent network and distribution."""
     try:
         client = _agent_client(ctx)
         result = client.post("/v1/agents/discover", json={"status": "active", "limit": 1000})
@@ -259,69 +296,106 @@ def network(ctx, output_format):
         abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
 
 
-@agent_comm.command()
-@click.argument("sender_id")
-@click.argument("receiver_id")
-@click.argument("message_type")
-@click.argument("chain_id")
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm send --sender-id agent-1 --receiver-id agent-2 --message-type ping --chain-id ait-mainnet
+
+  aitbc agent-comm send --sender-id agent-1 --receiver-id agent-2 --message-type task --chain-id ait-mainnet --payload '{"job":"123"}'"""
+)
+@click.option("--sender-id", "sender_id", required=True, help="The Sender id.")
+@click.option("--receiver-id", "receiver_id", required=True, help="The Receiver id.")
+@click.option("--message-type", "message_type", required=True, help="The Message type.")
+@click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--payload", default="{}", help="JSON payload string")
 @click.option("--target-chain", help="Target chain for cross-chain messages")
 @click.option("--priority", default=5, help="Message priority (1-10)")
 @click.option("--ttl", default=3600, help="Time to live in seconds")
 @click.pass_context
 def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_chain, priority, ttl):
-    """Send a message to an agent"""
+    """Send a message from a sender to a receiver agent on a specific chain."""
     output(
         {"message": "Agent-to-agent send is not available via the coordinator API"},
         ctx.obj.get("output_format", "table"),
     )
 
 
-@agent_comm.command()
-@click.argument("agent_ids", nargs=-1, required=True)
-@click.argument("collaboration_type")
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm collaborate --agent-ids agent-1 --agent-ids agent-2 --collaboration-type pool
+
+  aitbc agent-comm collaborate --agent-ids agent-1 --agent-ids agent-2 --agent-ids agent-3 --collaboration-type federation --governance '{"quorum":2}'"""
+)
+@click.option("--agent-ids", "agent_ids", required=True, multiple=True, help="The Agent ids.")
+@click.option("--collaboration-type", "collaboration_type", required=True, help="The Collaboration type.")
 @click.option("--governance", help="Governance rules (JSON string)")
 @click.pass_context
 def collaborate(ctx, agent_ids, collaboration_type, governance):
-    """Create a multi-agent collaboration"""
+    """Create a multi-agent collaboration with a list of agent IDs."""
     output(
         {"message": "Agent collaboration is not available via the coordinator API"},
         ctx.obj.get("output_format", "table"),
     )
 
 
-@agent_comm.command()
-@click.argument("agent_id")
-@click.argument("interaction_result", type=click.Choice(["success", "failure"]))
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm reputation --agent-id agent-1 --interaction-result success --feedback 0.95
+
+  aitbc agent-comm reputation --agent-id agent-1 --interaction-result failure"""
+)
+@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+@click.option(
+    "--interaction-result",
+    "interaction_result",
+    required=True,
+    type=click.Choice(["success", "failure"]),
+    help="The Interaction result.",
+)
 @click.option("--feedback", type=float, help="Feedback score (0.0-1.0)")
 @click.pass_context
 def reputation(ctx, agent_id, interaction_result, feedback):
-    """Update agent reputation"""
+    """Update the reputation score for an agent based on an interaction result."""
     output(
         {"message": "Agent reputation update is not available via the coordinator API"},
         ctx.obj.get("output_format", "table"),
     )
 
 
-@agent_comm.command()
+@agent_comm.command(
+    epilog="""Examples:
+
+  aitbc agent-comm monitor
+
+  aitbc agent-comm monitor --realtime --interval 5"""
+)
 @click.option("--realtime", is_flag=True, help="Real-time monitoring")
 @click.option("--interval", default=10, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, realtime, interval):
-    """Monitor cross-chain agent communication"""
+    """Monitor cross-chain agent communication in real time or at an interval."""
     output(
         {"message": "Real-time agent monitor is not available via the coordinator API"},
         ctx.obj.get("output_format", "table"),
     )
 
 
-@agent_comm.command(name="receive")
-@click.argument("receiver_id")
+@agent_comm.command(
+    name="receive",
+    epilog="""Examples:
+
+  aitbc agent-comm receive --receiver-id agent-1
+
+  aitbc agent-comm receive --receiver-id agent-1 --limit 20 --format json""",
+)
+@click.option("--receiver-id", "receiver_id", required=True, help="The Receiver id.")
 @click.option("--limit", default=10, help="Maximum number of messages to return")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def receive(ctx, receiver_id, limit, format):
-    """Receive queued messages for an agent"""
+    """Receive queued messages for a receiver agent from the coordinator."""
     try:
         client = _agent_client(ctx)
         result = client.get(f"/v1/agents/{receiver_id}/messages", params={"limit": limit})
