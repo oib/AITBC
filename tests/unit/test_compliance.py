@@ -25,6 +25,7 @@ from aitbc.compliance import (
     require_consent,
     retention_expired,
 )
+from aitbc.compliance.consent import ConsentTracker
 from aitbc.compliance.errors import InvalidClassificationError, PolicyViolationError
 
 
@@ -141,3 +142,11 @@ def test_require_consent_active() -> None:
 def test_require_consent_missing() -> None:
     with pytest.raises(PolicyViolationError):
         require_consent(None, purpose="process")
+
+
+def test_consent_tracker_grant_and_revoke() -> None:
+    tracker = ConsentTracker()
+    tracker.grant("user-1", "analytics")
+    assert tracker.is_consented("user-1", "analytics") is True
+    tracker.revoke("user-1", "analytics")
+    assert tracker.is_consented("user-1", "analytics") is False
