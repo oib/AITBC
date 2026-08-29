@@ -759,7 +759,7 @@ def token(ctx: click.Context, rental_id: str, output_format: str):
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def rentals(ctx: click.Context, output_format: str):
-    """List active IPFS rentals."""
+    """List all active IPFS rentals and their details."""
     output_format = resolve_output_format(ctx, output_format)
     items = _load_rentals()
     output(items, output_format, title="IPFS Rentals")
