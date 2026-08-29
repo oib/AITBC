@@ -10,19 +10,31 @@ from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc account get --address 0xAbc...
+
+  aitbc account list"""
+)
 def account():
-    """Account information and management"""
+    """Display and manage AITBC accounts on the active blockchain."""
     pass
 
 
-@account.command()
+@account.command(
+    epilog="""Examples:
+
+  aitbc account get --address 0xC10F0E4fC10f0e4FC10f0e4fC10F0E4FC10F0e4f
+
+  aitbc account get --address 0xAbc... --chain-id ait-mainnet"""
+)
 @click.option("--address", required=True, help="Account address (0x, 42 hex chars)")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.option("--chain-id", help="Chain ID for multichain operations")
 @click.pass_context
 def get(ctx, address, rpc_url, chain_id):
-    """Get account information."""
+    """Fetch on-chain information for a given account address, including balance and nonce."""
     try:
         params = {}
         if chain_id:
@@ -46,12 +58,18 @@ def get(ctx, address, rpc_url, chain_id):
         abort(ctx, f"Error getting account: {e}", from_exception=e)
 
 
-@account.command()
+@account.command(
+    epilog="""Examples:
+
+  aitbc account list
+
+  aitbc account list --output json"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.option("--chain-id", help="Chain ID for multichain operations")
 @click.pass_context
 def list(ctx, rpc_url, chain_id):
-    """List all accounts"""
+    """List all known accounts from the blockchain RPC."""
     try:
         params = {}
         if chain_id:

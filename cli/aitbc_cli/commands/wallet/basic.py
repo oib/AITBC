@@ -20,13 +20,19 @@ from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_clien
 import yaml
 
 
-@wallet.command()
-@click.argument("name")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet create --name genesis
+
+  aitbc wallet create --name shop --type simple --no-encrypt"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.option("--type", "wallet_type", default="hd", help="Wallet type (hd, simple)")
 @click.option("--no-encrypt", is_flag=True, help="Skip wallet encryption (not recommended)")
 @click.pass_context
 def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
-    """Create a new wallet"""
+    """Create a new wallet with an optional type and password encryption."""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -86,10 +92,14 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     )
 
 
-@wallet.command()
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet list"""
+)
 @click.pass_context
 def list(ctx):
-    """List all wallets"""
+    """List all locally stored wallets and their active chain addresses."""
     adapter = ctx.obj["wallet_adapter"]
     use_daemon = ctx.obj["use_daemon"]
 
@@ -129,11 +139,15 @@ def list(ctx):
         error(f"Failed to list wallets: {str(e)}")
 
 
-@wallet.command()
-@click.argument("name")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet switch --name genesis"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.pass_context
 def switch(ctx, name: str):
-    """Switch to a different wallet"""
+    """Switch the active wallet context to a different locally stored wallet."""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -165,12 +179,16 @@ def switch(ctx, name: str):
     )
 
 
-@wallet.command()
-@click.argument("name")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet delete --name old-wallet --confirm"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
 def delete(ctx, name: str, confirm: bool):
-    """Delete a wallet"""
+    """Delete a locally stored wallet with an optional confirmation prompt."""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -199,12 +217,16 @@ def delete(ctx, name: str, confirm: bool):
                 yaml.dump(config, f, default_flow_style=False)
 
 
-@wallet.command()
-@click.argument("name")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet backup --name genesis --destination /var/lib/aitbc/wallets/genesis.bak"""
+)
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.option("--destination", help="Destination path for backup file")
 @click.pass_context
 def backup(ctx, name: str, destination: str | None):
-    """Backup a wallet"""
+    """Export a wallet to a password-encrypted backup file at the given path."""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -228,13 +250,17 @@ def backup(ctx, name: str, destination: str | None):
     )
 
 
-@wallet.command()
-@click.argument("backup_path")
-@click.argument("name")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet restore --backup-path /var/lib/aitbc/wallets/genesis.bak --name genesis"""
+)
+@click.option("--backup-path", "backup_path", required=True, help="Path to the backup file.")
+@click.option("--name", "name", required=True, help="Wallet name.")
 @click.option("--force", is_flag=True, help="Override existing wallet")
 @click.pass_context
 def restore(ctx, backup_path: str, name: str, force: bool):
-    """Restore a wallet from backup"""
+    """Restore a wallet from a backup file with an optional force override."""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -269,10 +295,14 @@ def restore(ctx, backup_path: str, name: str, force: bool):
     )
 
 
-@wallet.command()
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet info"""
+)
 @click.pass_context
 def info(ctx):
-    """Show current wallet information"""
+    """Show detailed information about the currently active wallet."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
     config_file = Path.home() / ".aitbc" / "config.yaml"
@@ -344,16 +374,17 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
     return None
 
 
-@wallet.command()
-@click.argument("name", required=False)
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet balance
+
+  aitbc wallet balance --name genesis"""
+)
+@click.option("--name", "name", required=False, help="Wallet name.")
 @click.pass_context
 def balance(ctx, name: str | None):
-    """Check wallet balance from the blockchain RPC.
-
-    The command first resolves the wallet address from the wallet daemon or a
-    local file wallet, canonicalises it, and then queries the chain directly so
-    the displayed balance is never stale.
-    """
+    """Check the AITBC balance of a wallet from the blockchain RPC."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
@@ -397,12 +428,18 @@ def balance(ctx, name: str | None):
     output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
 
 
-@wallet.command()
-@click.argument("name", required=False)
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet transactions --limit 20
+
+  aitbc wallet transactions --name genesis --limit 5"""
+)
+@click.option("--name", "name", required=False, help="Wallet name.")
 @click.option("--limit", type=int, default=10, help="Number of transactions to show")
 @click.pass_context
 def transactions(ctx, name: str | None, limit: int):
-    """Show blockchain transactions for wallet"""
+    """List recent blockchain transactions for the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
@@ -464,13 +501,17 @@ def transactions(ctx, name: str | None, limit: int):
         raise click.Abort() from e
 
 
-@wallet.command()
-@click.argument("amount", type=DECIMAL)
-@click.argument("job_id")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet earn --amount 10.5 --job-id job-1234 --desc 'GPU inference batch'"""
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
+@click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
 @click.option("--desc", help="Description of the work")
 @click.pass_context
 def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
-    """Add earnings from completed job"""
+    """Record earnings received for a completed job against the wallet."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -512,12 +553,16 @@ def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
     )
 
 
-@wallet.command()
-@click.argument("amount", type=DECIMAL)
-@click.argument("description")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet spend --amount 2.0 --description 'Hosting fees'"""
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
+@click.option("--description", "description", required=True, help="Free-form description.")
 @click.pass_context
 def spend(ctx, amount: Decimal, description: str):
-    """Spend AITBC"""
+    """Record a manual spend transaction with an amount and description."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -562,11 +607,17 @@ def spend(ctx, amount: Decimal, description: str):
     )
 
 
-@wallet.command()
-@click.argument("name", required=False)
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet address
+
+  aitbc wallet address --name genesis"""
+)
+@click.option("--name", "name", required=False, help="Wallet name.")
 @click.pass_context
 def address(ctx, name: str | None):
-    """Show wallet address"""
+    """Display the public address of the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
         error("No wallet specified. Use --wallet-name or provide wallet name as argument")
@@ -587,15 +638,19 @@ def address(ctx, name: str | None):
     )
 
 
-@wallet.command()
-@click.argument("to_address")
-@click.argument("amount", type=DECIMAL)
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet send --to-address 0xAbc... --amount 1.5 --fee 0.001"""
+)
+@click.option("--to-address", "to_address", required=True, help="Destination address.")
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.option("--password", help="Wallet password for signing")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
 def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | None, rpc_url: str | None):
-    """Send AITBC to another address"""
+    """Send AITBC tokens from the active wallet to another address."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -711,13 +766,17 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         raise click.Abort() from e
 
 
-@wallet.command()
-@click.argument("to_address")
-@click.argument("amount", type=DECIMAL)
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet request-payment --to-address 0xAbc... --amount 5.0 --description 'Invoice 42'"""
+)
+@click.option("--to-address", "to_address", required=True, help="Destination address.")
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--description", help="Transaction description")
 @click.pass_context
 def request_payment(ctx, to_address: str, amount: Decimal, description: str | None):
-    """Request payment from another address"""
+    """Generate a payment request to another address for a specific amount."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -746,10 +805,14 @@ def request_payment(ctx, to_address: str, amount: Decimal, description: str | No
     )
 
 
-@wallet.command()
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet stats"""
+)
 @click.pass_context
 def stats(ctx):
-    """Show wallet statistics"""
+    """Show aggregated statistics for the active wallet over all transactions."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
