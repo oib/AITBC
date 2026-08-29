@@ -52,17 +52,29 @@ def _is_hub_node() -> bool:
     return False
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc pool-hub status
+
+  aitbc pool-hub sla"""
+)
 def pool_hub():
-    """Pool hub management for SLA monitoring and billing"""
+    """Monitor pool hub SLA and check pool hub status."""
     pass
 
 
-@pool_hub.command()
+@pool_hub.command(
+    epilog="""Examples:
+
+  aitbc pool-hub status
+
+  aitbc pool-hub status --pool-hub-url http://localhost:8210"""
+)
 @click.option("--pool-hub-url", default=None, help="Pool Hub service URL")
 @click.pass_context
 def status(ctx, pool_hub_url):
-    """Check pool hub status"""
+    """Check the pool hub health and status."""
     try:
         pool_hub_url = pool_hub_url or _default_pool_hub_url()
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
@@ -76,12 +88,18 @@ def status(ctx, pool_hub_url):
         abort(ctx, f"Error getting pool hub status: {e}", from_exception=e)
 
 
-@pool_hub.command()
+@pool_hub.command(
+    epilog="""Examples:
+
+  aitbc pool-hub sla
+
+  aitbc pool-hub sla --pool-hub-url http://localhost:8210"""
+)
 @click.option("--pool-id", help="Specific pool ID")
 @click.option("--pool-hub-url", default=None, help="Pool Hub service URL")
 @click.pass_context
 def sla(ctx, pool_id, pool_hub_url):
-    """Monitor SLA"""
+    """Monitor pool hub SLA status across miners."""
     # Pool Hub tracks miners, not pools — it has no route that filters SLA by a
     # pool ID.  Rejecting the flag beats accepting it and returning unfiltered
     # data as though it had been applied.

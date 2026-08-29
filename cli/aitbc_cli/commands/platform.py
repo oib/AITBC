@@ -10,19 +10,32 @@ import click
 from ..utils import output, success
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc platform init-platform --name 'My Platform'
+
+  aitbc platform init-platform --name 'My Platform' --template default --output /tmp/platform"""
+)
 def platform():
-    """Scaffold white-label platform configurations."""
+    """Scaffold white-label platform configurations and brand manifests."""
     pass
 
 
-@platform.command("init-platform")
+@platform.command(
+    "init-platform",
+    epilog="""Examples:
+
+  aitbc platform init-platform --name 'My Platform'
+
+  aitbc platform init-platform --name 'My Platform' --template default --output /tmp/platform""",
+)
 @click.option("--name", required=True, help="Platform name")
 @click.option("--template", default="default", help="Template name")
 @click.option("--output", "output_dir", default=".", help="Output directory")
 @click.pass_context
 def init_platform(ctx, name: str, template: str, output_dir: str):
-    """Initialize a white-label platform brand manifest."""
+    """Initialize a white-label platform brand manifest in the output directory."""
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
     manifest = {

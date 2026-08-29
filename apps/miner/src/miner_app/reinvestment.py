@@ -1,10 +1,10 @@
 """Autonomous provider reinvestment loop for OpenClaw economics.
 
-ponytail: This is a skeleton engine that converts earned AITBC into on-chain
-actions for staking and capacity reinvestment. It uses the shared
-`aitbc.agent_economics` primitives so it wires directly to the economic types
-Agent A owns. Real execution will be handled by an on-chain worker; this module
-only produces validated action payloads.
+This is a skeleton engine that converts earned AITBC into on-chain actions for
+staking and capacity reinvestment. It uses the shared `aitbc.agent_economics`
+primitives so it wires directly to the economic types Agent A owns. Real
+execution will be handled by an on-chain worker; this module only produces
+validated action payloads.
 """
 
 from __future__ import annotations
@@ -56,8 +56,8 @@ class ReinvestmentEngine:
     def plan_reinvestment(self, earnings: Decimal | float | int | str, agent_id: str) -> list[OnChainAction]:
         """Return the on-chain actions produced from a batch of earnings.
 
-        ponytail: No actual blockchain execution happens here; the engine only
-        validates affordability and returns action payloads.
+        No actual blockchain execution happens here; the engine only validates
+        affordability and returns action payloads.
         """
         if not isinstance(earnings, Decimal):
             earnings = Decimal(str(earnings))
