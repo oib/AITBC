@@ -29,14 +29,17 @@ def _marketplace_client() -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc marketplace list
+
+  aitbc marketplace create --chain-id ait-mainnet --chain-name hub --chain-type public --description 'hub node' --seller-id seller-1 --price 1000"""
+)
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def marketplace(ctx, chain_id: str | None):
-    """Global chain marketplace commands (cross-chain offers, bridge, on-chain listings).
-
-    For GPU/software offers published by shop miners, use `aitbc market` instead.
-    """
+    """Global chain marketplace commands for cross-chain offers, bridge, and on-chain listings."""
     ctx.ensure_object(dict)
 
     # Handle chain_id with auto-detection
@@ -47,7 +50,13 @@ def marketplace(ctx, chain_id: str | None):
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace create --chain-id ait-mainnet --chain-name hub --chain-type public --description 'hub node' --seller-id seller-1 --price 1000
+
+  aitbc marketplace create --chain-id ait-mainnet --chain-name hub --chain-type public --description 'hub node' --seller-id seller-1 --price 1000 --currency AIT"""
+)
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--chain-name", "chain_name", required=True, help="The Chain name.")
 @click.option("--chain-type", "chain_type", required=True, help="The Chain type.")
@@ -59,7 +68,7 @@ def marketplace(ctx, chain_id: str | None):
 @click.option("--metadata", help="Additional metadata (JSON string)")
 @click.pass_context
 def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, currency, specs, metadata):
-    """List a chain for sale in the marketplace"""
+    """List a chain for sale in the marketplace."""
     try:
         # Parse chain type
         try:
@@ -138,13 +147,19 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
         abort(ctx, f"Error creating listing: {e}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace buy --listing-id listing-123 --buyer-id buyer-1
+
+  aitbc marketplace buy --listing-id listing-123 --buyer-id buyer-1 --payment crypto"""
+)
 @click.option("--listing-id", "listing_id", required=True, help="The Listing id.")
 @click.option("--buyer-id", "buyer_id", required=True, help="The Buyer id.")
 @click.option("--payment", default="crypto", help="Payment method")
 @click.pass_context
 def buy(ctx, listing_id, buyer_id, payment):
-    """Purchase a chain from the marketplace"""
+    """Purchase a chain listing from the marketplace."""
     try:
         http_client = _marketplace_client()
         booking_data = {
@@ -176,12 +191,18 @@ def buy(ctx, listing_id, buyer_id, payment):
         abort(ctx, f"Error purchasing chain: {e}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace complete --transaction-id tx-123 --transaction-hash 0x...
+
+  aitbc marketplace complete --transaction-id tx-123 --transaction-hash 0x... --output json"""
+)
 @click.option("--transaction-id", "transaction_id", required=True, help="The Transaction id.")
 @click.option("--transaction-hash", "transaction_hash", required=True, help="The Transaction hash.")
 @click.pass_context
 def complete(ctx, transaction_id, transaction_hash):
-    """Complete a marketplace transaction"""
+    """Complete a marketplace transaction with transaction ID and hash."""
     try:
         http_client = _marketplace_client()
         resp = http_client.post(
@@ -208,7 +229,13 @@ def complete(ctx, transaction_id, transaction_hash):
         abort(ctx, f"Error completing transaction: {e}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace search
+
+  aitbc marketplace search --type chain --min-price 100 --max-price 1000 --status available"""
+)
 @click.option("--type", help="Filter by chain type")
 @click.option("--min-price", help="Minimum price")
 @click.option("--max-price", help="Maximum price")
@@ -217,7 +244,7 @@ def complete(ctx, transaction_id, transaction_hash):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def search(ctx, type, min_price, max_price, seller, status, format):
-    """Search chain listings in the marketplace"""
+    """Search marketplace listings by type, price range, seller, and status."""
     try:
         if type:
             try:
@@ -289,12 +316,18 @@ def search(ctx, type, min_price, max_price, seller, status, format):
         abort(ctx, f"Error searching listings: {e}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace economy --chain-id ait-mainnet
+
+  aitbc marketplace economy --chain-id ait-mainnet --output json"""
+)
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def economy(ctx, chain_id, format):
-    """Get economic metrics for a specific chain"""
+    """Get marketplace economy metrics for a chain."""
     try:
         config = load_multichain_config()
         marketplace = GlobalChainMarketplace(config)
@@ -327,13 +360,19 @@ def economy(ctx, chain_id, format):
         abort(ctx, f"Error getting chain economy: {str(e)}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace transactions --user-id user-1
+
+  aitbc marketplace transactions --user-id user-1 --role buyer"""
+)
 @click.option("--user-id", "user_id", required=True, help="The User id.")
 @click.option("--role", type=click.Choice(["buyer", "seller", "both"]), default="both", help="User role")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def transactions(ctx, user_id, role, format):
-    """Get transactions for a specific user"""
+    """List marketplace transactions for a user."""
     try:
         config = load_multichain_config()
         marketplace = GlobalChainMarketplace(config)
@@ -367,11 +406,17 @@ def transactions(ctx, user_id, role, format):
         abort(ctx, f"Error getting user transactions: {str(e)}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace overview
+
+  aitbc marketplace overview --output json"""
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def overview(ctx, format):
-    """Get comprehensive marketplace overview"""
+    """Show a marketplace overview and aggregate metrics."""
     try:
         config = load_multichain_config()
         marketplace = GlobalChainMarketplace(config)
@@ -449,12 +494,18 @@ def overview(ctx, format):
         abort(ctx, f"Error getting marketplace overview: {str(e)}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace monitor
+
+  aitbc marketplace monitor --realtime --interval 10"""
+)
 @click.option("--realtime", is_flag=True, help="Real-time monitoring")
 @click.option("--interval", default=30, help="Update interval in seconds")
 @click.pass_context
 def monitor(ctx, realtime, interval):
-    """Monitor marketplace activity"""
+    """Monitor marketplace activity in real time."""
     try:
         config = load_multichain_config()
         marketplace = GlobalChainMarketplace(config)
@@ -537,13 +588,19 @@ def monitor(ctx, realtime, interval):
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace bid --price 100 --quantity 10
+
+  aitbc marketplace bid --price 100 --quantity 10 --market ait-mainnet"""
+)
 @click.option("--price", "price", required=True, type=DECIMAL, help="The Price.")
 @click.option("--quantity", "quantity", required=True, type=float, help="The Quantity.")
 @click.option("--market", help="Market identifier")
 @click.pass_context
 def bid(ctx, price: Decimal, quantity: float, market: str | None):
-    """Place a bid in the marketplace"""
+    """Place a bid in the marketplace at a price and quantity."""
     config = get_config()
 
     try:
@@ -558,12 +615,18 @@ def bid(ctx, price: Decimal, quantity: float, market: str | None):
         error(f"Error placing bid: {e}")
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace bids
+
+  aitbc marketplace bids --market ait-mainnet --limit 50"""
+)
 @click.option("--market", help="Filter by market")
 @click.option("--limit", type=int, default=20, help="Number of bids to return")
 @click.pass_context
 def bids(ctx, market: str | None, limit: int):
-    """List bids from the marketplace"""
+    """List open bids in the marketplace."""
     config = get_config()
 
     try:
@@ -581,13 +644,19 @@ def bids(ctx, market: str | None, limit: int):
         error(f"Error fetching bids: {e}")
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace ask --price 100 --quantity 10
+
+  aitbc marketplace ask --price 100 --quantity 10 --market ait-mainnet"""
+)
 @click.option("--price", "price", required=True, type=float, help="The Price.")
 @click.option("--quantity", "quantity", required=True, type=float, help="The Quantity.")
 @click.option("--market", help="Market identifier")
 @click.pass_context
 def ask(ctx, price: Decimal, quantity: float, market: str | None):
-    """Place an ask in the marketplace"""
+    """Place an ask in the marketplace at a price and quantity."""
     config = get_config()
 
     try:
@@ -602,12 +671,18 @@ def ask(ctx, price: Decimal, quantity: float, market: str | None):
         error(f"Error placing ask: {e}")
 
 
-@marketplace.command()
+@marketplace.command(
+    epilog="""Examples:
+
+  aitbc marketplace asks
+
+  aitbc marketplace asks --market ait-mainnet --limit 50"""
+)
 @click.option("--market", help="Filter by market")
 @click.option("--limit", type=int, default=20, help="Number of asks to return")
 @click.pass_context
 def asks(ctx, market: str | None, limit: int):
-    """List asks from the marketplace"""
+    """List open asks in the marketplace."""
     config = get_config()
 
     try:
