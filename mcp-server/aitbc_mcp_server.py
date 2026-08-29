@@ -1211,7 +1211,7 @@ def get_wallet_balance(
     ] = None,
 ) -> str:
     """Get the balance of a named wallet."""
-    return _aitbc_cli_read_tool(role, host, "wallet", "balance", args=[wallet_name])
+    return _aitbc_cli_read_tool(role, host, "wallet", "balance", group_options={"wallet-name": wallet_name})
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1234,10 +1234,17 @@ def list_wallet_transactions(
     ] = None,
 ) -> str:
     """List blockchain transactions for a wallet."""
-    options: dict[str, str] = {}
+    subcommand_options: dict[str, str] = {}
     if limit is not None:
-        options["limit"] = str(limit)
-    return _aitbc_cli_read_tool(role, host, "wallet", "transactions", args=[wallet_name], options=options)
+        subcommand_options["limit"] = str(limit)
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "wallet",
+        "transactions",
+        group_options={"wallet-name": wallet_name},
+        subcommand_options=subcommand_options,
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -2592,7 +2599,7 @@ def stake_aitbc(
     group_options: dict[str, str | None] = {}
     if wallet_name is not None:
         group_options["wallet-name"] = wallet_name
-    subcommand_options: dict[str, str | None] = {}
+    subcommand_options: dict[str, str | None] = {"amount": amount}
     if duration_days is not None:
         subcommand_options["duration"] = str(duration_days)
     env = {"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR}
@@ -2601,7 +2608,7 @@ def stake_aitbc(
     command = _build_aitbc_cli_command(
         "wallet",
         "stake",
-        [amount],
+        None,
         group_options=group_options,
         subcommand_options=subcommand_options,
         env=env,
@@ -2614,7 +2621,7 @@ def stake_aitbc(
             target,
             "wallet",
             "stake",
-            [amount],
+            None,
             None,
             "json",
             group_options=group_options,
@@ -2655,14 +2662,16 @@ def unstake_aitbc(
     group_options: dict[str, str | None] = {}
     if wallet_name is not None:
         group_options["wallet-name"] = wallet_name
+    subcommand_options: dict[str, str | None] = {"stake-id": stake_id}
     env = {"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR}
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "wallet",
         "unstake",
-        [stake_id],
+        None,
         group_options=group_options,
+        subcommand_options=subcommand_options,
         env=env,
     )
     guard = _require_confirm(dry_run, confirm, command)
@@ -2673,10 +2682,11 @@ def unstake_aitbc(
             target,
             "wallet",
             "unstake",
-            [stake_id],
+            None,
             None,
             "json",
             group_options=group_options,
+            subcommand_options=subcommand_options,
             env=env,
         )
     )
