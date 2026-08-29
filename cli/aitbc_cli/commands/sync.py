@@ -11,20 +11,32 @@ from aitbc_cli.utils.error_handling import abort
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc sync bulk
+
+  aitbc sync status"""
+)
 def sync():
-    """Blockchain synchronization utilities"""
+    """Bulk import blocks and check blockchain synchronization status."""
     pass
 
 
-@sync.command()
+@sync.command(
+    epilog="""Examples:
+
+  aitbc sync bulk
+
+  aitbc sync bulk --source http://leader:8202 --import-url http://localhost:8202"""
+)
 @click.option("--source", default="http://127.0.0.1:8202", help="Source RPC URL (leader node)")
 @click.option("--import-url", default="http://127.0.0.1:8202", help="Local RPC URL for import")
 @click.option("--batch-size", type=int, default=100, help="Blocks per batch (default: 100)")
 @click.option("--poll-interval", type=float, default=0.2, help="Seconds between batches (default: 0.2)")
 @click.pass_context
 def bulk(ctx, source, import_url, batch_size, poll_interval):
-    """Bulk import blocks from a leader to catch up quickly"""
+    """Bulk import blocks from a leader node to catch up quickly."""
     # Resolve paths to the sync_cli.py script
     # Get the AITBC root directory (parent of cli directory)
     cli_dir = Path(__file__).resolve().parent.parent.parent
@@ -112,7 +124,13 @@ def _format_status_table(
         click.echo(f"{label.ljust(label_width)} : {value}")
 
 
-@sync.command()
+@sync.command(
+    epilog="""Examples:
+
+  aitbc sync status
+
+  aitbc sync status --node-url http://localhost:8202 --alert"""
+)
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--chain-id", default=None, help="Chain ID to check (defaults to node's configured chain)")
 @click.option("--hub-url", default=None, help="Hub RPC URL to compare against (defaults to HUB_RPC_URL or node-url)")
@@ -120,7 +138,7 @@ def _format_status_table(
 @click.option("--alert", is_flag=True, help="Exit non-zero on divergence or unreachable hub")
 @click.pass_context
 def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
-    """Show synchronization status (current block, peer count, sync progress)."""
+    """Show synchronization status, block height, peer count, and hub divergence."""
     client = AITBCHTTPClient(base_url=node_url)
     try:
         # Query current chain head

@@ -155,22 +155,49 @@ def _common_options(func):
     return func
 
 
-@click.command(help="Start all AITBC services for the current (or selected) role")
+@click.command(
+    help="Start all AITBC services for the current (or selected) role",
+    epilog="""Examples:
+
+  aitbc start
+
+  aitbc start --role hub
+
+  aitbc start --dry-run""",
+)
 @_common_options
 def start(ctx, role, dry_run):
-    """Start role services."""
+    """Start all AITBC services for the current or selected role."""
     return _control_services(ctx, "start", role, dry_run)
 
 
-@click.command(help="Stop all AITBC services for the current (or selected) role")
+@click.command(
+    help="Stop all AITBC services for the current (or selected) role",
+    epilog="""Examples:
+
+  aitbc stop
+
+  aitbc stop --role hub
+
+  aitbc stop --dry-run""",
+)
 @_common_options
 def stop(ctx, role, dry_run):
-    """Stop role services."""
+    """Stop all AITBC services for the current or selected role."""
     return _control_services(ctx, "stop", role, dry_run)
 
 
-@click.command(help="Restart all AITBC services for the current (or selected) role")
+@click.command(
+    help="Restart all AITBC services for the current (or selected) role",
+    epilog="""Examples:
+
+  aitbc restart
+
+  aitbc restart --role hub
+
+  aitbc restart --dry-run""",
+)
 @_common_options
 def restart(ctx, role, dry_run):
-    """Restart role services."""
+    """Restart all AITBC services for the current or selected role."""
     return _control_services(ctx, "restart", role, dry_run)
