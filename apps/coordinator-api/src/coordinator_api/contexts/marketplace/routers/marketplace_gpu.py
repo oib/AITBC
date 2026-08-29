@@ -25,6 +25,7 @@ from ...trading.services.trading_marketplace.dynamic_pricing import (
     ResourceType,
 )
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
+from ..services.ollama_queue import get_queue
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["marketplace-gpu"])
@@ -516,16 +517,21 @@ async def submit_ollama_task(
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
 ) -> dict[str, Any]:
-    """Ollama task submission endpoint.
-
-    ponytail: real queue/job dispatch is not implemented; returns 501 until
-    a persistent task queue and Ollama worker integration are wired.
-    """
+    """Submit an Ollama inference task to the persistent Redis queue."""
     _get_gpu_or_404(session, request.gpu_id)
-    raise HTTPException(
-        status_code=http_status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Ollama task dispatch is not implemented",
+    queue = await get_queue()
+    task_id = await queue.enqueue(
+        gpu_id=request.gpu_id,
+        model=request.model,
+        prompt=request.prompt,
+        parameters=request.parameters,
     )
+    return {
+        "task_id": task_id,
+        "gpu_id": request.gpu_id,
+        "status": "queued",
+        "model": request.model,
+    }
 
 
 @router.post("/payments/send")
