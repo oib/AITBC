@@ -15,20 +15,32 @@ from ..utils.http_client import AITBCHTTPClient, get_logger
 logger = get_logger(__name__)
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc crosschain swap --from-chain ait-mainnet --to-chain ait-side --amount 100
+
+  aitbc crosschain bridge --source-chain ait-mainnet --target-chain ait-side --token AIT --amount 100"""
+)
 def cross_chain():
-    """Cross-chain trading operations"""
+    """Create and inspect cross-chain swaps and bridge transactions between AITBC chains."""
     pass
 
 
-@cross_chain.command()
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain rates
+
+  aitbc crosschain rates --from-chain ait-mainnet --to-chain ait-side --from-token AIT"""
+)
 @click.option("--from-chain", help="Source chain ID")
 @click.option("--to-chain", help="Target chain ID")
 @click.option("--from-token", help="Source token symbol")
 @click.option("--to-token", help="Target token symbol")
 @click.pass_context
 def rates(ctx, from_chain: str | None, to_chain: str | None, from_token: str | None, to_token: str | None):
-    """Get cross-chain exchange rates"""
+    """Get cross-chain exchange rates between tokens and chains."""
     config = ctx.obj["config"]
 
     try:
@@ -61,7 +73,13 @@ def rates(ctx, from_chain: str | None, to_chain: str | None, from_token: str | N
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain swap --from-chain ait-mainnet --to-chain ait-side --amount 100
+
+  aitbc crosschain swap --from-chain ait-mainnet --to-chain ait-side --token AIT --amount 100 --address 0x..."""
+)
 @click.option("--from-chain", required=True, help="Source chain ID")
 @click.option("--to-chain", required=True, help="Target chain ID")
 @click.option("--from-token", required=True, help="Source token symbol")
@@ -82,7 +100,7 @@ def swap(
     slippage: float,
     address: str | None,
 ):
-    """Create cross-chain swap"""
+    """Create a cross-chain token swap from one chain to another."""
     config = ctx.obj["config"]
 
     # Validate inputs
@@ -145,11 +163,17 @@ def swap(
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
-@click.argument("swap_id")
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain status --swap-id swap-123
+
+  aitbc crosschain status --swap-id swap-123 --output json"""
+)
+@click.option("--swap-id", "swap_id", required=True, help="The Swap id.")
 @click.pass_context
 def status(ctx, swap_id: str):
-    """Check cross-chain swap status"""
+    """Get the status of a specific cross-chain swap by swap ID."""
     config = ctx.obj["config"]
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
@@ -193,13 +217,19 @@ def status(ctx, swap_id: str):
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain swaps
+
+  aitbc crosschain swaps --address 0x... --status completed --limit 20"""
+)
 @click.option("--user-address", help="Filter by user address")
 @click.option("--status", help="Filter by status")
 @click.option("--limit", type=int, default=10, help="Number of swaps to show")
 @click.pass_context
 def swaps(ctx, user_address: str | None, status: str | None, limit: int):
-    """List cross-chain swaps"""
+    """List cross-chain swaps, optionally filtered by address, status, and limit."""
     config = ctx.obj["config"]
     params = {}
     if user_address:
@@ -239,7 +269,13 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int):
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain bridge --source-chain ait-mainnet --target-chain ait-side --token AIT --amount 100
+
+  aitbc crosschain bridge --source-chain ait-mainnet --target-chain ait-side --amount 100 --recipient 0x..."""
+)
 @click.option("--source-chain", required=True, help="Source chain ID")
 @click.option("--target-chain", required=True, help="Target chain ID")
 @click.option("--token", required=True, help="Token to bridge")
@@ -247,7 +283,7 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int):
 @click.option("--recipient", help="Recipient address")
 @click.pass_context
 def bridge(ctx, source_chain: str, target_chain: str, token: str, amount: Decimal, recipient: str | None):
-    """Create cross-chain bridge transaction"""
+    """Create a cross-chain bridge transaction for tokens to a target chain."""
     config = ctx.obj["config"]
 
     # Validate inputs
@@ -294,11 +330,17 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str, amount: Decima
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
-@click.argument("bridge_id")
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain bridge-status --bridge-id bridge-123
+
+  aitbc crosschain bridge-status --bridge-id bridge-123 --output json"""
+)
+@click.option("--bridge-id", "bridge_id", required=True, help="The Bridge id.")
 @click.pass_context
 def bridge_status(ctx, bridge_id: str):
-    """Check cross-chain bridge status"""
+    """Check the status of a cross-chain bridge transaction by bridge ID."""
     config = ctx.obj["config"]
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
@@ -340,10 +382,16 @@ def bridge_status(ctx, bridge_id: str):
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain pools
+
+  aitbc crosschain pools --output json"""
+)
 @click.pass_context
 def pools(ctx):
-    """Show cross-chain liquidity pools"""
+    """Show available cross-chain liquidity pools for trading."""
     config = ctx.obj["config"]
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
@@ -393,10 +441,16 @@ def pools(ctx):
         error(f"Network error: {e}")
 
 
-@cross_chain.command()
+@cross_chain.command(
+    epilog="""Examples:
+
+  aitbc crosschain stats
+
+  aitbc crosschain stats --output json"""
+)
 @click.pass_context
 def stats(ctx):
-    """Show cross-chain trading statistics"""
+    """Show cross-chain trading and swap statistics."""
     config = ctx.obj["config"]
     try:
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
