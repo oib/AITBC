@@ -118,18 +118,30 @@ def send_agent_notification(recipient: str, content: str):
         click.echo(f"Error sending notification to {url}: {e}")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc coin-requests list
+
+  aitbc coin-requests show --request-id req-123"""
+)
 def coin_requests():
-    """Manage coin transfer requests."""
+    """List, approve, reject, execute, and inspect coin transfer requests."""
     init_db()
 
 
-@coin_requests.command()
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests list
+
+  aitbc coin-requests list --status pending --sender user-1"""
+)
 @click.option("--status", help="Filter by status (pending, approved, rejected, expired)")
 @click.option("--sender", help="Filter by sender")
 @click.pass_context
 def list(ctx, status, sender):
-    """List coin requests."""
+    """List coin transfer requests with optional status and sender filters."""
     with get_db_session() as session:
         query = session.query(CoinRequest)
 
@@ -160,12 +172,18 @@ def list(ctx, status, sender):
             click.echo(f"{req.id:<20} {req.sender:<20} {amount_str:<15} {status_str:<12} {created_str:<20}")
 
 
-@coin_requests.command()
-@click.argument("request_id")
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests approve --request-id req-123
+
+  aitbc coin-requests approve --request-id req-123 --reason 'funded'"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 @click.option("--reason", help="Reason for approval")
 @click.pass_context
 def approve(ctx, request_id, reason):
-    """Approve a pending coin request."""
+    """Approve a pending coin transfer request by request ID."""
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
@@ -194,12 +212,18 @@ def approve(ctx, request_id, reason):
         send_agent_notification(req.sender if req.sender else "unknown", notification_content)
 
 
-@coin_requests.command()
-@click.argument("request_id")
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests reject --request-id req-123 --reason 'insufficient funds'
+
+  aitbc coin-requests reject --request-id req-123 --reason 'invalid request'"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 @click.option("--reason", help="Reason for rejection", required=True)
 @click.pass_context
 def reject(ctx, request_id, reason):
-    """Reject a pending coin request."""
+    """Reject a pending coin transfer request with a required reason."""
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
@@ -225,11 +249,17 @@ def reject(ctx, request_id, reason):
         send_agent_notification(req.sender if req.sender else "unknown", notification_content)
 
 
-@coin_requests.command()
-@click.argument("request_id")
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests execute --request-id req-123
+
+  aitbc coin-requests execute --request-id req-123 --output json"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 @click.pass_context
 def execute(ctx, request_id):
-    """Execute an approved coin request (submit signed transaction to blockchain)."""
+    """Execute an approved coin transfer request by submitting a signed transaction."""
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
@@ -400,11 +430,17 @@ def execute(ctx, request_id):
             click.echo(f"Error submitting transaction: {e}")
 
 
-@coin_requests.command()
-@click.argument("request_id")
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests show --request-id req-123
+
+  aitbc coin-requests show --request-id req-123 --output json"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 @click.pass_context
 def show(ctx, request_id):
-    """Show details of a specific coin request."""
+    """Show details of a specific coin transfer request."""
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
@@ -456,23 +492,19 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = No
     return None
 
 
-@coin_requests.command()
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests reconcile
+
+  aitbc coin-requests reconcile --annotate --chain-id ait-mainnet"""
+)
 @click.option("--rpc-url", default=None, help="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
 @click.option("--annotate", is_flag=True, help="Record the discrepancy in each affected request's audit log")
 @click.option("--chain-id", default=None, help="Island to query; omit to let the node answer for its own chain")
 @click.pass_context
 def reconcile(ctx, rpc_url, annotate, chain_id):
-    """Check executed requests against the chain and report any the chain has never heard of.
-
-    A coin request records its `transaction_hash` here, in a database the chain knows nothing
-    about. The two can disagree — a chain reset is the obvious way, and it happened on
-    2026-08-15 — and when they do this database keeps claiming a payout that no longer exists
-    anywhere. Nothing detects that on its own.
-
-    Reporting is all this does by default. It deliberately will not clear a hash, because
-    clearing one makes the request payable again and the operator has usually already reissued
-    it; use `reopen` for that, one request at a time, once you know what happened.
-    """
+    """Check executed coin requests against the chain and report or annotate discrepancies."""
     rpc_url = rpc_url or os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
     click.echo(f"Checking executed coin requests against {rpc_url}\n")
 
@@ -505,19 +537,20 @@ def reconcile(ctx, rpc_url, annotate, chain_id):
         click.echo("Re-run with --annotate to record these, or `reopen <id>` to make one executable again.")
 
 
-@coin_requests.command()
-@click.argument("request_id")
+@coin_requests.command(
+    epilog="""Examples:
+
+  aitbc coin-requests reopen --request-id req-123
+
+  aitbc coin-requests reopen --request-id req-123 --force"""
+)
+@click.option("--request-id", "request_id", required=True, help="The Request id.")
 @click.option("--rpc-url", default=None, help="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
 @click.option("--force", is_flag=True, help="Reopen even though the chain still has the transaction")
 @click.option("--chain-id", default=None, help="Island to query; omit to let the node answer for its own chain")
 @click.pass_context
 def reopen(ctx, request_id, rpc_url, force, chain_id):
-    """Clear one request's transaction hash so it can be executed again.
-
-    Named explicitly and one at a time, because this is the operation that can pay twice: the
-    hash is the only thing stopping a second payout, here and at the hub. It refuses when the
-    chain still has the transaction, and when the chain cannot be reached to say either way.
-    """
+    """Clear a request's transaction hash so it can be executed again."""
     rpc_url = rpc_url or os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
