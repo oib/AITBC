@@ -12,13 +12,25 @@ import httpx
 from ..utils import error, output, success
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc genesis init
+
+  aitbc genesis info --chain-id ait-mainnet"""
+)
 def genesis():
-    """Genesis block and wallet generation commands"""
+    """Initialize, verify, and inspect the genesis block, and sync it from the hub."""
     pass
 
 
-@genesis.command()
+@genesis.command(
+    epilog="""Examples:
+
+  aitbc genesis init
+
+  aitbc genesis init --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", default=None, help="Chain ID for genesis (auto-detected from config if not provided)")
 @click.option("--create-wallet", is_flag=True, help="Create genesis wallet with secure random key")
 @click.option("--password", help="Wallet password (auto-generated if not provided)")
@@ -37,7 +49,7 @@ def init(
     register_service: bool,
     service_url: str,
 ):
-    """Initialize genesis block and wallet for a blockchain"""
+    """Initialize the genesis configuration and files for the local chain."""
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
@@ -80,11 +92,17 @@ def init(
         return
 
 
-@genesis.command()
+@genesis.command(
+    epilog="""Examples:
+
+  aitbc genesis verify --chain-id ait-mainnet
+
+  aitbc genesis verify --chain-id ait-mainnet --output json"""
+)
 @click.option("--chain-id", default=None, help="Chain ID to verify (auto-detected from config if not provided)")
 @click.pass_context
 def verify(ctx, chain_id: str):
-    """Verify genesis block and wallet configuration"""
+    """Verify the genesis block and configuration for a chain."""
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
@@ -179,7 +197,13 @@ def verify(ctx, chain_id: str):
         error(f"Genesis wallet not found: {wallet_path}")
 
 
-@genesis.command()
+@genesis.command(
+    epilog="""Examples:
+
+  aitbc genesis info --chain-id ait-mainnet
+
+  aitbc genesis info --chain-id ait-mainnet --data-dir /var/aitbc"""
+)
 @click.option(
     "--chain-id", default=None, help="Chain ID to show info for (auto-detected from blockchain node if not provided)"
 )
@@ -189,7 +213,7 @@ def verify(ctx, chain_id: str):
 )
 @click.pass_context
 def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
-    """Show genesis block information"""
+    """Show the genesis block information for a chain."""
     # Auto-detect chain_id from blockchain node if not provided
     if not chain_id:
         from ..config import get_config
@@ -253,14 +277,20 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
         error(f"Failed to read genesis info: {e}")
 
 
-@genesis.command()
+@genesis.command(
+    epilog="""Examples:
+
+  aitbc genesis sync-from-hub --chain-id ait-mainnet
+
+  aitbc genesis sync-from-hub --chain-id ait-mainnet --force"""
+)
 @click.option("--chain-id", default=None, help="Chain ID to sync genesis for (auto-detected from config if not provided)")
 @click.option("--rpc-url", default=None, help="Hub RPC URL to fetch genesis from (default: from config)")
 @click.option("--data-dir", default=None, help="Data directory path (default: /var/lib/aitbc/data)")
 @click.option("--force", is_flag=True, help="Force overwrite existing genesis.json")
 @click.pass_context
 def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None, force: bool):
-    """Sync genesis.json from hub RPC endpoint"""
+    """Sync the genesis block from the hub for a chain."""
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
