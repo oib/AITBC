@@ -118,12 +118,16 @@ def _sign_staking_message(wallet_data: dict[str, Any], sign_data: dict[str, Any]
     return sign_transaction_hash(message_hash, str(private_key))
 
 
-@wallet.command()
-@click.argument("amount", type=DECIMAL)
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet stake --amount 100 --duration 30"""
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
 @click.pass_context
 def stake(ctx, amount: Decimal, duration: int):
-    """Stake tokens on blockchain"""
+    """Stake AITBC tokens on the blockchain for a configurable duration."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -185,11 +189,15 @@ def stake(ctx, amount: Decimal, duration: int):
         raise click.Abort() from e
 
 
-@wallet.command()
-@click.argument("stake_id")
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet unstake --stake-id stake-1234"""
+)
+@click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.pass_context
 def unstake(ctx, stake_id: str):
-    """Unstake tokens from blockchain"""
+    """Unstake tokens and withdraw the principal for the given stake ID."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -249,10 +257,15 @@ def unstake(ctx, stake_id: str):
         raise click.Abort() from e
 
 
-@wallet.command(name="staking-info")
+@wallet.command(
+    name="staking-info",
+    epilog="""Examples:
+
+  aitbc wallet staking-info""",
+)
 @click.pass_context
 def staking_info(ctx):
-    """Show staking information from blockchain"""
+    """Show current staking information and rewards from the blockchain RPC."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -292,14 +305,19 @@ def staking_info(ctx):
         raise click.Abort() from e
 
 
-@wallet.command(name="liquidity-stake")
-@click.argument("amount", type=DECIMAL)
+@wallet.command(
+    name="liquidity-stake",
+    epilog="""Examples:
+
+  aitbc wallet liquidity-stake --amount 50 --pool main --lock-days 7""",
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
 def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decimal):
-    """Stake tokens into an on-chain liquidity pool"""
+    """Stake tokens into an on-chain liquidity pool to earn rewards."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -371,12 +389,17 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
     )
 
 
-@wallet.command(name="liquidity-claim")
-@click.argument("stake_id")
+@wallet.command(
+    name="liquidity-claim",
+    epilog="""Examples:
+
+  aitbc wallet liquidity-claim --stake-id lstake-5678""",
+)
+@click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
 def liquidity_claim(ctx, stake_id: str, fee: Decimal):
-    """Claim accrued rewards for a liquidity stake"""
+    """Claim accrued liquidity rewards for the given stake ID."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -420,12 +443,17 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
     )
 
 
-@wallet.command(name="liquidity-unstake")
-@click.argument("stake_id")
+@wallet.command(
+    name="liquidity-unstake",
+    epilog="""Examples:
+
+  aitbc wallet liquidity-unstake --stake-id lstake-5678""",
+)
+@click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
 def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
-    """Withdraw a liquidity stake and its rewards"""
+    """Withdraw a liquidity stake and its accumulated rewards."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
