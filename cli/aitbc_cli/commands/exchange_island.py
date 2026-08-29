@@ -239,21 +239,33 @@ def _simulated_order_list(user: str | None, status: str | None, pair: str | None
 SUPPORTED_PAIRS = ["AIT/ETH"]
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc exchange-island buy --ait-amount 100 --quote-currency ETH
+
+  aitbc exchange-island orderbook --pair AIT/ETH"""
+)
 def exchange_island():
-    """Exchange commands for trading AIT against ETH on the island"""
+    """Trade AIT against ETH, view order books, list orders, and cancel orders on the island exchange."""
     pass
 
 
-@exchange_island.command()
-@click.argument("ait_amount", type=DECIMAL)
-@click.argument("quote_currency", type=click.Choice(["ETH"]))
+@exchange_island.command(
+    epilog="""Examples:
+
+  aitbc exchange-island buy --ait-amount 100 --quote-currency ETH
+
+  aitbc exchange-island buy --ait-amount 100 --quote-currency ETH --max-price 0.001 --wallet wallet-1"""
+)
+@click.option("--ait-amount", "ait_amount", required=True, type=DECIMAL, help="The Ait amount.")
+@click.option("--quote-currency", "quote_currency", required=True, type=click.Choice(["ETH"]), help="The Quote currency.")
 @click.option("--max-price", type=DECIMAL, help="Maximum price to pay per AIT")
 @click.option("--wallet", default=None, help="Wallet name or file path for signing")
 @click.option("--password", default=None, help="Wallet encryption password")
 @click.pass_context
 def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None, wallet: str | None, password: str | None):
-    """Buy AIT with ETH"""
+    """Buy AIT with a quote currency using an optional wallet and maximum price."""
     try:
         if ait_amount <= 0:
             abort(ctx, "AIT amount must be greater than 0")
@@ -293,15 +305,21 @@ def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None
         abort(ctx, f"Error creating buy order: {str(e)}", from_exception=e)
 
 
-@exchange_island.command()
-@click.argument("ait_amount", type=DECIMAL)
-@click.argument("quote_currency", type=click.Choice(["ETH"]))
+@exchange_island.command(
+    epilog="""Examples:
+
+  aitbc exchange-island sell --ait-amount 100 --quote-currency ETH
+
+  aitbc exchange-island sell --ait-amount 100 --quote-currency ETH --min-price 0.001 --wallet wallet-1"""
+)
+@click.option("--ait-amount", "ait_amount", required=True, type=DECIMAL, help="The Ait amount.")
+@click.option("--quote-currency", "quote_currency", required=True, type=click.Choice(["ETH"]), help="The Quote currency.")
 @click.option("--min-price", type=DECIMAL, help="Minimum price to accept per AIT")
 @click.option("--wallet", default=None, help="Wallet name or file path for signing")
 @click.option("--password", default=None, help="Wallet encryption password")
 @click.pass_context
 def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | None, wallet: str | None, password: str | None):
-    """Sell AIT for ETH"""
+    """Sell AIT for a quote currency using an optional wallet and minimum price."""
     try:
         if ait_amount <= 0:
             abort(ctx, "AIT amount must be greater than 0")
@@ -338,12 +356,18 @@ def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | Non
         abort(ctx, f"Error creating sell order: {str(e)}", from_exception=e)
 
 
-@exchange_island.command()
-@click.argument("pair", type=click.Choice(SUPPORTED_PAIRS))
+@exchange_island.command(
+    epilog="""Examples:
+
+  aitbc exchange-island orderbook --pair AIT/ETH
+
+  aitbc exchange-island orderbook --pair AIT/ETH --limit 50"""
+)
+@click.option("--pair", "pair", required=True, type=click.Choice(SUPPORTED_PAIRS), help="The Pair.")
 @click.option("--limit", type=int, default=20, help="Order book depth")
 @click.pass_context
 def orderbook(ctx, pair: str, limit: int):
-    """View the order book for a trading pair"""
+    """View the order book for a supported trading pair."""
     try:
         # Load island credentials
         credentials = safe_load_credentials()
@@ -440,10 +464,16 @@ def orderbook(ctx, pair: str, limit: int):
         abort(ctx, f"Error fetching order book: {str(e)}", from_exception=e)
 
 
-@exchange_island.command()
+@exchange_island.command(
+    epilog="""Examples:
+
+  aitbc exchange-island rates
+
+  aitbc exchange-island rates --output json"""
+)
 @click.pass_context
 def rates(ctx):
-    """View current exchange rates for AIT/ETH"""
+    """View current exchange rates for AIT/ETH on the island exchange."""
     try:
         # Load island credentials
         credentials = safe_load_credentials()
@@ -492,13 +522,19 @@ def rates(ctx):
         abort(ctx, f"Error viewing exchange rates: {str(e)}", from_exception=e)
 
 
-@exchange_island.command()
+@exchange_island.command(
+    epilog="""Examples:
+
+  aitbc exchange-island orders
+
+  aitbc exchange-island orders --status open --pair AIT/ETH"""
+)
 @click.option("--user", help="Filter by user ID")
 @click.option("--status", help="Filter by status (open, filled, partially_filled, cancelled)")
 @click.option("--pair", type=click.Choice(SUPPORTED_PAIRS), help="Filter by trading pair")
 @click.pass_context
 def orders(ctx, user: str | None, status: str | None, pair: str | None):
-    """List exchange orders"""
+    """List exchange orders, optionally filtered by user, status, or pair."""
     try:
         # Load island credentials
         credentials = safe_load_credentials()
@@ -554,11 +590,17 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
         abort(ctx, f"Error listing orders: {str(e)}", from_exception=e)
 
 
-@exchange_island.command()
-@click.argument("order_id")
+@exchange_island.command(
+    epilog="""Examples:
+
+  aitbc exchange-island cancel --order-id order-123
+
+  aitbc exchange-island cancel --order-id order-123 --output json"""
+)
+@click.option("--order-id", "order_id", required=True, help="The Order id.")
 @click.pass_context
 def cancel(ctx, order_id: str):
-    """Cancel an exchange order"""
+    """Cancel an exchange order by its order ID."""
     try:
         # Load island credentials
         credentials = safe_load_credentials()
