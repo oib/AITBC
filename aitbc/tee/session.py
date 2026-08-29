@@ -67,29 +67,6 @@ class TEESession:
         if self.responder_public_key and len(self.responder_public_key) != X25519_KEY_SIZE:
             raise ValueError(f"responder_public_key must be {X25519_KEY_SIZE} bytes")
 
-    @classmethod
-    def generate(cls, **kwargs: Any) -> TEESession:
-        """Create a session with a fresh ephemeral X25519 key pair.
-
-        The public key is stored in ``initiator_public_key`` by default. Pass
-        ``responder_id`` if the new session represents the responder side.
-        """
-        private_key = X25519PrivateKey.generate()
-        public_key = private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw,
-        )
-        private_bytes = private_key.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-        if kwargs.get("responder_id") == kwargs.get("initiator_id"):
-            kwargs.setdefault("responder_public_key", public_key)
-        kwargs.setdefault("initiator_public_key", public_key)
-        kwargs.setdefault("private_key", private_bytes)
-        return cls(**kwargs)
-
     def is_expired(self, now: datetime | None = None) -> bool:
         """Return True if the session has expired."""
         if now is None:
