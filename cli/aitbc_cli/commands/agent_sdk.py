@@ -691,12 +691,19 @@ try:
         except Exception as e:
             abort(ctx, f"Error verifying identity: {str(e)}", from_exception=e)
 
-    @agent.command(name="list")
+    @agent.command(
+        name="list",
+        epilog="""Examples:
+
+  aitbc agent list
+
+  aitbc agent list --agent-dir /var/lib/aitbc/agents --output json""",
+    )
     @click.option("--agent-dir", type=click.Path(), help="Agent directory path")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def list_agents(ctx, agent_dir, format):
-        """List local agents"""
+        """List all local agents configured in the agent directory."""
         try:
             agents = list_local_agents(Path(agent_dir) if agent_dir else None)
 
@@ -1251,12 +1258,18 @@ try:
         except Exception as e:
             abort(ctx, f"Error getting workflow status: {e}", from_exception=e)
 
-    @workflow.command()
+    @workflow.command(
+        epilog="""Examples:
+
+  aitbc agent workflow list-workflows
+
+  aitbc agent workflow list-workflows --limit 20"""
+    )
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def list_workflows(ctx, coordinator_url, format):
-        """List workflows"""
+        """List all workflows registered with the coordinator."""
         try:
             import requests
 
