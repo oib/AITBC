@@ -61,10 +61,10 @@ async def _register_edge_node_on_blockchain() -> None:
         "capabilities": [],
         "registered_by": os.getenv("WALLET_ADDRESS", "edge-admin"),
     }
-    # ponytail: 5 attempts × 3s = up to 15s of patience for the blockchain node
-    # to finish starting. Ceiling: if the blockchain node takes >15s to accept
-    # connections, registration fails until next edge restart. Upgrade path:
-    # a systemd After=aitbc-blockchain-node.service ordering unit.
+    # 5 attempts × 3s = up to 15s of patience for the blockchain node to finish
+    # starting. Ceiling: if the blockchain node takes >15s to accept connections,
+    # registration fails until next edge restart. Upgrade path: a systemd
+    # After=aitbc-blockchain-node.service ordering unit.
     max_attempts = 5
     for attempt in range(1, max_attempts + 1):
         try:

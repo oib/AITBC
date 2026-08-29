@@ -445,6 +445,6 @@ def request_coins(ctx, wallet: str | None, amount: int, sender: str, coordinator
     _asyncio.run(_request())
 
 
-# ponytail: tests in tests/cli/ still import this module as `agent`; the CLI
-# registers the same group under the name `agent-msg` in core/main.py.
+# Tests in tests/cli/ still import this module as `agent`; the CLI registers
+# the same group under the name `agent-msg` in core/main.py.
 agent = messaging

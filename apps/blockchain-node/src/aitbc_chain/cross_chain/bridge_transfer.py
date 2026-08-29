@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 class BridgeTransferMixin(BridgeBase):
     """Cross-chain transfer lock/confirm/refund and batch operations."""
 
-    # ponytail: Protocol base declares the attributes the concrete CrossChainBridge sets.
+    # Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     BRIDGE_FEE_BASIS_POINTS = 10
 

@@ -55,9 +55,9 @@ def runner():
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Quarantine pre-existing CLI test failures so they don't block CI.
 
-    ponytail: These tests exercise CLI commands that have been removed or
-    renamed during the v0.10.x refactor. They are tracked as known failures
-    (xfail) pending the CLI command surface being updated.
+    These tests exercise CLI commands that have been removed or renamed during
+    the v0.10.x refactor. They are tracked as known failures (xfail) pending the
+    CLI command surface being updated.
     """
     quarantine_file = Path(__file__).resolve().parent / "quarantined.txt"
     if not quarantine_file.exists():
