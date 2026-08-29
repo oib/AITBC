@@ -37,7 +37,7 @@ def test_explorer_group_help(runner):
 
     result = runner.invoke(explorer, ["--help"])
     assert result.exit_code == 0
-    assert "Blockchain Explorer commands" in result.output
+    assert "Explore the blockchain" in result.output
     for cmd in [
         "chain-head",
         "latest-blocks",
@@ -178,7 +178,7 @@ def test_block_success(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"height": 100, "hash": "0xdef"}
-    result = runner.invoke(explorer, ["block", "100"])
+    result = runner.invoke(explorer, ["block", "--height", "100"])
     assert result.exit_code == 0
     assert "Block at height 100" in result.output
     mock_client.get.assert_called_once_with("/api/blocks/100", params={})
@@ -189,7 +189,7 @@ def test_block_not_found(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = None
-    result = runner.invoke(explorer, ["block", "999"])
+    result = runner.invoke(explorer, ["block", "--height", "999"])
     assert result.exit_code == 0
     assert "not found" in result.output
 
@@ -199,7 +199,7 @@ def test_block_with_chain_id(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"height": 1}
-    result = runner.invoke(explorer, ["block", "1", "--chain-id", "ait-test"])
+    result = runner.invoke(explorer, ["block", "--height", "1", "--chain-id", "ait-test"])
     assert result.exit_code == 0
     mock_client.get.assert_called_once_with("/api/blocks/1", params={"chain_id": "ait-test"})
 
@@ -215,7 +215,7 @@ def test_block_by_hash_success(runner, mock_client):
 
     test_hash = "0xabcdef1234567890"
     mock_client.get.return_value = {"hash": test_hash, "height": 50}
-    result = runner.invoke(explorer, ["block-by-hash", test_hash])
+    result = runner.invoke(explorer, ["block-by-hash", "--block-hash", test_hash])
     assert result.exit_code == 0
     assert f"Block with hash {test_hash}" in result.output
     mock_client.get.assert_called_once_with(f"/api/blocks/by-hash/{test_hash}", params={})
@@ -226,7 +226,7 @@ def test_block_by_hash_not_found(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = None
-    result = runner.invoke(explorer, ["block-by-hash", "0xmissing"])
+    result = runner.invoke(explorer, ["block-by-hash", "--block-hash", "0xmissing"])
     assert result.exit_code == 0
     assert "not found" in result.output
 
@@ -242,7 +242,7 @@ def test_transaction_success(runner, mock_client):
 
     test_hash = "0xtx123456"
     mock_client.get.return_value = {"hash": test_hash, "amount": 100}
-    result = runner.invoke(explorer, ["transaction", test_hash])
+    result = runner.invoke(explorer, ["transaction", "--tx-hash", test_hash])
     assert result.exit_code == 0
     assert f"Transaction {test_hash}" in result.output
     mock_client.get.assert_called_once_with(f"/api/transactions/by-hash/{test_hash}", params={})
@@ -253,7 +253,7 @@ def test_transaction_not_found(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = None
-    result = runner.invoke(explorer, ["transaction", "0xmissing"])
+    result = runner.invoke(explorer, ["transaction", "--tx-hash", "0xmissing"])
     assert result.exit_code == 0
     assert "not found" in result.output
 
@@ -269,7 +269,7 @@ def test_transaction_by_hash_success(runner, mock_client):
 
     test_hash = "0xtx789"
     mock_client.get.return_value = {"hash": test_hash, "sender": "0xaaa", "recipient": "0xbbb"}
-    result = runner.invoke(explorer, ["transaction-by-hash", test_hash])
+    result = runner.invoke(explorer, ["transaction-by-hash", "--tx-hash", test_hash])
     assert result.exit_code == 0
     assert f"Transaction details for {test_hash}" in result.output
     mock_client.get.assert_called_once_with(f"/api/transactions/by-hash/{test_hash}", params={})
@@ -280,7 +280,7 @@ def test_transaction_by_hash_not_found(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = None
-    result = runner.invoke(explorer, ["transaction-by-hash", "0xmissing"])
+    result = runner.invoke(explorer, ["transaction-by-hash", "--tx-hash", "0xmissing"])
     assert result.exit_code == 0
     assert "not found" in result.output
 
@@ -295,7 +295,7 @@ def test_search_transactions_success(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"transactions": [{"hash": "0xtx1"}, {"hash": "0xtx2"}]}
-    result = runner.invoke(explorer, ["search-transactions", "0xaddr123"])
+    result = runner.invoke(explorer, ["search-transactions", "--address", "0xaddr123"])
     assert result.exit_code == 0
     assert "Found 2 transactions for 0xaddr123" in result.output
     mock_client.get.assert_called_once_with("/api/transactions/search", params={"address": "0xaddr123", "limit": 100})
@@ -306,7 +306,7 @@ def test_search_transactions_with_limit(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"transactions": []}
-    result = runner.invoke(explorer, ["search-transactions", "0xaddr", "--limit", "10"])
+    result = runner.invoke(explorer, ["search-transactions", "--address", "0xaddr", "--limit", "10"])
     assert result.exit_code == 0
     mock_client.get.assert_called_once_with("/api/transactions/search", params={"address": "0xaddr", "limit": 10})
 
@@ -316,7 +316,7 @@ def test_search_transactions_with_chain_id(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"transactions": []}
-    result = runner.invoke(explorer, ["search-transactions", "0xaddr", "--chain-id", "ait-test"])
+    result = runner.invoke(explorer, ["search-transactions", "--address", "0xaddr", "--chain-id", "ait-test"])
     assert result.exit_code == 0
     mock_client.get.assert_called_once_with(
         "/api/transactions/search",
@@ -334,7 +334,7 @@ def test_blocks_by_address_success(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"blocks": [{"height": 1}, {"height": 2}, {"height": 3}]}
-    result = runner.invoke(explorer, ["blocks-by-address", "0xaddr456"])
+    result = runner.invoke(explorer, ["blocks-by-address", "--address", "0xaddr456"])
     assert result.exit_code == 0
     assert "Found 3 blocks for 0xaddr456" in result.output
     mock_client.get.assert_called_once_with("/api/blocks/by-address/0xaddr456", params={"address": "0xaddr456", "limit": 50})
@@ -345,7 +345,7 @@ def test_blocks_by_address_with_limit(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"blocks": []}
-    result = runner.invoke(explorer, ["blocks-by-address", "0xaddr", "--limit", "5"])
+    result = runner.invoke(explorer, ["blocks-by-address", "--address", "0xaddr", "--limit", "5"])
     assert result.exit_code == 0
     mock_client.get.assert_called_once_with("/api/blocks/by-address/0xaddr", params={"address": "0xaddr", "limit": 5})
 
@@ -433,7 +433,7 @@ def test_provider_reputation_success(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"provider_id": "node-1", "score": 95, "uptime": 99.9}
-    result = runner.invoke(explorer, ["provider-reputation", "node-1"])
+    result = runner.invoke(explorer, ["provider-reputation", "--provider-id", "node-1"])
     assert result.exit_code == 0
     assert "Reputation for provider node-1" in result.output
     mock_client.get.assert_called_once_with("/api/analytics/provider-reputation/node-1", params={})
@@ -444,7 +444,7 @@ def test_provider_reputation_with_chain_id(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = {"score": 80}
-    result = runner.invoke(explorer, ["provider-reputation", "node-2", "--chain-id", "ait-test"])
+    result = runner.invoke(explorer, ["provider-reputation", "--provider-id", "node-2", "--chain-id", "ait-test"])
     assert result.exit_code == 0
     mock_client.get.assert_called_once_with("/api/analytics/provider-reputation/node-2", params={"chain_id": "ait-test"})
 
@@ -454,7 +454,7 @@ def test_provider_reputation_not_found(runner, mock_client):
     from aitbc_cli.commands.explorer import explorer
 
     mock_client.get.return_value = None
-    result = runner.invoke(explorer, ["provider-reputation", "unknown-provider"])
+    result = runner.invoke(explorer, ["provider-reputation", "--provider-id", "unknown-provider"])
     assert result.exit_code == 0
     assert "No reputation data for provider" in result.output
 
