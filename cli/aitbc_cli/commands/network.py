@@ -49,17 +49,29 @@ def get_default_chain_id() -> str | None:
     return os.getenv("SUPPORTED_CHAINS")
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc network status
+
+  aitbc network peers"""
+)
 def network():
-    """Peer connectivity and network operations"""
+    """Manage peer connectivity, network synchronization, subscriptions, and heartbeats."""
     pass
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network status
+
+  aitbc network status --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def status(ctx, rpc_url):
-    """Check network status"""
+    """Check the current network and peer connectivity status."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         status = http_client.get("/rpc/network-info")
@@ -77,11 +89,17 @@ def status(ctx, rpc_url):
         abort(ctx, f"Error getting network status: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network peers
+
+  aitbc network peers --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def peers(ctx, rpc_url):
-    """List connected peers"""
+    """List connected peers and basic peer information."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         peers = http_client.get("/rpc/network-info")
@@ -94,12 +112,18 @@ def peers(ctx, rpc_url):
         abort(ctx, f"Error listing peers: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network test --peer node-1
+
+  aitbc network test --peer node-1 --rpc-url http://localhost:8202"""
+)
 @click.option("--peer", required=True, help="Peer address to test")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def test(ctx, peer, rpc_url):
-    """Test connectivity to a peer"""
+    """Test connectivity to a specific peer address."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/force-sync", json={"peer": peer})
@@ -110,11 +134,17 @@ def test(ctx, peer, rpc_url):
         abort(ctx, f"Error testing connectivity: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network force-sync
+
+  aitbc network force-sync --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def force_sync(ctx, rpc_url):
-    """Force network synchronization"""
+    """Force the local node to synchronize with the network."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/force-sync", json={})
@@ -125,7 +155,13 @@ def force_sync(ctx, rpc_url):
         abort(ctx, f"Error forcing sync: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network subscribe
+
+  aitbc network subscribe --node-id node-1 --chain-id ait-mainnet --duration 600"""
+)
 @click.option("--node-id", help="Unique identifier for this follower node (default: from NODE_ID in /etc/aitbc/node.env)")
 @click.option(
     "--transport",
@@ -138,7 +174,7 @@ def force_sync(ctx, rpc_url):
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
-    """Register this node as a follower for block subscription"""
+    """Register this node as a follower for block subscription."""
     if not node_id:
         node_id = get_default_node_id()
         if not node_id:
@@ -160,13 +196,19 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
         abort(ctx, f"Error registering subscription: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network heartbeat
+
+  aitbc network heartbeat --node-id node-1 --duration 300"""
+)
 @click.option("--node-id", help="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
 @click.option("--duration", type=int, help="Additional lease duration in seconds")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def heartbeat(ctx, node_id, duration, rpc_url):
-    """Send heartbeat to extend subscription lease"""
+    """Send a heartbeat to extend a subscription lease."""
     if not node_id:
         node_id = get_default_node_id()
         if not node_id:
@@ -183,12 +225,18 @@ def heartbeat(ctx, node_id, duration, rpc_url):
         abort(ctx, f"Error extending lease: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network lease-status
+
+  aitbc network lease-status --node-id node-1"""
+)
 @click.option("--node-id", help="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def lease_status(ctx, node_id, rpc_url):
-    """Check lease status for a subscriber"""
+    """Check the current lease status for a subscriber."""
     if not node_id:
         node_id = get_default_node_id()
         if not node_id:
@@ -204,12 +252,18 @@ def lease_status(ctx, node_id, rpc_url):
         abort(ctx, f"Error checking lease status: {e}", from_exception=e)
 
 
-@network.command()
+@network.command(
+    epilog="""Examples:
+
+  aitbc network subscribers
+
+  aitbc network subscribers --chain-id ait-mainnet"""
+)
 @click.option("--chain-id", help="Filter by chain ID")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def subscribers(ctx, chain_id, rpc_url):
-    """List all active subscribers"""
+    """List all active subscribers, optionally filtered by chain."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         params = {"chain_id": chain_id} if chain_id else {}
