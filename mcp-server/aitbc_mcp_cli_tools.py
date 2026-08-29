@@ -184,20 +184,21 @@ def buy_ait_exchange(
     ] = None,
 ) -> str:
     """Buy AIT with ETH on the island exchange."""
-    options: dict[str, str | None] = {
-        "max-price": str(max_price),
-        "wallet": wallet,
-    }
     return _run_aitbc_cli_write(
         role,
         host,
         "exchange-island",
         "buy",
         None,
-        options,
+        None,
         dry_run,
         confirm,
-        subcommand_options={"ait-amount": str(amount), "quote-currency": "ETH"},
+        subcommand_options={
+            "ait-amount": str(amount),
+            "quote-currency": "ETH",
+            "max-price": str(max_price),
+            "wallet": wallet,
+        },
     )
 
 
@@ -221,20 +222,21 @@ def sell_ait_exchange(
     ] = None,
 ) -> str:
     """Sell AIT for ETH on the island exchange."""
-    options: dict[str, str | None] = {
-        "min-price": str(min_price),
-        "wallet": wallet,
-    }
     return _run_aitbc_cli_write(
         role,
         host,
         "exchange-island",
         "sell",
         None,
-        options,
+        None,
         dry_run,
         confirm,
-        subcommand_options={"ait-amount": str(amount), "quote-currency": "ETH"},
+        subcommand_options={
+            "ait-amount": str(amount),
+            "quote-currency": "ETH",
+            "min-price": str(min_price),
+            "wallet": wallet,
+        },
     )
 
 
@@ -254,9 +256,8 @@ def cancel_exchange_order(
     ] = None,
 ) -> str:
     """Cancel an island exchange order."""
-    options: dict[str, str | None] = {"wallet": wallet}
     return _run_aitbc_cli_write(
-        role, host, "exchange-island", "cancel", None, options, dry_run, confirm, subcommand_options={"order-id": order_id}
+        role, host, "exchange-island", "cancel", None, None, dry_run, confirm, subcommand_options={"order-id": order_id}
     )
 
 
@@ -312,23 +313,19 @@ def join_island(
     ] = None,
 ) -> str:
     """Join an existing AITBC island."""
-    options: dict[str, str | None] = {}
+    subcommand_options: dict[str, str | None] = {
+        "island-id": island_id,
+        "island-name": island_name,
+        "chain-id": chain_id,
+    }
     if hub is not None:
-        options["hub"] = hub
+        subcommand_options["hub"] = hub
     if is_hub:
-        options["is-hub"] = None
+        subcommand_options["is-hub"] = None
     if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+        subcommand_options["rpc-url"] = rpc_url
     return _run_aitbc_cli_write(
-        role,
-        host,
-        "node",
-        ["island", "join"],
-        None,
-        options,
-        dry_run,
-        confirm,
-        subcommand_options={"island-id": island_id, "island-name": island_name, "chain-id": chain_id},
+        role, host, "node", ["island", "join"], None, None, dry_run, confirm, subcommand_options=subcommand_options
     )
 
 
@@ -348,7 +345,7 @@ def leave_island(
 ) -> str:
     """Leave an AITBC island."""
     return _run_aitbc_cli_write(
-        role, host, "node", ["island", "leave"], None, {}, dry_run, confirm, subcommand_options={"island-id": island_id}
+        role, host, "node", ["island", "leave"], None, None, dry_run, confirm, subcommand_options={"island-id": island_id}
     )
 
 
@@ -572,7 +569,7 @@ def pin_ipfs(
     ] = None,
 ) -> str:
     """Pin a CID on the local IPFS daemon or filesystem index."""
-    return _run_aitbc_cli_write(role, host, "ipfs", "pin", None, {}, dry_run, confirm, subcommand_options={"cid": cid})
+    return _run_aitbc_cli_write(role, host, "ipfs", "pin", None, None, dry_run, confirm, subcommand_options={"cid": cid})
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -592,11 +589,11 @@ def unpin_ipfs(
     ] = None,
 ) -> str:
     """Unpin a CID and end an IPFS rental."""
-    options: dict[str, str | None] = {"reason": reason}
+    subcommand_options: dict[str, str | None] = {"rental-id": rental_id, "reason": reason}
     if refund:
-        options["refund"] = None
+        subcommand_options["refund"] = None
     return _run_aitbc_cli_write(
-        role, host, "ipfs", "unpin", None, options, dry_run, confirm, subcommand_options={"rental-id": rental_id}
+        role, host, "ipfs", "unpin", None, None, dry_run, confirm, subcommand_options=subcommand_options
     )
 
 
@@ -619,21 +616,24 @@ def host_ipfs(
     ] = None,
 ) -> str:
     """Rent IPFS hosting for a CID or file through a marketplace offer."""
-    options: dict[str, str | None] = {
+    subcommand_options: dict[str, str | None] = {
+        "offer-id-or-plugin-id": offer_id_or_plugin_id,
+        "cid-or-file": cid_or_file,
         "days": str(days),
         "wallet": wallet,
     }
     if pin:
-        options["pin"] = None
+        subcommand_options["pin"] = None
     return _run_aitbc_cli_write(
         role,
         host,
         "ipfs",
         "host",
-        [offer_id_or_plugin_id, cid_or_file],
-        options,
+        None,
+        None,
         dry_run,
         confirm,
+        subcommand_options=subcommand_options,
     )
 
 
