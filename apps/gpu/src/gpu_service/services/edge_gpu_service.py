@@ -2,9 +2,12 @@
 Edge GPU service for managing GPU operations
 """
 
+import os
 import subprocess
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, cast
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -21,6 +24,27 @@ from ..domain.gpu_marketplace import (
 )
 
 logger = get_logger(__name__)
+
+
+def _redis() -> Redis:
+    """Return an async Redis client for the GPU job queue."""
+    return Redis.from_url(
+        os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+        decode_responses=True,
+    )
+
+
+def _gpu_queue_key(gpu_id: str) -> str:
+    return f"aitbc:gpu:queue:{gpu_id}"
+
+
+def _gpu_queue_member(job: GPUJobQueue) -> str:
+    """Redis sorted-set member: queued_at|job_id.
+
+    Score is -priority (higher priority = lower/more negative score), so ZPOPMIN
+    returns the highest-priority, oldest-queued job first.
+    """
+    return f"{job.created_at.isoformat()}|{job.id}"
 
 
 class EdgeGPUService:
@@ -219,10 +243,13 @@ class EdgeGPUService:
         """Optimize ML inference request for edge GPU"""
         return {"gpu_id": gpu_id, "model_name": model_name, "optimized": True, "latency_reduction": 0.0}
 
-    # ponytail: priority queue uses an in-DB ordering by priority desc / created_at asc.
-    # This is a naive O(n log n) sort per call; for very high throughput use a dedicated queue.
     async def queue_job(self, gpu_id: str, client_id: str, priority: int, payload: dict[str, Any]) -> GPUJobQueue:
-        """Enqueue a GPU job with a dynamic priority."""
+        """Enqueue a GPU job with a dynamic priority.
+
+        The job is persisted to the database and also pushed to a Redis sorted set
+        keyed by gpu_id. The sorted set is ordered by -priority then by queued time,
+        so workers can pop the next job in O(log n) without scanning the table.
+        """
         job = GPUJobQueue(
             gpu_id=gpu_id,
             client_id=client_id,
@@ -233,15 +260,51 @@ class EdgeGPUService:
         self.session.add(job)
         await self.session.commit()
         await self.session.refresh(job)
+        try:
+            redis = _redis()
+            await redis.zadd(
+                _gpu_queue_key(gpu_id),
+                {_gpu_queue_member(job): -priority},
+            )
+            await redis.aclose()
+        except Exception as e:
+            logger.warning("Failed to mirror GPU job to Redis queue: %s", e)
         return job
 
     async def get_next_queued_job(self, gpu_id: str) -> GPUJobQueue | None:
         """Return the highest-priority queued job for a GPU and mark it running.
 
-        Uses SELECT ... FOR UPDATE so concurrent workers cannot claim the same job.
+        Pops the next candidate from the Redis sorted set for this GPU, then marks it
+        running in the database. If the Redis queue is empty or its members are stale,
+        falls back to a SELECT ... FOR UPDATE on the database.
         """
-        from datetime import UTC, datetime
+        redis = _redis()
+        key = _gpu_queue_key(gpu_id)
+        try:
+            while True:
+                members = await redis.zpopmin(key, count=1)
+                if not members:
+                    break
+                member = cast(str, members[0][0])
+                job_id = member.rsplit("|", 1)[-1]
+                stmt = select(GPUJobQueue).where(GPUJobQueue.id == job_id).with_for_update()
+                result = await self.session.execute(stmt)
+                job = result.scalar_one_or_none()
+                if job and job.status == GPUJobStatus.QUEUED:
+                    job.status = GPUJobStatus.RUNNING
+                    job.started_at = datetime.now(UTC)
+                    await self.session.commit()
+                    await self.session.refresh(job)
+                    return job
+                if not job:
+                    logger.warning("Redis GPU queue member %s has no DB row", member)
+                await self.session.rollback()
+        except Exception as e:
+            logger.warning("Redis GPU queue lookup failed for %s: %s", gpu_id, e)
+        finally:
+            await redis.aclose()
 
+        # Fallback to the DB queue (used when Redis is empty/unavailable).
         stmt = (
             select(GPUJobQueue)
             .where(GPUJobQueue.gpu_id == gpu_id, GPUJobQueue.status == GPUJobStatus.QUEUED)
@@ -255,6 +318,7 @@ class EdgeGPUService:
             job.status = GPUJobStatus.RUNNING
             job.started_at = datetime.now(UTC)
             await self.session.commit()
+            await self.session.refresh(job)
         return job
 
     async def complete_job(self, job_id: str) -> GPUJobQueue | None:
