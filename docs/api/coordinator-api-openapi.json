@@ -6547,7 +6547,7 @@
           "fhe"
         ],
         "summary": "Generate FHE context",
-        "description": "Generate a new FHE encryption context with keys",
+        "description": "Generate a new FHE encryption context with keys.",
         "operationId": "generate_context_v1_fhe_context_generate_post",
         "parameters": [
           {
@@ -6599,6 +6599,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6609,7 +6619,7 @@
           "fhe"
         ],
         "summary": "Encrypt data",
-        "description": "Encrypt plaintext data using FHE",
+        "description": "Encrypt plaintext data using FHE.",
         "operationId": "encrypt_data_v1_fhe_encrypt_post",
         "parameters": [
           {
@@ -6661,6 +6671,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FHE context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6671,7 +6701,7 @@
           "fhe"
         ],
         "summary": "Decrypt data",
-        "description": "Decrypt FHE-encrypted data",
+        "description": "Decrypt FHE-encrypted data.",
         "operationId": "decrypt_data_v1_fhe_decrypt_post",
         "parameters": [
           {
@@ -6723,6 +6753,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Encrypted payload not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6733,7 +6783,7 @@
           "fhe"
         ],
         "summary": "Homomorphic addition",
-        "description": "Perform homomorphic addition.",
+        "description": "Perform homomorphic addition: E(a) + E(b) = E(a + b).",
         "operationId": "homomorphic_add_v1_fhe_add_post",
         "parameters": [
           {
@@ -6785,6 +6835,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "encrypted_b_id is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FHE context not found / Encrypted payload not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6795,7 +6865,7 @@
           "fhe"
         ],
         "summary": "Homomorphic scalar multiplication",
-        "description": "Perform homomorphic multiplication by scalar: E(a) * s = E(a*s)",
+        "description": "Perform homomorphic multiplication by scalar: E(a) * s = E(a*s).",
         "operationId": "homomorphic_multiply_v1_fhe_multiply_scalar_post",
         "parameters": [
           {
@@ -6847,6 +6917,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "scalar is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FHE context not found / Encrypted payload not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6857,7 +6947,7 @@
           "fhe"
         ],
         "summary": "Encrypted inference",
-        "description": "Perform ML inference on encrypted data",
+        "description": "Perform ML inference on encrypted data.",
         "operationId": "encrypted_inference_v1_fhe_inference_post",
         "parameters": [
           {
@@ -6909,6 +6999,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FHE context not found / Encrypted payload not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6919,7 +7029,7 @@
           "fhe"
         ],
         "summary": "Get context info",
-        "description": "Get information about an FHE context",
+        "description": "Get information about an FHE context.",
         "operationId": "get_context_info_v1_fhe_context__context_id__get",
         "parameters": [
           {
@@ -6970,6 +7080,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "FHE context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6980,7 +7100,7 @@
           "fhe"
         ],
         "summary": "Health check",
-        "description": "Check FHE service health",
+        "description": "Check FHE service health.",
         "operationId": "fhe_health_v1_fhe_health_get",
         "parameters": [
           {
@@ -30796,15 +30916,14 @@
       },
       "DecryptRequest": {
         "properties": {
-          "encrypted_data": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Encrypted Data"
+          "encrypted_id": {
+            "type": "string",
+            "title": "Encrypted Id"
           }
         },
         "type": "object",
         "required": [
-          "encrypted_data"
+          "encrypted_id"
         ],
         "title": "DecryptRequest",
         "description": "Request to decrypt data"
@@ -31945,12 +32064,12 @@
           "scheme": {
             "type": "string",
             "title": "Scheme",
-            "default": "bfv"
+            "default": "ckks"
           },
           "poly_modulus_degree": {
             "type": "integer",
             "title": "Poly Modulus Degree",
-            "default": 4096
+            "default": 8192
           },
           "plain_modulus": {
             "type": "integer",
@@ -32468,22 +32587,20 @@
             "type": "string",
             "title": "Context Id"
           },
-          "encrypted_a": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Encrypted A"
+          "encrypted_a_id": {
+            "type": "string",
+            "title": "Encrypted A Id"
           },
-          "encrypted_b": {
+          "encrypted_b_id": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Encrypted B"
+            "title": "Encrypted B Id"
           },
           "scalar": {
             "anyOf": [
@@ -32495,26 +32612,12 @@
               }
             ],
             "title": "Scalar"
-          },
-          "plain_data": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "number"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plain Data"
           }
         },
         "type": "object",
         "required": [
           "context_id",
-          "encrypted_a"
+          "encrypted_a_id"
         ],
         "title": "HomomorphicOpRequest",
         "description": "Request for homomorphic operation"
@@ -38390,10 +38493,9 @@
             "type": "string",
             "title": "Context Id"
           },
-          "encrypted_input": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Encrypted Input"
+          "encrypted_input_id": {
+            "type": "string",
+            "title": "Encrypted Input Id"
           },
           "model": {
             "additionalProperties": true,
@@ -38404,7 +38506,7 @@
         "type": "object",
         "required": [
           "context_id",
-          "encrypted_input",
+          "encrypted_input_id",
           "model"
         ],
         "title": "InferenceRequest",

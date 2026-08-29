@@ -61,7 +61,7 @@ def test_tee_attest_posts_quote(runner, mock_client):
 
     result = runner.invoke(
         tee,
-        ["attest", "enc-test", "--measurement", "m1"],
+        ["attest", "--enclave-id", "enc-test", "--measurement", "m1"],
         obj={"output_format": "table"},
     )
 
@@ -81,7 +81,7 @@ def test_tee_register_posts_enclave(runner, mock_client):
 
     result = runner.invoke(
         tee,
-        ["register", "enc-test", "--public-key", "cGt0ZXN0", "--agent-id", "agent-1"],
+        ["register", "--enclave-id", "enc-test", "--public-key", "cGt0ZXN0", "--agent-id", "agent-1"],
         obj={"output_format": "table"},
     )
 
@@ -106,7 +106,7 @@ def test_tee_register_requires_public_key(runner, mock_client):
 
     result = runner.invoke(
         tee,
-        ["register", "enc-test", "--agent-id", "agent-1"],
+        ["register", "--enclave-id", "enc-test", "--agent-id", "agent-1"],
         obj={"output_format": "table"},
     )
 
@@ -121,7 +121,7 @@ def test_tee_register_uses_provided_public_key(runner, mock_client):
 
     result = runner.invoke(
         tee,
-        ["register", "enc-test", "--public-key", "mykey", "--agent-id", "agent-1"],
+        ["register", "--enclave-id", "enc-test", "--public-key", "mykey", "--agent-id", "agent-1"],
         obj={"output_format": "table"},
     )
 
@@ -136,7 +136,7 @@ def test_tee_status_fetches_enclave(runner, mock_client):
 
     result = runner.invoke(
         tee,
-        ["status", "enc-test"],
+        ["status", "--enclave-id", "enc-test"],
         obj={"output_format": "table"},
     )
 
@@ -156,7 +156,7 @@ def test_tee_attest_with_key_file_is_stable_across_calls(tmp_path, runner, mock_
     for _ in range(2):
         result = runner.invoke(
             tee,
-            ["attest", "enc-test", "--measurement", "m1", "--key-file", key_file],
+            ["attest", "--enclave-id", "enc-test", "--measurement", "m1", "--key-file", key_file],
             obj={"output_format": "table"},
         )
         assert result.exit_code == 0
