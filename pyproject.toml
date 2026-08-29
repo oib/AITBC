@@ -98,10 +98,12 @@ opencv-python = {version = "4.13.0.92", optional = true}
 # Additional Dependencies
 redis = "8.0.0"
 psutil = "7.2.2"
-tenseal = {version = "0.3.16", markers = "platform_machine == 'x86_64' and sys_platform == 'linux'"}
+tenseal = {version = "0.3.16", optional = true, markers = "platform_machine == 'x86_64' and sys_platform == 'linux'"}
 idna = "3.18"
 hypothesis = "6.156.1"
 bcrypt = "4.3.0"
+mcp = "2.1.1"
+networkx = "3.4.2"
 zstandard = "0.23.0"
 ollama = "0.4.7"
 
