@@ -124,9 +124,13 @@ def list_wallets(ctx):
     return ctx.invoke(list_cmd)
 
 
-@click.command()
+@click.command(
+    epilog="""Examples:
+
+  aitbc version"""
+)
 def version():
-    """Show version information"""
+    """Show the AITBC CLI version and architecture support status."""
     click.echo(f"aitbc, version {__version__}")
     click.echo("System Architecture Support: ✅")
     click.echo("FHS Compliance: ✅")

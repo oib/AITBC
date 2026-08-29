@@ -33,9 +33,15 @@ DEFAULT_FEE_UNITS = DEFAULT_TX_FEE_UNITS
 # Use the same wallet directory as wallet create command
 
 
-@click.group()
+@click.group(
+    epilog="""Examples:
+
+  aitbc transactions send --from wallet-1 --to 0x... --amount 10
+
+  aitbc transactions pending"""
+)
 def transactions():
-    """Transaction management commands"""
+    """Send, batch, estimate fees, and query transactions."""
     pass
 
 
@@ -153,7 +159,13 @@ def _send_transaction_impl(
         return None
 
 
-@transactions.command()
+@transactions.command(
+    epilog="""Examples:
+
+  aitbc transactions send --from wallet-1 --to 0x... --amount 10
+
+  aitbc transactions send --from wallet-1 --to 0x... --amount 10 --fee 0.001"""
+)
 @click.option("--from", "from_wallet", required=True, help="From wallet name")
 @click.option("--to", "to_address", required=True, help="To address")
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
@@ -172,7 +184,7 @@ def send(
     rpc_url: str | None,
     use_explorer: bool,
 ):
-    """Send transaction from one wallet to another"""
+    """Send a transaction from one wallet to another."""
     # Password resolution priority:
     # 1. --password flag
     # 2. --password-file flag
@@ -254,13 +266,19 @@ def send(
                 error(f"Error checking status via Explorer: {e}")
 
 
-@transactions.command()
+@transactions.command(
+    epilog="""Examples:
+
+  aitbc transactions batch --transactions-file /tmp/txs.json
+
+  aitbc transactions batch --transactions-file /tmp/txs.json --password-file /tmp/pass"""
+)
 @click.option("--transactions-file", required=True, help="JSON file with batch transactions")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def batch(transactions_file: str, password: str | None, password_file: str | None, rpc_url: str | None):
-    """Send batch transactions"""
+    """Send multiple transactions from a JSON batch file."""
     # Password resolution priority:
     # 1. --password flag
     # 2. --password-file flag
@@ -371,12 +389,18 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     success(f"Batch completed: {len([r for r in results if r['success']])}/{len(results)} successful")
 
 
-@transactions.command()
-@click.argument("tx_hash")
+@transactions.command(
+    epilog="""Examples:
+
+  aitbc transactions status --tx-hash 0x...
+
+  aitbc transactions status --tx-hash 0x... --use-explorer"""
+)
+@click.option("--tx-hash", "tx_hash", required=True, help="The Tx hash.")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API instead of RPC")
 def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
-    """Get transaction status"""
+    """Get the status of a transaction by its hash."""
     if use_explorer:
         try:
             config = get_config()
@@ -404,10 +428,16 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             error(f"Error: {e}")
 
 
-@transactions.command()
+@transactions.command(
+    epilog="""Examples:
+
+  aitbc transactions pending
+
+  aitbc transactions pending --rpc-url http://localhost:8202"""
+)
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def pending(rpc_url: str | None):
-    """Get pending transactions"""
+    """Get the list of pending transactions from the node."""
     if not rpc_url:
         config = get_config()
         rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
@@ -432,13 +462,19 @@ def pending(rpc_url: str | None):
         error(f"Error: {e}")
 
 
-@transactions.command()
+@transactions.command(
+    epilog="""Examples:
+
+  aitbc transactions estimate-fee --from wallet-1 --to 0x... --amount 10
+
+  aitbc transactions estimate-fee --from wallet-1 --to 0x... --amount 10 --rpc-url http://localhost:8202"""
+)
 @click.option("--from", "from_wallet", required=True, help="From wallet name")
 @click.option("--to", "to_address", required=True, help="To address")
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: str | None):
-    """Estimate transaction fee"""
+    """Estimate the transaction fee for a transfer."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
@@ -467,12 +503,18 @@ def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: st
         success(f"Estimated fee: {format_ait(DEFAULT_FEE_UNITS)} (default)")
 
 
-@transactions.command()
-@click.argument("address")
+@transactions.command(
+    epilog="""Examples:
+
+  aitbc transactions search --address 0x...
+
+  aitbc transactions search --address 0x... --limit 50 --use-explorer"""
+)
+@click.option("--address", "address", required=True, help="Blockchain address to fund.")
 @click.option("--limit", default=100, help="Number of transactions to return")
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API instead of RPC")
 def search(address: str, limit: int, use_explorer: bool):
-    """Search transactions by address or node ID"""
+    """Search transactions by address or node ID."""
     if use_explorer:
         try:
             config = get_config()
