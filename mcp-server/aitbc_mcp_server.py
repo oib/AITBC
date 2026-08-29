@@ -24,6 +24,7 @@ import json
 import os
 import re
 import shlex
+import socket
 import subprocess
 import sys
 from decimal import Decimal
@@ -54,6 +55,7 @@ NodeRole = Literal["hub", "customer", "shop", "follower", "customer2", "follower
 
 SSH_USER = os.getenv("AITBC_MCP_SSH_USER", "")
 DEFAULT_HOST = os.getenv("AITBC_MCP_DEFAULT_HOST", "hub.aitbc")
+LOCAL_MODE = os.getenv("AITBC_MCP_LOCAL", "").lower() in {"1", "true", "yes", "on"}
 
 # Conservative SSH options: no interactive prompts, time out quickly, accept a
 # new host key on first connection (the host can later be pinned via Devin).
@@ -177,8 +179,53 @@ def _ssh_target(host: str) -> str:
     return host
 
 
+def _is_local_host(host: str) -> bool:
+    """Return True when the target host is the machine the server runs on."""
+    if LOCAL_MODE:
+        return True
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return True
+    try:
+        return socket.gethostname() == host
+    except OSError:
+        return False
+
+
 def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
-    """Run a single command on a remote AITBC host over SSH."""
+    """Run a single command on an AITBC host, using a local shell when possible."""
+    if _is_local_host(host):
+        try:
+            res = subprocess.run(
+                shlex.split(command),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                shell=False,
+            )
+            return {
+                "host": host,
+                "command": command,
+                "returncode": res.returncode,
+                "stdout": res.stdout,
+                "stderr": res.stderr,
+            }
+        except subprocess.TimeoutExpired as e:
+            return {
+                "host": host,
+                "command": command,
+                "returncode": -1,
+                "stdout": e.stdout or "",
+                "stderr": f"timeout after {timeout}s",
+            }
+        except FileNotFoundError as e:
+            return {
+                "host": host,
+                "command": command,
+                "returncode": -1,
+                "stdout": "",
+                "stderr": f"command not found: {e.filename}",
+            }
+
     target = _ssh_target(host)
     cmd = ["ssh"] + SSH_OPTS + [target, "--", command]
     try:
