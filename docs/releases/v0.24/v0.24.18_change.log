@@ -26,3 +26,17 @@ Updated `publish_default_offers()` to pass the canonical option flags, keeping
 `--unit` and `--description` as before. With `MINER_WALLET_ADDRESS` exported as
 `SHOP_WALLET_ADDRESS`, the miner now successfully publishes (or skips when
 identical) the Whisper, FFmpeg, and Ollama default offers.
+
+## Fix — `Escrow` DB lookups use the correct primary key
+
+Three call sites in `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py`
+used `session.get(Escrow, (job_id, chain_id))`, copying the composite-key
+pattern from `Account`. The `Escrow` model has a single-column primary key on
+`job_id`, so that identifier raised a SQLAlchemy primary-key-count error and
+aborted the `session_scope()` before any row could be written or updated.
+
+This caused escrow lock, release and refund operations to silently persist
+nothing to the chain database ("Failed to persist escrow to DB after lock").
+
+Updated the three sites to `session.get(Escrow, job_id)` to match the model and
+the other four call sites in the same file.
