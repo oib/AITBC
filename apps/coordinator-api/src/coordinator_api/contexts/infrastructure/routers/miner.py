@@ -48,7 +48,7 @@ _TEE_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_TEE_HIGH_VALUE_THRESHOLD", "
 _TEE_REQUIRE = os.getenv("COORDINATOR_TEE_REQUIRE", "false").lower() == "true"
 
 
-def _zk_required_for(job: Any) -> bool:
+def _zk_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
     """Return True if this job's payment triggers the ZK-proof gate.
 
     The gate only applies when the job names a model with a registered
@@ -63,8 +63,8 @@ def _zk_required_for(job: Any) -> bool:
     elif job.constraints and job.constraints.get("zk_proof_required"):
         required = True
     else:
-        payment_amount = Decimal(str(job.payment_amount or 0))
-        required = _ZK_THRESHOLD_AIT == 0 or payment_amount >= _ZK_THRESHOLD_AIT
+        amount = payment_amount or Decimal("0")
+        required = _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
 
     if not required:
         return False
@@ -79,7 +79,7 @@ def _zk_required_for(job: Any) -> bool:
     return True
 
 
-def _tee_required_for(job: Any) -> bool:
+def _tee_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
     """Return True if this job requires a TEE attestation.
 
     A job is TEE-gated when the customer explicitly requested it, when it is
@@ -103,10 +103,15 @@ def _tee_required_for(job: Any) -> bool:
         return False
     if _TEE_THRESHOLD_AIT == 0:
         return True
-    return Decimal(str(job.payment_amount or 0)) >= _TEE_THRESHOLD_AIT
+    return (payment_amount or Decimal("0")) >= _TEE_THRESHOLD_AIT
 
 
-async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dict[str, Any] | None) -> dict[str, Any] | None:
+async def _attach_zk_proof(
+    receipt: dict[str, Any] | None,
+    job: Any,
+    result: dict[str, Any] | None,
+    payment_amount: Decimal | None = None,
+) -> dict[str, Any] | None:
     """Generate and attach a model-execution proof when required.
 
     v0.14.4: a high-value/ZK job must prove model execution via a
@@ -118,7 +123,7 @@ async def _attach_zk_proof(receipt: dict[str, Any] | None, job: Any, result: dic
     """
     if not receipt:
         return receipt
-    if not _zk_required_for(job):
+    if not _zk_required_for(job, payment_amount):
         receipt["zk_status"] = "not_required"
         receipt["computation_correct"] = True
         return receipt
@@ -206,6 +211,7 @@ async def _attach_tee_attestation(
     job: Any,
     req: Any,
     session: Any,
+    payment_amount: Decimal | None = None,
 ) -> dict[str, Any] | None:
     """Verify or store a TEE attestation when the job requires one.
 
@@ -215,7 +221,7 @@ async def _attach_tee_attestation(
     """
     if not receipt:
         return receipt
-    if not _tee_required_for(job):
+    if not _tee_required_for(job, payment_amount):
         receipt["tee_status"] = "not_required"
         return receipt
 
@@ -397,6 +403,8 @@ async def submit_result(
         job = job_service.get_job(job_id)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
+    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment_amount = payment.amount if payment else None
     job.result = req.result
     job.state = JobState.completed
     job.error = None
@@ -421,8 +429,8 @@ async def submit_result(
     if duration_ms is not None:
         duration_ms = int(duration_ms)
     receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
-    receipt = await _attach_zk_proof(receipt, job, req.result)
-    receipt = await _attach_tee_attestation(receipt, job, req, session)
+    receipt = await _attach_zk_proof(receipt, job, req.result, payment_amount=payment_amount)
+    receipt = await _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     job.completed_at = datetime.now(UTC)
@@ -439,7 +447,7 @@ async def submit_result(
         # which is what _require_owned_job checks against.
         # P2.2: confidential jobs only release when a verified TEE attestation is present.
         # P2.1: high-value jobs only release when a verified ZK proof is present.
-        if _tee_required_for(job):
+        if _tee_required_for(job, payment_amount):
             tee_status = (receipt or {}).get("tee_status")
             # "auto_attested" is the coordinator's own self-signed fallback
             # quote (see _attach_tee_attestation) -- no real enclave is
@@ -481,7 +489,7 @@ async def submit_result(
                     job.payment_status = "refunded"
                 await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
                 success = False
-            elif _zk_required_for(job):
+            elif _zk_required_for(job, payment_amount):
                 zk_status = (receipt or {}).get("zk_status")
                 if zk_status != "verified":
                     job.error = f"ZK proof required before escrow release (status: {zk_status})"
@@ -493,7 +501,7 @@ async def submit_result(
                     success = await _settle_completed_job(session, payment_service, job, receipt)
             else:
                 success = await _settle_completed_job(session, payment_service, job, receipt)
-        elif _zk_required_for(job):
+        elif _zk_required_for(job, payment_amount):
             zk_status = (receipt or {}).get("zk_status")
             if zk_status != "verified":
                 job.error = f"ZK proof required before escrow release (status: {zk_status})"
@@ -641,9 +649,9 @@ async def get_miner_earnings(
                 p.id: p for p in session.execute(select(JobPayment).where(JobPayment.id.in_(payment_ids))).scalars().all()
             }
         for job in completed_jobs:
-            amount = job.payment_amount or Decimal("0")
-            token = job.payment_token or "AITBC"
             payment = payments.get(job.payment_id) if job.payment_id else None
+            amount = payment.amount if payment else Decimal("0")
+            token = payment.currency if payment else (job.payment_token or "AITBC")
             payment_status = payment.status if payment is not None else (job.payment_status or "unknown")
             if payment_status == "released":
                 paid_earnings += amount

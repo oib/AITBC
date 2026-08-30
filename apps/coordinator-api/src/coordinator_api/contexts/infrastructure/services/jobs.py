@@ -30,13 +30,15 @@ _BOND_REQUIRE = os.getenv("COORDINATOR_BOND_REQUIRE", "false").lower() == "true"
 _MINER_ONLINE_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS", "300"))
 
 
-def _bond_required_for(job: Job) -> bool:
+def _bond_required_for(job: Job, payment: JobPayment | None = None) -> bool:
     """Return True if the job requires a performance bond check."""
     constraints = Constraints(**job.constraints) if isinstance(job.constraints, dict) else Constraints()
     if constraints.bond_required:
         return True
     if _BOND_REQUIRE:
         return True
+    if payment is not None and _BOND_THRESHOLD_AIT >= 0:
+        return payment.amount >= _BOND_THRESHOLD_AIT
     if job.payment_amount is not None and _BOND_THRESHOLD_AIT >= 0:
         return job.payment_amount >= _BOND_THRESHOLD_AIT
     return False
@@ -69,6 +71,8 @@ def _payment_blocks_dispatch(job: Job, payment: JobPayment | None = None) -> str
     else:
         payment_status = (job.payment_status or "").strip().lower()
     if not payment_status:
+        if payment is not None and payment.amount > 0:
+            return "job is priced but carries no payment record"
         if job.payment_amount is not None and job.payment_amount > 0:
             return "job is priced but carries no payment record"
         return None
@@ -250,8 +254,8 @@ class JobService:
             payload=job.payload,
             result=job.result,
             payment_status=payment.status if payment is not None else job.payment_status,
-            payment_amount=job.payment_amount,
-            payment_token=job.payment_token,
+            payment_amount=payment.amount if payment else job.payment_amount,
+            payment_token=payment.currency if payment else job.payment_token,
             provider_address=job.provider_address,
             buyer_address=(payment.meta_data or {}).get("buyer_address") if payment else None,
             node_wallet_address=self.payment_service._get_node_wallet_address() or None,
@@ -335,7 +339,7 @@ class JobService:
                     if mismatch_reason:
                         logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, mismatch_reason)
                         continue
-                    if not self._satisfies_constraints(job, miner):
+                    if not self._satisfies_constraints(job, miner, payment):
                         continue
                     if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation):
                         # A better-suited, higher-reputation miner is online and
@@ -366,7 +370,7 @@ class JobService:
             self.session.refresh(job)
         return job
 
-    def _satisfies_constraints(self, job: Job, miner: Miner) -> bool:
+    def _satisfies_constraints(self, job: Job, miner: Miner, payment: JobPayment | None = None) -> bool:
         if not job.constraints:
             return True
         constraints = Constraints(**job.constraints)
@@ -425,7 +429,7 @@ class JobService:
             if self._get_miner_reputation(miner) < constraints.min_reputation:
                 return False
 
-        if _bond_required_for(job):
+        if _bond_required_for(job, payment):
             min_bond = constraints.min_bond_amount if constraints.min_bond_amount is not None else _default_bond_min_amount()
             if min_bond is not None and min_bond > 0:
                 eligible = is_provider_eligible(self.session, miner.id, min_amount=min_bond)
