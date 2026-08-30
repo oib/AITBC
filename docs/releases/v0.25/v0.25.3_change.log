@@ -1,0 +1,40 @@
+# v0.25.3 — SyncManager open gaps
+
+**Baseline**: `v0.25.2` shipped on `2cf4bb1b46`.
+**Date**: 2026-08-30.
+**Tag**: `v0.25.3`.
+
+This release completes the SyncManager work that was left open in `v0.25.2`: config kill switches are now honored, PBFT/PoA block production waits for sync, the unit test suite is expanded, delta state sync is used for small gaps, an optional HTTP status endpoint is available, and P2P peer discovery passes the peer chain to the sync tracker.
+
+## Changes
+
+### SyncManager configuration
+- `config.py`: remove the dead `sync_managed_externally` flag.
+- `config.py`: add `sync_manager_max_proposal_gap` (default 2), `sync_manager_proposal_sync_timeout` (default 30s), `sync_manager_http_enabled` (default False), `sync_manager_http_port` (default 8204), and `sync_manager_http_host` (default 0.0.0.0).
+- `main.py`: only start `SyncManager` when `sync_manager_enabled=true`.
+
+### PBFT / PoA sync guards
+- `poa.py`: `PoAProposer` accepts an optional `sync_manager` and waits for the gap to be `<= sync_manager_max_proposal_gap` before proposing.
+- `pbft.py`: `PBFTConsensus` accepts `sync_manager`, forces catch-up on view change, and waits for sync before `propose_and_wait`.
+- `main.py`: pass `self._sync_manager` into `PoAProposer`.
+
+### Tests
+- `tests/test_sync_manager.py`: add coverage for `get_sync_status`, `force_catch_up`, start/stop lifecycle, `_tick` bulk pull and synced-poll behavior, and self-proposed block skipping.
+
+### Delta state sync
+- `sync_state.py`: fix `delta_sync_from` to use a `GET` request with query params, matching `/rpc/state/delta`.
+- `sync_manager.py`: `_tick()` now calls `delta_sync_from(source_url, local_height, remote_height)` for small gaps instead of always pulling a full snapshot.
+
+### HTTP status endpoint
+- New `sync_manager_http.py`: optional FastAPI/uvicorn server exposing `/sync/status` and `/health`.
+- `main.py`: start and stop the status server when `sync_manager_http_enabled=true`.
+
+### Parallel peer discovery
+- `p2p_network.py`: peer capability callback now receives `chain_id` and `has_state`.
+- `main.py`: callback registers discovered peers with the correct chain.
+
+## Validation
+
+- `pytest apps/blockchain-node/tests/test_sync_manager.py apps/blockchain-node/tests/test_sync.py` passes.
+- A stopped follower with a non-zero gap catches up automatically after restart.
+- When enabled, `curl http://<node>:8204/sync/status` returns per-chain sync state.

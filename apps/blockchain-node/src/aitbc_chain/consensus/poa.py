@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import time
 import traceback
 import hashlib
 import json
@@ -131,6 +132,7 @@ class PoAProposer:
         config: ProposerConfig,
         session_factory: Callable[[], AbstractContextManager[Session]],
         consensus: MultiValidatorPoA | None = None,
+        sync_manager: Any | None = None,
     ) -> None:
         self._config = config
         self._session_factory = session_factory
@@ -140,6 +142,7 @@ class PoAProposer:
         self._last_proposer_id: str | None = None
         self._last_block_timestamp: datetime | None = None
         self._multi_validator: MultiValidatorPoA | None = consensus
+        self._sync_manager: Any | None = sync_manager
         self._validator_keys: dict[str, str] = {}
         self._remote_attestation: RemoteAttestationService | None = None
         if self._multi_validator is not None:
@@ -165,6 +168,7 @@ class PoAProposer:
                 private_key=settings.proposer_key or "",
                 chain_id=self._config.chain_id,
                 local_validator=self._config.proposer_id,
+                sync_manager=self._sync_manager,
             )
             from ..gossip import gossip_broker
 
@@ -375,10 +379,45 @@ class PoAProposer:
         except TimeoutError:
             return
 
+    async def _ensure_synced_before_proposal(self) -> bool:
+        """Wait until SyncManager reports a small enough gap, or timeout.
+
+        Returns True if it is safe to propose, False if the node is too far
+        behind and catch-up did not complete in time.
+        """
+        if self._sync_manager is None or not settings.sync_manager_enabled:
+            return True
+        status = self._sync_manager.get_sync_status(self._config.chain_id)
+        max_gap = getattr(settings, "sync_manager_max_proposal_gap", 2)
+        if status.get("gap", 0) <= max_gap:
+            return True
+        self._logger.warning(
+            "[PROPOSE] Sync gap %s exceeds %s for chain %s, forcing catch-up before proposal",
+            status.get("gap"),
+            max_gap,
+            self._config.chain_id,
+        )
+        await self._sync_manager.force_catch_up(self._config.chain_id)
+        timeout = getattr(settings, "sync_manager_proposal_sync_timeout", 30)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            status = self._sync_manager.get_sync_status(self._config.chain_id)
+            if status.get("gap", 0) <= max_gap:
+                return True
+            try:
+                await asyncio.wait_for(asyncio.sleep(1), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass
+        self._logger.warning("[PROPOSE] Timed out waiting for sync on chain %s, skipping proposal", self._config.chain_id)
+        return False
+
     async def _propose_block(self) -> bool:
         from ..config import settings
         from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
         from ..models import Account, Transaction
+
+        if not await self._ensure_synced_before_proposal():
+            return False
 
         # Start a fresh per-block replay cache for this proposal.
         get_state_transition().reset_processed_cache()
