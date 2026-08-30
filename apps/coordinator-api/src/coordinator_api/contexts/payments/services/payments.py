@@ -138,6 +138,12 @@ class PaymentService:
             # funds but never clear the gate, and the job would sit queued until its TTL.
             job.payment_id = payment.id
             job.payment_status = payment.status
+            # D: miner.py, client.py and JobService.to_view() all read job.payment_amount,
+            # but it was only set when JobCreate carried an amount. For two-step payments
+            # (job first, payment later) and for any path that reaches create_payment,
+            # keep the authoritative amount and currency on the job row.
+            job.payment_amount = payment_data.amount
+            job.payment_token = payment_data.currency
             self.session.add(job)
             self.session.commit()
             self.session.refresh(payment)
