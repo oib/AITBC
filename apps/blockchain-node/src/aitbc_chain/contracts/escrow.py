@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Smart Contract Escrow System
 Handles automated payment holding and release for AI job marketplace
@@ -9,7 +11,10 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..base_models import Escrow
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import units_to_ait
@@ -232,6 +237,98 @@ class EscrowManager:
         except Exception as e:
             logger.warning("Failed to load escrow contracts from DB: %s", e)
 
+    async def _reconstruct_escrow_from_chain(self, session, job_id: str) -> Escrow | None:
+        """Rebuild an Escrow DB record from on-chain ESCROW_LOCK/RELEASE/REFUND txns.
+
+        commit 574ac00d5 fixed a session.get bug that prevented rows from being written,
+        but existing lock transactions were never back-filled. This creates the missing
+        Escrow record (and the in-memory contract) from the canonical on-chain state.
+        """
+        try:
+            from ..base_models import Account, Escrow, Transaction
+            from aitbc.crypto.signature_recovery import canonical_address
+            from sqlmodel import select
+        except Exception as e:
+            logger.warning("Could not import chain models for escrow reconstruction: %s", e)
+            return None
+
+        try:
+            lock_stmt = (
+                select(Transaction)
+                .where(Transaction.type == "ESCROW_LOCK")
+                .where(Transaction.payload["job_id"].as_string() == job_id)
+                .order_by(Transaction.id.desc())
+            )
+            lock_tx = session.exec(lock_stmt).first()
+            if not lock_tx:
+                return None
+            payload = lock_tx.payload or {}
+            if payload.get("action") != "escrow_lock" or payload.get("job_id") != job_id:
+                return None
+
+            buyer = payload.get("buyer") or lock_tx.sender
+            provider = payload.get("provider")
+            if not buyer or not provider:
+                return None
+            try:
+                buyer = canonical_address(buyer)
+                provider = canonical_address(provider)
+            except Exception:
+                logger.warning("Could not canonicalise addresses for job %s lock tx", job_id)
+                return None
+
+            # Check whether the funds were already released or refunded on-chain.
+            release_stmt = (
+                select(Transaction)
+                .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))
+                .where(Transaction.payload["job_id"].as_string() == job_id)
+                .order_by(Transaction.id.desc())
+            )
+            final_tx = session.exec(release_stmt).first()
+            final_action = (final_tx.payload or {}).get("action") if final_tx else None
+
+            record_status = "locked"
+            released_at = None
+            refunded_at = None
+            released_tx_hash = None
+            refund_tx_hash = None
+            if final_action == "escrow_refund":
+                record_status = "refunded"
+                refunded_at = final_tx.created_at
+                refund_tx_hash = final_tx.tx_hash
+            elif final_action == "escrow_release":
+                record_status = "released"
+                released_at = final_tx.created_at
+                released_tx_hash = final_tx.tx_hash
+
+            # Ensure the chain-side accounts exist so the Escrow FKs hold.
+            chain_id = lock_tx.chain_id
+            for addr in (buyer, provider):
+                if not session.get(Account, (chain_id, addr)):
+                    session.add(Account(chain_id=chain_id, address=addr, balance=0, nonce=0))
+
+            record = Escrow(
+                job_id=job_id,
+                chain_id=chain_id,
+                buyer=buyer,
+                provider=provider,
+                amount=lock_tx.value,
+                status=record_status,
+                created_at=lock_tx.created_at,
+                lock_tx_hash=lock_tx.tx_hash,
+                released_at=released_at,
+                refunded_at=refunded_at,
+                job_tx_hash=released_tx_hash,
+                refund_tx_hash=refund_tx_hash,
+            )
+            session.add(record)
+            session.commit()
+            logger.info("Reconstructed escrow record for job %s from lock tx %s", job_id, lock_tx.tx_hash)
+            return record
+        except Exception as e:
+            logger.warning("Failed to reconstruct escrow for job %s from chain: %s", job_id, e)
+            return None
+
     async def get_or_load_contract(self, job_id: str) -> EscrowContract | None:
         """Find a contract by job_id, loading from DB if not in memory."""
         for contract in self.escrow_contracts.values():
@@ -246,6 +343,8 @@ class EscrowManager:
         try:
             with session_scope() as session:
                 record = session.get(EscrowRecord, job_id)
+                if not record:
+                    record = await self._reconstruct_escrow_from_chain(session, job_id)
                 if not record:
                     return None
                 contract_id = (

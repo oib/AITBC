@@ -28,6 +28,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
+from aitbc_shared import JobPayment
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,8 @@ class SettlementReconciler:
         cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
         stmt = (
             select(Job)
-            .where(Job.payment_status == "escrowed")
+            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .where(JobPayment.status == "escrowed")
             .where(Job.completed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at < cutoff)  # type: ignore[operator]
             .limit(self.batch_size)
