@@ -8,11 +8,13 @@ import asyncio
 import hashlib
 from datetime import UTC, datetime
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 from aitbc.utils import ait_to_units
 from aitbc_chain.base_models import Escrow
 from aitbc_chain.contracts.escrow import EscrowManager, EscrowState, create_escrow_manager
+from aitbc_chain.rpc import escrow_routes
 from aitbc_chain.rpc.escrow_routes import refund_escrow
 
 
@@ -130,9 +132,12 @@ class TestEscrowRefundRoute:
         assert result["refund_tx_hash"] == "0xalreadythere"
         assert result["message"] == "Escrow already refunded"
 
-    def test_refund_escrow_updates_db_for_active_contract(self, manager, session):
+    def test_refund_escrow_updates_db_for_active_contract(self, manager, session, monkeypatch):
         """Refunding an active escrow updates the record with refunded_at and refund_tx_hash."""
         _insert_escrow(session, "job-route-refund-2")
+
+        monkeypatch.setattr(escrow_routes, "_find_existing_refund", AsyncMock(return_value=None))
+        monkeypatch.setattr(escrow_routes, "_submit_refund_tx", AsyncMock(return_value="0xtestrefund"))
 
         result = asyncio.run(refund_escrow("job-route-refund-2", {}))
 
