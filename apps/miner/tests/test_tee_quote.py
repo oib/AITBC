@@ -4,15 +4,25 @@ from __future__ import annotations
 
 import production_miner
 
-from aitbc.tee import AttestationQuote
+from aitbc.tee import AttestationQuote, computation_transcript
 
 
-def _job(job_id="job-1", **constraints):
-    return {"job_id": job_id, "constraints": constraints}
+def _job(job_id="job-1", payload=None, **constraints):
+    return {"job_id": job_id, "payload": payload or {}, "constraints": constraints}
 
 
 def test_build_tee_quote_returns_none_without_a_tee_constraint():
     assert production_miner.build_tee_quote(_job()) is None
+
+
+def test_build_tee_quote_binds_computation_transcript():
+    job = _job(
+        job_id="job-bind",
+        payload={"model": "llama3.2:3b", "prompt": "2+2?"},
+        tee_enclave_id="enc-x",
+    )
+    quote = AttestationQuote.from_base64(production_miner.build_tee_quote(job, output="4"))
+    assert quote.quote_blob == computation_transcript("job-bind", "llama3.2:3b", "2+2?", "4")
 
 
 def test_build_tee_quote_signs_with_a_fresh_key_by_default(monkeypatch):

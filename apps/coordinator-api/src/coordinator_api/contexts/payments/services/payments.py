@@ -27,6 +27,7 @@ from aitbc.utils.validation import validate_address
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
+from ...zk_applications.services import model_registry
 from ..acceptance import (
     DISPUTED,
     HELD_STATES,
@@ -88,6 +89,31 @@ async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClie
     except Exception as e:
         logger.warning("Failed to look up on-chain lock for %s: %s", job_id, e)
     return None
+
+
+def _tee_attests_computation(receipt: dict[str, Any] | None, job: Job | None) -> bool:
+    """Return True when a registered TEE quote attests a model with no Groth16 circuit.
+
+    Groth16 remains mandatory for registered circuits such as ``linear-1``. A
+    TEE quote is only a substitute when the model cannot be proven in-circuit.
+    """
+    if not receipt or job is None:
+        return False
+    if receipt.get("tee_status") != "verified":
+        return False
+    if receipt.get("zk_status") != "tee_attested":
+        return False
+    if receipt.get("computation_correct") is not True:
+        return False
+    model_id = model_registry.resolve_model_id(job, job.result if isinstance(job.result, dict) else None)
+    return model_id is not None and model_registry.get_model(model_id) is None
+
+
+def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> bool:
+    """Return True when escrow may release because computation was attested."""
+    if receipt and receipt.get("zk_status") == "verified" and receipt.get("computation_correct") is True:
+        return True
+    return _tee_attests_computation(receipt, job)
 
 
 def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
@@ -469,7 +495,7 @@ class PaymentService:
         job = self.session.get(Job, job_id)
         if _zk_required_for_payment(payment.amount if payment.amount else None, job):
             receipt = job.receipt if job else None
-            if not receipt or receipt.get("zk_status") != "verified" or receipt.get("computation_correct") is not True:
+            if not _computation_is_correct(receipt, job):
                 logger.error(
                     "Escrow release blocked for job %s payment %s: verified ZK receipt proof with correct computation required (zk_status=%s, computation_correct=%s)",
                     job_id,
