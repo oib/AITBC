@@ -81,13 +81,13 @@ class P2PNetworkService:
         # with (peer_id, rpc_url, block_range). Set by the sync layer to register
         # peers with the PeerCapabilityTracker. Optional; if None, capability
         # exchange still works but peers are not registered with the tracker.
-        self._peer_capability_callback: Callable[[str, str, tuple[int, int]], None] | None = None
+        self._peer_capability_callback: Callable[..., None] | None = None
 
-    def set_peer_capability_callback(self, callback: Callable[[str, str, tuple[int, int]], None]) -> None:
+    def set_peer_capability_callback(self, callback: Callable[..., None]) -> None:
         """Set callback called when a peer's capability is discovered.
 
         Args:
-            callback: Called with (peer_id, rpc_url, block_range) when a peer connects.
+            callback: Called with (peer_id, rpc_url, block_range, *, chain_id, has_state) when a peer connects.
         """
         self._peer_capability_callback = callback
 
@@ -377,7 +377,13 @@ class P2PNetworkService:
                 peer_port = peer_public_port or peer_listen_port
                 rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
                 peer_rpc_url = f"http://{peer_address}:{rpc_port}"
-                self._peer_capability_callback(peer_node_id, peer_rpc_url, tuple(peer_block_range))
+                self._peer_capability_callback(
+                    peer_node_id,
+                    peer_rpc_url,
+                    tuple(peer_block_range),
+                    chain_id=peer_chain_id or self.chain_id,
+                    has_state=True,
+                )
             if self.island_manager and peer_island_id:
                 self.island_manager.add_island_peer(peer_island_id, peer_node_id)
             if self.hub_manager:
@@ -480,7 +486,13 @@ class P2PNetworkService:
                                 peer_port = peer_public_port or peer_listen_port
                                 rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
                                 peer_rpc_url = f"http://{peer_address}:{rpc_port}"
-                                self._peer_capability_callback(peer_id, peer_rpc_url, tuple(peer_block_range))
+                                self._peer_capability_callback(
+                                    peer_id,
+                                    peer_rpc_url,
+                                    tuple(peer_block_range),
+                                    chain_id=peer_chain_id or self.chain_id,
+                                    has_state=True,
+                                )
                             if self.island_manager and peer_island_id:
                                 self.island_manager.add_island_peer(peer_island_id, peer_id)
                             if self.hub_manager:

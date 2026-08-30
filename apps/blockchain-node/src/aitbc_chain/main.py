@@ -22,6 +22,7 @@ from .mempool import init_mempool
 from .observability import register_exporters
 from .sync import ChainSync
 from .sync_manager import SyncManager
+from .sync_manager_http import SyncManagerStatusServer
 
 try:
     from .p2p_network import get_p2p_network
@@ -173,6 +174,8 @@ class BlockchainNode:
         self._settlement_coordinators: list[Any] = []
         self._sync: ChainSync | None = None
         self._sync_manager: SyncManager | None = None
+        self._sync_http_server: Any | None = None
+        self._sync_http_task: asyncio.Task[Any] | None = None
 
     @staticmethod
     def _env_value(*names: str) -> str | None:
@@ -238,6 +241,7 @@ class BlockchainNode:
             config=config,
             session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc]
             consensus=consensus,
+            sync_manager=self._sync_manager,
         )
 
     async def _ensure_genesis_for_chains(self) -> None:
@@ -383,22 +387,41 @@ class BlockchainNode:
             init_db(chain_id)
             logger.info("Initialized database for chain: %s", chain_id)
 
-        use_gossip = settings.sync_manager_use_gossip
-        use_subscription = settings.sync_manager_use_subscription
-        if settings.blockchain_mode == "hub" and not settings.multi_validator_consensus_enabled:
-            use_gossip = False
-            use_subscription = False
-        self._sync_manager = SyncManager(
-            chains=chains,
-            node_id=os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node"),
-            proposer_id=settings.proposer_id,
-            production_chains=self._block_production_chains(),
-            use_gossip=use_gossip,
-            use_subscription=use_subscription and settings.subscription_enabled,
-            own_gossip=False,
-            skip_init_db=True,
-        )
-        await self._sync_manager.start()
+        if settings.sync_manager_enabled:
+            use_gossip = settings.sync_manager_use_gossip
+            use_subscription = settings.sync_manager_use_subscription
+            if settings.blockchain_mode == "hub" and not settings.multi_validator_consensus_enabled:
+                use_gossip = False
+                use_subscription = False
+            self._sync_manager = SyncManager(
+                chains=chains,
+                node_id=os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node"),
+                proposer_id=settings.proposer_id,
+                production_chains=self._block_production_chains(),
+                use_gossip=use_gossip,
+                use_subscription=use_subscription and settings.subscription_enabled,
+                own_gossip=False,
+                skip_init_db=True,
+            )
+            await self._sync_manager.start()
+
+            if settings.sync_manager_http_enabled:
+                self._sync_http_server = SyncManagerStatusServer(
+                    self._sync_manager,
+                    host=settings.sync_manager_http_host,
+                    port=settings.sync_manager_http_port,
+                )
+                self._sync_http_task = asyncio.create_task(
+                    self._sync_http_server.start(),
+                    name="sync_manager_http_server",
+                )
+                logger.info(
+                    "SyncManager HTTP status server listening on %s:%s",
+                    settings.sync_manager_http_host,
+                    settings.sync_manager_http_port,
+                )
+        else:
+            logger.info("SyncManager disabled by sync_manager_enabled=false")
 
         init_mempool(
             backend=settings.mempool_backend,
@@ -460,13 +483,19 @@ class BlockchainNode:
                     default_chain = self._supported_chains()[0] if self._supported_chains() else settings.chain_id
                     if self._sync_manager is not None:
                         p2p_service.set_peer_capability_callback(
-                            lambda peer_id, rpc_url, block_range, has_state=True: self._sync_manager.register_sync_peer(
-                                default_chain, peer_id, rpc_url, block_range, has_state
+                            lambda peer_id, rpc_url, block_range, has_state=True, chain_id=None: (
+                                self._sync_manager.register_sync_peer(
+                                    chain_id or default_chain, peer_id, rpc_url, block_range, has_state
+                                )
                             )
                         )
                     else:
                         self._sync = ChainSync(session_factory=lambda: session_scope(default_chain), chain_id=default_chain)
-                        p2p_service.set_peer_capability_callback(self._sync.register_sync_peer)
+                        p2p_service.set_peer_capability_callback(
+                            lambda peer_id, rpc_url, block_range, has_state=True, chain_id=None: self._sync.register_sync_peer(
+                                peer_id, rpc_url, block_range, has_state
+                            )
+                        )
                     logger.info("P2P peer capability callback wired to SyncManager")
                 except Exception as e:
                     logger.warning("Failed to wire P2P peer capability callback: %s", e)
@@ -561,6 +590,16 @@ class BlockchainNode:
 
     async def _shutdown(self) -> None:
         logger.info("Shutting down blockchain node, cancelling background tasks...")
+        if self._sync_http_server is not None:
+            try:
+                self._sync_http_server.stop()
+            except Exception as e:
+                logger.error("Error stopping sync manager HTTP server: %s", e)
+        if self._sync_http_task is not None:
+            try:
+                await self._sync_http_task
+            except Exception as e:
+                logger.error("Error waiting for sync manager HTTP task: %s", e)
         if self._sync_manager is not None:
             try:
                 await self._sync_manager.stop()
