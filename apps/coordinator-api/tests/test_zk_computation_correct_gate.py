@@ -17,7 +17,7 @@ from fastapi import HTTPException
 from aitbc_shared import JobPayment
 from coordinator_api.contexts.infrastructure.domain.job import Job
 from coordinator_api.contexts.infrastructure.routers.client import accept_job
-from coordinator_api.contexts.payments.acceptance import PENDING_ACCEPTANCE
+from coordinator_api.contexts.payments.acceptance import HELD_STATES, PENDING_ACCEPTANCE
 from coordinator_api.contexts.payments.services.payments import PaymentService
 
 
@@ -47,7 +47,7 @@ def _make_zk_job(db_session, receipt, payment_status=PENDING_ACCEPTANCE, amount=
         job_id=job.id,
         amount=amount,
         currency="AITBC",
-        status="escrowed",
+        status=payment_status,
         meta_data={"provider_address": "0x1234567890123456789012345678901234567890"},
     )
     db_session.add(payment)
@@ -75,7 +75,7 @@ async def test_release_payment_blocked_when_computation_correct_false(db_session
 
     assert released is False
     db_session.refresh(payment)
-    assert payment.status == "escrowed"
+    assert payment.status in HELD_STATES
 
 
 @pytest.mark.asyncio
@@ -93,7 +93,7 @@ async def test_release_payment_blocked_when_computation_correct_missing(db_sessi
 
     assert released is False
     db_session.refresh(payment)
-    assert payment.status == "escrowed"
+    assert payment.status in HELD_STATES
 
 
 @pytest.mark.asyncio

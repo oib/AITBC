@@ -51,32 +51,20 @@ _TEE_REQUIRE = os.getenv("COORDINATOR_TEE_REQUIRE", "false").lower() == "true"
 def _zk_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
     """Return True if this job's payment triggers the ZK-proof gate.
 
-    The gate only applies when the job names a model with a registered
-    receipt_model circuit. Requiring a proof for an unsupported model would
-    make release impossible and guarantee a refund.
+    The gate applies when COORDINATOR_ZK_REQUIRE=true, the job explicitly
+    requires a ZK proof, or the payment amount crosses the high-value
+    threshold. Whether the requested model actually has a registered circuit
+    is decided later in the prover; the gate must not silently downgrade a
+    required proof just because the model is missing.
     """
     if _ZK_THRESHOLD_AIT < 0:
         return False
-    required = False
     if _ZK_REQUIRE_PROOF:
-        required = True
-    elif job.constraints and job.constraints.get("zk_proof_required"):
-        required = True
-    else:
-        amount = payment_amount or Decimal("0")
-        required = _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
-
-    if not required:
-        return False
-    model_id = model_registry.resolve_model_id(job, None)
-    if model_registry.get_model(model_id) is None:
-        logger.warning(
-            "ZK not required for job %s: model %r has no registered circuit",
-            getattr(job, "id", None),
-            model_id,
-        )
-        return False
-    return True
+        return True
+    if job.constraints and job.constraints.get("zk_proof_required"):
+        return True
+    amount = payment_amount or Decimal("0")
+    return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
 
 
 def _tee_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
@@ -646,7 +634,7 @@ async def get_miner_earnings(
         payments = {}
         if payment_ids:
             payments = {
-                p.id: p for p in session.execute(select(JobPayment).where(JobPayment.id.in_(payment_ids))).scalars().all()
+                p.id: p for p in session.execute(select(JobPayment).where(col(JobPayment.id).in_(payment_ids))).scalars().all()
             }
         for job in completed_jobs:
             payment = payments.get(job.payment_id) if job.payment_id else None
