@@ -66,14 +66,14 @@ def _make_job_and_payment(session: Session, job_id: str, payment_id: str) -> Non
 class TestPaymentServiceRefund:
     """PaymentService.refund_payment idempotency and full-cycle behavior."""
 
-    @patch("coordinator_api.contexts.payments.services.payments.AITBCHTTPClient")
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
     def test_refund_records_already_refunded_escrow(self, mock_client_cls, payment_session):
         """If the blockchain escrow is already refunded, record it without resubmitting."""
         job_id = "job-refund-1"
         payment_id = "pay-refund-1"
         _make_job_and_payment(payment_session, job_id, payment_id)
 
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         mock_client.get.return_value = {
             "state": "refunded",
             "refund_tx_hash": "0xalreadyrefunded",
@@ -97,14 +97,14 @@ class TestPaymentServiceRefund:
         escrow = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).one()
         assert escrow.is_refunded is True
 
-    @patch("coordinator_api.contexts.payments.services.payments.AITBCHTTPClient")
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
     def test_refund_calls_blockchain_and_records_tx_hash(self, mock_client_cls, payment_session):
         """If the escrow is still funded, call the blockchain refund endpoint and record the tx hash."""
         job_id = "job-refund-2"
         payment_id = "pay-refund-2"
         _make_job_and_payment(payment_session, job_id, payment_id)
 
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         mock_client.get.return_value = {"state": "funded"}
         mock_client.post.return_value = {
             "success": True,
@@ -128,7 +128,7 @@ class TestPaymentServiceRefund:
         assert payment.status == "refunded"
         assert payment.refund_transaction_hash == "0xnewrefundtx"
 
-    @patch("coordinator_api.contexts.payments.services.payments.AITBCHTTPClient")
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
     def test_refund_fails_when_payment_not_escrowed(self, mock_client_cls, payment_session):
         """Refund returns False when the payment is not in an escrowed/pending state."""
         job_id = "job-refund-3"
