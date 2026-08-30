@@ -5,13 +5,16 @@ Regression tests for PaymentService refund idempotency.
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlmodel import Session, select
 
 from coordinator_api.contexts.infrastructure.domain.job import Job
+from coordinator_api.contexts.infrastructure.services.jobs import JobService
 from coordinator_api.contexts.payments.services.payments import PaymentService
+from coordinator_api.schemas import JobCreate, JobPaymentCreate
 
 
 @pytest.fixture
@@ -145,3 +148,37 @@ class TestPaymentServiceRefund:
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is False
         mock_client.get.assert_not_called()
+
+
+@pytest.mark.unit
+class TestPaymentCreation:
+    """PaymentService.create_payment should keep the job row in step with the payment."""
+
+    @pytest.mark.asyncio
+    async def test_create_payment_backfills_job_amount_and_token(self, payment_session):
+        """A job created without payment_amount gets the actual payment amount/token."""
+        job_service = JobService(payment_session)
+        job = job_service.create_job(
+            "client-1",
+            JobCreate(payload={"type": "inference", "prompt": "test prompt"}, ttl_seconds=900),
+        )
+        assert job.payment_amount is None
+        assert job.payment_token is None
+
+        payment_data = JobPaymentCreate(
+            job_id=job.id,
+            amount=Decimal("1.5"),
+            currency="AITBC",
+            payment_method="aitbc_token",
+        )
+        service = PaymentService(payment_session)
+        # Skip the on-chain ESCROW_LOCK; we only care about the job row update.
+        service._create_token_escrow = AsyncMock(return_value=None)
+        payment = await service.create_payment("client-1", job.id, payment_data)
+
+        refreshed = payment_session.get(Job, job.id)
+        assert refreshed is not None
+        assert refreshed.payment_id == payment.id
+        assert refreshed.payment_status == payment.status
+        assert refreshed.payment_amount == Decimal("1.5")
+        assert refreshed.payment_token == "AITBC"

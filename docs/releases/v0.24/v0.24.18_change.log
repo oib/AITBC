@@ -40,3 +40,19 @@ nothing to the chain database ("Failed to persist escrow to DB after lock").
 
 Updated the three sites to `session.get(Escrow, job_id)` to match the model and
 the other four call sites in the same file.
+
+## Fix — `PaymentService.create_payment` writes the amount back to the job
+
+`Job.payment_amount` and `Job.payment_token` were only set in
+`JobService.create_job` when the `JobCreate` request carried an amount. For the
+common two-step path (job submitted first, then `POST /v1/payments`), the
+payment record carried the real amount while the job row stayed `NULL`.
+
+`miner.py`, `client.py` and `JobService.to_view()` all read the job row, so a
+priced job could be treated as a zero-value job by the ZK/TEE threshold checks
+and the refund sweeper, even though the payment was real.
+
+Updated `PaymentService.create_payment` to set `job.payment_amount` and
+`job.payment_token` from the `JobPaymentCreate` data, keeping the job and the
+payment row authoritative. Added a regression test in
+`apps/coordinator-api/tests/test_payments_refund.py`.
