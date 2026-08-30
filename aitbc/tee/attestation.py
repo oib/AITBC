@@ -159,6 +159,18 @@ class AttestationQuote:
         return cls.from_json(base64.b64decode(text).decode("utf-8"))
 
 
+def computation_transcript(job_id: str, model: str, prompt: str, output: str) -> bytes:
+    """Return the SHA-256 binding of a job transcript for a TEE quote.
+
+    A quote whose ``quote_blob`` equals this digest attests that a specific
+    model produced a specific output for a specific prompt on a specific job.
+    Binding only ``job_id`` would let a registered enclave reuse a quote for
+    any result.
+    """
+    payload = f"{job_id}\n{model}\n{prompt}\n{output}".encode()
+    return hashlib.sha256(payload).digest()
+
+
 def load_or_create_signing_key(path: str) -> bytes:
     """Return a stable 32-byte signing seed at ``path``, creating one if missing.
 

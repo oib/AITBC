@@ -33,6 +33,7 @@ from ...zk_applications.services.zk_proofs import zk_proof_service
 from ...zk_applications.services import model_registry
 from ....storage import get_session
 from ...tee.attestation import TEEAttestationService, TEEAttestationStatus
+from aitbc.tee import AttestationQuote, computation_transcript
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
@@ -65,6 +66,31 @@ def _zk_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
         return True
     amount = payment_amount or Decimal("0")
     return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
+
+
+def _job_prompt(job: Any, result: dict[str, Any] | None) -> str:
+    if job and job.payload:
+        return str(job.payload.get("prompt", job.payload.get("input", "")))
+    if result:
+        return str(result.get("prompt", result.get("input", "")))
+    return ""
+
+
+def _job_output(result: dict[str, Any] | None) -> str:
+    if not result:
+        return ""
+    return str(result.get("output") or result.get("result") or result.get("response") or "")
+
+
+def _quote_matches_transcript(quote_b64: str, job: Any, result: dict[str, Any] | None) -> bool:
+    """Return True when the quote blob is the SHA-256 of this job's transcript."""
+    try:
+        quote = AttestationQuote.from_base64(quote_b64)
+    except (ValueError, TypeError, KeyError):
+        return False
+    model_id = model_registry.resolve_model_id(job, result) or ""
+    expected = computation_transcript(str(job.id), str(model_id), _job_prompt(job, result), _job_output(result))
+    return quote.quote_blob == expected
 
 
 def _tee_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
@@ -121,12 +147,12 @@ async def _attach_zk_proof(
         receipt["computation_correct"] = False
         return receipt
 
-    # Model-execution proof is the new gate. If the job does not name a
-    # supported deterministic model, it cannot release.
+    # Model-execution proof is the Groth16 gate. Unregistered models cannot
+    # produce a circuit proof; a registered TEE quote may attest them later.
     model_id = model_registry.resolve_model_id(job, result)
     if not model_id or model_registry.get_model(model_id) is None:
         logger.warning(
-            "ZK-required job %s does not specify a supported model (got %r); blocking release",
+            "ZK-required job %s does not specify a supported model (got %r); waiting for TEE attestation",
             job.id,
             model_id,
         )
@@ -209,7 +235,9 @@ async def _attach_tee_attestation(
     """
     if not receipt:
         return receipt
-    if not _tee_required_for(job, payment_amount):
+    model_id = model_registry.resolve_model_id(job, req.result)
+    circuitless_zk = _zk_required_for(job, payment_amount) and (not model_id or model_registry.get_model(model_id) is None)
+    if not _tee_required_for(job, payment_amount) and not circuitless_zk:
         receipt["tee_status"] = "not_required"
         return receipt
 
@@ -235,7 +263,19 @@ async def _attach_tee_attestation(
             else:
                 receipt["tee_status"] = "verified"
                 receipt["tee_attestation_id"] = attestation.id
+                if not _quote_matches_transcript(attestation.quote, job, req.result):
+                    receipt["tee_status"] = "transcript_mismatch"
         elif req.tee_quote:
+            if not _quote_matches_transcript(req.tee_quote, job, req.result):
+                receipt["tee_status"] = "transcript_mismatch"
+                logger.error("TEE quote transcript mismatch for job %s", job.id)
+                return receipt
+            if not enclave_id:
+                try:
+                    enclave_id = AttestationQuote.from_base64(req.tee_quote).enclave_id
+                    expected_measurement = expected_measurement or enclave_id
+                except (ValueError, TypeError, KeyError):
+                    enclave_id = "unknown"
             attestation = service.verify_and_store(
                 enclave_id or "unknown",
                 req.tee_quote,
@@ -257,6 +297,30 @@ async def _attach_tee_attestation(
         logger.error("Error verifying TEE attestation for job %s: %s", job.id, e)
         receipt["tee_status"] = f"error: {e}"
 
+    return receipt
+
+
+def _apply_tee_computation_attestation(
+    receipt: dict[str, Any] | None,
+    job: Any,
+    result: dict[str, Any] | None,
+    payment_amount: Decimal | None = None,
+) -> dict[str, Any] | None:
+    """Allow a registered TEE quote to attest models that have no Groth16 circuit."""
+    if not receipt:
+        return receipt
+    if not _zk_required_for(job, payment_amount):
+        return receipt
+    if receipt.get("zk_status") == "verified" and receipt.get("computation_correct") is True:
+        return receipt
+    if receipt.get("tee_status") != "verified":
+        return receipt
+    model_id = model_registry.resolve_model_id(job, result)
+    if model_id and model_registry.get_model(model_id) is not None:
+        return receipt
+    receipt["zk_status"] = "tee_attested"
+    receipt["computation_correct"] = True
+    logger.info("TEE-attested computation for unsupported-model job %s", job.id)
     return receipt
 
 
@@ -419,6 +483,7 @@ async def submit_result(
     receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
     receipt = await _attach_zk_proof(receipt, job, req.result, payment_amount=payment_amount)
     receipt = await _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
+    receipt = _apply_tee_computation_attestation(receipt, job, req.result, payment_amount=payment_amount)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     job.completed_at = datetime.now(UTC)

@@ -290,7 +290,18 @@ class JobService:
         return JobResult(result=job.result, receipt=job.receipt)
 
     def to_assigned(self, job: Job) -> AssignedJob:
-        constraints = Constraints(**job.constraints) if isinstance(job.constraints, dict) else Constraints()
+        raw = dict(job.constraints) if isinstance(job.constraints, dict) else {}
+        from ...payments.services.payments import _zk_required_for_payment
+        from ...zk_applications.services import model_registry
+
+        model_id = model_registry.resolve_model_id(job, None)
+        payment = self._payment_for(job)
+        if _zk_required_for_payment(payment.amount if payment else job.payment_amount, job):
+            if model_id is None or model_registry.get_model(model_id) is None:
+                raw["tee_attestation_required"] = True
+                if not raw.get("tee_enclave_id"):
+                    raw["tee_enclave_id"] = os.getenv("COORDINATOR_TEE_DEFAULT_ENCLAVE_ID", "aitbc-miner-tee")
+        constraints = Constraints(**raw)
         return AssignedJob(job_id=job.id, payload=job.payload, constraints=constraints)
 
     def acquire_next_job(self, miner: Miner) -> Job | None:
