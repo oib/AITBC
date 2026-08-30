@@ -476,7 +476,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     try:
         amount_units = ait_to_units(amount_dec)
         with session_scope() as session:
-            existing = session.get(Escrow, (job_id, _CHAIN_ID))
+            existing = session.get(Escrow, job_id)
             if existing:
                 existing.status = "locked"
                 existing.lock_tx_hash = lock_tx_hash
@@ -540,7 +540,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     # return the stored result without resubmitting.
     try:
         with session_scope() as session:
-            record = session.get(Escrow, (job_id, _CHAIN_ID))
+            record = session.get(Escrow, job_id)
             if record and record.released_at is not None:
                 return {
                     "success": True,
@@ -675,7 +675,7 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     # return the stored result without resubmitting.
     try:
         with session_scope() as session:
-            record = session.get(Escrow, (job_id, _CHAIN_ID))
+            record = session.get(Escrow, job_id)
             if record and record.refunded_at is not None:
                 return {
                     "success": True,
