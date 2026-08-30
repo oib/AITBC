@@ -6,7 +6,6 @@ Provides create/release/refund/get endpoints backed by EscrowManager and Escrow 
 from __future__ import annotations
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
-import hashlib
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -275,6 +274,27 @@ async def _find_existing_release(job_id: str) -> str | None:
     return None
 
 
+async def _find_existing_refund(job_id: str) -> str | None:
+    """Return the hash of an ESCROW_REFUND already on-chain for ``job_id``, if any.
+
+    Refund retries must be idempotent in the same way as releases: once a refund lands,
+    a later attempt must return the settled transaction rather than build a new one.
+    """
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
+        )
+        if r.status_code != 200:
+            return None
+        for tx in r.json() or []:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                settled_hash = tx.get("tx_hash")
+                return str(settled_hash) if settled_hash else None
+    except Exception as e:
+        _logger.warning("ESCROW_REFUND: settled-refund lookup failed for job_id=%s: %s", job_id, e)
+    return None
+
+
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     if amount <= 0:
@@ -372,6 +392,102 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
             "ESCROW_RELEASE TX submission failed for job_id=%s (provider %s was NOT paid on-chain): %s",
             job_id,
             provider,
+            e,
+        )
+    return None
+
+
+async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
+    """Submit an ESCROW_REFUND transaction to the blockchain so a refund is on-chain."""
+    if amount <= 0:
+        return None
+    # The chain denominates value in whole compute-units. Round up to the
+    # smallest transferable unit so a small refund is not lost.
+    amount_int = max(ait_to_units(amount), 1)
+    try:
+        existing_refund = await _find_existing_refund(job_id)
+        if existing_refund:
+            _logger.info(
+                "ESCROW_REFUND already settled for job_id=%s (%s); not resubmitting",
+                job_id,
+                existing_refund,
+            )
+            return existing_refund
+
+        settlement_key = _get_settlement_key()
+        if not settlement_key:
+            _logger.warning("ESCROW_REFUND TX skipped: no settlement private key configured")
+            return None
+
+        settlement_address = _get_settlement_address()
+        if not settlement_address:
+            _logger.warning("ESCROW_REFUND TX skipped: could not resolve settlement address")
+            return None
+
+        sender = settlement_address
+
+        # The settlement account must exist before a TRANSFER-style transaction can be applied.
+        if not await _create_account_if_missing(sender, _CHAIN_ID):
+            _logger.warning("ESCROW_REFUND TX skipped: could not create settlement account (sender=%s)", sender)
+            return None
+
+        # The buyer account must exist before the refund can be credited.
+        if not await _create_account_if_missing(buyer, _CHAIN_ID):
+            _logger.warning("ESCROW_REFUND TX skipped: could not create buyer account (buyer=%s)", buyer)
+            return None
+
+        # Re-resolve after creation; use canonical 0x form for the state layer.
+        recipient = await _resolve_chain_account(buyer) or _NODE_WALLET
+        if not recipient:
+            _logger.warning("ESCROW_REFUND TX skipped: could not resolve recipient (buyer=%s)", buyer)
+            return None
+
+        nonce = await _get_account_nonce(sender)
+        tx = {
+            "from": sender,
+            "to": recipient,
+            "amount": amount_int,
+            "fee": max(36, amount_int // 100),
+            "nonce": nonce,
+            "type": "ESCROW_REFUND",
+            "chain_id": _CHAIN_ID,
+            "payload": {
+                "action": "escrow_refund",
+                "job_id": job_id,
+                "contract_id": contract_id,
+                "buyer_escrow_addr": buyer,
+                "provider_escrow_addr": provider,
+            },
+        }
+        # Identical retry must hash identically; no wall-clock timestamp in the payload.
+        signing_hash = _compute_tx_signing_hash(tx)
+        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
+
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            raw_tx_hash = result.get("transaction_hash")
+            actual_tx_hash: str | None = str(raw_tx_hash) if raw_tx_hash else None
+            _logger.info(
+                "ESCROW_REFUND TX submitted: hash=%s amount=%s from=%s to=%s",
+                actual_tx_hash,
+                amount_int,
+                sender,
+                recipient,
+            )
+            return actual_tx_hash
+        _logger.error(
+            "ESCROW_REFUND TX rejected %s for job_id=%s (buyer %s was NOT refunded on-chain): %s",
+            resp.status_code,
+            job_id,
+            buyer,
+            resp.text[:200],
+        )
+    except Exception as e:
+        _logger.error(
+            "ESCROW_REFUND TX submission failed for job_id=%s (buyer %s was NOT refunded on-chain): %s",
+            job_id,
+            buyer,
             e,
         )
     return None
@@ -707,28 +823,57 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
                 _logger.warning("Failed to read refund_tx_hash for already-refunded job %s: %s", job_id, e)
         raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
     reason = (body or {}).get("reason", "buyer_requested")
-    success, message = await mgr.refund_contract(contract_id, reason)
-    if not success:
-        raise HTTPException(status_code=400, detail=message)
-    refunded_at = datetime.now(UTC)
-    refund_tx_hash = f"0x{hashlib.sha256(f'{job_id}:{refunded_at.isoformat()}'.encode()).hexdigest()}"
-    try:
-        with session_scope() as session:
-            record = session.get(Escrow, job_id)
-            if record:
-                record.status = "refunded"
-                record.refunded_at = refunded_at
-                record.refund_tx_hash = refund_tx_hash
-                session.commit()
-    except Exception as e:
-        _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
-    _logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, refund_tx_hash)
+    # B: a refund is only final once the on-chain ESCROW_REFUND transaction lands.
+    # Apply the in-memory state, then settle on-chain, then roll back if settlement fails.
+    async with mgr.release_lock(contract_id):
+        refund_snapshot = mgr.snapshot_refund_state(contract_id)
+        success, message = await mgr.refund_contract(contract_id, reason)
+        if not success:
+            raise HTTPException(status_code=400, detail=message)
+        contract = mgr.escrow_contracts.get(contract_id)
+        refund_amount = contract.refunded_amount if contract else Decimal(0)
+        tx_hash = await _submit_refund_tx(
+            _to_canonical(contract.client_address) if contract else "",
+            _to_canonical(contract.agent_address) if contract else "",
+            refund_amount,
+            job_id,
+            contract_id,
+        )
+        if not tx_hash:
+            mgr.restore_after_failed_refund(contract_id, refund_snapshot)
+            _logger.error(
+                "Escrow refund NOT settled on-chain: contract_id=%s job_id=%s buyer=%s amount=%s. "
+                "The refund was rolled back so it can be retried.",
+                contract_id,
+                job_id,
+                contract.client_address if contract else None,
+                refund_amount,
+            )
+            return {
+                "success": False,
+                "contract_id": contract_id,
+                "job_id": job_id,
+                "message": "Escrow refund could not be settled on-chain; the buyer was not refunded",
+                "refund_tx_hash": None,
+            }
+        refunded_at = datetime.now(UTC)
+        try:
+            with session_scope() as session:
+                record = session.get(Escrow, job_id)
+                if record:
+                    record.status = "refunded"
+                    record.refunded_at = refunded_at
+                    record.refund_tx_hash = tx_hash
+                    session.commit()
+        except Exception as e:
+            _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
+    _logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
     return {
         "success": True,
         "contract_id": contract_id,
         "job_id": job_id,
         "message": message,
-        "refund_tx_hash": refund_tx_hash,
+        "refund_tx_hash": tx_hash,
     }
 
 
