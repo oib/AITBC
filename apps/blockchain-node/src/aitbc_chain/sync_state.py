@@ -168,9 +168,9 @@ class StateSyncMixin(SyncBase):
 
         self._logger.info("Starting delta sync from %s, heights %d -> %d", source_url, from_height, to_height)
         try:
-            resp = await self._client.post(
+            resp = await self._client.get(
                 f"{source_url}/rpc/state/delta",
-                json={"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
+                params={"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
             )
             resp.raise_for_status()
             data = resp.json()

@@ -77,7 +77,12 @@ class PBFTConsensus:
     """PBFT consensus implementation"""
 
     def __init__(
-        self, consensus: MultiValidatorPoA, private_key: str = "", chain_id: str = "ait-hub", local_validator: str = ""
+        self,
+        consensus: MultiValidatorPoA,
+        private_key: str = "",
+        chain_id: str = "ait-hub",
+        local_validator: str = "",
+        sync_manager: Any | None = None,
     ):
         if not settings.multi_validator_consensus_enabled:
             raise RuntimeError(
@@ -88,6 +93,7 @@ class PBFTConsensus:
         self._private_key = private_key
         self._chain_id = chain_id
         self._local_validator = local_validator
+        self._sync_manager: Any | None = sync_manager
         self._gossip_backend: Any = None
         self._consensus_timer: asyncio.Task[None] | None = None
         self._view_change_count = 0
@@ -140,12 +146,38 @@ class PBFTConsensus:
         self._message_event.set()
         return True
 
+    async def _ensure_synced(self) -> bool:
+        """Ask SyncManager to catch up and wait until the gap is small."""
+        if self._sync_manager is None or not settings.sync_manager_enabled:
+            return True
+        max_gap = getattr(settings, "sync_manager_max_proposal_gap", 2)
+        timeout = getattr(settings, "sync_manager_proposal_sync_timeout", 30)
+        status = self._sync_manager.get_sync_status(self._chain_id)
+        if status.get("gap", 0) <= max_gap:
+            return True
+        logger.warning("PBFT sync gap %s exceeds %s on chain %s, forcing catch-up", status.get("gap"), max_gap, self._chain_id)
+        await self._sync_manager.force_catch_up(self._chain_id)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            status = self._sync_manager.get_sync_status(self._chain_id)
+            if status.get("gap", 0) <= max_gap:
+                return True
+            try:
+                await asyncio.wait_for(asyncio.sleep(1), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass
+        logger.warning("PBFT timed out waiting for sync on chain %s", self._chain_id)
+        return False
+
     async def propose_and_wait(self, proposer: str, block_hash: str, timeout: float | None = None) -> bool:
         """Run the full PBFT proposal pipeline for the local proposer.
 
         Waits for a prepare quorum and then a commit quorum before returning.
         The caller writes the block only when this returns True.
         """
+        if not await self._ensure_synced():
+            return False
+
         if not self._local_validator:
             self._local_validator = proposer
         # Capture the sequence/view before pre-prepare broadcasts trigger commits
@@ -370,6 +402,10 @@ class PBFTConsensus:
 
     def handle_view_change(self, new_view: int) -> bool:
         """Handle view change when proposer fails (H5: safe view change)."""
+        if self._sync_manager is not None and settings.sync_manager_enabled:
+            create_task_with_logging(
+                self._sync_manager.force_catch_up(self._chain_id), name=f"pbft_view_change_sync_{self._chain_id}"
+            )
         self.state.current_view = new_view
         self._view_change_count += 1
         # H5: Preserve prepared certificates for committed sequences
