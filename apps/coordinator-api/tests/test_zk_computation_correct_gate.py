@@ -164,3 +164,61 @@ async def test_accept_job_allowed_when_computation_correct_true(db_session):
         result = await accept_job(MagicMock(), job.id, db_session, {"sub": "client1"})
 
     assert result.payment_status == "released"
+
+
+@pytest.mark.asyncio
+async def test_release_payment_allows_tee_attested_unsupported_model(db_session, payment_service):
+    """A registered TEE quote may attest llama3.2:3b because no Groth16 circuit exists."""
+    receipt = {
+        "zk_status": "tee_attested",
+        "computation_correct": True,
+        "tee_status": "verified",
+        "provider": "0x1234567890123456789012345678901234567890",
+    }
+    job, payment = _make_zk_job(db_session, receipt)
+    job.payload = {"type": "inference", "prompt": "test", "model": "llama3.2:3b"}
+    db_session.add(job)
+    db_session.commit()
+
+    with patch(
+        "coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient",
+        return_value=MagicMock(
+            post=AsyncMock(
+                return_value={
+                    "success": True,
+                    "tx_hash": "0x1234",
+                    "released_at": datetime.now(UTC).isoformat(),
+                }
+            )
+        ),
+    ):
+        released = await payment_service.release_payment("client1", job.id, payment.id)
+
+    assert released is True
+    db_session.refresh(payment)
+    assert payment.status == "released"
+
+
+@pytest.mark.asyncio
+async def test_release_payment_rejects_tee_attested_linear_model(db_session, payment_service):
+    """linear-1 still needs a Groth16 proof; a TEE quote must not substitute."""
+    receipt = {
+        "zk_status": "tee_attested",
+        "computation_correct": True,
+        "tee_status": "verified",
+        "provider": "0x1234567890123456789012345678901234567890",
+    }
+    job, payment = _make_zk_job(db_session, receipt)
+    job.payload = {"type": "inference", "prompt": "test", "model": "linear-1"}
+    db_session.add(job)
+    db_session.commit()
+
+    with patch(
+        "coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient",
+        return_value=MagicMock(post=AsyncMock(return_value={"success": True})),
+    ):
+        released = await payment_service.release_payment("client1", job.id, payment.id)
+
+    assert released is False
+    db_session.refresh(payment)
+    assert payment.status in HELD_STATES

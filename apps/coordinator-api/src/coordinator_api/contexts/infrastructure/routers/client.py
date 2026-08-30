@@ -17,7 +17,7 @@ from ....config import settings
 from ...marketplace.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
 from ...payments.acceptance import PENDING_ACCEPTANCE
 from ...payments.provider_binding import same_address
-from ...payments.services.payments import PaymentService, _zk_required_for_payment
+from ...payments.services.payments import PaymentService, _computation_is_correct, _zk_required_for_payment
 from ....custom_types import JobState
 from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
@@ -369,7 +369,7 @@ async def accept_job(
     receipt = job.receipt
     payment = session.get(JobPayment, job.payment_id)
     if _zk_required_for_payment(payment.amount if payment else None, job):
-        if not receipt or receipt.get("zk_status") != "verified" or receipt.get("computation_correct") is not True:
+        if not _computation_is_correct(receipt, job):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="job result did not pass the computation-correctness check; acceptance blocked",

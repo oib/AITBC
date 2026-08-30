@@ -143,6 +143,29 @@ class TestZkRefundSweeper:
         mock_service.refund_payment.assert_not_called()
 
     @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
+    def test_sweeper_skips_tee_attested_unsupported_model(self, mock_service_cls, sweep_session):
+        """A llama3.2:3b job attested by a registered TEE is not a failed ZK receipt."""
+        job_id = "job-tee-ok-1"
+        payment_id = "pay-tee-ok-1"
+        job, _payment = _make_job_and_payment(
+            sweep_session,
+            job_id,
+            payment_id,
+            receipt={"zk_status": "tee_attested", "computation_correct": True, "tee_status": "verified"},
+        )
+        job.payload = {"type": "inference", "model": "llama3.2:3b"}
+        sweep_session.add(job)
+        sweep_session.commit()
+
+        mock_service = MagicMock()
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 0
+        mock_service.refund_payment.assert_not_called()
+
+    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
     def test_sweeper_respects_open_acceptance_window(self, mock_service_cls, sweep_session):
         """A pending_acceptance job inside its acceptance window is not refunded yet."""
         job_id = "job-zk-window-1"
