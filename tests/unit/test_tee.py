@@ -13,6 +13,7 @@ from aitbc.compute import TEEExecutionStatus, TEETask, TEETaskInput, TEETaskRunn
 from aitbc.tee import (
     AttestationQuote,
     AttestationVerifier,
+    computation_transcript,
     ChannelState,
     Enclave,
     EnclaveConfig,
@@ -35,6 +36,14 @@ from aitbc.tee import (
 
 
 # A1: attestation
+
+
+def test_computation_transcript_is_stable_and_binds_all_fields() -> None:
+    digest = computation_transcript("job-1", "llama3.2:3b", "2+2?", "4")
+    assert digest == computation_transcript("job-1", "llama3.2:3b", "2+2?", "4")
+    assert digest != computation_transcript("job-1", "llama3.2:3b", "2+2?", "5")
+    assert digest != computation_transcript("job-1", "linear-1", "2+2?", "4")
+    assert len(digest) == 32
 
 
 def test_quote_generator_and_verifier() -> None:

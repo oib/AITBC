@@ -414,18 +414,20 @@ def send_pool_hub_heartbeat():
         logger.error("Pool hub heartbeat error: %s", e)
 
 
-def build_tee_quote(job):
+def build_tee_quote(job, output=""):
     """Generate a signed TEE attestation quote when the job requires one.
 
     Produces the same base64 JSON envelope that ``aitbc tee attest`` returns,
     so the coordinator can parse it with ``AttestationQuote.from_base64()`` and
-    verify the signature before escrow release.
+    verify the signature before escrow release. The quote blob is the SHA-256
+    of job_id/model/prompt/output so a registered enclave cannot reuse a quote
+    for a different transcript.
     """
     constraints = job.get("constraints") or {}
     if not (constraints.get("tee_attestation_required") or constraints.get("tee_enclave_id")):
         return None
     try:
-        from aitbc.tee import QuoteGenerator, load_or_create_signing_key
+        from aitbc.tee import QuoteGenerator, computation_transcript, load_or_create_signing_key
 
         enclave_id = str(
             constraints.get("tee_enclave_id")
@@ -433,6 +435,9 @@ def build_tee_quote(job):
             or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
         )
         job_id = job.get("job_id", "unknown-job")
+        payload = job.get("payload") or {}
+        model = str(payload.get("model") or payload.get("model_id") or "")
+        prompt = str(payload.get("prompt") or payload.get("input") or "")
         quote_id = f"tee-{job_id}-{enclave_id}-{datetime.now(UTC).isoformat()}"
         # Security fix (2026-08-24), part 4: without TEE_SIGNING_KEY_FILE this
         # still signs with a fresh random key every call, same as before --
@@ -441,8 +446,9 @@ def build_tee_quote(job):
         # set to a persistent path (see 'aitbc tee keygen').
         key_path = os.getenv("TEE_SIGNING_KEY_FILE", "")
         signing_key = load_or_create_signing_key(key_path) if key_path else None
+        report_data = computation_transcript(str(job_id), model, prompt, str(output or ""))
         quote = QuoteGenerator(enclave_id, signing_key=signing_key).generate(
-            quote_id=quote_id, enclave_id=enclave_id, measurement=enclave_id, report_data=job_id.encode()
+            quote_id=quote_id, enclave_id=enclave_id, measurement=enclave_id, report_data=report_data
         )
         return quote.to_base64()
     except Exception as e:
@@ -596,7 +602,7 @@ def _execute_inference(job, available_models):
         result = ollama_response
         output = result.get("response", "")
         execution_time = time.time() - start_time
-        tee_quote = build_tee_quote(job)
+        tee_quote = build_tee_quote(job, output=output)
         extra = {"model": model, "tokens_processed": result.get("eval_count", 0)}
         if tee_quote:
             logger.info("Attaching TEE quote for job %s", job_id)
@@ -622,7 +628,7 @@ def _execute_transcribe(job):
         _download_media(url, input_path)
         text = _run_whisper(input_path, model)
     execution_time = time.time() - start_time
-    tee_quote = build_tee_quote(job)
+    tee_quote = build_tee_quote(job, output=text)
     if tee_quote:
         logger.info("Attaching TEE quote for job %s", job_id)
     _submit_success(job_id, text, execution_time, {"model": model, "transcription": text}, tee_quote=tee_quote)
@@ -645,7 +651,7 @@ def _execute_reencode(job):
         output_path = os.path.join(tmp, f"output.{output_format}")
         summary = _run_ffmpeg(input_path, output_path, output_format)
     execution_time = time.time() - start_time
-    tee_quote = build_tee_quote(job)
+    tee_quote = build_tee_quote(job, output=summary.get("stderr", ""))
     if tee_quote:
         logger.info("Attaching TEE quote for job %s", job_id)
     _submit_success(job_id, summary["stderr"], execution_time, summary, tee_quote=tee_quote)
