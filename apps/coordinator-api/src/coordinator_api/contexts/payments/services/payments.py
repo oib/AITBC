@@ -16,7 +16,7 @@ import os
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
 from aitbc.exceptions import NetworkError
-from aitbc.network import AITBCHTTPClient
+from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_agent_core import get_active_brand
 
 from ....config import settings
@@ -165,8 +165,8 @@ class PaymentService:
 
     async def _get_account_nonce(self, address: str) -> int:
         try:
-            client = AITBCHTTPClient(timeout=5.0)
-            r = client.get(f"{self.blockchain_rpc_url}/rpc/accounts/{address}")
+            client = AsyncAITBCHTTPClient(timeout=5.0)
+            r = await client.get(f"{self.blockchain_rpc_url}/rpc/accounts/{address}")
             if isinstance(r, dict):
                 return int(r.get("nonce", 0))
             if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
@@ -284,8 +284,8 @@ class PaymentService:
                 )
                 return None
 
-            client = AITBCHTTPClient(timeout=10.0)
-            response = client.post(
+            client = AsyncAITBCHTTPClient(timeout=10.0)
+            response = await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/create",
                 json={
                     "job_id": payment.job_id,
@@ -327,9 +327,9 @@ class PaymentService:
     async def _create_crypto_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
         """Create an escrow for crypto payments (exchange only)"""
         try:
-            client = AITBCHTTPClient(timeout=30.0)
+            client = AsyncAITBCHTTPClient(timeout=30.0)
             try:
-                escrow_data = client.post(
+                escrow_data = await client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/create",
                     json={"amount": str(payment.amount), "currency": payment.currency, "timeout_seconds": 3600},
                 )
@@ -434,7 +434,7 @@ class PaymentService:
                 )
                 return False
         try:
-            client = AITBCHTTPClient(timeout=30.0)
+            client = AsyncAITBCHTTPClient(timeout=30.0)
             try:
                 release_body = {"reason": reason or "Job completed successfully"}
                 meta = payment.meta_data or {}
@@ -448,7 +448,7 @@ class PaymentService:
                     release_body["provider_address"] = provider_address
                     release_body["auto_reinvest_pct"] = str(auto_reinvest_pct)
                     release_body["auto_reinvest_address"] = provider_address
-                release_data = client.post(
+                release_data = await client.post(
                     f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
                     json=release_body,
                 )
@@ -507,11 +507,11 @@ class PaymentService:
         if payment.status not in HELD_STATES and payment.status != "pending":
             return False
         try:
-            client = AITBCHTTPClient(timeout=30.0)
+            client = AsyncAITBCHTTPClient(timeout=30.0)
             # Check whether the on-chain escrow is already in a final state.
             escrow_state = None
             try:
-                escrow_info = client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
+                escrow_info = await client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
                 if isinstance(escrow_info, dict):
                     escrow_state = escrow_info.get("state")
                     refund_tx_hash = escrow_info.get("refund_tx_hash")
@@ -539,7 +539,7 @@ class PaymentService:
 
             try:
                 # V23-47: refund is an escrow contract operation, not a wallet endpoint.
-                refund_data = client.post(
+                refund_data = await client.post(
                     f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
                     json={"reason": reason},
                 )
