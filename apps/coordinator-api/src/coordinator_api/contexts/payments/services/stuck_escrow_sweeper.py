@@ -16,7 +16,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc_shared import JobPayment
+from aitbc_shared import JobPayment, PaymentEscrow
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
@@ -96,7 +96,7 @@ class StuckEscrowSweeper:
 
         # Disputed payments stay in held state until an operator rules. If no
         # ruling is issued within the longer grace period, refund the buyer.
-        if job.payment_status == DISPUTED:
+        if payment.status == DISPUTED:
             disputed_at = _to_utc(_disputed_at(payment.meta_data)) or _to_utc(payment.updated_at)
             if disputed_at and disputed_at < now - timedelta(seconds=self.disputed_min_age_seconds):
                 return True, "dispute not resolved and escrow not released"
@@ -107,26 +107,28 @@ class StuckEscrowSweeper:
     def _find_candidates(self, session: Any) -> list[tuple[Job, JobPayment, str]]:
         """Jobs whose payment is held but the job is canceled, failed, expired, or disputed."""
         stmt = (
-            select(Job)
-            .where(Job.payment_status.in_(HELD_STATES))  # type: ignore[union-attr]
+            select(Job, JobPayment)
+            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .where(JobPayment.status.in_(HELD_STATES))  # type: ignore[union-attr]
             .where(Job.payment_id.is_not(None))  # type: ignore[union-attr]
             .where(Job.state.in_({"CANCELED", "FAILED", "EXPIRED"}))  # type: ignore[union-attr]
             .limit(self.batch_size)
         )
-        jobs = list(session.execute(stmt).scalars().all())
+        jobs = list(session.execute(stmt).all())
 
         # Disputed payments may keep state==COMPLETED, so query them separately.
         dispute_stmt = (
-            select(Job)
-            .where(Job.payment_status == DISPUTED)
+            select(Job, JobPayment)
+            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .where(JobPayment.status == DISPUTED)
             .where(Job.payment_id.is_not(None))  # type: ignore[union-attr]
+            .where(Job.state == "COMPLETED")  # type: ignore[union-attr]
             .limit(self.batch_size)
         )
-        jobs.extend(session.execute(dispute_stmt).scalars().all())
+        jobs.extend(session.execute(dispute_stmt).all())
 
         out = []
-        for job in jobs:
-            payment = session.get(JobPayment, job.payment_id)
+        for job, payment in jobs:
             if payment is None:
                 continue
             should_refund, reason = self._is_stuck(job, payment)
@@ -149,8 +151,20 @@ class StuckEscrowSweeper:
                     logger.error("Stuck escrow sweep raised for job %s: %s", job.id, e)
                     continue
                 if refunded:
+                    now = datetime.now(UTC)
+                    _payment.status = "refunded"
+                    _payment.refunded_at = now
+                    _payment.updated_at = now
+                    session.add(_payment)
                     job.payment_status = "refunded"
                     session.add(job)
+                    escrow = (
+                        session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == _payment.id)).scalars().first()
+                    )
+                    if escrow:
+                        escrow.is_refunded = True
+                        escrow.refunded_at = now
+                        session.add(escrow)
                     session.commit()
                     counts["refunded"] += 1
                     logger.info("Refunded stuck payment %s for job %s: %s", job.payment_id, job.id, reason)

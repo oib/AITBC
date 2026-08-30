@@ -796,7 +796,7 @@
             }
           },
           "409": {
-            "description": "job has no payment awaiting acceptance (payment_status={job.payment_status})",
+            "description": "job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
             "content": {
               "application/json": {
                 "schema": {
@@ -895,7 +895,7 @@
             }
           },
           "409": {
-            "description": "job has no payment awaiting acceptance (payment_status={job.payment_status}) / payment could not be disputed",
+            "description": "job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status}) / payment could not be disputed",
             "content": {
               "application/json": {
                 "schema": {
@@ -1372,7 +1372,7 @@
             }
           },
           "409": {
-            "description": "job has no disputed payment to resolve (payment_status={job.payment_status})",
+            "description": "job has no disputed payment to resolve (payment_status={payment.status if payment else job.payment_status})",
             "content": {
               "application/json": {
                 "schema": {

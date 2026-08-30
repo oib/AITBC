@@ -47,6 +47,7 @@ def test_zk_threshold_enabled_for_high_value():
     class FakeJob:
         payment_amount = 10.0
         constraints = {}
+        payload = {"model": "linear-1"}
 
     assert _zk_required_for(FakeJob()) is True
 
@@ -58,6 +59,7 @@ def test_zk_require_proof_env_forces_zk_for_every_job(monkeypatch):
     class LowValueJob:
         payment_amount = Decimal("1.0")
         constraints = {}
+        payload = {"model": "linear-1"}
 
     assert miner._zk_required_for(LowValueJob()) is False
     monkeypatch.setattr(miner, "_ZK_REQUIRE_PROOF", True)
@@ -70,6 +72,7 @@ def test_zk_require_proof_env_forces_payment_gate(monkeypatch):
 
     class FakeJob:
         constraints = {}
+        payload = {"model": "linear-1"}
 
     assert payments._zk_required_for_payment(Decimal("1.0"), FakeJob()) is False
     monkeypatch.setattr(payments, "_ZK_REQUIRE_PROOF", True)

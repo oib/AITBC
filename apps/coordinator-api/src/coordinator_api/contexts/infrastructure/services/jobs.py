@@ -56,20 +56,18 @@ _PAYMENT_DISPATCHABLE_STATES = frozenset({"escrowed"})
 _PAYMENT_REQUIRE = os.getenv("COORDINATOR_REQUIRE_PAYMENT", "true").lower() == "true"
 
 
-def _payment_blocks_dispatch(job: Job) -> str | None:
+def _payment_blocks_dispatch(job: Job, payment: JobPayment | None = None) -> str | None:
     """Return why a job must not be dispatched, or None if it may run.
 
-    ``payment_status`` is None for jobs submitted without a ``payment_amount``.
-    Unpriced work is still allowed through; what is refused is a job that asked to
-    be paid for and was not.
-
-    Blocked jobs stay QUEUED rather than being failed outright, so a client can
-    still secure the escrow against them via POST /v1/payments. If none arrives the
-    job leaves the queue on its own when its TTL expires.
+    ``payment_status`` is authoritative on ``JobPayment``; the denormalised
+    ``Job.payment_status`` is used only as a cache when no payment row is loaded.
     """
     if not _PAYMENT_REQUIRE:
         return None
-    payment_status = (job.payment_status or "").strip().lower()
+    if payment is not None:
+        payment_status = (payment.status or "").strip().lower()
+    else:
+        payment_status = (job.payment_status or "").strip().lower()
     if not payment_status:
         if job.payment_amount is not None and job.payment_amount > 0:
             return "job is priced but carries no payment record"
@@ -88,24 +86,19 @@ def _payment_blocks_dispatch(job: Job) -> str | None:
 _PROVIDER_BINDING_REQUIRE = os.getenv("COORDINATOR_REQUIRE_PROVIDER_BINDING", "true").lower() == "true"
 
 
-def _provider_binding_blocks_dispatch(session: Session, job: Job, miner: Miner) -> str | None:
+def _provider_binding_blocks_dispatch(
+    session: Session, job: Job, miner: Miner, payment: JobPayment | None = None
+) -> str | None:
     """Return why this miner must not take this job, or None if it may.
 
     Only escrowed jobs carry a payee to protect. Unpriced work has none, and every
     other payment state is already refused by :func:`_payment_blocks_dispatch`.
-
-    It fails closed on both sides of the comparison: a miner that registered no
-    wallet, and an escrow that recorded no provider, block dispatch rather than
-    falling back to some default address. As with the payment gate the job stays
-    QUEUED, so the miner that *is* the payee can still pick it up.
     """
     if not _PROVIDER_BINDING_REQUIRE:
         return None
-    if not job.payment_id or (job.payment_status or "").strip().lower() != "escrowed":
+    payment = payment if payment is not None else (session.get(JobPayment, job.payment_id) if job.payment_id else None)
+    if not job.payment_id or payment is None or payment.status != "escrowed":
         return None
-    payment = session.get(JobPayment, job.payment_id)
-    if payment is None:
-        return f"payment {job.payment_id} backing the escrow is missing"
     provider = (payment.meta_data or {}).get("provider_address")
     if not provider:
         return "the escrow records no provider address to pay"
@@ -256,7 +249,7 @@ class JobService:
             payment_id=job.payment_id,
             payload=job.payload,
             result=job.result,
-            payment_status=job.payment_status,
+            payment_status=payment.status if payment is not None else job.payment_status,
             payment_amount=job.payment_amount,
             payment_token=job.payment_token,
             provider_address=job.provider_address,
@@ -300,7 +293,17 @@ class JobService:
         try:
             now = datetime.now(UTC)
             statement = select(Job).where(Job.state == "QUEUED").order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
-            jobs = self.session.scalars(statement).all()
+            jobs = list(self.session.scalars(statement).all())
+
+            # D1: batch-load payments once for the dispatch gate; the gate no longer
+            # trusts the denormalised Job.payment_status copy.
+            payment_ids = [j.payment_id for j in jobs if j.payment_id]
+            payments = {}
+            if payment_ids:
+                payments = {
+                    p.id: p
+                    for p in self.session.execute(select(JobPayment).where(JobPayment.id.in_(payment_ids))).scalars().all()  # type: ignore[attr-defined]
+                }
 
             # Load the pool of online miners once per dispatch decision so we can
             # route high-reputation jobs to the best available provider. Only count
@@ -323,11 +326,12 @@ class JobService:
                         expires_at = _to_utc(job.expires_at)
                         if expires_at and expires_at <= now:
                             continue
-                    unpaid_reason = _payment_blocks_dispatch(job)
+                    payment = payments.get(job.payment_id)
+                    unpaid_reason = _payment_blocks_dispatch(job, payment)
                     if unpaid_reason:
                         logger.info("Job %s is not dispatchable: %s", job.id, unpaid_reason)
                         continue
-                    mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner)
+                    mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner, payment)
                     if mismatch_reason:
                         logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, mismatch_reason)
                         continue
