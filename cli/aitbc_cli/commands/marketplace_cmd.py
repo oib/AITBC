@@ -30,16 +30,19 @@ def _marketplace_client() -> AITBCHTTPClient:
 
 
 @click.group(
-    epilog="""Examples:
+    deprecated=True,
+    epilog="""Deprecated: use `aitbc market` for GPU/software offers.
+
+Examples:
 
   aitbc marketplace list
 
-  aitbc marketplace create --chain-id ait-mainnet --chain-name hub --chain-type public --description 'hub node' --seller-id seller-1 --price 1000"""
+  aitbc marketplace create --chain-id ait-mainnet --chain-name hub --chain-type public --description 'hub node' --seller-id seller-1 --price 1000""",
 )
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def marketplace(ctx, chain_id: str | None):
-    """Global chain marketplace commands for cross-chain offers, bridge, and on-chain listings."""
+    """(Deprecated) Global chain marketplace commands for cross-chain offers, bridge, and on-chain listings."""
     ctx.ensure_object(dict)
 
     # Handle chain_id with auto-detection

@@ -33,11 +33,12 @@ def test_canonical_market_group_runs():
     assert "GPU and software" in result.output
 
 
-def test_canonical_marketplace_group_runs():
+def test_canonical_marketplace_group_is_deprecated_but_runs():
     runner = CliRunner()
     result = runner.invoke(cli, ["marketplace", "--help"])
     assert result.exit_code == 0
     assert "cross-chain" in result.output.lower()
+    assert "deprecated" in result.output.lower()
 
 
 def test_canonical_governance_group_runs():
