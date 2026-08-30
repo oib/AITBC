@@ -787,21 +787,26 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
-    # Reconciliation/duplicate refund handling: if the row is already refunded,
-    # return the stored result without resubmitting.
+    # Reconciliation/duplicate refund handling: a refund is only final when the
+    # same job_id has an ESCROW_REFUND transaction on-chain.
+    record_refunded = False
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
             if record and record.refunded_at is not None:
-                return {
-                    "success": True,
-                    "contract_id": "",
-                    "job_id": job_id,
-                    "message": "Escrow already refunded",
-                    "refund_tx_hash": record.refund_tx_hash or "",
-                }
+                record_refunded = True
     except Exception as e:
         _logger.warning("Failed to check escrow refund state: %s", e)
+    if record_refunded:
+        existing_refund = await _find_existing_refund(job_id)
+        if existing_refund:
+            return {
+                "success": True,
+                "contract_id": "",
+                "job_id": job_id,
+                "message": "Escrow already refunded",
+                "refund_tx_hash": existing_refund,
+            }
 
     contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
@@ -809,19 +814,26 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     contract = mgr.escrow_contracts.get(contract_id)
     if contract and contract.state in {EscrowState.RELEASED, EscrowState.REFUNDED, EscrowState.EXPIRED}:
         if contract.state == EscrowState.REFUNDED:
-            try:
-                with session_scope() as session:
-                    record = session.get(Escrow, job_id)
-                    return {
-                        "success": True,
-                        "contract_id": contract_id,
-                        "job_id": job_id,
-                        "message": "Escrow already refunded",
-                        "refund_tx_hash": record.refund_tx_hash if record else None,
-                    }
-            except Exception as e:
-                _logger.warning("Failed to read refund_tx_hash for already-refunded job %s: %s", job_id, e)
-        raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
+            existing_refund = await _find_existing_refund(job_id)
+            if existing_refund:
+                return {
+                    "success": True,
+                    "contract_id": contract_id,
+                    "job_id": job_id,
+                    "message": "Escrow already refunded",
+                    "refund_tx_hash": existing_refund,
+                }
+            # B-residue: the contract was marked refunded but no ESCROW_REFUND landed.
+            _logger.warning(
+                "Escrow %s for job %s is REFUNDED in memory but not on-chain; resetting for a real refund",
+                contract_id,
+                job_id,
+            )
+            contract.refunded_amount = Decimal("0")
+            contract.state = EscrowState.FUNDED
+            mgr.active_contracts.add(contract_id)
+        else:
+            raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
     reason = (body or {}).get("reason", "buyer_requested")
     # B: a refund is only final once the on-chain ESCROW_REFUND transaction lands.
     # Apply the in-memory state, then settle on-chain, then roll back if settlement fails.
