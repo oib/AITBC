@@ -288,8 +288,7 @@ class ChainSettings(BaseSettings):
     sync_state_root_validation_enabled: bool = True  # validate state roots on push/gossip block import
 
     # SyncManager settings (v0.11.0)
-    sync_manager_enabled: bool = True
-    sync_managed_externally: bool = False
+    sync_manager_enabled: bool = True  # master kill switch; when False no SyncManager is started
     sync_manager_use_gossip: bool = True
     sync_manager_use_subscription: bool = True
     sync_manager_poll_interval: float = 15.0
@@ -297,6 +296,11 @@ class ChainSettings(BaseSettings):
     sync_manager_block_dedup_max_size: int = 10000
     sync_manager_synced_poll_interval: float = 30.0
     sync_manager_state_sync_interval: float = 300.0
+    sync_manager_max_proposal_gap: int = 2  # PBFT/PoA will not propose while gap is larger
+    sync_manager_proposal_sync_timeout: int = 30  # seconds to wait for catch-up before skipping proposal
+    sync_manager_http_enabled: bool = False  # optional in-process /sync/status HTTP server
+    sync_manager_http_port: int = 8204
+    sync_manager_http_host: str = "0.0.0.0"
     sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."
     state_sync_max_gap: int = 10
     block_scoped_preregistered_transactions: bool = False  # apply FAUCET/BRIDGE_* Account changes only at block time

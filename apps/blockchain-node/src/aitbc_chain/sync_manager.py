@@ -575,7 +575,7 @@ class SyncManager:
             state.mode = SyncMode.STATE_SYNC
             state.last_state_sync_at = time.time()
             try:
-                await state.chain_sync.sync_state_from(source_url)
+                await state.chain_sync.delta_sync_from(source_url, state.last_local_height, state.last_remote_height)
             except Exception as e:
                 logger.warning("State sync failed for %s: %s", chain_id, e)
             state.mode = SyncMode.SYNCED
