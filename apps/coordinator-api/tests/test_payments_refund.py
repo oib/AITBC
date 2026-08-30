@@ -8,8 +8,11 @@ import asyncio
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from sqlmodel import Session, select
+
+from aitbc.exceptions import NetworkError
 
 from coordinator_api.contexts.infrastructure.domain.job import Job
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
@@ -68,16 +71,23 @@ class TestPaymentServiceRefund:
 
     @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
     def test_refund_records_already_refunded_escrow(self, mock_client_cls, payment_session):
-        """If the blockchain escrow is already refunded, record it without resubmitting."""
+        """If the blockchain escrow is already refunded, record the real on-chain hash."""
         job_id = "job-refund-1"
         payment_id = "pay-refund-1"
         _make_job_and_payment(payment_session, job_id, payment_id)
 
         mock_client = AsyncMock()
-        mock_client.get.return_value = {
-            "state": "refunded",
-            "refund_tx_hash": "0xalreadyrefunded",
-        }
+        # The node reports the escrow as refunded with a stale local hash, but the
+        # on-chain transaction lookup returns the authoritative real hash.
+        mock_client.get.side_effect = [
+            {"state": "refunded", "refund_tx_hash": "0xstalelocal"},
+            [
+                {
+                    "tx_hash": "0xrealrefundtx",
+                    "payload": {"job_id": job_id, "action": "escrow_refund"},
+                }
+            ],
+        ]
         mock_client.post.return_value = {}  # Should not be called
         mock_client_cls.return_value = mock_client
 
@@ -85,14 +95,18 @@ class TestPaymentServiceRefund:
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is True
 
-        mock_client.get.assert_called_once_with("http://localhost:8202/rpc/escrow/job-refund-1")
+        assert mock_client.get.call_count == 2
+        mock_client.get.assert_any_call("http://localhost:8202/rpc/escrow/job-refund-1")
+        mock_client.get.assert_any_call(
+            "http://localhost:8202/transactions?transaction_type=ESCROW_REFUND&job_id=job-refund-1&limit=10"
+        )
         mock_client.post.assert_not_called()
 
         from aitbc_shared import JobPayment, PaymentEscrow
 
         payment = payment_session.get(JobPayment, payment_id)
         assert payment.status == "refunded"
-        assert payment.refund_transaction_hash == "0xalreadyrefunded"
+        assert payment.refund_transaction_hash == "0xrealrefundtx"
 
         escrow = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).one()
         assert escrow.is_refunded is True
@@ -148,6 +162,68 @@ class TestPaymentServiceRefund:
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is False
         mock_client.get.assert_not_called()
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_reconciles_stale_local_hash(self, mock_client_cls, payment_session):
+        """A stale local refund_tx_hash is ignored and a real on-chain tx is submitted."""
+        job_id = "job-refund-stale"
+        payment_id = "pay-refund-stale"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        mock_client = AsyncMock()
+        # Escrow row says refunded with a stale local hash, but the chain has no
+        # ESCROW_REFUND yet, so the node should resubmit and return the real hash.
+        mock_client.get.side_effect = [
+            {"state": "refunded", "refund_tx_hash": "0xstalelocalhash"},
+            [],  # no on-chain ESCROW_REFUND yet
+        ]
+        mock_client.post.return_value = {
+            "success": True,
+            "refund_tx_hash": "0xrealonchainrefund",
+        }
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
+        assert result is True
+
+        from aitbc_shared import JobPayment
+
+        payment = payment_session.get(JobPayment, payment_id)
+        assert payment.status == "refunded"
+        assert payment.refund_transaction_hash == "0xrealonchainrefund"
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_unbacked_escrow_guard(self, mock_client_cls, payment_session):
+        """A payment row with no on-chain lock tx is marked refunded on a 404 lookup."""
+        job_id = "job-refund-unbacked"
+        payment_id = "pay-refund-unbacked"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        from aitbc_shared import JobPayment
+
+        payment = payment_session.get(JobPayment, payment_id)
+        payment.transaction_hash = None
+        payment_session.commit()
+
+        request = httpx.Request("GET", f"http://localhost:8202/rpc/escrow/{job_id}")
+        response = httpx.Response(404, request=request)
+        cause = httpx.HTTPStatusError("Not found", request=request, response=response)
+        exc = NetworkError("GET request failed")
+        exc.__cause__ = cause
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = exc
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
+        assert result is True
+
+        mock_client.post.assert_not_called()
+        refreshed = payment_session.get(JobPayment, payment_id)
+        assert refreshed.status == "refunded"
+        assert refreshed.refund_transaction_hash is None
 
 
 @pytest.mark.unit
