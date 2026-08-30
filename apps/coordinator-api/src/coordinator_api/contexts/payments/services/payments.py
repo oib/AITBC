@@ -61,6 +61,9 @@ def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) ->
     """Return True when a job payment triggers the ZK-proof escrow gate."""
     if _ZK_THRESHOLD_AIT < 0:
         return False
+    # E: COORDINATOR_ZK_REQUIRE=true forces a verified ZK proof for every job.
+    if _ZK_REQUIRE_PROOF:
+        return True
     if job and job.constraints and job.constraints.get("zk_proof_required"):
         return True
     amount = payment_amount or Decimal("0")
