@@ -42,6 +42,8 @@ class Job(SQLModel, table=True):
     payment_chain: int | None = Field(default=None)
     preferred_bridge: str | None = Field(default=None)
     settlement_priority: str | None = Field(default=None, max_length=20)
+    # D: denormalized cache of the authoritative JobPayment row. Never use for
+    # financial or security threshold checks; read JobPayment.amount instead.
     payment_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(36, 18)))
     payment_token: str | None = Field(default=None, max_length=42)
     settlement_gas_limit: int | None = Field(default=None)

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import httpx
+import os
+
 from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -10,8 +13,6 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
-
-import os
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
@@ -56,6 +57,23 @@ def _parse_settled_at(value: object) -> datetime | None:
         logger.warning("Ignoring unparseable released_at from escrow release: %r", value)
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+async def _lookup_chain_refund(
+    blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str
+) -> str | None:
+    """Return the on-chain ESCROW_REFUND tx hash for job_id, if one exists."""
+    try:
+        txs = await client.get(
+            f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
+        )
+        if isinstance(txs, list):
+            for tx in txs:
+                if (tx.get("payload") or {}).get("job_id") == job_id:
+                    return tx.get("tx_hash")
+    except Exception as e:
+        logger.warning("Failed to look up on-chain refund for %s: %s", job_id, e)
+    return None
 
 
 def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
@@ -162,10 +180,9 @@ class PaymentService:
             # funds but never clear the gate, and the job would sit queued until its TTL.
             job.payment_id = payment.id
             job.payment_status = payment.status
-            # D: miner.py, client.py and JobService.to_view() all read job.payment_amount,
-            # but it was only set when JobCreate carried an amount. For two-step payments
-            # (job first, payment later) and for any path that reaches create_payment,
-            # keep the authoritative amount and currency on the job row.
+            # D: keep the denormalized job row in sync with the authoritative
+            # JobPayment row for display/listing purposes. Security and threshold
+            # checks must use JobPayment.amount directly.
             job.payment_amount = payment_data.amount
             job.payment_token = payment_data.currency
             self.session.add(job)
@@ -534,35 +551,52 @@ class PaymentService:
         if payment is None or payment.job_id != job_id:
             return False
         job = self._require_owned_job(payment.job_id, client_id)
-        # Already-refunded rows are idempotent. Fix the denormalised copy so the
-        # sweeper stops selecting stale candidates.
+        # B-residue: already-refunded rows may carry a pre-5b0455921 local hash.
+        # Fix the denormalised cache, but continue so the chain can return the
+        # authoritative on-chain hash.
         if payment.status == "refunded":
             if job.payment_status != "refunded":
                 job.payment_status = "refunded"
                 self.session.add(job)
                 self.session.commit()
-            return True
         # G3: a held or disputed payment is still refundable; the escrow never moved.
-        if payment.status not in HELD_STATES and payment.status != "pending":
+        # B-residue: already-refunded rows are allowed through so stale hashes can
+        # be reconciled against the real on-chain transaction.
+        elif payment.status not in HELD_STATES and payment.status != "pending":
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0)
             # Check whether the on-chain escrow is already in a final state.
             escrow_state = None
+            refund_tx_hash: str | None = None
+            escrow_not_found = False
             try:
                 escrow_info = await client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
                 if isinstance(escrow_info, dict):
                     escrow_state = escrow_info.get("state")
                     refund_tx_hash = escrow_info.get("refund_tx_hash")
-            except Exception as e:
-                logger.warning("Could not fetch escrow state for %s: %s", job_id, e)
+            except NetworkError as e:
+                cause = e.__cause__
+                if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
+                    escrow_not_found = True
+                else:
+                    logger.warning("Could not fetch escrow state for %s: %s", job_id, e)
 
-            if escrow_state == "refunded":
+            # H1: unbacked escrow guard. A payment row may be 'escrowed' but the
+            # ESCROW_LOCK transaction was never persisted on-chain. No funds moved,
+            # so the safe recovery is to mark it refunded and stop retrying.
+            if escrow_not_found and not payment.transaction_hash:
+                logger.warning(
+                    "Escrow for job %s not found on-chain and payment %s has no lock tx; "
+                    "treating as unbacked escrow and marking refunded",
+                    job_id,
+                    payment_id,
+                )
                 payment.status = "refunded"
                 payment.refunded_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
-                payment.refund_transaction_hash = refund_tx_hash
-                job.payment_status = payment.status
+                payment.refund_transaction_hash = None
+                job.payment_status = "refunded"
                 self.session.add(job)
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
@@ -571,8 +605,32 @@ class PaymentService:
                     escrow.is_refunded = True
                     escrow.refunded_at = datetime.now(UTC)
                 self.session.commit()
-                logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
+                logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
                 return True
+
+            if escrow_state == "refunded":
+                # B-residue: do not trust a pre-5b0455921 local SHA-256 string.
+                # Only accept the DB marker when the same hash is visible on-chain.
+                chain_refund_hash = await _lookup_chain_refund(
+                    self.blockchain_rpc_url, client, job_id
+                )
+                if chain_refund_hash:
+                    payment.status = "refunded"
+                    payment.refunded_at = datetime.now(UTC)
+                    payment.updated_at = datetime.now(UTC)
+                    payment.refund_transaction_hash = chain_refund_hash
+                    job.payment_status = payment.status
+                    self.session.add(job)
+                    escrow = (
+                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
+                    )
+                    if escrow:
+                        escrow.is_refunded = True
+                        escrow.refunded_at = datetime.now(UTC)
+                    self.session.commit()
+                    logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
+                    return True
+                # No on-chain refund exists yet; fall through to submit a real one.
 
             if escrow_state in {"released", "expired"}:
                 logger.error("Escrow for job %s is in %s state, cannot refund", job_id, escrow_state)

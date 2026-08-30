@@ -45,11 +45,10 @@ def test_zk_threshold_enabled_for_high_value():
     from coordinator_api.contexts.infrastructure.routers.miner import _zk_required_for
 
     class FakeJob:
-        payment_amount = 10.0
         constraints = {}
         payload = {"model": "linear-1"}
 
-    assert _zk_required_for(FakeJob()) is True
+    assert _zk_required_for(FakeJob(), payment_amount=Decimal("10.0")) is True
 
 
 def test_zk_require_proof_env_forces_zk_for_every_job(monkeypatch):
@@ -57,11 +56,10 @@ def test_zk_require_proof_env_forces_zk_for_every_job(monkeypatch):
     from coordinator_api.contexts.infrastructure.routers import miner
 
     class LowValueJob:
-        payment_amount = Decimal("1.0")
         constraints = {}
         payload = {"model": "linear-1"}
 
-    assert miner._zk_required_for(LowValueJob()) is False
+    assert miner._zk_required_for(LowValueJob(), payment_amount=Decimal("1.0")) is False
     monkeypatch.setattr(miner, "_ZK_REQUIRE_PROOF", True)
     assert miner._zk_required_for(LowValueJob()) is True
 
