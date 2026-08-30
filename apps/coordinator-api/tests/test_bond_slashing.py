@@ -368,6 +368,10 @@ async def test_operator_ruling_for_refund_slashes_the_bond(db_session, slash_env
     job.payment_status = "disputed"
     db_session.add(job)
     db_session.commit()
+    payment = db_session.get(JobPayment, job.payment_id)
+    payment.status = "disputed"
+    db_session.add(payment)
+    db_session.commit()
     bond = _provider_bond(db_session, miner.id, amount="10")
 
     with (
@@ -405,6 +409,10 @@ async def test_a_refund_that_does_not_settle_leaves_the_bond_intact(db_session, 
     job.payment_status = "disputed"
     db_session.add(job)
     db_session.commit()
+    payment = db_session.get(JobPayment, job.payment_id)
+    payment.status = "disputed"
+    db_session.add(payment)
+    db_session.commit()
     bond = _provider_bond(db_session, miner.id, amount="10")
 
     with (
@@ -440,6 +448,10 @@ async def test_operator_ruling_for_release_does_not_slash(db_session, slash_env)
     job = _disputable_job(db_session, miner)
     job.payment_status = "disputed"
     db_session.add(job)
+    db_session.commit()
+    payment = db_session.get(JobPayment, job.payment_id)
+    payment.status = "disputed"
+    db_session.add(payment)
     db_session.commit()
     bond = _provider_bond(db_session, miner.id, amount="10")
 
