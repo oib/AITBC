@@ -477,6 +477,43 @@ class EscrowManager:
         log_info(f"Rolled back unsettled release for contract: {contract_id}")
         return True
 
+    def snapshot_refund_state(self, contract_id: str) -> dict[str, Any] | None:
+        """Capture the fields ``refund_contract`` mutates, so they can be restored.
+
+        Settlement happens after the refund is applied in memory, so a refund that
+        never lands on-chain must put the contract back rather than leave it reading
+        as REFUNDED with nothing settled.
+        """
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return None
+        return {
+            "refunded_amount": contract.refunded_amount,
+            "state": contract.state,
+            "was_active": contract_id in self.active_contracts,
+            "was_disputed": contract_id in self.disputed_contracts,
+        }
+
+    def restore_after_failed_refund(self, contract_id: str, snapshot: dict[str, Any] | None) -> bool:
+        """Undo an in-memory refund whose on-chain settlement did not land."""
+        if not snapshot:
+            return False
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False
+        contract.refunded_amount = snapshot["refunded_amount"]
+        contract.state = snapshot["state"]
+        if snapshot.get("was_active"):
+            self.active_contracts.add(contract_id)
+        else:
+            self.active_contracts.discard(contract_id)
+        if snapshot.get("was_disputed"):
+            self.disputed_contracts.add(contract_id)
+        else:
+            self.disputed_contracts.discard(contract_id)
+        log_info(f"Rolled back unsettled refund for contract: {contract_id}")
+        return True
+
     async def create_dispute(
         self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict[str, Any]] | None = None
     ) -> tuple[bool, str]:

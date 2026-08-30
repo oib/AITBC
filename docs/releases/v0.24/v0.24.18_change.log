@@ -56,3 +56,20 @@ Updated `PaymentService.create_payment` to set `job.payment_amount` and
 `job.payment_token` from the `JobPaymentCreate` data, keeping the job and the
 payment row authoritative. Added a regression test in
 `apps/coordinator-api/tests/test_payments_refund.py`.
+
+## Fix — `ESCROW_REFUND` is now settled on-chain
+
+`/rpc/escrow/{job_id}/refund` previously marked the contract as refunded and
+wrote a local SHA-256 string as `refund_tx_hash`, but it never moved the funds
+back to the buyer on-chain. The `submit_marketplace_transaction` admission only
+checks `chain_id`, hash, sender, balance and nonce, so a new `ESCROW_REFUND`
+transaction type is accepted as a plain transfer and processed by the existing
+state transition.
+
+Added `_submit_refund_tx` and `_find_existing_refund` in
+`apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py`, mirroring the
+`_submit_payment_tx` release path. `refund_escrow` now signs and submits an
+`ESCROW_REFUND` from the settlement account to the buyer, updates the `Escrow`
+row with the real transaction hash, and rolls back the in-memory contract state
+if the on-chain submission fails. Added `snapshot_refund_state` and
+`restore_after_failed_refund` to `EscrowManager` to support the rollback.
