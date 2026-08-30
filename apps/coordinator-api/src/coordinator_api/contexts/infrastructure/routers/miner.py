@@ -29,6 +29,7 @@ from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE, window_seconds_
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
 from ...infrastructure.services.receipts import ReceiptService
+from ...payments.services.payments import _computation_is_correct
 from ...zk_applications.services.zk_proofs import zk_proof_service
 from ...zk_applications.services import model_registry
 from ....storage import get_session
@@ -542,21 +543,8 @@ async def submit_result(
                     job.payment_status = "refunded"
                 await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
                 success = False
-            elif _zk_required_for(job, payment_amount):
+            elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
                 zk_status = (receipt or {}).get("zk_status")
-                if zk_status != "verified":
-                    job.error = f"ZK proof required before escrow release (status: {zk_status})"
-                    session.commit()
-                    logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
-                    await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
-                    success = False
-                else:
-                    success = await _settle_completed_job(session, payment_service, job, receipt)
-            else:
-                success = await _settle_completed_job(session, payment_service, job, receipt)
-        elif _zk_required_for(job, payment_amount):
-            zk_status = (receipt or {}).get("zk_status")
-            if zk_status != "verified":
                 job.error = f"ZK proof required before escrow release (status: {zk_status})"
                 session.commit()
                 logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
@@ -564,6 +552,13 @@ async def submit_result(
                 success = False
             else:
                 success = await _settle_completed_job(session, payment_service, job, receipt)
+        elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
+            zk_status = (receipt or {}).get("zk_status")
+            job.error = f"ZK proof required before escrow release (status: {zk_status})"
+            session.commit()
+            logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
+            await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
+            success = False
         else:
             success = await _settle_completed_job(session, payment_service, job, receipt)
         if not success:
