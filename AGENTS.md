@@ -144,7 +144,7 @@ If the path is `/home/oib/windsurf/aitbc` or `/opt/aitbc` on the IDE host, treat
 The release change log is at:
 
 ```
-aitbc3:/opt/aitbc/docs/releases/v0.24/v0.24.0_change.log
+aitbc3:/opt/aitbc/docs/releases/v0.25/v0.25.2_change.log
 ```
 
 Update it on `aitbc3`, commit, and push to gitea `main`. Do not create new release docs in the local IDE checkout.
@@ -188,7 +188,7 @@ git branch --set-upstream-to=origin/main main
 ## When not to act
 
 Do not, from the IDE host:
-- edit `/opt/aitbc/docs/releases/v0.24/v0.24.0_change.log` and push it
+- edit `/opt/aitbc/docs/releases/v0.25/v0.25.2_change.log` and push it
 - reset or force-push `main`
 - force-push or rewrite git history
 - assume `/opt/aitbc` is the same tree as `aitbc3` or `hub.aitbc`
