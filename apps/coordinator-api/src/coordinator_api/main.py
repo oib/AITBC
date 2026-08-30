@@ -244,6 +244,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Acceptance window disabled (COORDINATOR_ACCEPTANCE_WINDOW_SECONDS=0); escrow releases on result")
 
+        # G3 follow-up: refund escrows stuck in canceled, failed, expired, or
+        # unresolved disputed states. Without this, a job that never completes still
+        # leaves the buyer's funds locked on-chain.
+        from .contexts.payments.services.stuck_escrow_sweeper import (
+            StuckEscrowSweeper,
+            stuck_escrow_sweeper_enabled,
+        )
+
+        if stuck_escrow_sweeper_enabled():
+            await task_manager.start_task("stuck_escrow_sweeper", StuckEscrowSweeper().run_forever)
+            logger.info("Stuck escrow sweeper enabled")
+        else:
+            logger.info("Stuck escrow sweeper disabled (set COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=true to enable)")
+
         # G5: slash provider bonds automatically when a condition is detected.
         from .contexts.marketplace.services.bond_slash_sweeper import (
             BondSlashSweeper,

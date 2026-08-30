@@ -100,3 +100,19 @@ Switched all five call sites in
 to the existing `AsyncAITBCHTTPClient` and `await`ed the `get`/`post` calls. Updated
 `test_payments_refund.py` and `test_zk_computation_correct_gate.py` to mock the async
 client with `AsyncMock`.
+
+## Fix — Stuck escrow sweeper for canceled, failed, expired, and disputed jobs
+
+Jobs that are canceled, fail, expire, or remain disputed and unresolved can leave
+escrowed payments locked indefinitely, because only `COMPLETED` jobs were covered
+by the ZK refund and acceptance sweepers.
+
+Added `apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py`.
+It queries jobs whose `payment_status` is in `HELD_STATES` and whose `state` is
+`CANCELED`, `FAILED`, or `EXPIRED`, or whose `payment_status` is `disputed`, and
+refunds them through `PaymentService.refund_payment` after a grace period. The
+dispute path uses a longer default grace (`86400` seconds, configurable via
+`COORDINATOR_STUCK_ESCROW_SWEEP_DISPUTED_MIN_AGE_SECONDS`) so operators have time
+to rule before the sweeper refunds. The sweeper is wired into `main.py` and can be
+disabled with `COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=false`. Added
+`apps/coordinator-api/tests/test_stuck_escrow_sweeper.py`.
