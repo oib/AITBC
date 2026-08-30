@@ -74,8 +74,9 @@ class ZkRefundSweeper:
         cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
         stmt = (
             select(Job)
+            .join(JobPayment, Job.payment_id == JobPayment.id)
             .where(Job.state == "COMPLETED")
-            .where(Job.payment_status.in_({"escrowed", PENDING_ACCEPTANCE}))  # type: ignore[union-attr]
+            .where(JobPayment.status.in_({"escrowed", PENDING_ACCEPTANCE}))
             .where(Job.completed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at < cutoff)  # type: ignore[operator]
             .limit(self.batch_size)

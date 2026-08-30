@@ -20,6 +20,7 @@ from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_agent_core import get_active_brand
 
 from ....config import settings
+from ...zk_applications.services import model_registry
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc.utils.validation import validate_address
@@ -58,16 +59,36 @@ def _parse_settled_at(value: object) -> datetime | None:
 
 
 def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
-    """Return True when a job payment triggers the ZK-proof escrow gate."""
+    """Return True when a job payment triggers the ZK-proof escrow gate.
+
+    The gate only applies when the job names a model with a registered
+    receipt_model circuit. Requiring a proof for an unsupported model would
+    make release impossible and guarantee a refund.
+    """
     if _ZK_THRESHOLD_AIT < 0:
         return False
-    # E: COORDINATOR_ZK_REQUIRE=true forces a verified ZK proof for every job.
+    required = False
     if _ZK_REQUIRE_PROOF:
-        return True
-    if job and job.constraints and job.constraints.get("zk_proof_required"):
-        return True
-    amount = payment_amount or Decimal("0")
-    return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
+        required = True
+    elif job and job.constraints and job.constraints.get("zk_proof_required"):
+        required = True
+    else:
+        amount = payment_amount or Decimal("0")
+        required = _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
+
+    if not required:
+        return False
+    if job is None:
+        return False
+    model_id = model_registry.resolve_model_id(job, None)
+    if model_registry.get_model(model_id) is None:
+        logger.warning(
+            "ZK not required for payment on job %s: model %r has no registered circuit",
+            getattr(job, "id", None),
+            model_id,
+        )
+        return False
+    return True
 
 
 class PaymentService:
@@ -379,6 +400,10 @@ class PaymentService:
         payment.meta_data = opened_window(payment.meta_data, window_seconds, now=now)
         payment.status = PENDING_ACCEPTANCE
         payment.updated_at = now
+        job = self.session.get(Job, job_id)
+        if job is not None:
+            job.payment_status = payment.status
+            self.session.add(job)
         self.session.add(payment)
         self.session.commit()
         deadline = deadline_from(payment.meta_data)
@@ -405,6 +430,9 @@ class PaymentService:
         payment.meta_data = meta
         payment.status = DISPUTED
         payment.updated_at = now
+        job = self._require_owned_job(payment.job_id, client_id)
+        job.payment_status = payment.status
+        self.session.add(job)
         self.session.add(payment)
         self.session.commit()
         logger.info("Payment %s disputed on job %s: %s", payment_id, job_id, reason)
@@ -471,6 +499,9 @@ class PaymentService:
                 payment.released_at = settled_at
                 payment.updated_at = datetime.now(UTC)
                 payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
+                if job is not None:
+                    job.payment_status = payment.status
+                    self.session.add(job)
                 reinvest_stake_id = release_data.get("reinvest_stake_id")
                 reinvest_amount = release_data.get("reinvest_amount")
                 if reinvest_stake_id or reinvest_amount:
@@ -502,7 +533,15 @@ class PaymentService:
         payment = self.session.get(JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
             return False
-        self._require_owned_job(payment.job_id, client_id)
+        job = self._require_owned_job(payment.job_id, client_id)
+        # Already-refunded rows are idempotent. Fix the denormalised copy so the
+        # sweeper stops selecting stale candidates.
+        if payment.status == "refunded":
+            if job.payment_status != "refunded":
+                job.payment_status = "refunded"
+                self.session.add(job)
+                self.session.commit()
+            return True
         # G3: a held or disputed payment is still refundable; the escrow never moved.
         if payment.status not in HELD_STATES and payment.status != "pending":
             return False
@@ -523,6 +562,8 @@ class PaymentService:
                 payment.refunded_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
                 payment.refund_transaction_hash = refund_tx_hash
+                job.payment_status = payment.status
+                self.session.add(job)
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )
@@ -550,6 +591,8 @@ class PaymentService:
                 payment.refunded_at = datetime.now(UTC)
                 payment.updated_at = datetime.now(UTC)
                 payment.refund_transaction_hash = refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash")
+                job.payment_status = payment.status
+                self.session.add(job)
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )

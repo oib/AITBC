@@ -68,7 +68,12 @@ class AcceptanceSweeper:
         operator to rule, and sweeping it to the provider on a timer would make the
         dispute path decorative.
         """
-        stmt = select(Job).where(Job.payment_status == PENDING_ACCEPTANCE).limit(self.batch_size)
+        stmt = (
+            select(Job)
+            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .where(JobPayment.status == PENDING_ACCEPTANCE)
+            .limit(self.batch_size)
+        )
         return list(session.execute(stmt).scalars().all())
 
     async def run_once(self) -> dict[str, int]:
