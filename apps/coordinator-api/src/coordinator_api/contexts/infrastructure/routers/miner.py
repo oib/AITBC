@@ -51,6 +51,9 @@ def _zk_required_for(job: Any) -> bool:
     """Return True if this job's payment triggers the ZK-proof gate."""
     if _ZK_THRESHOLD_AIT < 0:
         return False
+    # E: COORDINATOR_ZK_REQUIRE=true forces a verified ZK proof for every job.
+    if _ZK_REQUIRE_PROOF:
+        return True
     if job.constraints and job.constraints.get("zk_proof_required"):
         return True
     payment_amount = Decimal(str(job.payment_amount or 0))

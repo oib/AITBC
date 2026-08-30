@@ -1,6 +1,7 @@
 """Tests for the receipt_public ZK proof integration (P2.1)."""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -48,3 +49,28 @@ def test_zk_threshold_enabled_for_high_value():
         constraints = {}
 
     assert _zk_required_for(FakeJob()) is True
+
+
+def test_zk_require_proof_env_forces_zk_for_every_job(monkeypatch):
+    """COORDINATOR_ZK_REQUIRE=true must override the payment threshold."""
+    from coordinator_api.contexts.infrastructure.routers import miner
+
+    class LowValueJob:
+        payment_amount = Decimal("1.0")
+        constraints = {}
+
+    assert miner._zk_required_for(LowValueJob()) is False
+    monkeypatch.setattr(miner, "_ZK_REQUIRE_PROOF", True)
+    assert miner._zk_required_for(LowValueJob()) is True
+
+
+def test_zk_require_proof_env_forces_payment_gate(monkeypatch):
+    """COORDINATOR_ZK_REQUIRE=true must force the release/refund/sweeper gate too."""
+    from coordinator_api.contexts.payments.services import payments
+
+    class FakeJob:
+        constraints = {}
+
+    assert payments._zk_required_for_payment(Decimal("1.0"), FakeJob()) is False
+    monkeypatch.setattr(payments, "_ZK_REQUIRE_PROOF", True)
+    assert payments._zk_required_for_payment(Decimal("1.0"), FakeJob()) is True

@@ -73,3 +73,17 @@ Added `_submit_refund_tx` and `_find_existing_refund` in
 row with the real transaction hash, and rolls back the in-memory contract state
 if the on-chain submission fails. Added `snapshot_refund_state` and
 `restore_after_failed_refund` to `EscrowManager` to support the rollback.
+
+## Fix — `COORDINATOR_ZK_REQUIRE=true` is now enforced
+
+`COORDINATOR_ZK_REQUIRE` was read into `_ZK_REQUIRE_PROOF` in both
+`apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py`
+and `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`,
+but it was never checked, so setting it to `true` did nothing.
+
+Updated `_zk_required_for_payment` and `_zk_required_for` to return `True` when
+`_ZK_REQUIRE_PROOF` is set (unless the threshold is explicitly disabled with a
+negative value). This makes the release gate, the refund sweeper, the miner's
+proof attachment and the customer's acceptance gate all require a verified ZK
+receipt when the operator asks for it. Added regression tests in
+`apps/coordinator-api/tests/test_zk_receipt.py`.
