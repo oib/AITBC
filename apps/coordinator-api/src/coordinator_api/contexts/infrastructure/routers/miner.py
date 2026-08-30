@@ -6,7 +6,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import update
-from sqlmodel import Session, col
+from sqlmodel import Session, col, select
+from aitbc_shared import JobPayment
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -48,16 +49,34 @@ _TEE_REQUIRE = os.getenv("COORDINATOR_TEE_REQUIRE", "false").lower() == "true"
 
 
 def _zk_required_for(job: Any) -> bool:
-    """Return True if this job's payment triggers the ZK-proof gate."""
+    """Return True if this job's payment triggers the ZK-proof gate.
+
+    The gate only applies when the job names a model with a registered
+    receipt_model circuit. Requiring a proof for an unsupported model would
+    make release impossible and guarantee a refund.
+    """
     if _ZK_THRESHOLD_AIT < 0:
         return False
-    # E: COORDINATOR_ZK_REQUIRE=true forces a verified ZK proof for every job.
+    required = False
     if _ZK_REQUIRE_PROOF:
-        return True
-    if job.constraints and job.constraints.get("zk_proof_required"):
-        return True
-    payment_amount = Decimal(str(job.payment_amount or 0))
-    return _ZK_THRESHOLD_AIT == 0 or payment_amount >= _ZK_THRESHOLD_AIT
+        required = True
+    elif job.constraints and job.constraints.get("zk_proof_required"):
+        required = True
+    else:
+        payment_amount = Decimal(str(job.payment_amount or 0))
+        required = _ZK_THRESHOLD_AIT == 0 or payment_amount >= _ZK_THRESHOLD_AIT
+
+    if not required:
+        return False
+    model_id = model_registry.resolve_model_id(job, None)
+    if model_registry.get_model(model_id) is None:
+        logger.warning(
+            "ZK not required for job %s: model %r has no registered circuit",
+            getattr(job, "id", None),
+            model_id,
+        )
+        return False
+    return True
 
 
 def _tee_required_for(job: Any) -> bool:
@@ -410,7 +429,8 @@ async def submit_result(
     session.add(job)
     session.commit()
     success = True
-    if job.payment_id and job.payment_status == "escrowed":
+    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    if payment and payment.status == "escrowed":
         from ...payments.services.payments import PaymentService
 
         payment_service = PaymentService(session)
@@ -614,13 +634,21 @@ async def get_miner_earnings(
         paid_earnings = Decimal("0")
         history: list[dict[str, Any]] = []
 
+        payment_ids = [j.payment_id for j in completed_jobs if j.payment_id]
+        payments = {}
+        if payment_ids:
+            payments = {
+                p.id: p for p in session.execute(select(JobPayment).where(JobPayment.id.in_(payment_ids))).scalars().all()
+            }
         for job in completed_jobs:
             amount = job.payment_amount or Decimal("0")
             token = job.payment_token or "AITBC"
-            if job.payment_status == "released":
+            payment = payments.get(job.payment_id) if job.payment_id else None
+            payment_status = payment.status if payment is not None else (job.payment_status or "unknown")
+            if payment_status == "released":
                 paid_earnings += amount
                 total_earnings += amount
-            elif job.payment_status in {"escrowed", PENDING_ACCEPTANCE, DISPUTED}:
+            elif payment_status in {"escrowed", PENDING_ACCEPTANCE, DISPUTED}:
                 # G3: money that is locked but not yet paid out, whether it is still
                 # running, waiting on the customer, or before an arbiter.
                 pending_earnings += amount
@@ -629,7 +657,7 @@ async def get_miner_earnings(
                     "job_id": job.id,
                     "amount": str(amount),
                     "currency": token,
-                    "payment_status": job.payment_status or "unknown",
+                    "payment_status": payment_status,
                 }
             )
 

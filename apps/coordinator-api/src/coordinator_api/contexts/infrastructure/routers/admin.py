@@ -10,6 +10,7 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
+from aitbc_shared import JobPayment
 
 from ....auth import AdminDep  # NEW: JWT auth
 from ....config import settings
@@ -317,10 +318,11 @@ async def resolve_dispute(
         job = service.get_job(job_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="job not found") from None
-    if job.payment_status != DISPUTED or not job.payment_id:
+    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    if not payment or payment.status != DISPUTED:
         raise HTTPException(
             status_code=409,
-            detail=f"job has no disputed payment to resolve (payment_status={job.payment_status})",
+            detail=f"job has no disputed payment to resolve (payment_status={payment.status if payment else job.payment_status})",
         )
     payment_service = PaymentService(session)
     if req.outcome == "refund":
@@ -340,7 +342,7 @@ async def resolve_dispute(
         from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
 
         await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
-    job.payment_status = resolved_status
+    job.payment_status = payment.status
     session.add(job)
     session.commit()
     logger.info("Admin %s resolved the dispute on job %s as %s: %s", user["sub"], job.id, req.outcome, req.reason)

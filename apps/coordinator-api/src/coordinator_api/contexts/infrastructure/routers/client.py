@@ -9,12 +9,13 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
+from aitbc_shared import JobPayment
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import ClientDep
 from ....config import settings
 from ...marketplace.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
-from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE
+from ...payments.acceptance import PENDING_ACCEPTANCE
 from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService, _zk_required_for_payment
 from ....custom_types import JobState
@@ -359,10 +360,11 @@ async def accept_job(
         job = service.get_job(job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
-    if job.payment_status != PENDING_ACCEPTANCE or not job.payment_id:
+    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    if not payment or payment.status != PENDING_ACCEPTANCE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"job has no payment awaiting acceptance (payment_status={job.payment_status})",
+            detail=f"job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
         )
     receipt = job.receipt
     if _zk_required_for_payment(job.payment_amount, job):
@@ -382,7 +384,7 @@ async def accept_job(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="the escrow release did not settle on-chain; the payment stays held and will be retried",
         )
-    job.payment_status = "released"
+    job.payment_status = payment.status
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -418,14 +420,15 @@ async def reject_job(
         job = service.get_job(job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
-    if job.payment_status != PENDING_ACCEPTANCE or not job.payment_id:
+    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    if not payment or payment.status != PENDING_ACCEPTANCE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"job has no payment awaiting acceptance (payment_status={job.payment_status})",
+            detail=f"job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
         )
     if not PaymentService(session).dispute_payment(user["sub"], job.id, job.payment_id, req.reason):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="payment could not be disputed")
-    job.payment_status = DISPUTED
+    job.payment_status = payment.status
     session.add(job)
     session.commit()
     session.refresh(job)
