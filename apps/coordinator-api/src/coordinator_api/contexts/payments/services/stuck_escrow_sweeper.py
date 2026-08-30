@@ -13,7 +13,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc_shared import JobPayment, PaymentEscrow
@@ -108,10 +108,10 @@ class StuckEscrowSweeper:
         """Jobs whose payment is held but the job is canceled, failed, expired, or disputed."""
         stmt = (
             select(Job, JobPayment)
-            .join(JobPayment, Job.payment_id == JobPayment.id)
-            .where(JobPayment.status.in_(HELD_STATES))  # type: ignore[union-attr]
-            .where(Job.payment_id.is_not(None))  # type: ignore[union-attr]
-            .where(Job.state.in_({"CANCELED", "FAILED", "EXPIRED"}))  # type: ignore[union-attr]
+            .join(JobPayment, col(Job.payment_id) == JobPayment.id)
+            .where(col(JobPayment.status).in_(HELD_STATES))
+            .where(col(Job.payment_id).is_not(None))
+            .where(col(Job.state).in_({"CANCELED", "FAILED", "EXPIRED"}))
             .limit(self.batch_size)
         )
         jobs = list(session.execute(stmt).all())
@@ -119,10 +119,10 @@ class StuckEscrowSweeper:
         # Disputed payments may keep state==COMPLETED, so query them separately.
         dispute_stmt = (
             select(Job, JobPayment)
-            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .join(JobPayment, col(Job.payment_id) == JobPayment.id)
             .where(JobPayment.status == DISPUTED)
-            .where(Job.payment_id.is_not(None))  # type: ignore[union-attr]
-            .where(Job.state == "COMPLETED")  # type: ignore[union-attr]
+            .where(col(Job.payment_id).is_not(None))
+            .where(col(Job.state) == "COMPLETED")
             .limit(self.batch_size)
         )
         jobs.extend(session.execute(dispute_stmt).all())
@@ -163,6 +163,7 @@ class StuckEscrowSweeper:
                     )
                     if escrow:
                         escrow.is_refunded = True
+                        escrow.is_active = False
                         escrow.refunded_at = now
                         session.add(escrow)
                     session.commit()
