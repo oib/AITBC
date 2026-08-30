@@ -367,7 +367,8 @@ async def accept_job(
             detail=f"job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
         )
     receipt = job.receipt
-    if _zk_required_for_payment(job.payment_amount, job):
+    payment = session.get(JobPayment, job.payment_id)
+    if _zk_required_for_payment(payment.amount if payment else None, job):
         if not receipt or receipt.get("zk_status") != "verified" or receipt.get("computation_correct") is not True:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
