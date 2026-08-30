@@ -21,7 +21,6 @@ from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_agent_core import get_active_brand
 
 from ....config import settings
-from ...zk_applications.services import model_registry
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc.utils.validation import validate_address
@@ -62,47 +61,52 @@ def _parse_settled_at(value: object) -> datetime | None:
 async def _lookup_chain_refund(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
     """Return the on-chain ESCROW_REFUND tx hash for job_id, if one exists."""
     try:
-        txs = await client.get(f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10")
+        # The RPC client declares a dict return, but /transactions returns a list.
+        txs: Any = await client.get(
+            f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
+        )
         if isinstance(txs, list):
             for tx in txs:
                 if (tx.get("payload") or {}).get("job_id") == job_id:
-                    return tx.get("tx_hash")
+                    tx_hash = tx.get("tx_hash")
+                    return str(tx_hash) if tx_hash is not None else None
     except Exception as e:
         logger.warning("Failed to look up on-chain refund for %s: %s", job_id, e)
+    return None
+
+
+async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
+    """Return the on-chain ESCROW_LOCK tx hash for job_id, if one exists."""
+    try:
+        # The RPC client declares a dict return, but /transactions returns a list.
+        txs: Any = await client.get(f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10")
+        if isinstance(txs, list):
+            for tx in txs:
+                if (tx.get("payload") or {}).get("job_id") == job_id:
+                    tx_hash = tx.get("tx_hash")
+                    return str(tx_hash) if tx_hash is not None else None
+    except Exception as e:
+        logger.warning("Failed to look up on-chain lock for %s: %s", job_id, e)
     return None
 
 
 def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
     """Return True when a job payment triggers the ZK-proof escrow gate.
 
-    The gate only applies when the job names a model with a registered
-    receipt_model circuit. Requiring a proof for an unsupported model would
-    make release impossible and guarantee a refund.
+    The gate applies when COORDINATOR_ZK_REQUIRE=true, the job explicitly
+    requires a ZK proof, or the payment amount crosses the high-value
+    threshold. Whether the requested model actually has a registered circuit
+    is decided later when the receipt is generated/verified; the gate must
+    not silently downgrade a required proof just because the model is missing.
     """
     if _ZK_THRESHOLD_AIT < 0:
         return False
-    required = False
     if _ZK_REQUIRE_PROOF:
-        required = True
-    elif job and job.constraints and job.constraints.get("zk_proof_required"):
-        required = True
-    else:
-        amount = payment_amount or Decimal("0")
-        required = _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
-
-    if not required:
-        return False
-    if job is None:
-        return False
-    model_id = model_registry.resolve_model_id(job, None)
-    if model_registry.get_model(model_id) is None:
-        logger.warning(
-            "ZK not required for payment on job %s: model %r has no registered circuit",
-            getattr(job, "id", None),
-            model_id,
-        )
-        return False
-    return True
+        return True
+    if job and job.constraints and job.constraints.get("zk_proof_required"):
+        return True
+    amount = payment_amount or Decimal("0")
+    return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
 
 
 class PaymentService:
@@ -569,7 +573,6 @@ class PaymentService:
                 escrow_info = await client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
                 if isinstance(escrow_info, dict):
                     escrow_state = escrow_info.get("state")
-                    escrow_info.get("refund_tx_hash")
             except NetworkError as e:
                 cause = e.__cause__
                 if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
@@ -580,7 +583,9 @@ class PaymentService:
             # H1: unbacked escrow guard. A payment row may be 'escrowed' but the
             # ESCROW_LOCK transaction was never persisted on-chain. No funds moved,
             # so the safe recovery is to mark it refunded and stop retrying.
-            if escrow_not_found and not payment.transaction_hash:
+            # The correct check is whether an ESCROW_LOCK tx exists on-chain, not
+            # whether the payment has been released (transaction_hash is a release hash).
+            if escrow_not_found and not await _lookup_chain_lock(self.blockchain_rpc_url, client, job_id):
                 logger.warning(
                     "Escrow for job %s not found on-chain and payment %s has no lock tx; "
                     "treating as unbacked escrow and marking refunded",
@@ -622,6 +627,7 @@ class PaymentService:
                     )
                     if escrow:
                         escrow.is_refunded = True
+                        escrow.is_active = False
                         escrow.refunded_at = datetime.now(UTC)
                     self.session.commit()
                     logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)

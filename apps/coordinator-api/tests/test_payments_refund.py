@@ -213,13 +213,19 @@ class TestPaymentServiceRefund:
         exc.__cause__ = cause
 
         mock_client = AsyncMock()
-        mock_client.get.side_effect = exc
+        # First GET for /rpc/escrow/{job_id} 404s; second GET for ESCROW_LOCK returns none.
+        mock_client.get.side_effect = [exc, []]
         mock_client_cls.return_value = mock_client
 
         service = PaymentService(payment_session)
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is True
 
+        assert mock_client.get.call_count == 2
+        mock_client.get.assert_any_call(f"http://localhost:8202/rpc/escrow/{job_id}")
+        mock_client.get.assert_any_call(
+            f"http://localhost:8202/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10"
+        )
         mock_client.post.assert_not_called()
         refreshed = payment_session.get(JobPayment, payment_id)
         assert refreshed.status == "refunded"
