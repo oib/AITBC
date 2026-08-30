@@ -59,14 +59,10 @@ def _parse_settled_at(value: object) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-async def _lookup_chain_refund(
-    blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str
-) -> str | None:
+async def _lookup_chain_refund(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
     """Return the on-chain ESCROW_REFUND tx hash for job_id, if one exists."""
     try:
-        txs = await client.get(
-            f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
-        )
+        txs = await client.get(f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10")
         if isinstance(txs, list):
             for tx in txs:
                 if (tx.get("payload") or {}).get("job_id") == job_id:
@@ -568,13 +564,12 @@ class PaymentService:
             client = AsyncAITBCHTTPClient(timeout=30.0)
             # Check whether the on-chain escrow is already in a final state.
             escrow_state = None
-            refund_tx_hash: str | None = None
             escrow_not_found = False
             try:
                 escrow_info = await client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
                 if isinstance(escrow_info, dict):
                     escrow_state = escrow_info.get("state")
-                    refund_tx_hash = escrow_info.get("refund_tx_hash")
+                    escrow_info.get("refund_tx_hash")
             except NetworkError as e:
                 cause = e.__cause__
                 if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
@@ -603,6 +598,7 @@ class PaymentService:
                 )
                 if escrow:
                     escrow.is_refunded = True
+                    escrow.is_active = False
                     escrow.refunded_at = datetime.now(UTC)
                 self.session.commit()
                 logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
@@ -611,9 +607,7 @@ class PaymentService:
             if escrow_state == "refunded":
                 # B-residue: do not trust a pre-5b0455921 local SHA-256 string.
                 # Only accept the DB marker when the same hash is visible on-chain.
-                chain_refund_hash = await _lookup_chain_refund(
-                    self.blockchain_rpc_url, client, job_id
-                )
+                chain_refund_hash = await _lookup_chain_refund(self.blockchain_rpc_url, client, job_id)
                 if chain_refund_hash:
                     payment.status = "refunded"
                     payment.refunded_at = datetime.now(UTC)
@@ -622,7 +616,9 @@ class PaymentService:
                     job.payment_status = payment.status
                     self.session.add(job)
                     escrow = (
-                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
+                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
+                        .scalars()
+                        .first()
                     )
                     if escrow:
                         escrow.is_refunded = True
@@ -656,6 +652,7 @@ class PaymentService:
                 )
                 if escrow:
                     escrow.is_refunded = True
+                    escrow.is_active = False
                     escrow.refunded_at = datetime.now(UTC)
                 self.session.commit()
                 logger.info("Refunded payment %s for job %s", payment_id, job_id)
