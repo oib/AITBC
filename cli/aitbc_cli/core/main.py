@@ -154,7 +154,7 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
 
     COMMAND GROUP DISAMBIGUATION:
     - `aitbc market` — GPU/software offers (coordinator-backed, miner-published).
-    - `aitbc marketplace` — global chain marketplace (cross-chain offers, bridge, on-chain listings).
+    - `aitbc marketplace` — deprecated global chain marketplace; kept for backward compatibility.
     - `aitbc governance` — service-backed proposals, voting, and execution.
     - `aitbc operations` and `aitbc operations <subgroup>` are deprecated; use the groups above.
 
