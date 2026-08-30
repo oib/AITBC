@@ -87,3 +87,16 @@ negative value). This makes the release gate, the refund sweeper, the miner's
 proof attachment and the customer's acceptance gate all require a verified ZK
 receipt when the operator asks for it. Added regression tests in
 `apps/coordinator-api/tests/test_zk_receipt.py`.
+
+## Fix — PaymentService no longer blocks the async loop with synchronous HTTP
+
+`PaymentService._get_account_nonce`, `_create_token_escrow`, `_create_crypto_escrow`,
+`release_payment` and `refund_payment` are all `async def`, but they were instantiating
+the synchronous `AITBCHTTPClient` and calling `get`/`post` without `await`. On a single
+worker this blocks the coordinator event loop while the blockchain RPC answered.
+
+Switched all five call sites in
+`apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py`
+to the existing `AsyncAITBCHTTPClient` and `await`ed the `get`/`post` calls. Updated
+`test_payments_refund.py` and `test_zk_computation_correct_gate.py` to mock the async
+client with `AsyncMock`.

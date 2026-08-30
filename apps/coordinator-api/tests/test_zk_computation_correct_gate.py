@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -68,8 +68,8 @@ async def test_release_payment_blocked_when_computation_correct_false(db_session
     job, payment = _make_zk_job(db_session, receipt)
 
     with patch(
-        "coordinator_api.contexts.payments.services.payments.AITBCHTTPClient",
-        return_value=MagicMock(post=MagicMock(return_value={"success": True})),
+        "coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient",
+        return_value=MagicMock(post=AsyncMock(return_value={"success": True})),
     ):
         released = await payment_service.release_payment("client1", job.id, payment.id)
 
@@ -86,8 +86,8 @@ async def test_release_payment_blocked_when_computation_correct_missing(db_sessi
     job, payment = _make_zk_job(db_session, receipt)
 
     with patch(
-        "coordinator_api.contexts.payments.services.payments.AITBCHTTPClient",
-        return_value=MagicMock(post=MagicMock(return_value={"success": True})),
+        "coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient",
+        return_value=MagicMock(post=AsyncMock(return_value={"success": True})),
     ):
         released = await payment_service.release_payment("client1", job.id, payment.id)
 
@@ -108,9 +108,9 @@ async def test_release_payment_allowed_when_computation_correct_true(db_session,
     job, payment = _make_zk_job(db_session, receipt)
 
     with patch(
-        "coordinator_api.contexts.payments.services.payments.AITBCHTTPClient",
+        "coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient",
         return_value=MagicMock(
-            post=MagicMock(
+            post=AsyncMock(
                 return_value={
                     "success": True,
                     "tx_hash": "0x1234",
@@ -150,9 +150,9 @@ async def test_accept_job_allowed_when_computation_correct_true(db_session):
     job, _payment = _make_zk_job(db_session, receipt)
 
     with patch(
-        "coordinator_api.contexts.payments.services.payments.AITBCHTTPClient",
+        "coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient",
         return_value=MagicMock(
-            post=MagicMock(
+            post=AsyncMock(
                 return_value={
                     "success": True,
                     "tx_hash": "0x1234",
