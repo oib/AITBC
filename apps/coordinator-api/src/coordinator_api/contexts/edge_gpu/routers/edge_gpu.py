@@ -79,7 +79,7 @@ async def parse_gpu_info() -> list[dict[str, Any]]:
 @rate_limit(rate=200, per=60)
 async def list_profiles(request: Request) -> dict[str, Any]:
     """List available edge GPU profiles"""
-    gpus = parse_gpu_info()
+    gpus = await parse_gpu_info()
     profiles = []
     for gpu in gpus:
         profiles.append(
@@ -98,7 +98,7 @@ async def list_profiles(request: Request) -> dict[str, Any]:
 @rate_limit(rate=200, per=60)
 async def get_gpu_metrics(request: Request, gpu_id: str) -> dict[str, Any]:
     """Get metrics for a specific GPU"""
-    output = run_nvidia_smi(
+    output = await run_nvidia_smi(
         ["--query-gpu=utilization.gpu,memory.used,temperature.gpu", "--format=csv,noheader,nounits", f"--id={gpu_id}"]
     )
     if not output:
@@ -119,11 +119,11 @@ async def get_gpu_metrics(request: Request, gpu_id: str) -> dict[str, Any]:
 @rate_limit(rate=200, per=60)
 async def get_all_metrics(request: Request) -> dict[str, Any]:
     """Get metrics for all GPUs"""
-    gpus = parse_gpu_info()
+    gpus = await parse_gpu_info()
     all_metrics = []
     for gpu in gpus:
         gpu_id = gpu["gpu_id"]
-        output = run_nvidia_smi(
+        output = await run_nvidia_smi(
             ["--query-gpu=utilization.gpu,memory.used,temperature.gpu", "--format=csv,noheader,nounits", f"--id={gpu_id}"]
         )
         if output:
@@ -152,7 +152,7 @@ async def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any
 @rate_limit(rate=20, per=60)
 async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
     """Discover and register edge GPUs for a miner"""
-    gpus = parse_gpu_info()
+    gpus = await parse_gpu_info()
     registered = len(gpus)
     edge_optimized = sum(1 for gpu in gpus if "RTX" in gpu["name"] or "GTX" in gpu["name"])
 
