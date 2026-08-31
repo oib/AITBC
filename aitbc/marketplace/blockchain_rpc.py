@@ -8,6 +8,8 @@ with chain_id-aware methods for:
 - Registering GPUs on-chain (POST /rpc/gpu/register)
 - Allocating GPUs on-chain (POST /rpc/gpu/allocate)
 - Verifying escrow status (GET /rpc/escrow/{job_id})
+- Releasing escrow to the provider (POST /rpc/escrow/{job_id}/release)
+- Refunding escrow to the buyer (POST /rpc/escrow/{job_id}/refund)
 
 Uses httpx.AsyncClient directly. Retry/circuit-breaker can be layered on
 top by wiring in ``aitbc.network.client.AsyncAITBCHTTPClient`` in a future
@@ -28,7 +30,8 @@ class BlockchainRPCClient:
     """Chain-aware blockchain RPC client for marketplace operations.
 
     Wraps httpx.AsyncClient with chain_id-aware methods for offer queries,
-    transaction submission, GPU registration/allocation, and escrow verification.
+    transaction submission, GPU registration/allocation, escrow verification,
+    and escrow release/refund.
     """
 
     def __init__(self, rpc_url: str = "http://localhost:8202", timeout: float = 10.0) -> None:
@@ -166,6 +169,40 @@ class BlockchainRPCClient:
                 return None
             resp.raise_for_status()
             return cast(dict[str, Any] | None, resp.json())
+
+    async def release_escrow(self, job_id: str, body: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        """Release escrow funds to the provider.
+
+        Calls POST /rpc/escrow/{job_id}/release. Returns None if the escrow is
+        not found (404). Non-404 errors are raised so the caller can decide
+        whether to retry.
+        """
+        body = body or {}
+        if not job_id:
+            raise ValueError("release_escrow requires job_id")
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(f"{self._rpc_url}/rpc/escrow/{job_id}/release", json=body)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return cast(dict[str, Any], resp.json())
+
+    async def refund_escrow(self, job_id: str, body: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        """Refund escrow funds back to the buyer.
+
+        Calls POST /rpc/escrow/{job_id}/refund. Returns None if the escrow is
+        not found (404). Non-404 errors are raised so the caller can decide
+        whether to retry.
+        """
+        body = body or {}
+        if not job_id:
+            raise ValueError("refund_escrow requires job_id")
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(f"{self._rpc_url}/rpc/escrow/{job_id}/refund", json=body)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return cast(dict[str, Any], resp.json())
 
     async def register_gpu(self, registration_data: dict[str, Any]) -> dict[str, Any]:
         """Register a GPU on the blockchain.
