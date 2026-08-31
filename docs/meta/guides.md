@@ -1,50 +1,11 @@
 # Documentation Guides
 
-**Level**: All Levels
-**Prerequisites**: None
-**Estimated Time**: 10-15 minutes
-**Last Updated**: 2026-05-28
-**Version**: 1.0
+## Templates and Standards
 
-## 🧭 **Navigation Path:**
+- [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md) - Writing standard for docs
+- [Feature Template](feature-template.md) - Standard layout for `docs/features/` stubs
+- [Writing Docs Guide](writing-docs.md) - How to write, link, and validate AITBC docs
 
-**🏠 [Documentation Home](../README.md)** → **📚 Guides** → *You are here*
+## Related
 
-**breadcrumb**: Home → Guides → Overview
-
----
-
-## 🎯 **See Also:**
-
-- **🏠 [Documentation Home](../README.md)** - Main docs landing page
-- **🧭 [Master Index](../MASTER_INDEX.md)** - Complete docs catalog
-- **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Writing standard for docs
-
----
-
-## 📦 **Contents**
-
-- **README_DOCUMENTATION.md** - Documentation authoring guide and structure notes
-
----
-
-## 🧱 **Purpose**
-
-This directory centralizes guide-style documentation that helps contributors and readers:
-
-- understand how the docs are organized
-- follow the repository documentation standard
-- navigate to the right learning or reference area
-
----
-
-## 🚀 **Next Steps**
-
-- Start with `README_DOCUMENTATION.md` if you need to write or revise docs.
-- Review `../about/DOCUMENTATION_TEMPLATE_STANDARD.md` before editing high-traffic docs.
-
----
-
-*Last updated: 2026-04-27*
-*Version: 1.0*
-*Status: Guide index*
+- [Meta documentation index](README.md)

@@ -201,7 +201,7 @@ See AGENTS.md for detailed agent role definitions and coordination protocols.
 - Master AGENTS.md - Project conventions and verification commands
 - [Release Status Overview](./STATUS.md) - All releases, config defaults, audit summary
 - [Security Audit Summary](./AUDIT.md) - Bridge security audit status
-- [Documentation Guide](../meta/documentation-guide.md) - Documentation standards and guidelines
+- [Writing Docs Guide](../meta/writing-docs.md) - Documentation standards and guidelines
 
 ---
 
