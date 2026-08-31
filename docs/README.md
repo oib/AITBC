@@ -22,7 +22,7 @@ This is the documentation hub for AITBC. For the project overview and welcome pa
 - [apps/](apps/) — app catalog and per-app landing pages
 - [cli/](cli/) — CLI documentation and the CLI command reference
 - [blockchain/](blockchain/) — blockchain node, consensus, networking, operations
-- [coordinator-api/](agent-coordinator/) — agent coordinator and API docs
+- [agent-coordinator/API.md](agent-coordinator/API.md) — agent coordinator and API docs
 - [marketplace/](marketplace/) — marketplace and exchange documentation
 - [mining/](mining/) — mining and GPU provider docs
 - [reference/](reference/) — service ports, glossary, quick lookup
