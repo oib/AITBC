@@ -67,6 +67,6 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `transactions` — Transaction management commands. Subcommands: `batch`, `estimate-fee`, `pending`, `search`, `send`, `status`
 - `update` — Pull the latest code and run scripts/deployment/update.sh.
 - `version` — Show version information
-- `wallet` — Manage your wallets and transactions. Subcommands: `address`, `backup`, `balance`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-claim`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake`
+- `wallet` — Manage your wallets and transactions. Subcommands: `address`, `backup`, `balance`, `bridge`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-claim`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake`
 - `workflow` — Workflow management commands. Subcommands: `list`, `run`, `status`, `stop`
 - `zk` — Zero-knowledge proof commands.. Subcommands: `circuits`, `health`, `verify`

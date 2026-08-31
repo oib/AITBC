@@ -14,7 +14,7 @@ from aitbc.rate_limiting import RateLimitMiddleware
 
 from .api_jsonrpc import router as jsonrpc_router
 from .api_rest import router as receipts_router
-from .bridge import init_db, start_monitoring
+from .bridge import init_db, start_monitoring, start_withdrawal_monitoring
 from .settings import settings
 
 configure_logging(level="INFO")
@@ -141,6 +141,7 @@ async def _import_file_wallets() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     init_db()
     start_monitoring()
+    start_withdrawal_monitoring()
 
     create_task_with_logging(_import_genesis_wallet_from_env(), name="import_genesis_wallet")
     create_task_with_logging(_import_file_wallets(), name="import_file_wallets")
