@@ -319,5 +319,5 @@ sudo -u aitbc /opt/aitbc/venv/bin/python -m <service-module>
 ## See Also
 
 - [Systemd Hardening](../deployment/STAGING.md#systemd-hardening)
-- [Secret Management](../operations/SECRETS.md)
+- Secret Management
 - [Service Configuration](configuration.md)

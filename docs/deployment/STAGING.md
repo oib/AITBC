@@ -404,5 +404,5 @@ sudo systemctl start aitbc-*
 - [Production Deployment Guide](single-server.md)
 - [Configuration Reference](configuration.md)
 - [Health Checks](health-checks.md)
-- [Secret Management](../operations/SECRETS.md)
+- Secret Management
 - [Service Ports Reference](../reference/SERVICE_PORTS.md)

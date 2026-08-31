@@ -49,7 +49,7 @@ All service users:
 
 **Remaining Services:** 15/26 still run as root
 
-For detailed service isolation configuration, see [Service Isolation Documentation](../operations/SERVICE_ISOLATION_2026-06-07.md).
+For detailed service isolation configuration, see Service Isolation Documentation.
 
 ## Related Topics
 
