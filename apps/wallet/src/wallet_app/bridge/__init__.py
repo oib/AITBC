@@ -6,6 +6,7 @@ Bridge monitoring and exchange functionality for ETH-AIT swaps.
 from .bridge_db import get_pending_deposits, init_db, insert_deposit, update_deposit_status
 from .bridge_monitor import start_monitoring
 from .bridge_routes import router
+from .bridge_withdraw_monitor import start_withdrawal_monitoring
 from .price_api import calculate_ait_amount, get_eth_price_usd, get_exchange_rate
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "calculate_ait_amount",
     "get_exchange_rate",
     "start_monitoring",
+    "start_withdrawal_monitoring",
     "router",
 ]
