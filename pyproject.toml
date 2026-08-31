@@ -321,7 +321,7 @@ exclude_lines = [
 [tool.ruff]
 line-length = 127
 target-version = "py313"
-extend-exclude = ["tests/cli/command_test_template.py", "scripts/**/*.sh", "contracts/"]
+extend-exclude = ["scripts/**/*.sh", "contracts/"]
 
 [tool.ruff.lint]
 select = [
@@ -352,7 +352,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/*" = ["B011"]
-"tests/cli/command_test_template.py" = ["ALL"]
+
 
 [tool.pydocstyle]
 convention = "google"
