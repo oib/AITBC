@@ -12,6 +12,26 @@ from typing import Any
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
 
 
+# Preserve exact Decimal values through SQLite NUMERIC columns.  SQLite itself
+# stores NUMERIC values as integer or real, but by round-tripping through
+# Decimal(str(value)) on the way out we keep the textual (not binary-float)
+# representation that downstream code needs for the no-float-money rule.
+sqlite3.register_adapter(Decimal, lambda d: str(d))
+sqlite3.register_converter("NUMERIC", lambda b: Decimal(b.decode()))
+# The schema uses TIMESTAMP columns but stores ISO-8601 strings (with a "T").
+# Override the deprecated default timestamp converter so it returns the raw
+# string and does not split on the old "YYYY-MM-DD HH:MM:SS" format.
+sqlite3.register_converter("TIMESTAMP", lambda b: b.decode())
+
+
+def _connect_db(path: str | None = None) -> sqlite3.Connection:
+    """Open a bridge DB connection with Decimal conversion enabled."""
+    return sqlite3.connect(
+        path or DB_PATH,
+        detect_types=sqlite3.PARSE_DECLTYPES,
+    )
+
+
 def _add_column_if_not_exists(conn, table, column, col_type):
     """Add a column to a table if it does not already exist."""
     cursor = conn.cursor()
@@ -24,7 +44,7 @@ def _add_column_if_not_exists(conn, table, column, col_type):
 def init_db() -> None:
     """Initialize the bridge database with required tables."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -147,7 +167,7 @@ def insert_deposit(
 
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     try:
@@ -161,8 +181,8 @@ def insert_deposit(
                 tx_hash,
                 from_address,
                 recipient,
-                float(amount_eth),
-                float(amount_ait),
+                amount_eth,
+                amount_ait,
                 datetime.now().isoformat(),
             ),
         )
@@ -177,7 +197,7 @@ def insert_deposit(
 
 def get_pending_deposits() -> list[dict[str, Any]]:
     """Get all pending deposits."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -210,7 +230,7 @@ def get_pending_deposits() -> list[dict[str, Any]]:
 
 def update_deposit_status(deposit_id: str, status: str) -> bool:
     """Update deposit status."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     # timestamp_field is one of exactly two hardcoded literals below, never
@@ -232,7 +252,7 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
 
 def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str) -> bool:
     """Record the AIT transaction hash for a completed deposit."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE eth_deposits SET ait_tx_hash = ? WHERE id = ?",
@@ -246,7 +266,7 @@ def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str) -> bool:
 
 def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
     """Get deposit by transaction hash."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -281,7 +301,7 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
 
 def get_deposit_by_id(deposit_id: str) -> dict[str, Any] | None:
     """Get deposit by its local deposit id."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -316,7 +336,7 @@ def get_deposit_by_id(deposit_id: str) -> dict[str, Any] | None:
 
 def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """Get all deposits with pagination."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -352,7 +372,7 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
 
 def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: Decimal, exchange_rate_eur: Decimal) -> None:
     """Insert a new price history record."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -360,7 +380,7 @@ def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: 
         INSERT INTO price_history (eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur)
         VALUES (?, ?, ?, ?)
         """,
-        (float(eth_usd), float(eth_eur), float(exchange_rate_usd), float(exchange_rate_eur)),
+        (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur),
     )
 
     conn.commit()
@@ -369,7 +389,7 @@ def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: 
 
 def get_all_time_average() -> dict[str, Any] | None:
     """Get all-time average prices from history."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -387,10 +407,10 @@ def get_all_time_average() -> dict[str, Any] | None:
 
     if result and result[4] > 0:  # count > 0
         return {
-            "eth_usd_avg": result[0],
-            "eth_eur_avg": result[1],
-            "exchange_rate_usd_avg": result[2],
-            "exchange_rate_eur_avg": result[3],
+            "eth_usd_avg": Decimal(str(result[0])) if result[0] is not None else None,
+            "eth_eur_avg": Decimal(str(result[1])) if result[1] is not None else None,
+            "exchange_rate_usd_avg": Decimal(str(result[2])) if result[2] is not None else None,
+            "exchange_rate_eur_avg": Decimal(str(result[3])) if result[3] is not None else None,
             "count": result[4],
         }
 
@@ -399,7 +419,7 @@ def get_all_time_average() -> dict[str, Any] | None:
 
 def cleanup_old_prices(days: int = 30) -> int:
     """Clean up price history older than specified days."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -433,7 +453,7 @@ def insert_withdrawal(
 
     withdrawal_id = f"withdrawal_{uuid.uuid4().hex[:8]}"
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -449,10 +469,10 @@ def insert_withdrawal(
                 ait_tx_hash,
                 from_address,
                 eth_address,
-                float(amount_ait),
-                float(fee_ait),
-                float(net_ait),
-                float(amount_eth),
+                amount_ait,
+                fee_ait,
+                net_ait,
+                amount_eth,
                 status,
                 error,
                 datetime.now().isoformat(),
@@ -469,7 +489,7 @@ def insert_withdrawal(
 
 def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
     """Get a withdrawal by its AIT transaction hash."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -509,7 +529,7 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
 
 def get_pending_withdrawals() -> list[dict[str, Any]]:
     """Get all withdrawals not yet completed or refunded."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -547,7 +567,7 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
 
 def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """Get all withdrawals with pagination."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -588,7 +608,7 @@ def update_withdrawal_status(
     ait_tx_hash: str, status: str, eth_tx_hash: str | None = None, refund_tx_hash: str | None = None, error: str | None = None
 ) -> bool:
     """Update withdrawal status and optional hashes."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = _connect_db()
     cursor = conn.cursor()
 
     timestamp_field = "released_at"
