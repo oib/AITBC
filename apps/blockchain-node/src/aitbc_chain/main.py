@@ -536,12 +536,16 @@ class BlockchainNode:
                 logger.info("Multi-chain manager initialized and secondary chains started")
             except Exception as e:
                 logger.error("Failed to initialize multi-chain manager: %s", e)
-        if settings.blockchain_mode == "hub":
-            logger.info("Running in HUB mode (blockchain_mode=%s)", settings.blockchain_mode)
+        if settings.blockchain_mode == "hub" or (settings.multi_validator_consensus_enabled and settings.validator_set):
+            logger.info(
+                "Running as block producer (blockchain_mode=%s, multi_validator=%s)",
+                settings.blockchain_mode,
+                settings.multi_validator_consensus_enabled,
+            )
             await self._ensure_genesis_for_chains()
             self._start_proposers()
             await lease_tracker.start()
-            logger.info("Lease tracker started on hub node")
+            logger.info("Lease tracker started on producer node")
         elif settings.blockchain_mode == "follower":
             logger.info("Running in FOLLOWER mode (blockchain_mode=%s)", settings.blockchain_mode)
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
