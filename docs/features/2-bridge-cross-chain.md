@@ -78,8 +78,5 @@ Two implementation defects were found and fixed during the live run:
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Cross-Chain Reputation | Unified reputation across EVM chains | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md) | ✅ | — |
-| Reputation Aggregation | Unified scores with configurable weighting | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md) | ✅ | — |
-| Anomaly Detection | Automatic detection of reputation changes | [docs/blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md](../blockchain/cross-chain/CROSS_CHAIN_REPUTATION_FINAL_INTEGRATION.md) | ✅ | — |
 
 ---
