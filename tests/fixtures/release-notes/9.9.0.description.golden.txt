@@ -1,3 +1,0 @@
-Release notes: https://lovebytecodes.atlassian.net/wiki/x/AgAcOQ
-
-Fixture feature release: a new skill, an agent tweak, and a breaking rename to exercise every release-notes section (ABS-226 golden input).
