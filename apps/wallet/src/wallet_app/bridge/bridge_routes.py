@@ -555,7 +555,7 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
         "amount": amount_units,
         "fee": fee_units,
         "nonce": nonce,
-        "payload": {"eth_address": eth_address},
+        "payload": {"eth_address": eth_address, "amount": amount_units},
     }
 
     return {
