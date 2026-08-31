@@ -76,7 +76,7 @@
 |---------|-------------|---------------|--------|---------|
 | Deploy Contract | Deploy a smart contract to the blockchain | [docs/features/deploy-contract.md](./deploy-contract.md) | ✅ | — |
 | Call Contract | Call a contract method | [docs/features/call-contract.md](./call-contract.md) | ✅ | — |
-| Verify ZK Proof | Verify a zero-knowledge proof | [docs/apps/crypto/zk-circuits.md](../apps/crypto/zk-circuits.md) | ✅ | — |
+| Verify ZK Proof | Verify a zero-knowledge proof | [docs/apps/zk-circuits/README.md](../apps/zk-circuits/README.md) | ✅ | — |
 | List Contracts | List deployed contracts | [docs/features/list-contracts.md](./list-contracts.md) | ✅ | — |
 | Messaging Contracts | Deploy messaging contracts for forum topics | [docs/features/messaging-contracts.md](./messaging-contracts.md) | ✅ | — |
 | Forum Topics | Create topics, post messages, vote on messages | [docs/features/forum-topics.md](./forum-topics.md) | ✅ | — |
