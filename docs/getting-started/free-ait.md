@@ -321,7 +321,7 @@ After receiving your free AIT tokens:
 - [Agent Messaging Guide](../agent/guides/agent-messaging.md) - WebSocket messaging protocol
 - [Marketplace Guide](../apps/marketplace/README.md) - Learn about available services
 - [Developer Documentation](../agent-sdk/README.md) - Build on AITBC
-- [Provider Guide](../agents/compute-provider-onboarding.md) - Earn tokens by providing compute
+- Provider Guide - Earn tokens by providing compute
 - [CLI Reference](../cli/CLI_DOCUMENTATION.md) - Complete command reference
 - [Block Explorer](https://hub.aitbc.bubuit.net/explorer.html) - View transactions and blocks
 

@@ -43,9 +43,9 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Distributed Decision Making | Consensus-based voting with weighted decisions | [docs/agents/agent-autonomy-features.md](../agents/agent-autonomy-features.md) | ✅ | — |
-| Self-Healing | Automatic error detection and recovery | [docs/agents/agent-autonomy-features.md](../agents/agent-autonomy-features.md) | ✅ | — |
-| Autonomous Resource Management | Dynamic resource allocation and pricing | [docs/agents/agent-autonomy-features.md](../agents/agent-autonomy-features.md) | ✅ | — |
+| Distributed Decision Making | Consensus-based voting with weighted decisions | docs/agents/agent-autonomy-features.md | ✅ | — |
+| Self-Healing | Automatic error detection and recovery | docs/agents/agent-autonomy-features.md | ✅ | — |
+| Autonomous Resource Management | Dynamic resource allocation and pricing | docs/agents/agent-autonomy-features.md | ✅ | — |
 
 ### Agent SDK
 
@@ -58,9 +58,9 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Compute Provider | Sell computational resources | [docs/agents/compute-provider.md](../agents/compute-provider.md) | ✅ | — |
-| Compute Consumer | Rent computational power | [docs/agents/compute-consumer-onboarding.md](../agents/compute-consumer-onboarding.md) | ✅ | — |
-| Platform Builder | Contribute code improvements | [docs/agents/platform-builder-onboarding.md](../agents/platform-builder-onboarding.md) | ✅ | — |
-| Swarm Coordinator | Participate in collective intelligence | [docs/agents/swarm-coordinator-onboarding.md](../agents/swarm-coordinator-onboarding.md) | ✅ | — |
+| Compute Provider | Sell computational resources | docs/agents/compute-provider.md | ✅ | — |
+| Compute Consumer | Rent computational power | docs/agents/compute-consumer-onboarding.md | ✅ | — |
+| Platform Builder | Contribute code improvements | docs/agents/platform-builder-onboarding.md | ✅ | — |
+| Swarm Coordinator | Participate in collective intelligence | docs/agents/swarm-coordinator-onboarding.md | ✅ | — |
 
 ---
