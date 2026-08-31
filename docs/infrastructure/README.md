@@ -62,7 +62,6 @@ This section documents the AITBC infrastructure components, runtime architecture
 ### Core Infrastructure Files
 
 - [Runtime Directories Guide](RUNTIME_DIRECTORIES.md) - Standard directory structure
-- [SystemD Services Guide](SYSTEMD_SERVICES.md) - Service management
 - [Security Hardening Guide](../releases/v0.4/v0.4.23_SECURITY_HARDENING.md) - Security best practices
 
 ### Analysis Documents

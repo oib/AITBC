@@ -287,5 +287,4 @@ sudo ufw deny 5173/tcp  # Development UI
 ## References
 
 - [AITBC Security Hardening Guide](../releases/v0.4/v0.4.23_SECURITY_HARDENING.md)
-- [SystemD Services Documentation](SYSTEMD_SERVICES.md)
 - [Setup Documentation](../getting-started/SETUP.md)
