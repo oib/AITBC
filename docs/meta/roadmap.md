@@ -24,5 +24,5 @@
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
-- [Achievements](./achievements.md) - Major achievements and recognition
+- Project Overview - General project information
+- Achievements - Major achievements and recognition

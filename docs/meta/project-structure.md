@@ -46,5 +46,5 @@ For detailed structure information, see PROJECT_STRUCTURE.md.
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Architecture Overview](./architecture-overview.md) - System architecture details
