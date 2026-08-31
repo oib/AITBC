@@ -156,7 +156,7 @@ class IpfsRentalSweeper:
         token.buyer_address = canonical_address(token.buyer_address or "")
         token.provider_address = canonical_address(token.provider_address or "")
 
-        job_id = token.escrow_contract_id or token.rental_id
+        job_id = token.rental_id or token.escrow_contract_id
         should_refund = token.status == "refund_pending" or getattr(token, "pinned", True) is False
 
         # Mark the rental as expired first so concurrent access-key checks stop.
