@@ -45,7 +45,7 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
-from ..state.state_transition import get_state_transition
+from ..state.state_transition import _ensure_account, get_state_transition
 
 logger = get_logger(__name__)
 
@@ -411,6 +411,81 @@ class PoAProposer:
         self._logger.warning("[PROPOSE] Timed out waiting for sync on chain %s, skipping proposal", self._config.chain_id)
         return False
 
+    def _reapply_parent_block(self, session: Session, parent: Block) -> bool:
+        """Re-apply a parent block's transactions to bring local account state forward.
+
+        Multi-validator PoA can select a validator that has the parent block in its
+        database but has not yet applied the parent's state transition (for example
+        because the block arrived through gossip while the validator was about to
+        propose). The local `state_root` then lags behind the canonical parent
+        `state_root`, and the next block would be built on stale state.
+
+        This fallback loads the parent's recorded transactions and re-runs the state
+        transition. It is idempotent when the local state is actually behind, because
+        the function is only reached when ``_compute_state_root`` disagrees with the
+        parent header.
+        """
+        state_transition = get_state_transition()
+        state_transition.reset_processed_cache()
+        chain_id = self._config.chain_id
+        tx_recs = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                Transaction.block_height == parent.height,
+            )
+        ).all()
+        if not tx_recs:
+            self._logger.warning(
+                "[PROPOSE] Parent block %s has no transactions and local state root %s does not match parent %s; cannot repair",
+                parent.height,
+                _compute_state_root(session, chain_id),
+                parent.state_root,
+            )
+            return False
+        for tx_rec in tx_recs:
+            sender = _to_ait_address(tx_rec.sender or "")
+            recipient = _to_ait_address(tx_rec.recipient or "")
+            if sender:
+                _ensure_account(session, chain_id, sender)
+            if recipient:
+                _ensure_account(session, chain_id, recipient)
+            tx_data = {
+                "from": sender,
+                "to": recipient,
+                "amount": tx_rec.value,
+                "value": tx_rec.value,
+                "fee": tx_rec.fee,
+                "nonce": tx_rec.nonce,
+                "type": (tx_rec.type or "TRANSFER").upper(),
+                "payload": tx_rec.payload or {},
+                "signature": "",
+            }
+            success, msg = state_transition.apply_transaction(session, chain_id, tx_data, tx_rec.tx_hash)
+            if not success:
+                self._logger.error(
+                    "[PROPOSE] Failed to re-apply parent tx %s at height %s: %s",
+                    tx_rec.tx_hash,
+                    parent.height,
+                    msg,
+                )
+                return False
+        session.flush()
+        recomputed = _compute_state_root(session, chain_id)
+        if recomputed != parent.state_root:
+            self._logger.error(
+                "[PROPOSE] Parent block %s state still mismatched after re-apply: expected %s, got %s",
+                parent.height,
+                parent.state_root,
+                recomputed,
+            )
+            return False
+        self._logger.info(
+            "[PROPOSE] Re-applied parent block %s; local state now matches %s",
+            parent.height,
+            parent.state_root,
+        )
+        return True
+
     async def _propose_block(self) -> bool:
         from ..config import settings
         from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
@@ -492,6 +567,23 @@ class PoAProposer:
             if head is not None:
                 next_height = head.height + 1
                 parent_hash = head.hash
+                # v0.25.4: a validator must not build on a stale local state. If the
+                # parent block's state_root does not match the state we have locally,
+                # re-apply the parent block before proposing. This prevents a
+                # multi-validator proposer from building a block whose header state_root
+                # ignores the previous block's state transition.
+                if head.state_root:
+                    local_state_root = _compute_state_root(session, self._config.chain_id)
+                    if local_state_root != head.state_root:
+                        self._logger.warning(
+                            "[PROPOSE] Parent state mismatch at height %s: parent state_root=%s, local=%s",
+                            head.height,
+                            head.state_root,
+                            local_state_root,
+                        )
+                        if not self._reapply_parent_block(session, head):
+                            session.rollback()
+                            return False
                 head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
                 interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
                 if interval_seconds < self._config.interval_seconds:
