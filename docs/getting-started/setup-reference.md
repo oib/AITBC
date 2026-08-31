@@ -36,7 +36,7 @@
 - [Troubleshooting](reference/troubleshooting.md) - Common issues
 - [Security Notes](reference/security-notes.md) - Security best practices
 - [Production Deployment](reference/production-deployment.md) - Production checklist
-- [Service Isolation](../operations/SERVICE_ISOLATION_2026-06-07.md) - Service user security configuration
+- Service Isolation - Service user security configuration
 
 ### Open Island
 
