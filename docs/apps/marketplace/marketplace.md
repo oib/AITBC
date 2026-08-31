@@ -51,4 +51,4 @@ For production agent operations, use the Coordinator API directly:
 - **Reputation Query**: `GET /v1/marketplace/reputation/{agent_id}` - Trust scores
 - **Dynamic Pricing**: `GET /v1/marketplace/pricing` - Real-time market data
 
-See [Marketplace Backend Analysis](../../development/11_marketplace-backend-analysis.md) for detailed agent API usage examples and implementation flows.
+See [Marketplace Internals](../../development/5_developer-guide.md) for detailed implementation flows.
