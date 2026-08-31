@@ -121,3 +121,13 @@ PBFT / true BFT across independent validator hosts remains open.
 - `aitbc-blockchain-node` was restarted on all four nodes.
 - Verification: all four nodes (`hub.aitbc`, `aitbc1`, `aitbc3`, `hub2.aitbc`) converge at height **1545**, hash `0x8fb5dc60ec68f9cbcc3f871776a52e95fa31b6702adf0fdaab573a5fc562424c`, and block 1545 `state_root` `0x885f18922c1c09a0abeb16420df5b11b1f078ba96ac02bb47cf0a35ff33e8975`.
 - No `state_root` mismatch or `BLOCK REJECTED` entries in the last two minutes of logs on any node.
+
+## Unreleased — IPFS rental escrow lifecycle sweeper
+
+- Decision: the marketplace service owns the IPFS rental escrow lifecycle, implemented as a dedicated `IpfsRentalSweeper` inside that service (not the coordinator's generic `StuckEscrowSweeper`).
+- `IpfsRentalToken` model: added `pinned` (default `True`) and `tx_hash` fields; `status` supports `active`, `expired`, `released`, `refunded`, and `refund_pending`.
+- `MarketplaceService.register_ipfs_rental_token`: canonicalizes `buyer_address` and `provider_address` to 0x EIP-55; defaults `pinned=True`.
+- `apps/marketplace/src/marketplace_service/services/ipfs_rental_sweeper.py`: new sweeper that periodically scans for active rentals past `expires_at`, marks them `expired`, and releases escrow to the provider; refunds for `refund_pending` or `pinned=False`.
+- `aitbc/marketplace/blockchain_rpc.py`: added `release_escrow` and `refund_escrow` RPC client methods.
+- `apps/marketplace/src/marketplace_service/main.py`: lifespan now starts/stops the `IpfsRentalSweeper` background task.
+- `apps/marketplace/tests/test_ipfs_rental_sweeper.py`: unit tests for release, refund, and skip-not-expired behavior.

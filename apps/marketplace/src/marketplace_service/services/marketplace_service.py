@@ -962,12 +962,23 @@ class MarketplaceService:
             if not access_key:
                 raise ValueError("access_key is required")
 
+            # v0.25.x: canonicalize secp256k1/EVM addresses at registration so
+            # the marketplace DB always stores 0x EIP-55 addresses, regardless
+            # of what the CLI or offer data sent.
+            for addr_field in ("buyer_address", "provider_address"):
+                if addr_field in data and data[addr_field]:
+                    data[addr_field] = canonical_address(str(data[addr_field]))
+
+            # A token is only registered after the provider successfully pins the CID.
+            # Default to pinned=True so that normal rentals pay the provider at expiration.
+            data["pinned"] = bool(data.get("pinned", True))
+
             # Normalize string timestamps into datetime objects for SQLite.
             for field in ("created_at", "updated_at", "expires_at"):
                 if field in data:
                     data[field] = self._parse_iso_dt(data[field])
 
-            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)
             result = await self.session.execute(stmt)
             existing = result.scalar_one_or_none()
             if existing:
@@ -975,6 +986,8 @@ class MarketplaceService:
                 existing.cid = data.get("cid") or existing.cid
                 existing.escrow_contract_id = data.get("escrow_contract_id") or existing.escrow_contract_id
                 existing.status = data.get("status") or existing.status
+                if "pinned" in data:
+                    existing.pinned = bool(data["pinned"])
                 if "expires_at" in data:
                     existing.expires_at = data["expires_at"]
                 existing.updated_at = datetime.now(UTC)
@@ -1040,7 +1053,9 @@ class MarketplaceService:
             "public_endpoint": token.public_endpoint,
             "disk_quota_mb": token.disk_quota_mb,
             "size": token.size,
+            "pinned": token.pinned,
             "status": token.status,
+            "tx_hash": token.tx_hash,
             "created_at": token.created_at.isoformat() if token.created_at else None,
             "expires_at": token.expires_at.isoformat() if token.expires_at else None,
         }

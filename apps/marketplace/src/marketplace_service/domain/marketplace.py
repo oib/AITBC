@@ -105,7 +105,9 @@ class IpfsRentalToken(MarketplaceBase, table=True):
     public_endpoint: str = Field(default="")
     disk_quota_mb: int | None = Field(default=None)
     size: int | None = Field(default=None)
-    status: str = Field(default="active", index=True)  # active, expired, refunded
+    pinned: bool = Field(default=True)  # whether the provider pinned the CID
+    status: str = Field(default="active", index=True)  # active, expired, refunded, released, refund_pending
+    tx_hash: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
     expires_at: datetime | None = Field(default=None)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
