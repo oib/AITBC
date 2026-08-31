@@ -50,3 +50,15 @@ As part of the authorized T1/T9 work, the live keys on `hub.aitbc`, `aitbc1`, an
 - Blockchain services were restarted; followers re-synced to the hub height.
 - Two bridge validators (new proposer + existing bridge-only key) were re-registered on all three nodes; `validator_count: 2` and `threshold: 2` confirmed.
 - Auth logs, systemd journals, shell histories, and old env-file backups were cleared to remove exposed key material.
+
+
+## 2026-08-31 — Coordinator stop-the-bleeding hotfix (c98ebfc39)
+
+- `miner.py`: TEE `submit_result` branch no longer skips `_computation_is_correct` when `_zk_required_for` is false. This prevents a valid TEE quote from releasing a registered-circuit model (`linear-1`) without a Groth16 SNARK.
+- `payments.py`: `_lookup_chain_lock` and `_lookup_chain_refund` now call the correct `/rpc/transactions` endpoint and raise on transport failures instead of returning None.
+- `payments.py`: unbacked-escrow guard is restricted to `HELD_STATES` so pending payments are not incorrectly refunded.
+- `payments.py`: `release_payment` is now the single settlement choke point; it gates on `job.state == JobState.completed` and on `receipt["computation_correct"] is not False` before any chain call.
+- `test_payments_refund.py` updated to assert the corrected on-chain transaction lookup URLs.
+- Live smoke test on `hub.aitbc`:
+  - `llama3.2:3b` with TEE attestation released successfully (`payment_status=released`, tx `0x1c632b85...`).
+  - `linear-1` with ZK + TEE attestation released successfully (`zk_status=verified` with a Groth16 proof, `payment_status=released`).
