@@ -30,14 +30,21 @@ logger = get_logger(__name__)
 # Configuration
 ETH_RPC_URL = os.getenv("ETH_RPC_URL", "https://eth.llamarpc.com")
 ETH_WALLET_ADDRESS = os.getenv("ETH_WALLET_ADDRESS", "")
+ETH_WALLET_PRIVATE_KEY = os.getenv("ETH_WALLET_PRIVATE_KEY", "")
+BRIDGE_ADMIN_PRIVATE_KEY = os.getenv("BRIDGE_ADMIN_PRIVATE_KEY", "")
 POLL_INTERVAL = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))  # seconds
 BRIDGE_ENABLED = os.getenv("BRIDGE_ENABLED", "false").lower() == "true"
+WITHDRAW_ENABLED = os.getenv("BRIDGE_WITHDRAW_ENABLED", "true").lower() == "true"
+WITHDRAW_POLL_INTERVAL = int(os.getenv("BRIDGE_WITHDRAW_POLL_INTERVAL", "30"))  # seconds
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 GENESIS_WALLET_ADDRESS = os.getenv("GENESIS_WALLET_ADDRESS", "")
 GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
 DEFAULT_RECIPIENT = os.getenv("WALLET_ADDRESS", "")
 MIN_ETH_DEPOSIT = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
+MIN_AIT_WITHDRAW = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
+ETH_WITHDRAW_GAS = int(os.getenv("ETH_WITHDRAW_GAS", "100000"))
+ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
 
 _db_initialized = False
 _bridge_polling_enabled = True
