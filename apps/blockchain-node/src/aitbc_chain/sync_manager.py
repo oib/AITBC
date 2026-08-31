@@ -575,7 +575,18 @@ class SyncManager:
             state.mode = SyncMode.STATE_SYNC
             state.last_state_sync_at = time.time()
             try:
-                await state.chain_sync.delta_sync_from(source_url, state.last_local_height, state.last_remote_height)
+                # When the node is fully caught up, delta sync would otherwise be
+                # called with from_height == to_height, which the source endpoint
+                # rejects as an invalid zero-block range. Ask for the diff of the
+                # last block instead (to_height - 1 -> to_height) so the state sync
+                # actually validates the head instead of falling back to a full sync.
+                if state.last_local_height == state.last_remote_height and state.last_remote_height > 0:
+                    delta_from = state.last_remote_height - 1
+                    delta_to = state.last_remote_height
+                else:
+                    delta_from = state.last_local_height
+                    delta_to = state.last_remote_height
+                await state.chain_sync.delta_sync_from(source_url, delta_from, delta_to)
             except Exception as e:
                 logger.warning("State sync failed for %s: %s", chain_id, e)
             state.mode = SyncMode.SYNCED
