@@ -13,6 +13,7 @@ import pytest
 from sqlmodel import Session, select
 
 from aitbc.exceptions import NetworkError
+from aitbc_shared import JobPayment
 
 from coordinator_api.contexts.infrastructure.domain.job import Job
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
@@ -264,3 +265,115 @@ class TestPaymentCreation:
         assert refreshed.payment_status == payment.status
         assert refreshed.payment_amount == Decimal("1.5")
         assert refreshed.payment_token == "AITBC"
+
+    @pytest.mark.asyncio
+    async def test_create_token_escrow_rejects_missing_buyer(self, db_session, monkeypatch):
+        """A token escrow must have an explicit buyer; it must not fall back to GENESIS_ADDRESS."""
+        monkeypatch.delenv("PAYMENT_BUYER_ADDRESS", raising=False)
+        monkeypatch.delenv("GENESIS_ADDRESS", raising=False)
+
+        job_id = "job-buyer-fallback"
+        payment = JobPayment(
+            id="pay-buyer-fallback",
+            job_id=job_id,
+            client_id="client-1",
+            amount=Decimal("1.0"),
+            currency="AITBC",
+            status="pending",
+            payment_method="aitbc_token",
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        payment_data = JobPaymentCreate(
+            job_id=job_id,
+            amount=Decimal("1.0"),
+            currency="AITBC",
+            payment_method="aitbc_token",
+            provider_address="0x2222222222222222222222222222222222222222",
+        )
+        service = PaymentService(db_session)
+        escrow = await service._create_token_escrow(payment, payment_data)
+        assert escrow is None
+
+    @pytest.mark.asyncio
+    async def test_create_token_escrow_rejects_genesis_address_fallback(self, db_session, monkeypatch):
+        """GENESIS_ADDRESS is the legacy proposer wallet and must not be used as a buyer fallback."""
+        monkeypatch.delenv("PAYMENT_BUYER_ADDRESS", raising=False)
+        monkeypatch.setenv("GENESIS_ADDRESS", "0x1111111111111111111111111111111111111111")
+
+        job_id = "job-genesis-fallback"
+        payment = JobPayment(
+            id="pay-genesis-fallback",
+            job_id=job_id,
+            client_id="client-1",
+            amount=Decimal("1.0"),
+            currency="AITBC",
+            status="pending",
+            payment_method="aitbc_token",
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        payment_data = JobPaymentCreate(
+            job_id=job_id,
+            amount=Decimal("1.0"),
+            currency="AITBC",
+            payment_method="aitbc_token",
+            provider_address="0x2222222222222222222222222222222222222222",
+        )
+        service = PaymentService(db_session)
+        escrow = await service._create_token_escrow(payment, payment_data)
+        assert escrow is None
+
+    @pytest.mark.asyncio
+    async def test_create_token_escrow_rejects_buyer_equal_node_wallet(self, db_session, monkeypatch):
+        """A buyer that is the node wallet would create a self-send escrow lock."""
+        monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x1111111111111111111111111111111111111111")
+
+        job_id = "job-buyer-node-wallet"
+        payment = JobPayment(
+            id="pay-buyer-node-wallet",
+            job_id=job_id,
+            client_id="client-1",
+            amount=Decimal("1.0"),
+            currency="AITBC",
+            status="pending",
+            payment_method="aitbc_token",
+        )
+        db_session.add(payment)
+        db_session.commit()
+
+        payment_data = JobPaymentCreate(
+            job_id=job_id,
+            amount=Decimal("1.0"),
+            currency="AITBC",
+            payment_method="aitbc_token",
+            buyer_address="0x1111111111111111111111111111111111111111",
+            provider_address="0x2222222222222222222222222222222222222222",
+        )
+        service = PaymentService(db_session)
+        escrow = await service._create_token_escrow(payment, payment_data)
+        assert escrow is None
+
+
+@pytest.mark.unit
+class TestPaymentServiceRefundPropagation:
+    """Refund errors must propagate so callers do not treat an RPC outage as a normal no-op."""
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_re_raises_network_error(self, mock_client_cls, payment_session):
+        """A NetworkError during refund submission must propagate, not be logged and dropped."""
+        job_id = "job-refund-network"
+        payment_id = "pay-refund-network"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        exc = NetworkError("POST request failed")
+        mock_client = AsyncMock()
+        mock_client.get.return_value = {"state": "funded"}
+        mock_client.post.side_effect = exc
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        with pytest.raises(NetworkError, match="POST request failed"):
+            asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))

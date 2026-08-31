@@ -28,6 +28,7 @@ from ....custom_types import JobState
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
+from ...infrastructure.domain.job_receipt import JobReceipt
 from ...zk_applications.services import model_registry
 from ..acceptance import (
     DISPUTED,
@@ -117,6 +118,21 @@ def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> 
     if receipt and receipt.get("zk_status") == "verified" and receipt.get("computation_correct") is True:
         return True
     return _tee_attests_computation(receipt, job)
+
+
+def get_receipt_of_record(session: Session, job: Job | None) -> dict[str, Any] | None:
+    """Return the canonical receipt for a job.
+
+    Prefer the ``JobReceipt`` row (indexed by ``job.receipt_id``) because it is the
+    authoritative, signed record; fall back to the denormalised ``Job.receipt`` JSON.
+    """
+    if job is None:
+        return None
+    if job.receipt_id:
+        row = session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
+        if row and row.payload:
+            return row.payload
+    return job.receipt if job.receipt else None
 
 
 def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) -> bool:
@@ -294,7 +310,13 @@ class PaymentService:
         backed by real funds. The hub never signs on behalf of the buyer; without a
         pre-signed lock, no escrow is created.
         """
-        buyer = buyer_address or os.getenv("PAYMENT_BUYER_ADDRESS") or os.getenv("GENESIS_ADDRESS")
+        # G2: the buyer must be explicit. Never fall back to GENESIS_ADDRESS; in this
+        # environment GENESIS_ADDRESS is the legacy proposer/node wallet and using it
+        # as a buyer would create self-send escrow locks.
+        buyer = buyer_address or os.getenv("PAYMENT_BUYER_ADDRESS")
+        if not buyer:
+            logger.error("No buyer address for escrow: set payment_data.buyer_address or PAYMENT_BUYER_ADDRESS")
+            return None
         # G2: there is deliberately no fallback to the buyer here. The chain pays the
         # address named at escrow creation and no other -- rpc/escrow/{job_id}/release
         # settles to the contract's agent_address -- so an escrow whose payee is the
@@ -323,6 +345,12 @@ class PaymentService:
         if not buyer or not provider:
             logger.warning("No buyer or provider address available for escrow; skipping payment")
             return None
+
+        node_wallet = self._get_node_wallet_address()
+        if not node_wallet:
+            logger.warning("No node wallet configured for escrow lock; skipping payment")
+            return None
+
         if same_address(buyer, provider):
             logger.warning(
                 "Refusing escrow for job %s: the provider address is the buyer's own address (%s)",
@@ -330,9 +358,19 @@ class PaymentService:
                 provider,
             )
             return None
-
-        if not self._get_node_wallet_address():
-            logger.warning("No node wallet configured for escrow lock; skipping payment")
+        if same_address(buyer, node_wallet):
+            logger.error(
+                "Refusing escrow for job %s: buyer address %s is the node wallet",
+                payment.job_id,
+                buyer,
+            )
+            return None
+        if same_address(provider, node_wallet):
+            logger.error(
+                "Refusing escrow for job %s: provider address %s is the node wallet",
+                payment.job_id,
+                provider,
+            )
             return None
 
         try:
@@ -484,6 +522,16 @@ class PaymentService:
         logger.info("Payment %s disputed on job %s: %s", payment_id, job_id, reason)
         return True
 
+    def _get_receipt_of_record(self, job: Job | None) -> dict[str, Any] | None:
+        """Return the canonical receipt for a job.
+
+        The ``Job`` row's ``receipt`` JSON may lag the ``jobreceipt`` table (JSON
+        ``MutableDict`` does not always track in-place updates, and the row may be
+        written before ZK/TEE fields are added). Prefer ``JobReceipt.payload`` when a
+        ``receipt_id`` is present; fall back to the denormalised ``Job.receipt``.
+        """
+        return get_receipt_of_record(self.session, job)
+
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
         payment = self.session.get(JobPayment, payment_id)
@@ -508,26 +556,16 @@ class PaymentService:
                 JobState.completed.value,
             )
             return False
-        receipt = job.receipt if job else None
-        if receipt and receipt.get("computation_correct") is False:
+        receipt = self._get_receipt_of_record(job)
+        if not _computation_is_correct(receipt, job):
             logger.error(
-                "Escrow release blocked for job %s payment %s: computation_correct is False (zk_status=%s, tee_status=%s)",
+                "Escrow release blocked for job %s payment %s: computation not attested (zk_status=%s, computation_correct=%s)",
                 job_id,
                 payment_id,
-                receipt.get("zk_status"),
-                receipt.get("tee_status"),
+                receipt.get("zk_status") if receipt else None,
+                receipt.get("computation_correct") if receipt else None,
             )
             return False
-        if _zk_required_for_payment(payment.amount if payment.amount else None, job):
-            if not _computation_is_correct(receipt, job):
-                logger.error(
-                    "Escrow release blocked for job %s payment %s: verified ZK receipt proof with correct computation required (zk_status=%s, computation_correct=%s)",
-                    job_id,
-                    payment_id,
-                    receipt.get("zk_status") if receipt else None,
-                    receipt.get("computation_correct") if receipt else None,
-                )
-                return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0)
             try:
@@ -719,11 +757,11 @@ class PaymentService:
                 logger.info("Refunded payment %s for job %s", payment_id, job_id)
                 return True
             except NetworkError as e:
-                logger.error("Failed to refund payment: %s", e)
-                return False
+                logger.error("Failed to submit refund transaction: %s", e)
+                raise
         except Exception as e:
             logger.error("Error refunding payment: %s", e)
-            return False
+            raise
 
     def get_payment(self, client_id: str, payment_id: str) -> JobPayment | None:
         """Get payment by ID"""
