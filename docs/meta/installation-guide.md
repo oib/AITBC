@@ -80,5 +80,5 @@ source ~/.bashrc
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Usage Examples](./usage-examples.md) - Code examples and workflows
