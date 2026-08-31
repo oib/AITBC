@@ -8,6 +8,19 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from aitbc.network import SharedHttpClient
+
+
+def _money_str(value: Decimal | float | str | None) -> str:
+    """Return a fixed-point, no-exponent decimal string for money amounts."""
+    if value is None:
+        return ""
+    d = Decimal(str(value))
+    s = format(d, "f")
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s or "0"
+
+
 from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address_strict
 
@@ -348,18 +361,18 @@ async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
         "instructions": {
             "send_eth_to": bridge_eth_address,
             "network": os.getenv("ETH_NETWORK", "sepolia"),
-            "amount_eth": str(eth_amount),
+            "amount_eth": _money_str(eth_amount),
             "transaction_data": ait_address,
             "transaction_data_hex": transaction_data_hex,
-            "min_deposit": str(min_deposit),
+            "min_deposit": _money_str(min_deposit),
         },
         "estimate": {
-            "eth_amount": str(eth_amount),
-            "fee_eth": str(round(fee_eth, 8)),
-            "net_eth": str(round(net_eth, 8)),
-            "estimated_ait_amount": str(round(ait_amount, 6)),
-            "eth_usd_price": eth_usd_price,
-            "ait_usd_price": ait_usd_price,
+            "eth_amount": _money_str(eth_amount),
+            "fee_eth": _money_str(round(fee_eth, 8)),
+            "net_eth": _money_str(round(net_eth, 8)),
+            "estimated_ait_amount": _money_str(round(ait_amount, 6)),
+            "eth_usd_price": _money_str(eth_usd_price),
+            "ait_usd_price": _money_str(ait_usd_price),
             "ait_recipient": ait_address,
         },
     }
@@ -396,8 +409,8 @@ def _normalize_deposit(deposit: dict[str, Any]) -> dict[str, Any]:
         "id": deposit.get("id"),
         "eth_tx_hash": deposit.get("tx_hash"),
         "eth_from_address": deposit.get("from_address"),
-        "eth_amount": str(deposit.get("amount_eth", "")),
-        "ait_amount": str(deposit.get("amount_ait", "")),
+        "eth_amount": _money_str(deposit.get("amount_eth")),
+        "ait_amount": _money_str(deposit.get("amount_ait")),
         "ait_recipient": deposit.get("recipient") or "",
         "status": deposit.get("status"),
         "ait_tx_hash": deposit.get("ait_tx_hash"),
@@ -433,10 +446,10 @@ async def bridge_estimate(eth_amount: Decimal, ait_address: str) -> dict[str, An
     net_eth = eth_amount - fee_eth
 
     return {
-        "eth_amount": str(eth_amount),
-        "ait_amount": str(ait_amount),
-        "fee_eth": str(round(fee_eth, 8)),
-        "net_eth": str(round(net_eth, 8)),
+        "eth_amount": _money_str(eth_amount),
+        "ait_amount": _money_str(ait_amount),
+        "fee_eth": _money_str(round(fee_eth, 8)),
+        "net_eth": _money_str(round(net_eth, 8)),
         "ait_recipient": ait_address,
     }
 
@@ -487,13 +500,13 @@ async def bridge_withdraw_estimate(body: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "status": "ready",
-        "ait_amount": str(ait_amount),
+        "ait_amount": _money_str(ait_amount),
         "eth_address": eth_address,
-        "fee_ait": str(estimate["fee_ait"]),
-        "net_ait": str(estimate["net_ait"]),
-        "eth_amount": str(estimate["amount_eth"].quantize(Decimal("0.00000001"))),
-        "eth_usd_price": str(estimate["eth_usd"]),
-        "ait_usd_price": str(estimate["ait_usd"]),
+        "fee_ait": _money_str(estimate["fee_ait"]),
+        "net_ait": _money_str(estimate["net_ait"]),
+        "eth_amount": _money_str(estimate["amount_eth"].quantize(Decimal("0.00000001"))),
+        "eth_usd_price": _money_str(estimate["eth_usd"]),
+        "ait_usd_price": _money_str(estimate["ait_usd"]),
     }
 
 
@@ -567,10 +580,10 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
             "body": unsigned_tx,
         },
         "estimate": {
-            "ait_amount": str(ait_amount),
-            "fee_ait": str(estimate["fee_ait"]),
-            "net_ait": str(estimate["net_ait"]),
-            "eth_amount": str(estimate["amount_eth"].quantize(Decimal("0.00000001"))),
+            "ait_amount": _money_str(ait_amount),
+            "fee_ait": _money_str(estimate["fee_ait"]),
+            "net_ait": _money_str(estimate["net_ait"]),
+            "eth_amount": _money_str(estimate["amount_eth"].quantize(Decimal("0.00000001"))),
             "eth_address": eth_address,
         },
     }
@@ -619,7 +632,7 @@ async def bridge_get_withdraw(ait_tx_hash: str) -> dict[str, Any]:
                     "ait_tx_hash": ait_tx_hash,
                     "status": tx.get("status", "pending"),
                     "eth_address": (tx.get("payload") or {}).get("eth_address", ""),
-                    "amount_ait": str(units_to_ait(tx.get("value", 0))),
+                    "amount_ait": _money_str(units_to_ait(tx.get("value", 0))),
                     "eth_tx_hash": None,
                     "refund_tx_hash": None,
                     "monitor_status": "waiting",
@@ -652,10 +665,10 @@ def _normalize_withdrawal(withdrawal: dict[str, Any]) -> dict[str, Any]:
         "ait_tx_hash": withdrawal.get("ait_tx_hash"),
         "from_address": withdrawal.get("from_address"),
         "eth_address": withdrawal.get("eth_address"),
-        "ait_amount": str(withdrawal.get("amount_ait", "")),
-        "fee_ait": str(withdrawal.get("fee_ait", "")),
-        "net_ait": str(withdrawal.get("net_ait", "")),
-        "eth_amount": str(withdrawal.get("amount_eth", "")),
+        "ait_amount": _money_str(withdrawal.get("amount_ait")),
+        "fee_ait": _money_str(withdrawal.get("fee_ait")),
+        "net_ait": _money_str(withdrawal.get("net_ait")),
+        "eth_amount": _money_str(withdrawal.get("amount_eth")),
         "status": withdrawal.get("status"),
         "eth_tx_hash": withdrawal.get("eth_tx_hash"),
         "refund_tx_hash": withdrawal.get("refund_tx_hash"),
