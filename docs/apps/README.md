@@ -52,14 +52,8 @@ Source code lives under `apps/` in the repository. Each app has its own `README.
 
 These directories cover cross-cutting concerns rather than a single app:
 
-- [agents](agents/)
 - [blockchain](blockchain/)
-- [compliance](compliance/)
-- [coordinator](coordinator/)
-- [crypto](crypto/)
 - [explorer](explorer/)
-- [global-ai](global-ai/)
-- [infrastructure](infrastructure/)
 
 ## Notes
 
