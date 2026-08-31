@@ -256,7 +256,7 @@ These are the live-design verdicts that follow the economic-loop verification ab
 | Gap | Verdict | Notes |
 |---|---|---|
 | G3 — dispatch/acceptance-gate wiring | **LIVE** | `computation_correct` is wired and loaded; `aitbc-coordinator-api` on `hub.aitbc` was restarted and `/proc/<pid>/environ` confirms `BRIDGE_RELEASE_ENABLED=true`. A false value stamps `zk_status="computation_incorrect"` and `release_payment` fails closed before touching the blockchain client. |
-| G6 — settlement/trust-minimization | **PARTIALLY CLOSED** | The rotation process is now committed: `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. The two-validator stall that recurred on 2026-08-25 was recovered by fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. `PBFTConsensus` wiring and true BFT/fault tolerance remain open. |
+| G6 — settlement/trust-minimization | **PARTIALLY CLOSED (Option A live)** | MultiValidatorPoA now runs with four `0x`-format validators, all four private keys configured on `hub.aitbc`, `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`. Round-robin proposer rotation and cross-node sync were live-validated across blocks 1392-1399. A one-validator-down simulation (removed `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`) kept the chain advancing with the remaining three validators; the removed validator was then restored and the chain resumed four-validator round-robin. `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. The two-validator stall that recurred on 2026-08-25 was recovered by fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. `PBFTConsensus` wiring and true BFT/fault tolerance remain open. |
 | G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
 | Bridge — multi-sig/Merkle enforcement | **ENABLED, VALIDATORS REGISTERED** | `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc`, `aitbc3`, and `aitbc1`. `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, `require_merkle_proof: true`, `validators_configured: 2`, `validator_count: 2`, and `threshold: 2` on all three nodes. Two bridge validators are registered: the new hub proposer and the existing bridge-only key. No bridge transfers are pending after the 2026-08-27 reset; `bridge/health` shows `pending_transfer_count: 0` on all three nodes. T1/T9 were completed on 2026-08-31: `GENESIS_PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `BOND_SLASH_PRIVATE_KEY`, `ESCROW_RELEASE_PRIVATE_KEY`, and `PROPOSER_KEY` were replaced, balances were migrated, old bridge validators were inactivated, and logs/journal were cleared. |
 | G8 — doc debt | **CLOSED** | The `--show-deprecated` visibility gate is removed: `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py` are deleted, `main.py` no longer filters the help surface, and canonical top-level groups are visible. `aitbc market` and `aitbc governance` are canonical; `aitbc marketplace` and `aitbc operations` (including `operations marketplace` and `operations governance`) are deprecated. `test_cli_surface.py` covers the visibility and deprecation behavior. Legacy `marketplace` subcommands remain invocable for backward compatibility. |
@@ -287,3 +287,52 @@ transaction is sealed in a produced block. The 5 pending transfers remain
 pending; `aitbc bridge confirm` is not run without explicit authorization. The
 larger root cause — `PBFTConsensus` not wired into production and a
 `min-attestations=1` two-validator set being non-BFT — is still open.
+
+## T5 / G6 multi-validator fault-tolerance validation — 2026-08-31
+
+Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `hub.aitbc`, `aitbc1`, and `aitbc3`.
+
+### Validator set
+
+- Preserved proposer / validator-1: `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76` (also the bridge admin / proposer).
+- Generated three new extra validators on `hub.aitbc`:
+  - `0x241D3e44d42b6d4c270d0231780913f14386d90C`
+  - `0x65568673B3cf7D614Edd97a94b3Ff757246dAe22`
+  - `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`
+- `VALIDATOR_SET` (public) and `VALIDATOR_KEYS` (private) updated on `hub.aitbc`.
+- Followers `aitbc1` and `aitbc3` received the public `VALIDATOR_SET` and `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`; `VALIDATOR_KEYS={}` and `PBFT_CONSENSUS_ENABLED=false`.
+
+### Configuration changes
+
+- `max_empty_block_interval=60` on all three nodes so empty blocks produce every 60 s during the test.
+- `AUTO_SYNC_THRESHOLD=0` on `aitbc1` and `aitbc3` so the SyncManager bulk-pulls for any positive height gap (previously small gaps were only handled by gossip/subscription, which missed blocks on restart).
+- `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` (proposer + one attestation for the 4-validator set).
+
+### Validation results
+
+- Round-robin block production observed for heights 1392–1399 with four distinct proposers in order:
+  - 1392: `0x241D...`
+  - 1393: `0x6556...`
+  - 1394: `0xab07...`
+  - 1395: `0x241D...`
+  - 1396: `0x241D...` (same modulo index as 1392; not a bug)
+  - 1397: `0x4364...`
+  - 1398: `0x6556...`
+  - 1399: `0xab07...`
+- All three nodes converged to the same head height and hash at each check.
+
+### One-validator-down simulation
+
+1. Removed validator `0x43641ca248D38406c52CF1D6B235948DF27bfCF0` from the active set and restarted `aitbc-blockchain-node` on `hub.aitbc`.
+2. Chain continued producing blocks with the remaining three validators.
+3. Restored the removed validator from a backup and restarted.
+4. Chain resumed four-validator round-robin production.
+
+### Operational issues found
+
+- `aitbc-blockchain-rpc.service` can hang in `deactivating (stop-sigterm)`. During the test it failed to stop and the RPC port (8202) was not re-bound after `systemctl restart aitbc-blockchain-node.service`; the old `uvicorn aitbc_chain.app:app` process had to be killed with `kill -9` before the service could restart. A stale `aitbc_chain.main` process from 2026-08-27 (PIDs 612930/612932) was also still running and was killed.
+- Follower `aitbc1` initially missed the gossip push for block 1389 and, with the default `AUTO_SYNC_THRESHOLD=10`, did not bulk-pull small gaps, so it stayed one block behind until `AUTO_SYNC_THRESHOLD=0` was set. This suggests the SyncManager should bulk-pull any positive gap by default when no recent gossip block is received.
+
+### Remaining open work
+
+- `PBFTConsensus` is still not wired into production. The live setup is multi-key PoA, not BFT; a 4-validator `f=1` PBFT deployment would require four independent validator hosts and `MULTI_VALIDATOR_MIN_ATTESTATIONS=3` (or a full PBFT round). This remains an open architecture item.
