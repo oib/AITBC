@@ -9,7 +9,7 @@ This guide has been split into topic-focused files for easier navigation.
 
 ### Core Topics
 
-- **[Project Overview](./project-overview.md)** - What is AITBC, current status, completed features
+- **Project Overview** - What is AITBC, current status, completed features
 - **[Project Structure](./project-structure.md)** - Root directory organization and key directories
 - **[Architecture Overview](./architecture-overview.md)** - Ecosystem architecture and AI capabilities
 - **[Installation Guide](./installation-guide.md)** - System requirements and setup instructions
@@ -19,7 +19,7 @@ This guide has been split into topic-focused files for easier navigation.
 - **[Security](./security.md)** - Security features and audits
 - **[Ecosystem](./ecosystem.md)** - Components and community
 - **[Contributing](./contributing.md)** - Contribution guidelines and development workflow
-- **[Achievements](./achievements.md)** - Major achievements, real-world applications, performance metrics
+- **Achievements** - Major achievements, real-world applications, performance metrics
 - **[Support](./support.md)** - Getting help and contact information
 - **[Roadmap](./roadmap.md)** - Upcoming features and development phases
 
@@ -27,7 +27,7 @@ This guide has been split into topic-focused files for easier navigation.
 
 **For New Users:**
 
-1. Start with [Project Overview](./project-overview.md)
+1. Start with Project Overview
 2. Review [Installation Guide](./installation-guide.md)
 3. Check [Usage Examples](./usage-examples.md)
 
@@ -40,8 +40,8 @@ This guide has been split into topic-focused files for easier navigation.
 **For AI Agent Users:**
 
 1. See [agent Agent Usage](./agent-usage.md)
-2. Review [Project Overview](./project-overview.md)
-3. Check [Achievements](./achievements.md)
+2. Review Project Overview
+3. Check Achievements
 
 ---
 

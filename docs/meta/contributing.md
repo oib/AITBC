@@ -41,5 +41,5 @@ git push origin feature/amazing-feature
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Testing](./testing.md) - Test coverage and running tests
