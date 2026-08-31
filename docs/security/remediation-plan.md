@@ -372,7 +372,6 @@ The findings span:
 - [Threat Model](threat-model.md)
 - [Economic Analysis](economic-analysis.md)
 - [Security Architecture](2_security-architecture.md)
-- [Security Best Practices](../agent/blockchain/best-practices.md)
 
 ## Appendix: Finding Summary
 
