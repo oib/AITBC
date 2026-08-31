@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Job Submission with Payment Failure
 
 - **Previous Scenario**: [Scenario 24 Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
 - **Next Scenario**: [Scenario 26 GPU Marketplace N+1 Query Fix](./26_gpu_nplus1_query.md)
-- **Feature Documentation**: [Coordinator API Reference](../coordinator-api/README.md)
+- **Feature Documentation**: [Coordinator API Reference](../apps/coordinator-api/README.md)
 
 ---
 
@@ -115,7 +115,7 @@ journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep -i "Pa
 
 ## Related Resources
 
-- [Coordinator API Reference](../coordinator-api/README.md)
+- [Coordinator API Reference](../apps/coordinator-api/README.md)
 - [Next Scenario: GPU Marketplace N+1 Query Fix](./26_gpu_nplus1_query.md)
 
 ---
