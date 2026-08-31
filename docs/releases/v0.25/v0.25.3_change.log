@@ -79,6 +79,14 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 
 PBFT / true BFT across independent validator hosts remains open.
 
+## 2026-08-31 — RPC graceful-shutdown hang fixed (3c51aff86)
+
+- `gossip/broker.py`: `BroadcastGossipBackend._run_subscription` now polls Redis with `pubsub.get_message(timeout=0.5)` instead of blocking on `pubsub.listen()`, so cancelled tasks exit promptly and `aitbc-blockchain-rpc` no longer hangs in `deactivating (stop-sigterm)`.
+- `gossip/broker.py`: `BroadcastGossipBackend.shutdown` and `WebsocketGossipBackend.shutdown` cap task and websocket cleanup with `asyncio.wait_for`.
+- `app.py`: `lifespan` `finally` wraps `proposer.stop()`, `gossip_broker.shutdown()`, and `lease_tracker.stop()` in `asyncio.wait_for` with hard timeouts.
+- `aitbc-blockchain-rpc.service`: added `TimeoutStopSec=20` and `KillMode=mixed` as a hard ceiling.
+- Deployed on `hub.aitbc`, `aitbc3`, `aitbc1`, `hub2.aitbc`; `systemctl restart aitbc-blockchain-rpc` now completes in ~0.2s on all nodes.
+
 ## 2026-08-31 — Escrow and payment self-lock / node-wallet hardening (7b7a61108)
 
 - `payments.py`: remove `GENESIS_ADDRESS` fallback for the escrow buyer; a buyer must be explicit (`payment_data.buyer_address` or `PAYMENT_BUYER_ADDRESS`).
