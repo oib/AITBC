@@ -104,4 +104,3 @@ Key environment variables:
 - [GPU Resource Tracking Guide](./gpu-resources.md)
 - [Verification Guide](./verification.md)
 - [Troubleshooting Guide](./troubleshooting.md)
-- [Best Practices](./best-practices.md)

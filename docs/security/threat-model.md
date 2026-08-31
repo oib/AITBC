@@ -192,6 +192,5 @@ The AITBC platform consists of:
 ## Related Documents
 
 - [Security Architecture](2_security-architecture.md)
-- [Security Best Practices](../agent/blockchain/best-practices.md)
 - [Audit Findings](audit-findings.md)
 - [Economic Analysis](economic-analysis.md)
