@@ -190,4 +190,4 @@ This network policy supports:
 
 - [Systemd Security Hardening](../deployment/STAGING.md#systemd-hardening)
 - [Service Users](../deployment/SERVICE_USERS.md)
-- [Secret Management](../operations/SECRETS.md)
+- Secret Management
