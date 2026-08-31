@@ -323,6 +323,23 @@ class BlockchainNode:
                             import json
 
                             tx_data = json.loads(tx_data)
+                        if not isinstance(tx_data, dict):
+                            continue
+                        # Unwrap P2P-style transaction envelopes and drop control
+                        # messages (ping/pong) that may be delivered to the
+                        # transaction topic by generic websocket gossip clients.
+                        msg_type = tx_data.get("type")
+                        if msg_type == "new_transaction":
+                            tx_data = tx_data.get("tx") or {}
+                        elif msg_type in ("ping", "pong"):
+                            continue
+                        if not isinstance(tx_data, dict) or not tx_data.get("from"):
+                            logger.debug(
+                                "Ignoring non-transaction gossip message on %s: %s",
+                                getattr(tx_sub, "topic", "unknown"),
+                                tx_data,
+                            )
+                            continue
                         chain_id = tx_data.get("chain_id", settings.chain_id)
                         tx_data = normalize_transaction_data(tx_data, chain_id)
                         mempool.add(tx_data, chain_id=chain_id)
