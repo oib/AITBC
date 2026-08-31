@@ -73,7 +73,6 @@ This section documents the AITBC infrastructure components, runtime architecture
 
 ### Deployment Guides
 
-- [Codebase Update Summary](codebase-update-summary.md) - Service standardization
 - Multimodal Services Deployment - GPU services
 
 ## 🔒 Security Architecture
