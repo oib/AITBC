@@ -97,6 +97,8 @@ class MultiValidatorPoA:
         self._pbft_view: int = 0
         self._pbft_sequence: int = 0
 
+        self.load_state()
+
     def add_validator(self, address: str, stake: Decimal | float | str = Decimal("1000")) -> bool:
         """Add a new validator to the consensus"""
         if address in self.validators:
@@ -506,6 +508,20 @@ class MultiValidatorPoA:
                 logger.warning("Skipping unreadable slashing record %s: %s", record, e)
         return events
 
+    def _load_validator_set_from_settings(self) -> bool:
+        """Load validators from settings when no persisted state is available."""
+        import json
+
+        validator_set = getattr(settings, "validator_set", "")
+        if not validator_set:
+            return False
+        for v in json.loads(validator_set):
+            self.add_validator(v.get("address"), Decimal(str(v.get("stake", "1000"))))
+            if v.get("address") in self.validators:
+                self.validators[v["address"]].role = ValidatorRole.VALIDATOR
+                self.validators[v["address"]].is_active = True
+        return True
+
     def load_state(self) -> bool:
         """Load consensus state from DB on node startup."""
         import json
@@ -517,7 +533,7 @@ class MultiValidatorPoA:
             with session_scope(self.chain_id) as session:
                 row = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
                 if not row:
-                    return False
+                    return self._load_validator_set_from_settings()
                 self._pbft_view = row.current_view
                 self._pbft_sequence = row.current_sequence
                 self._current_epoch = row.current_epoch
@@ -544,7 +560,7 @@ class MultiValidatorPoA:
             return True
         except Exception as e:
             logger.error("Failed to load consensus state for %s: %s", self.chain_id, e)
-            return False
+            return self._load_validator_set_from_settings()
 
     # ─── B12: Consensus Metrics ───────────────────────────────────
 

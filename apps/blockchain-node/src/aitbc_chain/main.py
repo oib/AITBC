@@ -590,8 +590,8 @@ class BlockchainNode:
         production_chains_str = self._env_value(
             "AITBC_FORCE_BLOCK_PRODUCTION_CHAINS", "BLOCK_PRODUCTION_CHAINS", "block_production_chains"
         )
-        if production_chains_str is None:
-            production_chains_str = getattr(settings, "block_production_chains", ",".join(chains))
+        if not production_chains_str:
+            production_chains_str = settings.block_production_chains or ",".join(chains)
         production_chains = [c.strip() for c in production_chains_str.split(",") if c.strip()]
         for chain_id in chains:
             if chain_id not in production_chains:
