@@ -97,3 +97,11 @@ PBFT / true BFT across independent validator hosts remains open.
 - `escrow_routes.py`: propagate unexpected errors from `_submit_refund_tx`.
 - `client.py`, `miner.py`, `zk_refund_sweeper.py`: prefer the authoritative `JobReceipt` payload over the denormalised `Job.receipt` JSON.
 - `test_payments_refund.py` and `test_escrow_routes.py`: add regression tests for the new fail-closed and self-lock guards.
+
+## 2026-08-31 — Gossip transaction handler hardening (5f54f8cc4)
+
+- `apps/blockchain-node/src/aitbc_chain/main.py`: `process_txs` now ignores non-transaction messages on the websocket-gossip `transactions` topics.
+- It unwraps P2P-style `{"type": "new_transaction", "tx": {...}}` envelopes.
+- It skips `ping`/`pong` control messages and any payload missing `transaction.from`.
+- Invalid gossip messages are logged at `debug` instead of `error`, removing the repeated `transaction.from is required` log spam.
+- Deployed on `hub.aitbc`, `aitbc1`, `aitbc3`, `hub2.aitbc`.
