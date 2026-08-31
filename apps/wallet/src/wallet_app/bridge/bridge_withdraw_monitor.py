@@ -12,7 +12,7 @@ import asyncio
 import json
 import os
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from eth_account import Account as EthAccount
@@ -51,7 +51,7 @@ ETH_WITHDRAW_GAS = int(os.getenv("ETH_WITHDRAW_GAS", "100000"))
 ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
 
 _db_initialized = False
-_withdraw_polling_enabled = True
+_withdraw_polling_enabled: bool = True
 
 _NETWORK_CHAIN_IDS = {
     "mainnet": 1,
@@ -323,7 +323,7 @@ async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
     """Fetch recent confirmed BRIDGE_WITHDRAW transactions from the AITBC hub."""
     async with httpx.AsyncClient(timeout=10.0) as client:
         url = f"{BLOCKCHAIN_RPC_URL}/rpc/transactions"
-        params = {
+        params: dict[str, str | int] = {
             "transaction_type": "BRIDGE_WITHDRAW",
             "limit": 50,
         }
@@ -331,8 +331,10 @@ async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
         response.raise_for_status()
         data = response.json()
         if isinstance(data, dict):
-            return data.get("transactions", [])
-        return data
+            return cast(list[dict[str, Any]], data.get("transactions", []))
+        if isinstance(data, list):
+            return cast(list[dict[str, Any]], data)
+        return []
 
 
 async def poll_withdrawals_once() -> dict[str, Any]:
@@ -377,8 +379,7 @@ async def withdrawal_monitor_loop() -> None:
     while True:
         if not _withdraw_polling_enabled:
             logger.info("Withdrawal auto-poll disabled, sleeping")
-            while not _withdraw_polling_enabled:
-                await asyncio.sleep(1)
+            await asyncio.sleep(1)
             continue
 
         try:
@@ -390,7 +391,7 @@ async def withdrawal_monitor_loop() -> None:
 
         for _ in range(WITHDRAW_POLL_INTERVAL):
             if not _withdraw_polling_enabled:
-                break
+                break  # type: ignore[unreachable]
             await asyncio.sleep(1)
 
 
