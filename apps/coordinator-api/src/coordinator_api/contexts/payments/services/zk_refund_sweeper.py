@@ -27,7 +27,7 @@ from aitbc_shared import JobPayment
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
 from ..acceptance import PENDING_ACCEPTANCE, deadline_from
-from .payments import PaymentService, _computation_is_correct, _zk_required_for_payment
+from .payments import PaymentService, _computation_is_correct, _zk_required_for_payment, get_receipt_of_record
 
 logger = get_logger(__name__)
 
@@ -48,6 +48,11 @@ def zk_refund_sweeper_enabled() -> bool:
 def _zk_receipt_is_valid(receipt: dict[str, Any] | None, job: Job | None = None) -> bool:
     """Return True only when the stored receipt proves a correct computation."""
     return _computation_is_correct(receipt, job)
+
+
+def _get_canonical_receipt(session: Any, job: Job) -> dict[str, Any] | None:
+    """Return the authoritative receipt for a job, preferring JobReceipt over Job.receipt."""
+    return get_receipt_of_record(session, job)
 
 
 class ZkRefundSweeper:
@@ -97,7 +102,8 @@ class ZkRefundSweeper:
                     continue
             if not _zk_required_for_payment(payment.amount, job):
                 continue
-            if _zk_receipt_is_valid(job.receipt, job):
+            receipt = _get_canonical_receipt(session, job)
+            if _zk_receipt_is_valid(receipt, job):
                 continue
             out.append((job, payment))
         return out
