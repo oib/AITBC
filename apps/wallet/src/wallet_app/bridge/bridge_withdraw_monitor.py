@@ -325,7 +325,6 @@ async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
         url = f"{BLOCKCHAIN_RPC_URL}/rpc/transactions"
         params = {
             "transaction_type": "BRIDGE_WITHDRAW",
-            "status": "confirmed",
             "limit": 50,
         }
         response = await client.get(url, params=params)
