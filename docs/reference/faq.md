@@ -295,7 +295,7 @@ Yes, all data in transit is encrypted using TLS. Data at rest can be encrypted u
 
 ### How do I secure my installation?
 
-See the [Security Best Practices Guide](../agent/blockchain/best-practices.md) for comprehensive security recommendations.
+See the Security Best Practices Guide for comprehensive security recommendations.
 
 ### What should I do if I suspect a security breach?
 
@@ -337,7 +337,6 @@ See the Deployment Guide for detailed hardware recommendations.
 
 - [API Reference](../api/README.md)
 - Deployment Guide
-- [Security Best Practices](../agent/blockchain/best-practices.md)
 - Troubleshooting Guide
 - [GitHub Repository](https://github.com/oib/AITBC)
 - [Community Forum](https://community.aitbc.dev/)
