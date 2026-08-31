@@ -117,7 +117,6 @@ sqlite3 /var/lib/aitbc/blockchain.db "PRAGMA integrity_check;"
 
 If issues persist after troubleshooting:
 
-1. Check the [Architecture Notes](./architecture.md) for system design details
 2. Review [Best Practices](./best-practices.md) for recommended usage patterns
 3. Consult the main AITBC documentation for broader system issues
 4. Report issues with detailed logs and reproduction steps
