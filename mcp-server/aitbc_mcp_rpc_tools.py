@@ -419,6 +419,182 @@ def get_cross_chain_stats(
 
 
 # ---------------------------------------------------------------------------
+# ETH-AITBC bridge (wallet service)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_eth_bridge_status(
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the active ETH-AITBC bridge status and deposit address."""
+    return _http_read_tool(role, host, "wallet", "v1/bridge/status")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_eth_bridge_deposit_instructions(
+    eth_amount: Annotated[
+        Decimal,
+        Field(description="Amount of ETH to deposit.", gt=0),
+    ],
+    ait_address: Annotated[
+        str,
+        Field(description="AIT address that will receive minted AIT."),
+    ],
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get ETH-AITBC bridge deposit instructions and AIT estimate."""
+    body = {"eth_amount": str(eth_amount), "ait_address": ait_address}
+    return _json(_run_http(_host_for_role(role, host), "wallet", "v1/bridge/deposit", "POST", None, body))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def eth_bridge_withdraw_estimate(
+    ait_amount: Annotated[
+        Decimal,
+        Field(description="Amount of AIT to withdraw.", gt=0),
+    ],
+    eth_address: Annotated[
+        str,
+        Field(description="Destination Ethereum address."),
+    ],
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Estimate ETH payout for an AIT->ETH withdrawal."""
+    body = {"ait_amount": str(ait_amount), "eth_address": eth_address}
+    return _json(_run_http(_host_for_role(role, host), "wallet", "v1/bridge/withdraw/estimate", "POST", None, body))
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def eth_bridge_withdraw_build(
+    ait_amount: Annotated[
+        Decimal,
+        Field(description="Amount of AIT to withdraw.", gt=0),
+    ],
+    eth_address: Annotated[
+        str,
+        Field(description="Destination Ethereum address."),
+    ],
+    from_address: Annotated[
+        str,
+        Field(description="Source AIT address."),
+    ],
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Build an unsigned BRIDGE_WITHDRAW transaction for AIT->ETH."""
+    body = {
+        "ait_amount": str(ait_amount),
+        "eth_address": eth_address,
+        "from_address": from_address,
+    }
+    return _json(_run_http(_host_for_role(role, host), "wallet", "v1/bridge/withdraw/build", "POST", None, body))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def eth_bridge_withdraw_submit(
+    signed_tx: Annotated[
+        dict[str, Any],
+        Field(description="Signed BRIDGE_WITHDRAW transaction object."),
+    ],
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm execution of the destructive call."),
+    ] = False,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Submit a signed BRIDGE_WITHDRAW transaction to the AITBC chain."""
+    return _http_write_tool(role, host, "wallet", "v1/bridge/withdraw/submit", {"signed_tx": signed_tx}, dry_run, confirm)
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_eth_bridge_withdrawal(
+    ait_tx_hash: Annotated[
+        str,
+        Field(description="AIT withdrawal transaction hash."),
+    ],
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the status of an AIT->ETH withdrawal."""
+    return _http_read_tool(role, host, "wallet", f"v1/bridge/withdraw/{ait_tx_hash}")
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def list_eth_bridge_withdrawals(
+    status: Annotated[
+        str | None,
+        Field(description="Filter by status (pending, completed, refunded, failed)."),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(description="Maximum number of withdrawals to return.", gt=0),
+    ] = 50,
+    offset: Annotated[
+        int,
+        Field(description="Number of withdrawals to skip.", ge=0),
+    ] = 0,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """List AIT->ETH withdrawals tracked by the bridge wallet."""
+    params: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
+    if status:
+        params["status"] = status
+    return _http_read_tool(role, host, "wallet", "v1/bridge/withdrawals", params)
+
+
+# ---------------------------------------------------------------------------
 # GPU resources (continued)
 # ---------------------------------------------------------------------------
 

@@ -666,7 +666,8 @@ class PaymentService:
                 if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
                     escrow_not_found = True
                 else:
-                    logger.warning("Could not fetch escrow state for %s: %s", job_id, e)
+                    logger.error("Could not fetch escrow state for %s: %s", job_id, e)
+                    raise
 
             # H1: unbacked escrow guard. A payment row may be 'escrowed' but the
             # ESCROW_LOCK transaction was never persisted on-chain. No funds moved,
