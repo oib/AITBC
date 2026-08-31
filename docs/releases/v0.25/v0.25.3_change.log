@@ -113,3 +113,11 @@ PBFT / true BFT across independent validator hosts remains open.
 - It skips `ping`/`pong` control messages and any payload missing `transaction.from`.
 - Invalid gossip messages are logged at `debug` instead of `error`, removing the repeated `transaction.from is required` log spam.
 - Deployed on `hub.aitbc`, `aitbc1`, `aitbc3`, `hub2.aitbc`.
+
+## 2026-08-31 — Follower reset/resync and state-root validation re-enabled
+
+- `aitbc1` and `hub2.aitbc` were stopped, their existing `chain.db` files backed up, and replaced with the current `hub.aitbc` chain database.
+- `SYNC_STATE_ROOT_VALIDATION_ENABLED=true` was set in `/etc/aitbc/blockchain.env` on `aitbc1`, `aitbc3`, and `hub2.aitbc`.
+- `aitbc-blockchain-node` was restarted on all four nodes.
+- Verification: all four nodes (`hub.aitbc`, `aitbc1`, `aitbc3`, `hub2.aitbc`) converge at height **1545**, hash `0x8fb5dc60ec68f9cbcc3f871776a52e95fa31b6702adf0fdaab573a5fc562424c`, and block 1545 `state_root` `0x885f18922c1c09a0abeb16420df5b11b1f078ba96ac02bb47cf0a35ff33e8975`.
+- No `state_root` mismatch or `BLOCK REJECTED` entries in the last two minutes of logs on any node.
