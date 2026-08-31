@@ -104,7 +104,15 @@ class PBFTConsensus:
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
         self.fault_tolerance = max(1, len(consensus.get_consensus_participants()) // 3)
-        self.required_messages = 2 * self.fault_tolerance + 1
+        # Allow the configured attestation minimum to temporarily lower the PBFT
+        # quorum for rollout/validation, but never below the proposer plus one
+        # other validator (2 messages) and never above the BFT threshold.
+        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+        base_required = 2 * self.fault_tolerance + 1
+        if min_attestations and min_attestations > 0:
+            self.required_messages = max(2, min(base_required, min_attestations + 1))
+        else:
+            self.required_messages = base_required
         self._on_execute: Any = None
 
     def get_message_digest(self, block_hash: str, sequence: int, view: int) -> str:
@@ -538,7 +546,12 @@ class PBFTConsensus:
         """H4: dynamically recalculate fault tolerance from the current validator set."""
         participants = self.consensus.get_consensus_participants()
         self.fault_tolerance = max(1, len(participants) // 3)
-        self.required_messages = 2 * self.fault_tolerance + 1
+        base_required = 2 * self.fault_tolerance + 1
+        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+        if min_attestations and min_attestations > 0:
+            self.required_messages = max(2, min(base_required, min_attestations + 1))
+        else:
+            self.required_messages = base_required
 
     def _start_consensus_timer(self) -> None:
         """H6: start the consensus (view change) timer with exponential backoff."""
