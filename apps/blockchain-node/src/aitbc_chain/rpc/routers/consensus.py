@@ -40,6 +40,12 @@ async def consensus_status_route(chain_id: str = "ait-hub") -> dict[str, Any]:
                 "chain_id": chain_id,
             }
         fault_tolerance = max(1, len(participants) // 3)
+        base_required = 2 * fault_tolerance + 1
+        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+        if min_attestations and min_attestations > 0:
+            required_messages = max(2, min(base_required, min_attestations + 1))
+        else:
+            required_messages = base_required
         return {
             "mode": "MultiValidatorPoA + PBFT",
             "multi_validator_enabled": True,
@@ -48,7 +54,7 @@ async def consensus_status_route(chain_id: str = "ait-hub") -> dict[str, Any]:
             "current_sequence": consensus._pbft_sequence,
             "current_epoch": consensus._current_epoch,
             "fault_tolerance": fault_tolerance,
-            "required_messages": 2 * fault_tolerance + 1,
+            "required_messages": required_messages,
             "active_validators": len(participants),
             "total_validators": len(consensus.validators),
         }
