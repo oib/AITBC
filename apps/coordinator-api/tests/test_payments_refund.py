@@ -98,7 +98,7 @@ class TestPaymentServiceRefund:
         assert mock_client.get.call_count == 2
         mock_client.get.assert_any_call("http://localhost:8202/rpc/escrow/job-refund-1")
         mock_client.get.assert_any_call(
-            "http://localhost:8202/transactions?transaction_type=ESCROW_REFUND&job_id=job-refund-1&limit=10"
+            "http://localhost:8202/rpc/transactions?transaction_type=ESCROW_REFUND&job_id=job-refund-1&limit=10"
         )
         mock_client.post.assert_not_called()
 
@@ -224,7 +224,7 @@ class TestPaymentServiceRefund:
         assert mock_client.get.call_count == 2
         mock_client.get.assert_any_call(f"http://localhost:8202/rpc/escrow/{job_id}")
         mock_client.get.assert_any_call(
-            f"http://localhost:8202/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10"
+            f"http://localhost:8202/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10"
         )
         mock_client.post.assert_not_called()
         refreshed = payment_session.get(JobPayment, payment_id)
