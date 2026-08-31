@@ -46,19 +46,13 @@ PIPEFAIL = re.compile(r"^\s*set\s+[-\w\s]*\bpipefail\b", re.M)
 # caller's shell, which is not this check's business.
 SKIP_SUFFIXES = (".bashrc", ".profile", ".env")
 
-# The same reasoning, for a whole directory the suffix rule cannot see. Every file in
-# `tests/orchestrator.d/` is a per-story include (ABS-215) `source`d by
-# `tests/tooling/test-orchestrator.sh` into the live harness -- each says so in its own
-# header, none of the 61 has strict mode, and adding it to one would switch `-u` on for
-# every fragment sourced after it. That is precisely the wholesale flip V23-23 said not to
-# do, arriving one file at a time through a check meant to prevent it.
-#
-# V23-99 adds the second on identical reasoning. `scripts/service-management/lib/services.sh`
-# is the canonical service list, `source`d by diagnose-, fix-, run-local- and stop-services.
-# It declares AITBC_SERVICES and AITBC_SERVICE_PORTS and defines one helper; it has no main
-# body to protect. Putting `set -euo pipefail` in it would switch strict mode on inside four
-# callers that never asked for it, which is the wholesale flip this check exists to prevent.
-SKIP_DIRS = ("tests/orchestrator.d", "scripts/service-management/lib")
+# The same reasoning, for a whole directory the suffix rule cannot see.
+# V23-99. `scripts/service-management/lib/services.sh` is the canonical service list,
+# `source`d by diagnose-, fix-, run-local- and stop-services. It declares AITBC_SERVICES
+# and AITBC_SERVICE_PORTS and defines one helper; it has no main body to protect. Putting
+# `set -euo pipefail` in it would switch strict mode on inside four callers that never
+# asked for it, which is the wholesale flip V23-23 said not to do.
+SKIP_DIRS = ("scripts/service-management/lib",)
 
 # Scripts whose omission is a deliberate, documented design decision rather than an
 # oversight. Each is exempt from the *specific* settings named, and nothing else -- an
