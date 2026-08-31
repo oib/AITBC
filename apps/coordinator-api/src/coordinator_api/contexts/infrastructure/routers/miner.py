@@ -543,7 +543,7 @@ async def submit_result(
                     job.payment_status = "refunded"
                 await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
                 success = False
-            elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
+            elif not _computation_is_correct(receipt, job):
                 zk_status = (receipt or {}).get("zk_status")
                 job.error = f"ZK proof required before escrow release (status: {zk_status})"
                 session.commit()

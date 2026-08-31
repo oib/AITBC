@@ -24,6 +24,7 @@ from ....config import settings
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 from aitbc.utils.validation import validate_address
+from ....custom_types import JobState
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 from ...infrastructure.domain.job import Job
@@ -60,34 +61,36 @@ def _parse_settled_at(value: object) -> datetime | None:
 
 
 async def _lookup_chain_refund(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
-    """Return the on-chain ESCROW_REFUND tx hash for job_id, if one exists."""
-    try:
-        # The RPC client declares a dict return, but /transactions returns a list.
-        txs: Any = await client.get(
-            f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
-        )
-        if isinstance(txs, list):
-            for tx in txs:
-                if (tx.get("payload") or {}).get("job_id") == job_id:
-                    tx_hash = tx.get("tx_hash")
-                    return str(tx_hash) if tx_hash is not None else None
-    except Exception as e:
-        logger.warning("Failed to look up on-chain refund for %s: %s", job_id, e)
+    """Return the on-chain ESCROW_REFUND tx hash for job_id, if one exists.
+
+    Raises on transport or non-2xx responses so callers do not mistake
+    "could not tell" for "does not exist".
+    """
+    # The RPC client declares a dict return, but /transactions returns a list.
+    txs: Any = await client.get(
+        f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
+    )
+    if isinstance(txs, list):
+        for tx in txs:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                tx_hash = tx.get("tx_hash")
+                return str(tx_hash) if tx_hash is not None else None
     return None
 
 
 async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> str | None:
-    """Return the on-chain ESCROW_LOCK tx hash for job_id, if one exists."""
-    try:
-        # The RPC client declares a dict return, but /transactions returns a list.
-        txs: Any = await client.get(f"{blockchain_rpc_url}/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10")
-        if isinstance(txs, list):
-            for tx in txs:
-                if (tx.get("payload") or {}).get("job_id") == job_id:
-                    tx_hash = tx.get("tx_hash")
-                    return str(tx_hash) if tx_hash is not None else None
-    except Exception as e:
-        logger.warning("Failed to look up on-chain lock for %s: %s", job_id, e)
+    """Return the on-chain ESCROW_LOCK tx hash for job_id, if one exists.
+
+    Raises on transport or non-2xx responses so callers do not mistake
+    "could not tell" for "does not exist".
+    """
+    # The RPC client declares a dict return, but /transactions returns a list.
+    txs: Any = await client.get(f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10")
+    if isinstance(txs, list):
+        for tx in txs:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                tx_hash = tx.get("tx_hash")
+                return str(tx_hash) if tx_hash is not None else None
     return None
 
 
@@ -493,8 +496,29 @@ class PaymentService:
         if payment.status not in HELD_STATES:
             return False
         job = self.session.get(Job, job_id)
+        if job is None:
+            logger.error("Escrow release blocked for job %s: job not found", job_id)
+            return False
+        if job.state != JobState.completed.value:
+            logger.error(
+                "Escrow release blocked for job %s payment %s: job state is %s, expected %s",
+                job_id,
+                payment_id,
+                job.state,
+                JobState.completed.value,
+            )
+            return False
+        receipt = job.receipt if job else None
+        if receipt and receipt.get("computation_correct") is False:
+            logger.error(
+                "Escrow release blocked for job %s payment %s: computation_correct is False (zk_status=%s, tee_status=%s)",
+                job_id,
+                payment_id,
+                receipt.get("zk_status"),
+                receipt.get("tee_status"),
+            )
+            return False
         if _zk_required_for_payment(payment.amount if payment.amount else None, job):
-            receipt = job.receipt if job else None
             if not _computation_is_correct(receipt, job):
                 logger.error(
                     "Escrow release blocked for job %s payment %s: verified ZK receipt proof with correct computation required (zk_status=%s, computation_correct=%s)",
@@ -611,7 +635,12 @@ class PaymentService:
             # so the safe recovery is to mark it refunded and stop retrying.
             # The correct check is whether an ESCROW_LOCK tx exists on-chain, not
             # whether the payment has been released (transaction_hash is a release hash).
-            if escrow_not_found and not await _lookup_chain_lock(self.blockchain_rpc_url, client, job_id):
+            # Only run this for held states; a 'pending' payment has no lock by construction.
+            if (
+                payment.status in HELD_STATES
+                and escrow_not_found
+                and not await _lookup_chain_lock(self.blockchain_rpc_url, client, job_id)
+            ):
                 logger.warning(
                     "Escrow for job %s not found on-chain and payment %s has no lock tx; "
                     "treating as unbacked escrow and marking refunded",
