@@ -114,7 +114,7 @@ curl -sv -X POST http://your-domain.com/rpc/transactions/marketplace \
 # Should show: HTTP/1.1 308 Permanent Redirect
 ```
 
-See [nginx-setup.md](nginx-setup.md#critical-httphttps-redirect-must-preserve-post-method) for full details.
+See the nginx setup runbook in operational scratch for full details.
 
 ---
 
