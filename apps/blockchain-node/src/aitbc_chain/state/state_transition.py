@@ -72,6 +72,15 @@ def _is_bond_burn(address: str) -> bool:
     return canonical_address(address) == _BOND_BURN_ADDRESS
 
 
+def _is_valid_0x_address(address: str) -> bool:
+    """Return True if ``address`` is a canonical 42-character 0x address."""
+    try:
+        normalized = canonical_address(address)
+    except Exception:
+        return False
+    return normalized.startswith("0x") and len(normalized) == 42
+
+
 def _ensure_account(session: Session, chain_id: str, address: str) -> Account:
     ait_addr = _to_ait_address(address)
     account = session.get(Account, (chain_id, ait_addr))
@@ -192,6 +201,15 @@ class StateTransition:
             if sender_account.balance < total_cost:
                 return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
             return (True, "Pre-registered bridge lock validated")
+        if tx_type == "BRIDGE_WITHDRAW":
+            # User-signed burn of AIT in exchange for an off-chain ETH release.
+            # The payload must contain a valid Ethereum destination address.
+            payload = tx_data.get("payload") or {}
+            eth_address = payload.get("eth_address", "")
+            if not eth_address or not _is_valid_0x_address(eth_address):
+                return (False, "BRIDGE_WITHDRAW payload must contain a valid 0x eth_address")
+            if value <= 0:
+                return (False, "BRIDGE_WITHDRAW must have a positive value")
         signature = tx_data.get("signature")
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
@@ -212,7 +230,7 @@ class StateTransition:
         if sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
-        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE", "BRIDGE_LOCK"}:
+        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE", "BRIDGE_LOCK", "BRIDGE_WITHDRAW"}:
             recipient_account = session.get(Account, (chain_id, recipient_addr))
             if not recipient_account:
                 return (False, f"Recipient account not found: {recipient_addr}")
@@ -325,6 +343,32 @@ class StateTransition:
                 sender_addr,
                 value,
                 fee,
+            )
+            return (True, "Transaction applied successfully")
+        if tx_type == "BRIDGE_WITHDRAW":
+            # Burn AIT from the sender and increase the nonce. The off-chain
+            # bridge monitor is responsible for releasing ETH to payload.eth_address.
+            _ensure_account(session, chain_id, sender_addr)
+            total_cost = value + fee
+            logger.info("Bridge withdraw: %s -= %s, nonce += 1", sender_addr, total_cost)
+            session.execute(
+                text(
+                    "UPDATE account SET balance = balance - :total_cost, nonce = nonce + 1 WHERE chain_id = :chain_id AND address = :sender_addr"
+                ),
+                {"total_cost": total_cost, "chain_id": chain_id, "sender_addr": sender_addr},
+            )
+            self._processed_tx_hashes.add(tx_hash)
+            if _cache and _cache.is_available():
+                _cache.delete(f"account_balance:{chain_id}:{sender_addr.lower()}")
+                _cache.delete(f"account_details:{chain_id}:{sender_addr.lower()}")
+            logger.info(
+                "Applied %s transaction %s: %s, value=%s, fee=%s, eth_address=%s",
+                tx_type,
+                tx_hash,
+                sender_addr,
+                value,
+                fee,
+                (tx_data.get("payload") or {}).get("eth_address"),
             )
             return (True, "Transaction applied successfully")
         sender_account = session.get(Account, (chain_id, sender_addr))

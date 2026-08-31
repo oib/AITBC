@@ -1412,6 +1412,321 @@
         }
       }
     },
+    "/v1/bridge/withdraw/estimate": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Withdraw Estimate",
+        "description": "Estimate the ETH amount for a given AIT withdrawal.",
+        "operationId": "bridge_withdraw_estimate_v1_bridge_withdraw_estimate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Withdraw Estimate V1 Bridge Withdraw Estimate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ait_amount must be a number / ait_amount must be positive / eth_address is required / Invalid eth_address: {exc} / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Failed to calculate ETH amount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/withdraw/build": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Withdraw Build",
+        "description": "Build an unsigned BRIDGE_WITHDRAW transaction for the caller to sign.",
+        "operationId": "bridge_withdraw_build_v1_bridge_withdraw_build_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Withdraw Build V1 Bridge Withdraw Build Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ait_amount must be a number / ait_amount must be positive / eth_address is required / Invalid eth_address: {exc} / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Failed to calculate ETH amount / Could not fetch account nonce: {exc}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/withdraw/submit": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Withdraw Submit",
+        "description": "Relay a signed BRIDGE_WITHDRAW transaction to the AITBC blockchain.",
+        "operationId": "bridge_withdraw_submit_v1_bridge_withdraw_submit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Withdraw Submit V1 Bridge Withdraw Submit Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "signed_tx is required / Failed to submit transaction: {exc}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/withdraw/{ait_tx_hash}": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Get Withdraw",
+        "description": "Get the status of an AIT->ETH withdrawal.",
+        "operationId": "bridge_get_withdraw_v1_bridge_withdraw__ait_tx_hash__get",
+        "parameters": [
+          {
+            "name": "ait_tx_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ait Tx Hash"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Get Withdraw V1 Bridge Withdraw  Ait Tx Hash  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Withdrawal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/withdrawals": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge List Withdrawals",
+        "description": "List AIT->ETH withdrawals.",
+        "operationId": "bridge_list_withdrawals_v1_bridge_withdrawals_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge List Withdrawals V1 Bridge Withdrawals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/exchange/price.json": {
       "get": {
         "tags": [
