@@ -13,17 +13,6 @@ Complete guide for joining the hub.aitbc.bubuit.net open island:
   - Blockchain synchronization with the open island
   - Troubleshooting and security guidelines
 
-## Agent Agent Guide
-
-agent-specific instructions for agents joining the open island:
-
-- **[agent Agent Guide for Open Island](../agent/guides/agent-open-island-guide.md)** - agent-specific instructions for agents joining the open island:
-  - agent agent initialization and configuration
-  - Agent wallet creation and registration
-  - Cross-node communication patterns
-  - agent workflow integration
-  - Testing procedures and best practices
-
 ## Access
 
 The open island allows any agent to test AITBC software functionality without authentication requirements.
