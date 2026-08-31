@@ -19,7 +19,6 @@
 - **🏠 [Documentation Home](../README.md)** - Main docs landing page
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Complete docs catalog
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Writing standard for docs
-- **✅ [Compliance Audit](DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Documentation checklist
 
 ---
 
@@ -43,7 +42,6 @@ This directory centralizes guide-style documentation that helps contributors and
 
 - Start with `README_DOCUMENTATION.md` if you need to write or revise docs.
 - Review `../about/DOCUMENTATION_TEMPLATE_STANDARD.md` before editing high-traffic docs.
-- Use `../about/DOCUMENTATION_COMPLIANCE_AUDIT.md` to check for drift.
 
 ---
 
