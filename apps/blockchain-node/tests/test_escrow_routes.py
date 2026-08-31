@@ -260,3 +260,121 @@ async def test_find_existing_release_filters_server_side(monkeypatch):
     url = mock_get.call_args.args[0]
     assert "job_id=job-123" in url
     assert "transaction_type=ESCROW_RELEASE" in url
+
+
+def test_build_lock_tx_rejects_node_wallet_as_provider(monkeypatch):
+    """A lock whose provider is the node wallet would pay the operator, not a miner."""
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x1111111111111111111111111111111111111111")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+    with pytest.raises(ValueError, match="provider"):
+        escrow_routes._build_lock_tx(
+            job_id="job-123",
+            buyer="0x2222222222222222222222222222222222222222",
+            provider="0x1111111111111111111111111111111111111111",
+            amount_dec=Decimal("1.0"),
+            nonce=0,
+        )
+
+
+@pytest.mark.asyncio
+async def test_submit_payment_tx_refuses_unresolvable_provider(release_key, monkeypatch):
+    """A release whose provider cannot be resolved must not fall back to the node wallet."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+
+    with (
+        patch.object(escrow_routes, "_create_account_if_missing", new_callable=AsyncMock, return_value=True),
+        patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        tx_hash = await escrow_routes._submit_payment_tx(
+            buyer="0x4444444444444444444444444444444444444444",
+            provider="0x3333333333333333333333333333333333333333",
+            amount=Decimal("1.0"),
+            job_id="job-123",
+            contract_id="contract-123",
+        )
+
+    assert tx_hash is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_submit_refund_tx_refuses_node_wallet_buyer(release_key, monkeypatch):
+    """Refunding the node wallet is a custody bug and must be refused."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x1111111111111111111111111111111111111111")
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+
+    tx_hash = await escrow_routes._submit_refund_tx(
+        buyer="0x1111111111111111111111111111111111111111",
+        provider="0x2222222222222222222222222222222222222222",
+        amount=Decimal("1.0"),
+        job_id="job-123",
+        contract_id="contract-123",
+    )
+
+    assert tx_hash is None
+
+
+@pytest.mark.asyncio
+async def test_submit_refund_tx_refuses_unresolvable_buyer(release_key, monkeypatch):
+    """A refund whose buyer cannot be resolved must not be submitted."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x1111111111111111111111111111111111111111")
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+
+    with patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock, return_value=None):
+        tx_hash = await escrow_routes._submit_refund_tx(
+            buyer="0x3333333333333333333333333333333333333333",
+            provider="0x2222222222222222222222222222222222222222",
+            amount=Decimal("1.0"),
+            job_id="job-123",
+            contract_id="contract-123",
+        )
+
+    assert tx_hash is None
+
+
+@pytest.mark.asyncio
+async def test_submit_refund_tx_re_raises_on_submission_failure(release_key, monkeypatch):
+    """A transport or unexpected failure during refund submission must propagate, not be swallowed."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x1111111111111111111111111111111111111111")
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+
+    with (
+        patch.object(escrow_routes, "_create_account_if_missing", new_callable=AsyncMock, return_value=True),
+        patch.object(escrow_routes, "_find_existing_refund", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=AsyncMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=5),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=RuntimeError("RPC down")),
+    ):
+        with pytest.raises(RuntimeError, match="RPC down"):
+            await escrow_routes._submit_refund_tx(
+                buyer="0x3333333333333333333333333333333333333333",
+                provider="0x2222222222222222222222222222222222222222",
+                amount=Decimal("1.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
