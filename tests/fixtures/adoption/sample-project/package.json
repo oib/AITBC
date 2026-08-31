@@ -1,9 +1,0 @@
-{
-  "name": "sample-project",
-  "version": "1.2.3",
-  "private": true,
-  "scripts": {
-    "build": "echo build",
-    "test": "echo test"
-  }
-}
