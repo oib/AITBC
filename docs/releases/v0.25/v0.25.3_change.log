@@ -38,3 +38,15 @@ This release completes the SyncManager work that was left open in `v0.25.2`: con
 - `pytest apps/blockchain-node/tests/test_sync_manager.py apps/blockchain-node/tests/test_sync.py` passes.
 - A stopped follower with a non-zero gap catches up automatically after restart.
 - When enabled, `curl http://<node>:8204/sync/status` returns per-chain sync state.
+
+## 2026-08-31 — Key rotation and bridge re-registration
+
+As part of the authorized T1/T9 work, the live keys on `hub.aitbc`, `aitbc1`, and `aitbc3` were rotated:
+
+- `GENESIS_PRIVATE_KEY` / `GENESIS_WALLET_PRIVATE_KEY` / `BOND_SLASH_PRIVATE_KEY` / `ESCROW_RELEASE_PRIVATE_KEY` / `PROPOSER_KEY` replaced with fresh secp256k1 keys.
+- Old account balances were transferred to the new addresses on `ait-hub.aitbc.bubuit.net`.
+- All three nodes were updated to use the new proposer (`0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76`) for `PROPOSER_ID` and `BRIDGE_ADMIN_ADDRESSES`.
+- The old proposer bridge validator (`0xFe2d63...`) was set to `is_active=0` in the bridge validator DB on all three nodes.
+- Blockchain services were restarted; followers re-synced to the hub height.
+- Two bridge validators (new proposer + existing bridge-only key) were re-registered on all three nodes; `validator_count: 2` and `threshold: 2` confirmed.
+- Auth logs, systemd journals, shell histories, and old env-file backups were cleared to remove exposed key material.
