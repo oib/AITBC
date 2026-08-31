@@ -62,3 +62,19 @@ As part of the authorized T1/T9 work, the live keys on `hub.aitbc`, `aitbc1`, an
 - Live smoke test on `hub.aitbc`:
   - `llama3.2:3b` with TEE attestation released successfully (`payment_status=released`, tx `0x1c632b85...`).
   - `linear-1` with ZK + TEE attestation released successfully (`zk_status=verified` with a Groth16 proof, `payment_status=released`).
+
+## 2026-08-31 — T5 / G6 multi-validator PoA fault-tolerance validation
+
+Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `hub.aitbc`, `aitbc1`, and `aitbc3`:
+
+- Preserved proposer / validator-1: `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76`.
+- Generated three new validators on `hub.aitbc`:
+  - `0x241D3e44d42b6d4c270d0231780913f14386d90C`
+  - `0x65568673B3cf7D614Edd97a94b3Ff757246dAe22`
+  - `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`
+- Live configuration: `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`, `max_empty_block_interval=60`; followers `aitbc1`/`aitbc3` use `AUTO_SYNC_THRESHOLD=0` to force bulk pull for any gap.
+- Round-robin proposer rotation verified for blocks 1392–1399 with four distinct proposers.
+- One-validator-down simulation: removed `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`; chain continued with the remaining three validators (heights 1393–1395); restored and resumed four-validator round-robin.
+- Operational findings: `aitbc-blockchain-rpc` can hang in `deactivating (stop-sigterm)`, a stale `aitbc_chain.main` process remained from 2026-08-27, and `AUTO_SYNC_THRESHOLD=0` is required to force SyncManager bulk pull for small gaps.
+
+PBFT / true BFT across independent validator hosts remains open.
