@@ -193,19 +193,34 @@ class BroadcastGossipBackend(GossipBackend):
 
             logger = get_logger(__name__)
             logger.info("[BROKER SUB] Starting redis subscription for topic: %s", topic)
+            sub_redis: Any = None
+            pubsub: Any = None
             try:
                 import redis.asyncio as aioredis
 
-                # Use a dedicated connection with no socket timeout for pubsub
-                # (listen() blocks indefinitely waiting for messages)
-                sub_redis = aioredis.Redis.from_url(self._url, socket_timeout=None, socket_connect_timeout=5)
+                # Use a dedicated connection with a short read timeout for pubsub.
+                # A blocking listen() cannot be interrupted by task.cancel() until a
+                # message arrives, so we poll with get_message(timeout=0.5) instead.
+                # This makes shutdown responsive and prevents 60-90s systemd stop hangs.
+                sub_redis = aioredis.Redis.from_url(
+                    self._url,
+                    socket_timeout=None,
+                    socket_connect_timeout=5,
+                )
                 pubsub = sub_redis.pubsub()
                 await pubsub.subscribe(topic)
                 logger.info("[BROKER SUB] Successfully subscribed to redis topic: %s", topic)
-                async for message in pubsub.listen():
+                while not stop_event.is_set():
+                    try:
+                        message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
+                    except asyncio.CancelledError:
+                        logger.info("[BROKER SUB] Subscription cancelled for topic: %s", topic)
+                        break
                     if stop_event.is_set():
                         logger.info("[BROKER SUB] Stop event set for topic: %s", topic)
                         break
+                    if message is None:
+                        continue
                     if message["type"] != "message":
                         continue
                     logger.info("[BROKER SUB] Received message from redis for topic %s", topic)
@@ -214,12 +229,21 @@ class BroadcastGossipBackend(GossipBackend):
                             await queue.put(decoded)
                             _set_queue_gauge(topic, queue.qsize())
                     except asyncio.CancelledError:
-                        logger.warning("[BROKER SUB] Subscription cancelled for topic: %s", topic)
+                        logger.warning("[BROKER SUB] Decode/queue cancelled for topic: %s", topic)
                         break
-                await pubsub.aclose()
-                await sub_redis.aclose()
             except Exception as e:
                 logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
+            finally:
+                try:
+                    if pubsub is not None:
+                        await pubsub.aclose()
+                except Exception:
+                    pass
+                try:
+                    if sub_redis is not None:
+                        await sub_redis.aclose()
+                except Exception:
+                    pass
             logger.info("[BROKER SUB] Redis subscription ended for topic: %s", topic)
 
         task = create_task_with_logging(_run_subscription(), name=f"broadcast-sub:{topic}")
@@ -242,17 +266,30 @@ class BroadcastGossipBackend(GossipBackend):
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
     async def shutdown(self) -> None:
+        from aitbc.aitbc_logging import get_logger
+
+        logger = get_logger(__name__)
+        self._running = False
         async with self._lock:
             tasks = list(self._tasks)
             self._tasks.clear()
             metrics_registry.set_gauge("gossip_broadcast_subscribers_total", 0.0)
         for task in tasks:
             task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-        if self._running and self._redis:
-            await self._redis.aclose()
-            self._running = False
+            try:
+                # The get_message(timeout=0.5) loop in _run_subscription should
+                # respond to cancellation within one timeout, but cap the wait
+                # so the RPC process can exit even if a Redis read is stuck.
+                await asyncio.wait_for(task, timeout=2.0)
+            except asyncio.TimeoutError:
+                logger.warning("Broadcast subscription task did not stop in time")
+            except asyncio.CancelledError:
+                pass
+        if self._redis:
+            try:
+                await self._redis.aclose()
+            except Exception as e:
+                logger.warning("Failed to close broadcast redis connection: %s", e)
 
 
 class WebsocketGossipBackend(GossipBackend):
@@ -437,11 +474,13 @@ class WebsocketGossipBackend(GossipBackend):
         task = self._readers.pop(topic, None)
         if ws:
             with suppress(Exception):
-                await ws.close()
+                await ws.close(close_timeout=2.0)
         if task and task is not asyncio.current_task():
             task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
+            try:
+                await asyncio.wait_for(task, timeout=2.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
 
     def _schedule_reconnect(self, topic: str) -> None:
         from aitbc.aitbc_logging import get_logger
@@ -565,7 +604,18 @@ class WebsocketGossipBackend(GossipBackend):
         self._running = False
         topics = list(self._websockets.keys())
         for topic in topics:
-            await self._cleanup(topic)
+            try:
+                await asyncio.wait_for(self._cleanup(topic), timeout=5.0)
+            except asyncio.TimeoutError:
+                from aitbc.aitbc_logging import get_logger
+
+                logger = get_logger(__name__)
+                logger.warning("WebSocket cleanup for %s timed out; leaving connection", topic)
+            except Exception as e:
+                from aitbc.aitbc_logging import get_logger
+
+                logger = get_logger(__name__)
+                logger.warning("WebSocket cleanup for %s raised: %s", topic, e)
 
 
 class GossipBroker:
