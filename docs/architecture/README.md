@@ -20,7 +20,6 @@ This directory contains comprehensive architecture documentation for the AITBC p
 
 - **[edge_gpu_setup.md](./edge_gpu_setup.md)** - Edge computing and GPU setup architecture
 - **[money-types-and-the-signature-boundary.md](./money-types-and-the-signature-boundary.md)** - Decision record: why four payload fields are `float` while all other money is `Decimal`. Read before changing a money type in `blockchain-node`
-- **[EXPLORER_MERGE_SUMMARY.md](./EXPLORER_MERGE_SUMMARY.md)** - Historical decision record: merging TypeScript explorer into Python blockchain-explorer
 
 ## 🎯 **Quick Start**
 
