@@ -28,5 +28,5 @@ pytest -v
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Contributing](./contributing.md) - Development workflow

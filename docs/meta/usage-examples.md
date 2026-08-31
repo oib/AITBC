@@ -59,6 +59,6 @@ result = blockchain.send_transaction(tx)
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Installation Guide](./installation-guide.md) - Setup instructions
 - [agent Agent Usage](./agent-usage.md) - Advanced AI agent operations

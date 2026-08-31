@@ -86,5 +86,5 @@ agent agent --agent CoordinatorAgent --session-id "orchestration" --message "Coo
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Installation Guide](./installation-guide.md) - Setup instructions

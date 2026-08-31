@@ -68,5 +68,5 @@ AITBC Ecosystem
 
 ## Related Topics
 
-- [Project Overview](./project-overview.md) - General project information
+- Project Overview - General project information
 - [Project Structure](./project-structure.md) - File organization
