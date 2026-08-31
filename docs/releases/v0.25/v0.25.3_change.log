@@ -78,3 +78,14 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 - Operational findings: `aitbc-blockchain-rpc` can hang in `deactivating (stop-sigterm)`, a stale `aitbc_chain.main` process remained from 2026-08-27, and `AUTO_SYNC_THRESHOLD=0` is required to force SyncManager bulk pull for small gaps.
 
 PBFT / true BFT across independent validator hosts remains open.
+
+## 2026-08-31 — Escrow and payment self-lock / node-wallet hardening (7b7a61108)
+
+- `payments.py`: remove `GENESIS_ADDRESS` fallback for the escrow buyer; a buyer must be explicit (`payment_data.buyer_address` or `PAYMENT_BUYER_ADDRESS`).
+- `payments.py`: reject an escrow whose buyer or provider is the node wallet before building the `ESCROW_LOCK` transaction.
+- `payments.py`: fail closed on `computation_correct` in `release_payment` and use the canonical `JobReceipt` payload.
+- `payments.py`: re-raise `NetworkError` during refund submission instead of returning `False`.
+- `escrow_routes.py`: reject a lock whose provider is the node wallet and a release whose provider cannot be resolved.
+- `escrow_routes.py`: propagate unexpected errors from `_submit_refund_tx`.
+- `client.py`, `miner.py`, `zk_refund_sweeper.py`: prefer the authoritative `JobReceipt` payload over the denormalised `Job.receipt` JSON.
+- `test_payments_refund.py` and `test_escrow_routes.py`: add regression tests for the new fail-closed and self-lock guards.
