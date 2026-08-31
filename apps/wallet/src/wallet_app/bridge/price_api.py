@@ -98,6 +98,62 @@ async def calculate_ait_amount(eth_amount: Decimal, eth_price_usd: Decimal | Non
     return (eth_amount * eth_price_usd) / ait_usd
 
 
+def _bridge_fee_rate() -> Decimal:
+    try:
+        return Decimal(os.getenv("BRIDGE_FEE_RATE", "0.005"))
+    except Exception:
+        return Decimal("0.005")
+
+
+def _min_withdraw_ait() -> Decimal:
+    try:
+        return Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
+    except Exception:
+        return Decimal("0.01")
+
+
+def apply_bridge_fee(gross_ait: Decimal) -> tuple[Decimal, Decimal]:
+    """Return (fee_ait, net_ait) after applying the configured bridge fee rate."""
+    fee_rate = _bridge_fee_rate()
+    fee_ait = (gross_ait * fee_rate).quantize(Decimal("0.000001"))
+    net_ait = gross_ait - fee_ait
+    return fee_ait, net_ait
+
+
+async def calculate_eth_amount(gross_ait: Decimal, eth_price_usd: Decimal | None = None) -> dict[str, Any] | None:
+    """
+    Calculate the ETH amount for a given AIT withdrawal.
+
+    Returns a dict with fee_ait, net_ait, amount_eth, eth_usd, ait_usd.
+    """
+    if eth_price_usd is None:
+        eth_prices = await get_eth_prices()
+        if not eth_prices:
+            return None
+        eth_price_usd = eth_prices["usd"]
+        eth_price_eur = eth_prices["eur"]
+    else:
+        eth_price_eur = None
+
+    ait_usd = _ait_usd_price(eth_price_usd, eth_price_eur)
+    if ait_usd <= 0 or eth_price_usd <= 0:
+        return None
+
+    fee_ait, net_ait = apply_bridge_fee(gross_ait)
+    if net_ait <= 0:
+        return None
+
+    amount_eth = (net_ait * ait_usd) / eth_price_usd
+    return {
+        "gross_ait": gross_ait,
+        "fee_ait": fee_ait,
+        "net_ait": net_ait,
+        "amount_eth": amount_eth,
+        "eth_usd": eth_price_usd,
+        "ait_usd": ait_usd,
+    }
+
+
 async def get_exchange_rate() -> dict[str, Any]:
     """
     Get current ETH-AIT exchange rate information for USD and EUR.
