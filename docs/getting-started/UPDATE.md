@@ -12,6 +12,16 @@ merged to `main`. For first-time installation, see
 > sudo /opt/aitbc/scripts/deployment/update.sh
 > ```
 
+## Agent / IDE assistant quick reference
+
+After an update the set of available MCP tools may have changed. Refresh an agent's context window with only the tools for this node's role:
+
+```bash
+/opt/aitbc/scripts/dump_mcp_tools.py --role <role> --output mcp-tools.md
+```
+
+Supported roles: `hub`, `customer`, `shop`, `follower`, `customer2`, `follower2`. Use `--include-generic` to keep the role-agnostic tools too.
+
 ## When to run `update.sh`
 
 Run it whenever you want to apply new code changes from the `origin/main`
