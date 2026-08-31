@@ -3,21 +3,36 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
+import os
 from decimal import Decimal
 from typing import Annotated, Any
 
+from aitbc.network import SharedHttpClient
+from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address_strict
+
+# Forward-compatible import used in "/v1/bridge/status"
 from fastapi import APIRouter, Depends, HTTPException
+
+import httpx
 
 from wallet_app.deps import require_admin_api_key
 
-from .bridge_db import get_all_deposits, get_deposit_by_id, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
+from .bridge_db import (
+    get_all_deposits,
+    get_all_withdrawals,
+    get_deposit_by_id,
+    get_deposit_by_tx_hash,
+    get_pending_deposits,
+    get_withdrawal_by_ait_tx_hash,
+    update_deposit_status,
+)
 from .bridge_monitor import (
     is_bridge_polling_enabled,
     poll_once,
     set_bridge_polling_enabled,
 )
-from .price_api import calculate_ait_amount, get_exchange_rate
+from .price_api import calculate_ait_amount, calculate_eth_amount, get_exchange_rate
 
 exchange_router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
 bridge_router = APIRouter(prefix="/v1/bridge", tags=["bridge"])
@@ -440,6 +455,213 @@ async def exchange_price_json() -> dict[str, Any]:
         "currency": "USD",
         "timestamp": rate_info["timestamp"],
         "source": "derived",
+    }
+
+
+@bridge_router.post("/withdraw/estimate")
+async def bridge_withdraw_estimate(body: dict[str, Any]) -> dict[str, Any]:
+    """Estimate the ETH amount for a given AIT withdrawal."""
+    try:
+        ait_amount = Decimal(str(body.get("ait_amount", 0)))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="ait_amount must be a number") from exc
+
+    if ait_amount <= 0:
+        raise HTTPException(status_code=400, detail="ait_amount must be positive")
+
+    eth_address = body.get("eth_address") or ""
+    if not eth_address:
+        raise HTTPException(status_code=400, detail="eth_address is required")
+    try:
+        eth_address = validate_address_strict(eth_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid eth_address: {exc}") from exc
+
+    min_withdraw = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
+    if ait_amount < min_withdraw:
+        raise HTTPException(status_code=400, detail=f"Minimum withdrawal is {min_withdraw} AIT")
+
+    estimate = await calculate_eth_amount(ait_amount)
+    if not estimate:
+        raise HTTPException(status_code=503, detail="Failed to calculate ETH amount")
+
+    return {
+        "status": "ready",
+        "ait_amount": str(ait_amount),
+        "eth_address": eth_address,
+        "fee_ait": str(estimate["fee_ait"]),
+        "net_ait": str(estimate["net_ait"]),
+        "eth_amount": str(estimate["amount_eth"].quantize(Decimal("0.00000001"))),
+        "eth_usd_price": str(estimate["eth_usd"]),
+        "ait_usd_price": str(estimate["ait_usd"]),
+    }
+
+
+@bridge_router.post("/withdraw/build")
+async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
+    """Build an unsigned BRIDGE_WITHDRAW transaction for the caller to sign."""
+    try:
+        ait_amount = Decimal(str(body.get("ait_amount", 0)))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="ait_amount must be a number") from exc
+
+    if ait_amount <= 0:
+        raise HTTPException(status_code=400, detail="ait_amount must be positive")
+
+    eth_address = body.get("eth_address") or ""
+    if not eth_address:
+        raise HTTPException(status_code=400, detail="eth_address is required")
+    try:
+        eth_address = validate_address_strict(eth_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid eth_address: {exc}") from exc
+
+    from_address = body.get("from_address") or ""
+    if not from_address:
+        raise HTTPException(status_code=400, detail="from_address is required")
+    try:
+        from_address = validate_address_strict(from_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid from_address: {exc}") from exc
+
+    min_withdraw = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
+    if ait_amount < min_withdraw:
+        raise HTTPException(status_code=400, detail=f"Minimum withdrawal is {min_withdraw} AIT")
+
+    estimate = await calculate_eth_amount(ait_amount)
+    if not estimate:
+        raise HTTPException(status_code=503, detail="Failed to calculate ETH amount")
+
+    blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+    try:
+        account_resp = await SharedHttpClient.get(f"{blockchain_rpc_url}/rpc/account/{from_address}", timeout=10.0)
+        account_resp.raise_for_status()
+        account_data = account_resp.json()
+        nonce = account_data.get("nonce", 0)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Could not fetch account nonce: {exc}") from exc
+
+    fee_ait = Decimal("0.01")
+    amount_units = ait_to_units(ait_amount)
+    fee_units = ait_to_units(fee_ait)
+
+    unsigned_tx = {
+        "type": "BRIDGE_WITHDRAW",
+        "chain_id": chain_id,
+        "from": from_address,
+        "to": "0x0000000000000000000000000000000000000000",
+        "amount": amount_units,
+        "fee": fee_units,
+        "nonce": nonce,
+        "payload": {"eth_address": eth_address},
+    }
+
+    return {
+        "status": "ready",
+        "message": "Sign this transaction and submit it to the blockchain RPC",
+        "instructions": {
+            "submit_to": f"{blockchain_rpc_url}/rpc/transaction",
+            "method": "POST",
+            "body": unsigned_tx,
+        },
+        "estimate": {
+            "ait_amount": str(ait_amount),
+            "fee_ait": str(estimate["fee_ait"]),
+            "net_ait": str(estimate["net_ait"]),
+            "eth_amount": str(estimate["amount_eth"].quantize(Decimal("0.00000001"))),
+            "eth_address": eth_address,
+        },
+    }
+
+
+@bridge_router.post("/withdraw/submit")
+async def bridge_withdraw_submit(body: dict[str, Any]) -> dict[str, Any]:
+    """Relay a signed BRIDGE_WITHDRAW transaction to the AITBC blockchain."""
+    signed_tx = body.get("signed_tx")
+    if not signed_tx or not isinstance(signed_tx, dict):
+        raise HTTPException(status_code=400, detail="signed_tx is required")
+
+    blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(f"{blockchain_rpc_url}/rpc/transaction", json=signed_tx)
+            response.raise_for_status()
+            result = response.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {exc}") from exc
+
+    tx_hash = result.get("transaction_hash") or result.get("tx_hash") or ""
+    return {
+        "status": "submitted",
+        "ait_tx_hash": tx_hash,
+        "message": "Withdrawal submitted. Monitor status with /v1/bridge/withdraw/{ait_tx_hash}",
+    }
+
+
+@bridge_router.get("/withdraw/{ait_tx_hash}")
+async def bridge_get_withdraw(ait_tx_hash: str) -> dict[str, Any]:
+    """Get the status of an AIT->ETH withdrawal."""
+    withdrawal = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
+    if withdrawal:
+        return _normalize_withdrawal(withdrawal)
+
+    # Fallback: query the chain if the monitor has not processed it yet.
+    blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{blockchain_rpc_url}/rpc/transaction/{ait_tx_hash}")
+            response.raise_for_status()
+            tx = response.json()
+            if tx and tx.get("type") == "BRIDGE_WITHDRAW":
+                return {
+                    "ait_tx_hash": ait_tx_hash,
+                    "status": tx.get("status", "pending"),
+                    "eth_address": (tx.get("payload") or {}).get("eth_address", ""),
+                    "amount_ait": str(units_to_ait(tx.get("value", 0))),
+                    "eth_tx_hash": None,
+                    "refund_tx_hash": None,
+                    "monitor_status": "waiting",
+                }
+    except Exception:
+        pass
+
+    raise HTTPException(status_code=404, detail="Withdrawal not found")
+
+
+@bridge_router.get("/withdrawals")
+async def bridge_list_withdrawals(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    """List AIT->ETH withdrawals."""
+    withdrawals = get_all_withdrawals(limit=limit, offset=offset)
+    if status:
+        withdrawals = [w for w in withdrawals if w.get("status") == status]
+    return {
+        "withdrawals": [_normalize_withdrawal(w) for w in withdrawals],
+        "count": len(withdrawals),
+        "total": len(withdrawals),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+def _normalize_withdrawal(withdrawal: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a bridge DB withdrawal to the shape the website expects."""
+    return {
+        "id": withdrawal.get("id"),
+        "ait_tx_hash": withdrawal.get("ait_tx_hash"),
+        "from_address": withdrawal.get("from_address"),
+        "eth_address": withdrawal.get("eth_address"),
+        "ait_amount": str(withdrawal.get("amount_ait", "")),
+        "fee_ait": str(withdrawal.get("fee_ait", "")),
+        "net_ait": str(withdrawal.get("net_ait", "")),
+        "eth_amount": str(withdrawal.get("amount_eth", "")),
+        "status": withdrawal.get("status"),
+        "eth_tx_hash": withdrawal.get("eth_tx_hash"),
+        "refund_tx_hash": withdrawal.get("refund_tx_hash"),
+        "error": withdrawal.get("error"),
+        "created_at": withdrawal.get("created_at"),
+        "completed_at": withdrawal.get("completed_at") or withdrawal.get("refunded_at"),
     }
 
 

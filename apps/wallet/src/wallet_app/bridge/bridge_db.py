@@ -54,6 +54,27 @@ def init_db() -> None:
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS eth_withdrawals (
+            id TEXT PRIMARY KEY,
+            ait_tx_hash TEXT UNIQUE NOT NULL,
+            from_address TEXT NOT NULL,
+            eth_address TEXT NOT NULL,
+            amount_ait NUMERIC NOT NULL,
+            fee_ait NUMERIC NOT NULL,
+            net_ait NUMERIC NOT NULL,
+            amount_eth NUMERIC NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            eth_tx_hash TEXT,
+            refund_tx_hash TEXT,
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            released_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            refunded_at TIMESTAMP
+        )
+    """)
+
     # Migrate existing tables from REAL to NUMERIC column affinity.
     # SQLite doesn't support ALTER COLUMN TYPE, so we recreate the table
     # (standard SQLite migration pattern). Only runs if columns are REAL.
@@ -394,3 +415,199 @@ def cleanup_old_prices(days: int = 30) -> int:
     conn.close()
 
     return deleted_count
+
+
+def insert_withdrawal(
+    ait_tx_hash: str,
+    from_address: str,
+    eth_address: str,
+    amount_ait: Decimal,
+    fee_ait: Decimal,
+    net_ait: Decimal,
+    amount_eth: Decimal,
+    status: str = "pending",
+    error: str | None = None,
+) -> str:
+    """Record a new ETH withdrawal request."""
+    import uuid
+
+    withdrawal_id = f"withdrawal_{uuid.uuid4().hex[:8]}"
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO eth_withdrawals (
+                id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
+                amount_eth, status, error, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                withdrawal_id,
+                ait_tx_hash,
+                from_address,
+                eth_address,
+                float(amount_ait),
+                float(fee_ait),
+                float(net_ait),
+                float(amount_eth),
+                status,
+                error,
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+        return withdrawal_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Withdrawal with ait_tx_hash {ait_tx_hash} already exists") from None
+    finally:
+        conn.close()
+
+
+def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
+    """Get a withdrawal by its AIT transaction hash."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
+            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
+            released_at, completed_at, refunded_at
+        FROM eth_withdrawals
+        WHERE ait_tx_hash = ?
+        """,
+        (ait_tx_hash,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "from_address",
+        "eth_address",
+        "amount_ait",
+        "fee_ait",
+        "net_ait",
+        "amount_eth",
+        "status",
+        "eth_tx_hash",
+        "refund_tx_hash",
+        "error",
+        "created_at",
+        "released_at",
+        "completed_at",
+        "refunded_at",
+    ]
+    return dict(zip(keys, row, strict=False))
+
+
+def get_pending_withdrawals() -> list[dict[str, Any]]:
+    """Get all withdrawals not yet completed or refunded."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
+            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
+            released_at, completed_at, refunded_at
+        FROM eth_withdrawals
+        WHERE status IN ('pending', 'insufficient_reserve', 'failed')
+        ORDER BY created_at ASC
+        """,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "from_address",
+        "eth_address",
+        "amount_ait",
+        "fee_ait",
+        "net_ait",
+        "amount_eth",
+        "status",
+        "eth_tx_hash",
+        "refund_tx_hash",
+        "error",
+        "created_at",
+        "released_at",
+        "completed_at",
+        "refunded_at",
+    ]
+    return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
+def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    """Get all withdrawals with pagination."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
+            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
+            released_at, completed_at, refunded_at
+        FROM eth_withdrawals
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+        """,
+        (limit, offset),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "from_address",
+        "eth_address",
+        "amount_ait",
+        "fee_ait",
+        "net_ait",
+        "amount_eth",
+        "status",
+        "eth_tx_hash",
+        "refund_tx_hash",
+        "error",
+        "created_at",
+        "released_at",
+        "completed_at",
+        "refunded_at",
+    ]
+    return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
+def update_withdrawal_status(
+    ait_tx_hash: str, status: str, eth_tx_hash: str | None = None, refund_tx_hash: str | None = None, error: str | None = None
+) -> bool:
+    """Update withdrawal status and optional hashes."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    timestamp_field = "released_at"
+    if status == "completed":
+        timestamp_field = "completed_at"
+    elif status == "refunded":
+        timestamp_field = "refunded_at"
+
+    query = f"""
+        UPDATE eth_withdrawals
+        SET status = ?, {timestamp_field} = ?, eth_tx_hash = COALESCE(?, eth_tx_hash),
+            refund_tx_hash = COALESCE(?, refund_tx_hash), error = COALESCE(?, error)
+        WHERE ait_tx_hash = ?
+    """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
+    cursor.execute(
+        query,
+        (status, datetime.now().isoformat(), eth_tx_hash, refund_tx_hash, error, ait_tx_hash),
+    )
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
