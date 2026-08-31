@@ -182,7 +182,7 @@ systemctl status aitbc-coordinator-api.service
 - Complete CLI Reference
 - Testing Procedures
 - [Permission Setup](../../cli/permission-setup.md)
-- [Exchange Integration](../../apps/marketplace/exchange_integration_new.md)
+- [Exchange Integration](../../apps/exchange/exchange.md)
 
 ## 🎯 **Tips and Best Practices**
 
