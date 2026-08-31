@@ -226,3 +226,5 @@ journalctl -u aitbc-service-name -f
 ---
 
 **Next Steps**: Use `/opt/aitbc/aitbc-env` for all AITBC development and operations.
+
+- [AITBC Service Management](../infrastructure/SYSTEMD_SERVICES.md)
