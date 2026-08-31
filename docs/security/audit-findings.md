@@ -865,6 +865,5 @@ unrelated exceptions are not silently swallowed.
 ## Related Documents
 
 - [Security Architecture](2_security-architecture.md)
-- [Security Best Practices](../agent/blockchain/best-practices.md)
 - [Threat Model](threat-model.md)
 - [Economic Analysis](economic-analysis.md)
