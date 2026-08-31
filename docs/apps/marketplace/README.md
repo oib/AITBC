@@ -30,4 +30,4 @@ The marketplace is designed for agent-first architecture with comprehensive APIs
 - **Reputation Tracking**: On-chain reputation scores for trust-based decisions
 - **Dynamic Pricing**: Real-time market data and price optimization
 
-See [Marketplace Backend Analysis](../../development/11_marketplace-backend-analysis.md) for detailed implementation flows and agent API usage examples.
+See [Marketplace Internals](../../development/5_developer-guide.md) for detailed implementation flows.
