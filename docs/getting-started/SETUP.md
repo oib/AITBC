@@ -78,6 +78,21 @@ This guide has been split into topic-focused files for easier navigation:
 
 - See [Reference](./setup-reference.md#troubleshooting) for common issues and solutions
 
+## Agent / IDE assistant quick reference
+
+After you know a node's role, dump only the MCP tools that matter for it so an agent's context window is not swamped by the full 216-tool list:
+
+```bash
+# Replace <role> with hub, customer, shop, follower, customer2, or follower2
+/opt/aitbc/scripts/dump_mcp_tools.py --role <role> --output mcp-tools.md
+```
+
+- `--include-generic` adds the tools that work on every role (e.g. blockchain height, node status).
+- `--read-only` or `--destructive` further narrows the list.
+- `--filter "wallet|gpu"` matches name, description, or tags with a regex.
+
+For an unfiltered reference, omit `--role`.
+
 ## Follower Node Quick Setup
 
 For a follower node joining an open island (e.g. `hub.aitbc.bubuit.net`):
