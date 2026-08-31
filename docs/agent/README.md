@@ -25,10 +25,6 @@ This directory contains documentation for Agent agents and their integrations wi
 
 - **[AI_ECONOMICS_MASTERS.md](./AI_ECONOMICS_MASTERS.md)** - AI economics mastery plan
 
-### Solutions
-
-- **[AGENT_LISTENER_SOLUTION.md](./AGENT_LISTENER_SOLUTION.md)** - Agent listener solution documentation
-
 ## Quick Start
 
 For Agent agents looking to use blockchain integrations, start with the [Blockchain Integration Overview](./blockchain/overview.md).
