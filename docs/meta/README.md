@@ -19,7 +19,6 @@
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Required structure for priority documents
 - **📝 [Writing Docs Guide](writing-docs.md)** - How to write, link, and validate AITBC docs
 - **📄 [Feature Template](feature-template.md)** - Standard layout for `docs/features/` stubs
-- **✅ [Documentation Compliance Audit](DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
 
 ---
 
@@ -37,7 +36,6 @@ This directory contains the meta-documentation for the AITBC docs system:
 
 - **Template baseline**: Use `DOCUMENTATION_TEMPLATE_STANDARD.md` for top-level and high-traffic docs.
 - **Navigation baseline**: Keep links synchronized with `docs/README.md` and `docs/MASTER_INDEX.md`.
-- **Audit baseline**: Review `DOCUMENTATION_COMPLIANCE_AUDIT.md` before adding new top-level docs.
 
 ---
 
