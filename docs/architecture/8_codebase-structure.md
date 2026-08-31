@@ -112,8 +112,7 @@ Agent-first blockchain explorer built with Python FastAPI and built-in HTML inte
 ```
 apps/blockchain-explorer/
 ├── main.py                   # FastAPI application entry
-├── systemd service           # Production service file
-└── EXPLORER_MERGE_SUMMARY.md # Architecture documentation
+└── systemd service           # Production service file
 ```
 
 ### exchange
