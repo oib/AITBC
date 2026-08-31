@@ -28,3 +28,5 @@ This directory contains production deployment guides and procedures for the AITB
 - [Prerequisites](../getting-started/installation/prerequisites.md) - System and software requirements
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration reference
 - [Security Best Practices](../security/) - Security guidelines for deployment
+
+- [Network Policy](NETWORK_POLICY.md) - Service exposure and binding policy

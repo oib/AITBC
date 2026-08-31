@@ -6,6 +6,9 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
+| Systemd Services | Systemd service configuration for all services | [docs/infrastructure/SYSTEMD_SERVICES.md](../infrastructure/SYSTEMD_SERVICES.md) | ✅ | — |
+| Production Architecture | Production deployment architecture | [docs/infrastructure/PRODUCTION_ARCHITECTURE.md](../infrastructure/PRODUCTION_ARCHITECTURE.md) | ✅ | — |
+| Genesis Generation | Genesis block generation procedures | [docs/infrastructure/genesis_generation.md](../infrastructure/genesis_generation.md) | ✅ | — |
 | Virtual Environment | Python virtual environment configuration | [docs/infrastructure/VIRTUAL_ENVIRONMENT.md](../infrastructure/VIRTUAL_ENVIRONMENT.md) | ✅ | — |
 
 ### Operations
