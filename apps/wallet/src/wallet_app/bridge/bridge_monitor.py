@@ -47,7 +47,7 @@ ETH_WITHDRAW_GAS = int(os.getenv("ETH_WITHDRAW_GAS", "100000"))
 ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
 
 _db_initialized = False
-_bridge_polling_enabled = True
+_bridge_polling_enabled: bool = True
 
 
 def _ensure_db() -> None:
@@ -390,8 +390,7 @@ async def monitor_loop() -> None:
     while True:
         if not _bridge_polling_enabled:
             logger.info("Bridge auto-poll disabled, sleeping")
-            while not _bridge_polling_enabled:
-                await asyncio.sleep(1)
+            await asyncio.sleep(1)
             continue
 
         try:
@@ -403,7 +402,7 @@ async def monitor_loop() -> None:
 
         for _ in range(POLL_INTERVAL):
             if not _bridge_polling_enabled:
-                break
+                break  # type: ignore[unreachable]
             await asyncio.sleep(1)
 
 
