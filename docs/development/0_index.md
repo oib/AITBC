@@ -20,8 +20,7 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 | 12 | [12_marketplace-extensions.md](./12_marketplace-extensions.md) | Build marketplace plugins |
 | 13 | [13_user-interface-guide.md](./13_user-interface-guide.md) | Trade exchange UI |
 | 14 | [15_ecosystem-initiatives.md](./15_ecosystem-initiatives.md) | Ecosystem roadmap |
-| 15 | [16_local-assets.md](./16_local-assets.md) | Local asset management |
-| 16 | [fhe-service.md](./fhe-service.md) | Fully homomorphic encryption |
+| 15 | [fhe-service.md](./fhe-service.md) | Fully homomorphic encryption |
 
 ## Related
 
