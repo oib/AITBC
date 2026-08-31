@@ -25,6 +25,7 @@ from ....schemas import (
     Receipt,
 )
 from ...infrastructure.domain import Job
+from ...infrastructure.domain.job_receipt import JobReceipt
 from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE, window_seconds_for
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
@@ -490,6 +491,14 @@ async def submit_result(
     job.completed_at = datetime.now(UTC)
     session.add(job)
     session.commit()
+    # Keep the JobReceipt row in sync with the final receipt (after ZK/TEE
+    # attachments) so downstream consumers use the authoritative payload.
+    if job.receipt_id and receipt:
+        receipt_row = session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
+        if receipt_row:
+            receipt_row.payload = receipt
+            session.add(receipt_row)
+            session.commit()
     success = True
     payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
     if payment and payment.status == "escrowed":
