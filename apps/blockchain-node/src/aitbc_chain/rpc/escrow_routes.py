@@ -675,13 +675,16 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         with session_scope() as session:
             record = session.get(Escrow, job_id)
             if record and record.released_at is not None:
+                # The DB may not have stored the release tx hash (legacy rows), so
+                # look it up on-chain before returning a stale/empty job_tx_hash.
+                existing_release = await _find_existing_release(job_id)
                 return {
                     "success": True,
                     "contract_id": getattr(record, "contract_id", None) or "",
                     "job_id": job_id,
                     "message": "Escrow already released",
                     "released_amount": str(units_to_ait(record.amount)),
-                    "tx_hash": record.job_tx_hash or "",
+                    "tx_hash": existing_release or record.job_tx_hash or "",
                     "released_at": record.released_at.isoformat(),
                 }
             if record is not None and record.status not in (None, "locked"):
@@ -757,6 +760,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                         released_at = record.released_at
                     else:
                         record.released_at = released_at
+                    record.status = "released"
                     if job_tx_hash:
                         record.job_tx_hash = job_tx_hash
                     session.commit()
@@ -816,20 +820,26 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
         _logger.warning("Failed to check escrow refund state: %s", e)
     if record_refunded:
         existing_refund = await _find_existing_refund(job_id)
-        if existing_refund:
+        refund_tx_hash = existing_refund or record.refund_tx_hash
+        if refund_tx_hash:
             return {
                 "success": True,
                 "contract_id": "",
                 "job_id": job_id,
                 "message": "Escrow already refunded",
-                "refund_tx_hash": existing_refund,
+                "refund_tx_hash": refund_tx_hash,
             }
 
     contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
     contract = mgr.escrow_contracts.get(contract_id)
-    if contract and contract.state in {EscrowState.RELEASED, EscrowState.REFUNDED, EscrowState.EXPIRED}:
+    if contract and contract.state in {
+        EscrowState.JOB_COMPLETED,
+        EscrowState.RELEASED,
+        EscrowState.REFUNDED,
+        EscrowState.EXPIRED,
+    }:
         if contract.state == EscrowState.REFUNDED:
             existing_refund = await _find_existing_refund(job_id)
             if existing_refund:
