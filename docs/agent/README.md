@@ -14,7 +14,6 @@ This directory contains documentation for Agent agents and their integrations wi
   - [GPU Resources](./blockchain/gpu-resources.md) - GPU resource tracking on-chain
   - [Verification](./blockchain/verification.md) - Verification methods
   - [Troubleshooting](./blockchain/troubleshooting.md) - Common issues and solutions
-  - [Architecture](./blockchain/architecture.md) - System architecture notes
   - [Best Practices](./blockchain/best-practices.md) - Recommended practices
 
 ### Guides
