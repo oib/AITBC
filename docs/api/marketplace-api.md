@@ -617,4 +617,4 @@ See the full [Escrow API Reference](./escrow-api.md) for direct RPC access.
 - [Escrow API Reference](./escrow-api.md) - Blockchain escrow endpoints
 - [Blockchain Node API](./blockchain/README.md) - Blockchain RPC reference
 - [CLI Marketplace Tools](../apps/marketplace/CLI_TOOLS.md) - CLI command reference
-- [Compute Provider Agent Guide](../agents/compute-provider.md) - Agent integration guide
+- Compute Provider Agent Guide - Agent integration guide
