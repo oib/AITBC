@@ -53,7 +53,6 @@ This directory defines normative policy guidance for:
 
 - Review `BRANCH_PROTECTION.md` before changing repository safeguards.
 - Use `DOTENV_DISCIPLINE.md` for environment-related changes.
-- Keep policy docs aligned with the audit checklist in `../about/DOCUMENTATION_COMPLIANCE_AUDIT.md`.
 
 ---
 
