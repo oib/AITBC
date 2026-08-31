@@ -536,7 +536,13 @@ class BlockchainNode:
                 logger.info("Multi-chain manager initialized and secondary chains started")
             except Exception as e:
                 logger.error("Failed to initialize multi-chain manager: %s", e)
-        if settings.blockchain_mode == "hub" or (settings.multi_validator_consensus_enabled and settings.validator_set):
+        is_validator_node = (
+            settings.multi_validator_consensus_enabled
+            and settings.validator_set
+            and settings.proposer_id
+            and settings.proposer_key
+        )
+        if settings.blockchain_mode == "hub" or is_validator_node:
             logger.info(
                 "Running as block producer (blockchain_mode=%s, multi_validator=%s)",
                 settings.blockchain_mode,
