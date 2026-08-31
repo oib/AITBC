@@ -135,7 +135,15 @@ def insert_deposit(
             INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
             """,
-            (deposit_id, tx_hash, from_address, recipient, amount_eth, amount_ait, datetime.now().isoformat()),
+            (
+                deposit_id,
+                tx_hash,
+                from_address,
+                recipient,
+                float(amount_eth),
+                float(amount_ait),
+                datetime.now().isoformat(),
+            ),
         )
         conn.commit()
         return deposit_id
@@ -331,7 +339,7 @@ def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: 
         INSERT INTO price_history (eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur)
         VALUES (?, ?, ?, ?)
         """,
-        (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur),
+        (float(eth_usd), float(eth_eur), float(exchange_rate_usd), float(exchange_rate_eur)),
     )
 
     conn.commit()

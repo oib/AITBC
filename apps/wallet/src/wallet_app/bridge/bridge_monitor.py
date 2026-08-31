@@ -106,35 +106,70 @@ def _parse_recipient_from_input(tx_input: str | None) -> str | None:
     return None
 
 
+def _hex_quantity(value: int) -> str:
+    """Return a positive integer as a 0x-prefixed hex quantity."""
+    return hex(value)
+
+
+def _normalize_eth_tx(tx: dict[str, Any]) -> dict[str, Any]:
+    """Ensure the fields the bridge monitor uses are plain hex strings."""
+
+    def _to_hex(v: Any) -> str:
+        if isinstance(v, bytes):
+            return "0x" + v.hex()
+        if isinstance(v, int):
+            return hex(v)
+        return str(v)
+
+    return {
+        "hash": _to_hex(tx.get("hash")),
+        "from": _to_hex(tx.get("from")),
+        "to": _to_hex(tx.get("to")),
+        "value": _to_hex(tx.get("value")),
+        "input": _to_hex(tx.get("input") or tx.get("data")),
+    }
+
+
 async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
     """
     Fetch recent transactions for an Ethereum address using RPC.
-    Returns list of transaction objects.
+
+    Scans the last ``BRIDGE_ETH_LOOKBACK_BLOCKS`` (default 10) blocks for
+    transactions whose destination is ``address``. This covers deposits that
+    confirm shortly before the poll cycle, which the previous ``latest``-only
+    implementation would miss.
     """
-    try:
-        # Use etherscan-like API or RPC to get transactions
-        # For MVP, we'll use a simple RPC call to get latest block and filter
-        # In production, use proper block explorer API or indexer
+    lookback = int(os.getenv("BRIDGE_ETH_LOOKBACK_BLOCKS", "10"))
+    if lookback < 1:
+        lookback = 1
 
-        payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", True], "id": 1}
-
+    async def _rpc(method: str, params: list[Any]) -> Any:
+        payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
         response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
         response.raise_for_status()
+        data = response.json()
+        if "error" in data:
+            raise RuntimeError(f"{method} error: {data['error']}")
+        return data.get("result")
 
-        block_data = response.json()
-        if "result" not in block_data:
-            return []
+    try:
+        latest_hex = await _rpc("eth_blockNumber", [])
+        latest = int(latest_hex, 16)
+        start = max(0, latest - lookback + 1)
 
-        transactions = block_data["result"].get("transactions", [])
-
-        # Filter transactions to our wallet address
-        relevant_txs = []
-        for tx in transactions:
-            if not isinstance(tx, dict):
+        target = address.lower()
+        relevant_txs: list[dict[str, Any]] = []
+        for block_number in range(start, latest + 1):
+            block_data = await _rpc("eth_getBlockByNumber", [_hex_quantity(block_number), True])
+            if not block_data:
                 continue
-            to_address = tx.get("to") or ""
-            if to_address and to_address.lower() == address.lower():
-                relevant_txs.append(tx)
+            transactions = block_data.get("transactions") or []
+            for tx in transactions:
+                if not isinstance(tx, dict):
+                    continue
+                to_address = tx.get("to") or ""
+                if str(to_address).lower() == target:
+                    relevant_txs.append(_normalize_eth_tx(tx))
 
         return relevant_txs
     except Exception as e:
