@@ -670,7 +670,7 @@ class EscrowManager:
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
             return (False, "Contract not found")
-        if contract.state in [EscrowState.RELEASED, EscrowState.REFUNDED, EscrowState.EXPIRED]:
+        if contract.state in [EscrowState.JOB_COMPLETED, EscrowState.RELEASED, EscrowState.REFUNDED, EscrowState.EXPIRED]:
             return (False, f"Cannot refund contract in {contract.state.value} state")
         refund_amount = contract.amount - contract.released_amount
         if refund_amount <= 0:
