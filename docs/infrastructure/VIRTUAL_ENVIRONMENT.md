@@ -222,7 +222,6 @@ journalctl -u aitbc-service-name -f
 
 - [Python Virtual Environments](https://docs.python.org/3/library/venv.html)
 - [Pip Documentation](https://pip.pypa.io/)
-- [AITBC Service Management](../infrastructure/SYSTEMD_SERVICES.md)
 
 ---
 

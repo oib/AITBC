@@ -106,7 +106,7 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
   - `docs/reference/SERVICE_PORTS.md` (18) — authoritative port reference, still reconciling some service details
   - `docs/security/audit-findings.md` (16) — historical audit record
   - `docs/operations/PERFORMANCE_BASELINE.md` (11) — benchmark baseline with legacy ports
-  - `docs/infrastructure/SYSTEMD_SERVICES.md` (10) — services list needs port/app-name refresh
+  - `docs/infrastructure/SYSTEMD_SERVICES.md` — moved to operational scratch
 - Python quality:
   - `ruff check .`: passed
   - `mypy --show-error-codes aitbc/`: passed
