@@ -148,6 +148,7 @@ For comprehensive AITBC capabilities and use cases, see [Scenarios Documentation
 
 - [README](../README.md) - Main documentation index
 - [Deployment](../deployment/) - Production deployment guides
+- [Network Policy](../deployment/NETWORK_POLICY.md) - Service exposure and binding policy
 - [Service Ports Reference](../reference/SERVICE_PORTS.md) - Complete port configuration
 
 ## Troubleshooting
