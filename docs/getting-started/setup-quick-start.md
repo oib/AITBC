@@ -19,7 +19,7 @@ pip install -r requirements.txt
 
 The setup script automatically creates service users for security isolation based on network exposure.
 
-> **🟢 Service Status**: All core services are operational as of June 7, 2026. See [Service Status](../infrastructure/SYSTEMD_SERVICES.md#current-service-status) for details.
+> **🟢 Service Status**: All core services are operational as of June 7, 2026. See `systemctl status aitbc-*` for details.
 >
 > **⚠️ v0.4.26 Update**: JWT authentication is now required. `setup.sh` automatically generates `JWT_SECRET` and `SECRET_KEY`. If upgrading from an earlier version, run `/opt/aitbc/scripts/utils/load-keystore-secrets.sh` after updating the credential files.
 
