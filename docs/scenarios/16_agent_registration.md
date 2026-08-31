@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Agent Registration
 - **Previous Scenario**: [Scenario 15 Blockchain Monitoring](./15_blockchain_monitoring.md)
 - **Next Scenario**: [Scenario 17 Governance Voting](./17_governance_voting.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Feature Documentation**: [Agent Communication Reference](../agents/README.md)
+- **Feature Documentation**: Agent Communication Reference
 
 ---
 
@@ -325,7 +325,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 - [Agent SDK Quick Start](../agent-sdk/QUICK_START_GUIDE.md)
 - [Agent SDK API Reference](../agent-sdk/API_REFERENCE.md)
-- [Getting Started for AI Agents](../agents/getting-started.md)
+- Getting Started for AI Agents
 - [Next Scenario: Governance Voting](./17_governance_voting.md)
 
 ---

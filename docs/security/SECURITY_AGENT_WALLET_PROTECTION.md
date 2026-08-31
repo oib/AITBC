@@ -341,7 +341,7 @@ metrics = {
 
 - AITBC Security Architecture
 - [Smart Contract Security](README.md)
-- [Agent Development Guide](../agents/INTEGRATION_ASSETS_README.md)
+- Agent Development Guide
 
 ### External Resources
 
