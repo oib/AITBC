@@ -23,7 +23,7 @@ This directory contains documentation for Agent agents and their integrations wi
 
 ### Economics
 
-- **[AI_ECONOMICS_MASTERS.md](./AI_ECONOMICS_MASTERS.md)** - AI economics mastery plan
+- **[AI Economics Masters](../marketplace/ai-economics/AI_ECONOMICS_MASTERS.md)** - AI economics, marketplace strategy, and investment strategy (canonical docs)
 
 ## Quick Start
 
