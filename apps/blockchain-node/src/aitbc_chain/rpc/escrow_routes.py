@@ -206,6 +206,10 @@ def _build_lock_tx(
         raise ValueError("escrow amount must be positive")
     if not _NODE_WALLET:
         raise ValueError("NODE_WALLET_ADDRESS / GENESIS_WALLET_ADDRESS not configured")
+    if _to_canonical(buyer) == _to_canonical(_NODE_WALLET):
+        raise ValueError("escrow buyer cannot be the node wallet")
+    if _to_canonical(provider) == _to_canonical(_NODE_WALLET):
+        raise ValueError("escrow provider cannot be the node wallet")
     if fee is None:
         fee = _fee_for(amount_units)
     tx: dict[str, Any] = {
@@ -337,9 +341,12 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
             return None
 
         # Re-resolve after creation; use canonical 0x form for the state layer.
-        recipient = await _resolve_chain_account(provider) or _NODE_WALLET
+        # Never fall back to the node wallet: a missing or unresolvable provider
+        # means the release has no valid payee, and paying the node wallet would
+        # be a custody bug.
+        recipient = await _resolve_chain_account(provider)
         if not recipient:
-            _logger.warning("ESCROW_RELEASE TX skipped: could not resolve recipient (provider=%s)", provider)
+            _logger.error("ESCROW_RELEASE TX skipped: could not resolve recipient (provider=%s)", provider)
             return None
 
         nonce = await _get_account_nonce(sender)
@@ -436,10 +443,17 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
             _logger.warning("ESCROW_REFUND TX skipped: could not create buyer account (buyer=%s)", buyer)
             return None
 
+        # Refunding the node wallet is a custody bug: it would pay the operator
+        # instead of the buyer. Refuse and let the caller handle it.
+        if _to_canonical(buyer) == _to_canonical(_NODE_WALLET):
+            _logger.error("ESCROW_REFUND TX skipped: refund buyer is the node wallet (buyer=%s)", buyer)
+            return None
+
         # Re-resolve after creation; use canonical 0x form for the state layer.
-        recipient = await _resolve_chain_account(buyer) or _NODE_WALLET
+        # Never fall back to the node wallet; a missing buyer account is a bug.
+        recipient = await _resolve_chain_account(buyer)
         if not recipient:
-            _logger.warning("ESCROW_REFUND TX skipped: could not resolve recipient (buyer=%s)", buyer)
+            _logger.error("ESCROW_REFUND TX skipped: buyer account does not exist (buyer=%s)", buyer)
             return None
 
         nonce = await _get_account_nonce(sender)
@@ -490,6 +504,7 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
             buyer,
             e,
         )
+        raise
     return None
 
 
@@ -516,6 +531,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Invalid types for job_id, buyer, or provider") from None
     if amount_dec <= 0:
         raise HTTPException(status_code=400, detail="escrow amount must be positive") from None
+    if _to_canonical(buyer) == _to_canonical(_NODE_WALLET):
+        raise HTTPException(status_code=400, detail="escrow buyer cannot be the node wallet") from None
 
     mgr = get_escrow_manager()
     if mgr is None:
