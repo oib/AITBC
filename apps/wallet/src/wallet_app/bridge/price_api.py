@@ -64,6 +64,13 @@ async def get_eth_prices() -> dict[str, Decimal] | None:
         return None
     except Exception as e:
         logger.error("Failed to fetch ETH prices: %s", e)
+        fixed_usd = os.getenv("ETH_USD_FIXED_PRICE")
+        fixed_eur = os.getenv("ETH_EUR_FIXED_PRICE")
+        if fixed_usd:
+            try:
+                return {"usd": Decimal(str(fixed_usd)), "eur": Decimal(str(fixed_eur or fixed_usd))}
+            except Exception:
+                logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
         return None
 
 
