@@ -37,8 +37,11 @@ def ait_to_units(ait: Decimal | float | int | str) -> int:
 
     Accepts a float for callers that still hold one -- ``str()`` first, so a float's
     shortest repr is what gets parsed rather than its full binary expansion.
+
+    Rounds to the nearest whole compute-unit (banker's rounding) instead of
+    truncating, so sub-cent amounts are not silently underpaid.
     """
-    return int(Decimal(str(ait)) * UNITS_PER_AIT)
+    return int((Decimal(str(ait)) * UNITS_PER_AIT).to_integral_value())
 
 
 def format_ait(units: Decimal | float | int | str) -> str:
