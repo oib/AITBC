@@ -322,7 +322,7 @@ After receiving your free AIT tokens:
 - [Marketplace Guide](../apps/marketplace/README.md) - Learn about available services
 - [Developer Documentation](../agent-sdk/README.md) - Build on AITBC
 - Provider Guide - Earn tokens by providing compute
-- [CLI Reference](../cli/CLI_DOCUMENTATION.md) - Complete command reference
+- [CLI Reference](../cli/README.md) - Complete command reference
 - [Block Explorer](https://hub.aitbc.bubuit.net/explorer.html) - View transactions and blocks
 
 ## Support
