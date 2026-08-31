@@ -162,3 +162,7 @@ This section contains all documentation related to infrastructure documentation.
 
 ---
 *Auto-generated index*
+
+- [Production Architecture](PRODUCTION_ARCHITECTURE.md) - Production deployment architecture
+- [Systemd Services](SYSTEMD_SERVICES.md) - Service management guide
+- [Genesis Generation](genesis_generation.md) - Genesis block and wallet setup
