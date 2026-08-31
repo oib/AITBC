@@ -820,7 +820,7 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
         _logger.warning("Failed to check escrow refund state: %s", e)
     if record_refunded:
         existing_refund = await _find_existing_refund(job_id)
-        refund_tx_hash = existing_refund or record.refund_tx_hash
+        refund_tx_hash = existing_refund or (record.refund_tx_hash if record else None)
         if refund_tx_hash:
             return {
                 "success": True,
