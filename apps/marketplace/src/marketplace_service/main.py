@@ -44,10 +44,17 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Marketplace Service."""
+    from .services.ipfs_rental_sweeper import IpfsRentalSweeper
+
     logger.info("Starting Marketplace Service")
     await init_db()
-    yield
-    logger.info("Shutting down Marketplace Service")
+    sweeper = IpfsRentalSweeper()
+    await sweeper.start()
+    try:
+        yield
+    finally:
+        logger.info("Shutting down Marketplace Service")
+        await sweeper.stop()
 
 
 app = FastAPI(
