@@ -7,7 +7,7 @@ GPU marketplace and pool hub services.
 ## Applications
 
 - [Marketplace](marketplace.md) - GPU marketplace for compute resources
-- [Pool Hub](pool-hub.md) - Pool hub for resource pooling
+- [Pool Hub](../pool-hub/README.md) - Pool hub for resource pooling
 
 ## Features
 
