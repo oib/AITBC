@@ -22,7 +22,6 @@ This directory contains production deployment guides and procedures for the AITB
 - [Service Users](SERVICE_USERS.md) - Service user management and unification
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
 - [debian-miner-installation.md](debian-miner-installation.md) - Debian-specific miner installation
-- [mobile-wallet-miner.md](mobile-wallet-miner.md) - Mobile wallet miner setup
 
 ## See Also
 
