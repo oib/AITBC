@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from collections import defaultdict
@@ -253,14 +254,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        for proposer in proposers:
+        # Bounded shutdown so systemd does not need the full 90s stop timeout.
+        # The backends are responsible for fast cleanup; the waits here are a
+        # safety net for any component that still blocks.
+        async def _shutdown() -> None:
+            for proposer in proposers:
+                try:
+                    await asyncio.wait_for(proposer.stop(), timeout=10.0)
+                except asyncio.TimeoutError:
+                    _app_logger.warning("PoA proposer stop timed out during shutdown")
+                except Exception as exc:
+                    _app_logger.warning("Failed to stop PoA proposer during shutdown: %s", exc)
             try:
-                await proposer.stop()
+                await asyncio.wait_for(gossip_broker.shutdown(), timeout=10.0)
+            except asyncio.TimeoutError:
+                _app_logger.warning("Gossip broker shutdown timed out during shutdown")
             except Exception as exc:
-                _app_logger.warning("Failed to stop PoA proposer during shutdown: %s", exc)
-        await gossip_broker.shutdown()
-        await lease_tracker.stop()
-        _app_logger.info("Blockchain node stopped")
+                _app_logger.warning("Failed to shut down gossip broker: %s", exc)
+            try:
+                await asyncio.wait_for(lease_tracker.stop(), timeout=5.0)
+            except asyncio.TimeoutError:
+                _app_logger.warning("Lease tracker stop timed out during shutdown")
+            except Exception as exc:
+                _app_logger.warning("Failed to stop lease tracker: %s", exc)
+            _app_logger.info("Blockchain node stopped")
+
+        await _shutdown()
 
 
 def create_app() -> FastAPI:

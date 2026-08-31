@@ -19,6 +19,11 @@ Environment=enable_block_production=false
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host ${RPC_BIND_HOST} --port ${RPC_BIND_PORT} --workers 1 --timeout-keep-alive 30 --limit-concurrency 1000 --backlog 2048 --log-level critical --no-access-log
 Restart=on-failure
 RestartSec=5
+# Graceful shutdown should finish quickly now that the gossip backend polls
+# Redis with a short timeout and app.py enforces a shutdown deadline.
+# 20s is a hard ceiling to prevent the previous 90s systemd default hangs.
+TimeoutStopSec=20
+KillMode=mixed
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=BlockchainRPC
