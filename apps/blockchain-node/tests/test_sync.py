@@ -495,6 +495,36 @@ class TestChainSyncAppend:
             assert stored is not None
             assert stored.bridge_state_root == bridge_root
 
+    def test_bridge_state_root_derived_when_missing(self, session_factory):
+        """A missing bridge_state_root is derived (empty trie root) instead of NULL."""
+        sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
+        blocks = _seed_chain(session_factory, count=2, chain_id="test")
+        last = blocks[-1]
+
+        ts = datetime(2026, 1, 1, 0, 0, 2)
+        bh = _make_block_hash("test", 2, last["hash"], ts)
+        result = sync.import_block(
+            {
+                "height": 2,
+                "hash": bh,
+                "parent_hash": last["hash"],
+                "proposer": "node-a",
+                "timestamp": ts.isoformat(),
+                "state_root": "0x" + "ab" * 32,
+                "signature": "0x" + "01" * 65,
+            },
+            skip_state_root_validation=True,
+        )
+        assert result.accepted is True
+
+        from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
+
+        expected = "0x" + MerklePatriciaTrie().get_root().hex()
+        with session_factory() as session:
+            stored = session.exec(select(Block).where(Block.hash == bh)).first()
+            assert stored is not None
+            assert stored.bridge_state_root == expected
+
 
 class TestChainSyncBulkImport:
     def test_append_with_transactions(self, session_factory):
