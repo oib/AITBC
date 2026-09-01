@@ -30591,6 +30591,37 @@
             ],
             "title": "Decode Seed",
             "description": "Optional seed for deterministic decoding (auto-assigned if unset)"
+          },
+          "shadow_mode": {
+            "type": "boolean",
+            "title": "Shadow Mode",
+            "description": "Internal: shadow-mode job does not pay or affect reputation",
+            "default": false
+          },
+          "spot_check_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spot Check For",
+            "description": "Internal: original job id this shadow re-run verifies"
+          },
+          "spot_check_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spot Check Result",
+            "description": "Internal: result of the shadow re-run comparison"
           }
         },
         "type": "object",
@@ -30783,6 +30814,37 @@
             ],
             "title": "Decode Seed",
             "description": "Optional seed for deterministic decoding (auto-assigned if unset)"
+          },
+          "shadow_mode": {
+            "type": "boolean",
+            "title": "Shadow Mode",
+            "description": "Internal: shadow-mode job does not pay or affect reputation",
+            "default": false
+          },
+          "spot_check_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spot Check For",
+            "description": "Internal: original job id this shadow re-run verifies"
+          },
+          "spot_check_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spot Check Result",
+            "description": "Internal: result of the shadow re-run comparison"
           }
         },
         "type": "object",

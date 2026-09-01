@@ -3,6 +3,7 @@ Shared types and enums for the AITBC Coordinator API
 """
 
 from decimal import Decimal
+from typing import Any
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -52,4 +53,10 @@ class Constraints(BaseModel):
     deterministic_decoding: bool = Field(default=False, description="Use deterministic decoding for reproducible verification")
     decode_seed: int | None = Field(
         default=None, description="Optional seed for deterministic decoding (auto-assigned if unset)"
+    )
+    # G3: shadow-mode spot-check. Internal fields used for re-running deterministic jobs.
+    shadow_mode: bool = Field(default=False, description="Internal: shadow-mode job does not pay or affect reputation")
+    spot_check_for: str | None = Field(default=None, description="Internal: original job id this shadow re-run verifies")
+    spot_check_result: dict[str, Any] | None = Field(
+        default=None, description="Internal: result of the shadow re-run comparison"
     )
