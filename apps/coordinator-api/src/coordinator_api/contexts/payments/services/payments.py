@@ -27,6 +27,7 @@ from aitbc.utils.validation import validate_address
 from ....custom_types import JobState
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
+from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
 from ...infrastructure.domain.job_receipt import JobReceipt
 from ...zk_applications.services import model_registry
@@ -172,7 +173,19 @@ class PaymentService:
     def _require_owned_job(self, job_id: str, client_id: str) -> Job:
         """Fetch a job and verify it belongs to the requesting client."""
         job = self.session.get(Job, job_id)
-        if job is None or job.client_id != client_id:
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized for this payment",
+            )
+        try:
+            resolved_client_id, _ = resolve_client(self.session, client_id, auto_create=False)
+        except ValueError:
+            # Legacy/test path: the caller string may match the job's client_id
+            # directly. The schema migration will normalize client_id to a users.id
+            # foreign key, but old or test rows still carry raw strings.
+            resolved_client_id = client_id
+        if job.client_id != resolved_client_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized for this payment",

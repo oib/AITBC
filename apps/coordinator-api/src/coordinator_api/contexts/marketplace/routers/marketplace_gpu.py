@@ -16,6 +16,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....auth import AuthDep, MinerDep
 from ....validators import validate_ethereum_address
+from ....utils.client_resolver import resolve_client
 
 from ...trading.services.market_data_collector import MarketDataCollector
 from ....storage.db import get_session
@@ -253,12 +254,14 @@ async def buy_gpu(
         current_price = gpu.price_per_hour
     duration_dec = Decimal(str(request.duration_hours))
     total_cost = duration_dec * current_price
+    resolved_client_id, client_ref = resolve_client(session, request.buyer_id, auto_create=True)
     booking_id = str(uuid4())
     booking = GPUBooking(
         id=booking_id,
         gpu_id=request.gpu_id,
-        client_id=request.buyer_id,
-        job_id=f"purchase_{request.buyer_id[:8]}",
+        client_id=resolved_client_id,
+        client_ref=client_ref,
+        job_id=f"purchase_{client_ref[:8]}",
         duration_hours=request.duration_hours,
         total_cost=total_cost,
         start_time=start_time,

@@ -12,6 +12,8 @@ from sqlmodel import Session, select, update
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
+from coordinator_api.utils.client_resolver import resolve_client
+
 from coordinator_api.contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentExecutionRequest,
@@ -44,7 +46,13 @@ class AgentStateManager:
         self, workflow_id: str, client_id: str, verification_level: VerificationLevel = VerificationLevel.BASIC
     ) -> AgentExecution:
         """Create a new agent execution record"""
-        execution = AgentExecution(workflow_id=workflow_id, client_id=client_id, verification_level=verification_level)
+        resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
+        execution = AgentExecution(
+            workflow_id=workflow_id,
+            client_id=resolved_client_id,
+            client_ref=client_ref,
+            verification_level=verification_level,
+        )
         self.session.add(execution)
         self.session.commit()
         self.session.refresh(execution)

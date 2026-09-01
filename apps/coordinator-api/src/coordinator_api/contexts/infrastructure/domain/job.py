@@ -14,7 +14,8 @@ class Job(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
-    client_id: str = Field(index=True)
+    client_id: str = Field(foreign_key="users.id", index=True)
+    client_ref: str | None = Field(default=None, index=True)
 
     state: str = Field(default="QUEUED", max_length=20, index=True)
     payload: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
