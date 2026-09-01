@@ -642,7 +642,7 @@ Before starting services, verify:
 
 - Adding Third Node Guide - Real-world setup example
 - Node Deployment Guide - Infrastructure setup
-- [Blockchain Node Schema](./node/SCHEMA.md) - Database schema reference
+- [Blockchain Node Schema](../apps/blockchain-node/SCHEMA.md) - Database schema reference
 - Multi-Node Setup Core - Workflow guide
 
 ---
