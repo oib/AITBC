@@ -2,9 +2,10 @@
   "mcpServers": {
     "aitbc": {
       "command": "/opt/aitbc/venv/bin/python",
-      "args": ["/opt/aitbc/mcp-server/aitbc_mcp_server.py"],
+      "args": [
+        "/opt/aitbc/mcp-server/aitbc_mcp_server.py"
+      ],
       "env": {
-        "AITBC_MCP_AITBC_CLI": "/opt/aitbc/venv/bin/aitbc",
         "AITBC_MCP_LOG_LEVEL": "INFO"
       }
     }
