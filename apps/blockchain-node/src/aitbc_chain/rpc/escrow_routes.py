@@ -166,12 +166,14 @@ def _get_settlement_address() -> str | None:
     return configured
 
 
-async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
+async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | None = None) -> str | None:
     """Stake a portion of released escrow for the provider without requiring a signature.
 
     This is a protocol-level reinvestment triggered from the escrow release path.
     The provider's on-chain account is expected to have just been credited by the
-    ESCROW_RELEASE transaction.
+    ESCROW_RELEASE transaction. If job_id is supplied the address is also checked
+    against the escrow's recorded provider so a caller cannot route reinvestment to
+    an unrelated stake.
     """
     if not provider or amount <= 0:
         return None
@@ -179,6 +181,18 @@ async def _auto_stake(provider: str, amount: int, chain_id: str) -> str | None:
         with session_scope() as session:
             canonical = canonical_address(provider)
             address = canonical if canonical else provider.lower().strip()
+            if job_id:
+                escrow = session.get(Escrow, job_id)
+                if escrow:
+                    expected = canonical_address(escrow.provider) or escrow.provider.lower().strip()
+                    if address != expected:
+                        _logger.warning(
+                            "AUTO_STAKE: refusing to stake for %s; it is not the recorded provider %s for job %s",
+                            address,
+                            expected,
+                            job_id,
+                        )
+                        return None
             account = session.get(Account, (chain_id, address))
             if not account:
                 _logger.warning("AUTO_STAKE: no account for %s, creating with zero balance", address)
@@ -811,7 +825,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     if reinvest_amount_ait > 0:
                         reinvest_amount_units = ait_to_units(reinvest_amount_ait)
                         if reinvest_amount_units > 0:
-                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_units, _CHAIN_ID)
+                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_units, _CHAIN_ID, job_id)
                             reinvest_amount = reinvest_amount_ait
                         _logger.info(
                             "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
