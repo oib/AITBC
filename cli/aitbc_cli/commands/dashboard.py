@@ -170,7 +170,11 @@ def _live_wallet_balance(
 def _escrow_payment_status(blockchain_rpc_url: str, job_id: str) -> str | None:
     """Query on-chain escrow state and map it to a payment_status string."""
     try:
-        client = AITBCHTTPClient(base_url=blockchain_rpc_url, timeout=10)
+        from ...config import get_config
+
+        config = get_config()
+        api_key = getattr(config, "blockchain_rpc_api_key", None)
+        client = AITBCHTTPClient(base_url=blockchain_rpc_url, timeout=10, api_key=api_key)
         data = client.get(f"/rpc/escrow/{job_id}") or {}
         state = (data.get("state") or data.get("status") or "").lower()
         mapping = {
