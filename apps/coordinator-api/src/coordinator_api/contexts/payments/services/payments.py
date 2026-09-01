@@ -665,7 +665,10 @@ class PaymentService:
         # G3: a held or disputed payment is still refundable; the escrow never moved.
         # B-residue: already-refunded rows are allowed through so stale hashes can
         # be reconciled against the real on-chain transaction.
-        elif payment.status not in HELD_STATES and payment.status != "pending":
+        # A payment that was never escrowed cannot be refunded; gating on escrowed_at
+        # rather than status prevents the audit invariant from being broken by pending
+        # or otherwise non-escrowed rows.
+        elif payment.escrowed_at is None or payment.status not in HELD_STATES:
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)

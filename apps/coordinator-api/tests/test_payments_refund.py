@@ -5,6 +5,7 @@ Regression tests for PaymentService refund idempotency.
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -50,6 +51,7 @@ def _make_job_and_payment(session: Session, job_id: str, payment_id: str) -> Non
         status="escrowed",
         payment_method="aitbc_token",
         escrow_address="escrow_abc123",
+        escrowed_at=datetime.now(UTC),
     )
     escrow = PaymentEscrow(
         payment_id=payment_id,
