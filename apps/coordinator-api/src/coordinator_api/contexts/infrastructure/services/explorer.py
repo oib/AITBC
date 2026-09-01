@@ -115,7 +115,7 @@ class ExplorerService:
                 TransactionSummary(
                     hash=job.id,
                     block=height,
-                    from_address=job.client_id,
+                    from_address=job.client_ref or job.client_id,
                     to_address=job.assigned_miner_id,
                     value=value_str,
                     status=status_label,
@@ -192,7 +192,7 @@ class ExplorerService:
                     except (TypeError, ValueError, InvalidOperation):
                         pass
             touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
-            touch(job.client_id, job.id, job.requested_at, spent=price)
+            touch(job.client_ref or job.client_id, job.id, job.requested_at, spent=price)
         sorted_addresses = sorted(address_map.values(), key=lambda entry: entry["last_active"], reverse=True)
         sliced = sorted_addresses[offset : offset + limit]
         items = [

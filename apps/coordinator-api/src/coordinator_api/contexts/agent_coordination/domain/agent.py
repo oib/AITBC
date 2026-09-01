@@ -115,7 +115,8 @@ class AgentExecution(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: f"exec_{uuid4().hex[:10]}", primary_key=True)
     workflow_id: str = Field(index=True)
-    client_id: str = Field(index=True)
+    client_id: str = Field(foreign_key="users.id", index=True)
+    client_ref: str | None = Field(default=None, index=True)
 
     # Execution state
     status: AgentStatus = Field(default=AgentStatus.PENDING, index=True)
