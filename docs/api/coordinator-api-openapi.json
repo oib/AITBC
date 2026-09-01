@@ -6541,6 +6541,30 @@
         }
       }
     },
+    "/v1/zk/health/computation-correct": {
+      "get": {
+        "tags": [
+          "zk-proofs"
+        ],
+        "summary": "computation_correct ZK gate health check",
+        "description": "Check that the computation_correct ZK gate still accepts good and rejects bad computations.",
+        "operationId": "computation_correct_health_v1_zk_health_computation_correct_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Computation Correct Health V1 Zk Health Computation Correct Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/fhe/context/generate": {
       "post": {
         "tags": [
