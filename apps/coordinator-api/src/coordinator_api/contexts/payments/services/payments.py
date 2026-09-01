@@ -22,7 +22,7 @@ from aitbc_agent_core import get_active_brand
 
 from ....config import settings
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
+from aitbc.utils.units import ait_to_units
 from aitbc.utils.validation import validate_address
 from ....custom_types import JobState
 from ....schemas import JobPaymentCreate, JobPaymentView
@@ -278,7 +278,9 @@ class PaymentService:
         if amount_units <= 0:
             amount_units = ait_to_units(Decimal("1"))
         if fee is None:
-            fee = max(DEFAULT_TX_FEE_UNITS, amount_units // 100)
+            # v0.25.6: 1% fee with dust floor; the flat DEFAULT_TX_FEE_UNITS
+            # (0.01 AIT) made small escrow locks cost 100% of the value.
+            fee = max(36, amount_units // 100)
         node_wallet = self._get_node_wallet_address()
         if not node_wallet:
             raise ValueError("NODE_WALLET_ADDRESS or GENESIS_WALLET_ADDRESS not configured")
