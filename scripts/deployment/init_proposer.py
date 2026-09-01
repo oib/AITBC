@@ -3,9 +3,9 @@
 
 Run after the Python venv exists so eth_account is available.
 It writes /var/lib/aitbc/data/keystore/proposer.json and sets
-proposer_id in /etc/aitbc/blockchain.env and /etc/aitbc/credentials/proposer_id.
+PROPOSER_ID in /etc/aitbc/blockchain.env and /etc/aitbc/credentials/proposer_id.
 
-This script is deliberately conservative: if a proposer_id is already
+This script is deliberately conservative: if a PROPOSER_ID is already
 configured and a keystore with a matching address exists, it leaves the
 existing wallet alone and only ensures the configuration is consistent.
 """
@@ -50,7 +50,7 @@ def _set_env(path: Path, key: str, value: str) -> None:
 
 
 def _find_matching_keystore(proposer_id: str) -> Path | None:
-    """Return an existing keystore file that contains the proposer_id key.
+    """Return an existing keystore file that contains the PROPOSER_ID key.
 
     The node searches several directories for JSON key files, so this script
     checks the same places before it would overwrite a live proposer wallet.
@@ -99,21 +99,21 @@ def main() -> int:
         print("Node is not a hub; skipping proposer wallet generation")
         return 0
 
-    existing_proposer = env.get("proposer_id") or node_env.get("proposer_id") or ""
+    existing_proposer = env.get("PROPOSER_ID") or node_env.get("PROPOSER_ID") or ""
 
     # If a wallet already exists for the configured proposer, never overwrite it.
     existing_keystore = _find_matching_keystore(existing_proposer) if existing_proposer else None
     if existing_proposer and existing_keystore:
-        _set_env(env_path, "proposer_id", existing_proposer)
+        _set_env(env_path, "PROPOSER_ID", existing_proposer)
         creds_path.write_text(existing_proposer)
-        print(f"Existing proposer keystore found at {existing_keystore}, proposer_id={existing_proposer}")
+        print(f"Existing proposer keystore found at {existing_keystore}, PROPOSER_ID={existing_proposer}")
         return 0
 
     # If a proposer is configured but the key is missing, do not generate a new
     # one: the operator must restore or supply the matching key.
     if existing_proposer and not existing_keystore:
         print(
-            f"WARNING: proposer_id is set to {existing_proposer} but no matching keystore was found.",
+            f"WARNING: PROPOSER_ID is set to {existing_proposer} but no matching keystore was found.",
             file=sys.stderr,
         )
         print(
@@ -183,7 +183,7 @@ def main() -> int:
     (keystore_dir / ".password").write_text(password)
     os.chmod(keystore_dir / ".password", 0o600)
 
-    _set_env(env_path, "proposer_id", address)
+    _set_env(env_path, "PROPOSER_ID", address)
     creds_path.write_text(address)
     os.chmod(creds_path, 0o600)
 

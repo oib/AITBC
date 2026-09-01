@@ -912,8 +912,8 @@ setup_node_identities() {
     if [ -f "/etc/aitbc/blockchain.env" ]; then
         # Existing config — preserve it, only add missing IDs
         log "Preserving existing /etc/aitbc/blockchain.env"
-        if ! grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
-            set_env proposer_id "$PROPOSER_ID"
+        if ! grep -q "^PROPOSER_ID=" /etc/aitbc/blockchain.env; then
+            set_env PROPOSER_ID "$PROPOSER_ID"
             log "Added unique proposer_id to /etc/aitbc/blockchain.env"
         else
             log "proposer_id already exists in /etc/aitbc/blockchain.env"
@@ -922,19 +922,19 @@ setup_node_identities() {
         log "Using pre-configured open-island example as base..."
         cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
         # Override with unique IDs
-        set_env proposer_id "$PROPOSER_ID"
-        set_env p2p_node_id "$P2P_NODE_ID"
+        set_env PROPOSER_ID "$PROPOSER_ID"
+        set_env P2P_NODE_ID "$P2P_NODE_ID"
         log "Configured blockchain.env from open-island example with unique IDs"
     else
         log "Creating minimal blockchain.env with unique IDs..."
         cat > /etc/aitbc/blockchain.env << EOF
 # AITBC Blockchain Configuration
 # Auto-generated unique node identities
-proposer_id=$PROPOSER_ID
-p2p_node_id=$P2P_NODE_ID
-gossip_backend=broadcast
-gossip_broadcast_url=redis://localhost:6379
-default_peer_rpc_url=http://127.0.0.1:8202
+PROPOSER_ID=$PROPOSER_ID
+P2P_NODE_ID=$P2P_NODE_ID
+GOSSIP_BACKEND=broadcast
+GOSSIP_BROADCAST_URL=redis://localhost:6379
+DEFAULT_PEER_RPC_URL=http://127.0.0.1:8202
 BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true
 SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 EOF
@@ -945,8 +945,8 @@ EOF
     # Followers use WebSocket gossip back to the hub; the hub still uses redis
     # for the internal gossip broker and exposes WebSocket subscriptions.
     if [ "${BLOCKCHAIN_MODE:-follower}" = "hub" ]; then
-        set_env gossip_backend redis
-        set_env gossip_broadcast_url redis://localhost:6379
+        set_env GOSSIP_BACKEND redis
+        set_env GOSSIP_BROADCAST_URL redis://localhost:6379
         set_env subscription_enabled true
         set_env subscription_transport websocket
     else
@@ -957,8 +957,8 @@ EOF
         else
             HUB_WS_URL="ws://127.0.0.1:8202/rpc/gossip/ws"
         fi
-        set_env gossip_backend websocket
-        set_env gossip_websocket_url "$HUB_WS_URL"
+        set_env GOSSIP_BACKEND websocket
+        set_env GOSSIP_WEBSOCKET_URL "$HUB_WS_URL"
         set_env subscription_enabled true
         set_env subscription_transport websocket
     fi
@@ -970,10 +970,9 @@ EOF
     else
         DEFAULT_PEER_RPC="http://127.0.0.1:8202"
     fi
-    set_env default_peer_rpc_url "$DEFAULT_PEER_RPC"
+    set_env DEFAULT_PEER_RPC_URL "$DEFAULT_PEER_RPC"
 
     # Sync node.env with the same RPC URL and follower settings
-    set_env_node "default_peer_rpc_url" "$DEFAULT_PEER_RPC"
     set_env_node "DEFAULT_PEER_RPC_URL" "$DEFAULT_PEER_RPC"
     set_env_node "NODE_ID" "${NODE_ID:-aitbc}"
     if [ -n "$OPEN_ISLAND_HUB" ] && [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
@@ -1010,8 +1009,8 @@ EOF
     if [ -f "/etc/aitbc/node.env" ]; then
         # Existing config — preserve it, only add missing p2p_node_id
         log "Preserving existing /etc/aitbc/node.env"
-        if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
-            echo "p2p_node_id=$P2P_NODE_ID" >> /etc/aitbc/node.env
+        if ! grep -q "^P2P_NODE_ID=" /etc/aitbc/node.env; then
+            echo "P2P_NODE_ID=$P2P_NODE_ID" >> /etc/aitbc/node.env
             log "Added unique p2p_node_id to /etc/aitbc/node.env"
         else
             log "p2p_node_id already exists in /etc/aitbc/node.env"
@@ -1021,7 +1020,7 @@ EOF
         cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
         # Override with unique NODE_ID and p2p_node_id
         sed -i "s|^NODE_ID=.*|NODE_ID=aitbc|" /etc/aitbc/node.env
-        sed -i "s|^p2p_node_id=.*|p2p_node_id=$P2P_NODE_ID|" /etc/aitbc/node.env
+        sed -i "s|^P2P_NODE_ID=.*|P2P_NODE_ID=$P2P_NODE_ID|" /etc/aitbc/node.env
         log "Configured node.env from open-island example with unique IDs"
     else
         log "Creating minimal node.env with unique p2p_node_id..."
@@ -1034,7 +1033,7 @@ NODE_ID=aitbc
 
 # P2P Configuration
 # P2P node identity (must be unique for each node)
-p2p_node_id=$P2P_NODE_ID
+P2P_NODE_ID=$P2P_NODE_ID
 
 # P2P Peers (comma-separated list of peer nodes)
 # Format: hostname:port (e.g., "aitbc1:7070,aitbc2:7070")
@@ -1140,8 +1139,8 @@ setup_credentials() {
     fi
 
     # Copy proposer_id from blockchain.env to credentials
-    if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
-        grep "^proposer_id=" /etc/aitbc/blockchain.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
+    if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^PROPOSER_ID=" /etc/aitbc/blockchain.env; then
+        grep "^PROPOSER_ID=" /etc/aitbc/blockchain.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
         chmod 600 /etc/aitbc/credentials/proposer_id
         log "Copied proposer_id to credentials"
     else

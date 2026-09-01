@@ -585,29 +585,29 @@ ensure_gossip_defaults() {
     blockchain_mode="${blockchain_mode:-follower}"
 
     if [ "$blockchain_mode" = "hub" ]; then
-        if ! grep -q "^gossip_backend=" "$BLOCKCHAIN_ENV_FILE"; then
-            echo "gossip_backend=redis" >> "$BLOCKCHAIN_ENV_FILE"
+        if ! grep -q "^GOSSIP_BACKEND=" "$BLOCKCHAIN_ENV_FILE"; then
+            echo "GOSSIP_BACKEND=redis" >> "$BLOCKCHAIN_ENV_FILE"
             log "Added gossip_backend=redis to $BLOCKCHAIN_ENV_FILE"
         fi
-        if ! grep -q "^gossip_broadcast_url=" "$BLOCKCHAIN_ENV_FILE"; then
-            echo "gossip_broadcast_url=redis://localhost:6379" >> "$BLOCKCHAIN_ENV_FILE"
+        if ! grep -q "^GOSSIP_BROADCAST_URL=" "$BLOCKCHAIN_ENV_FILE"; then
+            echo "GOSSIP_BROADCAST_URL=redis://localhost:6379" >> "$BLOCKCHAIN_ENV_FILE"
             log "Added gossip_broadcast_url to $BLOCKCHAIN_ENV_FILE"
         fi
     else
-        if ! grep -q "^gossip_backend=" "$BLOCKCHAIN_ENV_FILE"; then
-            echo "gossip_backend=websocket" >> "$BLOCKCHAIN_ENV_FILE"
+        if ! grep -q "^GOSSIP_BACKEND=" "$BLOCKCHAIN_ENV_FILE"; then
+            echo "GOSSIP_BACKEND=websocket" >> "$BLOCKCHAIN_ENV_FILE"
             log "Added gossip_backend=websocket to $BLOCKCHAIN_ENV_FILE"
         fi
-        if ! grep -q "^gossip_websocket_url=" "$BLOCKCHAIN_ENV_FILE"; then
+        if ! grep -q "^GOSSIP_WEBSOCKET_URL=" "$BLOCKCHAIN_ENV_FILE"; then
             # Derive from default_peer_rpc_url if present, else assume local.
             local hub_url
-            hub_url=$(grep "^default_peer_rpc_url=" "$BLOCKCHAIN_ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
+            hub_url=$(grep "^DEFAULT_PEER_RPC_URL=" "$BLOCKCHAIN_ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
             if [ -n "$hub_url" ] && [ "$hub_url" != "http://127.0.0.1:8202" ]; then
                 hub_url="$(printf '%s' "$hub_url" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
             else
                 hub_url="wss://hub.aitbc.bubuit.net/rpc/gossip/ws"
             fi
-            echo "gossip_websocket_url=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
+            echo "GOSSIP_WEBSOCKET_URL=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
             log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"
         fi
     fi

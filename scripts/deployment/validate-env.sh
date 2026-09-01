@@ -245,7 +245,7 @@ validate_node_env() {
     fi
 
     if grep -q "0x<unique-uuid-here>" "$NODE_ENV_FILE"; then
-        error "proposer_id contains placeholder UUID. Please set a unique value"
+        error "PROPOSER_ID contains placeholder UUID. Please set a unique value"
         ERRORS=$((ERRORS + 1))
     fi
 
@@ -255,13 +255,13 @@ validate_node_env() {
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -z "${p2p_node_id:-}" ]]; then
-        error "p2p_node_id is not set"
+    if [[ -z "${P2P_NODE_ID:-}" ]]; then
+        error "P2P_NODE_ID is not set"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -z "${proposer_id:-}" ]]; then
-        error "proposer_id is not set"
+    if [[ -z "${PROPOSER_ID:-}" ]]; then
+        error "PROPOSER_ID is not set"
         ERRORS=$((ERRORS + 1))
     fi
 
