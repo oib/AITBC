@@ -19218,7 +19218,7 @@
             }
           },
           "409": {
-            "description": "Escrow for job_id={job_id} is not locked (status={record.status})",
+            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status})",
             "content": {
               "application/json": {
                 "schema": {
@@ -19306,7 +19306,7 @@
             }
           },
           "400": {
-            "description": "Escrow already in final state: {contract.state.value}",
+            "description": "Escrow for job_id={job_id} has already been released / Escrow already in final state: {contract.state.value}",
             "content": {
               "application/json": {
                 "schema": {
