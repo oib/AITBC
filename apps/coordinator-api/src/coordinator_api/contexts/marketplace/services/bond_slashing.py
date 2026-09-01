@@ -25,7 +25,7 @@ from sqlmodel import Session, select
 from ....config import settings
 from ...infrastructure.domain import Job, Miner
 from ...payments.provider_binding import miner_wallet_address
-from ..domain.provider_bond import ProviderBond, ProviderBondStatus, set_provider_bond_status
+from ..domain.provider_bond import ProviderBond, ProviderBondStatus, _default_bond_min_amount, set_provider_bond_status
 
 logger = get_logger(__name__)
 
@@ -151,7 +151,12 @@ class BondSlashingService:
 
         tx_hash = result.get("transaction_hash") or result.get("tx_hash") or "unknown"
         new_amount = bond.amount - Decimal(slash_amount)
-        status = ProviderBondStatus.LIQUIDATED if new_amount <= 0 else ProviderBondStatus.SHORTFALL
+        if new_amount <= 0:
+            status = ProviderBondStatus.LIQUIDATED
+        else:
+            floor = _default_bond_min_amount()
+            required = bond.required_amount if bond.required_amount and bond.required_amount > 0 else floor
+            status = ProviderBondStatus.ACTIVE if new_amount >= required else ProviderBondStatus.SHORTFALL
 
         bond.meta = {
             **(bond.meta or {}),

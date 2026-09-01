@@ -140,8 +140,32 @@ async def test_slash_happens_for_bonded_bad_result(db_session, slash_env):
     assert result["tx_hash"] == "0xdeadbeef"
     db_session.refresh(bond)
     assert bond.amount == Decimal("7")
-    assert bond.status == ProviderBondStatus.SHORTFALL.value
+    assert bond.status == ProviderBondStatus.ACTIVE.value  # 7 >= required 5
     assert bond.meta["slash_condition"] == "bad_result"
+
+
+@pytest.mark.asyncio
+async def test_slash_marks_shortfall_when_remaining_below_required(db_session, slash_env):
+    """A partial slash that leaves the bond below the required amount is a shortfall."""
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="6")
+
+    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.return_value = {"nonce": 0}
+        client.post.return_value = {"transaction_hash": "0xshortfall"}
+
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad output")
+
+    assert result["slashed"] is True
+    assert result["amount"] == 2  # 30% of 6 rounded up
+    db_session.refresh(bond)
+    assert bond.amount == Decimal("4")
+    assert bond.status == ProviderBondStatus.SHORTFALL.value  # 4 < required 5
 
 
 @pytest.mark.asyncio
