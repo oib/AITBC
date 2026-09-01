@@ -80,6 +80,7 @@ class ZkRefundSweeper:
             .join(JobPayment, Job.payment_id == JobPayment.id)
             .where(Job.state == "COMPLETED")
             .where(JobPayment.status.in_({"escrowed", PENDING_ACCEPTANCE}))
+            .where(JobPayment.escrowed_at.is_not(None))
             .where(Job.completed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at < cutoff)  # type: ignore[operator]
             .limit(self.batch_size)
