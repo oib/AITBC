@@ -120,7 +120,7 @@ class ReceiptService:
             "receipt_id": token_hex(16),
             "job_id": job.id,
             "provider": miner_id,
-            "client": job.client_id,
+            "client": job.client_ref or job.client_id,
             "status": status_value,
             "units": units,
             "unit_type": unit_type,

@@ -22,6 +22,22 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Add allowed_measurements to enclave_identity and registered to tee_attestation."""
+    from alembic import context
+
+    # Offline SQL generation uses a MockConnection that cannot be inspected. In
+    # that mode the columns are emitted as ADD COLUMN and the DML backfill is
+    # skipped; real backfill happens when the migration runs online.
+    if context.is_offline_mode():
+        op.add_column(
+            "enclave_identity",
+            sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("[]")),
+        )
+        op.add_column(
+            "tee_attestation",
+            sa.Column("registered", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        )
+        return
+
     bind = op.get_bind()
     existing_tee_cols = {c["name"] for c in inspect(bind).get_columns("tee_attestation")}
     existing_enclave_cols = {c["name"] for c in inspect(bind).get_columns("enclave_identity")}
