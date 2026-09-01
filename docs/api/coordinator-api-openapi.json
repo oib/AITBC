@@ -30573,6 +30573,24 @@
             ],
             "title": "Required Enclave Measurement",
             "description": "Required TEE enclave measurement for confidential jobs"
+          },
+          "deterministic_decoding": {
+            "type": "boolean",
+            "title": "Deterministic Decoding",
+            "description": "Use deterministic decoding for reproducible verification",
+            "default": false
+          },
+          "decode_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decode Seed",
+            "description": "Optional seed for deterministic decoding (auto-assigned if unset)"
           }
         },
         "type": "object",
@@ -30747,6 +30765,24 @@
             ],
             "title": "Required Enclave Measurement",
             "description": "Required TEE enclave measurement for confidential jobs"
+          },
+          "deterministic_decoding": {
+            "type": "boolean",
+            "title": "Deterministic Decoding",
+            "description": "Use deterministic decoding for reproducible verification",
+            "default": false
+          },
+          "decode_seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decode Seed",
+            "description": "Optional seed for deterministic decoding (auto-assigned if unset)"
           }
         },
         "type": "object",
