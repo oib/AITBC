@@ -47,3 +47,9 @@ class Constraints(BaseModel):
     required_enclave_measurement: str | None = Field(
         default=None, description="Required TEE enclave measurement for confidential jobs"
     )
+    # G3: deterministic decoding makes a job reproducible so the coordinator can
+    # re-run it in shadow mode and compare results exactly.
+    deterministic_decoding: bool = Field(default=False, description="Use deterministic decoding for reproducible verification")
+    decode_seed: int | None = Field(
+        default=None, description="Optional seed for deterministic decoding (auto-assigned if unset)"
+    )
