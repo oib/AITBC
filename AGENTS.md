@@ -10,7 +10,7 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **aitbc3** | SSH `aitbc3` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
 | **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace |
-| **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | NOT the live repo; use only for notes, scripts and local experiments. `/opt/aitbc` is a non-active clone: `data/` and `venv/` have been removed so it cannot be started as a node. |
+| **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | `/home/oib/windsurf/aitbc` is a partial staging checkout for notes and temporary scripts. `/opt/aitbc` is a non-active canonical clone (no `data/` or `venv/`, so no services run here); it is safe for gitea commits/pushes that do not require active node features. |
 
 ## Where the full repo lives
 
@@ -26,7 +26,7 @@ Both remotes point to gitea as `origin`. `github` should remain a read-only refe
 > **GitHub mirror policy (2026-08-24):** the public GitHub mirror is no longer pushed from `aitbc3` or `hub.aitbc`. The only node that holds the GitHub token is the IDE host, in `/opt/aitbc`. Live nodes pull/fetch from Gitea and may keep a `github` remote for reference, but must not store GitHub credentials or push to GitHub.
 
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
-`/opt/aitbc` on the IDE host is a read-only clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. Use it only for reading code and running local static checks. All live work must be done on `aitbc3` or `hub.aitbc`.
+`/opt/aitbc` on the IDE host is a canonical clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. It can be used for reading code, running local static checks, and for gitea commits/pushes that do not require live services or production data. Live work must still use `aitbc3` or `hub.aitbc`.
 
 ### Why keep a non-active `/opt/aitbc` clone on the IDE host?
 
@@ -35,13 +35,12 @@ A full, clean clone at `/opt/aitbc` is useful because it is:
 - **A stable `main` reference** for reading the whole codebase with IDE index, search, go-to-definition, and diff tools, without waiting on SSH round-trips.
 - **A local static-check runner** for `mypy`, `no_float_money.py`, OpenAPI drift checks, `pytest` dry-runs, and other read-only verification before changes are pushed to the live nodes.
 - **A comparison baseline** against `aitbc3` and `hub.aitbc` (`diff`, `rsync -n`, or `git diff /opt/aitbc <(ssh node ...)`).
-- **A safe place to stage canonical doc updates** such as `AGENTS.md`: edit here, then copy to a live node for the real commit.
+- **A safe place to stage canonical doc updates** such as `AGENTS.md`: edit, commit, and push to gitea from here when no live services or production data are required; otherwise stage on a live node.
 
 It is **not** for:
 
 - Starting or running live services (`aitbc-blockchain-node`, `aitbc-coordinator`, etc.).
 - Holding production `data/`, chain databases, or wallet files.
-- Committing or pushing release work directly to gitea.
 
 ### Keeping `/opt/aitbc` clean
 
@@ -80,7 +79,7 @@ After mounting, `/tmp/hub_aitbc` is the live working tree. Be aware of the follo
   rmdir /tmp/hub_aitbc
   ```
 
-Use the mount only for file inspection and text editing. Always commit, push, and run tests from `aitbc3` or `hub.aitbc`.
+Use the mount only for file inspection and text editing. Prefer to commit and push from `aitbc3` or `hub.aitbc`; `/opt/aitbc` on the IDE host may also be used for gitea commits and pushes as long as no active node features are required.
 
 ## Standard workflow
 
@@ -137,7 +136,7 @@ Before touching anything, confirm at least one of these is true:
 - `git remote -v` shows `origin` = gitea.
 - `git branch --show-current` is `main` or `cli-docs-tests` (or another explicit feature branch), not a stale `cli-canonical`.
 
-If the path is `/home/oib/windsurf/aitbc` or `/opt/aitbc` on the IDE host, treat it as documentation/scratch space only.
+If the path is `/home/oib/windsurf/aitbc` on the IDE host, treat it as documentation/scratch space only. `/opt/aitbc` on the IDE host is a non-active canonical checkout and may be used for gitea commits/pushes that do not require live services.
 
 ## Release notes
 
@@ -192,7 +191,7 @@ Do not, from the IDE host:
 - reset or force-push `main`
 - force-push or rewrite git history
 - assume `/opt/aitbc` is the same tree as `aitbc3` or `hub.aitbc`
-- use `/opt/aitbc` or `/home/oib/windsurf/aitbc` for gitea production commits
+- run active AITBC services, store production `data/`, chain databases, or wallet files in `/opt/aitbc`
 
 Do not, on `aitbc3` or `hub.aitbc`:
 - push to the `github` remote or store a GitHub token
