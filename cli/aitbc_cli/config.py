@@ -56,6 +56,11 @@ class CLIConfig(BaseAITBCConfig):
     wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default="http://127.0.0.1:8202", description="Blockchain RPC URL")
+    blockchain_rpc_api_key: str | None = Field(
+        default=None,
+        alias="BLOCKCHAIN_RPC_API_KEY",
+        description="API key for the blockchain RPC (escrow routes require this)",
+    )
     prometheus_url: str = Field(default="http://127.0.0.1:9090", description="Prometheus base URL for CLI queries")
     explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
 
@@ -252,6 +257,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
             agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
             wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8108"),
             api_key=api_key,
+            blockchain_rpc_api_key=config_data.get("blockchain_rpc_api_key"),
             timeout=config_data.get("timeout", 30),
             _env_file=_cli_env_files(),
         )

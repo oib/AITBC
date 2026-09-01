@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 from ...auth import AuthManager
 
 from . import get_chain_id, get_market_wallet, get_next_nonce, market
-from .escrow import _escrow_create, _get_blockchain_rpc_url
+from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 
 
 def _compute_plugin_id(service_type: str, model: str) -> str:
@@ -249,7 +249,7 @@ def _run_ollama(
     # Release metered escrow for actual tokens used
     if contract_id:
         rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
         release_result = rpc_client.post(
             f"/rpc/escrow/{job_id}/release",
             json={
@@ -441,7 +441,7 @@ def _run_whisper(
     # Release metered escrow with job TX hash as proof
     if contract_id:
         rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
         release_result = rpc_client.post(
             f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
@@ -601,7 +601,7 @@ def _run_ffmpeg(
     # Release metered escrow with job TX hash as proof
     if contract_id:
         rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
         release_result = rpc_client.post(
             f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )

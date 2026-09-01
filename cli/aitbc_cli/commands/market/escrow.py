@@ -42,6 +42,15 @@ def escrow_group():
 escrow = escrow_group()
 
 
+def _get_rpc_client(config, base_url: str, timeout: int = 10) -> AITBCHTTPClient:
+    """Return an HTTP client for blockchain RPC calls, with the API key if configured."""
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=timeout,
+        api_key=getattr(config, "blockchain_rpc_api_key", None),
+    )
+
+
 def _get_blockchain_rpc_url(config) -> str:
     """Return local blockchain RPC base URL (no trailing /rpc — callers add the path)."""
     url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
@@ -128,7 +137,7 @@ def _escrow_create(
         raise click.Abort() from e
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _get_rpc_client(config, rpc_url, timeout=10)
         result = http_client.post(
             "/rpc/escrow/create",
             json={
@@ -165,14 +174,14 @@ def escrow_release(ctx, job_id: str):
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            http_client = _get_rpc_client(config, rpc_url, timeout=10)
             result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
         except Exception:
             logger.debug("Escrow request failed", exc_info=True)
             pass
         if not result:
             try:
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                http_client = _get_rpc_client(config, hub_url, timeout=10)
                 result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
             except Exception:
                 logger.debug("Escrow request failed", exc_info=True)
@@ -237,14 +246,14 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            http_client = _get_rpc_client(config, rpc_url, timeout=10)
             result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
         except Exception:
             logger.debug("Escrow request failed", exc_info=True)
             pass
         if not result:
             try:
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                http_client = _get_rpc_client(config, hub_url, timeout=10)
                 result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
             except Exception:
                 logger.debug("Escrow request failed", exc_info=True)
@@ -293,14 +302,14 @@ def escrow_status(ctx, job_id: str):
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            http_client = _get_rpc_client(config, rpc_url, timeout=10)
             result = http_client.get(f"/rpc/escrow/{job_id}")
         except Exception:
             logger.debug("Escrow request failed", exc_info=True)
             pass
         if not result:
             try:
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                http_client = _get_rpc_client(config, hub_url, timeout=10)
                 result = http_client.get(f"/rpc/escrow/{job_id}")
             except Exception:
                 logger.debug("Escrow request failed", exc_info=True)
