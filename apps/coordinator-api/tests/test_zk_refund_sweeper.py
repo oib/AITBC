@@ -69,6 +69,7 @@ def _make_job_and_payment(
         status=payment_status,
         payment_method="aitbc_token",
         escrow_address="escrow_abc123",
+        escrowed_at=completed_at,
         meta_data=meta,
     )
     escrow = PaymentEscrow(
