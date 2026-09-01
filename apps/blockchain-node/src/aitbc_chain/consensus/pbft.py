@@ -183,7 +183,9 @@ class PBFTConsensus:
         Waits for a prepare quorum and then a commit quorum before returning.
         The caller writes the block only when this returns True.
         """
+        started_at = time.time()
         if not await self._ensure_synced():
+            logger.warning("PBFT propose_and_wait aborted: sync check failed")
             return False
 
         if not self._local_validator:
@@ -195,6 +197,7 @@ class PBFTConsensus:
         await self.pre_prepare_phase(proposer, block_hash)
         pre_prepare_msg = self.state.pre_prepare_messages.get(key)
         if not pre_prepare_msg:
+            logger.warning("PBFT propose_and_wait aborted: missing pre-prepare for seq %s", pre_prepare_sequence)
             return False
 
         # Send our own prepare; it will trigger a local commit once a prepare quorum forms
@@ -204,7 +207,14 @@ class PBFTConsensus:
         deadline = time.time() + timeout if timeout else None
         while len(self.state.prepared_messages.get(key, [])) < self.required_messages:
             if deadline and time.time() > deadline:
-                logger.warning("PBFT prepare quorum timeout for key %s", key)
+                duration = time.time() - started_at
+                logger.warning(
+                    "PBFT prepare quorum timeout for key %s (required=%s, have=%s, duration=%.3fs)",
+                    key,
+                    self.required_messages,
+                    len(self.state.prepared_messages.get(key, [])),
+                    duration,
+                )
                 return False
             self._message_event.clear()
             try:
@@ -215,7 +225,14 @@ class PBFTConsensus:
         # Wait for enough commits
         while len(self.state.committed_messages.get(key, [])) < self.required_messages:
             if deadline and time.time() > deadline:
-                logger.warning("PBFT commit quorum timeout for key %s", key)
+                duration = time.time() - started_at
+                logger.warning(
+                    "PBFT commit quorum timeout for key %s (required=%s, have=%s, duration=%.3fs)",
+                    key,
+                    self.required_messages,
+                    len(self.state.committed_messages.get(key, [])),
+                    duration,
+                )
                 return False
             self._message_event.clear()
             try:
@@ -223,6 +240,18 @@ class PBFTConsensus:
             except asyncio.TimeoutError:
                 pass
 
+        duration = time.time() - started_at
+        logger.info(
+            "PBFT round completed for key %s (proposer=%s, block_hash=%s, "
+            "required=%s, prepares=%s, commits=%s, duration=%.3fs)",
+            key,
+            proposer,
+            block_hash,
+            self.required_messages,
+            len(self.state.prepared_messages.get(key, [])),
+            len(self.state.committed_messages.get(key, [])),
+            duration,
+        )
         return True
 
     async def prepare_phase(self, validator: str, pre_prepare_msg: PBFTMessage) -> bool:
