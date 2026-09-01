@@ -232,6 +232,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_cross_chain_bridge(session_scope)
         bridge = get_cross_chain_bridge()
         if bridge:
+            bridge.ensure_supported_chain_validators()
+            _app_logger.info("Bridge validator backfill completed")
             create_task_with_logging(bridge.start_finalizer(), name="bridge_release_finalizer")
             _app_logger.info("Bridge release finalizer started")
         _app_logger.info("Cross-chain bridge initialized")

@@ -72,6 +72,50 @@ class BridgeValidatorMixin(BridgeBase):
         self._validator_cache_loaded.discard((chain_id, epoch))
         logger.info("Registered bridge validator: %s for chain=%s epoch=%s", address[:12], chain_id, epoch)
 
+    def ensure_supported_chain_validators(self) -> None:
+        """Backfill bridge validator sets for BRIDGE_SUPPORTED_CHAINS from the default chain.
+
+        If a supported bridge chain has no bridge validators registered, copy the
+        active validator set from ``settings.chain_id``. This keeps island/shop
+        chains from starting with an empty validator set.
+        """
+        source_chain = str(getattr(settings, "chain_id", ""))
+        if not source_chain:
+            return
+        with self._session_for(source_chain) as session:
+            source_validators = list(
+                session.exec(
+                    select(BridgeValidator).where(
+                        BridgeValidator.chain_id == source_chain,
+                        BridgeValidator.is_active.is_(True),  # type: ignore[attr-defined]
+                    )
+                ).all()
+            )
+        if not source_validators:
+            logger.warning("No active bridge validators on source chain %s", source_chain)
+            return
+        supported = str(getattr(settings, "bridge_supported_chains", ""))
+        if not supported:
+            return
+        for target_chain in [c.strip() for c in supported.split(",") if c.strip()]:
+            if target_chain == source_chain:
+                continue
+            try:
+                with self._session_for(target_chain) as session:
+                    existing = session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == target_chain)).first()
+                    if existing:
+                        continue
+                for v in source_validators:
+                    self.register_validator(target_chain, v.address, v.public_key, v.epoch)
+                logger.info(
+                    "Backfilled %s bridge validators for %s from %s",
+                    len(source_validators),
+                    target_chain,
+                    source_chain,
+                )
+            except Exception:
+                logger.exception("Failed to backfill bridge validators for %s", target_chain)
+
     def load_validator_set(self, chain_id: str, epoch: int | None = None) -> Any:
         """Load the validator set for a chain from the DB into the registry.
 
