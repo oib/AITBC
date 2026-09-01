@@ -1,84 +1,39 @@
-# AITBC CLI Technical Documentation
+# AITBC CLI
 
-- **Level**: Intermediate
-- **Prerequisites**: Basic CLI familiarity, shell usage, and AITBC project context
-- **Estimated Time**: 10-15 minutes
-- **Last Updated**: 2026-05-28
-- **Version**: 1.0
+The `aitbc` command-line interface is the primary operator and agent entry point for the AITBC network.
 
-## 🧭 **Navigation Path:**
+## Installation
 
-**🏠 [Documentation Home](../README.md)** → **👛 CLI Technical** → *You are here*
-
-**breadcrumb**: Home → CLI Technical → Overview
-
----
-
-## 🎯 **See Also:**
-
-- **📚 Docs Home**: [Documentation Home](../README.md) - Main docs landing page
-- **📖 About Docs**: About Documentation - Template standard and audit checklist
-- **🎯 Beginner CLI**: Beginner Documentation - CLI basics and user workflows
-- **🧪 Testing Docs**: Testing Documentation - Validation and regression testing
-- **📋 Project Docs**: Project Documentation - Project context
-
----
-
-## 📚 **What lives here**
-
-This directory provides the technical CLI entry point mirrored by the top-level docs symlink.
-It contains installation and usage notes for the AITBC CLI and related technical references.
-
----
-
-## 🛡️ Command surface
-
-As of G8, the CLI no longer hides any command groups behind a `--show-deprecated` gate; `aitbc --help` displays all documented groups (including `marketplace` and `operations`). The gate files (`validated_group.py`, `surface_policy.py`) were removed and the CLI tests were updated to enforce the unhidden surface.
-
-Honest caveat: removing the visibility gate does not consolidate the overlapping command groups. `market`, `marketplace`, and `operations marketplace` remain separate surfaces targeting different backends; `governance` and `operations governance` are likewise unconsolidated. The G8 work restored visibility; the underlying command consolidation is still open.
-
-## 🚀 **Quick Start**
-
-### Installation
+From the repository root:
 
 ```bash
+cd cli
 pip install -e .
 ```
 
-### Usage
+Or install the published package:
 
 ```bash
-aitbc --help
+pip install aitbc-cli
 ```
 
----
+## Quick start
 
-## 🔗 **Related Resources**
+```bash
+aitbc --help           # list all command groups
+aitbc --version        # show CLI version
+aitbc wallet --help    # subcommand help for any group
+aitbc genesis init --create-wallet --register-service
+```
 
-### 📚 **Further Reading:**
+## Further reading
 
-- [Documentation Home](../README.md) - Main docs landing page
-- About Documentation - Template standard and audit checklist
-- Beginner Documentation - CLI basics and user workflows
-- Testing Documentation - Validation and regression testing
+- [CLI command reference (cli/CLI_USAGE_GUIDE.md)](../../cli/CLI_USAGE_GUIDE.md) — detailed command and workflow reference
+- [CLI click overview (CLICK_CLI.md)](CLICK_CLI.md) — command-tree and group catalog
+- [CLI developer guide (CLI_DEVELOPER_GUIDE.md)](CLI_DEVELOPER_GUIDE.md) — extending and packaging the CLI
+- [CLI testing notes (testing.md)](testing.md) — validation and test conventions
+- [Package README (cli/README.md)](../../cli/README.md) — source-level overview and group catalog
 
-### 🆘 **Help & Support:**
+## What lives here
 
-- **Documentation Issues**: [Report Issues](https://github.com/oib/AITBC/issues)
-- **Community Forum**: [AITBC Forum](https://forum.aitbc.net)
-- **Technical Support**: [AITBC Support](https://support.aitbc.net)
-
----
-
-## 📊 **Quality Metrics**
-
-- **Structure**: 10/10 - Template-compliant landing page with clear navigation.
-- **Content**: 10/10 - Short and focused CLI technical entry point.
-- **Navigation**: 10/10 - Links to the docs home, beginner CLI, and testing docs.
-- **Status**: Active index page.
-
----
-
-*Last updated: 2026-04-27*
-*Version: 1.0*
-*Status: Active index for CLI technical documentation*
+This directory contains user-facing and technical CLI documentation. Implementation code lives in `cli/aitbc_cli/`.
