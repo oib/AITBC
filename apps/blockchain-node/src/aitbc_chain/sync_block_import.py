@@ -48,6 +48,51 @@ class BlockImportMixin(SyncBase):
             sync_failures_total.labels(chain_id=self._chain_id, reason=reason).inc()
         return result
 
+    def _derive_bridge_state_root(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]] | None,
+    ) -> str:
+        """Return the bridge event trie root for an imported block.
+
+        Prefer the value carried in the P2P/bulk payload. If it is missing,
+        rebuild it from the BRIDGE_LOCK transactions and CrossChainTransfer
+        records so P2P-synced blocks do not store a NULL bridge_state_root.
+        """
+        existing = block_data.get("bridge_state_root")
+        if existing:
+            return existing
+        from .base_models import CrossChainTransfer
+        from .state.merkle_patricia_trie import MerklePatriciaTrie
+
+        trie = MerklePatriciaTrie()
+        lock_txs: list[dict[str, Any]] = []
+        if transactions:
+            for tx in transactions:
+                tx_type = (tx.get("type") or (tx.get("payload") or {}).get("type", "")).upper()
+                if tx_type == "BRIDGE_LOCK":
+                    lock_txs.append(tx)
+        if not lock_txs:
+            return "0x" + trie.get_root().hex()
+        transfer_ids = [tx.get("tx_hash", "") for tx in lock_txs]
+        records = session.exec(
+            select(CrossChainTransfer).where(
+                CrossChainTransfer.source_chain == self._chain_id,
+                CrossChainTransfer.transfer_id.in_(transfer_ids),  # type: ignore[attr-defined]
+            )
+        ).all()
+        record_map = {r.transfer_id: r for r in records}
+        for tx in lock_txs:
+            tx_hash = tx.get("tx_hash", "")
+            record = record_map.get(tx_hash)
+            if record is None:
+                value = f"lock:{tx_hash}:0:unknown"
+            else:
+                value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
+            trie.put(tx_hash.encode(), value.encode())
+        return "0x" + trie.get_root().hex()
+
     def import_block(
         self,
         block_data: dict[str, Any],
@@ -243,7 +288,7 @@ class BlockImportMixin(SyncBase):
             timestamp=timestamp,
             tx_count=tx_count,
             state_root=block_data.get("state_root"),
-            bridge_state_root=block_data.get("bridge_state_root"),
+            bridge_state_root=self._derive_bridge_state_root(session, block_data, transactions),
             # Persist the signature this block was just validated against. Dropping
             # it made the check single-use: the block verified once on the way in and
             # was then stored unsigned, so this node could never re-serve proof of who
