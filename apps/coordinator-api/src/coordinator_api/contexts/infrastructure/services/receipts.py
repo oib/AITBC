@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from secrets import token_hex
-from typing import Any, cast
+from typing import Any
 
 from aitbc_crypto.signing import ReceiptSigner
 from sqlmodel import Session
@@ -137,20 +137,31 @@ class ReceiptService:
                 "metrics": result_metrics,
             },
         }
-        payload["signature"] = self._signer.sign(payload)
-        if self._attestation_signer:
-            payload.setdefault("attestations", [])
-            attestation_payload = dict(payload)
-            attestation_payload.pop("attestations", None)
-            attestation_payload.pop("signature", None)
-            cast(list[Any], payload["attestations"]).append(self._attestation_signer.sign(attestation_payload))
-
         # Skip async ZK proof generation in synchronous context; log intent
         if privacy_level and zk_proof_service.is_enabled():
             logger.warning("ZK proof generation skipped in synchronous receipt creation")
 
         receipt_row = JobReceipt(job_id=job.id, receipt_id=payload["receipt_id"], payload=payload)
         self.session.add(receipt_row)
+        return payload
+
+    def sign_receipt(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Sign a receipt after all fields (including zk_status) are final.
+
+        The main signature is computed over the final payload so the signed
+        envelope covers the attestation verdict. Any previous signature or
+        attestation list is discarded and recomputed.
+        """
+        if self._signer is None:
+            return payload
+        payload.pop("signature", None)
+        payload.pop("attestations", None)
+        payload["signature"] = self._signer.sign(payload)
+        if self._attestation_signer:
+            attestation_payload = dict(payload)
+            attestation_payload.pop("attestations", None)
+            attestation_payload.pop("signature", None)
+            payload["attestations"] = [self._attestation_signer.sign(attestation_payload)]
         return payload
 
 
