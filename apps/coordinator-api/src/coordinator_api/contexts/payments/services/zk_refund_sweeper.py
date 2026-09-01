@@ -116,9 +116,10 @@ class ZkRefundSweeper:
                 counts["candidates"] += 1
                 if not job.payment_id:
                     continue
+                receipt = _get_canonical_receipt(session, job)
                 reason = "ZK proof verification failed"
-                if job.receipt and job.receipt.get("zk_status"):
-                    reason = f"ZK proof verification failed (zk_status={job.receipt['zk_status']})"
+                if receipt and receipt.get("zk_status"):
+                    reason = f"ZK proof verification failed (zk_status={receipt['zk_status']})"
                 try:
                     refunded = await PaymentService(session).refund_payment(job.client_id, job.id, job.payment_id, reason)
                 except Exception as e:
