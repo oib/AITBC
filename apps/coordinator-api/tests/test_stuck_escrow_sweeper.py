@@ -89,6 +89,23 @@ def _make_job_and_payment(
     return job, payment
 
 
+def _fake_refund_with_hash(session: Session, tx_hash: str = "0xdeadbeef") -> AsyncMock:
+    """Return an async callable that simulates a real, on-chain refund."""
+
+    async def _refund(client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+        payment = session.get(JobPayment, payment_id)
+        if payment:
+            payment.status = "refunded"
+            payment.refund_transaction_hash = tx_hash
+            payment.refunded_at = datetime.now(UTC)
+            payment.updated_at = datetime.now(UTC)
+            session.add(payment)
+            session.commit()
+        return True
+
+    return AsyncMock(side_effect=_refund)
+
+
 @pytest.mark.unit
 class TestStuckEscrowSweeper:
     """StuckEscrowSweeper refunds held escrows for terminal job states."""
@@ -99,7 +116,7 @@ class TestStuckEscrowSweeper:
         _make_job_and_payment(sweep_session, "job-cancel-1", "pay-cancel-1", state="CANCELED")
 
         mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(return_value=True)
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
         mock_service_cls.return_value = mock_service
 
         counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
@@ -115,7 +132,7 @@ class TestStuckEscrowSweeper:
         _make_job_and_payment(sweep_session, "job-fail-1", "pay-fail-1", state="FAILED")
 
         mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(return_value=True)
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
         mock_service_cls.return_value = mock_service
 
         counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
@@ -129,7 +146,7 @@ class TestStuckEscrowSweeper:
         _make_job_and_payment(sweep_session, "job-expire-1", "pay-expire-1", state="EXPIRED")
 
         mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(return_value=True)
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
         mock_service_cls.return_value = mock_service
 
         counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
@@ -151,7 +168,7 @@ class TestStuckEscrowSweeper:
         )
 
         mock_service = MagicMock()
-        mock_service.refund_payment = AsyncMock(return_value=True)
+        mock_service.refund_payment = _fake_refund_with_hash(sweep_session)
         mock_service_cls.return_value = mock_service
 
         counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
@@ -216,6 +233,35 @@ class TestStuckEscrowSweeper:
 
         assert counts["candidates"] == 0
         mock_service.refund_payment.assert_not_called()
+
+    @patch("coordinator_api.contexts.payments.services.stuck_escrow_sweeper.PaymentService")
+    def test_sweeper_downgrades_unbacked_refund_without_hash(self, mock_service_cls, sweep_session):
+        """A refund with no on-chain hash is downgraded to failed."""
+        _make_job_and_payment(sweep_session, "job-unbacked-1", "pay-unbacked-1", state="CANCELED")
+
+        async def _fake_unbacked_refund(client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+            payment = sweep_session.get(JobPayment, payment_id)
+            if payment:
+                payment.status = "refunded"
+                payment.refund_transaction_hash = None
+                payment.refunded_at = datetime.now(UTC)
+                payment.updated_at = datetime.now(UTC)
+                sweep_session.add(payment)
+                sweep_session.commit()
+            return True
+
+        mock_service = MagicMock()
+        mock_service.refund_payment = AsyncMock(side_effect=_fake_unbacked_refund)
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(StuckEscrowSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 1
+        assert counts["refunded"] == 0
+        assert counts["failed"] == 1
+        payment = sweep_session.get(JobPayment, "pay-unbacked-1")
+        assert payment.status == "failed"
+        assert payment.refund_transaction_hash is None
 
     def test_stuck_escrow_sweeper_enabled_default(self):
         """The stuck-escrow sweeper is enabled by default."""
