@@ -56,7 +56,6 @@ from aitbc_cli.commands.gpu_marketplace import gpu
 from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
 from aitbc_cli.commands.agent import messaging as agent_msg
 from aitbc_cli.commands.market import market
-from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
 from aitbc_cli.commands.mining import mining
 
@@ -154,7 +153,6 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
 
     COMMAND GROUP DISAMBIGUATION:
     - `aitbc market` — GPU/software offers (coordinator-backed, miner-published).
-    - `aitbc marketplace` — deprecated global chain marketplace; kept for backward compatibility.
     - `aitbc governance` — service-backed proposals, voting, and execution.
     - `aitbc operations` and `aitbc operations <subgroup>` are deprecated; use the groups above.
 
@@ -197,7 +195,6 @@ cli.add_command(start)
 cli.add_command(stop)
 cli.add_command(restart)
 cli.add_command(market, name="market")
-cli.add_command(marketplace, name="marketplace")  # Legacy on-chain marketplace; kept for compatibility
 cli.add_command(chain, name="blockchain")
 cli.add_command(agent, name="agent")  # Agent SDK and coordinator commands
 cli.add_command(ai)  # AI job submission and inspection
