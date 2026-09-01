@@ -80,6 +80,7 @@ class SpotCheckService:
 
         shadow = Job(
             client_id=job.client_id,
+            client_ref=job.client_ref,
             state="QUEUED",
             payload=job.payload,
             constraints=shadow_constraints,

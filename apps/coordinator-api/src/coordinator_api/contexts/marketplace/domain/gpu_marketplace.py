@@ -39,7 +39,8 @@ class GPUBooking(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: f"bk_{uuid4().hex[:10]}", primary_key=True)
     gpu_id: str = Field(index=True)
-    client_id: str = Field(default="", index=True)
+    client_id: str = Field(foreign_key="users.id", index=True)
+    client_ref: str | None = Field(default=None, index=True)
     job_id: str | None = Field(default=None, index=True)
     duration_hours: float = Field(default=0.0)
     total_cost: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False))
