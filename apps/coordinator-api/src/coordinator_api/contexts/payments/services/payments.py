@@ -115,7 +115,12 @@ def _tee_attests_computation(receipt: dict[str, Any] | None, job: Job | None) ->
 
 def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> bool:
     """Return True when escrow may release because computation was attested."""
-    if receipt and receipt.get("zk_status") == "verified" and receipt.get("computation_correct") is True:
+    if not receipt:
+        return False
+    if receipt.get("computation_correct") is not True:
+        return False
+    zk_status = receipt.get("zk_status")
+    if zk_status in ("verified", "not_required", "tee_attested"):
         return True
     return _tee_attests_computation(receipt, job)
 
