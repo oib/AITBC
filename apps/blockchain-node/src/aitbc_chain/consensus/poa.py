@@ -527,11 +527,12 @@ class PoAProposer:
                     metrics_registry.increment("sync_empty_blocks_skipped_total")
                     return False
             elif block_generation_mode == "hybrid":
-                if self._last_block_timestamp:
+                last_block_timestamp = head.timestamp if head is not None else self._last_block_timestamp
+                if last_block_timestamp:
                     last_timestamp = (
-                        self._last_block_timestamp
-                        if self._last_block_timestamp.tzinfo is not None
-                        else self._last_block_timestamp.replace(tzinfo=UTC)
+                        last_block_timestamp
+                        if last_block_timestamp.tzinfo is not None
+                        else last_block_timestamp.replace(tzinfo=UTC)
                     )
                     time_since_last_block = (datetime.now(UTC) - last_timestamp).total_seconds()
                     if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
