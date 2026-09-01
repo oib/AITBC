@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
-from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer, Transaction
+from aitbc_chain.models import Account, BridgeBlockHeader, BridgeValidator, CrossChainTransfer, Transaction
 from aitbc_chain.rpc.router import router
 
 
@@ -442,3 +442,34 @@ class TestBridgeFailClosedDefaults:
 
         # G6: multi-validator consensus must be fail-closed; operator enables after review.
         assert ChainSettings.model_fields["multi_validator_consensus_enabled"].default is False
+
+
+# ---------------------------------------------------------------------------
+# Bridge validator backfill
+# ---------------------------------------------------------------------------
+
+
+class TestBridgeValidatorBackfill:
+    """BRIDGE_SUPPORTED_CHAINS that have no validators are backfilled from the default chain."""
+
+    def test_backfills_supported_chain_validators(self, bridge: CrossChainBridge, engine) -> None:
+        """Empty island/shop validator sets get a copy of the default chain validator set."""
+        with (
+            patch("aitbc_chain.config.settings.chain_id", "chain-a"),
+            patch("aitbc_chain.config.settings.bridge_supported_chains", "chain-a,chain-b"),
+        ):
+            bridge.register_validator("chain-a", "0xval1", "0xpub1", 0)
+            bridge.register_validator("chain-a", "0xval2", "0xpub2", 0)
+
+            with Session(engine) as session:
+                before = session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == "chain-b")).first()
+                assert before is None
+
+            bridge.ensure_supported_chain_validators()
+
+            with Session(engine) as session:
+                validators = session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == "chain-b")).all()
+                assert len(validators) == 2
+                addresses = {v.address for v in validators}
+                assert "0xval1" in addresses
+                assert "0xval2" in addresses
