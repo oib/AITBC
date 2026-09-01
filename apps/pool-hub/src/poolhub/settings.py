@@ -88,6 +88,7 @@ class Settings(ServiceSettings):
 
     # Blockchain integration (v0.6.7)
     blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
+    blockchain_rpc_api_key: str | None = Field(default=None, alias="BLOCKCHAIN_RPC_API_KEY")
     default_chain_id: str = Field(default="ait-hub")
 
     # Agent coordinator is hub-only (V23-92). Empty means resolve from

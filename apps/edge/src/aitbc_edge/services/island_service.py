@@ -9,6 +9,7 @@ from aitbc.aitbc_logging import get_logger
 from sqlmodel import select
 
 from ..clients.blockchain_rpc import BlockchainRPCClient
+from ..config import settings
 from ..schemas.island import BridgeRequest, IslandMembership, IslandStatus
 from ..storage import get_session
 
@@ -34,7 +35,7 @@ class IslandService:
     ) -> dict[str, Any]:
         """Join an island via blockchain RPC"""
         # Call blockchain RPC to join island
-        async with BlockchainRPCClient() as rpc_client:
+        async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.join_island(island_id, island_name, chain_id, role, is_hub)
 
         # Store membership in edge-api database
@@ -71,7 +72,7 @@ class IslandService:
     async def leave_island(self, island_id: str) -> dict[str, Any]:
         """Leave an island via blockchain RPC"""
         # Call blockchain RPC to leave island
-        async with BlockchainRPCClient() as rpc_client:
+        async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.leave_island(island_id)
 
         # Remove membership from edge-api database
@@ -87,14 +88,14 @@ class IslandService:
 
     async def list_islands(self) -> list[dict[str, Any]]:
         """List all islands via blockchain RPC"""
-        async with BlockchainRPCClient() as rpc_client:
+        async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.list_islands()
         islands = result.get("islands", [])
         return islands if isinstance(islands, list) else []
 
     async def get_island(self, island_id: str) -> dict[str, Any] | None:
         """Get island details via blockchain RPC"""
-        async with BlockchainRPCClient() as rpc_client:
+        async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.get_island_info(island_id)
         return result
 
@@ -108,7 +109,7 @@ class IslandService:
 
     async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge to another island via blockchain RPC"""
-        async with BlockchainRPCClient() as rpc_client:
+        async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.request_bridge(target_island_id)
 
         # Store bridge request in edge-api database

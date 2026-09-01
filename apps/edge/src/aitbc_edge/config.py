@@ -1,5 +1,6 @@
 """Configuration for Edge API Service"""
 
+from pydantic import Field
 from pydantic_settings import SettingsConfigDict
 
 from aitbc_shared import DatabaseConfig, ServiceSettings
@@ -37,6 +38,7 @@ class Settings(ServiceSettings):
     # Blockchain node RPC settings
     blockchain_rpc_host: str = "localhost"
     blockchain_rpc_port: int = 8202
+    blockchain_rpc_api_key: str | None = Field(default=None, alias="BLOCKCHAIN_RPC_API_KEY")
 
     # GPU service settings
     gpu_service_host: str = "localhost"
