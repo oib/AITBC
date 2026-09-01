@@ -29,6 +29,7 @@ from ...infrastructure.domain.job_receipt import JobReceipt
 from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE, window_seconds_for
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
+from ....contexts.infrastructure.services.spot_check import SpotCheckService
 from ...infrastructure.services.receipts import ReceiptService
 from ...payments.services.payments import _computation_is_correct
 from ...zk_applications.services.zk_proofs import zk_proof_service
@@ -441,6 +442,11 @@ async def _settle_completed_job(session: Session, payment_service: Any, job: Job
     return True
 
 
+def _is_shadow_mode(job: Job) -> bool:
+    """Return True if this job is a shadow-mode spot-check re-run."""
+    return bool((job.constraints or {}).get("shadow_mode")) or bool((job.constraints or {}).get("spot_check_for"))
+
+
 @router.post("/miners/{job_id}/result", summary="Submit job result")
 @rate_limit(rate=50, per=60)
 async def submit_result(
@@ -459,6 +465,7 @@ async def submit_result(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
+    is_shadow = _is_shadow_mode(job)
     job.result = req.result
     job.state = JobState.completed
     job.error = None
@@ -503,7 +510,10 @@ async def submit_result(
             session.commit()
     success = True
     payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
-    if payment and payment.status == "escrowed":
+    spot_check_record: dict[str, Any] | None = None
+    if is_shadow:
+        spot_check_record = SpotCheckService(session).complete_spot_check(job)
+    elif payment and payment.status == "escrowed":
         from ...payments.services.payments import PaymentService
 
         payment_service = PaymentService(session)
@@ -578,7 +588,18 @@ async def submit_result(
         user["sub"], success=success, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
     )
 
+    # For deterministic-decoding jobs that are not themselves spot-checks,
+    # schedule a shadow re-run. This is log-only and does not block settlement.
+    if not is_shadow:
+        try:
+            SpotCheckService(session).schedule_if_eligible(job)
+        except Exception as spot_err:
+            logger.warning("Failed to schedule spot-check for job %s: %s", job_id, spot_err)
+
     # Record job completion in the reputation service.
+    if is_shadow:
+        return {"status": "ok", "receipt": receipt, "spot_check": spot_check_record or {}}
+
     try:
         from ....contexts.reputation.services.reputation_service import ReputationService
 
