@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 
 from aitbc_shared import JobPayment, PaymentEscrow
 from coordinator_api.contexts.infrastructure.domain.job import Job
+from coordinator_api.contexts.payments.acceptance import DISPUTED
 from coordinator_api.contexts.payments.services.zk_refund_sweeper import ZkRefundSweeper
 
 
@@ -443,3 +444,26 @@ class TestZkRefundSweeper:
         finally:
             if old is not None:
                 os.environ["COORDINATOR_ZK_REFUND_SWEEP_ENABLED"] = old
+
+    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
+    def test_sweeper_skips_disputed_payment(self, mock_service_cls, sweep_session):
+        """A disputed payment is not refunded by the ZK sweeper."""
+        job_id = "job-zk-disputed-1"
+        payment_id = "pay-zk-disputed-1"
+        _make_job_and_payment(
+            sweep_session,
+            job_id,
+            payment_id,
+            payment_status=DISPUTED,
+            receipt={"zk_status": "unsupported_model", "computation_correct": False},
+        )
+
+        mock_service = MagicMock()
+        mock_service_cls.return_value = mock_service
+
+        counts = asyncio.run(ZkRefundSweeper(session_factory=lambda: sweep_session).run_once())
+
+        assert counts["candidates"] == 0
+        assert counts["refunded"] == 0
+        assert counts["failed"] == 0
+        mock_service.refund_payment.assert_not_called()
