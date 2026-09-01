@@ -486,6 +486,8 @@ async def submit_result(
     receipt = await _attach_zk_proof(receipt, job, req.result, payment_amount=payment_amount)
     receipt = await _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
     receipt = _apply_tee_computation_attestation(receipt, job, req.result, payment_amount=payment_amount)
+    if receipt:
+        receipt = receipt_service.sign_receipt(receipt)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     job.completed_at = datetime.now(UTC)
