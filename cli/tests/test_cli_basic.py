@@ -76,7 +76,7 @@ class TestCLIConfiguration:
         assert CLI_BIN.exists()
         assert os.access(CLI_BIN, os.X_OK)
 
-    def test_marketplace_command_available(self):
+    def test_marketplace_command_removed(self):
         result = run_cli("marketplace")
-        assert result.returncode == 0
-        assert "Usage:" in result.stdout
+        assert result.returncode != 0
+        assert "No such command" in result.stderr

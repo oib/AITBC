@@ -84,23 +84,6 @@ class TestNetworkCommand:
         assert "Force the local node to synchronize" in result.stdout
 
 
-class TestMarketplaceCommand:
-    """Test marketplace grouping and legacy rewrite."""
-
-    def test_market_help(self):
-        result = run_cli("market", "--help")
-        assert result.returncode == 0
-        assert "list" in result.stdout
-        assert "offer" in result.stdout
-        assert "match" in result.stdout
-        assert "cancel" in result.stdout
-
-    def test_marketplace_legacy_alias(self):
-        # `marketplace` is a separate command group (not `market --action`)
-        result = run_cli("marketplace", "--help")
-        assert result.returncode == 0
-
-
 class TestAIOperationsCommand:
     """Test the unified ai command family and legacy ai-ops rewrite."""
 

@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Marketplace Bidding
 - **Previous Scenario**: [AI Job Submission](./07_ai_job_submission.md)
 - **Next Scenario**: [GPU Listing](./09_gpu_listing.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Feature Documentation**: [Marketplace Commands](../../cli/aitbc_cli/commands/marketplace_cmd.py)
+- **Feature Documentation**: [Marketplace Commands](../../cli/aitbc_cli/commands/market)
 
 ---
 

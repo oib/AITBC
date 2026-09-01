@@ -49,13 +49,12 @@ aitbc --help
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `host`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
 | `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
-| `marketplace` | **Legacy** global on-chain marketplace (cross-chain listings, bridge, economy). Hidden from `aitbc --help`; prefer `aitbc market` for GPU/software offers. | `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions` |
 | `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks` |
 | `network` | Peer connectivity and network operations | `force-sync`, `heartbeat`, `lease-status`, `peers`, `status`, `subscribe`, `subscribers`, `test` |
 | `node` | Node management commands | `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test` |
-| `operations` | **Legacy** on-chain operations commands. Hidden from `aitbc --help`; prefer the top-level `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` groups. | `agent`, `ai`, `governance`, `marketplace` |
+| `operations` | **Legacy** on-chain operations commands. Hidden from `aitbc --help`; prefer the top-level `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` groups. | `agent`, `ai`, `governance` |
 | `oracle` | Local data oracle for agent data availability announcements. | `listings`, `store` |
 | `performance` | Performance monitoring and optimization | `benchmark`, `optimize`, `tune` |
 | `platform` | Scaffold white-label platform configurations. | `init-platform` |
@@ -82,11 +81,8 @@ aitbc --help
 | `workflow` | Workflow management commands | `list`, `run`, `status`, `stop` |
 | `zk` | Zero-knowledge proof commands. | `circuits`, `health`, `verify` |
 
-## Market vs Marketplace
+## Market
 
-Two groups sound similar but serve different layers:
+`aitbc market` is the canonical group for GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.
 
-- `aitbc market` — GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.
-- `aitbc marketplace` — Global on-chain marketplace for cross-chain listings, bridge operations, and chain-wide economy. It is backed by the marketplace service and may bridge to other islands.
-
-Use `aitbc market` for AI jobs and local GPU offers; use `aitbc marketplace` for chain-wide trading and bridge listings.
+Use `aitbc market` for AI jobs and local GPU offers.
