@@ -229,11 +229,9 @@ class StateTransition:
             total_cost = value + fee
         if sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
-        recipient_addr = _to_ait_address(tx_data.get("to") or "")
-        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM", "GOVERNANCE_EXECUTE", "BRIDGE_LOCK", "BRIDGE_WITHDRAW"}:
-            recipient_account = session.get(Account, (chain_id, recipient_addr))
-            if not recipient_account:
-                return (False, f"Recipient account not found: {recipient_addr}")
+        # v0.25.5: recipient accounts are created on first credit during
+        # block execution, so a release/refund/transfer to a never-before-seen
+        # address is valid and becomes deterministic after mining.
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             if not receipt_id:
@@ -378,7 +376,10 @@ class StateTransition:
             total_cost = value + fee
             if total_cost > _MAX_INT64:
                 raise ValueError(f"Transaction total_cost overflow: {total_cost}")
-            session.get(Account, (chain_id, recipient_addr))
+            # v0.25.5: auto-create the recipient account on first credit so
+            # release/refund/transfer to a new address is deterministic across
+            # validators and does not require a direct RPC write.
+            _ensure_account(session, chain_id, recipient_addr)
         logger.info("Updating sender balance: %s -= %s", sender_addr, total_cost)
         session.execute(
             text(
