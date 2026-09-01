@@ -60,8 +60,9 @@ class PoolHubBlockchainClient:
         coordinator_url: str | None = None,
         signer_address: str | None = None,
         signer_private_key: str | None = None,
+        api_key: str | None = None,
     ) -> None:
-        self._rpc = BlockchainRPCClient(rpc_url=rpc_url)
+        self._rpc = BlockchainRPCClient(rpc_url=rpc_url, api_key=api_key)
         self._chain_id = chain_id
         self._coordinator_url = coordinator_url or hub_agent_url() or ""
         self._reward_policy = RewardPolicy()
