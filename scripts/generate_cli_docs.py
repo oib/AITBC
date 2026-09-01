@@ -154,14 +154,11 @@ def _generate_readme(commands: dict[str, click.Command], order: list[str], descs
 
     lines += [
         "",
-        "## Market vs Marketplace",
+        "## Market",
         "",
-        "Two groups sound similar but serve different layers:",
+        "`aitbc market` is the canonical group for GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.",
         "",
-        "- `aitbc market` — GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.",
-        "- `aitbc marketplace` — Global on-chain marketplace for cross-chain listings, bridge operations, and chain-wide economy. It is backed by the marketplace service and may bridge to other islands.",
-        "",
-        "Use `aitbc market` for AI jobs and local GPU offers; use `aitbc marketplace` for chain-wide trading and bridge listings.",
+        "Use `aitbc market` for AI jobs and local GPU offers.",
     ]
     return "\n".join(lines) + "\n"
 

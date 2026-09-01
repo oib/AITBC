@@ -38,13 +38,12 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `host`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload`
 - `list` — Legacy wallet list alias
 - `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
-- `marketplace` — Global chain marketplace commands. Subcommands: `ask`, `asks`, `bid`, `bids`, `buy`, `complete`, `create`, `economy`, `list`, `monitor`, `overview`, `search`, `transactions`
 - `messaging` — Messaging system and forum operations. Subcommands: `list`, `send`, `topic`
 - `mining` — Mining operations commands. Subcommands: `list`, `start`, `status`, `stop`
 - `monitor` — Monitoring, metrics, and alerting commands. Subcommands: `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks`
 - `network` — Peer connectivity and network operations. Subcommands: `force-sync`, `heartbeat`, `lease-status`, `peers`, `status`, `subscribe`, `subscribers`, `test`
 - `node` — Node management commands. Subcommands: `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test`
-- `operations` — General operations commands. Subcommands: `agent`, `ai`, `governance`, `marketplace`
+- `operations` — General operations commands. Subcommands: `agent`, `ai`, `governance`
 - `oracle` — Local data oracle for agent data availability announcements.. Subcommands: `listings`, `store`
 - `performance` — Performance monitoring and optimization. Subcommands: `benchmark`, `optimize`, `tune`
 - `platform` — Scaffold white-label platform configurations.. Subcommands: `init-platform`

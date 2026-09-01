@@ -6,7 +6,6 @@ and `aitbc market` for the coordinator-backed or service-backed paths.
 """
 
 import json
-import os
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
-from ..utils import DECIMAL, error, info, output, success
+from ..utils import DECIMAL, error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -67,184 +66,6 @@ def _get_wallet_password(wallet_name: str) -> str:
 def operations():
     """Deprecated legacy on-chain operations commands for marketplace, AI, agent, and governance."""
     pass
-
-
-# Marketplace operations
-@operations.group(
-    deprecated=True,
-    epilog="""Examples:
-
-  aitbc operations marketplace list-listings
-
-  aitbc operations marketplace create-listing --wallet-name wallet-1 --item-type gpu --price 100""",
-)
-def marketplace():
-    """Deprecated on-chain marketplace operations subgroup."""
-    pass
-
-
-@marketplace.command(
-    epilog="""Examples:
-
-  aitbc operations marketplace list-listings
-
-  aitbc operations marketplace list-listings --output json"""
-)
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-def list_listings(format: str):
-    """List all available marketplace listings from the on-chain marketplace."""
-    try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=30)
-        data = http_client.get("/rpc/marketplace/listings")
-        listings = data.get("listings", [])
-        success(f"Marketplace listings: {len(listings)}")
-        if format == "json":
-            click.echo(json.dumps(listings, indent=2))
-        else:
-            for listing in listings:
-                click.echo(f"  - {listing.get('name', 'unknown')}: {listing.get('price', 0)} AIT")
-    except NetworkError as e:
-        error(f"Error getting marketplace listings: {e}")
-    except Exception as e:
-        error(f"Error: {e}")
-
-
-@marketplace.command(
-    epilog="""Examples:
-
-  aitbc operations marketplace purchase --listing-id listing-123 --quantity 1 --wallet wallet-1"""
-)
-@click.option("--listing-id", "listing_id", required=True, help="The Listing id.")
-@click.option("--quantity", type=int, default=1, help="Quantity to purchase")
-@click.option("--wallet", help="Wallet name for payment")
-def purchase(listing_id: str, quantity: int, wallet: str | None):
-    """Purchase a quantity of items from a marketplace listing."""
-    try:
-        import httpx
-
-        if not wallet:
-            abort(None, "Wallet name required for payment")
-
-        # Get wallet configuration
-        config = get_config()
-        keystore_path = wallet_dir() / f"{wallet}.json"
-        if not keystore_path.exists():
-            abort(None, f"Wallet '{wallet}' not found")
-
-        # Load wallet
-        with open(keystore_path) as f:
-            wallet_data = json.load(f)
-
-        wallet_address = wallet_data.get("address")
-        if not wallet_address:
-            abort(None, "Invalid wallet data")
-
-        # Get wallet password
-        password = os.environ.get("AITBC_WALLET_PASSWORD") or click.prompt("Wallet password", hide_input=True)
-
-        # Get listing details from marketplace
-        marketplace_url = getattr(config, "marketplace_url", "http://localhost:8101")
-        listing_response = httpx.get(f"{marketplace_url}/v1/marketplace/listings/{listing_id}")
-
-        if listing_response.status_code != 200:
-            abort(None, f"Failed to get listing: {listing_response.text}")
-
-        listing = listing_response.json()
-        price = listing.get("price", 0) * quantity
-
-        success(f"Purchase {quantity} of listing {listing_id} for {price} AIT")
-
-        if not click.confirm("Confirm purchase?"):
-            info("Cancelled")
-            return
-
-        # Unlock wallet via wallet daemon
-        wallet_daemon_url = getattr(config, "wallet_daemon_url", "http://localhost:8105")
-        unlock_response = httpx.post(
-            f"{wallet_daemon_url}/v1/chains/ait-hub/wallets/{wallet}/unlock", json={"password": password}
-        )
-
-        if unlock_response.status_code != 200:
-            abort(None, "Failed to unlock wallet")
-
-        # Sign transaction
-        tx_payload = {
-            "from": wallet_address,
-            "to": listing.get("seller_address"),
-            "value": str(int(price * 1000)),  # Convert to milli-AIT
-            "data": json.dumps({"listing_id": listing_id, "quantity": quantity}),
-            "type": "PURCHASE",
-        }
-
-        sign_response = httpx.post(f"{wallet_daemon_url}/v1/chains/ait-hub/wallets/{wallet}/sign", json=tx_payload)
-
-        if sign_response.status_code != 200:
-            abort(None, f"Failed to sign transaction: {sign_response.text}")
-
-        signed_tx = sign_response.json()
-        tx_hash = signed_tx.get("transaction_hash")
-
-        # Submit transaction to blockchain
-        blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        submit_response = httpx.post(f"{blockchain_rpc_url}/rpc/transactions/marketplace", json=signed_tx)
-
-        if submit_response.status_code != 200:
-            abort(None, f"Failed to submit transaction: {submit_response.text}")
-
-        success(f"Purchase successful (tx: {tx_hash[:16]}...)")
-
-    except Exception as e:
-        abort(None, f"Error purchasing: {e}", from_exception=e)
-
-
-@marketplace.command(
-    epilog="""Examples:
-
-  aitbc operations marketplace create-listing --wallet-name wallet-1 --item-type gpu --price 100
-
-  aitbc operations marketplace create-listing --wallet-name wallet-1 --item-type gpu --price 100 --description 'GPU time'"""
-)
-@click.option("--wallet-name", required=True, help="Seller wallet name")
-@click.option("--item-type", required=True, help="Type of item")
-@click.option("--price", type=DECIMAL, required=True, help="Listing price")
-@click.option("--description", help="Item description")
-def create_listing(wallet_name: str, item_type: str, price: Decimal, description: str | None):
-    """Create a marketplace listing with wallet, item type, and price."""
-    try:
-        # Get wallet address
-        keystore_path = wallet_dir() / f"{wallet_name}.json"
-        if not keystore_path.exists():
-            error(f"Wallet '{wallet_name}' not found")
-            return None
-
-        with open(keystore_path) as f:
-            wallet_data = json.load(f)
-        address = wallet_data["address"]
-
-        # Create listing via RPC
-        listing_config = {
-            "seller_address": address,
-            "item_type": item_type,
-            "price": str(price),
-            "description": description or "",
-        }
-
-        try:
-            http_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=30)
-            result = http_client.post("/rpc/marketplace/create", json=listing_config)
-            success("Listing created successfully")
-            click.echo(f"Item: {item_type}")
-            click.echo(f"Price: {price} AIT")
-            click.echo(f"Listing ID: {result.get('listing_id', 'unknown')}")
-            return result
-        except NetworkError as e:
-            error(f"Error creating listing: {e}")
-            return None
-        except Exception as e:
-            error(f"Error: {e}")
-            return None
-    except Exception as e:
-        error(f"Error: {e}")
 
 
 # AI operations
