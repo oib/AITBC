@@ -85,17 +85,27 @@ class ZkRefundSweeper:
         self._session_factory = session_factory or (lambda: Session(get_engine()))
 
     def _find_candidates(self, session: Any) -> list[tuple[Job, JobPayment]]:
-        """Completed jobs whose ZK receipt failed and whose escrow is still locked."""
+        """Completed jobs whose ZK receipt failed and whose refund is not on-chain.
+
+        A row is a candidate when:
+        - the job is completed and old enough;
+        - the payment was actually escrowed (``escrowed_at`` is set);
+        - the payment is still in a held/refundable state, or it is already marked
+          ``refunded`` locally but has no authoritative on-chain hash (stale residue).
+        The authoritative dedupe gate is ``refund_transaction_hash``: once that field
+        is set, the refund is considered final and is never retried.
+        """
         cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
         stmt = (
             select(Job, JobPayment)
             .join(JobPayment, col(Job.payment_id) == JobPayment.id)
-            .outerjoin(PaymentEscrow, JobPayment.id == PaymentEscrow.payment_id)
             .where(col(Job.state) == "COMPLETED")
-            .where(col(JobPayment.status).in_({"escrowed", PENDING_ACCEPTANCE}))
+            .where(
+                (col(JobPayment.status).in_({"escrowed", PENDING_ACCEPTANCE}))
+                | ((col(JobPayment.status) == "refunded") & (col(JobPayment.refund_transaction_hash).is_(None)))
+            )
             .where(col(JobPayment.escrowed_at).is_not(None))
             .where(col(JobPayment.refund_transaction_hash).is_(None))
-            .where((PaymentEscrow.id.is_(None)) | (col(PaymentEscrow.is_refunded).is_(False)))
             .where(col(Job.completed_at).is_not(None))
             .where(col(Job.completed_at) < cutoff)
             .limit(self.batch_size)
@@ -178,7 +188,31 @@ class ZkRefundSweeper:
                         session.commit()
                 else:
                     counts["failed"] += 1
-                    logger.warning("Job %s ZK refund did not settle; retrying next sweep", job.id)
+                    # PaymentService refused the refund. If the row is already marked
+                    # ``refunded`` locally but has no on-chain record, it is stale
+                    # residue that can never be valid; downgrade it to ``failed`` so
+                    # the sweeper stops retrying and the ledger is not stuck.
+                    payment = session.get(JobPayment, job.payment_id)
+                    escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == job.payment_id)).first()
+                    if payment and payment.status == "refunded" and not payment.refund_transaction_hash:
+                        logger.warning(
+                            "Job %s ZK refund is marked refunded but has no on-chain record; downgrading to failed",
+                            job.id,
+                        )
+                        payment.status = "failed"
+                        payment.refunded_at = None
+                        payment.updated_at = datetime.now(UTC)
+                        session.add(payment)
+                        job.payment_status = "failed"
+                        session.add(job)
+                        if escrow:
+                            escrow.is_refunded = False
+                            escrow.is_active = False
+                            escrow.refunded_at = None
+                            session.add(escrow)
+                        session.commit()
+                    else:
+                        logger.warning("Job %s ZK refund did not settle; retrying next sweep", job.id)
         logger.debug(
             "ZK refund sweep complete: candidates=%s refunded=%s failed=%s",
             counts["candidates"],
