@@ -35,7 +35,10 @@ configure_logging(level="INFO")
 logger = get_logger(__name__)
 
 # v0.6.6: Shared blockchain RPC client (chain-aware) and offer FSM
-_rpc_client = BlockchainRPCClient(rpc_url=settings.blockchain_rpc_url)
+_rpc_client = BlockchainRPCClient(
+    rpc_url=settings.blockchain_rpc_url,
+    api_key=settings.blockchain_rpc_api_key,
+)
 
 
 # Map GPURegistry status strings to OfferStatus for FSM validation

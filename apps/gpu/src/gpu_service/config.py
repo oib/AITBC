@@ -25,6 +25,7 @@ class Settings(ServiceSettings):
 
     # Blockchain integration
     blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL
+    blockchain_rpc_api_key: str | None = Field(default=None, alias="BLOCKCHAIN_RPC_API_KEY")
     default_chain_id: str = "ait-hub"
 
     # Service binding (kept for backward compat with GPU_BIND_HOST/PORT env vars;

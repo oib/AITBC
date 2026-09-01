@@ -51,6 +51,7 @@ class OfferSyncService:
         self._blockchain = blockchain_client or BlockchainRPCClient(
             rpc_url=settings.blockchain_rpc_url,
             timeout=settings.http_timeout,
+            api_key=settings.blockchain_rpc_api_key,
         )
         self._sync_tasks: dict[str, asyncio.Task[None]] = {}
         self._sync_status: dict[str, OfferSyncStatusEntry] = {}
