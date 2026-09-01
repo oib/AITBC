@@ -72,7 +72,6 @@ aitbc --help
 | `stop` | Stop all AITBC services for the current (or selected) role |  |
 | `sync` | Blockchain synchronization utilities | `bulk`, `status` |
 | `system` | System management commands | `architect`, `audit`, `check`, `config`, `restart`, `status` |
-| `tee` | Trusted Execution Environment (TEE) commands. | `attest`, `keygen`, `launch`, `register`, `status`, `verify` |
 | `trade` | Inter-chain trading operations | `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch` |
 | `transactions` | Transaction management commands | `batch`, `estimate-fee`, `pending`, `search`, `send`, `status` |
 | `update` | Pull the latest code and run scripts/deployment/update.sh. |  |
