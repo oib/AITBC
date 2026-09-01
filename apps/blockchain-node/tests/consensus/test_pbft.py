@@ -130,24 +130,32 @@ async def test_quorum_reached():
 @pytest.mark.asyncio
 async def test_dynamic_fault_tolerance():
     """adding validators changes fault_tolerance"""
-    consensus = _make_consensus(3)
-    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
-    # 3 validators → f = 1 → required = 3
-    assert pbft.fault_tolerance == 1
-    assert pbft.required_messages == 3
+    from aitbc_chain.config import settings
 
-    # Add more validators (need 7+ for f=2)
-    for i in range(3, 7):
-        addr = f"0x{i:040x}"
-        consensus.add_validator(addr, 1000.0)
-        consensus.validators[addr].role = ValidatorRole.PROPOSER
+    # Disable the attestation minimum so this test exercises pure BFT thresholds.
+    original_min = settings.multi_validator_min_attestations
+    settings.multi_validator_min_attestations = 0
+    try:
+        consensus = _make_consensus(3)
+        pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+        # 3 validators → f = 1 → required = 3
+        assert pbft.fault_tolerance == 1
+        assert pbft.required_messages == 3
 
-    # Trigger recalculation via pre_prepare_phase
-    proposer = list(consensus.validators.keys())[0]
-    await pbft.pre_prepare_phase(proposer, "0xblockhash")
-    # 7 validators → f = 7//3 = 2 → required = 5
-    assert pbft.fault_tolerance == 2
-    assert pbft.required_messages == 5
+        # Add more validators (need 7+ for f=2)
+        for i in range(3, 7):
+            addr = f"0x{i:040x}"
+            consensus.add_validator(addr, 1000.0)
+            consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+        # Trigger recalculation via pre_prepare_phase
+        proposer = list(consensus.validators.keys())[0]
+        await pbft.pre_prepare_phase(proposer, "0xblockhash")
+        # 7 validators → f = 7//3 = 2 → required = 5
+        assert pbft.fault_tolerance == 2
+        assert pbft.required_messages == 5
+    finally:
+        settings.multi_validator_min_attestations = original_min
 
 
 @pytest.mark.asyncio
@@ -309,3 +317,59 @@ async def test_four_validator_round():
 
     key = f"{proposer.state.current_sequence}:{proposer.state.current_view}"
     assert len(proposer.state.committed_messages.get(key, [])) >= proposer.required_messages
+
+
+@pytest.mark.asyncio
+async def test_fault_tolerance_with_one_validator_down():
+    """A full PBFT round reaches commit even when one non-proposer validator is down.
+
+    With 4 validators the BFT threshold is f=1 and required_messages=2f+1=3.
+    The proposer sends pre-prepare, one validator is unresponsive, and the
+    remaining two validators respond. The proposer plus those two gives the
+    prepare and commit quorums, so the round completes.
+    """
+    from eth_keys import keys
+    import secrets
+
+    class FaultyNetwork:
+        def __init__(self, nodes, down_index: int):
+            self.nodes = nodes
+            self.down_index = down_index
+
+        async def publish(self, topic, msg_data):
+            for i, node in enumerate(self.nodes):
+                if i == self.down_index:
+                    continue  # stopped validator receives nothing
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    # 4 independent validators
+    validators: list[tuple[str, str, PBFTConsensus]] = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        addr = pk.public_key.to_checksum_address()
+        validators.append((addr, pk.to_hex(), None))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-faulty")
+    for addr, _, _ in validators:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    net = FaultyNetwork([], down_index=3)  # stop the last (non-proposer) validator
+    for i, (addr, pk_hex, _) in enumerate(validators):
+        node = PBFTConsensus(shared_consensus, private_key=pk_hex, chain_id="test-pbft-faulty", local_validator=addr)
+        node.set_gossip_backend(net)
+        validators[i] = (addr, pk_hex, node)
+        net.nodes.append(node)
+
+    proposer_addr, _, proposer = validators[0]
+    block_hash = "0x" + secrets.token_hex(32)
+    result = await proposer.propose_and_wait(proposer_addr, block_hash, timeout=5.0)
+    assert result is True
+
+    key = f"{proposer.state.current_sequence}:{proposer.state.current_view}"
+    assert len(proposer.state.committed_messages.get(key, [])) >= proposer.required_messages
+
+    # The stopped node must not have any committed messages for this key
+    stopped = validators[net.down_index][2]
+    assert len(stopped.state.committed_messages.get(key, [])) == 0
