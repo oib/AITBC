@@ -148,7 +148,7 @@ def version():
 def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     """AITBC CLI - Command Line Interface for AITBC Network
 
-    Manage jobs, mining, wallets, blockchain tasks, marketplaces, and AI
+    Manage jobs, mining, wallets, blockchain tasks, market, and AI
     services.
 
     COMMAND GROUP DISAMBIGUATION:
@@ -165,7 +165,7 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     Examples:
     aitbc system architect
     aitbc system audit
-    aitbc system check --service marketplace
+    aitbc system check --service blockchain-node
     """
     from aitbc_cli.config import get_config
 

@@ -24,7 +24,7 @@ FastAPI service for job submission, miner registration, and receipt management. 
 
 ● Live
 
-Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
+Vite/TypeScript market with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
 [Learn More →](../blockchain/0_readme.md)
 
@@ -96,17 +96,17 @@ The AITBC platform consists of 8 core components working together to provide a c
 
 ### Application Layer
 
-- **Marketplace Web** - GPU compute marketplace
+- **Market Web** - GPU compute market
 - **Trade Exchange** - Token trading platform
 - **Explorer Web** - Blockchain explorer
 - **Pool Hub** - Miner coordination service
 
 ### CLI & Tooling
 
-- **AITBC CLI** - 15 validated top-level command groups are shown by default (`aitbc --help`); 69 command groups are registered in total
-  - account, ai, auth, bond, bridge, config, list, market, node, restart, start, stop, transactions, version, wallet
-  - Hidden and unvalidated groups can be listed and run with `aitbc --show-deprecated`
-  - CI/CD via GitHub Actions, man page, shell completion
+- **AITBC CLI** - top-level command groups are shown by default (`aitbc --help`); hidden and deprecated groups can be listed with `aitbc --show-deprecated`
+  - Canonical groups include: `account`, `ai`, `auth`, `bond`, `bridge`, `config`, `market`, `node`, `transactions`, `wallet`, and others
+  - `aitbc market` is the default GPU/software marketplace command; the legacy `aitbc marketplace` group has been removed
+  - CI/CD via Gitea Actions, man page, shell completion
 
 ## Component Interactions
 
@@ -126,7 +126,7 @@ The AITBC platform consists of 8 core components working together to provide a c
 ## Quick Links
 
 [Trade Exchange](https://aitbc.bubuit.net/Exchange/)
-[Marketplace](https://aitbc.bubuit.net/marketplace/)
+[Market](https://aitbc.bubuit.net/market/)
 [Explorer](https://aitbc.bubuit.net/explorer/)
 [API Docs](https://aitbc.bubuit.net/api/docs)
 
