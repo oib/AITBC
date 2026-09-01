@@ -12,6 +12,7 @@ from sqlmodel import select
 from aitbc.bridge import ValidatorInfo, ValidatorSet
 
 from ..config import settings
+from ..database import init_db
 from ..logger import get_logger
 from ..models import BridgeValidator
 from .bridge_base import BridgeBase
@@ -105,6 +106,8 @@ class BridgeValidatorMixin(BridgeBase):
                     existing = session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == target_chain)).first()
                     if existing:
                         continue
+                # Ensure target chain tables exist before writing validators.
+                init_db(target_chain)
                 for v in source_validators:
                     self.register_validator(target_chain, v.address, v.public_key, v.epoch)
                 logger.info(
