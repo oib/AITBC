@@ -261,6 +261,12 @@ def ai():
     help="Require the provider to have an active performance bond",
 )
 @click.option("--min-bond-amount", type=float, default=None, help="Minimum bond amount required for provider eligibility")
+@click.option(
+    "--deterministic-decoding/--no-deterministic-decoding",
+    default=False,
+    help="Use deterministic decoding for reproducible verification",
+)
+@click.option("--decode-seed", type=int, default=None, help="Seed for deterministic decoding (auto-assigned if unset)")
 @click.option("--input", "input_url", help="Input URL or path for transcribe/reencode jobs")
 @click.option("--output-format", default=None, help="Output format for reencode jobs (e.g. mp4, mp3)")
 @click.option("--classification", default=None, help="Data classification label (e.g. public, pii, phi)")
@@ -299,6 +305,8 @@ def submit(
     auto_reinvest_pct,
     bond_required,
     min_bond_amount,
+    deterministic_decoding,
+    decode_seed,
     input_url,
     output_format,
     classification,
@@ -399,6 +407,11 @@ def submit(
             job_data["constraints"]["bond_required"] = True
         if min_bond_amount is not None:
             job_data["constraints"]["min_bond_amount"] = min_bond_amount
+
+        if deterministic_decoding:
+            job_data["constraints"]["deterministic_decoding"] = True
+            if decode_seed is not None:
+                job_data["constraints"]["decode_seed"] = decode_seed
 
         if offer_id:
             job_data["offer_id"] = offer_id

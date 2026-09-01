@@ -471,13 +471,19 @@ def _download_media(url: str, dest: str) -> None:
         raise Exception(f"Failed to download media from {url}: {e}") from e
 
 
-def _run_whisper(audio_path: str, model: str = "base") -> str:
+def _run_whisper(audio_path: str, model: str = "base", *, deterministic: bool = False, seed: int | None = None) -> str:
     """Transcribe an audio file with OpenAI Whisper and return the text."""
     try:
         import whisper
 
         w = whisper.load_model(model)
-        result = w.transcribe(audio_path, fp16=False)
+        kwargs: dict[str, Any] = {"fp16": False}
+        if deterministic:
+            kwargs["temperature"] = 0
+            kwargs["best_of"] = 1
+            if seed is not None:
+                kwargs["initial_prompt"] = f"seed={seed}"
+        result = w.transcribe(audio_path, **kwargs)
         return str(result.get("text", "")).strip()
     except Exception as e:
         raise Exception(f"Whisper transcription failed: {e}") from e
@@ -587,15 +593,21 @@ def _execute_inference(job, available_models):
             raise Exception("No models available in Ollama")
     logger.info("Running inference on GPU with model: %s", model)
     start_time = time.time()
+    constraints = job.get("constraints") or {}
+    deterministic = constraints.get("deterministic_decoding", False)
+    decode_seed = constraints.get("decode_seed") if deterministic else None
     ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=180)
+    options: dict[str, Any] = {"num_predict": 24, "temperature": 0.7}
+    if deterministic:
+        options["temperature"] = 0
+        options["top_k"] = 1
+        options["top_p"] = 1
+        options["seed"] = decode_seed if decode_seed is not None else 0
     ollama_payload = {
         "model": model,
         "prompt": prompt,
         "stream": False,
-        "options": {
-            "num_predict": 24,
-            "temperature": 0.7,
-        },
+        "options": options,
     }
     ollama_response = ollama_client.post("/api/generate", json=ollama_payload)
     if ollama_response:
@@ -626,7 +638,13 @@ def _execute_transcribe(job):
         ext = os.path.splitext(url.split("?")[0])[1] or ".wav"
         input_path = os.path.join(tmp, f"input{ext}")
         _download_media(url, input_path)
-        text = _run_whisper(input_path, model)
+        constraints = job.get("constraints") or {}
+        text = _run_whisper(
+            input_path,
+            model,
+            deterministic=constraints.get("deterministic_decoding", False),
+            seed=constraints.get("decode_seed"),
+        )
     execution_time = time.time() - start_time
     tee_quote = build_tee_quote(job, output=text)
     if tee_quote:
