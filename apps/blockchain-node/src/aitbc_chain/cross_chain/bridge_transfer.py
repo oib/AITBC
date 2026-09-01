@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
@@ -287,7 +288,7 @@ class BridgeTransferMixin(BridgeBase):
                     chain_id=record.target_chain,
                     tx_hash=target_tx_hash,
                 )
-            record.status = "completed"
+            record.status = "confirmed"
             record.target_tx_hash = target_tx_hash
             record.proof_hash = proof_hash
             record.confirm_time = datetime.now(UTC)
@@ -299,7 +300,7 @@ class BridgeTransferMixin(BridgeBase):
                 with self._session_for(record.source_chain) as src_session:
                     src_record = src_session.get(CrossChainTransfer, transfer_id)
                     if src_record:
-                        src_record.status = "completed"
+                        src_record.status = "confirmed"
                         src_record.target_tx_hash = target_tx_hash
                         src_record.proof_hash = proof_hash
                         src_record.confirm_time = record.confirm_time
@@ -310,12 +311,15 @@ class BridgeTransferMixin(BridgeBase):
             self._processed_proofs.add(proof_hash)
             transfer = self._pending_transfers.get(transfer_id)
             if transfer:
-                transfer.status = BridgeStatus.completed
+                transfer.status = BridgeStatus.confirmed
                 transfer.target_tx_hash = target_tx_hash
                 transfer.confirm_time = datetime.now(UTC)
                 transfer.proof = proof
             logger.info(
-                "Bridge transfer completed: %s... released %s to %s...", transfer_id[:16], record.amount, record.recipient[:20]
+                "Bridge transfer confirmed (release pending): %s... released %s to %s...",
+                transfer_id[:16],
+                record.amount,
+                record.recipient[:20],
             )
             return transfer or self._build_transfer_from_record(record, proof)
 
@@ -789,6 +793,75 @@ class BridgeTransferMixin(BridgeBase):
             return False
 
         return True
+
+    def _finalize_confirmed_transfers(self, chain_id: str) -> int:
+        """Move 'confirmed' transfers to 'completed' once the release tx is in a block.
+
+        A transfer is only considered finalised when the BRIDGE_RELEASE
+        transaction has been sealed into a produced block on the target chain.
+        """
+        finalized = 0
+        with self._session_for(chain_id) as session:
+            records = session.exec(
+                select(CrossChainTransfer).where(
+                    CrossChainTransfer.target_chain == chain_id,
+                    CrossChainTransfer.status == "confirmed",
+                    CrossChainTransfer.target_tx_hash.is_not(None),  # type: ignore[attr-defined]
+                )
+            ).all()
+            for record in records:
+                tx = session.exec(
+                    select(Transaction).where(
+                        Transaction.chain_id == chain_id,
+                        Transaction.tx_hash == record.target_tx_hash,
+                        Transaction.block_height.is_not(None),  # type: ignore[attr-defined]
+                    )
+                ).first()
+                if not tx:
+                    continue
+                record.status = "completed"
+                session.add(record)
+                # Mirror the final state on the source chain.
+                try:
+                    with self._session_for(record.source_chain) as src_session:
+                        src_record = src_session.get(CrossChainTransfer, record.transfer_id)
+                        if src_record and src_record.status != "completed":
+                            src_record.status = "completed"
+                            src_record.target_tx_hash = record.target_tx_hash
+                            src_record.proof_hash = record.proof_hash
+                            src_record.confirm_time = record.confirm_time
+                            src_session.add(src_record)
+                            src_session.commit()
+                except Exception:
+                    logger.exception("Failed to update source-chain bridge record for %s", record.transfer_id)
+                session.commit()
+                finalized += 1
+                in_memory = self._pending_transfers.get(record.transfer_id)
+                if in_memory:
+                    in_memory.status = BridgeStatus.completed
+                    in_memory.target_tx_hash = record.target_tx_hash
+                    in_memory.confirm_time = record.confirm_time
+        return finalized
+
+    async def start_finalizer(self) -> None:
+        """Background loop that finalises bridge releases once they are block-sealed."""
+        interval = getattr(settings, "bridge_monitor_interval", 60)
+        while True:
+            try:
+                chains = [
+                    c.strip()
+                    for c in (getattr(settings, "supported_chains", "") or str(getattr(settings, "chain_id", ""))).split(",")
+                    if c.strip()
+                ]
+                if not chains:
+                    chains = [str(getattr(settings, "chain_id", ""))]
+                for chain_id in chains:
+                    count = self._finalize_confirmed_transfers(chain_id)
+                    if count:
+                        logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
+            except Exception:
+                logger.exception("Bridge release finalizer loop failed")
+            await asyncio.sleep(interval)
 
     def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None = None) -> BridgeTransfer:
         """Build BridgeTransfer from database record."""
