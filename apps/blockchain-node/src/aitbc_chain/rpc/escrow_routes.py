@@ -708,6 +708,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 if existing_release and not record.release_tx_hash:
                     record.release_tx_hash = existing_release
                     session.add(record)
+                    session.commit()
                 release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
                 return {
                     "success": True,
