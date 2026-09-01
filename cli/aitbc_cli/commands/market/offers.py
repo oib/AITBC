@@ -25,7 +25,7 @@ from aitbc.crypto.crypto import sign_transaction_data
 logger = get_logger(__name__)
 
 from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, market, safe_load_credentials
-from .escrow import _get_blockchain_rpc_url
+from .escrow import _get_blockchain_rpc_url, _get_rpc_client
 
 
 def _is_wallet_address(value: str | None) -> bool:
@@ -518,7 +518,7 @@ def status(ctx, order_id: str):
         # Query escrow state from blockchain node
         escrow_result = None
         try:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            http_client = _get_rpc_client(config, config.blockchain_rpc_url, timeout=10)
             escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
         except Exception:
             logger.debug("Offer lookup request failed", exc_info=True)
@@ -526,7 +526,7 @@ def status(ctx, order_id: str):
 
         if not escrow_result:
             try:
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+                http_client = _get_rpc_client(config, hub_url, timeout=10)
                 escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
             except Exception:
                 logger.debug("Hub offer lookup request failed", exc_info=True)
