@@ -18,7 +18,6 @@ def test_default_help_lists_canonical_groups():
     assert result.exit_code == 0
     assert "ai" in result.output
     assert "market" in result.output
-    assert "marketplace" in result.output
     assert "governance" in result.output
     # Legacy `operations` and its subgroups are hidden from default help.
     assert "  operations  " not in result.output
@@ -33,14 +32,6 @@ def test_canonical_market_group_runs():
     assert "GPU and software" in result.output
 
 
-def test_canonical_marketplace_group_is_deprecated_but_runs():
-    runner = CliRunner()
-    result = runner.invoke(cli, ["marketplace", "--help"])
-    assert result.exit_code == 0
-    assert "cross-chain" in result.output.lower()
-    assert "deprecated" in result.output.lower()
-
-
 def test_canonical_governance_group_runs():
     runner = CliRunner()
     result = runner.invoke(cli, ["governance", "--help"])
@@ -51,13 +42,6 @@ def test_canonical_governance_group_runs():
 def test_legacy_operations_group_is_hidden_and_deprecated():
     runner = CliRunner()
     result = runner.invoke(cli, ["operations", "--help"])
-    assert result.exit_code == 0
-    assert "deprecated" in result.output.lower()
-
-
-def test_legacy_operations_marketplace_subgroup_is_deprecated():
-    runner = CliRunner()
-    result = runner.invoke(cli, ["operations", "marketplace", "--help"])
     assert result.exit_code == 0
     assert "deprecated" in result.output.lower()
 
