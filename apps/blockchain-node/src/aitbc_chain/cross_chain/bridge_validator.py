@@ -102,12 +102,12 @@ class BridgeValidatorMixin(BridgeBase):
             if target_chain == source_chain:
                 continue
             try:
+                # Ensure target chain tables exist before probing or writing.
+                init_db(target_chain)
                 with self._session_for(target_chain) as session:
                     existing = session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == target_chain)).first()
                     if existing:
                         continue
-                # Ensure target chain tables exist before writing validators.
-                init_db(target_chain)
                 for v in source_validators:
                     self.register_validator(target_chain, v.address, v.public_key, v.epoch)
                 logger.info(
