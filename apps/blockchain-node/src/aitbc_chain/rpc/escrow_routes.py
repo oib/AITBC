@@ -977,11 +977,11 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                 }
     if db_record:
         record_amount_ait = str(units_to_ait(db_record.amount))
+        derived_state = "refunded" if db_record.refunded_at else ("released" if db_record.released_at else "funded")
         return {
             "job_id": job_id,
             "contract_id": None,
-            "state": db_record.status
-            or ("refunded" if db_record.refunded_at else ("released" if db_record.released_at else "funded")),
+            "state": derived_state if (db_record.refunded_at or db_record.released_at) else (db_record.status or "funded"),
             "buyer": db_record.buyer,
             "provider": db_record.provider,
             "amount": record_amount_ait,
