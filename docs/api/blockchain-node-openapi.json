@@ -19090,6 +19090,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "escrow contract_id missing after create",
             "content": {
@@ -19101,7 +19111,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised",
+            "description": "EscrowManager not initialised / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -19110,7 +19120,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/escrow/{job_id}/release": {
@@ -19121,6 +19136,11 @@
         "summary": "Release escrow to provider",
         "description": "Release locked funds to the provider after job completion.\nAccepts optional job_tx_hash as proof of work reference.",
         "operationId": "release_escrow_rpc_escrow__job_id__release_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "job_id",
@@ -19177,6 +19197,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No escrow contract found for job_id={job_id}",
             "content": {
@@ -19198,7 +19228,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released",
+            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -19218,6 +19248,11 @@
         "summary": "Refund escrow to buyer",
         "description": "Refund locked funds back to the buyer.",
         "operationId": "refund_escrow_rpc_escrow__job_id__refund_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "job_id",
@@ -19280,6 +19315,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No escrow contract found for job_id={job_id}",
             "content": {
@@ -19291,7 +19336,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised",
+            "description": "EscrowManager not initialised / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -19311,6 +19356,11 @@
         "summary": "Get escrow state",
         "description": "Get current escrow state for a job.",
         "operationId": "get_escrow_rpc_escrow__job_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "job_id",
@@ -19345,8 +19395,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No escrow found for job_id={job_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -21252,6 +21322,11 @@
       "HTTPBearer": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       }
     }
   }
