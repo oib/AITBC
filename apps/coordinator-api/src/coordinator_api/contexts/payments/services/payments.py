@@ -602,6 +602,13 @@ class PaymentService:
                         payment_id,
                     )
                     return False
+                if not release_data.get("tx_hash"):
+                    logger.error(
+                        "Escrow release for job %s succeeded without a settlement hash; payment %s stays escrowed",
+                        job_id,
+                        payment_id,
+                    )
+                    return False
                 # Prefer the settlement time the chain reports. On a reconciliation
                 # retry that is the original settlement, not this retry, so the payment
                 # keeps the time the provider was actually paid.

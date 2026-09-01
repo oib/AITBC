@@ -296,6 +296,7 @@ class Escrow(ChainBase, table=True):
     refunded_at: datetime | None = None
     lock_tx_hash: str | None = None  # TX hash of the ESCROW_LOCK transaction
     job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
+    release_tx_hash: str | None = None  # TX hash of the ESCROW_RELEASE transaction
     refund_tx_hash: str | None = None  # TX hash of escrow refund
 
 
