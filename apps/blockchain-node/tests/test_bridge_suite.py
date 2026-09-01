@@ -19,10 +19,10 @@ from eth_keys import keys
 from eth_utils import keccak
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
-from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer
+from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer, Transaction
 from aitbc_chain.rpc.router import router
 
 
@@ -298,10 +298,36 @@ class TestBridgeLifecycle:
 
         # Step 2: confirm (with block signature verification disabled for test)
         with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
-            completed = bridge.confirm_transfer(transfer.transfer_id, proof)
-        assert completed.status == BridgeStatus.completed
-        assert completed.target_tx_hash is not None
-        assert completed.confirm_time is not None
+            confirmed = bridge.confirm_transfer(transfer.transfer_id, proof)
+        assert confirmed.status == BridgeStatus.confirmed
+        assert confirmed.target_tx_hash is not None
+        assert confirmed.confirm_time is not None
+
+        # The release is created/pending; the transfer is not completed until the
+        # release transaction is sealed in a block.
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            assert record.status == "confirmed"
+
+        # Simulate block inclusion and run the finalizer.
+        with Session(engine) as session:
+            release_tx = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == target_chain,
+                    Transaction.tx_hash == confirmed.target_tx_hash,
+                )
+            ).first()
+            assert release_tx is not None
+            release_tx.block_height = 11
+            session.add(release_tx)
+            session.commit()
+        assert bridge._finalize_confirmed_transfers(target_chain) == 1
+
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            assert record.status == "completed"
 
         # Recipient balance must have been credited on the target chain
         with Session(engine) as session:
@@ -310,7 +336,7 @@ class TestBridgeLifecycle:
             assert recipient_account.balance == amount
 
     def test_bridge_transfer_status_tracking(self, bridge: CrossChainBridge, proposer_account: EthAccount, engine) -> None:
-        """Verify transfer status transitions (pending -> locked -> confirmed)."""
+        """Verify transfer status transitions (pending -> locked -> confirmed -> completed)."""
         sender = "0xtracksender"
         recipient = "0xtrackrecipient"
         source_chain = "chain-a"
@@ -342,8 +368,27 @@ class TestBridgeLifecycle:
             proof = _make_valid_proof(record, proposer_account.key.hex())
 
         with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
-            completed = bridge.confirm_transfer(transfer.transfer_id, proof)
-        assert completed.status == BridgeStatus.completed
+            confirmed = bridge.confirm_transfer(transfer.transfer_id, proof)
+        assert confirmed.status == BridgeStatus.confirmed
+
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            assert record.status == "confirmed"
+
+        # Simulate the release tx being sealed in a block and finalize.
+        with Session(engine) as session:
+            release_tx = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == target_chain,
+                    Transaction.tx_hash == confirmed.target_tx_hash,
+                )
+            ).first()
+            assert release_tx is not None
+            release_tx.block_height = 11
+            session.add(release_tx)
+            session.commit()
+        assert bridge._finalize_confirmed_transfers(target_chain) == 1
 
         with Session(engine) as session:
             record = session.get(CrossChainTransfer, transfer.transfer_id)
