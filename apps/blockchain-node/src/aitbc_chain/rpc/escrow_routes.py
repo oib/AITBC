@@ -715,6 +715,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
+            if record and record.refunded_at is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Escrow for job_id={job_id} has already been refunded",
+                )
             if record and record.released_at is not None:
                 # The DB may not have stored the release tx hash (legacy rows), so
                 # look it up on-chain before returning a stale/empty job_tx_hash.
@@ -860,11 +865,15 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     # Reconciliation/duplicate refund handling: a refund is only final when the
     # same job_id has an ESCROW_REFUND transaction on-chain.
     record_refunded = False
+    record_released = False
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
-            if record and record.refunded_at is not None:
-                record_refunded = True
+            if record:
+                if record.refunded_at is not None:
+                    record_refunded = True
+                if record.released_at is not None:
+                    record_released = True
     except Exception as e:
         _logger.warning("Failed to check escrow refund state: %s", e)
     if record_refunded:
@@ -878,6 +887,11 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
                 "message": "Escrow already refunded",
                 "refund_tx_hash": refund_tx_hash,
             }
+    if record_released:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Escrow for job_id={job_id} has already been released",
+        )
 
     contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
@@ -975,15 +989,21 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
             db_record = session.get(Escrow, job_id)
     except Exception as e:
         _logger.warning("Failed to query Escrow DB: %s", e)
+    derived_state = ""
+    if db_record:
+        derived_state = "refunded" if db_record.refunded_at else ("released" if db_record.released_at else "")
     if mgr is not None:
         contract_id = await _find_contract_id(mgr, job_id)
         if contract_id:
             contract = mgr.escrow_contracts.get(contract_id)
             if contract:
+                # Prefer the DB timestamps over the in-memory contract state; the
+                # in-memory state can lag behind a settled on-chain transaction.
+                state = derived_state or contract.state.value
                 return {
                     "job_id": job_id,
                     "contract_id": contract_id,
-                    "state": contract.state.value,
+                    "state": state,
                     "buyer": contract.client_address,
                     "provider": contract.agent_address,
                     "amount": str(contract.amount),
@@ -999,11 +1019,11 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                 }
     if db_record:
         record_amount_ait = str(units_to_ait(db_record.amount))
-        derived_state = "refunded" if db_record.refunded_at else ("released" if db_record.released_at else "funded")
+        state = derived_state or (db_record.status or "funded")
         return {
             "job_id": job_id,
             "contract_id": None,
-            "state": derived_state if (db_record.refunded_at or db_record.released_at) else (db_record.status or "funded"),
+            "state": state,
             "buyer": db_record.buyer,
             "provider": db_record.provider,
             "amount": record_amount_ait,
