@@ -78,7 +78,6 @@ from aitbc_cli.commands.trade import trade
 # Import modular command groups
 from aitbc_cli.commands.system import system
 from aitbc_cli.commands.control import start, stop, restart
-from aitbc_cli.commands.tee import tee
 
 # Import new modular commands
 from aitbc_cli.commands.zk import zk
@@ -250,7 +249,6 @@ cli.add_command(economics)
 cli.add_command(bond)
 cli.add_command(bootstrap)
 cli.add_command(reinvest)
-cli.add_command(tee)
 cli.add_command(confidential)
 cli.add_command(cluster)
 cli.add_command(security)
