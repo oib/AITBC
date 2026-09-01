@@ -20,6 +20,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
+from aitbc.utils.units import ait_to_units
 from sqlmodel import Session, select
 
 from ....config import settings
@@ -203,7 +204,7 @@ class BondSlashingService:
             "payload": {
                 "bond_id": bond_id,
                 "provider": provider,
-                "amount": slash_amount,
+                "amount": ait_to_units(slash_amount),
                 "to": self.bond_burn_address,
             },
         }
@@ -211,7 +212,7 @@ class BondSlashingService:
     async def _get_nonce(self, address: str) -> int:
         try:
             client = AITBCHTTPClient(timeout=5.0)
-            r = client.get(f"{self.blockchain_rpc_url}/rpc/accounts/{address}")
+            r = client.get(f"{self.blockchain_rpc_url}/rpc/account/{address}")
             if isinstance(r, dict):
                 return int(r.get("nonce", 0))
             if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
