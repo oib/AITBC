@@ -251,6 +251,12 @@ class PoAProposer:
             self._logger.warning("MultiValidatorPoA returned no proposer for height %s", block_height)
         return self._config.proposer_id
 
+    def _empty_bridge_root(self) -> str:
+        """Return the bridge event trie root for a block with no lock events."""
+        from ..state.merkle_patricia_trie import MerklePatriciaTrie
+
+        return "0x" + MerklePatriciaTrie().get_root().hex()
+
     def _sign_block_hash_for(self, proposer: str, block: Block) -> str:
         """Sign the canonical block header with the private key of the given proposer."""
         private_key = self._validator_keys.get(proposer) or getattr(settings, "proposer_key", None)
@@ -1032,6 +1038,10 @@ class PoAProposer:
                 select(Block).where(Block.chain_id == self._config.chain_id).where(Block.height == 0).limit(1)
             ).first()
             if genesis is not None:
+                if genesis.bridge_state_root is None:
+                    genesis.bridge_state_root = self._empty_bridge_root()
+                    session.add(genesis)
+                    session.commit()
                 self._logger.info(
                     "Genesis block already exists: height=%s, hash=%s, proposer=%s",
                     genesis.height,
@@ -1057,6 +1067,7 @@ class PoAProposer:
                         timestamp=timestamp,
                         tx_count=0,
                         state_root=genesis_state_root,
+                        bridge_state_root=self._empty_bridge_root(),
                         block_metadata=json.dumps({"allocations": genesis_allocations}) if genesis_allocations else None,
                     )
                     session.add(genesis)
@@ -1115,6 +1126,7 @@ class PoAProposer:
                 timestamp=timestamp,
                 tx_count=0,
                 state_root=genesis_state_root,
+                bridge_state_root=self._empty_bridge_root(),
                 block_metadata=json.dumps({"allocations": genesis_allocations}) if genesis_allocations else None,
             )
             session.add(genesis)
@@ -1144,6 +1156,7 @@ class PoAProposer:
                     "timestamp": genesis.timestamp.isoformat(),
                     "tx_count": genesis.tx_count,
                     "state_root": genesis.state_root,
+                    "bridge_state_root": genesis.bridge_state_root,
                 },
             )
 
