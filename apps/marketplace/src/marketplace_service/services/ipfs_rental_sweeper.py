@@ -57,7 +57,10 @@ class IpfsRentalSweeper:
         # Extra grace after expires_at before we act, so a renewal/extension has
         # a small window to land without releasing/refunding the escrow.
         self.refund_grace_seconds = refund_grace_seconds or _env_int("IPFS_RENTAL_SWEEP_GRACE_SECONDS", 60)
-        self._rpc_client = rpc_client or BlockchainRPCClient(rpc_url=settings.blockchain_rpc_url)
+        self._rpc_client = rpc_client or BlockchainRPCClient(
+            rpc_url=settings.blockchain_rpc_url,
+            api_key=settings.blockchain_rpc_api_key,
+        )
         self._session_factory = session_factory or _default_session_factory
         self._task: asyncio.Task[Any] | None = None
         self._stop_event = asyncio.Event()

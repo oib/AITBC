@@ -34,14 +34,28 @@ class BlockchainRPCClient:
     and escrow release/refund.
     """
 
-    def __init__(self, rpc_url: str = "http://localhost:8202", timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        rpc_url: str = "http://localhost:8202",
+        timeout: float = 10.0,
+        api_key: str | None = None,
+    ) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         self._timeout = timeout
+        self._api_key = api_key
 
     @property
     def rpc_url(self) -> str:
         """Base RPC URL (no trailing slash)."""
         return self._rpc_url
+
+    def _headers(self) -> dict[str, str] | None:
+        """Return default request headers, including the RPC API key if configured."""
+        return {"X-API-Key": self._api_key} if self._api_key else None
+
+    def _client(self) -> httpx.AsyncClient:
+        """Return an httpx client with the configured headers."""
+        return httpx.AsyncClient(timeout=self._timeout, headers=self._headers())
 
     async def query_offers(
         self,
@@ -63,7 +77,7 @@ class BlockchainRPCClient:
             params["chain_id"] = chain_id
         if status:
             params["status"] = status
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.get(f"{self._rpc_url}/rpc/gpus", params=params)
             resp.raise_for_status()
             data = resp.json()
@@ -85,7 +99,7 @@ class BlockchainRPCClient:
         params: dict[str, Any] = {}
         if chain_id:
             params["chain_id"] = chain_id
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.get(f"{self._rpc_url}/rpc/gpu/info/{gpu_id}", params=params)
             if resp.status_code == 404:
                 return None
@@ -101,7 +115,7 @@ class BlockchainRPCClient:
         params: dict[str, Any] = {}
         if chain_id:
             params["chain_id"] = chain_id
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
             if resp.status_code == 404:
                 return {"balance": 0, "nonce": 0}
@@ -126,7 +140,7 @@ class BlockchainRPCClient:
         """
         if not tx_data.get("chain_id"):
             raise ValueError("tx_data must include 'chain_id'")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.post(f"{self._rpc_url}/rpc/transaction", json=tx_data)
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
@@ -139,7 +153,7 @@ class BlockchainRPCClient:
         params: dict[str, Any] = {}
         if chain_id:
             params["chain_id"] = chain_id
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.get(f"{self._rpc_url}/rpc/transaction/{tx_hash}", params=params)
             if resp.status_code == 404:
                 return None
@@ -163,7 +177,7 @@ class BlockchainRPCClient:
         path_id = job_id or escrow_id or ""
         if not path_id:
             raise ValueError("verify_escrow requires job_id (or legacy escrow_id)")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.get(f"{self._rpc_url}/rpc/escrow/{path_id}")
             if resp.status_code == 404:
                 return None
@@ -180,7 +194,7 @@ class BlockchainRPCClient:
         body = body or {}
         if not job_id:
             raise ValueError("release_escrow requires job_id")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.post(f"{self._rpc_url}/rpc/escrow/{job_id}/release", json=body)
             if resp.status_code == 404:
                 return None
@@ -197,7 +211,7 @@ class BlockchainRPCClient:
         body = body or {}
         if not job_id:
             raise ValueError("refund_escrow requires job_id")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.post(f"{self._rpc_url}/rpc/escrow/{job_id}/refund", json=body)
             if resp.status_code == 404:
                 return None
@@ -211,7 +225,7 @@ class BlockchainRPCClient:
         """
         if not registration_data.get("chain_id"):
             raise ValueError("registration_data must include 'chain_id'")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.post(f"{self._rpc_url}/rpc/gpu/register", json=registration_data)
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
@@ -223,7 +237,7 @@ class BlockchainRPCClient:
         """
         if not allocation_data.get("chain_id"):
             raise ValueError("allocation_data must include 'chain_id'")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._client() as client:
             resp = await client.post(f"{self._rpc_url}/rpc/gpu/allocate", json=allocation_data)
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())

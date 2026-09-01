@@ -24,7 +24,10 @@ logger = get_logger(__name__)
 class MarketplaceService:
     def __init__(self, session: AsyncSession):
         self.session = session
-        self._rpc_client = BlockchainRPCClient(rpc_url=settings.blockchain_rpc_url)
+        self._rpc_client = BlockchainRPCClient(
+            rpc_url=settings.blockchain_rpc_url,
+            api_key=settings.blockchain_rpc_api_key,
+        )
 
     async def list_offers(
         self,
