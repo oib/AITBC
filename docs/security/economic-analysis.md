@@ -301,4 +301,4 @@ This document analyzes the token economics and potential economic attack vectors
 - [Security Architecture](2_security-architecture.md)
 - [Threat Model](threat-model.md)
 - [Audit Findings](audit-findings.md)
-- [Smart Contract Documentation](../../contracts/docs/README.md)
+- [Smart Contract Documentation](../contracts/README.md)
