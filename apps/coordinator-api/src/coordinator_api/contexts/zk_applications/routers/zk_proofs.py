@@ -19,6 +19,7 @@ from sqlmodel import Session
 from aitbc.rate_limiting import rate_limit
 
 from ..services import model_registry
+from ..services.zk_health import run_computation_correct_health_check
 from ..services.zk_proofs import zk_proof_service
 from coordinator_api.contexts.infrastructure.domain import Job
 from coordinator_api.storage import get_session
@@ -246,3 +247,9 @@ async def health_check(request: Request) -> dict[str, Any]:
         }
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
+
+
+@router.get("/health/computation-correct", summary="computation_correct ZK gate health check")
+async def computation_correct_health(request: Request) -> dict[str, Any]:
+    """Check that the computation_correct ZK gate still accepts good and rejects bad computations."""
+    return await run_computation_correct_health_check()
