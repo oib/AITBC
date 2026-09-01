@@ -369,6 +369,13 @@ class StateTransition:
                 (tx_data.get("payload") or {}).get("eth_address"),
             )
             return (True, "Transaction applied successfully")
+        if tx_type == "ESCROW_LOCK":
+            # v0.25.5: the Escrow DB record references the provider address, so
+            # ensure the provider account exists even though the lock itself only
+            # transfers from buyer to the node wallet.
+            provider_addr = _to_ait_address((tx_data.get("payload") or {}).get("provider", ""))
+            if provider_addr:
+                _ensure_account(session, chain_id, provider_addr)
         sender_account = session.get(Account, (chain_id, sender_addr))
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
             total_cost = fee
