@@ -245,7 +245,7 @@ class EscrowManager:
         Escrow record (and the in-memory contract) from the canonical on-chain state.
         """
         try:
-            from ..base_models import Account, Escrow, Transaction
+            from ..base_models import Escrow, Transaction
             from aitbc.crypto.signature_recovery import canonical_address
             from sqlmodel import select
         except Exception as e:
@@ -301,11 +301,10 @@ class EscrowManager:
                 released_at = final_tx.created_at
                 released_tx_hash = final_tx.tx_hash
 
-            # Ensure the chain-side accounts exist so the Escrow FKs hold.
+            # v0.25.5: accounts are created deterministically when the
+            # ESCROW_LOCK/RELEASE/REFUND transaction is applied; do not
+            # create them directly here.
             chain_id = lock_tx.chain_id
-            for addr in (buyer, provider):
-                if not session.get(Account, (chain_id, addr)):
-                    session.add(Account(chain_id=chain_id, address=addr, balance=0, nonce=0))
 
             record = Escrow(
                 job_id=job_id,
