@@ -63,11 +63,14 @@ router = APIRouter(tags=["escrow"], dependencies=[Depends(verify_rpc_api_key)])
 
 
 async def _resolve_chain_account(address: str) -> str | None:
-    """Return address if it exists on-chain, else None."""
+    """Return the canonical 0x form of ``address`` if it is valid.
+
+    v0.25.5: do not require the account to exist.  The block state transition
+    creates recipient accounts on first credit, so a provider can be paid even
+    if it has never transacted before.
+    """
     try:
-        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{address}")
-        if r.status_code == 200:
-            return address
+        return _to_canonical(address)
     except Exception:  # nosec B110 - intentional silent failure
         pass
     return None
@@ -103,23 +106,6 @@ def _to_canonical(address: str) -> str:
     if evm.startswith("0x"):
         return evm
     return str(address)
-
-
-async def _create_account_if_missing(address: str, chain_id: str) -> bool:
-    """Ensure ``address`` has an on-chain account; create it if missing."""
-    try:
-        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{address}")
-        if r.status_code == 200:
-            return True
-        r = await SharedHttpClient.post(
-            f"{_HUB_RPC_URL}/register-account",
-            json={"address": canonical_address(address), "chain_id": chain_id},
-            timeout=5.0,
-        )
-        return r.status_code in (200, 201)
-    except Exception as e:
-        _logger.warning("ESCROW_RELEASE: account creation check failed for %s: %s", address, e)
-    return False
 
 
 def _get_settlement_key() -> str:
@@ -371,15 +357,10 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
 
         sender = settlement_address
 
-        # The settlement account must exist before a TRANSFER-style transaction can be applied.
-        if not await _create_account_if_missing(sender, _CHAIN_ID):
-            _logger.warning("ESCROW_RELEASE TX skipped: could not create settlement account (sender=%s)", sender)
-            return None
-
-        # The provider account must exist before a TRANSFER-style transaction can be applied.
-        if not await _create_account_if_missing(provider, _CHAIN_ID):
-            _logger.warning("ESCROW_RELEASE TX skipped: could not create provider account (provider=%s)", provider)
-            return None
+        # v0.25.5: do not call POST /register-account.  The block proposer and
+        # state transition now auto-create the recipient account on first credit,
+        # so provider releases are deterministic and do not require direct RPC
+        # writes outside consensus.
 
         # Re-resolve after creation; use canonical 0x form for the state layer.
         # Never fall back to the node wallet: a missing or unresolvable provider
@@ -474,15 +455,9 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
 
         sender = settlement_address
 
-        # The settlement account must exist before a TRANSFER-style transaction can be applied.
-        if not await _create_account_if_missing(sender, _CHAIN_ID):
-            _logger.warning("ESCROW_REFUND TX skipped: could not create settlement account (sender=%s)", sender)
-            return None
-
-        # The buyer account must exist before the refund can be credited.
-        if not await _create_account_if_missing(buyer, _CHAIN_ID):
-            _logger.warning("ESCROW_REFUND TX skipped: could not create buyer account (buyer=%s)", buyer)
-            return None
+        # v0.25.5: do not call POST /register-account.  Buyer and provider
+        # accounts are created deterministically when the refund transaction is
+        # mined.
 
         # Refunding the node wallet is a custody bug: it would pay the operator
         # instead of the buyer. Refuse and let the caller handle it.
@@ -630,9 +605,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     if _to_canonical(payload.get("provider", "")) != _to_canonical(provider):
         raise HTTPException(status_code=400, detail="lock_tx payload provider mismatch") from None
 
-    # Ensure the buyer has an on-chain account before the lock tx is admitted.
-    if not await _create_account_if_missing(_to_canonical(buyer), _CHAIN_ID):
-        raise HTTPException(status_code=400, detail=f"could not ensure buyer account exists: {buyer}") from None
+    # v0.25.5: do not call POST /register-account to bootstrap the buyer.  The
+    # buyer must already have an on-chain account (faucet or previous transfer)
+    # before the lock transaction can be admitted.
 
     success, message, contract_id = await mgr.create_contract(
         job_id=job_id, client_address=buyer, agent_address=provider, amount=amount_dec

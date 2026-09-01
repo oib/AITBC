@@ -214,7 +214,9 @@ def compute_state_delta(
             tx_hash=tx_hash,
         )
 
-    # For non-MESSAGE, non-RECEIPT_CLAIM: recipient must exist
+    # v0.25.5: recipient accounts are created on first credit, so a missing
+    # recipient is not a validation failure.  The in-memory and DB apply paths
+    # both create the account when the delta is committed.
     if tx_type not in {"MESSAGE", "RECEIPT_CLAIM"}:
         if not recipient:
             return StateDelta(
@@ -225,19 +227,6 @@ def compute_state_delta(
                 sender_nonce_change=0,
                 success=False,
                 error="Missing recipient",
-                tx_type=tx_type,
-                tx_hash=tx_hash,
-            )
-        recipient_account = account_map.get(recipient)
-        if not recipient_account:
-            return StateDelta(
-                sender=sender,
-                recipient=recipient,
-                sender_balance_change=0,
-                recipient_balance_change=0,
-                sender_nonce_change=0,
-                success=False,
-                error=f"Recipient account not found: {recipient}",
                 tx_type=tx_type,
                 tx_hash=tx_hash,
             )
