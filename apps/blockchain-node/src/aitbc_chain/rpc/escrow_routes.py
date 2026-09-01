@@ -705,13 +705,14 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 # The DB may not have stored the release tx hash (legacy rows), so
                 # look it up on-chain before returning a stale/empty job_tx_hash.
                 existing_release = await _find_existing_release(job_id)
+                release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
                 return {
                     "success": True,
                     "contract_id": getattr(record, "contract_id", None) or "",
                     "job_id": job_id,
                     "message": "Escrow already released",
                     "released_amount": str(units_to_ait(record.amount)),
-                    "tx_hash": existing_release or record.job_tx_hash or "",
+                    "tx_hash": release_tx_hash,
                     "released_at": record.released_at.isoformat(),
                 }
             if record is not None and record.status not in (None, "locked"):
@@ -789,6 +790,8 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     else:
                         record.released_at = released_at
                     record.status = "released"
+                    if tx_hash and not record.release_tx_hash:
+                        record.release_tx_hash = tx_hash
                     if job_tx_hash:
                         record.job_tx_hash = job_tx_hash
                     session.commit()
@@ -971,6 +974,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     "created_at": db_record.created_at.isoformat() if db_record else None,
                     "released_at": db_record.released_at.isoformat() if db_record and db_record.released_at else None,
                     "refunded_at": db_record.refunded_at.isoformat() if db_record and db_record.refunded_at else None,
+                    "release_tx_hash": db_record.release_tx_hash if db_record else None,
                     "refund_tx_hash": db_record.refund_tx_hash if db_record else None,
                     "status": db_record.status if db_record else None,
                     "lock_tx_hash": db_record.lock_tx_hash if db_record else None,
@@ -990,6 +994,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
             "created_at": db_record.created_at.isoformat(),
             "released_at": db_record.released_at.isoformat() if db_record.released_at else None,
             "refunded_at": db_record.refunded_at.isoformat() if db_record.refunded_at else None,
+            "release_tx_hash": db_record.release_tx_hash,
             "refund_tx_hash": db_record.refund_tx_hash,
             "status": db_record.status,
             "lock_tx_hash": db_record.lock_tx_hash,
