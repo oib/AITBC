@@ -16,6 +16,7 @@ from fastapi import HTTPException
 
 from aitbc_shared import JobPayment
 from coordinator_api.contexts.infrastructure.domain.job import Job
+from coordinator_api.contexts.infrastructure.domain.job_receipt import JobReceipt
 from coordinator_api.contexts.infrastructure.routers.client import accept_job
 from coordinator_api.contexts.payments.acceptance import HELD_STATES, PENDING_ACCEPTANCE
 from coordinator_api.contexts.payments.services.payments import PaymentService
@@ -28,7 +29,27 @@ def payment_service(db_session):
 
 
 def _make_zk_job(db_session, receipt, payment_status=PENDING_ACCEPTANCE, amount=Decimal("15")):
-    """Create a job whose constraints require a ZK proof, with a payment in the held state."""
+    """Create a job whose constraints require a ZK proof, with a payment in the held state.
+
+    The authoritative receipt is stored in ``JobReceipt``; the denormalised
+    ``job.receipt`` copy is intentionally set to the opposite ``computation_correct``
+    value so the tests fail if the gate still reads the stale denormalised copy.
+    """
+    from uuid import uuid4
+
+    receipt_id = uuid4().hex
+    # The authoritative signed receipt of record.
+    job_receipt = JobReceipt(
+        job_id="",  # set after job creation
+        receipt_id=receipt_id,
+        payload=dict(receipt),
+    )
+    db_session.add(job_receipt)
+    db_session.commit()
+    db_session.refresh(job_receipt)
+
+    stale_receipt = dict(receipt)
+    stale_receipt["computation_correct"] = not stale_receipt.get("computation_correct", False)
     job = Job(
         client_id="client1",
         payload={"type": "inference", "prompt": "test"},
@@ -37,11 +58,15 @@ def _make_zk_job(db_session, receipt, payment_status=PENDING_ACCEPTANCE, amount=
         payment_status=payment_status,
         state="COMPLETED",
         completed_at=datetime.now(UTC),
-        receipt=receipt,
+        receipt_id=receipt_id,
+        receipt=stale_receipt,
     )
     db_session.add(job)
     db_session.commit()
     db_session.refresh(job)
+    job_receipt.job_id = job.id
+    db_session.add(job_receipt)
+    db_session.commit()
 
     payment = JobPayment(
         job_id=job.id,
