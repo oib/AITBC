@@ -44,7 +44,10 @@ async def submit_compute_request(
         from aitbc.marketplace import BlockchainRPCClient
 
         rpc_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
-        rpc_client = BlockchainRPCClient(rpc_url=rpc_url)
+        rpc_client = BlockchainRPCClient(
+            rpc_url=rpc_url,
+            api_key=settings.blockchain_rpc_api_key,
+        )
         escrow = await rpc_client.verify_escrow(escrow_key)
         if not escrow or escrow.get("status") != "locked":
             raise HTTPException(status_code=402, detail="Payment required: escrow not locked")

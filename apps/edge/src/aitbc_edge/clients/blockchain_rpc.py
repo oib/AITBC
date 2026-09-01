@@ -10,9 +10,11 @@ from ..config import settings
 class BlockchainRPCClient:
     """Client for blockchain node RPC communication"""
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         self.base_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self._api_key = api_key or settings.blockchain_rpc_api_key
+        headers = {"X-API-Key": self._api_key} if self._api_key else None
+        self.client = httpx.AsyncClient(timeout=30.0, headers=headers)
 
     # V23-46: annotated. Without a return type on __aenter__, `async with Client() as c`
     # binds `c` as Any, and every method result off it is Any too -- which is where all

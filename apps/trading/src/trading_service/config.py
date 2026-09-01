@@ -34,6 +34,7 @@ class Settings(ServiceSettings):
 
     # Blockchain integration — port 8202 is the canonical blockchain RPC port
     blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
+    blockchain_rpc_api_key: str | None = Field(default=None, alias="BLOCKCHAIN_RPC_API_KEY")
     bridge_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)  # bridge is on blockchain node
     default_chain_id: str = Field(default="ait-hub")
 
