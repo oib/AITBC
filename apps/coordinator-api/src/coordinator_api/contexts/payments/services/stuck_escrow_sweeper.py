@@ -154,23 +154,52 @@ class StuckEscrowSweeper:
                     continue
                 if refunded:
                     now = datetime.now(UTC)
-                    _payment.status = "refunded"
-                    _payment.refunded_at = now
-                    _payment.updated_at = now
-                    session.add(_payment)
-                    job.payment_status = "refunded"
-                    session.add(job)
-                    escrow = (
-                        session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == _payment.id)).scalars().first()
-                    )
-                    if escrow:
-                        escrow.is_refunded = True
-                        escrow.is_active = False
-                        escrow.refunded_at = now
-                        session.add(escrow)
-                    session.commit()
-                    counts["refunded"] += 1
-                    logger.info("Refunded stuck payment %s for job %s: %s", job.payment_id, job.id, reason)
+                    payment = session.get(JobPayment, _payment.id)
+                    if payment and payment.status == "refunded" and payment.refund_transaction_hash:
+                        payment.refunded_at = now
+                        payment.updated_at = now
+                        session.add(payment)
+                        job.payment_status = "refunded"
+                        session.add(job)
+                        escrow = (
+                            session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id))
+                            .scalars()
+                            .first()
+                        )
+                        if escrow:
+                            escrow.is_refunded = True
+                            escrow.is_active = False
+                            escrow.refunded_at = now
+                            session.add(escrow)
+                        session.commit()
+                        counts["refunded"] += 1
+                        logger.info("Refunded stuck payment %s for job %s: %s", payment.id, job.id, reason)
+                    elif payment and payment.status == "refunded":
+                        logger.warning(
+                            "Job %s stuck escrow refund has no on-chain record; downgrading to failed",
+                            job.id,
+                        )
+                        payment.status = "failed"
+                        payment.refunded_at = None
+                        payment.updated_at = now
+                        session.add(payment)
+                        job.payment_status = "failed"
+                        session.add(job)
+                        escrow = (
+                            session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id))
+                            .scalars()
+                            .first()
+                        )
+                        if escrow:
+                            escrow.is_refunded = False
+                            escrow.is_active = False
+                            escrow.refunded_at = None
+                            session.add(escrow)
+                        session.commit()
+                        counts["failed"] += 1
+                    else:
+                        logger.warning("Job %s stuck escrow did not settle; retrying next sweep", job.id)
+                        counts["failed"] += 1
                 else:
                     counts["failed"] += 1
                     logger.warning("Job %s stuck escrow did not settle; retrying next sweep", job.id)
