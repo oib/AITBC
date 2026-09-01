@@ -89,3 +89,34 @@ See the operator implementation plan and live reset checklist. After code upgrad
 ### TEE / Confidential compute
 
 - TEE-backed verification requires real silicon (SGX/SEV/TPM) which is not available on any live node. The `aitbc tee` command group is therefore removed from the v0.25.2 CLI surface and deferred to the v2.0 / TEE roadmap (see `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`). The module and tests are kept in the repository for the future release.
+
+### Escrow / ZkRefundSweeper follow-ups (2026-09-01)
+
+- Documented  semantics:
+  -  is a coordinator ledger status, not an on-chain event type.
+  - The authoritative on-chain evidence is a non-empty  (the  transaction hash).
+  - A payment marked  without  is an unbacked or unsettled refund and must be downgraded to  so the ledger does not show a refund without proof.
+- Confirmed the blockchain  primary-key /  dedupe fix is in place ();  no longer uses .
+- Added explicit  handling to :
+  - Disputed payments are not refunded by the ZK sweeper; disputes are operator-resolvable and handled by  after .
+  - Added unit test .
+- Hardened  to apply the same  invariant as :
+  - A successful  that returns no on-chain hash now downgrades the payment and job to  instead of marking them .
+  - Added unit test .
+- TEE awareness in : deferred to release 2.0. Real SGX/SEV/TPM hardware is unavailable on live nodes; ZK and receipt verification remain the trust anchors for v0.25.2.
+
+
+### Escrow / ZkRefundSweeper follow-ups (2026-09-01)
+
+- Documented `refunded` semantics:
+  - `refunded` is a coordinator ledger status, not an on-chain event type.
+  - The authoritative on-chain evidence is a non-empty `refund_transaction_hash` (the `ESCROW_REFUND` transaction hash).
+  - A payment marked `refunded` without `refund_transaction_hash` is an unbacked or unsettled refund and must be downgraded to `failed` so the ledger does not show a refund without proof.
+- Confirmed the blockchain `Escrow` primary-key / `session.get(Escrow, job_id)` dedupe fix is in place (`v0.24.18`); `escrow_routes.py` no longer uses `session.get(Escrow, (job_id, chain_id))`.
+- Added explicit `DISPUTED` handling to `ZkRefundSweeper`:
+  - Disputed payments are not refunded by the ZK sweeper; disputes are operator-resolvable and handled by `StuckEscrowSweeper` after `COORDINATOR_STUCK_ESCROW_SWEEP_DISPUTED_MIN_AGE_SECONDS`.
+  - Added unit test `test_sweeper_skips_disputed_payment`.
+- Hardened `StuckEscrowSweeper` to apply the same `refund_transaction_hash` invariant as `ZkRefundSweeper`:
+  - A successful `PaymentService.refund_payment` that returns no on-chain hash now downgrades the payment and job to `failed` instead of marking them `refunded`.
+  - Added unit test `test_sweeper_downgrades_unbacked_refund_without_hash`.
+- TEE awareness in `payments.py`: deferred to release 2.0. Real SGX/SEV/TPM hardware is unavailable on live nodes; ZK and receipt verification remain the trust anchors for v0.25.2.
