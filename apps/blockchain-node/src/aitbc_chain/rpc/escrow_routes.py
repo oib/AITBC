@@ -705,6 +705,9 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 # The DB may not have stored the release tx hash (legacy rows), so
                 # look it up on-chain before returning a stale/empty job_tx_hash.
                 existing_release = await _find_existing_release(job_id)
+                if existing_release and not record.release_tx_hash:
+                    record.release_tx_hash = existing_release
+                    session.add(record)
                 release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
                 return {
                     "success": True,
