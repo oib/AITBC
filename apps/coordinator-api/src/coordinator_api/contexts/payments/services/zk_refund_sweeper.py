@@ -9,6 +9,18 @@ to release them.
 This loop identifies completed jobs for which ZK was required and the stored
 receipt shows an unverifiable or incorrect computation, then refunds the escrow
 back to the buyer.
+
+Hardening notes:
+- The query gates on ``JobPayment.escrowed_at`` so a payment that was never
+  backed by an on-chain ESCROW_LOCK is not passed to ``refund_payment``.
+- It also excludes any payment that already has a ``refund_transaction_hash``
+  or whose ``PaymentEscrow`` is already marked refunded, closing the dedupe gap
+  if two sweep paths run concurrently.
+- After ``PaymentService.refund_payment`` returns, the sweeper checks the
+  payment row for the authoritative on-chain hash. A refund is only final when
+  the row carries that hash; an unbacked escrow that PaymentService marked as
+  refunded-without-hash is downgraded to ``failed`` so it does not show up as a
+  live refund in audits.
 """
 
 from __future__ import annotations
@@ -19,10 +31,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc_shared import JobPayment
+from aitbc_shared import JobPayment, PaymentEscrow
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
@@ -76,21 +88,23 @@ class ZkRefundSweeper:
         """Completed jobs whose ZK receipt failed and whose escrow is still locked."""
         cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
         stmt = (
-            select(Job)
-            .join(JobPayment, Job.payment_id == JobPayment.id)
-            .where(Job.state == "COMPLETED")
-            .where(JobPayment.status.in_({"escrowed", PENDING_ACCEPTANCE}))
-            .where(JobPayment.escrowed_at.is_not(None))
-            .where(Job.completed_at.is_not(None))  # type: ignore[union-attr]
-            .where(Job.completed_at < cutoff)  # type: ignore[operator]
+            select(Job, JobPayment)
+            .join(JobPayment, col(Job.payment_id) == JobPayment.id)
+            .outerjoin(PaymentEscrow, JobPayment.id == PaymentEscrow.payment_id)
+            .where(col(Job.state) == "COMPLETED")
+            .where(col(JobPayment.status).in_({"escrowed", PENDING_ACCEPTANCE}))
+            .where(col(JobPayment.escrowed_at).is_not(None))
+            .where(col(JobPayment.refund_transaction_hash).is_(None))
+            .where((PaymentEscrow.id.is_(None)) | (col(PaymentEscrow.is_refunded).is_(False)))
+            .where(col(Job.completed_at).is_not(None))
+            .where(col(Job.completed_at) < cutoff)
             .limit(self.batch_size)
         )
-        jobs = list(session.execute(stmt).scalars().all())
+        rows = list(session.execute(stmt).all())
         out = []
-        for job in jobs:
+        for job, payment in rows:
             if not job.payment_id:
                 continue
-            payment = session.get(JobPayment, job.payment_id)
             if payment is None:
                 continue
             # Respect an open acceptance window: if the customer is still within
@@ -128,11 +142,40 @@ class ZkRefundSweeper:
                     logger.error("ZK refund sweep raised for job %s: %s", job.id, e)
                     continue
                 if refunded:
-                    job.payment_status = "refunded"
-                    session.add(job)
-                    session.commit()
-                    counts["refunded"] += 1
-                    logger.info("Refunded payment %s for job %s due to failed ZK receipt", job.payment_id, job.id)
+                    # PaymentService commits its own changes. Reload to enforce the
+                    # on-chain record invariant: a refund is only final when the
+                    # payment row carries the authoritative on-chain tx hash.
+                    payment = session.get(JobPayment, job.payment_id)
+                    escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == job.payment_id)).first()
+                    if payment and payment.status == "refunded" and payment.refund_transaction_hash:
+                        job.payment_status = "refunded"
+                        session.add(job)
+                        session.commit()
+                        counts["refunded"] += 1
+                        logger.info("Refunded payment %s for job %s due to failed ZK receipt", job.payment_id, job.id)
+                    else:
+                        # PaymentService returned success but left no on-chain hash.
+                        # This is an unbacked escrow or a submission that did not settle.
+                        # Treat as failed so the ledger does not show a refund without proof.
+                        counts["failed"] += 1
+                        logger.warning(
+                            "Job %s ZK refund returned no on-chain record (refund_transaction_hash=%s); treating as failed",
+                            job.id,
+                            getattr(payment, "refund_transaction_hash", None),
+                        )
+                        if payment:
+                            payment.status = "failed"
+                            payment.refunded_at = None
+                            payment.updated_at = datetime.now(UTC)
+                            session.add(payment)
+                        job.payment_status = "failed"
+                        session.add(job)
+                        if escrow:
+                            escrow.is_refunded = False
+                            escrow.is_active = False
+                            escrow.refunded_at = None
+                            session.add(escrow)
+                        session.commit()
                 else:
                     counts["failed"] += 1
                     logger.warning("Job %s ZK refund did not settle; retrying next sweep", job.id)
