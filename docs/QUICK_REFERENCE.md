@@ -1,7 +1,7 @@
 # AITBC Quick Reference
 
-**Last Updated**: 2026-08-13
-**Version**: 2.0 (refreshed to current CLI and service ports)
+**Last Updated**: 2026-09-01
+**Version**: 2.1 (refreshed live service ports and CLI examples)
 
 A condensed reference for common AITBC commands. For the full CLI, see [cli/README.md](../cli/README.md). For authoritative ports, see [reference/SERVICE_PORTS.md](./reference/SERVICE_PORTS.md).
 
@@ -12,7 +12,6 @@ A condensed reference for common AITBC commands. For the full CLI, see [cli/READ
 | API Gateway | 8201 | Public nginx-proxied entry point |
 | Blockchain RPC | 8202 | `aitbc blockchain info`, RPC calls |
 | Coordinator API | 8203 | Job lifecycle, marketplace endpoints |
-| Agent Registry | 8204 | Agent discovery |
 | Blockchain Explorer API | 8100 | Block/transaction search |
 | GPU Service | 8101 | GPU marketplace / miner operations |
 | Marketplace Service | 8102 | Marketplace transactions |
@@ -23,6 +22,8 @@ A condensed reference for common AITBC commands. For the full CLI, see [cli/READ
 | Wallet Daemon | 8108 | Multi-chain wallet |
 | Whisper Service | 8110 | Transcription |
 | Edge Service | 8111 | Edge compute and dispatch |
+| Pool Hub | 8210 | Miner registration and heartbeat (shop + hub) |
+| FFmpeg Service | 8230 | Media processing (island/shop) |
 | Blockchain P2P | 7070 | Hub-only gossip relay |
 
 ## Service lifecycle
@@ -66,7 +67,7 @@ curl http://localhost:8202/rpc/info | python3 -m json.tool
 ## AI jobs (client)
 
 ```bash
-aitbc ai submit --wallet my-wallet --type text-generation --prompt "Hello world" --payment 10
+aitbc ai submit --wallet my-wallet --prompt "Hello world" --payment 10
 aitbc ai jobs
 aitbc ai status --job-id <job-id>
 aitbc ai results --job-id <job-id>
@@ -77,7 +78,7 @@ aitbc ai cancel --job-id <job-id> --wallet my-wallet
 
 ```bash
 aitbc market list
-aitbc market offer --gpu-id gpu-0 --memory 24 --price 100
+aitbc market offer --service-type ollama --model-or-variant llama3 --price 1.0
 aitbc market match
 ```
 
