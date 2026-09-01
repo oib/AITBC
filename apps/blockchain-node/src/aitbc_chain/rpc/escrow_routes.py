@@ -18,7 +18,7 @@ from fastapi.security import APIKeyHeader
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
+from aitbc.utils import ait_to_units, units_to_ait
 from eth_utils import keccak
 
 from ..contracts.escrow import EscrowState, get_escrow_manager
@@ -215,8 +215,14 @@ _RELEASE_LOOKUP_LIMIT = int(os.getenv("ESCROW_RELEASE_LOOKUP_LIMIT", "10"))
 
 
 def _fee_for(amount: int) -> int:
-    """Default network fee for an escrow transaction."""
-    return max(DEFAULT_TX_FEE_UNITS, amount // 100)
+    """Default network fee for an escrow transaction.
+
+    v0.25.6: use a 1% fee with a dust floor rather than the flat
+    DEFAULT_TX_FEE_UNITS. For small escrow amounts (e.g. 0.01 AIT)
+    the flat fee was equal to the value, which burned the entire
+    payment if the lock was applied.
+    """
+    return max(36, amount // 100)
 
 
 def _build_lock_tx(
