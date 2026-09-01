@@ -17,6 +17,7 @@ from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
 from ....contexts.marketplace.domain.provider_bond import _default_bond_min_amount, is_provider_eligible
+from ....utils.client_resolver import resolve_client
 
 logger = get_logger(__name__)
 
@@ -131,8 +132,10 @@ class JobService:
     def create_job(self, client_id: str, req: JobCreate) -> Job:
         ttl = max(req.ttl_seconds, 1)
         now = datetime.now(UTC)
+        resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
         job = Job(
-            client_id=client_id,
+            client_id=resolved_client_id,
+            client_ref=client_ref,
             state="QUEUED",
             payload=req.payload,
             constraints=req.constraints.model_dump(mode="json") if hasattr(req.constraints, "model_dump") else req.constraints,
@@ -156,10 +159,19 @@ class JobService:
         self.session.refresh(job)
         return job
 
+    def _resolve_client_id(self, client_id: str | None) -> str | None:
+        if not client_id:
+            return None
+        try:
+            resolved, _ = resolve_client(self.session, client_id, auto_create=False)
+            return resolved
+        except ValueError:
+            return client_id
+
     def get_job(self, job_id: str, client_id: str | None = None) -> Job:
         query = select(Job).where(Job.id == job_id)
         if client_id:
-            query = query.where(Job.client_id == client_id)
+            query = query.where(Job.client_id == self._resolve_client_id(client_id))
         job = self.session.execute(query).scalar_one_or_none()
         if not job:
             raise KeyError("job not found")
@@ -180,7 +192,7 @@ class JobService:
         """List jobs with optional filtering"""
         query = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         if client_id:
-            query = query.where(Job.client_id == client_id)
+            query = query.where(Job.client_id == self._resolve_client_id(client_id))
         if assigned_miner_id:
             query = query.where(Job.assigned_miner_id == assigned_miner_id)
         if "state" in filters:
