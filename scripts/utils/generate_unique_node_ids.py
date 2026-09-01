@@ -98,11 +98,11 @@ def main():
 
     # Update /etc/aitbc/blockchain.env with proposer_id
     print("Updating /etc/aitbc/blockchain.env...")
-    env_modified = update_env_file(env_path, "proposer_id", proposer_id, preserve_existing=True)
+    env_modified = update_env_file(env_path, "PROPOSER_ID", proposer_id, preserve_existing=True)
 
     # Update /etc/aitbc/node.env with p2p_node_id
     print("\nUpdating /etc/aitbc/node.env...")
-    node_env_modified = update_env_file(node_env_path, "p2p_node_id", p2p_node_id, preserve_existing=True)
+    node_env_modified = update_env_file(node_env_path, "P2P_NODE_ID", p2p_node_id, preserve_existing=True)
 
     if env_modified or node_env_modified:
         print("\n✅ Node IDs updated successfully!")
