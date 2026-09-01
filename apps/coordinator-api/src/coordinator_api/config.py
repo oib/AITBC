@@ -198,6 +198,7 @@ class Settings(BaseAITBCConfig):
 
     # Blockchain RPC
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
+    blockchain_rpc_api_key: str = Field(default="", description="API key for blockchain RPC escrow endpoints")
     # Server-side password used to encrypt agent wallets at rest. Must be set in production.
     wallet_encryption_password: str = ""
 

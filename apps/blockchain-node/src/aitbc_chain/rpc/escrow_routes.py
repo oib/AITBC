@@ -12,7 +12,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi.security import APIKeyHeader
 
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
@@ -32,7 +33,33 @@ _HUB_RPC_URL = _raw_rpc_url if _raw_rpc_url.endswith("/rpc") else f"{_raw_rpc_ur
 _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net"))
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
-router = APIRouter(tags=["escrow"])
+
+_RPC_API_KEY = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
+if not _RPC_API_KEY:
+    _logger.warning(
+        "BLOCKCHAIN_RPC_API_KEY is not set; escrow RPC endpoints will reject all requests until both services are configured with the same key"
+    )
+
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def verify_rpc_api_key(api_key: str | None = Security(_api_key_header)) -> str:
+    """Require a valid X-API-Key header for all escrow RPC routes."""
+    if not _RPC_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Escrow RPC is not configured for authentication",
+        )
+    if api_key != _RPC_API_KEY:
+        _logger.warning("Rejected escrow RPC request: missing or invalid X-API-Key")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: missing or invalid API key",
+        )
+    return api_key
+
+
+router = APIRouter(tags=["escrow"], dependencies=[Depends(verify_rpc_api_key)])
 
 
 async def _resolve_chain_account(address: str) -> str | None:
@@ -718,8 +745,9 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         released_amount = contract.released_amount if contract else Decimal(0)
         buyer_addr = contract.client_address if contract else ""
         provider_addr = contract.agent_address if contract else ""
-        # Allow caller to override the provider address for reinvestment (e.g. from payment meta_data).
-        reinvest_address = request.get("auto_reinvest_address") or provider_addr or request.get("provider_address")
+        # Reinvestment must be paid to the escrow's recorded provider; the caller must
+        # not be able to name an arbitrary stake address (CHOKE-POINT).
+        reinvest_address = provider_addr
         auto_reinvest_pct = request.get("auto_reinvest_pct")
 
         # Settle on-chain first; only a confirmed transaction counts as a release.
