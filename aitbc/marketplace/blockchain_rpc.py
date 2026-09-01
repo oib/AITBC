@@ -19,6 +19,7 @@ release; for v0.6.6 we keep the dependency surface minimal.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, cast
 
 import httpx
@@ -42,7 +43,7 @@ class BlockchainRPCClient:
     ) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         self._timeout = timeout
-        self._api_key = api_key
+        self._api_key = api_key or os.environ.get("BLOCKCHAIN_RPC_API_KEY")
 
     @property
     def rpc_url(self) -> str:
