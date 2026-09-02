@@ -49,6 +49,7 @@ SERVICES_NEEDING_WRITE_ACCESS = {
     "aitbc-multimodal.service",
     "aitbc-ffmpeg.service",
     "aitbc-whisper.service",
+    "aitbc-hermes-agent.service",
     "aitbc-edge.service",
     "aitbc-bridge-monitor.service",
     "aitbc-governance.service",

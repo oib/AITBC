@@ -199,7 +199,7 @@ def build_gpu_capabilities() -> dict:
         "price": 0.01,
         "region": "localhost",
         "platform": "CUDA" if gpu_info else "CPU",
-        "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "transcribe", "reencode"],
+        "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "transcribe", "reencode", "hermes"],
         "max_concurrent_jobs": 1,
     }
 
