@@ -9,6 +9,7 @@ slash itself, with a deterministic rule and an auditable record.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from dataclasses import dataclass
@@ -29,6 +30,15 @@ from ...payments.provider_binding import miner_wallet_address
 from ..domain.provider_bond import ProviderBond, ProviderBondStatus, _default_bond_min_amount, set_provider_bond_status
 
 logger = get_logger(__name__)
+
+# G5: track the next slash-authority nonce in-memory so multiple BOND_SLASH
+# transactions submitted before the next block is mined do not reuse the same
+# on-chain nonce (the blockchain RPC would return the existing hash and the
+# second slash would never be included).  This is per-coordinator-process state;
+# on restart the chain account nonce is the safe baseline and any pending slash
+# in the mempool will be observed by the next call's account lookup.
+_slash_nonce: int | None = None
+_slash_nonce_lock = asyncio.Lock()
 
 
 class SlashingCondition(StrEnum):
@@ -210,16 +220,24 @@ class BondSlashingService:
         }
 
     async def _get_nonce(self, address: str) -> int:
+        global _slash_nonce
+        chain_nonce = 0
         try:
             client = AITBCHTTPClient(timeout=5.0)
             r = client.get(f"{self.blockchain_rpc_url}/rpc/account/{address}")
             if isinstance(r, dict):
-                return int(r.get("nonce", 0))
-            if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
-                return int(r.get("nonce", 0))
+                chain_nonce = int(r.get("nonce", 0))
+            elif hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
+                chain_nonce = int(r.get("nonce", 0))
         except Exception as e:
             logger.warning("Failed to fetch nonce for %s: %s", address, e)
-        return 0
+
+        async with _slash_nonce_lock:
+            if _slash_nonce is None or chain_nonce > _slash_nonce:
+                _slash_nonce = chain_nonce
+            else:
+                _slash_nonce += 1
+            return _slash_nonce
 
     def _sign_tx(self, tx: dict[str, Any]) -> str:
         from aitbc.crypto.crypto import sign_transaction_hash
