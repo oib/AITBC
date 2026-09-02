@@ -601,6 +601,22 @@ class ChainSettings(BaseSettings):
     pbft_view_change_timeout: int = 30
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
+    # v0.25.6: deterministic proposer rotation. When the scheduled proposer for
+    # a height does not produce a block, the round derived from the parent
+    # block's timestamp advances and the next validator in the round-robin
+    # takes the slot. Every node derives the same round from on-chain
+    # timestamps, so an unavailable proposer is routed around without any
+    # view-change message exchange. Set it comfortably larger than the largest
+    # gap the network produces when it is healthy. A smaller value is still
+    # safe, because the proposer derives the round from the same timestamp its
+    # validators will, but the slot then rotates on ordinary blocks instead of
+    # only when a proposer is missing. The default leaves room for a validator
+    # configured with a 180s empty-block interval.
+    consensus_proposer_round_seconds: int = 300
+    # Drop a pre-prepare whose sender is not the scheduled proposer for the
+    # block's height and round. Setting this False restores the pre-v0.25.6
+    # behaviour, where any validator's proposal was prepared.
+    consensus_enforce_proposer_schedule: bool = True
     consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
     consensus_slashing_enabled: bool = True  # C2 — enable slashing
     consensus_slashing_amount: Decimal = Decimal("100.0")  # stake to slash per offense

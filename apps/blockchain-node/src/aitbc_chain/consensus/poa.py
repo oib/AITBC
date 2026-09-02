@@ -237,19 +237,35 @@ class PoAProposer:
         except Exception as e:
             self._logger.warning("Failed to load validator keys: %s", e)
 
-    def _select_proposer(self, block_height: int) -> str | None:
-        """Select the proposer for a block height.
+    def _select_proposer(self, block_height: int, round_number: int = 0) -> str | None:
+        """Select the proposer for a block height and round.
 
         When multi-validator consensus is enabled, use MultiValidatorPoA
         round-robin selection from the active validator set. Otherwise fall
         back to the single proposer_id from ProposerConfig.
         """
         if self._multi_validator:
-            proposer = self._multi_validator.select_proposer(block_height)
+            proposer = self._multi_validator.select_proposer(block_height, round_number)
             if proposer:
                 return proposer
             self._logger.warning("MultiValidatorPoA returned no proposer for height %s", block_height)
         return self._config.proposer_id
+
+    def _proposer_round(self, parent_timestamp: datetime | None, block_timestamp: datetime) -> int:
+        """Rounds this height has gone without a block; 0 is the scheduled slot.
+
+        Derived from block timestamps rather than from local state, so the
+        proposer and every validator that later checks the block agree on the
+        round without exchanging view-change messages.
+        """
+        if not self._multi_validator:
+            return 0
+        from ..config import settings as _settings
+        from .multi_validator_poa import proposer_round
+
+        return proposer_round(
+            parent_timestamp, block_timestamp, getattr(_settings, "consensus_proposer_round_seconds", 120)
+        )
 
     def _empty_bridge_root(self) -> str:
         """Return the bridge event trie root for a block with no lock events."""
@@ -510,7 +526,10 @@ class PoAProposer:
         # draining the mempool, and recomputing state roots when they cannot sign.
         head = self._fetch_chain_head()
         next_height = (head.height + 1) if head is not None else 0
-        proposer = self._select_proposer(next_height)
+        proposer = self._select_proposer(
+            next_height,
+            self._proposer_round(head.timestamp if head is not None else None, datetime.now(UTC)),
+        )
         if self._multi_validator and proposer and proposer not in self._validator_keys:
             self._logger.debug(
                 "[PROPOSE] Proposer %s for height %s is not a local key, skipping quietly (chain=%s)",
@@ -606,7 +625,19 @@ class PoAProposer:
             # or touching account state. This prevents a node from consuming
             # transactions, creating Transaction records, or mutating balances
             # when it is not this validator's turn to propose.
-            proposer = self._select_proposer(next_height)
+            # v0.25.6: the round is how long this height has gone without a
+            # block. Derive it from the timestamp this block will actually
+            # carry, because that is the timestamp every other node will use to
+            # work out which validator was entitled to propose it.
+            round_number = self._proposer_round(head.timestamp if head is not None else None, timestamp)
+            proposer = self._select_proposer(next_height, round_number)
+            if round_number:
+                self._logger.warning(
+                    "[PROPOSE] Height %s has gone %s round(s) without a block; this round belongs to %s",
+                    next_height,
+                    round_number,
+                    proposer,
+                )
             if not proposer:
                 self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
                 return False
@@ -957,6 +988,8 @@ class PoAProposer:
                     proposer,
                     block_hash,
                     timeout=getattr(settings, "pbft_view_change_timeout", 30),
+                    sequence=next_height,
+                    view=round_number,
                 )
                 if not pbft_ok:
                     self._logger.warning(
