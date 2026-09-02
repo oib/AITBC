@@ -171,10 +171,9 @@ class StateTransition:
         ).first()
         tx_type = _tx_type(tx_data, tx_record)
         if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
-            # Ensure the pool reserve/treasury/emission accounts and the sender
-            # and recipient accounts exist before the generic recipient check.
-            _ensure_account(session, chain_id, sender_addr)
-            _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
+            # Validate the payload before touching state: _ensure_account below
+            # writes account rows, and a validator that returns False after
+            # writing them leaves the proposer with accounts no other node has.
             payload = tx_data.get("payload") or {}
             if tx_type == "LIQUIDITY_DEPOSIT":
                 if not payload.get("pool_id"):
@@ -184,6 +183,10 @@ class StateTransition:
             if tx_type in {"LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
                 if not payload.get("stake_id"):
                     return (False, f"{tx_type} payload must include stake_id")
+            # Ensure the pool reserve/treasury/emission accounts and the sender
+            # and recipient accounts exist before the generic recipient check.
+            _ensure_account(session, chain_id, sender_addr)
+            _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
         if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
             # Pre-registered credit transactions do not require a sender account or
             # nonce. The state update is applied off-chain by the RPC call that
