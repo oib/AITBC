@@ -394,8 +394,14 @@ class BlockchainNode:
             settings.gossip_backend,
             broadcast_url=settings.gossip_broadcast_url,
             websocket_url=settings.gossip_websocket_url,
+            mesh_peer_urls=settings.mesh_peer_url_list(),
         )
-        logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
+        logger.info(
+            "Initializing gossip backend: %s, url: %s, mesh peers: %s",
+            settings.gossip_backend,
+            settings.gossip_broadcast_url,
+            settings.mesh_peer_url_list(),
+        )
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")
         chains = self._supported_chains()
