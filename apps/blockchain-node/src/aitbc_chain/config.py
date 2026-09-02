@@ -337,6 +337,10 @@ class ChainSettings(BaseSettings):
     gossip_backend: str = "memory"
     gossip_broadcast_url: str | None = os.getenv("GOSSIP_BROADCAST_URL", "redis://127.0.0.1:6379")
     gossip_websocket_url: str | None = None  # wss://host/rpc/gossip/ws for WebsocketGossipBackend
+    # Mesh gossip (GOSSIP_BACKEND=mesh): comma-separated wss://<peer>/rpc/gossip/ws
+    # URLs of every *other* validator. The local bus is gossip_broadcast_url.
+    # Leave empty on RPC processes; only the node process should dial peers.
+    gossip_mesh_peer_urls: str = ""
     default_peer_rpc_url: str | None = None  # HTTP RPC URL of default peer for bulk sync
 
     # Cross-site synchronization settings
@@ -630,6 +634,10 @@ class ChainSettings(BaseSettings):
         except ValueError:
             pass
         return self
+
+    def mesh_peer_url_list(self) -> list[str]:
+        """Parsed ``GOSSIP_MESH_PEER_URLS`` (empty entries dropped)."""
+        return [u.strip() for u in self.gossip_mesh_peer_urls.split(",") if u.strip()]
 
 
 settings = ChainSettings()
