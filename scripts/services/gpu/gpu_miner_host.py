@@ -55,7 +55,7 @@ GPU_CAPABILITIES = {
         "memory_gb": 16,
         "cuda_version": "12.4",
         "platform": "CUDA",
-        "supported_tasks": ["inference", "training", "stable-diffusion", "llama"],
+        "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "hermes"],
         "max_concurrent_jobs": 1,
     }
 }

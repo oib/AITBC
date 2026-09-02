@@ -608,12 +608,15 @@ setup_service_users() {
     log "Creating service-specific directories..."
     mkdir -p /var/lib/aitbc/wallets
     mkdir -p /var/lib/aitbc/whisper-cache
+    mkdir -p /var/lib/aitbc/hermes
 
     # Set ownership for service-specific directories
     chown -R aitbc-wallet:aitbc-services /var/lib/aitbc/wallets
     chown -R aitbc-public:aitbc-services /var/lib/aitbc/whisper-cache
+    chown -R aitbc:aitbc /var/lib/aitbc/hermes
     chmod 750 /var/lib/aitbc/wallets
     chmod 750 /var/lib/aitbc/whisper-cache
+    chmod 750 /var/lib/aitbc/hermes
 
     # Fix data directory ownership now that aitbc user exists
     # (setup_runtime_directories runs before this step, so chown may have been skipped)

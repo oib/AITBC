@@ -39,6 +39,10 @@ upstream ffmpeg {
     server 127.0.0.1:8230;
 }
 
+upstream hermes_agent {
+    server 127.0.0.1:8270;
+}
+
 upstream ollama {
     server 127.0.0.1:11434;
 }
@@ -336,6 +340,22 @@ server {
         client_max_body_size 500M;
         rewrite ^/ffmpeg/(.*) /$1 break;
         proxy_pass http://ffmpeg;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # Hermes Agent one-shot service
+    location /hermes/ {
+        client_max_body_size 50M;
+        rewrite ^/hermes/(.*) /$1 break;
+        proxy_pass http://hermes_agent;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
