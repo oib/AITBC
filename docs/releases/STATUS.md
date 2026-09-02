@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-08-25
+**Last updated:** 2026-09-02
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -336,3 +336,67 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 ### Remaining open work
 
 - `PBFTConsensus` is still not wired into production. The live setup is multi-key PoA, not BFT; a 4-validator `f=1` PBFT deployment would require four independent validator hosts and `MULTI_VALIDATOR_MIN_ATTESTATIONS=3` (or a full PBFT round). This remains an open architecture item.
+
+## 2026-09-02 validation — five-node mesh, rolling restarts, and gossip package refactor
+
+### Hosts and roles
+
+The live network was clarified and reconfigured as five distinct hosts:
+
+- `hub.aitbc` — validator, IP `192.168.100.10`
+- `hub2.aitbc` — validator, IP `10.177.61.28`
+- `node1.aitbc.bubuit.net` (formerly `aitbc1`) — validator, IP `10.1.223.40`
+- `node2.aitbc.bubuit.net` (formerly `aitbc3`) — validator, IP `10.1.223.136`
+- `node0.aitbc.bubuit.net` — follower, IP `10.1.223.93`
+
+The four validators form a 3-of-4 quorum. `node0` does not produce blocks (`enable_block_production=false`) and participates only as a follower via the mesh gossip backend.
+
+### Work completed
+
+- **Bridge-monitor efficiency:** `apps/wallet/src/wallet_app/bridge/bridge_monitor.py` now batches bridge-block fetches and tracks the last scanned block, and `aitbc/network/http_pool.py` provides a shared `SharedHttpClient` pool. This eliminated the repeated Infura/Sepolia requests that were hitting the wallet node.
+- **Proposer-rotation fix:** `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` now rotates the proposer when the scheduled one is unavailable (`cb8cfbf25e`).
+- **Human-readable transaction-query logs:** `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` was updated (`c6d71d4fb7`).
+- **Nginx worker and WebSocket fixes:**
+  - Added `worker_rlimit_nofile 8192`, `worker_connections 4096`, and `real_ip` config where applicable.
+  - Fixed `node0` nginx: renamed the active server block from the dead `aitbc.bubuit.net` to `node0.aitbc.bubuit.net`, corrected the `/rpc/` upstream from `8006` to `8202`, and added WebSocket upgrade headers to both `/rpc/` locations.
+  - Verified `wss://node0.aitbc.bubuit.net/rpc/gossip/ws` returns `101 Switching Protocols` through nginx.
+- **Node0 recovery:** `node0` was on old commit `33a0f8a28` and did not support `GOSSIP_BACKEND=mesh`. It was pulled to current `main`, its chain database was backed up and reset, `GOSSIP_BACKEND=mesh` was restored, and it resynced to the validator head. Its chain now follows the live network.
+- **Node identity / DNS:**
+  - `aitbc3` is now `node2.aitbc.bubuit.net`; peer URLs and nginx configs were updated.
+  - `node0` is a separate fifth machine, not the former `aitbc3`.
+- **Gossip package refactor:** the monolithic `apps/blockchain-node/src/aitbc_chain/gossip/broker.py` was split into a package:
+  - `gossip/backends/base.py`, `in_memory.py`, `broadcast.py`, `websocket.py`, `mesh.py`
+  - `gossip/_internal.py` for shared serialization/metrics helpers
+  - thin `gossip/broker.py` and `gossip/__init__.py` preserving the public API
+  - 54 gossip tests passed on a `node2` temp checkout; Ruff was clean.
+
+### Rolling pull/restart results
+
+A rolling `git pull` and restart was performed across `node0`, `node2`, `hub.aitbc`, `hub2.aitbc`, and `node1` (in that order) to load the new gossip package (`a620e1334`) without a chain stall.
+
+| Node | From commit | To commit | Services active | Final height |
+|---|---|---|---|---|
+| `node0` | `c6d71d4fb7` | `a620e1334` | `aitbc-blockchain-node`, `aitbc-blockchain-rpc` | 3183 |
+| `node2` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
+| `hub.aitbc` | `c6d71d4fb7` | `a620e1334` | both | 3183 |
+| `hub2.aitbc` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
+| `node1` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
+
+All five nodes converged at height **3183** and continued producing new blocks. No `Unsupported gossip backend`, `ModuleNotFoundError`, or gossip WebSocket 404 errors were observed after the restarts.
+
+### Consensus and fault-tolerance assessment
+
+- Four validators, 3-of-4 quorum: one validator failure is tolerated; two simultaneous validator failures are not guaranteed to make progress.
+- A service-level restart of any single validator is safe; the remaining three keep producing.
+- A **host-level outage** (RPC and gossip disappearing together) is still untested and is an honest gap.
+- A proposer that dies **after collecting prepares but before commit** still needs a genuine PBFT NEW-VIEW protocol carrying prepared certificates. This is not implemented and remains a liveness limitation.
+- `PBFTConsensus` is still not wired into production block production; the live network is multi-key PoA, not full PBFT.
+
+### Open items
+
+- Implement genuine PBFT NEW-VIEW with prepared certificates.
+- Run a host-level validator outage test (network partition / power-off, not just `systemctl restart`).
+- Investigate and clean historical `chain.db.pre*` and `predeploy` backups.
+- Continue watching the stale node1 worker process (`aitbc_chain.main` / `uvicorn` hanging in `deactivating`).
+- Consider reducing the 300-second round timeout after safety testing.
+- Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/v0.25/v0.25.2_change.log` on the shop node.
