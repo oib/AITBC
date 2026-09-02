@@ -6,7 +6,7 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from aitbc_chain.gossip.broker import BroadcastGossipBackend, InMemoryGossipBackend
+from aitbc_chain.gossip import BroadcastGossipBackend, InMemoryGossipBackend
 
 
 class TestInMemoryGossipBackend:
@@ -409,7 +409,7 @@ class TestGossipMetrics:
     @pytest.mark.asyncio
     async def test_publication_metrics(self) -> None:
         """Test that publication metrics are recorded."""
-        with patch("aitbc_chain.gossip.broker.metrics_registry") as mock_metrics:
+        with patch("aitbc_chain.gossip._internal.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
             await backend.subscribe("test_topic")
 
@@ -427,7 +427,7 @@ class TestGossipMetrics:
     @pytest.mark.asyncio
     async def test_queue_metrics(self) -> None:
         """Test that queue metrics are recorded."""
-        with patch("aitbc_chain.gossip.broker.metrics_registry") as mock_metrics:
+        with patch("aitbc_chain.gossip._internal.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
             await backend.subscribe("test_topic")
 
@@ -444,7 +444,7 @@ class TestGossipMetrics:
     @pytest.mark.asyncio
     async def test_subscriber_metrics(self) -> None:
         """Test that subscriber metrics are recorded."""
-        with patch("aitbc_chain.gossip.broker.metrics_registry") as mock_metrics:
+        with patch("aitbc_chain.gossip._internal.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
 
             # Add multiple subscribers

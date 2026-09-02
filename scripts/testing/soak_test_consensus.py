@@ -49,7 +49,7 @@ from aitbc_chain.consensus.multi_validator_poa import (  # noqa: E402
     ValidatorRole,
 )
 from aitbc_chain.consensus.pbft import PBFTConsensus  # noqa: E402
-from aitbc_chain.gossip.broker import InMemoryGossipBackend  # noqa: E402
+from aitbc_chain.gossip import InMemoryGossipBackend  # noqa: E402
 
 
 @dataclass
