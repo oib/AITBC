@@ -24,6 +24,7 @@ from .logger import get_logger
 from .mempool import init_mempool
 from .metrics import metrics_registry
 from .network.island_manager import create_island_manager
+from .rpc.escrow_routes import get_node_wallet_address
 from .rpc.escrow_routes import router as escrow_router
 from .rpc.router import router as rpc_router
 from .rpc.utils import set_poa_proposer
@@ -328,6 +329,7 @@ def create_app() -> FastAPI:
             "status": "ok",
             "supported_chains": [c.strip() for c in settings.supported_chains.split(",") if c.strip()],
             "proposer_id": settings.proposer_id,
+            "node_wallet": get_node_wallet_address(),
         }
 
     app.include_router(metrics_router)
