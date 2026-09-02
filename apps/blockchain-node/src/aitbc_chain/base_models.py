@@ -298,6 +298,11 @@ class Escrow(ChainBase, table=True):
     job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
     release_tx_hash: str | None = None  # TX hash of the ESCROW_RELEASE transaction
     refund_tx_hash: str | None = None  # TX hash of escrow refund
+    # A metered release bills what the job used, not what was locked, so the two
+    # settled legs are recorded rather than inferred from `amount`. NULL marks a row
+    # written before partial releases existed, where a settlement moved the whole lock.
+    released_amount: int | None = None  # compute-units paid to the provider, net of fee
+    refunded_amount: int | None = None  # compute-units returned to the buyer unbilled
 
 
 class CrossChainTransfer(ChainBase, table=True):

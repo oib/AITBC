@@ -263,6 +263,9 @@ def _run_ollama(
             success(
                 f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
             )
+            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
+            if refunded_amount > 0:
+                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
         else:
             warning("Escrow release submitted but no tx_hash returned")
     else:
@@ -449,6 +452,9 @@ def _run_whisper(
             success(
                 f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
             )
+            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
+            if refunded_amount > 0:
+                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 
@@ -608,6 +614,9 @@ def _run_ffmpeg(
             success(
                 f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
             )
+            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
+            if refunded_amount > 0:
+                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 
@@ -753,6 +762,9 @@ def _run_hermes(
             success(
                 f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
             )
+            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
+            if refunded_amount > 0:
+                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
         else:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
 
