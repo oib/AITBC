@@ -149,6 +149,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.gossip_backend,
         broadcast_url=settings.gossip_broadcast_url,
         websocket_url=settings.gossip_websocket_url,
+        mesh_peer_urls=settings.mesh_peer_url_list(),
     )
     await gossip_broker.set_backend(_backend)
 
