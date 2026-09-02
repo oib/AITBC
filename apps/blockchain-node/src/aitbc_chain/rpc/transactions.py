@@ -316,7 +316,7 @@ async def query_transactions(
     """Query transactions with optional filters"""
     resolved_chain_id = get_chain_id(chain_id)
 
-    _logger.info(f"Query transactions - resolved_chain_id: {resolved_chain_id}")
+    _logger.info(f"Query transactions for chain {resolved_chain_id}")
 
     with session_scope() as session:
         # Newest first. `limit` is applied after the payload filters below, so with the
@@ -349,12 +349,12 @@ async def query_transactions(
             else:
                 query = query.where(Transaction.payload["job_id"].as_string() == job_id)
 
-        _logger.info(f"Query: {query}")
+        _logger.debug(f"Query: {query}")
 
         # Apply filters based on payload fields
         transactions = session.exec(query).all()
 
-        _logger.info(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
+        _logger.debug(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
 
         results = []
         for tx in transactions:
@@ -404,7 +404,7 @@ async def query_transactions(
         if limit:
             results = results[:limit]
 
-        _logger.info(f"Returning {len(results)} transactions after filtering")
+        _logger.info(f"Returning {len(results)} transactions for chain {resolved_chain_id}")
 
         return results
 
