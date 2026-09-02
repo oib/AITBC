@@ -130,6 +130,7 @@ get_allowed_services() {
         aitbc-edge
         aitbc-pool-hub
         aitbc-marketplace
+        aitbc-hermes-agent
     )
 
     if [ "$role_spec" = "all" ]; then
