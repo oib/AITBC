@@ -662,13 +662,15 @@ def providers(ctx):
 
   aitbc market offer --service-type ollama --model-or-variant llama3 --price 1.0
 
-  aitbc market offer --service-type whisper --model-or-variant base --price 0.5""",
+  aitbc market offer --service-type whisper --model-or-variant base --price 0.5
+
+  aitbc market offer --service-type hermes --model-or-variant default --price 0.1 --unit per_minute""",
 )
 @click.option(
     "--service-type",
     "service_type",
     required=True,
-    type=click.Choice(["ollama", "whisper", "ffmpeg", "ipfs"]),
+    type=click.Choice(["ollama", "whisper", "ffmpeg", "ipfs", "hermes"]),
     help="The Service type.",
 )
 @click.option("--model-or-variant", "model_or_variant", required=True, help="The Model or variant.")
@@ -676,7 +678,7 @@ def providers(ctx):
 @click.option(
     "--unit",
     default="per_1k_tokens",
-    type=click.Choice(["per_1k_tokens", "per_audio_min", "per_gb", "per_processing_hour", "per_day"]),
+    type=click.Choice(["per_1k_tokens", "per_audio_min", "per_gb", "per_processing_hour", "per_minute", "per_day"]),
     help="Pricing unit",
 )
 @click.option("--description", help="Description of the service")
@@ -815,6 +817,19 @@ def offer(
                 error(f"FFmpeg service not reachable at localhost:8230: {e}")
                 error("Start it with: systemctl start aitbc-ffmpeg")
                 raise click.Abort() from e
+        elif service_type == "hermes":
+            try:
+                h_client = AITBCHTTPClient(base_url="http://localhost:8270", timeout=5)
+                health = h_client.get("/health")
+                if not health.get("ready"):
+                    error("Hermes Agent service is not ready at localhost:8270")
+                    raise click.Abort()
+                info(f"Verified Hermes Agent service: {health.get('version', 'unknown')}")
+            except NetworkError as e:
+                error(f"Hermes Agent service not reachable at localhost:8270: {e}")
+                error("Start it with: systemctl start aitbc-hermes-agent")
+                raise click.Abort() from e
+
         elif service_type == "ipfs":
             # Try island IPFS API (5002) then default IPFS API (5001)
             for _candidate_port in (5002, 5001):
@@ -859,7 +874,7 @@ def offer(
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
         # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0}
+        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0, "hermes": 8270}
         _local_port = _local_ports.get(service_type, 8110)
         if service_type == "ipfs" and ipfs_port:
             _local_port = ipfs_port
@@ -870,7 +885,7 @@ def offer(
         if _base_domain and not _node_hostname.endswith(_base_domain):
             _node_hostname = f"{socket.gethostname()}.{_base_domain}"
         # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs"}
+        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs", "hermes": "hermes"}
         _nginx_path = _nginx_paths.get(service_type, service_type)
         if service_type == "ipfs":
             _public_endpoint = ipfs_public_multiaddr or f"https://{_node_hostname}/{_nginx_path}"
@@ -1005,6 +1020,7 @@ def offer(
             "whisper": "http://localhost:8110/health",
             "ffmpeg": "http://localhost:8230/health",
             "ipfs": f"http://localhost:{ipfs_port}/api/v0/version" if ipfs_port else "",
+            "hermes": "http://localhost:8270/health",
         }
         try:
             # P2.5: register the offer with the same marketplace service that `market list`

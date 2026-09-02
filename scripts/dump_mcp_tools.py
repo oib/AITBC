@@ -58,6 +58,7 @@ ROLE_HINTS: dict[str, list[str]] = {
     "edge": ["shop", "follower", "follower2"],
     "whisper": ["shop", "follower", "follower2"],
     "ffmpeg": ["shop", "follower", "follower2"],
+    "hermes": ["shop", "follower", "follower2"],
     "ollama": ["shop", "follower", "follower2"],
     "exchange-island": ["hub", "customer"],
     "ipfs:rentals": ["hub", "customer", "shop"],
@@ -82,6 +83,7 @@ ROLE_HINTS: dict[str, list[str]] = {
     "pool-hub": ["shop", "follower", "follower2"],
     "whisper": ["shop", "follower", "follower2"],
     "ffmpeg": ["shop", "follower", "follower2"],
+    "hermes": ["shop", "follower", "follower2"],
     "ollama": ["shop", "follower", "follower2"],
     "ipfs": ["hub", "customer", "customer2", "shop", "follower", "follower2"],
 }
