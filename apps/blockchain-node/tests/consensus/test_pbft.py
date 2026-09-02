@@ -244,10 +244,12 @@ async def test_gossip_transport_receives():
     assert key in pbft.state.prepared_messages
     assert len(pbft.state.prepared_messages[key]) == 1
 
-    # Simulate an incoming pre-prepare message
+    # Simulate an incoming pre-prepare message. The sender has to be the
+    # validator the schedule picks for that height and round, otherwise the
+    # pre-prepare is dropped as out of turn (v0.25.6).
     pp_data = {
         "message_type": "pre_prepare",
-        "sender": "0xdef",
+        "sender": consensus.select_proposer(2, 0),
         "view_number": 0,
         "sequence_number": 2,
         "digest": "0xdigest2",
@@ -310,9 +312,12 @@ async def test_four_validator_round():
         validators[i] = (addr, pk_hex, node)
         net.nodes.append(node)
 
-    proposer_addr, _, proposer = validators[0]
+    # The proposer has to be the validator the schedule picks for the height
+    # and round; the addresses are random keys, so it is not validators[0].
+    proposer_addr = shared_consensus.select_proposer(1, 0)
+    proposer = next(node for addr, _, node in validators if addr == proposer_addr)
     block_hash = "0x" + secrets.token_hex(32)
-    result = await proposer.propose_and_wait(proposer_addr, block_hash, timeout=5.0)
+    result = await proposer.propose_and_wait(proposer_addr, block_hash, timeout=5.0, sequence=1, view=0)
     assert result is True
 
     key = f"{proposer.state.current_sequence}:{proposer.state.current_view}"
@@ -355,21 +360,143 @@ async def test_fault_tolerance_with_one_validator_down():
         shared_consensus.add_validator(addr, 1000.0)
         shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
 
-    net = FaultyNetwork([], down_index=3)  # stop the last (non-proposer) validator
+    # The proposer is whoever the schedule picks for height 1, round 0; the
+    # stopped node must be one of the others.
+    proposer_addr = shared_consensus.select_proposer(1, 0)
+    down_index = next(i for i, (addr, _, _) in enumerate(validators) if addr != proposer_addr)
+
+    net = FaultyNetwork([], down_index=down_index)
     for i, (addr, pk_hex, _) in enumerate(validators):
         node = PBFTConsensus(shared_consensus, private_key=pk_hex, chain_id="test-pbft-faulty", local_validator=addr)
         node.set_gossip_backend(net)
         validators[i] = (addr, pk_hex, node)
         net.nodes.append(node)
 
-    proposer_addr, _, proposer = validators[0]
+    proposer = next(node for addr, _, node in validators if addr == proposer_addr)
     block_hash = "0x" + secrets.token_hex(32)
-    result = await proposer.propose_and_wait(proposer_addr, block_hash, timeout=5.0)
+    result = await proposer.propose_and_wait(proposer_addr, block_hash, timeout=5.0, sequence=1, view=0)
     assert result is True
-
     key = f"{proposer.state.current_sequence}:{proposer.state.current_view}"
     assert len(proposer.state.committed_messages.get(key, [])) >= proposer.required_messages
 
     # The stopped node must not have any committed messages for this key
     stopped = validators[net.down_index][2]
     assert len(stopped.state.committed_messages.get(key, [])) == 0
+
+
+@pytest.mark.asyncio
+async def test_round_one_proposer_takes_over_when_scheduled_proposer_is_down():
+    """The whole point of the round: a dead round-0 proposer must not stall the height.
+
+    Round 0 belongs to a validator whose host is gone, so it never sends a
+    pre-prepare. The round-1 proposer, which every node derives from the parent
+    block timestamp without exchanging any view-change message, proposes the
+    same height and reaches a commit quorum with the three live validators.
+    """
+    from eth_keys import keys
+    import secrets
+
+    class Network:
+        def __init__(self):
+            self.nodes: list[PBFTConsensus] = []
+            self.down: set[str] = set()
+
+        async def publish(self, topic, msg_data):
+            for node in self.nodes:
+                if node._local_validator in self.down:
+                    continue
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    keypairs = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        keypairs.append((pk.public_key.to_checksum_address(), pk.to_hex()))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-rotate")
+    for addr, _ in keypairs:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    height = 7
+    dead = shared_consensus.select_proposer(height, 0)
+    standin = shared_consensus.select_proposer(height, 1)
+    assert dead != standin
+
+    net = Network()
+    net.down.add(dead)
+    nodes: dict[str, PBFTConsensus] = {}
+    for addr, pk_hex in keypairs:
+        node = PBFTConsensus(shared_consensus, private_key=pk_hex, chain_id="test-pbft-rotate", local_validator=addr)
+        node.set_gossip_backend(net)
+        net.nodes.append(node)
+        nodes[addr] = node
+
+    block_hash = "0x" + secrets.token_hex(32)
+    result = await nodes[standin].propose_and_wait(standin, block_hash, timeout=5.0, sequence=height, view=1)
+    assert result is True, "round 1 proposer could not commit while round 0 proposer was down"
+
+
+@pytest.mark.asyncio
+async def test_out_of_turn_pre_prepare_is_dropped():
+    """A validator that is not the scheduled proposer gets no prepares."""
+    consensus = _make_consensus(4)
+    height, view = 5, 0
+    scheduled = consensus.select_proposer(height, view)
+    impostor = next(a for a in consensus.validators if a != scheduled)
+
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator=scheduled)
+    await pbft.handle_incoming_message(
+        {
+            "message_type": "pre_prepare",
+            "sender": impostor,
+            "view_number": view,
+            "sequence_number": height,
+            "digest": "0xdigest",
+            "signature": "",
+            "timestamp": 0.0,
+            "block_hash": "0x" + "11" * 32,
+        }
+    )
+    assert f"{height}:{view}" not in pbft.state.pre_prepare_messages
+    assert not pbft.state.prepared_messages
+
+
+@pytest.mark.asyncio
+async def test_only_one_block_prepared_per_height():
+    """Two proposals for one height, in different rounds, must not both be prepared.
+
+    Otherwise the round-0 proposer recovering mid-round and the round-1
+    proposer taking over could both collect a quorum and fork the chain.
+    """
+    consensus = _make_consensus(4)
+    height = 9
+    round0 = consensus.select_proposer(height, 0)
+    round1 = consensus.select_proposer(height, 1)
+    local = next(a for a in consensus.validators if a not in {round0, round1})
+
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator=local)
+
+    def _pp(sender: str, view: int, block_hash: str) -> PBFTMessage:
+        return PBFTMessage(
+            message_type=PBFTMessageType.PRE_PREPARE,
+            sender=sender,
+            view_number=view,
+            sequence_number=height,
+            digest=pbft.get_message_digest(block_hash, height, view),
+            signature="",
+            timestamp=0.0,
+            block_hash=block_hash,
+        )
+
+    first = _pp(round0, 0, "0x" + "aa" * 32)
+    second = _pp(round1, 1, "0x" + "bb" * 32)
+    pbft.state.pre_prepare_messages[f"{height}:0"] = first
+    pbft.state.pre_prepare_messages[f"{height}:1"] = second
+
+    await pbft.prepare_phase(local, first)
+    assert pbft._prepared_heights[height] == first.block_hash
+    assert f"{height}:0" in pbft.state.prepared_messages
+
+    assert await pbft.prepare_phase(local, second) is False
+    assert f"{height}:1" not in pbft.state.prepared_messages
