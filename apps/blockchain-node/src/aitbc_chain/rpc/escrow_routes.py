@@ -34,6 +34,19 @@ _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.b
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
 
+
+def get_node_wallet_address() -> str:
+    """Return the node wallet that custodies escrow locks.
+
+    This is the address ``_build_lock_tx`` requires as the ESCROW_LOCK ``to``.
+    It is deliberately not the consensus ``proposer_id``: the proposer signs
+    blocks and is per-node, while the node wallet holds escrow and is shared
+    across the nodes that settle for a chain. ``/health`` advertises it so
+    clients do not have to guess which of the two to lock against.
+    """
+    return _NODE_WALLET
+
+
 _RPC_API_KEY = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
 if not _RPC_API_KEY:
     _logger.warning(
