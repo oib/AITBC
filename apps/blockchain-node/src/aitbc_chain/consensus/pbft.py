@@ -100,6 +100,9 @@ class PBFTConsensus:
         self._message_event = asyncio.Event()
         self._local_prepared: set[str] = set()
         self._local_committed: set[str] = set()
+        # Block hash this node has already prepared at each height, across all
+        # views. See prepare_phase for why one per height and not one per key.
+        self._prepared_heights: dict[int, str] = {}
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
@@ -120,15 +123,24 @@ class PBFTConsensus:
         content = f"{block_hash}:{sequence}:{view}"
         return hashlib.sha256(content.encode()).hexdigest()
 
-    async def pre_prepare_phase(self, proposer: str, block_hash: str) -> bool:
-        """Phase 1: Pre-prepare"""
+    async def pre_prepare_phase(
+        self, proposer: str, block_hash: str, sequence: int | None = None, view: int | None = None
+    ) -> bool:
+        """Phase 1: Pre-prepare.
+
+        ``sequence`` and ``view`` should be the block height and the proposer
+        round. Both are derived from the block itself, so every node keys the
+        round identically. The local-counter fallbacks below only apply to
+        callers that do not know the height; they drift between nodes across
+        restarts and should not be relied on.
+        """
         # H4: recalculate fault tolerance in case validator set changed
         self._recalculate_fault_tolerance()
         # H6: start consensus timer (view change timeout)
         self._start_consensus_timer()
 
-        sequence = self.state.current_sequence + 1
-        view = self.state.current_view
+        sequence = self.state.current_sequence + 1 if sequence is None else sequence
+        view = self.state.current_view if view is None else view
         digest = self.get_message_digest(block_hash, sequence, view)
 
         message = PBFTMessage(
@@ -177,7 +189,14 @@ class PBFTConsensus:
         logger.warning("PBFT timed out waiting for sync on chain %s", self._chain_id)
         return False
 
-    async def propose_and_wait(self, proposer: str, block_hash: str, timeout: float | None = None) -> bool:
+    async def propose_and_wait(
+        self,
+        proposer: str,
+        block_hash: str,
+        timeout: float | None = None,
+        sequence: int | None = None,
+        view: int | None = None,
+    ) -> bool:
         """Run the full PBFT proposal pipeline for the local proposer.
 
         Waits for a prepare quorum and then a commit quorum before returning.
@@ -191,10 +210,10 @@ class PBFTConsensus:
         if not self._local_validator:
             self._local_validator = proposer
         # Capture the sequence/view before pre-prepare broadcasts trigger commits
-        pre_prepare_sequence = self.state.current_sequence + 1
-        pre_prepare_view = self.state.current_view
+        pre_prepare_sequence = self.state.current_sequence + 1 if sequence is None else sequence
+        pre_prepare_view = self.state.current_view if view is None else view
         key = f"{pre_prepare_sequence}:{pre_prepare_view}"
-        await self.pre_prepare_phase(proposer, block_hash)
+        await self.pre_prepare_phase(proposer, block_hash, pre_prepare_sequence, pre_prepare_view)
         pre_prepare_msg = self.state.pre_prepare_messages.get(key)
         if not pre_prepare_msg:
             logger.warning("PBFT propose_and_wait aborted: missing pre-prepare for seq %s", pre_prepare_sequence)
@@ -267,9 +286,26 @@ class PBFTConsensus:
 
         # Only the local validator sends one prepare per key
         if validator == self._local_validator:
+            # v0.25.6: and only one *block* per height, across every view. When
+            # the round advances, the recovering round-0 proposer and the
+            # round-1 proposer can both be live with different keys for the
+            # same height. Preparing both would let both reach quorum and fork
+            # the chain; preparing only the first keeps the standard PBFT
+            # safety argument intact without a NEW-VIEW protocol.
+            height = pre_prepare_msg.sequence_number
+            already = self._prepared_heights.get(height)
+            if already is not None and already != pre_prepare_msg.block_hash:
+                logger.warning(
+                    "PBFT refusing a second block at height %s (prepared %s, offered %s)",
+                    height,
+                    already,
+                    pre_prepare_msg.block_hash,
+                )
+                return False
             if key in self._local_prepared:
                 return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
             self._local_prepared.add(key)
+            self._prepared_heights[height] = pre_prepare_msg.block_hash
 
         # Create prepare message
         prepare_msg = PBFTMessage(
@@ -437,6 +473,9 @@ class PBFTConsensus:
             self.state.committed_messages.pop(key, None)
             self.state.pre_prepare_messages.pop(key, None)
 
+        for height in [h for h in self._prepared_heights if h < sequence]:
+            self._prepared_heights.pop(height, None)
+
     def handle_view_change(self, new_view: int) -> bool:
         """Handle view change when proposer fails (H5: safe view change)."""
         if self._sync_manager is not None and settings.sync_manager_enabled:
@@ -543,6 +582,14 @@ class PBFTConsensus:
 
         # Route to the appropriate phase handler
         if message.message_type == PBFTMessageType.PRE_PREPARE:
+            if not self._is_scheduled_proposer(message.sender, message.sequence_number, message.view_number):
+                logger.warning(
+                    "PBFT dropping pre-prepare for height %s round %s from %s: not the scheduled proposer",
+                    message.sequence_number,
+                    message.view_number,
+                    message.sender,
+                )
+                return
             self.state.pre_prepare_messages[key] = message
             self._message_event.set()
             # As a validator, respond with a prepare for this pre-prepare
@@ -570,6 +617,22 @@ class PBFTConsensus:
     # ------------------------------------------------------------------
     # B10: View change fixes (H4 + H6)
     # ------------------------------------------------------------------
+
+    def _is_scheduled_proposer(self, sender: str, height: int, view: int) -> bool:
+        """Whether ``sender`` owns the (height, round) slot in the round-robin.
+
+        Without this a follower prepares any signed proposal from any
+        validator, which is what makes the rotation advisory rather than
+        enforced. Unknown schedules (no active validator set) stay permissive
+        so single-proposer deployments are unaffected.
+        """
+        if not getattr(settings, "consensus_enforce_proposer_schedule", True):
+            return True
+        try:
+            expected = self.consensus.select_proposer(height, view)
+        except TypeError:
+            expected = self.consensus.select_proposer(height)
+        return expected is None or expected == sender
 
     def _recalculate_fault_tolerance(self) -> None:
         """H4: dynamically recalculate fault tolerance from the current validator set."""

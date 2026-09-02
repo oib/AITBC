@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any
@@ -24,6 +25,28 @@ from ..config import settings
 from ..models import Block
 
 logger = get_logger(__name__)
+
+
+def proposer_round(parent_timestamp: datetime | None, block_timestamp: datetime, round_seconds: int) -> int:
+    """Derive a block's proposer round from on-chain timestamps.
+
+    Round 0 belongs to the scheduled proposer for the height. Each
+    ``round_seconds`` that elapse without a block advances the round by one and
+    hands the slot to the next validator in the round-robin. Both inputs come
+    from block headers, so every node derives the same round for the same block
+    and no view-change messages have to be exchanged to agree on who may
+    propose.
+    """
+    if parent_timestamp is None or round_seconds <= 0:
+        return 0
+    if parent_timestamp.tzinfo is None:
+        parent_timestamp = parent_timestamp.replace(tzinfo=UTC)
+    if block_timestamp.tzinfo is None:
+        block_timestamp = block_timestamp.replace(tzinfo=UTC)
+    elapsed = (block_timestamp - parent_timestamp).total_seconds()
+    if elapsed <= 0:
+        return 0
+    return int(elapsed // round_seconds)
 
 
 class ValidatorRole(Enum):
@@ -126,8 +149,15 @@ class MultiValidatorPoA:
         validator.role = ValidatorRole.STANDBY
         return True
 
-    def select_proposer(self, block_height: int) -> str | None:
-        """Select proposer for the current block using round-robin"""
+    def select_proposer(self, block_height: int, round_number: int = 0) -> str | None:
+        """Select the proposer for a height and round using round-robin.
+
+        ``round_number`` is the view. It advances when the scheduled proposer
+        does not produce a block within ``consensus_proposer_round_seconds`` of
+        the parent block, so an unavailable proposer no longer stalls the
+        chain: the slot moves to the next validator in the same deterministic
+        order.
+        """
         active_validators = sorted(
             (
                 v
@@ -141,11 +171,18 @@ class MultiValidatorPoA:
             return None
 
         # Round-robin selection on a deterministic, globally-consistent order.
-        proposer_index = block_height % len(active_validators)
+        proposer_index = (block_height + max(0, round_number)) % len(active_validators)
         return active_validators[proposer_index].address
 
-    def validate_block(self, block: Block, proposer: str) -> bool:
-        """Validate a proposed block"""
+    def validate_block(self, block: Block, proposer: str, parent_timestamp: datetime | None = None) -> bool:
+        """Validate a proposed block.
+
+        When ``parent_timestamp`` is supplied the proposer is also checked
+        against the schedule: the block must come from the validator that owns
+        its height and the round its own timestamp implies. Without the parent
+        timestamp the round cannot be derived and only membership, role and
+        signature are checked, which is the pre-v0.25.6 behaviour.
+        """
         if proposer not in self.validators:
             return False
 
@@ -156,6 +193,24 @@ class MultiValidatorPoA:
         # Check if validator is allowed to propose
         if validator.role not in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]:
             return False
+
+        # v0.25.6: enforce the rotation. Round-robin selection alone decided
+        # nothing until now, because nothing checked that the block came from
+        # the validator whose turn it was.
+        if parent_timestamp is not None and getattr(settings, "consensus_enforce_proposer_schedule", True):
+            round_number = proposer_round(
+                parent_timestamp, block.timestamp, getattr(settings, "consensus_proposer_round_seconds", 120)
+            )
+            expected = self.select_proposer(block.height, round_number)
+            if expected and expected != proposer:
+                logger.warning(
+                    "Block %s proposed by %s but round %s at that height belongs to %s",
+                    block.height,
+                    proposer,
+                    round_number,
+                    expected,
+                )
+                return False
 
         # B3: verify block signature (C1)
         from aitbc.crypto.consensus_signing import verify_block_signature
