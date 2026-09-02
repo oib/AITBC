@@ -22,16 +22,25 @@ from .http_client import AITBCHTTPClient, NetworkError
 
 
 def get_node_wallet(ctx, rpc_url: str) -> str:
-    """Return the canonical node wallet/proposer address from the RPC /health endpoint."""
+    """Return the canonical node wallet that custodies escrow, from RPC /health.
+
+    The escrow route validates the ESCROW_LOCK ``to`` against the node
+    ``NODE_WALLET_ADDRESS``, which is a different account from the consensus
+    ``proposer_id``: the proposer signs blocks and differs per node, while the
+    node wallet holds escrow and is shared across a chain settling nodes.
+    Locking against ``proposer_id`` is rejected with "lock_tx to must be the
+    node wallet". Nodes that predate the ``node_wallet`` field report only
+    ``proposer_id``, so fall back to it there.
+    """
     client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
         health = client.get("/health")
     except NetworkError as e:
         abort(ctx, f"Cannot reach blockchain RPC at {rpc_url}: {e}")
-    proposer_id = health.get("proposer_id")
-    if not proposer_id:
-        abort(ctx, "Blockchain RPC /health did not return proposer_id (node wallet)")
-    return to_canonical(proposer_id)
+    node_wallet = health.get("node_wallet") or health.get("proposer_id")
+    if not node_wallet:
+        abort(ctx, "Blockchain RPC /health did not return node_wallet")
+    return to_canonical(node_wallet)
 
 
 def get_buyer_nonce(ctx, rpc_url: str, buyer: str) -> int:
