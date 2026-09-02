@@ -833,15 +833,22 @@ class PoAProposer:
                                 existing_block_height,
                             )
                             continue
+                        # Do not create the recipient account here. The state
+                        # transition calls _ensure_account itself, and only on
+                        # paths that go on to succeed. Creating the row up front
+                        # left it behind whenever apply_transaction returned
+                        # False: the block state root is a full scan of the
+                        # account table, so the proposer committed a header no
+                        # other validator could reproduce. It was also wrong for
+                        # BRIDGE_LOCK, where the state transition deliberately
+                        # creates no recipient account at all.
                         recipient_account = account_map.get(recipient)
-                        if not recipient_account:
-                            self._logger.info("[PROPOSE] Creating recipient account for %s", recipient)
-                            recipient_account = Account(chain_id=self._config.chain_id, address=recipient, balance=0, nonce=0)
-                            session.add(recipient_account)
-                            session.flush()
-                            account_map[recipient] = recipient_account
-                        else:
+                        if recipient_account:
                             self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
+                        else:
+                            self._logger.info(
+                                "[PROPOSE] Recipient account for %s will be created by the state transition", recipient
+                            )
                         state_transition = get_state_transition()
                         tx_data_for_transition = tx.content.copy()
                         tx_data_for_transition["nonce"] = sender_account.nonce
@@ -852,6 +859,12 @@ class PoAProposer:
                         if not success:
                             self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
                             continue
+                        if recipient_account is None:
+                            # The state transition created it; pick up the real
+                            # row so later transactions in this block see it.
+                            recipient_account = session.get(Account, (self._config.chain_id, recipient))
+                            if recipient_account is not None:
+                                account_map[recipient] = recipient_account
                         original_payload = tx.content.get("payload", {})
                         if existing_tx_record:
                             existing_tx_record.block_height = next_height
@@ -900,6 +913,10 @@ class PoAProposer:
                     len(pending_txs),
                     self._config.chain_id,
                 )
+                # The PBFT and attestation failure paths below both roll back
+                # before returning; this one must too, so nothing a rejected
+                # transaction touched survives into the next proposal.
+                session.rollback()
                 return False
             # Compute state root from the full account state. The previous
             # "incremental" approach created a fresh trie per call but only
