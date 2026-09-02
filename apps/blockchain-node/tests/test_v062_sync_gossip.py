@@ -31,7 +31,7 @@ class TestGossipDedup:
 
     def test_compute_message_id_with_hash(self):
         """Message ID uses hash field when available."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
+        from aitbc_chain.gossip import GossipBroker, InMemoryGossipBackend
 
         broker = GossipBroker(InMemoryGossipBackend())
         msg_id = broker._compute_message_id("blocks.test", {"hash": "0xabc"})
@@ -39,7 +39,7 @@ class TestGossipDedup:
 
     def test_compute_message_id_with_id(self):
         """Message ID uses id field when hash not available."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
+        from aitbc_chain.gossip import GossipBroker, InMemoryGossipBackend
 
         broker = GossipBroker(InMemoryGossipBackend())
         msg_id = broker._compute_message_id("txs.test", {"id": "tx-001"})
@@ -47,7 +47,7 @@ class TestGossipDedup:
 
     def test_compute_message_id_fallback_json(self):
         """Message ID falls back to JSON hash for non-dict messages."""
-        from aitbc_chain.gossip.broker import GossipBroker, InMemoryGossipBackend
+        from aitbc_chain.gossip import GossipBroker, InMemoryGossipBackend
 
         broker = GossipBroker(InMemoryGossipBackend())
         msg_id = broker._compute_message_id("test", "simple string")

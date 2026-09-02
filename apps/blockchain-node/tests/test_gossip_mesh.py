@@ -6,7 +6,7 @@ import asyncio
 from typing import Any
 
 import pytest
-from aitbc_chain.gossip.broker import (
+from aitbc_chain.gossip import (
     GossipBackend,
     InMemoryGossipBackend,
     MeshGossipBackend,
@@ -114,7 +114,7 @@ async def test_attestation_responses_sharing_block_hash_are_not_deduped() -> Non
 
 @pytest.mark.asyncio
 async def test_broker_publish_dedup_keeps_distinct_attestations_but_dedups_blocks() -> None:
-    from aitbc_chain.gossip.broker import GossipBroker
+    from aitbc_chain.gossip import GossipBroker
 
     backend = InMemoryGossipBackend()
     broker = GossipBroker(backend)
