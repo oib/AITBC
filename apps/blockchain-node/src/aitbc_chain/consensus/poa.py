@@ -700,8 +700,13 @@ class PoAProposer:
                 # fall back to sequential processing.
                 use_parallel = bool(processed_txs) or not pending_txs
             if not use_parallel:
+                # Collect transaction records created or updated by this
+                # proposal and add them to the session only after all state
+                # transitions have succeeded. Adding them inside per-tx nested
+                # savepoints caused new Transaction rows to leak into the DB
+                # when the outer transaction was rolled back (e.g., PBFT fail).
+                pending_transaction_records: list[Transaction] = []
                 for tx in pending_txs:
-                    nested = None
                     try:
                         tx_data = tx.content
                         sender = _to_ait_address(tx_data.get("from", ""))
@@ -756,7 +761,6 @@ class PoAProposer:
                             "BRIDGE_RELEASE",
                             "BRIDGE_REFUND",
                         }:
-                            nested = session.begin_nested()
                             state_transition = get_state_transition()
                             tx_data_for_transition = tx.content.copy()
                             tx_data_for_transition["nonce"] = 0
@@ -765,7 +769,6 @@ class PoAProposer:
                                 session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
                             )
                             if not success:
-                                nested.rollback()
                                 self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
                                 continue
                             original_payload = tx.content.get("payload", {})
@@ -783,8 +786,7 @@ class PoAProposer:
                                 status="confirmed",
                                 type=tx_type,
                             )
-                            session.add(transaction)
-                            nested.commit()
+                            pending_transaction_records.append(transaction)
                             changed_addresses.add(recipient)
                             existing_tx_map[tx.tx_hash] = next_height
                             processed_txs.append(tx)
@@ -806,7 +808,31 @@ class PoAProposer:
                                 total_cost,
                             )
                             continue
-                        nested = session.begin_nested()
+                        # Resolve canonical tx type and validate governance
+                        # payloads before mutating state so we can skip invalid
+                        # transactions without rolling back earlier work.
+                        tx_type = tx.content.get("type", "TRANSFER")
+                        if tx_type:
+                            tx_type = tx_type.upper()
+                        else:
+                            tx_type = "TRANSFER"
+                        if tx_type.startswith("GOVERNANCE_"):
+                            gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
+                            if gov_errors:
+                                self._logger.warning(
+                                    "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
+                                    tx.tx_hash,
+                                    ", ".join(gov_errors),
+                                )
+                                continue
+                        existing_block_height = existing_tx_map.get(tx.tx_hash)
+                        if existing_block_height is not None:
+                            self._logger.warning(
+                                "[PROPOSE] Skipping tx %s: already exists in database at block %s",
+                                tx.tx_hash,
+                                existing_block_height,
+                            )
+                            continue
                         recipient_account = account_map.get(recipient)
                         if not recipient_account:
                             self._logger.info("[PROPOSE] Creating recipient account for %s", recipient)
@@ -824,41 +850,15 @@ class PoAProposer:
                             session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
                         )
                         if not success:
-                            nested.rollback()
                             self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
                             continue
-                        existing_block_height = existing_tx_map.get(tx.tx_hash)
-                        if existing_block_height is not None:
-                            nested.rollback()
-                            self._logger.warning(
-                                "[PROPOSE] Skipping tx %s: already exists in database at block %s",
-                                tx.tx_hash,
-                                existing_block_height,
-                            )
-                            continue
-                        tx_type = tx.content.get("type", "TRANSFER")
-                        if tx_type:
-                            tx_type = tx_type.upper()
-                        else:
-                            tx_type = "TRANSFER"
-                        # v0.7.3: Validate governance tx payloads
-                        if tx_type.startswith("GOVERNANCE_"):
-                            gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
-                            if gov_errors:
-                                nested.rollback()
-                                self._logger.warning(
-                                    "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
-                                    tx.tx_hash,
-                                    ", ".join(gov_errors),
-                                )
-                                continue
                         original_payload = tx.content.get("payload", {})
                         if existing_tx_record:
                             existing_tx_record.block_height = next_height
                             existing_tx_record.status = "confirmed"
                             existing_tx_record.timestamp = timestamp.isoformat()
                             existing_tx_record.nonce = tx_data_for_transition["nonce"]
-                            session.add(existing_tx_record)
+                            pending_transaction_records.append(existing_tx_record)
                         else:
                             transaction = Transaction(
                                 chain_id=self._config.chain_id,
@@ -875,8 +875,7 @@ class PoAProposer:
                                 status="confirmed",
                                 type=tx_type,
                             )
-                            session.add(transaction)
-                        nested.commit()
+                            pending_transaction_records.append(transaction)
                         # Track changed addresses for incremental state root computation
                         changed_addresses.add(sender)
                         changed_addresses.add(recipient)
@@ -886,10 +885,15 @@ class PoAProposer:
                         processed_txs.append(tx)
                         self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
                     except Exception as e:
-                        if nested is not None:
-                            nested.rollback()
+                        session.rollback()
                         self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
                         return False
+                # Add transaction records only after all state transitions for
+                # this block have succeeded. This keeps them inside the outer
+                # transaction so a subsequent PBFT or attestation failure rolls
+                # them back together with the account state changes.
+                for record in pending_transaction_records:
+                    session.add(record)
             if pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True):
                 self._logger.warning(
                     "[PROPOSE] Skipping block proposal: all drained transactions were invalid (count=%s, chain=%s)",
