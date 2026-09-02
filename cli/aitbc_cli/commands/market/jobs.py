@@ -630,6 +630,153 @@ def _run_ffmpeg(
         _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, "ffmpeg", result_hash)
 
 
+def _run_hermes(
+    ctx: click.Context,
+    offer: dict[str, Any],
+    prompt: str,
+    max_time: int,
+    wallet_address: str,
+    private_key: str,
+    output_format: str,
+    track: bool = False,
+    node_wallet: str | None = None,
+) -> None:
+    """Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow."""
+    config = get_config()
+    chain_id = get_chain_id()
+
+    service_type = offer.get("service_type", "")
+    price = Decimal(str(offer.get("price", 0)))
+    price_unit = offer.get("price_unit", "per_minute")
+    provider_address = offer.get("provider_address", "")
+    model = offer.get("model", "default")
+    offer_id = offer.get("offer_id", "")
+
+    hermes_endpoint = offer.get("public_endpoint") or offer.get("endpoint") or "http://localhost:8270"
+    if not hermes_endpoint.startswith(("http://", "https://")):
+        error(f"Rejecting offer with unsafe endpoint scheme: {hermes_endpoint}")
+        raise click.Abort()
+    hermes_base = hermes_endpoint.rstrip("/").removesuffix("/run")
+    hermes_run_url = hermes_base + "/run"
+    info(f"Offer: hermes/{model} at {price} AIT/{price_unit} — provider {provider_address}")
+    info(f"Hermes endpoint: {hermes_run_url}")
+
+    # Estimate cost from the buyer's chosen max_time.
+    if price_unit == "per_minute":
+        estimated_minutes = Decimal(str(max_time)) / Decimal("60")
+        estimated_cost = price * estimated_minutes
+    elif price_unit == "per_processing_hour":
+        estimated_hours = Decimal(str(max_time)) / Decimal("3600")
+        estimated_cost = price * estimated_hours
+    else:
+        estimated_cost = price
+    info(f"Max time: {max_time}s — locking escrow: ~{estimated_cost:.8f} AIT")
+
+    job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+    contract_id = _escrow_create(
+        ctx,
+        job_id,
+        wallet_address,
+        provider_address or wallet_address,
+        estimated_cost,
+        config,
+        private_key=private_key,
+        node_wallet=node_wallet,
+    )
+
+    info("Sending prompt to Hermes Agent service...")
+    t_start = datetime.now()
+    http_client = AITBCHTTPClient(base_url=hermes_run_url, timeout=max_time + 10)
+    resp_data = http_client.post(
+        "",
+        json={"prompt": prompt, "max_time": max_time},
+    )
+    elapsed = (datetime.now() - t_start).total_seconds()
+
+    if resp_data.get("status") != "completed":
+        error(f"Hermes run did not complete: {resp_data.get('text', resp_data)}")
+        raise click.Abort()
+
+    duration_minutes = Decimal(str(resp_data.get("duration_minutes", elapsed / 60)))
+    elapsed_seconds = resp_data.get("elapsed_seconds", elapsed)
+    result_text = resp_data.get("text", "")
+    result_hash = resp_data.get("result_hash", "")
+
+    if price_unit == "per_minute":
+        actual_cost = price * duration_minutes
+    elif price_unit == "per_processing_hour":
+        actual_cost = price * (duration_minutes / Decimal("60"))
+    else:
+        actual_cost = price
+
+    info(f"Done in {elapsed_seconds:.1f}s ({duration_minutes:.4f} min) — actual cost: {actual_cost:.8f} AIT")
+
+    # Post software_job TX as proof of work
+    job_tx_hash = None
+    if result_hash:
+        job_data = {
+            "from": wallet_address,
+            "to": "0x0000000000000000000000000000000000000000",
+            "amount": 0,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": get_next_nonce(wallet_address),
+            "type": "GPU_MARKETPLACE",
+            "chain_id": chain_id,
+            "payload": {
+                "action": "software_job",
+                "job_id": job_id,
+                "offer_id": offer_id,
+                "buyer_address": wallet_address,
+                "provider_address": provider_address or wallet_address,
+                "result_hash": result_hash,
+                "actual_duration_minutes": float(round(duration_minutes, 4)),
+                "actual_cost": str(round(actual_cost, 6)),
+                "status": "completed",
+                "completed_at": datetime.now().isoformat(),
+            },
+        }
+        try:
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+            job_result = hub_client.post("/rpc/transactions/marketplace", json=job_data)
+            job_tx_hash = job_result.get("transaction_hash")
+            info(f"Job recorded on-chain: {job_tx_hash}")
+        except Exception as e:
+            warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+
+    # Release metered escrow with job TX hash as proof
+    if contract_id:
+        rpc_url = _get_blockchain_rpc_url(config)
+        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
+        release_result = rpc_client.post(
+            f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        )
+        if release_result and release_result.get("tx_hash"):
+            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
+            success(
+                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
+            )
+        else:
+            warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+
+    click.echo(f"\n{result_text}\n")
+    output(
+        {
+            "job_id": job_id,
+            "offer_id": offer_id,
+            "model": model,
+            "duration_minutes": round(duration_minutes, 4),
+            "elapsed_seconds": round(elapsed_seconds, 2),
+            "actual_cost_ait": str(round(actual_cost, 6)),
+            "contract_id": contract_id,
+            "result_hash": result_hash,
+        },
+        output_format,
+    )
+    if track:
+        _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, "hermes", result_hash)
+
+
 @market.command(
     name="run",
     epilog="""Examples:
@@ -651,6 +798,12 @@ def _run_ffmpeg(
 @click.option("--codec", default="h264", help="FFmpeg target codec (e.g. h264, vp9)")
 @click.option("--resolution", default="1080p", help="FFmpeg target resolution (e.g. 1080p, 720p)")
 @click.option("--bitrate", default="5M", help="FFmpeg target bitrate (e.g. 5M, 10M)")
+@click.option(
+    "--max-time",
+    type=int,
+    default=300,
+    help="Maximum wall-clock execution time in seconds for Hermes jobs",
+)
 @click.option("--track", is_flag=True, default=False, help="Create a coordinator job record after a successful run")
 @click.option("--proposer", "proposer_id", default=None, help="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
 @OUTPUT_FORMAT_OPTION
@@ -668,11 +821,12 @@ def run_job(
     codec: str,
     resolution: str,
     bitrate: str,
+    max_time: int,
     track: bool,
     proposer_id: str | None,
     output_format: str,
 ) -> None:
-    """Run a software offer (Ollama/Whisper/FFmpeg) and pay metered escrow."""
+    """Run a software offer (Ollama/Whisper/FFmpeg/Hermes) and pay metered escrow."""
     try:
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
@@ -728,6 +882,18 @@ def run_job(
                 codec,
                 resolution,
                 bitrate,
+                output_format,
+                track,
+                node_wallet=node_wallet,
+            )
+        elif service_type == "hermes":
+            _run_hermes(
+                ctx,
+                offer,
+                prompt,
+                max_time,
+                wallet_address,
+                private_key,
                 output_format,
                 track,
                 node_wallet=node_wallet,
@@ -817,4 +983,52 @@ def process_video(
         )
     except Exception as e:
         error(f"Error processing video: {e}")
+        raise click.Abort() from e
+
+
+@market.command(
+    name="hermes",
+    epilog="""Examples:
+
+  aitbc market hermes --offer-id-or-plugin-id offer-1 --prompt 'explain quantum computing'
+
+  aitbc market hermes --offer-id-or-plugin-id hermes-default --prompt 'write a python fibonacci function' --max-time 120""",
+)
+@click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
+@click.option("--prompt", "prompt", required=True, help="The prompt to send to Hermes Agent.")
+@click.option(
+    "--max-time",
+    "max_time",
+    type=int,
+    default=300,
+    help="Maximum wall-clock execution time in seconds (default 300).",
+)
+@click.option(
+    "--track",
+    is_flag=True,
+    default=False,
+    help="Create a coordinator job record after a successful run",
+)
+@click.option("--proposer", "proposer_id", default=None, help="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def hermes_job(
+    ctx,
+    offer_id_or_plugin_id: str,
+    prompt: str,
+    max_time: int,
+    track: bool,
+    proposer_id: str | None,
+    output_format: str,
+):
+    """Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow."""
+    try:
+        output_format = resolve_output_format(ctx, output_format)
+        offer = _resolve_offer(ctx, offer_id_or_plugin_id)
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        config = get_config()
+        node_wallet = proposer_id or config.hub_proposer_id or None
+        _run_hermes(ctx, offer, prompt, max_time, wallet_address, private_key, output_format, track, node_wallet=node_wallet)
+    except Exception as e:
+        error(f"Error running Hermes job: {e}")
         raise click.Abort() from e
