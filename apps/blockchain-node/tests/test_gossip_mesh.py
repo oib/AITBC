@@ -92,6 +92,48 @@ async def test_subscribe_merges_sources_and_dedups_same_message() -> None:
 
 
 @pytest.mark.asyncio
+async def test_attestation_responses_sharing_block_hash_are_not_deduped() -> None:
+    """Regression: several validators attest the same block; the shared ``hash``
+    is a reference, not a message identity, so all responses must be delivered."""
+    local, p1 = InMemoryGossipBackend(), InMemoryGossipBackend()
+    mesh = MeshGossipBackend(local, {"p1": p1})
+    await mesh.start()
+    topic = "consensus.attest_response.chain"
+    sub = await mesh.subscribe(topic)
+    block_hash = "0x" + "c" * 64
+    responses = [
+        {"chain_id": "chain", "height": 9, "hash": block_hash, "validator": f"0x{i}", "signature": f"sig{i}"} for i in range(3)
+    ]
+    for r in responses:
+        await p1.publish(topic, r)
+    got = [await _recv(sub) for _ in responses]
+    assert got == responses
+    sub.close()
+    await mesh.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_broker_publish_dedup_keeps_distinct_attestations_but_dedups_blocks() -> None:
+    from aitbc_chain.gossip.broker import GossipBroker
+
+    backend = InMemoryGossipBackend()
+    broker = GossipBroker(backend)
+    att_sub = await backend.subscribe("consensus.attest_response.chain")
+    blk_sub = await backend.subscribe("blocks.chain")
+    h = "0x" + "d" * 64
+    await broker.publish("consensus.attest_response.chain", {"hash": h, "validator": "0x1", "signature": "a"})
+    await broker.publish("consensus.attest_response.chain", {"hash": h, "validator": "0x2", "signature": "b"})
+    await broker.publish("blocks.chain", {"hash": h, "height": 1})
+    await broker.publish("blocks.chain", {"hash": h, "height": 1, "transactions": []})  # same block, re-sent
+    assert (await _recv(att_sub))["validator"] == "0x1"
+    assert (await _recv(att_sub))["validator"] == "0x2"
+    assert await _recv(blk_sub) == {"hash": h, "height": 1}
+    with pytest.raises(asyncio.TimeoutError):
+        await _recv(blk_sub, timeout=0.2)
+    await broker.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_dead_peer_does_not_block_publish_and_is_retried_on_subscribe() -> None:
     local = InMemoryGossipBackend()
     flaky = _FlakyPeer()

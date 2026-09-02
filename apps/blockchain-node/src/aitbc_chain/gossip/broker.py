@@ -358,14 +358,7 @@ class WebsocketGossipBackend(GossipBackend):
 
     def _compute_message_id(self, topic: str, message: Any) -> str:
         """Compute a stable message identifier for echo suppression and ack matching."""
-        if isinstance(message, dict):
-            if "hash" in message:
-                return f"{topic}:{message['hash']}"
-            if "id" in message:
-                return f"{topic}:{message['id']}"
-        payload = json.dumps(message, sort_keys=True, default=str)
-        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        return f"{topic}:{digest}"
+        return _message_id(topic, message)
 
     async def _record_sent(self, topic: str, message: Any) -> None:
         msg_id = self._compute_message_id(topic, message)
@@ -636,19 +629,8 @@ class GossipBroker:
             # call to avoid "no running event loop" at import time.
 
     def _compute_message_id(self, topic: str, message: Any) -> str:
-        """Compute a deterministic identifier for a (topic, message) pair.
-
-        Messages that are dicts with a ``hash`` or ``id`` field use that field
-        directly; everything else falls back to a hash of its JSON encoding.
-        """
-        if isinstance(message, dict):
-            if "hash" in message:
-                return f"{topic}:{message['hash']}"
-            if "id" in message:
-                return f"{topic}:{message['id']}"
-        payload = json.dumps(message, sort_keys=True, default=str)
-        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        return f"{topic}:{digest}"
+        """Compute a deterministic identifier for a (topic, message) pair (see ``_message_id``)."""
+        return _message_id(topic, message)
 
     async def _is_duplicate(self, message_id: str) -> bool:
         """Return True if ``message_id`` was seen recently, otherwise record it."""
@@ -821,15 +803,23 @@ class _InProcessBroadcast:
 def _message_id(topic: str, message: Any) -> str:
     """Deterministic identifier for a (topic, message) pair.
 
-    Dict messages carrying ``hash`` or ``id`` use that field; everything else
-    hashes its canonical JSON encoding. Shared by the mesh backend so the same
+    Used for publish-side dedup in ``GossipBroker``, echo suppression in the
+    websocket backend and receive-side dedup in the mesh backend, so the same
     message arriving over several links is recognised as one.
+
+    * An explicit ``id`` field is always the identity.
+    * ``hash`` is the identity only on ``blocks*`` topics, where it is the block
+      hash. On other topics ``hash`` is a *reference* (attestation responses and
+      PBFT messages all quote the block they vote on) and several distinct
+      messages from different validators legitimately share it - keying on it
+      there silently dropped all but the first attestation.
+    * Everything else hashes its canonical JSON encoding.
     """
     if isinstance(message, dict):
-        if "hash" in message:
-            return f"{topic}:{message['hash']}"
         if "id" in message:
             return f"{topic}:{message['id']}"
+        if "hash" in message and topic.split(".", 1)[0] == "blocks":
+            return f"{topic}:{message['hash']}"
     payload = json.dumps(message, sort_keys=True, default=str)
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     return f"{topic}:{digest}"
