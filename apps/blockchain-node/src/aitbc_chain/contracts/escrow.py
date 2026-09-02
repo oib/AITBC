@@ -377,8 +377,16 @@ class EscrowManager:
                     dispute_reason=None,
                     dispute_evidence=[],
                     resolution=None,
-                    released_amount=Decimal(str(record.released_at is not None and amount or 0)),
-                    refunded_amount=Decimal(str(record.refunded_at is not None and amount or 0)),
+                    released_amount=(
+                        units_to_ait(record.released_amount)
+                        if record.released_amount is not None
+                        else (amount if record.released_at is not None else Decimal("0"))
+                    ),
+                    refunded_amount=(
+                        units_to_ait(record.refunded_amount)
+                        if record.refunded_amount is not None
+                        else (amount if record.refunded_at is not None else Decimal("0"))
+                    ),
                 )
                 self.escrow_contracts[contract_id] = contract
                 if state not in {EscrowState.RELEASED, EscrowState.REFUNDED}:
@@ -515,8 +523,17 @@ class EscrowManager:
         contract.released_amount += payment_amount
         log_info(f"Released {payment_amount} for milestone {milestone_id} in contract {contract_id}")
 
-    async def release_full_payment(self, contract_id: str) -> tuple[bool, str]:
-        """Release full payment to agent"""
+    async def release_payment(self, contract_id: str, billed_amount: Decimal | None = None) -> tuple[bool, str]:
+        """Release payment to the agent, billing at most the escrowed amount.
+
+        ``billed_amount`` is the gross amount the job actually consumed; the agent is
+        paid that less the platform fee. Metered services lock an upper bound and bill
+        real usage, so whatever is left unbilled is the caller's to return to the client
+        -- this manager only tracks what was paid out. ``None`` bills the whole escrow,
+        which is what a fixed-price job does. An amount above the escrow is clamped to
+        it: the lock is the ceiling the client agreed to, and a job that overruns its
+        estimate must not be able to charge past it.
+        """
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
             return (False, "Contract not found")
@@ -526,14 +543,24 @@ class EscrowManager:
         if not all_verified:
             return (False, "Not all milestones are verified")
         total_milestone_amount = sum(Decimal(str(ms["amount"])) for ms in contract.milestones)
-        platform_fee_total = total_milestone_amount * contract.fee_rate
-        remaining_payment = total_milestone_amount - contract.released_amount - platform_fee_total
+        if billed_amount is None:
+            billable = total_milestone_amount
+        elif billed_amount <= 0:
+            return (False, "Release amount must be positive")
+        else:
+            billable = min(billed_amount, total_milestone_amount)
+        platform_fee_total = billable * contract.fee_rate
+        remaining_payment = billable - contract.released_amount - platform_fee_total
         if remaining_payment > 0:
             contract.released_amount += remaining_payment
         contract.state = EscrowState.RELEASED
         self.active_contracts.discard(contract_id)
-        log_info(f"Full payment released for contract: {contract_id}")
+        log_info(f"Payment released for contract: {contract_id} - billed {billable} of {total_milestone_amount}")
         return (True, "Payment released successfully")
+
+    async def release_full_payment(self, contract_id: str) -> tuple[bool, str]:
+        """Release the whole escrowed payment to the agent."""
+        return await self.release_payment(contract_id)
 
     def release_lock(self, contract_id: str) -> asyncio.Lock:
         """Return the per-contract lock guarding release/rollback of ``contract_id``."""

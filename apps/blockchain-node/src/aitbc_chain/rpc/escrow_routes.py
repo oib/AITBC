@@ -9,7 +9,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 import json
 import os
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Security, status
@@ -33,6 +33,18 @@ _HUB_RPC_URL = _raw_rpc_url if _raw_rpc_url.endswith("/rpc") else f"{_raw_rpc_ur
 _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net"))
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
+
+
+def _settled_leg_ait(stored_units: int | None, settled_at: Any, locked_units: int) -> str:
+    """Return one settled leg of an escrow as AIT.
+
+    ``released_amount``/``refunded_amount`` are NULL on rows written before metered
+    settlement, where a settled escrow always moved the whole lock -- fall back to
+    that so historical rows keep reporting the amount they actually moved.
+    """
+    if stored_units is not None:
+        return str(units_to_ait(stored_units))
+    return str(units_to_ait(locked_units)) if settled_at else "0"
 
 
 def get_node_wallet_address() -> str:
@@ -704,6 +716,21 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
 
     job_tx_hash = request.get("job_tx_hash")
 
+    # Metered services lock an upper bound and bill what the job actually used, so
+    # honour the requested amount instead of always paying out the whole lock. The
+    # unbilled remainder is returned to the buyer below; without that it would sit in
+    # the node wallet with nothing left to claim it. Omitting the amount bills the
+    # whole escrow, which is what a fixed-price job wants.
+    requested_amount: Decimal | None = None
+    raw_amount = request.get("amount")
+    if raw_amount is not None:
+        try:
+            requested_amount = Decimal(str(raw_amount))
+        except (InvalidOperation, ValueError):
+            raise HTTPException(status_code=400, detail="amount must be a decimal number") from None
+        if requested_amount <= 0:
+            raise HTTPException(status_code=400, detail="amount must be positive") from None
+
     # Reconciliation/duplicate release handling: if the row is already released,
     # return the stored result without resubmitting.
     try:
@@ -728,7 +755,9 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     "contract_id": getattr(record, "contract_id", None) or "",
                     "job_id": job_id,
                     "message": "Escrow already released",
-                    "released_amount": str(units_to_ait(record.amount)),
+                    "released_amount": _settled_leg_ait(record.released_amount, record.released_at, record.amount),
+                    "refunded_amount": _settled_leg_ait(record.refunded_amount, None, record.amount),
+                    "refund_tx_hash": record.refund_tx_hash,
                     "tx_hash": release_tx_hash,
                     "released_at": record.released_at.isoformat(),
                 }
@@ -757,12 +786,17 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     # snapshot cannot interleave with a concurrent release of this contract.
     async with mgr.release_lock(contract_id):
         release_snapshot = mgr.snapshot_release_state(contract_id)
-        ok, message = await mgr.release_full_payment(contract_id)
+        ok, message = await mgr.release_payment(contract_id, requested_amount)
         if not ok:
             raise HTTPException(status_code=400, detail=message)
         released_amount = contract.released_amount if contract else Decimal(0)
         buyer_addr = contract.client_address if contract else ""
         provider_addr = contract.agent_address if contract else ""
+        # What the buyer locked but the job did not consume. release_payment clamps an
+        # over-estimate to the lock, so this is never negative.
+        locked_total = sum(Decimal(str(ms["amount"])) for ms in contract.milestones) if contract else Decimal(0)
+        billed_gross = locked_total if requested_amount is None else min(requested_amount, locked_total)
+        unbilled_amount = locked_total - billed_gross
         # Reinvestment must be paid to the escrow's recorded provider; the caller must
         # not be able to name an arbitrary stake address (CHOKE-POINT).
         reinvest_address = provider_addr
@@ -786,12 +820,32 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 "job_id": job_id,
                 "message": "Escrow release could not be settled on-chain; the provider was not paid",
                 "released_amount": str(released_amount),
+                "refunded_amount": "0",
+                "refund_tx_hash": None,
                 "tx_hash": None,
                 "settlement_status": "unsettled",
                 "released_at": None,
                 "reinvest_amount": "0",
                 "reinvest_stake_id": None,
             }
+
+        # Return the buyer's change. The provider is already paid, so a failure here
+        # leaves the remainder with the node wallet rather than unwinding the payout;
+        # it is logged loudly so it can be swept, and the release itself still stands.
+        refund_tx_hash: str | None = None
+        refunded_amount = Decimal(0)
+        if unbilled_amount > 0:
+            refund_tx_hash = await _submit_refund_tx(buyer_addr, provider_addr, unbilled_amount, job_id, contract_id)
+            if refund_tx_hash:
+                refunded_amount = unbilled_amount
+            else:
+                _logger.error(
+                    "Escrow change NOT returned on-chain: job_id=%s buyer=%s unbilled=%s. "
+                    "The provider was paid; the remainder is still held by the node wallet.",
+                    job_id,
+                    buyer_addr,
+                    unbilled_amount,
+                )
 
         released_at = datetime.now(UTC)
         try:
@@ -807,6 +861,13 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     else:
                         record.released_at = released_at
                     record.status = "released"
+                    record.released_amount = ait_to_units(released_amount)
+                    if refunded_amount > 0:
+                        # refunded_at stays unset: it marks an escrow that was refunded
+                        # instead of released, and the release checks above key off it.
+                        record.refunded_amount = ait_to_units(refunded_amount)
+                        if refund_tx_hash and not record.refund_tx_hash:
+                            record.refund_tx_hash = refund_tx_hash
                     if tx_hash and not record.release_tx_hash:
                         record.release_tx_hash = tx_hash
                     if job_tx_hash:
@@ -842,6 +903,8 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             "job_id": job_id,
             "message": message,
             "released_amount": str(released_amount),
+            "refunded_amount": str(refunded_amount),
+            "refund_tx_hash": refund_tx_hash,
             "tx_hash": tx_hash,
             "settlement_status": "settled" if tx_hash else "unsettled",
             "released_at": released_at.isoformat(),
@@ -1000,9 +1063,22 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     "state": state,
                     "buyer": contract.client_address,
                     "provider": contract.agent_address,
-                    "amount": str(contract.amount),
-                    "released_amount": str(contract.released_amount),
-                    "refunded_amount": str(contract.refunded_amount),
+                    # The row is authoritative for the money: it holds what was locked
+                    # on-chain, while ``contract.amount`` is the lock plus the platform
+                    # fee that create_contract adds on top and no one ever locked. The
+                    # contract also never learns what a partial release returned, since
+                    # the change is settled by the route rather than by the manager.
+                    "amount": str(units_to_ait(db_record.amount)) if db_record else str(contract.amount),
+                    "released_amount": (
+                        _settled_leg_ait(db_record.released_amount, db_record.released_at, db_record.amount)
+                        if db_record
+                        else str(contract.released_amount)
+                    ),
+                    "refunded_amount": (
+                        _settled_leg_ait(db_record.refunded_amount, db_record.refunded_at, db_record.amount)
+                        if db_record
+                        else str(contract.refunded_amount)
+                    ),
                     "created_at": db_record.created_at.isoformat() if db_record else None,
                     "released_at": db_record.released_at.isoformat() if db_record and db_record.released_at else None,
                     "refunded_at": db_record.refunded_at.isoformat() if db_record and db_record.refunded_at else None,
@@ -1021,8 +1097,8 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
             "buyer": db_record.buyer,
             "provider": db_record.provider,
             "amount": record_amount_ait,
-            "released_amount": record_amount_ait if db_record.released_at else "0",
-            "refunded_amount": record_amount_ait if db_record.refunded_at else "0",
+            "released_amount": _settled_leg_ait(db_record.released_amount, db_record.released_at, db_record.amount),
+            "refunded_amount": _settled_leg_ait(db_record.refunded_amount, db_record.refunded_at, db_record.amount),
             "created_at": db_record.created_at.isoformat(),
             "released_at": db_record.released_at.isoformat() if db_record.released_at else None,
             "refunded_at": db_record.refunded_at.isoformat() if db_record.refunded_at else None,
