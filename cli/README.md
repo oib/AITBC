@@ -48,7 +48,7 @@ aitbc --help
 | `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `host`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
-| `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
+| `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks` |
@@ -82,6 +82,6 @@ aitbc --help
 
 ## Market
 
-`aitbc market` is the canonical group for GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.
+`aitbc market` is the canonical group for GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg, Hermes Agent). These are local/shop offers matched by the coordinator and executed on a provider's GPU.
 
 Use `aitbc market` for AI jobs and local GPU offers.
