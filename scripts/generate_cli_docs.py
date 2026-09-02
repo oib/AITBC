@@ -156,7 +156,7 @@ def _generate_readme(commands: dict[str, click.Command], order: list[str], descs
         "",
         "## Market",
         "",
-        "`aitbc market` is the canonical group for GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg). These are local/shop offers matched by the coordinator and executed on a provider's GPU.",
+        "`aitbc market` is the canonical group for GPU and software offers published by shop miners (Ollama, Whisper, FFmpeg, Hermes Agent). These are local/shop offers matched by the coordinator and executed on a provider's GPU.",
         "",
         "Use `aitbc market` for AI jobs and local GPU offers.",
     ]

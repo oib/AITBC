@@ -305,7 +305,6 @@ def _run_whisper(
     config = get_config()
     chain_id = get_chain_id()
 
-    offer.get("service_type", "")
     price = Decimal(str(offer.get("price", 0)))
     price_unit = offer.get("price_unit", "per_audio_min")
     provider_address = offer.get("provider_address", "")
@@ -490,7 +489,6 @@ def _run_ffmpeg(
     config = get_config()
     chain_id = get_chain_id()
 
-    offer.get("service_type", "")
     price = Decimal(str(offer.get("price", 0)))
     price_unit = offer.get("price_unit", "per_processing_hour")
     provider_address = offer.get("provider_address", "")
@@ -645,7 +643,6 @@ def _run_hermes(
     config = get_config()
     chain_id = get_chain_id()
 
-    service_type = offer.get("service_type", "")
     price = Decimal(str(offer.get("price", 0)))
     price_unit = offer.get("price_unit", "per_minute")
     provider_address = offer.get("provider_address", "")
@@ -686,9 +683,9 @@ def _run_hermes(
 
     info("Sending prompt to Hermes Agent service...")
     t_start = datetime.now()
-    http_client = AITBCHTTPClient(base_url=hermes_run_url, timeout=max_time + 10)
+    http_client = AITBCHTTPClient(base_url=hermes_base, timeout=max_time + 10)
     resp_data = http_client.post(
-        "",
+        "/run",
         json={"prompt": prompt, "max_time": max_time},
     )
     elapsed = (datetime.now() - t_start).total_seconds()
@@ -765,8 +762,8 @@ def _run_hermes(
             "job_id": job_id,
             "offer_id": offer_id,
             "model": model,
-            "duration_minutes": round(duration_minutes, 4),
-            "elapsed_seconds": round(elapsed_seconds, 2),
+            "duration_minutes": float(round(duration_minutes, 4)),
+            "elapsed_seconds": float(round(elapsed_seconds, 2)),
             "actual_cost_ait": str(round(actual_cost, 6)),
             "contract_id": contract_id,
             "result_hash": result_hash,
