@@ -126,5 +126,5 @@ See the operator implementation plan and live reset checklist. After code upgrad
 - `9e7e6f8b7` `fix(coordinator): emit BOND_SLASH amount in compute units and use correct nonce endpoint`
   - `BondSlashingService._build_slash_tx` now converts the AIT `slash_amount` to compute units with `ait_to_units()` before placing it in the `BOND_SLASH` payload, matching the on-chain `Bond` storage unit.
   - `BondSlashingService._get_nonce` now queries the correct `/rpc/account/{address}` endpoint (previously used `/rpc/accounts/...`) so the slash authority nonce advances correctly across multiple slashes.
+  - Added an in-process nonce counter (`_slash_nonce`) with `asyncio.Lock` so `BondSlashingService` does not reuse the same authority nonce when two or more `BOND_SLASH` transactions are submitted before the next block is mined (this previously caused the RPC to return the existing hash and left later slashes unmined).
   - Added `BOND_SLASH_AUTHORITY_ADDRESS` and `BOND_BURN_ADDRESS` normalization to `/etc/aitbc/blockchain.env` on all validator/follower nodes to prevent state-root mismatches when a `BOND_SLASH` is processed.
-
