@@ -16,7 +16,7 @@ from aitbc.sync import PeerCapability, PeerCapabilityTracker, SyncSourceResolver
 
 from .config import settings
 from .database import init_db, session_scope
-from .gossip.broker import TopicSubscription, create_backend, gossip_broker
+from .gossip import TopicSubscription, create_backend, gossip_broker
 from .logger import get_logger
 from .metrics import metrics_registry
 from .subscription_client import SubscriptionClient
