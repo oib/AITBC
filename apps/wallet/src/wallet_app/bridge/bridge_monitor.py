@@ -48,6 +48,7 @@ ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"
 
 _db_initialized = False
 _bridge_polling_enabled: bool = True
+_LAST_SCANNED_BLOCK: int | None = None
 
 
 def _ensure_db() -> None:
@@ -137,39 +138,107 @@ def _normalize_eth_tx(tx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _rpc(method: str, params: list[Any], req_id: int = 1) -> Any:
+    """Send a single JSON-RPC request and return the ``result`` field."""
+    payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": req_id}
+    response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict):
+        raise RuntimeError(f"Unexpected response for {method}: {data!r}")
+    if "error" in data:
+        raise RuntimeError(f"{method} error: {data['error']}")
+    return data.get("result")
+
+
+async def _rpc_batch(payloads: list[dict[str, Any]]) -> dict[int, Any]:
+    """Send a JSON-RPC batch and map responses by request ``id``."""
+    response = await SharedHttpClient.post(ETH_RPC_URL, json=payloads, timeout=30.0)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, list):
+        raise RuntimeError(f"Expected JSON-RPC batch response list, got {type(data)}")
+
+    results: dict[int, Any] = {}
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        req_id = item.get("id")
+        if req_id is None:
+            continue
+        results[req_id] = item
+    return results
+
+
 async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
     """
     Fetch recent transactions for an Ethereum address using RPC.
 
-    Scans the last ``BRIDGE_ETH_LOOKBACK_BLOCKS`` (default 10) blocks for
-    transactions whose destination is ``address``. This covers deposits that
-    confirm shortly before the poll cycle, which the previous ``latest``-only
-    implementation would miss.
+    Uses a JSON-RPC batch to fetch the block range in a single HTTP POST, and
+    only scans blocks newer than the last successful poll (plus a small reorg
+    margin). This avoids the previous one-request-per-block burst every cycle.
     """
+    global _LAST_SCANNED_BLOCK
+
     lookback = int(os.getenv("BRIDGE_ETH_LOOKBACK_BLOCKS", "10"))
     if lookback < 1:
         lookback = 1
-
-    async def _rpc(method: str, params: list[Any]) -> Any:
-        payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
-        response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
-        response.raise_for_status()
-        data = response.json()
-        if "error" in data:
-            raise RuntimeError(f"{method} error: {data['error']}")
-        return data.get("result")
+    reorg_margin = int(os.getenv("BRIDGE_ETH_REORG_MARGIN", "2"))
+    if reorg_margin < 0:
+        reorg_margin = 0
 
     try:
-        latest_hex = await _rpc("eth_blockNumber", [])
+        latest_hex = await _rpc("eth_blockNumber", [], req_id=0)
         latest = int(latest_hex, 16)
-        start = max(0, latest - lookback + 1)
+
+        # Cold start / recovery: use the configured lookback window.
+        # Steady state: scan only new blocks, overlapping by reorg_margin so a
+        # short reorg does not let a deposit slip past us.
+        if _LAST_SCANNED_BLOCK is None:
+            start = max(0, latest - lookback + 1)
+        else:
+            start = max(0, _LAST_SCANNED_BLOCK - reorg_margin + 1)
+
+        # If the monitor fell behind (long pause, error, etc.) do not scan more
+        # than the configured lookback.
+        start = max(start, latest - lookback + 1)
 
         target = address.lower()
         relevant_txs: list[dict[str, Any]] = []
-        for block_number in range(start, latest + 1):
-            block_data = await _rpc("eth_getBlockByNumber", [_hex_quantity(block_number), True])
+        block_numbers = list(range(start, latest + 1))
+
+        if not block_numbers:
+            _LAST_SCANNED_BLOCK = latest
+            return relevant_txs
+
+        batch_payloads = [
+            {
+                "jsonrpc": "2.0",
+                "method": "eth_getBlockByNumber",
+                "params": [_hex_quantity(bn), True],
+                "id": bn,
+            }
+            for bn in block_numbers
+        ]
+
+        batch_results = await _rpc_batch(batch_payloads)
+        any_error = False
+
+        for bn in block_numbers:
+            item = batch_results.get(bn, {})
+            if not isinstance(item, dict):
+                any_error = True
+                logger.warning("Missing block response for block %s", bn)
+                continue
+            if "error" in item:
+                any_error = True
+                logger.error("eth_getBlockByNumber(%s) error: %s", bn, item["error"])
+                continue
+
+            block_data = item.get("result")
             if not block_data:
                 continue
+
             transactions = block_data.get("transactions") or []
             for tx in transactions:
                 if not isinstance(tx, dict):
@@ -177,6 +246,9 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
                 to_address = tx.get("to") or ""
                 if str(to_address).lower() == target:
                     relevant_txs.append(_normalize_eth_tx(tx))
+
+        if not any_error:
+            _LAST_SCANNED_BLOCK = latest
 
         return relevant_txs
     except Exception as e:
