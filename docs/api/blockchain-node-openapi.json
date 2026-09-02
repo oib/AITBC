@@ -19188,7 +19188,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "amount must be a decimal number / amount must be positive",
             "content": {
               "application/json": {
                 "schema": {
