@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from contextlib import ExitStack
 
 import pytest
@@ -8,6 +9,16 @@ from aitbc_chain.app import create_app
 from aitbc_chain.config import settings
 from aitbc_chain.gossip import gossip_broker
 from fastapi.testclient import TestClient
+
+# These are integration tests against a real local Redis, not a mock -- they
+# exercise the actual broadcast backend end to end. ``GOSSIP_BROADCAST_URL``
+# is read here rather than hardcoded because some hosts (e.g. hub.aitbc) run
+# Redis with ``requirepass`` set, matching the credentials already present in
+# that host's own /etc/aitbc/*.env; a bare "redis://localhost:6379/0" only
+# ever worked by accident, on hosts whose local Redis happens to have no
+# password. The fallback keeps today's behavior for anyone running these
+# tests with an unauthenticated local Redis and no override.
+_TEST_REDIS_URL = os.getenv("GOSSIP_BROADCAST_URL", "redis://localhost:6379/0")
 
 
 def _publish(topic: str, message: object) -> None:
@@ -30,7 +41,7 @@ def _publish(topic: str, message: object) -> None:
 def _broadcast_backend(monkeypatch):
     """Force the broadcast gossip backend backed by the local Redis for these tests."""
     monkeypatch.setattr(settings, "gossip_backend", "broadcast")
-    monkeypatch.setattr(settings, "gossip_broadcast_url", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "gossip_broadcast_url", _TEST_REDIS_URL)
 
 
 def test_websocket_fanout_with_broadcast_backend(_broadcast_backend) -> None:
