@@ -256,6 +256,51 @@ class AITBCHTTPClient:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"PUT request failed: {e}") from e
 
+    def patch(
+        self, endpoint: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        """
+        Perform PATCH request.
+
+        Args:
+            endpoint: API endpoint
+            json: JSON body
+            headers: Additional headers
+
+        Returns:
+            Response data as dictionary
+        """
+        url = self._build_url(endpoint)
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers)
+
+        if self.enable_logging:
+            self.logger.info("PATCH %s with json=%s", url, json)
+        start_time = datetime.now(UTC)
+
+        def _make_request():
+            response = self.session.patch(url, json=json or {}, headers=req_headers, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json() if response.content else {}
+
+        try:
+            result = self.retry_policy.execute(_make_request)
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("PATCH %s succeeded in %ss", url, elapsed)
+            return cast(dict[str, Any], result)
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PATCH request failed: {e}") from e
+        except requests.RequestException as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PATCH request failed: {e}") from e
+
     def delete(
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
@@ -576,6 +621,57 @@ class AsyncAITBCHTTPClient:
         except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"PUT request failed: {e}") from e
+
+    async def patch(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Perform async PATCH request.
+
+        Args:
+            endpoint: API endpoint
+            data: Form data
+            json: JSON data
+            headers: Additional headers
+
+        Returns:
+            Response data as dictionary
+        """
+        url = self._build_url(endpoint)
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers)
+
+        if self.enable_logging:
+            self.logger.info("PATCH %s with json=%s", url, json)
+        start_time = datetime.now(UTC)
+
+        async def _make_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                return await client.patch(url, data=data, json=json, headers=req_headers)
+
+        try:
+            response = await self.retry_policy.execute_async(_make_request)
+            response.raise_for_status()
+            result = response.json()
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("PATCH %s succeeded in %ss", url, elapsed)
+            return cast(dict[str, Any], result)
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PATCH request failed: {e}") from e
+        except httpx.HTTPError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PATCH request failed: {e}") from e
 
     async def delete(
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None

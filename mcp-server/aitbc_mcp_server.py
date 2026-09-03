@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """AITBC Model Context Protocol (MCP) server.
 
-Exposes tools for operating AITBC nodes over SSH on the live AITBC hosts
-(aitbc3 and hub.aitbc).  Capabilities are intentionally safe by default:
+Exposes tools for operating AITBC nodes over SSH on the live AITBC hosts.
+Role-to-host mapping is loaded from an external config file or environment
+variable; it is not hardcoded in this file.  Capabilities are intentionally
+safe by default:
 
 * Read-only inspection tools use ``ToolAnnotations(read_only_hint=True)``.
 * Destructive tools default to ``dry_run=True`` and additionally require
@@ -10,6 +12,8 @@ Exposes tools for operating AITBC nodes over SSH on the live AITBC hosts
 
 Environment variables
 ---------------------
+AITBC_MCP_HOSTS         JSON string with role/host mapping.
+AITBC_MCP_HOSTS_FILE    Path to a JSON/YAML hosts config file.
 AITBC_MCP_SSH_USER      SSH user for remote hosts (default: current user).
 AITBC_MCP_DEFAULT_HOST  Fallback host when no role is given.
 AITBC_MCP_LOG_LEVEL     Server log level (default: INFO).
@@ -28,8 +32,8 @@ import socket
 import subprocess
 import sys
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, Any, Literal
-from urllib.parse import urlencode
 
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
@@ -42,20 +46,114 @@ mcp = MCPServer("aitbc", log_level=os.getenv("AITBC_MCP_LOG_LEVEL", "INFO"))
 # Configuration
 # ---------------------------------------------------------------------------
 
-ROLE_HOSTS = {
-    "hub": "hub.aitbc",
-    "customer": "hub.aitbc",
-    "shop": "aitbc3",
-    "follower": "aitbc3",
-    "customer2": "hub2.aitbc",
-    "follower2": "hub2.aitbc",
-}
-
 NodeRole = Literal["hub", "customer", "shop", "follower", "customer2", "follower2"]
 
-SSH_USER = os.getenv("AITBC_MCP_SSH_USER", "")
-DEFAULT_HOST = os.getenv("AITBC_MCP_DEFAULT_HOST", "hub.aitbc")
 LOCAL_MODE = os.getenv("AITBC_MCP_LOCAL", "").lower() in {"1", "true", "yes", "on"}
+
+# Cache for the external role/host configuration.
+_HOSTS_CONFIG: dict[str, Any] | None = None
+
+# Candidate paths for the optional external hosts configuration. Network
+# topology (role -> host, default host, ssh user) is intentionally kept out of
+# the repository; the operator supplies it via env var or one of these files.
+_HOSTS_CONFIG_PATHS = [
+    Path(os.getenv("AITBC_MCP_HOSTS_FILE", "")),
+    Path.home() / ".aitbc" / "mcp-hosts.yaml",
+    Path.home() / ".aitbc" / "mcp-hosts.json",
+    Path("/etc/aitbc/mcp-hosts.yaml"),
+    Path("/etc/aitbc/mcp-hosts.json"),
+]
+
+
+def _load_hosts_config() -> dict[str, Any]:
+    """Load role/host mapping from an external config file or env var.
+
+    Search order:
+    1. ``AITBC_MCP_HOSTS`` environment variable (JSON string).
+    2. ``AITBC_MCP_HOSTS_FILE`` environment variable (path to JSON/YAML file).
+    3. ``~/.aitbc/mcp-hosts.{yaml,json}``
+    4. ``/etc/aitbc/mcp-hosts.{yaml,json}``
+
+    Expected format (JSON or YAML):
+
+    .. code-block:: yaml
+
+        ssh_user: oib
+        default_host: hub.example
+        roles:
+          hub: hub.example
+          customer: hub.example
+          shop: shop.example
+          follower: shop.example
+          customer2: replica.example
+          follower2: replica.example
+    """
+    global _HOSTS_CONFIG
+    if _HOSTS_CONFIG is not None:
+        return _HOSTS_CONFIG
+
+    config: dict[str, Any] = {}
+    env_hosts = os.getenv("AITBC_MCP_HOSTS", "").strip()
+    if env_hosts:
+        try:
+            config = json.loads(env_hosts)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"AITBC_MCP_HOSTS is not valid JSON: {e}") from e
+    else:
+        for path in _HOSTS_CONFIG_PATHS:
+            if not path or not path.name:
+                continue
+            try:
+                if not path.is_file():
+                    continue
+                with path.open("r", encoding="utf-8") as f:
+                    if path.suffix in (".yaml", ".yml"):
+                        try:
+                            import yaml
+                        except ImportError:
+                            continue
+                        data = yaml.safe_load(f)
+                    else:
+                        data = json.load(f)
+                if data:
+                    config = data
+                    break
+            except Exception as e:
+                sys.stderr.write(f"warning: could not load MCP hosts config from {path}: {e}\n")
+
+    config.setdefault("roles", {})
+    config.setdefault("default_host", os.getenv("AITBC_MCP_DEFAULT_HOST", ""))
+    config.setdefault("ssh_user", os.getenv("AITBC_MCP_SSH_USER", ""))
+
+    _HOSTS_CONFIG = config
+    return config
+
+
+def _role_hosts() -> dict[str, str]:
+    """Return the role -> host mapping from the external configuration."""
+    return _load_hosts_config().get("roles", {})
+
+
+def _default_host() -> str:
+    """Return the default host from the external configuration."""
+    return _load_hosts_config().get("default_host", "")
+
+
+def _ssh_user() -> str:
+    """Return the SSH user from the external configuration."""
+    return _load_hosts_config().get("ssh_user", "")
+
+
+# Friendly site labels for the well-known roles in list_nodes. These are not
+# network info and do not change host resolution.
+_ROLE_SITES = {
+    "hub": "hub/customer node",
+    "customer": "hub/customer node",
+    "customer2": "hub2/customer replica",
+    "shop": "shop/follower node",
+    "follower": "shop/follower node",
+    "follower2": "hub2/customer replica",
+}
 
 # Conservative SSH options: no interactive prompts, time out quickly, accept a
 # new host key on first connection (the host can later be pinned via Devin).
@@ -77,55 +175,29 @@ ALLOWED_SCRIPT_PREFIXES = (
     "/opt/aitbc/cluster/",
 )
 
-# AITBC health endpoint catalogue, copied from scripts/monitoring/health_check.sh.
-# These are used for the optional per-service health probe.
-ALL_SERVICE_ENDPOINTS = {
-    "aitbc-blockchain-rpc": "http://localhost:8202/health",
-    "aitbc-wallet": "http://localhost:8108/health",
-    "aitbc-trading": "http://localhost:8104/health",
-    "aitbc-governance": "http://localhost:8105/health",
-    "aitbc-coordinator-api": "http://localhost:8203/health",
-    "aitbc-api-gateway": "http://localhost:8201/health",
-    "aitbc-exchange": "http://localhost:8106/health",
-    "aitbc-marketplace": "http://localhost:8102/health",
-    "aitbc-agent-coordinator": "http://localhost:8107/health",
-    "aitbc-blockchain-explorer": "http://localhost:8100/health",
-    "aitbc-blockchain-event-bridge": "http://localhost:8205/health",
-    "aitbc-gpu": "http://localhost:8101/health",
-    "aitbc-edge": "http://localhost:8111/health",
-    "aitbc-pool-hub": "http://localhost:8210/health",
-    "aitbc-island-ipfs": "http://localhost:5002/api/v0/version",
-    "aitbc-whisper": "http://localhost:8110/health",
-    "aitbc-ffmpeg": "http://localhost:8230/health",
-    "aitbc-monitoring": "http://localhost:8002/health",
-    "ollama": "http://localhost:11434/api/tags",
+# Logical service names accepted by ``aitbc http call``. The base URLs and
+# ports live in the CLI, not the MCP server, so no local network topology is
+# hardcoded here.
+HTTP_SERVICE_NAMES = {
+    "blockchain-rpc",
+    "coordinator-api",
+    "api-gateway",
+    "marketplace",
+    "exchange",
+    "wallet",
+    "agent-coordinator",
+    "gpu",
+    "blockchain-explorer",
+    "pool-hub",
+    "blockchain-event-bridge",
+    "monitoring",
+    "trading",
+    "governance",
+    "ipfs",
+    "whisper",
+    "ffmpeg",
+    "ollama",
 }
-
-# Base URLs for the AITBC HTTP APIs (used by call_aitbc_http).  These map a
-# logical service name to the port the service listens on locally on a node.
-ALL_SERVICE_BASES = {
-    "blockchain-rpc": "http://localhost:8202/rpc",
-    "coordinator-api": "http://localhost:8203",
-    "api-gateway": "http://localhost:8201",
-    "marketplace": "http://localhost:8102",
-    "exchange": "http://localhost:8106",
-    "wallet": "http://localhost:8108",
-    "agent-coordinator": "http://localhost:8107",
-    "gpu": "http://localhost:8101",
-    "blockchain-explorer": "http://localhost:8100",
-    "pool-hub": "http://localhost:8210",
-    "blockchain-event-bridge": "http://localhost:8205",
-    "monitoring": "http://localhost:8002",
-    "trading": "http://localhost:8104",
-    "governance": "http://localhost:8105",
-    "ipfs": "http://localhost:5002",
-    "whisper": "http://localhost:8110",
-    "ffmpeg": "http://localhost:8230",
-    "ollama": "http://localhost:11434",
-}
-
-# Set of service names available to call_aitbc_http.
-ALL_HTTP_SERVICES = set(ALL_SERVICE_BASES)
 
 
 def _normalize_http_service_name(service: str) -> str:
@@ -168,14 +240,15 @@ def _host_for_role(role: str | None, host: str | None = None) -> str:
     if host:
         return host
     if role:
-        return ROLE_HOSTS.get(role, role)
-    return DEFAULT_HOST
+        return _role_hosts().get(role, role)
+    return _default_host()
 
 
 def _ssh_target(host: str) -> str:
     """Prefix host with SSH user if configured and not already present."""
-    if "@" not in host and SSH_USER:
-        return f"{SSH_USER}@{host}"
+    user = _ssh_user()
+    if "@" not in host and user:
+        return f"{user}@{host}"
     return host
 
 
@@ -316,6 +389,7 @@ ALL_AITBC_GROUPS = {
     "genesis",
     "governance",
     "gpu",
+    "http",
     "gpu-onchain",
     "grant",
     "ipfs",
@@ -557,36 +631,6 @@ def _aitbc_cli_read_tool(
     )
 
 
-def _build_http_url(base: str, path: str, params: dict[str, str] | None) -> str:
-    """Build a local HTTP URL with query parameters."""
-    url = base.rstrip("/") + "/" + path.lstrip("/")
-    if params:
-        url += "?" + urlencode(params)
-    return url
-
-
-def _build_curl_command(
-    url: str,
-    method: str = "GET",
-    body: dict[str, Any] | None = None,
-    use_auth: bool = False,
-) -> str:
-    """Build a curl command for an HTTP request.
-
-    ``use_auth`` adds ``-H "X-Api-Key: $API_KEY"``; the caller is expected to
-    set ``API_KEY`` in the remote shell before running the command.
-    """
-    method = method.upper()
-    auth_header = '-H "X-Api-Key: $API_KEY"' if use_auth else ""
-    if method == "GET":
-        return f"curl -sS {auth_header} {shlex.quote(url)}".strip()
-    headers = "-H 'Content-Type: application/json'"
-    if body:
-        payload = shlex.quote(json.dumps(body, default=str))
-        return f"curl -sS -X {method} {headers} {auth_header} -d {payload} {shlex.quote(url)}".strip()
-    return f"curl -sS -X {method} {auth_header} {shlex.quote(url)}".strip()
-
-
 def _run_http(
     host: str,
     service: str,
@@ -598,42 +642,62 @@ def _run_http(
     auth: str = "none",
     auth_env: str = "/etc/aitbc/aitbc-coordinator-api.env",
 ) -> dict[str, Any]:
-    """Call an AITBC HTTP endpoint on a remote node via curl.
+    """Call an AITBC HTTP endpoint on a remote node via the ``aitbc http`` CLI.
 
-    ``auth`` may be ``none`` or ``miner``. When ``miner``, the remote env file is
-    sourced and the first ``MINER_API_KEYS`` value is passed as ``X-Api-Key``.
-    The key itself is not returned in the command output; the result only shows
-    a ``$API_KEY`` shell variable reference.
+    The actual base URLs and service ports live in the CLI so the MCP server
+    does not carry local network topology.
     """
     service = _normalize_http_service_name(service)
-    base = ALL_SERVICE_BASES.get(service)
-    if not base:
+    if service not in HTTP_SERVICE_NAMES:
         return {
-            "error": f"unknown service: {service}",
-            "known_services": sorted(ALL_SERVICE_BASES),
+            "error": f"unknown HTTP service: {service}",
+            "known_services": sorted(HTTP_SERVICE_NAMES),
         }
 
-    url = _build_http_url(base, path, params)
-    use_auth = auth == "miner"
-    curl = _build_curl_command(url, method, body, use_auth=use_auth)
-    if use_auth:
-        # Source the env in the same shell so the key stays in a variable and
-        # is never expanded into the command string we return.
-        command = (
-            f"API_KEY=$(set -a; . {shlex.quote(auth_env)}; set +a; "
-            f'echo "$MINER_API_KEYS" | cut -d, -f1) && '
-            f'[ -n "$API_KEY" ] && {curl}'
-        )
-    else:
-        command = curl
+    options: dict[str, str | None] = {"method": method.upper(), "timeout": str(timeout)}
+    if params:
+        options["params"] = json.dumps(params, default=str)
+    if body:
+        options["body"] = json.dumps(body, default=str)
+    if auth == "miner":
+        options["auth"] = "miner"
+    # auth_env is intentionally ignored: the CLI resolves the API key from its
+    # own config / env file lookup, which already checks the default path.
 
-    result = _run_remote(host, command, timeout)
-    if result.get("returncode") == 0:
-        try:
-            result["json"] = json.loads(result["stdout"])
-        except json.JSONDecodeError:
-            pass
-    return result
+    return _run_aitbc_cli(
+        host,
+        "http",
+        "call",
+        [service, path],
+        options,
+        output_format="json",
+        timeout=timeout,
+    )
+
+
+def _http_dry_run_command(
+    service: str,
+    path: str,
+    method: str,
+    params: dict[str, str] | None,
+    body: dict[str, Any] | None,
+    auth: str,
+) -> str:
+    """Build the representative CLI command shown in dry-run responses."""
+    options: dict[str, str | None] = {"method": method.upper()}
+    if params:
+        options["params"] = json.dumps(params, default=str)
+    if body:
+        options["body"] = json.dumps(body, default=str)
+    if auth == "miner":
+        options["auth"] = "miner"
+    return _build_aitbc_cli_command(
+        "http",
+        "call",
+        [service, path],
+        options,
+        output_format="json",
+    )
 
 
 def _http_read_tool(
@@ -647,11 +711,11 @@ def _http_read_tool(
     """Helper for read-only HTTP tools."""
     target = _host_for_role(role, host)
     service = _normalize_http_service_name(service)
-    if service not in ALL_HTTP_SERVICES:
+    if service not in HTTP_SERVICE_NAMES:
         return _json(
             {
                 "error": f"unknown HTTP service: {service}",
-                "known_services": sorted(ALL_HTTP_SERVICES),
+                "known_services": sorted(HTTP_SERVICE_NAMES),
             }
         )
     return _json(_run_http(target, service, path, "GET", params, None, timeout))
@@ -693,21 +757,21 @@ def _require_confirm(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_nodes() -> str:
     """List the AITBC nodes and roles this MCP server can reach."""
+    roles = _role_hosts()
     return _json(
         {
             "nodes": [
-                {"role": "hub", "host": ROLE_HOSTS["hub"], "site": "hub/customer node"},
-                {"role": "customer", "host": ROLE_HOSTS["customer"], "site": "hub/customer node"},
-                {"role": "customer2", "host": ROLE_HOSTS["customer2"], "site": "hub2/customer replica"},
-                {"role": "shop", "host": ROLE_HOSTS["shop"], "site": "shop/follower node"},
-                {"role": "follower", "host": ROLE_HOSTS["follower"], "site": "shop/follower node"},
-                {"role": "follower2", "host": ROLE_HOSTS["follower2"], "site": "hub2/follower customer replica"},
+                {"role": role, "host": host, "site": _ROLE_SITES.get(role, "live node")}
+                for role, host in roles.items()
             ],
             "environment": {
-                "default_host": DEFAULT_HOST,
-                "ssh_user": SSH_USER or "(current user)",
+                "default_host": _default_host(),
+                "ssh_user": _ssh_user() or "(current user)",
             },
-            "note": ("Connections use passwordless SSH. Set AITBC_MCP_SSH_USER and AITBC_MCP_DEFAULT_HOST in the MCP env."),
+            "note": (
+                "Connections use passwordless SSH. "
+                "Configure roles with AITBC_MCP_HOSTS or an mcp-hosts.{yaml,json} file."
+            ),
         }
     )
 
@@ -729,23 +793,20 @@ def node_status(
 ) -> str:
     """Get systemd status for AITBC services on a node."""
     target = _host_for_role(role, host)
+    options: dict[str, str | None] = {}
     if service:
-        command = (
-            f"bash -c 'state=$(systemctl is-active {service} 2>/dev/null || true); "
-            f'[ -n "$state" ] || state=unknown; '
-            f"props=$(systemctl show {service} --property=ActiveState,SubState,LoadState,MainPID 2>/dev/null); "
-            f'printf "%s\\t%s\\n%s\\n" "{service}" "$state" "$props"\''
+        options["service"] = service
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "check",
+            [],
+            options,
+            output_format="json",
+            timeout=60,
         )
-    else:
-        command = (
-            "bash -c 'source /opt/aitbc/scripts/monitoring/health_check.sh >/dev/null 2>&1; "
-            "for svc in ${ROLE_SERVICES[@]}; do "
-            "state=$(systemctl is-active $svc 2>/dev/null || true); "
-            '[ -n "$state" ] || state=unknown; '
-            'printf "%s\\t%s\\n" "$svc" "$state"; '
-            "done'"
-        )
-    return _json(_run_remote(target, command, timeout=30))
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -763,25 +824,22 @@ def get_service_health(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Query the HTTP /health endpoint for AITBC services."""
+    """Query the active/reachable state of AITBC services."""
     target = _host_for_role(role, host)
+    options: dict[str, str | None] = {}
     if service:
-        url = ALL_SERVICE_ENDPOINTS.get(service)
-        if not url:
-            return _json({"error": f"no known health endpoint for {service}"})
-        return _json(_run_remote(target, f"curl -sf -w '%{{http_code}}' {url} -o /dev/null", timeout=20))
-
-    # Probe all services for the role that have HTTP endpoints.
-    script = (
-        "bash -c 'source /opt/aitbc/scripts/monitoring/health_check.sh >/dev/null 2>&1; "
-        "for svc in ${ROLE_SERVICES[@]}; do "
-        "  url=${ALL_SERVICE_ENDPOINTS[$svc]:-}; "
-        '  [ -z "$url" ] && continue; '
-        '  code=$(curl -sf -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || true); [ -z "$code" ] && code=000; '
-        '  printf "%s\\t%s\\n" "$svc" "$code"; '
-        "done'"
+        options["service"] = service
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "check",
+            [],
+            options,
+            output_format="json",
+            timeout=60,
+        )
     )
-    return _json(_run_remote(target, script, timeout=30))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -797,7 +855,7 @@ def get_chain_height(
 ) -> str:
     """Get the current blockchain height from the node's RPC."""
     target = _host_for_role(role, host)
-    return _json(_run_remote(target, "curl -sS http://localhost:8202/rpc/height", timeout=20))
+    return _json(_run_aitbc_cli(target, "blockchain", "height", [], {}, output_format="json", timeout=30))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -817,7 +875,17 @@ def get_block(
 ) -> str:
     """Get a block by height from the node's RPC."""
     target = _host_for_role(role, host)
-    return _json(_run_remote(target, f"curl -sS http://localhost:8202/rpc/blocks/{height}", timeout=20))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "blockchain",
+            "block",
+            [],
+            {"height": str(height)},
+            output_format="json",
+            timeout=30,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -833,13 +901,7 @@ def get_trigger_status(
 ) -> str:
     """Get blockchain event bridge trigger and action metrics."""
     target = _host_for_role(role, host)
-    command = (
-        'bash -c \'echo "=== service status ==="; '
-        "systemctl is-active aitbc-blockchain-event-bridge 2>/dev/null || true; "
-        'echo "=== bridge metrics ==="; '
-        'curl -sfL http://localhost:8205/metrics/ 2>/dev/null | grep -E "^bridge_(actions|events)_" | head -50\''
-    )
-    return _json(_run_remote(target, command, timeout=20))
+    return _json(_run_aitbc_cli(target, "bridge", "status", [], {}, output_format="json", timeout=30))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -872,18 +934,7 @@ def list_cron_jobs(
 ) -> str:
     """List cron jobs for the AITBC user and /etc/cron.d entries."""
     target = _host_for_role(role, host)
-    command = (
-        'bash -c \'echo "=== user crontab ==="; '
-        '(crontab -l 2>/dev/null) || echo "no user crontab"; '
-        'echo "=== /etc/cron.d ==="; '
-        "ls -1 /etc/cron.d/aitbc* 2>/dev/null || true; "
-        "for f in /etc/cron.d/aitbc*; do "
-        '  [ -f "$f" ] || continue; '
-        '  echo "--- $f ---"; '
-        '  cat "$f"; '
-        "done'"
-    )
-    return _json(_run_remote(target, command, timeout=20))
+    return _json(_run_aitbc_cli(target, "system", "cron", [], {}, output_format="json", timeout=30))
 
 
 # ---------------------------------------------------------------------------
@@ -1590,18 +1641,17 @@ def get_service_logs(
     target = _host_for_role(role, host)
     if re.search(r"[;&|<>$`\\!\n\r]", service):
         return _json({"error": "invalid service name", "service": service})
-    command = f"journalctl -n {lines} -u {service} --no-pager"
-    return _json(_run_remote(target, command, timeout=30))
-
-
-# Canonical paths for read-only file inspection via get_remote_file.
-ALLOWED_READ_PREFIXES = (
-    "/opt/aitbc/",
-    "/etc/aitbc/",
-    "/etc/systemd/",
-    "/var/log/aitbc/",
-    "/var/lib/aitbc/",
-)
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "logs",
+            [],
+            {"service": service, "lines": str(lines)},
+            output_format="json",
+            timeout=30,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1619,12 +1669,21 @@ def get_service_status(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Show full `systemctl status` output for a single AITBC service."""
+    """Show full systemd status output for a single AITBC service via the CLI."""
     target = _host_for_role(role, host)
     if re.search(r"[^A-Za-z0-9_.@-]", service):
         return _json({"error": "invalid service name", "service": service})
-    command = f"systemctl status {service} --no-pager"
-    return _json(_run_remote(target, command, timeout=30))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "status",
+            [],
+            {"service": service},
+            output_format="json",
+            timeout=30,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1642,12 +1701,21 @@ def get_systemd_unit(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Display the systemd unit file for a service (`systemctl cat`)."""
+    """Display the systemd unit file for a service via the CLI."""
     target = _host_for_role(role, host)
     if re.search(r"[^A-Za-z0-9_.@-]", service):
         return _json({"error": "invalid service name", "service": service})
-    command = f"systemctl cat {service}"
-    return _json(_run_remote(target, command, timeout=30))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "cat",
+            [],
+            {"service": service},
+            output_format="json",
+            timeout=30,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1669,17 +1737,27 @@ def get_systemd_show(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Show selected `systemctl show` properties for a service."""
+    """Show selected systemd show properties for a service via the CLI."""
     target = _host_for_role(role, host)
     if re.search(r"[^A-Za-z0-9_.@-]", service):
         return _json({"error": "invalid service name", "service": service})
     if properties:
         if re.search(r"[^A-Za-z0-9_,=]", properties):
             return _json({"error": "invalid properties", "properties": properties})
-        command = f"systemctl show {service} --property={properties}"
-    else:
-        command = f"systemctl show {service}"
-    return _json(_run_remote(target, command, timeout=30))
+    options: dict[str, str | None] = {"service": service}
+    if properties:
+        options["properties"] = properties
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "show",
+            [],
+            options,
+            output_format="json",
+            timeout=30,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -1699,18 +1777,19 @@ def get_remote_file(
 ) -> str:
     """Read a remote AITBC configuration, log, or data file."""
     target = _host_for_role(role, host)
-    if not any(file_path.startswith(prefix) for prefix in ALLOWED_READ_PREFIXES):
-        return _json(
-            {
-                "error": "file path not allowed",
-                "path": file_path,
-                "allowed_prefixes": list(ALLOWED_READ_PREFIXES),
-            }
-        )
     if re.search(r"[;&|<>$`\\!\n\r]", file_path):
         return _json({"error": "invalid file path", "path": file_path})
-    command = f"cat -- {shlex.quote(file_path)}"
-    return _json(_run_remote(target, command, timeout=30))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "file",
+            [],
+            {"path": file_path},
+            output_format="json",
+            timeout=30,
+        )
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1740,11 +1819,27 @@ def restart_service(
     target = _host_for_role(role, host)
     if re.search(r"[^A-Za-z0-9_.@-]", service):
         return _json({"error": "invalid service name", "service": service})
-    command = f"systemctl restart {service}"
+    command = _build_aitbc_cli_command(
+        "system",
+        "restart",
+        [],
+        {"service": service},
+        output_format="json",
+    )
     guard = _require_confirm(dry_run, confirm, command)
     if guard is not None:
         return _json(guard)
-    return _json(_run_remote(target, command, timeout=120))
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "system",
+            "restart",
+            [],
+            {"service": service},
+            output_format="json",
+            timeout=120,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1923,7 +2018,7 @@ def call_aitbc_http(
     ] = None,
     dry_run: Annotated[
         bool,
-        Field(description="Show the curl command without executing it."),
+        Field(description="Show the aitbc CLI command without executing it."),
     ] = False,
     confirm: Annotated[
         bool,
@@ -1953,31 +2048,23 @@ def call_aitbc_http(
     """
     target = _host_for_role(role, host)
     service = _normalize_http_service_name(service)
-    if service not in ALL_HTTP_SERVICES:
+    if service not in HTTP_SERVICE_NAMES:
         return _json(
             {
                 "error": f"unknown HTTP service: {service}",
-                "known_services": sorted(ALL_HTTP_SERVICES),
+                "known_services": sorted(HTTP_SERVICE_NAMES),
             }
         )
 
     if dry_run:
-        # Build a representative command for the dry-run note.
-        url = _build_http_url(ALL_SERVICE_BASES[service], path, params)
-        cmd = _build_curl_command(url, method, body, use_auth=auth == "miner")
-        if auth == "miner":
-            cmd = (
-                f"API_KEY=$(set -a; . {shlex.quote(auth_env)}; set +a; "
-                f'echo "$MINER_API_KEYS" | cut -d, -f1) && '
-                f'[ -n "$API_KEY" ] && {cmd}'
-            )
-        return _json(_build_dry_run("Set dry_run=false to execute.", cmd))
+        command = _http_dry_run_command(service, path, method, params, body, auth)
+        return _json(_build_dry_run("Set dry_run=false to execute.", command))
 
     if method != "GET" and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
-                "command": f"{method} {path} on {service}",
+                "command": _http_dry_run_command(service, path, method, params, body, auth),
                 "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
             }
         )
@@ -1991,6 +2078,8 @@ def call_aitbc_http(
             params,
             body,
             timeout,
+            auth,
+            auth_env,
             auth=auth,
             auth_env=auth_env,
         )

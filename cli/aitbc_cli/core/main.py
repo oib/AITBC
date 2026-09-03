@@ -49,6 +49,7 @@ from aitbc_cli.commands.exchange_island import exchange_island
 from aitbc_cli.commands.genesis import genesis
 from aitbc_cli.commands.governance import governance
 from aitbc_cli.commands.brand import brand
+from aitbc_cli.commands.http import http
 from aitbc_cli.commands.plugin import plugin
 
 # Import island-specific commands
@@ -226,6 +227,7 @@ cli.add_command(dashboard)
 cli.add_command(transactions)
 cli.add_command(update)
 cli.add_command(mining)
+cli.add_command(http)
 cli.add_command(agent_msg, name="agent-msg")
 cli.add_command(workflow)
 cli.add_command(resource)

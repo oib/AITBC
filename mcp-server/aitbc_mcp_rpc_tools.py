@@ -18,12 +18,11 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from aitbc_mcp_server import (
-    ALL_HTTP_SERVICES,
-    ALL_SERVICE_BASES,
+    HTTP_SERVICE_NAMES,
     NodeRole,
     _build_dry_run,
-    _build_http_url,
     _host_for_role,
+    _http_dry_run_command,
     _http_read_tool,
     _json,
     _run_http,
@@ -45,22 +44,19 @@ def _http_write_tool(
     dry_run: bool,
     confirm: bool,
     timeout: int = 120,
+    auth: str = "none",
 ) -> str:
-    """Run a mutating HTTP call with dry-run and confirmation gates."""
+    """Run a mutating HTTP call with dry-run and confirmation gates via the CLI."""
     target = _host_for_role(role, host)
-    if service not in ALL_HTTP_SERVICES:
+    if service not in HTTP_SERVICE_NAMES:
         return _json(
             {
                 "error": f"unknown HTTP service: {service}",
-                "known_services": sorted(ALL_HTTP_SERVICES),
+                "known_services": sorted(HTTP_SERVICE_NAMES),
             }
         )
 
-    base = ALL_SERVICE_BASES[service]
-    url = _build_http_url(base, path, None)
-    headers = "-H 'Content-Type: application/json'"
-    payload = shlex.quote(json.dumps(body, default=str))
-    command = f"curl -sS -X POST {headers} -d {payload} {shlex.quote(url)}"
+    command = _http_dry_run_command(service, path, "POST", None, body, auth)
 
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false and confirm=true to execute.", command))
@@ -73,7 +69,7 @@ def _http_write_tool(
             }
         )
 
-    return _json(_run_http(target, service, path, "POST", None, body, timeout))
+    return _json(_run_http(target, service, path, "POST", None, body, timeout, auth=auth))
 
 
 # ---------------------------------------------------------------------------
