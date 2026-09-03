@@ -20,6 +20,20 @@ from fastapi.testclient import TestClient
 # tests with an unauthenticated local Redis and no override.
 _TEST_REDIS_URL = os.getenv("GOSSIP_BROADCAST_URL", "redis://localhost:6379/0")
 
+# Hosts that set GOSSIP_BROADCAST_URL externally (e.g. hub.aitbc) point these
+# tests at a real, shared Redis instance carrying live production validator
+# gossip traffic, not an idle local one. Under that traffic a publish can
+# occasionally take much longer than the couple hundred ms this normally
+# takes -- one verification run saw a single test take ~63s against hub's
+# Redis, well past a fixed 5s timeout, with no defect in the backend itself
+# (isolated reruns and an unauthenticated/uncontended host were both fast and
+# clean). Give real-Redis runs more headroom by default while keeping the
+# tight, fail-fast timeout for the common case of a local, idle Redis with no
+# override -- an actually-broken backend should still fail quickly there.
+# ``GOSSIP_TEST_PUBLISH_TIMEOUT`` lets either default be overridden directly.
+_DEFAULT_PUBLISH_TIMEOUT = 20.0 if os.getenv("GOSSIP_BROADCAST_URL") else 5.0
+_PUBLISH_TIMEOUT = float(os.getenv("GOSSIP_TEST_PUBLISH_TIMEOUT", str(_DEFAULT_PUBLISH_TIMEOUT)))
+
 
 def _publish(topic: str, message: object) -> None:
     """Publish through the broker's backend on the app's captured event loop."""
@@ -34,7 +48,7 @@ def _publish(topic: str, message: object) -> None:
         await backend.publish(topic, message)
 
     fut = asyncio.run_coroutine_threadsafe(_do_publish(), loop)
-    fut.result(timeout=5.0)
+    fut.result(timeout=_PUBLISH_TIMEOUT)
 
 
 @pytest.fixture
