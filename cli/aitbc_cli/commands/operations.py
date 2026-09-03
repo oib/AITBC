@@ -23,7 +23,7 @@ from ..utils import DECIMAL, error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import find_wallet_file
 
 logger = get_logger(__name__)
 
@@ -97,12 +97,12 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, m
     """Submit an AI job with wallet, type, prompt, and payment."""
     try:
         # Get wallet address
-        keystore_path = wallet_dir() / f"{wallet_name}.json"
-        if not keystore_path.exists():
+        wallet_path = find_wallet_file(wallet_name)
+        if wallet_path is None:
             error(f"Wallet '{wallet_name}' not found")
             return None
 
-        with open(keystore_path) as f:
+        with open(wallet_path) as f:
             wallet_data = json.load(f)
         address = wallet_data["address"]
 
@@ -415,9 +415,9 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Get wallet address from correct wallet directory
-        wallet_path = wallet_dir() / f"{wallet}.json"
-        if not wallet_path.exists():
-            error(f"Wallet '{wallet}' not found at {wallet_path}")
+        wallet_path = find_wallet_file(wallet)
+        if wallet_path is None:
+            error(f"Wallet '{wallet}' not found")
             return
 
         wallet_data = _load_wallet(wallet_path, wallet)
@@ -497,9 +497,9 @@ def proposal(
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Get wallet address from correct wallet directory
-        wallet_path = wallet_dir() / f"{wallet}.json"
-        if not wallet_path.exists():
-            error(f"Wallet '{wallet}' not found at {wallet_path}")
+        wallet_path = find_wallet_file(wallet)
+        if wallet_path is None:
+            error(f"Wallet '{wallet}' not found")
             return
 
         wallet_data = _load_wallet(wallet_path, wallet)
