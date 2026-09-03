@@ -32,6 +32,7 @@ proposer does not have to, and neither RPC handler writes to the account table.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -235,3 +236,205 @@ def test_register_account_creates_no_account_row(session, monkeypatch):
     assert existing["created"] is False
     assert existing["pending"] is False
     assert existing["balance"] == 1_000_000
+
+
+# ---------------------------------------------------------------------------
+# Staking and bounty handlers
+#
+# These moved balances directly too: stake/unstake, the agent-economy stake
+# records, the bounty lock/payout/refund and the escrow auto-stake all did
+# ``account.balance -= amount`` and committed. Value now moves only by a
+# transfer to or from a keyless protocol escrow, applied at block time.
+# ---------------------------------------------------------------------------
+
+
+def _balances(session):
+    return {a.address: a.balance for a in session.exec(select(Account)).all()}
+
+
+@pytest.fixture
+def queued(monkeypatch):
+    """Capture everything queue_protocol_transfer puts in the mempool."""
+    from aitbc_chain import mempool as mempool_module
+
+    captured: list[dict] = []
+
+    class _Mempool:
+        def add(self, tx, chain_id=None, tx_hash=None):
+            captured.append(tx)
+            return "0x" + format(len(captured), "064x")
+
+    monkeypatch.setattr(mempool_module, "get_mempool", lambda: _Mempool())
+    return captured
+
+
+def _bind_session(monkeypatch, module, session):
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _scope(*_args, **_kwargs):
+        yield session
+
+    monkeypatch.setattr(module, "session_scope", _scope)
+
+
+def test_stake_tokens_moves_no_balance(session, monkeypatch, queued):
+    """Staking must not debit the account table; the STAKE_LOCK transfer does it."""
+    import asyncio
+
+    from aitbc_chain.protocol_escrow import stake_escrow_address
+    from aitbc_chain.rpc import staking as staking_rpc
+
+    monkeypatch.setattr(staking_rpc, "get_chain_id", lambda _value=None: CHAIN_ID)
+    monkeypatch.setattr(staking_rpc, "validate_chain_id", lambda _c: True)
+    monkeypatch.setattr(staking_rpc, "verify_request_signature", lambda *a, **k: True)
+    _bind_session(monkeypatch, staking_rpc, session)
+
+    before = _balances(session)
+    result = asyncio.run(
+        staking_rpc.stake_tokens(
+            None,
+            {"address": SENDER, "amount": 5_000, "lock_days": 30, "signature": "0xsig"},
+        )
+    )
+    session.flush()
+
+    assert result["success"] is True
+    assert _balances(session) == before, "stake_tokens must not touch the account table"
+
+    assert len(queued) == 1
+    tx = queued[0]
+    assert tx["type"] == "STAKE_LOCK"
+    assert tx["amount"] == 5_000
+    assert tx["to"] == stake_escrow_address()
+    assert tx["payload"]["stake_id"] == str(result["stake_id"])
+
+
+def test_unstake_refuses_while_the_lock_is_unconfirmed(session, monkeypatch, queued):
+    """The escrow is shared, so an unfunded stake must not be paid out of it."""
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from aitbc_chain.models import Transaction
+    from aitbc_chain.protocol_escrow import stake_escrow_address
+    from aitbc_chain.rpc import staking as staking_rpc
+
+    monkeypatch.setattr(staking_rpc, "get_chain_id", lambda _value=None: CHAIN_ID)
+    monkeypatch.setattr(staking_rpc, "validate_chain_id", lambda _c: True)
+    monkeypatch.setattr(staking_rpc, "verify_request_signature", lambda *a, **k: True)
+    _bind_session(monkeypatch, staking_rpc, session)
+
+    staked = asyncio.run(
+        staking_rpc.stake_tokens(
+            None,
+            {"address": SENDER, "amount": 5_000, "lock_days": 1, "signature": "0xsig"},
+        )
+    )
+    stake_id = staked["stake_id"]
+
+    # Backdate the lock so the lock-period check is not what rejects this.
+    from aitbc_chain.base_models import Stake
+
+    stake = session.get(Stake, stake_id)
+    stake.locked_until = datetime(2000, 1, 1, tzinfo=UTC)
+    session.add(stake)
+    session.commit()
+
+    unstake = {"address": SENDER, "stake_id": stake_id, "signature": "0xsig"}
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(staking_rpc.unstake_tokens(None, unstake))
+    assert excinfo.value.status_code == 409
+
+    before = _balances(session)
+
+    # Once the lock is in a block the release is queued -- and still moves no
+    # balance here.
+    session.add(
+        Transaction(
+            chain_id=CHAIN_ID,
+            tx_hash="0x" + "ab" * 32,
+            sender=SENDER,
+            recipient=stake_escrow_address(),
+            payload={"stake_id": str(stake_id)},
+            value=5_000,
+            fee=0,
+            nonce=0,
+            timestamp="2026-09-03T00:00:00+00:00",
+            block_height=4200,
+            status="confirmed",
+            type="STAKE_LOCK",
+        )
+    )
+    session.commit()
+
+    queued.clear()
+    released = asyncio.run(staking_rpc.unstake_tokens(None, unstake))
+    session.flush()
+
+    assert released["status"] == "withdrawn"
+    assert _balances(session) == before, "unstake_tokens must not touch the account table"
+    assert len(queued) == 1
+    assert queued[0]["type"] == "STAKE_RELEASE"
+    assert queued[0]["from"] == stake_escrow_address()
+    assert queued[0]["amount"] == 5_000
+
+
+def test_deploy_bounty_moves_no_balance(session, monkeypatch, queued):
+    """Locking a bounty reward must not debit the account table either."""
+    import asyncio
+
+    from aitbc_chain.protocol_escrow import bounty_escrow_address
+    from aitbc_chain.rpc import bounty as bounty_rpc
+
+    monkeypatch.setattr(bounty_rpc, "get_chain_id", lambda _value=None: CHAIN_ID)
+    monkeypatch.setattr(bounty_rpc, "validate_chain_id", lambda _c: True)
+    monkeypatch.setattr(bounty_rpc, "require_operator_signature", lambda body: body)
+    _bind_session(monkeypatch, bounty_rpc, session)
+
+    before = _balances(session)
+    result = asyncio.run(
+        bounty_rpc.deploy_bounty(
+            None,
+            {"bounty_id": "b-1", "user_address": SENDER, "reward_amount": 7_000, "chain_id": CHAIN_ID},
+        )
+    )
+    session.flush()
+
+    assert result["success"] is True
+    assert _balances(session) == before, "deploy_bounty must not touch the account table"
+    assert len(queued) == 1
+    assert queued[0]["type"] == "BOUNTY_LOCK"
+    assert queued[0]["to"] == bounty_escrow_address()
+    assert queued[0]["amount"] == 7_000
+
+
+def test_protocol_escrows_are_keyless_and_distinct():
+    """A release can only be forged by signing as the escrow, which nobody can do.
+
+    The addresses are keccak labels, not keys, so /rpc/transaction -- which
+    verifies the signature against the sender before admitting anything -- can
+    never accept a STAKE_RELEASE or BOUNTY_PAYOUT from outside this node.
+    """
+    from aitbc_chain.protocol_escrow import bounty_escrow_address, is_protocol_escrow, stake_escrow_address
+
+    stake = stake_escrow_address()
+    bounty = bounty_escrow_address()
+    assert stake != bounty
+    assert is_protocol_escrow(stake)
+    assert is_protocol_escrow(bounty)
+    assert not is_protocol_escrow(SENDER)
+
+
+def test_balance_tracker_exposes_no_mutators():
+    """The five dead record_* mutators are gone and must not come back."""
+    from aitbc_chain.services.balance_tracker import BalanceTracker
+
+    for name in (
+        "record_transaction",
+        "record_stake",
+        "record_unstake",
+        "record_bridge_lock",
+        "record_bridge_release",
+    ):
+        assert not hasattr(BalanceTracker, name), f"BalanceTracker.{name} mutates balances outside consensus"

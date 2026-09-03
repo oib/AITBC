@@ -171,7 +171,11 @@ def stake(ctx, amount: Decimal, duration: int):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
-        success(f"Staked {amount} {_brand_token_symbol()} for {duration} days")
+        success(f"Submitted a stake of {amount} {_brand_token_symbol()} for {duration} days")
+        # The node no longer debits the balance in the request. It queues a
+        # STAKE_LOCK transfer that is applied when the next block includes it,
+        # so there is no post-stake balance to report here -- show the
+        # transaction to follow instead.
         output(
             {
                 "wallet": wallet_name,
@@ -179,7 +183,7 @@ def stake(ctx, amount: Decimal, duration: int):
                 "amount": str(amount),
                 "duration_days": duration,
                 "locked_until": result.get("locked_until"),
-                "remaining_balance": str(units_to_ait(result.get("remaining_balance", 0))),
+                "transaction_hash": result.get("transaction_hash"),
                 "chain_id": chain_id,
             },
             ctx.obj.get("output_format", "table"),
@@ -240,13 +244,15 @@ def unstake(ctx, stake_id: str):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/staking/unstake", json=unstake_data)
 
-        success(f"Unstaked tokens from stake {stake_id}")
+        success(f"Submitted an unstake of stake {stake_id}")
+        # As with staking, the credit lands when the STAKE_RELEASE transfer is
+        # included in a block, so report the transaction rather than a balance.
         output(
             {
                 "wallet": wallet_name,
                 "stake_id": stake_id,
                 "amount": str(units_to_ait(result.get("amount", 0))),
-                "new_balance": str(units_to_ait(result.get("new_balance", 0))),
+                "transaction_hash": result.get("transaction_hash"),
                 "status": result.get("status"),
                 "chain_id": chain_id,
             },
