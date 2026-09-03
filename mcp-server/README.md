@@ -1,7 +1,9 @@
 # AITBC MCP server
 
-A [Model Context Protocol][mcp] (MCP) server that lets Devin operate the AITBC
-live nodes (`aitbc3` and `hub.aitbc`) through natural-language tool calls.
+A [Model Context Protocol][mcp] (MCP) server that lets Devin operate configured
+AITBC live nodes through natural-language tool calls. Role-to-host mapping is
+loaded from an external config or environment variable; it is not hardcoded in
+the repository.
 
 [mcp]: https://modelcontextprotocol.io
 
@@ -102,6 +104,7 @@ Add the server to your Devin project or user config:
       "env": {
         "AITBC_MCP_SSH_USER": "oib",
         "AITBC_MCP_AITBC_CLI": "/opt/aitbc/venv/bin/aitbc",
+        "AITBC_MCP_HOSTS_FILE": "/etc/aitbc/mcp-hosts.yaml",
         "AITBC_MCP_LOG_LEVEL": "INFO"
       }
     }
@@ -111,6 +114,36 @@ Add the server to your Devin project or user config:
 
 Save project config as `.devin/mcp_config.json` and user secrets in
 `.devin/mcp_config.local.json`.
+
+## Network configuration
+
+The MCP server does not contain role-to-host mappings in its source. Configure
+them through one of these methods, in order of precedence:
+
+1. `AITBC_MCP_HOSTS` environment variable (JSON string).
+2. `AITBC_MCP_HOSTS_FILE` environment variable (path to a JSON or YAML file).
+3. `~/.aitbc/mcp-hosts.yaml` or `~/.aitbc/mcp-hosts.json`.
+4. `/etc/aitbc/mcp-hosts.yaml` or `/etc/aitbc/mcp-hosts.json`.
+
+Example `/etc/aitbc/mcp-hosts.yaml`:
+
+```yaml
+ssh_user: oib
+default_host: hub.example
+roles:
+  hub: hub.example
+  customer: hub.example
+  shop: shop.example
+  follower: shop.example
+  customer2: replica.example
+  follower2: replica.example
+```
+
+You can also inline it with `AITBC_MCP_HOSTS`:
+
+```json
+{"ssh_user": "oib", "default_host": "hub.example", "roles": {"shop": "shop.example"}}
+```
 
 ### Local IDE (while developing)
 
@@ -190,13 +223,13 @@ Recommended `.devin/config.json`:
 
 ## Requirements
 
-* The MCP host (Devin) must be able to reach `aitbc3` and `hub.aitbc` via
-  passwordless SSH.
+* The MCP host (Devin) must be able to reach every host listed in the
+  [network configuration](#network-configuration) via passwordless SSH.
 * The `aitbc` CLI must be installed on each live node and available at the
   default path `/opt/aitbc/venv/bin/aitbc`, or wherever `AITBC_MCP_AITBC_CLI`
   is configured to point (see [Installation](#installation) above).
-* The SSH user must be able to run `sudo -n <AITBC_MCP_AITBC_CLI> ...` and
-  `sudo -n systemctl ...` on the live nodes.
+* The SSH user must be able to run `sudo -n <AITBC_MCP_AITBC_CLI> ...` on the
+  live nodes. The CLI itself runs `systemctl`/`journalctl` as needed.
 
 ## The aitbc CLI pivot
 
@@ -218,21 +251,26 @@ Examples of `run_aitbc_cli`:
 - group="market", subcommand="list", options={"status": "active"}
 - group="market", subcommand="status", args=["<order-id>"]
 - group="node", subcommand="info", args=["<node-id>"]
+- group="system", subcommand="check", options={"service": "coordinator-api"}
+- group="http", subcommand="call", args=["blockchain-rpc", "height"]
+- group="blockchain", subcommand="height"
 
-The installed CLI only exposes a validated subset of commands. Deprecated groups
-such as `chain` and `blockchain` are hidden and will be rejected.
+The installed CLI only exposes a validated subset of commands. The `blockchain`
+group is exposed for reading chain height and blocks; the legacy `chain` group
+remains hidden.
 
 Examples of destructive CLI wrappers:
 
 - `submit_ai_job(prompt="...", wallet="genesis", model="llama3:8b")`
 - `send_aitbc_transaction(from_wallet="genesis", to_address="ait...", amount="0.1")`
 - `stake_aitbc(amount="1000", duration_days=30)`
-- `create_performance_bond(provider_id="aitbc3-provider", amount="500")`
+- `create_performance_bond(provider_id="<provider-id>", amount="500")`
 
 ## HTTP / RPC pivot
 
-A second generic tool, `call_aitbc_http`, hits the local HTTP APIs on each node.
-It maps a service name to a base URL and builds a `curl` command.
+A second generic tool, `call_aitbc_http`, hits the local HTTP APIs on each node
+through `aitbc http call <service> <path>`. The base URLs and ports are kept in
+the CLI, not in the MCP server.
 
 Examples:
 
@@ -242,6 +280,17 @@ Examples:
 - service="blockchain-rpc", path="blocks-range", params={"limit": "3"}
 - service="coordinator-api", path="v1/jobs", params={"limit": "10"}
 - service="blockchain-event-bridge", path="metrics/"
+
+Service operations also go through the CLI:
+
+- `node_status`, `get_service_health` → `aitbc system check --service <name>`
+- `get_service_status` → `aitbc system status --service <name>`
+- `get_service_logs` → `aitbc system logs --service <name>`
+- `get_systemd_unit` → `aitbc system cat --service <name>`
+- `get_systemd_show` → `aitbc system show --service <name>`
+- `restart_service` → `aitbc system restart --service <name>`
+- `get_chain_height` → `aitbc blockchain height`
+- `get_block` → `aitbc blockchain block --height <h>`
 
 Typed RPC tools are also provided for the most common blockchain paths:
 `get_blockchain_info`, `get_blockchain_head`, `list_blocks`, `get_block_info`,

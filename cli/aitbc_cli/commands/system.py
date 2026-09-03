@@ -5,6 +5,7 @@ Provides real service health checks and node readiness reporting.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from decimal import Decimal
 from pathlib import Path
@@ -120,10 +121,25 @@ def _service_is_active(service: str) -> bool:
         return False
 
 
+def _service_unit_name(service: str) -> str:
+    """Return a normalised aitbc-* systemd unit name.
+
+    Accepts short names (``blockchain-node``), prefixed names
+    (``aitbc-blockchain-node``), and full unit names (``aitbc-blockchain-node.service``).
+    Non-aitbc units such as ``ollama`` are left as-is.
+    """
+    unit = service.strip()
+    unit = unit.removesuffix(".service")
+    if unit in {"ollama"}:
+        return unit
+    unit = unit.removeprefix("aitbc-")
+    return f"aitbc-{unit}.service"
+
+
 def _discover_services(specific: str | None = None) -> list[str]:
     """Return the list of services to check."""
     if specific:
-        return [specific if specific.endswith(".service") else f"aitbc-{specific}.service"]
+        return [_service_unit_name(specific)]
 
     services: list[str] = []
     try:
@@ -312,21 +328,63 @@ def check(ctx: click.Context, service: str | None, output_format: str):
 @click.pass_context
 def restart(ctx, service: str):
     """Restart a systemd service by name."""
-    service_name = f"aitbc-{service}" if not service.startswith("aitbc-") else service
+    _systemctl_service_action(ctx, "restart", service, action_label="restarted")
+
+
+def _systemctl_service_action(ctx, action: str, service: str, *, action_label: str | None = None) -> None:
+    """Run ``systemctl <action> <service>`` and print/output the result."""
+    service_name = _service_unit_name(service)
+    label = action_label or action
 
     try:
-        success(f"Restarting service: {service_name}")
-        result = subprocess.run(["sudo", "systemctl", "restart", service_name], capture_output=True, text=True, timeout=30)
+        prefix = ["sudo", "-n"] if os.geteuid() != 0 else []
+        result = subprocess.run(
+            prefix + ["systemctl", action, service_name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
 
         if result.returncode == 0:
-            success(f"Service {service_name} restarted successfully")
-            output({"service": service_name, "status": "restarted"}, ctx.obj.get("output_format", "table"))
-        else:
-            error(f"Failed to restart service: {result.stderr}")
+            success(f"Service {service_name} {label} successfully")
+            output({"service": service_name, "status": label}, ctx.obj.get("output_format", "table"))
+            return
+        err = result.stderr.strip() or result.stdout.strip()
+        raise click.ClickException(f"Failed to {action} service {service_name}: {err}")
     except subprocess.TimeoutExpired:
-        error(f"Timeout restarting service {service_name}")
+        raise click.ClickException(f"Timeout trying to {action} service {service_name}")
+    except click.ClickException:
+        raise
     except Exception as e:
-        error(f"Error restarting service: {e}")
+        raise click.ClickException(f"Error trying to {action} service {service_name}: {e}")
+
+
+@system.command(
+    epilog="""Examples:
+
+  aitbc system start --service blockchain-node
+
+  aitbc system start --service wallet"""
+)
+@click.option("--service", required=True, help="Service to start (e.g., blockchain-node, wallet)")
+@click.pass_context
+def start(ctx, service: str):
+    """Start a systemd service by name."""
+    _systemctl_service_action(ctx, "start", service)
+
+
+@system.command(
+    epilog="""Examples:
+
+  aitbc system stop --service blockchain-node
+
+  aitbc system stop --service wallet"""
+)
+@click.option("--service", required=True, help="Service to stop (e.g., blockchain-node, wallet)")
+@click.pass_context
+def stop(ctx, service: str):
+    """Stop a systemd service by name."""
+    _systemctl_service_action(ctx, "stop", service)
 
 
 @system.command(
@@ -334,22 +392,126 @@ def restart(ctx, service: str):
 
   aitbc system status
 
-  aitbc system status --output json"""
+  aitbc system status --service blockchain-node"""
 )
+@click.option("--service", help="Show full systemctl status for a specific service")
 @click.pass_context
-def status(ctx):
-    """Get system status from the coordinator API."""
-    config = get_config()
+def status(ctx, service: str | None):
+    """Get system status from the coordinator API, or full systemctl status for a service."""
+    if not service:
+        config = get_config()
+        try:
+            http_client = AITBCHTTPClient(base_url=config.coordinator_api_url or "http://127.0.0.1:8203", timeout=10)
+            status_data = http_client.get("/health")
+            success("System Status:")
+            output(status_data, ctx.obj.get("output_format", "table"))
+        except NetworkError as e:
+            error(f"Network error: {e}")
+        except Exception as e:
+            error(f"Error fetching status: {e}")
+        return
 
+    service_name = _service_unit_name(service)
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_api_url or "http://127.0.0.1:8203", timeout=10)
-        status_data = http_client.get("/health")
-        success("System Status:")
-        output(status_data, ctx.obj.get("output_format", "table"))
-    except NetworkError as e:
-        error(f"Network error: {e}")
+        result = subprocess.run(
+            ["systemctl", "status", service_name, "--no-pager"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode in (0, 3):  # 3 is inactive
+            click.echo(result.stdout)
+            return
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"systemctl status failed for {service_name}")
+    except click.ClickException:
+        raise
     except Exception as e:
-        error(f"Error fetching status: {e}")
+        raise click.ClickException(f"Error getting status for {service_name}: {e}")
+
+
+@system.command(
+    epilog="""Examples:
+
+  aitbc system logs --service blockchain-node
+
+  aitbc system logs --service blockchain-node --lines 50"""
+)
+@click.option("--service", required=True, help="Service to show logs for")
+@click.option("--lines", "-n", type=int, default=50, help="Number of log lines to show")
+@click.pass_context
+def logs(ctx, service: str, lines: int):
+    """Show journalctl logs for a systemd service."""
+    service_name = _service_unit_name(service)
+    try:
+        result = subprocess.run(
+            ["journalctl", "-n", str(lines), "-u", service_name, "--no-pager"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            return
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"journalctl failed for {service_name}")
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(f"Error reading logs for {service_name}: {e}")
+
+
+@system.command(
+    epilog="""Examples:
+
+  aitbc system cat --service blockchain-node"""
+)
+@click.option("--service", required=True, help="Service to show unit file for")
+@click.pass_context
+def cat(ctx, service: str):
+    """Display the systemd unit file for a service."""
+    service_name = _service_unit_name(service)
+    try:
+        result = subprocess.run(
+            ["systemctl", "cat", service_name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            return
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"systemctl cat failed for {service_name}")
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(f"Error reading unit file for {service_name}: {e}")
+
+
+@system.command(
+    epilog="""Examples:
+
+  aitbc system show --service blockchain-node
+
+  aitbc system show --service blockchain-node --properties ActiveState,SubState,LoadState"""
+)
+@click.option("--service", required=True, help="Service to show properties for")
+@click.option("--properties", help="Comma-separated list of systemd properties")
+@click.pass_context
+def show(ctx, service: str, properties: str | None):
+    """Show systemd properties for a service."""
+    service_name = _service_unit_name(service)
+    try:
+        cmd = ["systemctl", "show", service_name]
+        if properties:
+            cmd.extend(["--property", properties])
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            return
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"systemctl show failed for {service_name}")
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(f"Error showing properties for {service_name}: {e}")
 
 
 @system.command(
@@ -387,6 +549,71 @@ def config(ctx, show_secrets: bool):
         output(config_data, ctx.obj.get("output_format", "table"))
     except Exception as e:
         error(f"Error reading configuration: {e}")
+
+
+# Allowed read-only file prefixes for ``aitbc system file --path``.
+_ALLOWED_READ_PREFIXES = (
+    "/opt/aitbc/",
+    "/etc/aitbc/",
+    "/etc/systemd/",
+    "/var/log/aitbc/",
+    "/var/lib/aitbc/",
+)
+
+
+@system.command(
+    name="file",
+    epilog="""Examples:
+
+  aitbc system file --path /etc/aitbc/blockchain.env
+
+  aitbc system file --path /var/log/aitbc/coordinator.log""",
+)
+@click.option("--path", required=True, help="Absolute path to a file under /opt/aitbc, /etc/aitbc, /etc/systemd, /var/log/aitbc, or /var/lib/aitbc")
+@click.pass_context
+def read_file(ctx, path: str):
+    """Read a remote AITBC configuration, log, or data file."""
+    if not any(path.startswith(prefix) for prefix in _ALLOWED_READ_PREFIXES):
+        raise click.ClickException(f"file path not allowed: {path}")
+    if re.search(r"[;&|<>$`\\!\n\r]", path):
+        raise click.ClickException(f"invalid file path: {path}")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            click.echo(f.read())
+    except Exception as e:
+        raise click.ClickException(f"Error reading {path}: {e}")
+
+
+@system.command(
+    name="cron",
+    epilog="""Examples:
+
+  aitbc system cron""",
+)
+@click.pass_context
+def list_cron(ctx):
+    """List AITBC cron jobs for the current user and /etc/cron.d entries."""
+    script = (
+        'echo "=== user crontab ==="; '
+        '(crontab -l 2>/dev/null) || echo "no user crontab"; '
+        'echo "=== /etc/cron.d ==="; '
+        "ls -1 /etc/cron.d/aitbc* 2>/dev/null || true; "
+        "for f in /etc/cron.d/aitbc*; do "
+        '  [ -f "$f" ] || continue; '
+        '  echo "--- $f ---"; '
+        '  cat "$f"; '
+        "done"
+    )
+    try:
+        result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=20)
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            return
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or "error listing cron jobs")
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(f"Error listing cron jobs: {e}")
 
 
 if __name__ == "__main__":
