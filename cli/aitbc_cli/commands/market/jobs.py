@@ -12,6 +12,7 @@ from typing import Any
 
 import click
 
+from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import get_config
@@ -30,6 +31,36 @@ from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 def _compute_plugin_id(service_type: str, model: str) -> str:
     """Derive the plugin_id used by the marketplace service."""
     return f"{service_type}-{model.replace(':', '-')}"
+
+
+def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str) -> str | None:
+    """Submit the ``software_job`` proof-of-work record and return its transaction hash.
+
+    ``/rpc/transactions/marketplace`` exempts only the ``offer`` and ``software_offer``
+    actions from signature checking (V23-90, so listing works without wallet private
+    keys). Every other action, this one included, is refused with 403 "Signature
+    required". All three job commands built this record unsigned, caught the refusal,
+    warned, and released the escrow anyway -- so no ``software_job`` has ever reached
+    the chain, and the only symptom was a warning line.
+
+    ``sign_transaction_data`` is the shared signer, and it mirrors the node verifier's
+    canonical encoding: same excluded fields, same sorted separator-free JSON. A copy of
+    the format here would be easy to almost match, and a near miss is another silent 403.
+
+    A failure is deliberately still non-fatal. By this point the work is done and the
+    buyer has already paid, so the caller must go on to release the escrow; the record is
+    proof of work, not the settlement itself.
+    """
+    try:
+        job_data["signature"] = sign_transaction_data(job_data, private_key)
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+        job_tx_hash: str | None = client.post("/rpc/transactions/marketplace", json=job_data).get("transaction_hash")
+        info(f"Job recorded on-chain: {job_tx_hash}")
+        return job_tx_hash
+    except Exception as e:
+        warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+        return None
 
 
 def _resolve_offer_from_marketplace(http_client: AITBCHTTPClient, offer_id_or_plugin_id: str) -> dict[str, Any] | None:
@@ -396,7 +427,6 @@ def _run_whisper(
     # Post software_job TX as proof of work
     job_tx_hash = None
     if result_hash:
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         job_data = {
             "from": wallet_address,
             "to": "0x0000000000000000000000000000000000000000",
@@ -418,13 +448,7 @@ def _run_whisper(
                 "completed_at": datetime.now().isoformat(),
             },
         }
-        try:
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            job_result = http_client.post("/rpc/transactions/marketplace", json=job_data)
-            job_tx_hash = job_result.get("transaction_hash")
-            info(f"Job recorded on-chain: {job_tx_hash}")
-        except Exception as e:
-            warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+        job_tx_hash = _record_job_on_chain(config, job_data, private_key)
 
     # Print transcript
     transcript = resp_data.get("text", "")
@@ -593,14 +617,7 @@ def _run_ffmpeg(
                 "completed_at": datetime.now().isoformat(),
             },
         }
-        try:
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            job_result = http_client.post("/rpc/transactions/marketplace", json=job_data)
-            job_tx_hash = job_result.get("transaction_hash")
-            info(f"Job recorded on-chain: {job_tx_hash}")
-        except Exception as e:
-            warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+        job_tx_hash = _record_job_on_chain(config, job_data, private_key)
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
@@ -741,14 +758,7 @@ def _run_hermes(
                 "completed_at": datetime.now().isoformat(),
             },
         }
-        try:
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-            hub_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            job_result = hub_client.post("/rpc/transactions/marketplace", json=job_data)
-            job_tx_hash = job_result.get("transaction_hash")
-            info(f"Job recorded on-chain: {job_tx_hash}")
-        except Exception as e:
-            warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
+        job_tx_hash = _record_job_on_chain(config, job_data, private_key)
 
     # Release metered escrow with job TX hash as proof
     if contract_id:

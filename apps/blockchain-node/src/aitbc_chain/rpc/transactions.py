@@ -131,6 +131,12 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
 
         return {"success": True, "transaction_hash": tx_hash, "message": "Transaction submitted to mempool"}
+    except HTTPException:
+        # Raised deliberately above (invalid signature, etc.). HTTPException is an
+        # Exception, so without this it is caught below and reissued as a 400, and
+        # the caller cannot tell "you did not sign this" from "this transaction is
+        # malformed".
+        raise
     except Exception as e:
         _logger.error("Failed to submit transaction: %s", e)
         raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {str(e)}") from e
@@ -238,6 +244,10 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
 
         return {"success": True, "transaction_hash": tx_hash, "message": "Marketplace transaction submitted to mempool"}
+    except HTTPException:
+        # Raised deliberately above (403 for missing/invalid signature or bond).
+        # Re-raise so callers can distinguish "not signed" from "malformed".
+        raise
     except Exception as e:
         _logger.error("Failed to submit marketplace transaction: %s", e)
         raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}") from e
