@@ -30,6 +30,7 @@ from .state.pure_state_transition import (
 )
 from .state.state_transition import get_state_transition
 from .consensus.multi_validator_poa import MultiValidatorPoA
+from aitbc.crypto.signature_recovery import canonical_address
 from .mempool import compute_tx_hash
 from .sync_base import SyncBase
 from .sync_validator import ImportResult
@@ -78,6 +79,16 @@ class BlockImportMixin(SyncBase):
         """
         mv = self._get_multi_validator()
         if mv is None or not mv.validators:
+            return
+
+        # Only enforce the schedule for proposers that are actually in the
+        # configured validator set.  Unknown proposers are still subject to the
+        # signature and attestation checks in ProposerSignatureValidator.
+        try:
+            proposer_canonical = canonical_address(block.proposer)
+        except Exception:
+            return
+        if not any(canonical_address(v) == proposer_canonical for v in mv.validators):
             return
 
         parent_hash = block_data.get("parent_hash", "")
