@@ -15,7 +15,7 @@ from websockets.exceptions import WebSocketException
 from ..config import get_config
 from ..utils import error, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import find_wallet_file, wallet_dir, wallet_search_dirs
 
 logger = get_logger(__name__)
 
@@ -51,9 +51,12 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
 
     Priority: explicit wallet_name arg > AITBC_DEFAULT_WALLET env var >
     active_wallet in ~/.aitbc/config.yaml > first wallet found.
+    Searches the configured wallet directory plus the standard service
+    directories (e.g. /var/lib/aitbc/wallets).
     """
-    if not wallet_dir().exists():
-        error(f"No wallet directory found at {wallet_dir()}")
+    search_dirs = wallet_search_dirs()
+    if not any(d.exists() for d in search_dirs):
+        error(f"No wallet directory found in any of {search_dirs}")
         error("Create a wallet first: aitbc wallet create")
         return None
 
@@ -76,18 +79,22 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
                     pass
 
     if wallet_name:
-        wallet_file = wallet_dir() / f"{wallet_name}.json"
-        if not wallet_file.exists():
-            error(f"Wallet '{wallet_name}' not found at {wallet_file}")
-            available = [f.stem for f in wallet_dir().glob("*.json")]
+        wallet_file = find_wallet_file(wallet_name)
+        if wallet_file is None:
+            error(f"Wallet '{wallet_name}' not found")
+            available = sorted(
+                {f.stem for d in search_dirs if d.exists() for f in d.glob("*.json")}
+            )
             error(f"Available wallets: {', '.join(available)}")
             error("Set AITBC_DEFAULT_WALLET env var or use --wallet to specify one")
             return None
     else:
-        # 3. Fall back to first wallet found
-        wallet_files = sorted(wallet_dir().glob("*.json"))
+        # 3. Fall back to first wallet found across all search directories
+        wallet_files = sorted(
+            {f for d in search_dirs if d.exists() for f in d.glob("*.json")}
+        )
         if not wallet_files:
-            error(f"No wallets found in {wallet_dir()}")
+            error(f"No wallets found in {search_dirs}")
             error("Create a wallet first: aitbc wallet create")
             return None
         wallet_file = wallet_files[0]
