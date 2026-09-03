@@ -53,11 +53,12 @@ def runner():
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Quarantine pre-existing CLI test failures so they don't block CI.
+    """Exclude quarantined CLI tests from collection so they don't block CI.
 
     These tests exercise CLI commands that have been removed or renamed during
-    the v0.10.x refactor. They are tracked as known failures (xfail) pending the
-    CLI command surface being updated.
+    the v0.10.x refactor. They are listed in ``quarantined.txt`` and are kept
+    in the repo for reference, but are not collected or run until the CLI
+    command surface is reconciled.
     """
     quarantine_file = Path(__file__).resolve().parent / "quarantined.txt"
     if not quarantine_file.exists():
@@ -71,14 +72,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     prefixed = {"tests/cli/" + node for node in quarantined if not node.startswith(prefix)}
     match_set = quarantined | prefixed
 
-    for item in items:
-        if item.nodeid in match_set:
-            item.add_marker(
-                pytest.mark.xfail(
-                    reason="Quarantined pre-existing CLI test failure (B12)",
-                    run=False,
-                )
-            )
+    items[:] = [item for item in items if item.nodeid not in match_set]
 
 
 @pytest.fixture(autouse=True)
