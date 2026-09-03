@@ -304,7 +304,9 @@ class TestProposerSignatureValidator:
 
         proposer = EthAccount.create()
         proposer_addr = proposer.address
-        validator_set = json.dumps([{"address": proposer_addr}])
+        validator = EthAccount.create()
+        validator_addr = validator.address
+        validator_set = json.dumps([{"address": proposer_addr}, {"address": validator_addr}])
 
         monkeypatch.setattr(sync_settings, "multi_validator_consensus_enabled", True)
         monkeypatch.setattr(sync_settings, "multi_validator_min_attestations", 2)

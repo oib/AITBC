@@ -150,6 +150,28 @@ class TestReportDivergence:
 
 
 class TestBulkImportDivergence:
+    async def test_rejects_peer_ahead_with_forked_tip(self, session_factory):
+        """A peer one block ahead whose parent is not our head must not extend our chain."""
+        from unittest.mock import AsyncMock
+
+        _seed(session_factory, 5)
+        sync = _sync(session_factory, {"height": 5, "hash": _hash(5, "theirs")})
+        forked_block = {
+            "height": 5,
+            "hash": _hash(5, "theirs"),
+            "parent_hash": _hash(4, "theirs"),
+            "proposer": "proposer-b",
+            "timestamp": datetime(2026, 6, 15).isoformat(),
+        }
+        sync.fetch_blocks_range = AsyncMock(return_value=[forked_block])  # type: ignore[method-assign]
+
+        imported = await sync.bulk_import_from(PEER)
+
+        assert imported == 0
+        prom = metrics_registry.render_prometheus()
+        assert "sync_divergence_detected_total 1" in prom
+        assert "sync_bulk_source_rejected_total 1" in prom
+
     async def test_reports_divergence_instead_of_up_to_date(self, session_factory):
         """The headline fault: the peer is *behind* us on a chain we do not have."""
         _seed(session_factory, 12)
