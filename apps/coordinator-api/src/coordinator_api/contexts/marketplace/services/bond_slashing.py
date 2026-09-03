@@ -137,6 +137,35 @@ class BondSlashingService:
             logger.info("No active bond for job %s; nothing to slash", job.id)
             return {"slashed": False, "reason": "no active bond"}
 
+        # G5 follow-up: avoid re-slashing the same continuous downtime incident
+        # every cycle. A new outage starts when the miner comes back online and
+        # then goes offline again (heartbeat newer than the last slash).
+        if condition == SlashingCondition.DOWNTIME:
+            try:
+                cooldown_seconds = int(os.getenv("BOND_SLASH_DOWNTIME_COOLDOWN_SECONDS", "300"))
+            except (TypeError, ValueError):
+                cooldown_seconds = 300
+            bond_meta = bond.meta or {}
+            last_slash_str = bond_meta.get("last_downtime_slash_at")
+            if last_slash_str:
+                last_slash = datetime.fromisoformat(str(last_slash_str))
+                miner = self.session.get(Miner, job.assigned_miner_id)
+                last_heartbeat = getattr(miner, "last_heartbeat", None)
+                # A fresh heartbeat after the last slash means this is a new outage.
+                if last_heartbeat and last_heartbeat > last_slash:
+                    pass
+                elif datetime.now(UTC) - last_slash < timedelta(seconds=cooldown_seconds):
+                    logger.info(
+                        "Downtime slash for job %s is within the %ss cooldown window; skipping",
+                        job.id,
+                        cooldown_seconds,
+                    )
+                    return {
+                        "slashed": False,
+                        "reason": "downtime slash within cooldown",
+                        "cooldown_seconds": cooldown_seconds,
+                    }
+
         slash_amount = self._compute_slash_amount(bond, condition)
         if slash_amount <= 0:
             return {"slashed": False, "reason": "computed slash amount is zero"}
@@ -169,14 +198,20 @@ class BondSlashingService:
             required = bond.required_amount if bond.required_amount and bond.required_amount > 0 else floor
             status = ProviderBondStatus.ACTIVE if new_amount >= required else ProviderBondStatus.SHORTFALL
 
-        bond.meta = {
-            **(bond.meta or {}),
+        slash_meta: dict[str, Any] = {
             "slash_condition": condition.value,
             "slash_evidence": evidence,
             "slash_amount": str(slash_amount),
             "slash_tx_hash": tx_hash,
             "slash_job_id": job.id,
             "slashed_at": datetime.now(UTC).isoformat(),
+        }
+        if condition == SlashingCondition.DOWNTIME:
+            slash_meta["last_downtime_slash_at"] = slash_meta["slashed_at"]
+            slash_meta["last_downtime_slash_job_id"] = job.id
+        bond.meta = {
+            **(bond.meta or {}),
+            **slash_meta,
         }
 
         bond = set_provider_bond_status(
