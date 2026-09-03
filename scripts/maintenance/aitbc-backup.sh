@@ -145,8 +145,12 @@ log "Backing up service configurations..."
 tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" /etc/aitbc/ 2>/dev/null \
     && log "/etc/aitbc: OK" || error "/etc/aitbc backup FAILED"
 
-tar czf "${BACKUP_DIR}/prometheus-config.tar.gz" /etc/prometheus/ 2>/dev/null \
-    && log "/etc/prometheus: OK" || error "Prometheus config backup FAILED"
+if [ -d /etc/prometheus/ ]; then
+    tar czf "${BACKUP_DIR}/prometheus-config.tar.gz" /etc/prometheus/ 2>/dev/null \
+        && log "/etc/prometheus: OK" || error "Prometheus config backup FAILED"
+else
+    warn "/etc/prometheus not found, skipping"
+fi
 
 # ── Redis RDB Snapshot ────────────────────────────────────────────────────────
 log "Triggering Redis snapshot..."
