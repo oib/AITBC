@@ -106,17 +106,8 @@ class PBFTConsensus:
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
-        self.fault_tolerance = max(1, len(consensus.get_consensus_participants()) // 3)
-        # Allow the configured attestation minimum to temporarily lower the PBFT
-        # quorum for rollout/validation, but never below the proposer plus one
-        # other validator (2 messages) and never above the BFT threshold.
-        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
-        base_required = 2 * self.fault_tolerance + 1
-        if min_attestations and min_attestations > 0:
-            self.required_messages = max(2, min(base_required, min_attestations + 1))
-        else:
-            self.required_messages = base_required
         self._on_execute: Any = None
+        self._recalculate_fault_tolerance()
 
     def get_message_digest(self, block_hash: str, sequence: int, view: int) -> str:
         """Generate message digest for PBFT"""
@@ -229,7 +220,10 @@ class PBFTConsensus:
 
         # Wait for enough prepares (other validators respond via handle_incoming_message)
         deadline = time.time() + timeout if timeout else None
-        while len(self.state.prepared_messages.get(key, [])) < self.required_messages:
+        while True:
+            self._recalculate_fault_tolerance()
+            if len(self.state.prepared_messages.get(key, [])) >= self.required_messages:
+                break
             if deadline and time.time() > deadline:
                 duration = time.time() - started_at
                 logger.warning(
@@ -247,7 +241,10 @@ class PBFTConsensus:
                 pass
 
         # Wait for enough commits
-        while len(self.state.committed_messages.get(key, [])) < self.required_messages:
+        while True:
+            self._recalculate_fault_tolerance()
+            if len(self.state.committed_messages.get(key, [])) >= self.required_messages:
+                break
             if deadline and time.time() > deadline:
                 duration = time.time() - started_at
                 logger.warning(
@@ -280,6 +277,7 @@ class PBFTConsensus:
 
     async def prepare_phase(self, validator: str, pre_prepare_msg: PBFTMessage) -> bool:
         """Phase 2: Prepare"""
+        self._recalculate_fault_tolerance()
         # B6: verify the incoming pre-prepare message signature
         if not self._verify_message_signature(pre_prepare_msg):
             return False
@@ -368,6 +366,7 @@ class PBFTConsensus:
 
     async def commit_phase(self, validator: str, prepare_msg: PBFTMessage) -> bool:
         """Phase 3: Commit"""
+        self._recalculate_fault_tolerance()
         # B6: verify the incoming prepare message signature
         if not self._verify_message_signature(prepare_msg):
             return False
@@ -458,6 +457,7 @@ class PBFTConsensus:
 
     async def _maybe_send_commit(self, key: str) -> bool:
         """Send a local commit message if we have a prepare quorum and have not yet committed."""
+        self._recalculate_fault_tolerance()
         prepared = self.state.prepared_messages.get(key, [])
         if len(prepared) < self.required_messages:
             return False
@@ -600,6 +600,7 @@ class PBFTConsensus:
         on ``message_type``. When enough prepare or commit messages are
         collected, it triggers the next PBFT phase for the local validator.
         """
+        self._recalculate_fault_tolerance()
         try:
             message = PBFTMessage(
                 message_type=PBFTMessageType(message_data["message_type"]),
@@ -681,10 +682,15 @@ class PBFTConsensus:
     def _recalculate_fault_tolerance(self) -> None:
         """H4: dynamically recalculate fault tolerance from the current validator set."""
         participants = self.consensus.get_consensus_participants()
-        self.fault_tolerance = max(1, len(participants) // 3)
+        active_count = len(participants)
+        self.fault_tolerance = max(1, active_count // 3)
         base_required = 2 * self.fault_tolerance + 1
         min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
-        if min_attestations and min_attestations > 0:
-            self.required_messages = max(2, min(base_required, min_attestations + 1))
+        # The configured minimum cannot exceed the number of validators that can
+        # actually participate (everyone except the proposer).  Clamp it so a
+        # downed validator cannot create an impossible quorum.
+        effective_min = max(0, min(min_attestations, max(0, active_count - 1)))
+        if effective_min and min_attestations > 0:
+            self.required_messages = max(2, min(base_required, effective_min + 1))
         else:
-            self.required_messages = base_required
+            self.required_messages = max(2, min(base_required, active_count))

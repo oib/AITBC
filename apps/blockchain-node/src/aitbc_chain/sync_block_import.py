@@ -29,6 +29,7 @@ from .state.pure_state_transition import (
     extract_read_write_sets,
 )
 from .state.state_transition import get_state_transition
+from .consensus.multi_validator_poa import MultiValidatorPoA
 from .mempool import compute_tx_hash
 from .sync_base import SyncBase
 from .sync_validator import ImportResult
@@ -47,6 +48,51 @@ class BlockImportMixin(SyncBase):
             reason = result.reason.split(":")[0].strip()[:40]
             sync_failures_total.labels(chain_id=self._chain_id, reason=reason).inc()
         return result
+
+    def _get_multi_validator(self) -> MultiValidatorPoA | None:
+        """Return a settings-only MultiValidatorPoA for schedule/role checks."""
+        if not getattr(settings, "multi_validator_consensus_enabled", False):
+            return None
+        if not getattr(settings, "validator_set", ""):
+            return None
+        cache = getattr(self, "_multi_validator_cache", None)
+        if cache is not None:
+            return cache
+        try:
+            self._multi_validator_cache = MultiValidatorPoA.from_settings(self._chain_id)
+        except Exception:
+            logger.exception("Failed to build MultiValidatorPoA from settings for chain %s", self._chain_id)
+            self._multi_validator_cache = None
+        return self._multi_validator_cache
+
+    def _validate_proposer_schedule(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        block: Block,
+    ) -> None:
+        """Verify the block proposer is an active validator scheduled for this height.
+
+        Raises ValueError when the block should be rejected, allowing the caller
+        to return an ImportResult without committing the block.
+        """
+        mv = self._get_multi_validator()
+        if mv is None or not mv.validators:
+            return
+
+        parent_hash = block_data.get("parent_hash", "")
+        parent_timestamp: Any = None
+        if parent_hash and parent_hash != "0x00":
+            parent_block = session.exec(
+                select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
+            ).first()
+            if parent_block:
+                parent_timestamp = parent_block.timestamp
+
+        if not mv.validate_block(block, block.proposer, parent_timestamp):
+            raise ValueError(
+                f"Proposer {block.proposer} is not the scheduled/authorized proposer for height {block.height}"
+            )
 
     def _derive_bridge_state_root(
         self,
@@ -164,7 +210,10 @@ class BlockImportMixin(SyncBase):
                 parent_exists = session.exec(
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
-                if parent_exists or (height == 0 and parent_hash == "0x00"):
+                parent_is_our_head = (
+                    parent_exists is not None and our_head is not None and parent_exists.hash == our_head.hash
+                )
+                if (height == 0 and parent_hash == "0x00") or (height > 0 and parent_is_our_head):
                     try:
                         result = self._append_block(session, block_data, transactions, skip_state_root_validation)
                         duration = time.perf_counter() - start
@@ -279,6 +328,10 @@ class BlockImportMixin(SyncBase):
         tx_count = block_data.get("tx_count", 0)
         if transactions:
             tx_count = len(transactions)
+
+        # Build the Block object early so we can run proposer-schedule validation
+        # before any state is mutated.  State/bridge roots and metadata are
+        # filled in after transactions have been applied.
         block = Block(
             chain_id=self._chain_id,
             height=block_data["height"],
@@ -287,16 +340,17 @@ class BlockImportMixin(SyncBase):
             proposer=block_data.get("proposer", "unknown"),
             timestamp=timestamp,
             tx_count=tx_count,
-            state_root=block_data.get("state_root"),
-            bridge_state_root=self._derive_bridge_state_root(session, block_data, transactions),
             # Persist the signature this block was just validated against. Dropping
             # it made the check single-use: the block verified once on the way in and
             # was then stored unsigned, so this node could never re-serve proof of who
             # proposed it. One sync hop stripped authorship from the whole chain.
             signature=block_data.get("signature", ""),
-            block_metadata=block_data.get("block_metadata"),
         )
-        session.add(block)
+
+        # v0.25.6: when multi-validator consensus is configured, ensure the
+        # proposer is an active validator scheduled for this height.  This wires
+        # MultiValidatorPoA.validate_block into the import path on the follower.
+        self._validate_proposer_schedule(session, block_data, block)
         if transactions:
             # Parallel transaction validation path (v0.6.1).
             # When enabled and the conflict rate is low enough, transactions are
@@ -480,6 +534,15 @@ class BlockImportMixin(SyncBase):
                         status="confirmed",
                     )
                     session.add(db_tx)
+
+        # Fill in the state/bridge roots and metadata now that transactions have
+        # been applied, then persist the block.  This keeps the schedule check
+        # above from touching any state.
+        block.state_root = block_data.get("state_root")
+        block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions)
+        block.block_metadata = block_data.get("block_metadata")
+        session.add(block)
+
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
             # Compute state root from the full account state. The previous
