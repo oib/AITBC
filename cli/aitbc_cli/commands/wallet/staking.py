@@ -176,11 +176,13 @@ def stake(ctx, amount: Decimal, duration: int):
         # STAKE_LOCK transfer that is applied when the next block includes it,
         # so there is no post-stake balance to report here -- show the
         # transaction to follow instead.
+        remaining = result.get("remaining_balance") or 0
         output(
             {
                 "wallet": wallet_name,
                 "stake_id": result.get("stake_id"),
                 "amount": str(amount),
+                "remaining_balance": str(units_to_ait(remaining)),
                 "duration_days": duration,
                 "locked_until": result.get("locked_until"),
                 "transaction_hash": result.get("transaction_hash"),
