@@ -131,7 +131,11 @@ Expected response:
 ## Notes
 
 - This scenario uses the simulated TEE path (`SIMULATED_TEE=1`). Real SGX/TDX
-  attestation is out of scope for the first slice.
+  attestation is deferred to **release 2.0** and will stay deferred until
+  TEE-capable hardware is available to the fleet; no validator host currently has
+  an enclave runtime. See "Deferred to v2.0 — hardware-backed TEE" in
+  `docs/releases/STATUS.md`. Everything below therefore proves the gate logic, not
+  a hardware root of trust.
 - The `--enclave-measurement` value is treated as the target measurement by
   both the job constraint and the auto-generated quote.
 - If the miner cannot produce a valid attestation, the job fails and escrow
