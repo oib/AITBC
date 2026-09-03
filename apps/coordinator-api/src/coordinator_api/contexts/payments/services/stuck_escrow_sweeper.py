@@ -81,6 +81,7 @@ class StuckEscrowSweeper:
             "COORDINATOR_STUCK_ESCROW_SWEEP_DISPUTED_MIN_AGE_SECONDS", 86400
         )
         self.batch_size = batch_size or _env_int("COORDINATOR_STUCK_ESCROW_SWEEP_BATCH_SIZE", 25)
+        self.dry_run = os.getenv("COORDINATOR_STUCK_ESCROW_SWEEP_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
         self._session_factory = session_factory or (lambda: Session(get_engine()))
 
     def _is_stuck(self, job: Job, payment: JobPayment) -> tuple[bool, str]:
@@ -145,6 +146,15 @@ class StuckEscrowSweeper:
             for job, _payment, reason in self._find_candidates(session):
                 counts["candidates"] += 1
                 if not job.payment_id:
+                    continue
+                if self.dry_run:
+                    logger.info(
+                        "[DRY-RUN] Would refund stuck payment %s for job %s: %s",
+                        job.payment_id,
+                        job.id,
+                        reason,
+                    )
+                    counts["refunded"] += 1
                     continue
                 try:
                     refunded = await PaymentService(session).refund_payment(job.client_id, job.id, job.payment_id, reason)
@@ -213,11 +223,12 @@ class StuckEscrowSweeper:
 
     async def run_forever(self) -> None:
         logger.info(
-            "Stuck escrow sweeper started: interval=%ss min_age=%ss disputed_min_age=%ss batch=%s",
+            "Stuck escrow sweeper started: interval=%ss min_age=%ss disputed_min_age=%ss batch=%s dry_run=%s",
             self.interval_seconds,
             self.min_age_seconds,
             self.disputed_min_age_seconds,
             self.batch_size,
+            self.dry_run,
         )
         while True:
             await asyncio.sleep(self.interval_seconds)

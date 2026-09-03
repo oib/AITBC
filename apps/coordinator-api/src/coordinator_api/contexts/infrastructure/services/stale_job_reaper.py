@@ -76,6 +76,7 @@ class StaleJobReaper:
         # abandoned even if its own TTL has not technically elapsed yet.
         self.miner_dead_seconds = miner_dead_seconds or _env_int("COORDINATOR_STALE_JOB_MINER_DEAD_SECONDS", 600)
         self.batch_size = batch_size or _env_int("COORDINATOR_STALE_JOB_REAPER_BATCH_SIZE", 100)
+        self.dry_run = os.getenv("COORDINATOR_STALE_JOB_REAPER_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
         self._session_factory = session_factory or (lambda: Session(get_engine()))
 
     def _find_ttl_expired(self, session: Any) -> list[Job]:
@@ -121,9 +122,17 @@ class StaleJobReaper:
             for job in self._find_ttl_expired(session):
                 seen.add(job.id)
                 try:
-                    self._expire(session, job, "job expired")
-                    counts["ttl_expired"] += 1
-                    logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
+                    if self.dry_run:
+                        counts["ttl_expired"] += 1
+                        logger.info(
+                            "[DRY-RUN] Would expire abandoned job %s (TTL elapsed at %s)",
+                            job.id,
+                            job.expires_at,
+                        )
+                    else:
+                        self._expire(session, job, "job expired")
+                        counts["ttl_expired"] += 1
+                        logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
                 except Exception as e:
                     counts["failed"] += 1
                     logger.error("Failed to expire job %s: %s", job.id, e)
@@ -132,26 +141,39 @@ class StaleJobReaper:
                 if job.id in seen:
                     continue
                 try:
-                    self._expire(session, job, "job abandoned: assigned miner offline")
-                    counts["miner_dead"] += 1
-                    logger.info(
-                        "Expired job %s: miner %s offline past %ss grace period",
-                        job.id,
-                        job.assigned_miner_id,
-                        self.miner_dead_seconds,
-                    )
+                    if self.dry_run:
+                        counts["miner_dead"] += 1
+                        logger.info(
+                            "[DRY-RUN] Would expire job %s: miner %s offline past %ss grace period",
+                            job.id,
+                            job.assigned_miner_id,
+                            self.miner_dead_seconds,
+                        )
+                    else:
+                        self._expire(session, job, "job abandoned: assigned miner offline")
+                        counts["miner_dead"] += 1
+                        logger.info(
+                            "Expired job %s: miner %s offline past %ss grace period",
+                            job.id,
+                            job.assigned_miner_id,
+                            self.miner_dead_seconds,
+                        )
                 except Exception as e:
                     counts["failed"] += 1
                     logger.error("Failed to expire job %s: %s", job.id, e)
 
-            try:
-                session.commit()
-            except Exception as e:
-                counts["failed"] += 1
-                logger.error("Stale job reaper commit failed: %s", e)
+            if not self.dry_run:
+                try:
+                    session.commit()
+                except Exception as e:
+                    counts["failed"] += 1
+                    logger.error("Stale job reaper commit failed: %s", e)
+                    session.rollback()
+            else:
                 session.rollback()
         logger.debug(
-            "Stale job reaper complete: ttl_expired=%s miner_dead=%s failed=%s",
+            "Stale job reaper complete: dry_run=%s ttl_expired=%s miner_dead=%s failed=%s",
+            self.dry_run,
             counts["ttl_expired"],
             counts["miner_dead"],
             counts["failed"],
@@ -160,10 +182,11 @@ class StaleJobReaper:
 
     async def run_forever(self) -> None:
         logger.info(
-            "Stale job reaper started: interval=%ss miner_dead_grace=%ss batch=%s",
+            "Stale job reaper started: interval=%ss miner_dead_grace=%ss batch=%s dry_run=%s",
             self.interval_seconds,
             self.miner_dead_seconds,
             self.batch_size,
+            self.dry_run,
         )
         while True:
             await asyncio.sleep(self.interval_seconds)
