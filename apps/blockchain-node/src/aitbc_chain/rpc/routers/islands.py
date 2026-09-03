@@ -5,7 +5,7 @@ Islands router.
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
@@ -64,7 +64,7 @@ async def leave_island_route(request: LeaveIslandRequest) -> LeaveIslandResponse
 
 @router.get("", summary="List all islands")
 @rate_limit(rate=100, per=60)
-async def list_islands_route() -> dict[str, Any]:
+async def list_islands_route(request: Request) -> dict[str, Any]:
     """List all islands that the node is a member of"""
     if list_islands is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
