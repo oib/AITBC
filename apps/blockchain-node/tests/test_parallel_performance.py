@@ -175,6 +175,27 @@ class TestParallelPerformance:
             flat.extend(group_results)
         return flat
 
+    def _best_of(self, fn, repeats: int = 5) -> float:
+        """Run ``fn()`` ``repeats`` times and return the minimum elapsed time.
+
+        These benchmarks measure sub-10ms operations, where OS scheduling
+        jitter (especially on a shared/loaded host) can dominate a single
+        sample and swing the parallel/sequential ratio well past a fixed
+        tolerance despite no real regression -- this was observed as
+        intermittent CI failures on a busier host while node1/node2 stayed
+        green. Taking the min of several repeats is standard microbenchmark
+        practice: it estimates the "unperturbed" cost of the code path
+        rather than being at the mercy of whichever run happened to get
+        descheduled.
+        """
+        best = float("inf")
+        for _ in range(repeats):
+            t0 = time.perf_counter()
+            fn()
+            elapsed = time.perf_counter() - t0
+            best = min(best, elapsed)
+        return best
+
     # ------------------------------------------------------------------
     # Benchmarks
     # ------------------------------------------------------------------
@@ -187,13 +208,8 @@ class TestParallelPerformance:
         self._run_sequential(txs, account_map)
         self._run_parallel(txs, account_map)
 
-        t0 = time.perf_counter()
-        self._run_sequential(txs, account_map)
-        seq_time = time.perf_counter() - t0
-
-        t0 = time.perf_counter()
-        self._run_parallel(txs, account_map)
-        par_time = time.perf_counter() - t0
+        seq_time = self._best_of(lambda: self._run_sequential(txs, account_map))
+        par_time = self._best_of(lambda: self._run_parallel(txs, account_map))
 
         # Parallel should not be dramatically slower (GIL may prevent speedup)
         assert par_time <= seq_time * 3.0, (
@@ -208,13 +224,8 @@ class TestParallelPerformance:
         self._run_sequential(txs, account_map)
         self._run_parallel(txs, account_map)
 
-        t0 = time.perf_counter()
-        self._run_sequential(txs, account_map)
-        seq_time = time.perf_counter() - t0
-
-        t0 = time.perf_counter()
-        self._run_parallel(txs, account_map)
-        par_time = time.perf_counter() - t0
+        seq_time = self._best_of(lambda: self._run_sequential(txs, account_map))
+        par_time = self._best_of(lambda: self._run_parallel(txs, account_map))
 
         assert par_time <= seq_time * 3.0, (
             f"Parallel too slow vs sequential (20% conflicts): parallel={par_time:.4f}s, sequential={seq_time:.4f}s"
@@ -232,13 +243,8 @@ class TestParallelPerformance:
         self._run_sequential(txs, account_map)
         self._run_parallel(txs, account_map)
 
-        t0 = time.perf_counter()
-        self._run_sequential(txs, account_map)
-        seq_time = time.perf_counter() - t0
-
-        t0 = time.perf_counter()
-        self._run_parallel(txs, account_map)
-        par_time = time.perf_counter() - t0
+        seq_time = self._best_of(lambda: self._run_sequential(txs, account_map))
+        par_time = self._best_of(lambda: self._run_parallel(txs, account_map))
 
         # Sequential should be at least as fast (allow some tolerance)
         assert seq_time <= par_time * 1.5, (
@@ -259,14 +265,10 @@ class TestParallelPerformance:
         self._run_sequential(txs, account_map)
         self._run_parallel(txs, account_map)
 
-        t0 = time.perf_counter()
-        self._run_sequential(txs, account_map)
-        seq_time = time.perf_counter() - t0
+        seq_time = self._best_of(lambda: self._run_sequential(txs, account_map))
         seq_tps = n / seq_time if seq_time > 0 else float("inf")
 
-        t0 = time.perf_counter()
-        self._run_parallel(txs, account_map, workers=4)
-        par_time = time.perf_counter() - t0
+        par_time = self._best_of(lambda: self._run_parallel(txs, account_map, workers=4))
         par_tps = n / par_time if par_time > 0 else float("inf")
 
         # Parallel TPS should not be dramatically worse
