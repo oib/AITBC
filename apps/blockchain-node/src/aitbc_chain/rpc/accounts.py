@@ -78,10 +78,16 @@ async def get_account_details(request: Request, address: str, chain_id: str | No
 @rate_limit(rate=100, per=60)
 async def create_account(request: Request, account_data: dict[str, Any]) -> dict[str, Any]:
     """
-    Create or register a new account on the blockchain.
+    Report the on-chain state of an account address, validating its form.
 
-    This endpoint allows wallets to register their public keys as accounts
-    on the blockchain, enabling them to send and receive transactions.
+    This endpoint does not write to the account table. An Account row committed
+    outside block processing is a row no block header accounts for: the full scan in
+    compute_state_root_full then disagrees with the parent header and the proposer
+    refuses to build. v0.25.5 removed the internal callers for that reason (see the
+    notes in escrow_routes.py); the endpoint itself no longer writes one either.
+    There is no account-registration transaction type to anchor a row in a block, and
+    none is needed, because the state transition creates the account on the first
+    credit (StateTransition._ensure_account).
 
     Args:
         account_data: Dictionary containing:
@@ -89,7 +95,8 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
             - chain_id: Optional chain ID (defaults to node's chain)
 
     Returns:
-        Dictionary with success status and account details
+        Dictionary with success status and account details. ``pending`` is set when
+        the address is valid but not on chain yet.
     """
     chain_id = get_chain_id(account_data.get("chain_id"))
     address = account_data.get("address")
@@ -108,20 +115,20 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
                 "balance": existing_account.balance,
                 "nonce": existing_account.nonce,
                 "created": False,
+                "pending": False,
                 "message": "Account already exists",
             }
-        new_account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-        session.add(new_account)
-        session.commit()
-        return {
-            "success": True,
-            "address": address,
-            "chain_id": chain_id,
-            "balance": 0,
-            "nonce": 0,
-            "created": True,
-            "message": "Account created successfully",
-        }
+
+    return {
+        "success": True,
+        "address": address,
+        "chain_id": chain_id,
+        "balance": 0,
+        "nonce": 0,
+        "created": False,
+        "pending": True,
+        "message": "Address accepted; the on-chain account is created by the first transaction that credits it",
+    }
 
 
 @rate_limit(rate=10, per=3600)
@@ -157,65 +164,71 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
     from ..config import settings as chain_settings
     from ..mempool import get_mempool
 
-    with session_scope(chain_id) as session:
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-            session.add(account)
-            session.flush()
-            _logger.info("Faucet auto-created account: %s", address)
-        timestamp = datetime.now(UTC)
-        tx_hash = hashlib.sha256(f"faucet:{address}:{amount}:{timestamp.isoformat()}:{uuid.uuid4()}".encode()).hexdigest()
-        if not getattr(chain_settings, "block_scoped_preregistered_transactions", False):
+    block_scoped = bool(getattr(chain_settings, "block_scoped_preregistered_transactions", False))
+    timestamp = datetime.now(UTC)
+    tx_hash = hashlib.sha256(f"faucet:{address}:{amount}:{timestamp.isoformat()}:{uuid.uuid4()}".encode()).hexdigest()
+
+    if block_scoped:
+        # Do not touch the account table here. Under block scoping the credit is applied
+        # at block time, and the block-time path creates the recipient account itself
+        # (StateTransition._ensure_account). Committing a zero-balance row now would put
+        # an account in the table that the block headers do not account for, so
+        # compute_state_root_full would disagree with the parent header and the proposer
+        # would refuse to build the very block that carries this credit. That deadlock
+        # froze all four validators on 2026-09-03.
+        mempool = get_mempool()
+        mempool.add(
+            {
+                "from": "faucet",
+                "to": address,
+                "amount": amount,
+                "fee": 0,
+                "type": "FAUCET",
+                "payload": {"type": "FAUCET", "amount": amount, "reason": "test_funding"},
+                "nonce": 0,
+                "timestamp": timestamp.isoformat(),
+            },
+            chain_id=chain_id,
+            tx_hash=tx_hash,
+        )
+    else:
+        with session_scope(chain_id) as session:
+            account = session.get(Account, (chain_id, address))
+            if not account:
+                account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
+                session.add(account)
+                session.flush()
+                _logger.info("Faucet auto-created account: %s", address)
             account.balance += amount
             session.add(account)
-        session.commit()
+            session.commit()
 
-        if getattr(chain_settings, "block_scoped_preregistered_transactions", False):
-            mempool = get_mempool()
-            mempool.add(
-                {
-                    "from": "faucet",
-                    "to": address,
-                    "amount": amount,
-                    "fee": 0,
-                    "type": "FAUCET",
-                    "payload": {"type": "FAUCET", "amount": amount, "reason": "test_funding"},
-                    "nonce": 0,
-                    "timestamp": timestamp.isoformat(),
-                },
+        with session_scope(chain_id) as tx_session:
+            faucet_tx = Transaction(
                 chain_id=chain_id,
                 tx_hash=tx_hash,
+                sender="faucet",
+                recipient=address,
+                payload={"type": "FAUCET", "amount": amount, "reason": "test_funding"},
+                value=amount,
+                fee=0,
+                nonce=0,
+                timestamp=timestamp,
+                block_height=None,
+                status="confirmed",
+                type="FAUCET",
             )
+            tx_session.add(faucet_tx)
+            tx_session.commit()
 
-        if not getattr(chain_settings, "block_scoped_preregistered_transactions", False):
-            with session_scope(chain_id) as tx_session:
-                faucet_tx = Transaction(
-                    chain_id=chain_id,
-                    tx_hash=tx_hash,
-                    sender="faucet",
-                    recipient=address,
-                    payload={"type": "FAUCET", "amount": amount, "reason": "test_funding"},
-                    value=amount,
-                    fee=0,
-                    nonce=0,
-                    timestamp=timestamp,
-                    block_height=None,
-                    status="confirmed",
-                    type="FAUCET",
-                )
-                tx_session.add(faucet_tx)
-                tx_session.commit()
-        return {
-            "success": True,
-            "address": address,
-            "amount": amount,
-            "tx_hash": tx_hash,
-            "chain_id": chain_id,
-            "message": "Faucet transaction submitted to mempool"
-            if chain_settings.block_scoped_preregistered_transactions
-            else "Faucet transaction completed",
-        }
+    return {
+        "success": True,
+        "address": address,
+        "amount": amount,
+        "tx_hash": tx_hash,
+        "chain_id": chain_id,
+        "message": "Faucet transaction submitted to mempool" if block_scoped else "Faucet transaction completed",
+    }
 
 
 @rate_limit(rate=100, per=60)

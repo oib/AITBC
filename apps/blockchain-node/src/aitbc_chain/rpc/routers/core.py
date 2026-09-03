@@ -357,10 +357,14 @@ async def get_state_delta_route(
     return await get_state_delta(request, from_height, to_height, chain_id)
 
 
-@router.post("/register-account", summary="Create/register a new account on the blockchain")
+@router.post("/register-account", summary="Report the on-chain state of an account address")
 @rate_limit(rate=100, per=60)
 async def create_account_route(request: Request, account_data: dict) -> dict[str, Any]:
-    """Create or register a new account on the blockchain"""
+    """Report the on-chain state of an account address.
+
+    Does not write to the account table: rows committed outside consensus desync the
+    state root. The account is created by the first transaction that credits it.
+    """
     return await create_account(request, account_data)  # type: ignore[no-any-return]
 
 
