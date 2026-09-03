@@ -351,6 +351,7 @@ def test_the_marketplace_offer_routes_document_their_404():
         ("post", "/v1/marketplace/offers/{offer_id}/book"),
         ("post", "/v1/marketplace/offer/{service_id}/rate"),
         ("get", "/v1/marketplace/offer/{service_id}/ratings"),
+        ("get", "/v1/marketplace/ipfs/rental/{access_key}"),
     }
     found = {(m.lower(), p) for p, m, op in _operations(spec) if "404" in op.get("responses", {})}
     assert not sorted(expected - found), f"still undocumented: {sorted(expected - found)}"
