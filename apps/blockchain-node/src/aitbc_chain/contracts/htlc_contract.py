@@ -7,9 +7,15 @@ Mirrors the logic of ``CrossChainAtomicSwap.sol``:
     refund_swap(swap_id)
 
 The Solidity contract locks funds in an EVM mapping; this implementation
-locks funds by debiting the initiator's ``Account`` balance and crediting a
-contract-escrow account. On completion, funds are credited to the participant;
-on refund, funds are returned to the initiator.
+locks funds by queueing a transfer from the initiator to a keyless escrow
+address. On completion the escrow pays the participant; on refund it pays the
+initiator back.
+
+Every one of those movements is a mempool transaction settled during block
+processing -- this module never writes an ``Account`` balance itself. Balances
+are covered by the block header's ``state_root``, so a mutation applied here
+would make the proposer's computed root disagree with the header it signed and
+stall block production.
 
 All state transitions are persisted via the ``HTLCSwapRecord`` SQLModel so
 swap state survives node restarts.
@@ -19,7 +25,6 @@ from __future__ import annotations
 
 import hashlib
 import time
-from datetime import UTC, datetime
 from enum import StrEnum
 
 from sqlmodel import Session
@@ -29,6 +34,7 @@ from aitbc.utils.chain_config import ChainConfigParser
 from ..base_models import Account, HTLCSwapState
 from ..config import settings
 from ..logger import get_logger
+from ..protocol_escrow import confirmed_lock_total, htlc_escrow_address, queue_protocol_transfer
 
 logger = get_logger(__name__)
 
@@ -44,10 +50,15 @@ def _get_chain_block_time_seconds(chain_id: str) -> int:
     return settings.block_time_seconds
 
 
-# Well-known address used as the HTLC contract's escrow account. In an EVM
-# chain this would be the deployed contract address; here we use a reserved
-# address that holds locked funds until swap completion or refund.
-HTLC_CONTRACT_ADDRESS = "0xhtlc_contract_0000000000000000000000000000000000000"
+# The HTLC contract's escrow account. In an EVM chain this would be the
+# deployed contract address; here it is a keyless address derived from a fixed
+# label, holding locked funds until swap completion or refund. Keyless is the
+# security barrier: no private key exists for it, so no signature can ever
+# recover to it and only this module can move its funds.
+#
+# coordinator-api defines a same-named constant of its own. That one is a
+# descriptive string in swap metadata and is deliberately not kept in sync.
+HTLC_CONTRACT_ADDRESS = htlc_escrow_address()
 
 
 class SwapStatus(StrEnum):
@@ -137,43 +148,33 @@ def _compute_swap_id(
     return "0x" + hashlib.sha256(data).hexdigest()
 
 
-def _get_or_create_account(session: Session, chain_id: str, address: str) -> Account:
-    """Get an account or create it with zero balance."""
-    account = session.get(Account, (chain_id, address))
-    if account is None:
-        account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-        session.add(account)
-        session.flush()
-    return account
+def _require_balance(session: Session, chain_id: str, address: str, amount: int) -> None:
+    """Reject early if ``address`` visibly cannot cover ``amount``.
 
-
-def _transfer_balance(
-    session: Session,
-    chain_id: str,
-    from_address: str,
-    to_address: str,
-    amount: int,
-) -> None:
-    """Transfer ``amount`` from one account to another within a DB session.
-
-    Raises:
-        ValueError: If the sender has insufficient balance.
+    Advisory only. The authoritative check is in the block-time transfer, which
+    re-reads the balance at execution; the initiator may spend elsewhere between
+    here and inclusion, in which case the proposer drops the lock and the swap
+    never becomes claimable (see ``_require_locked``).
     """
-    if amount <= 0:
-        raise ValueError(f"Transfer amount must be positive, got {amount}")
+    account = session.get(Account, (chain_id, address))
+    balance = account.balance if account is not None else 0
+    if balance < amount:
+        raise ValueError(f"Insufficient balance for {address}: has {balance}, needs {amount}")
 
-    sender = _get_or_create_account(session, chain_id, from_address)
-    if sender.balance < amount:
-        raise ValueError(f"Insufficient balance for {from_address}: has {sender.balance}, needs {amount}")
-    sender.balance -= amount
-    sender.nonce += 1
-    sender.updated_at = datetime.now(UTC)
-    session.add(sender)
 
-    recipient = _get_or_create_account(session, chain_id, to_address)
-    recipient.balance += amount
-    recipient.updated_at = datetime.now(UTC)
-    session.add(recipient)
+def _require_locked(session: Session, chain_id: str, swap_state: HTLCSwapState) -> None:
+    """Refuse to pay out of the escrow until this swap's lock is in a block.
+
+    The escrow is shared across all swaps, so paying out against a lock that is
+    still in the mempool -- or that the proposer dropped because the initiator
+    had since spent the balance -- would take other swaps' principal.
+    """
+    funded = confirmed_lock_total(session, chain_id, "HTLC_LOCK", "swap_id", swap_state.swap_id)
+    if funded < swap_state.amount:
+        raise ValueError(
+            f"Swap {swap_state.swap_id} lock is not confirmed on-chain "
+            f"({funded} of {swap_state.amount} locked); retry once it is included in a block"
+        )
 
 
 class HTLCContract:
@@ -253,8 +254,16 @@ class HTLCContract:
         if existing is not None and existing.status != SwapStatus.INVALID.value:
             raise ValueError(f"Swap ID already exists: {swap_id}")
 
-        # Transfer funds from initiator to contract escrow account
-        _transfer_balance(session, self.chain_id, initiator, HTLC_CONTRACT_ADDRESS, amount)
+        # Queue the lock; it settles against balances during block processing.
+        _require_balance(session, self.chain_id, initiator, amount)
+        queue_protocol_transfer(
+            sender=initiator,
+            recipient=HTLC_CONTRACT_ADDRESS,
+            amount=amount,
+            chain_id=self.chain_id,
+            tx_type="HTLC_LOCK",
+            payload={"swap_id": swap_id},
+        )
 
         # Persist swap state
         now = time.time()
@@ -331,8 +340,16 @@ class HTLCContract:
         if secret_hash != swap_state.hashlock.replace("0x", "", 1):
             raise ValueError("Invalid secret: hash does not match hashlock")
 
-        # Transfer funds from contract escrow to participant
-        _transfer_balance(session, self.chain_id, HTLC_CONTRACT_ADDRESS, swap_state.participant, swap_state.amount)
+        # Release from escrow to the participant, once the lock is confirmed.
+        _require_locked(session, self.chain_id, swap_state)
+        queue_protocol_transfer(
+            sender=HTLC_CONTRACT_ADDRESS,
+            recipient=swap_state.participant,
+            amount=swap_state.amount,
+            chain_id=self.chain_id,
+            tx_type="HTLC_CLAIM",
+            payload={"swap_id": swap_state.swap_id},
+        )
 
         # Update swap state
         now = time.time()
@@ -393,8 +410,16 @@ class HTLCContract:
         if current_height < swap_state.timelock:
             raise ValueError("Swap timelock not yet expired")
 
-        # Transfer funds from contract escrow back to initiator
-        _transfer_balance(session, self.chain_id, HTLC_CONTRACT_ADDRESS, swap_state.initiator, swap_state.amount)
+        # Return escrowed funds to the initiator, once the lock is confirmed.
+        _require_locked(session, self.chain_id, swap_state)
+        queue_protocol_transfer(
+            sender=HTLC_CONTRACT_ADDRESS,
+            recipient=swap_state.initiator,
+            amount=swap_state.amount,
+            chain_id=self.chain_id,
+            tx_type="HTLC_REFUND",
+            payload={"swap_id": swap_state.swap_id},
+        )
 
         # Update swap state
         now = time.time()

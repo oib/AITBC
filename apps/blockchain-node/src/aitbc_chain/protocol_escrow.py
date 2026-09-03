@@ -52,6 +52,7 @@ def _derive(env_var: str, label: bytes) -> str:
 # share one escrow: both hold user principal that is returned on withdrawal.
 _STAKE_ESCROW_ADDRESS = _derive("STAKE_ESCROW_ADDRESS", b"aitbc.stake.escrow")
 _BOUNTY_ESCROW_ADDRESS = _derive("BOUNTY_ESCROW_ADDRESS", b"aitbc.bounty.escrow")
+_HTLC_ESCROW_ADDRESS = _derive("HTLC_ESCROW_ADDRESS", b"aitbc.htlc.escrow")
 
 
 def stake_escrow_address() -> str:
@@ -64,13 +65,18 @@ def bounty_escrow_address() -> str:
     return _to_ait_address(_BOUNTY_ESCROW_ADDRESS)
 
 
+def htlc_escrow_address() -> str:
+    """AIT-form address of the cross-chain HTLC escrow."""
+    return _to_ait_address(_HTLC_ESCROW_ADDRESS)
+
+
 def is_protocol_escrow(address: str) -> bool:
     """Return True if ``address`` is one of the keyless protocol escrows."""
     try:
         canonical = canonical_address(address)
     except Exception:
         return False
-    return canonical in {_STAKE_ESCROW_ADDRESS, _BOUNTY_ESCROW_ADDRESS}
+    return canonical in {_STAKE_ESCROW_ADDRESS, _BOUNTY_ESCROW_ADDRESS, _HTLC_ESCROW_ADDRESS}
 
 
 def queue_protocol_transfer(
