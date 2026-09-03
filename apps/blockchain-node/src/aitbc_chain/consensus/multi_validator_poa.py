@@ -72,7 +72,7 @@ class Validator:
 class MultiValidatorPoA:
     """Multi-Validator Proof of Authority consensus mechanism"""
 
-    def __init__(self, chain_id: str):
+    def __init__(self, chain_id: str, load_state: bool = True):
         if not settings.multi_validator_consensus_enabled:
             raise RuntimeError(
                 "MultiValidatorPoA is not yet activated. "
@@ -120,7 +120,15 @@ class MultiValidatorPoA:
         self._pbft_view: int = 0
         self._pbft_sequence: int = 0
 
-        self.load_state()
+        if load_state:
+            self.load_state()
+
+    @classmethod
+    def from_settings(cls, chain_id: str) -> "MultiValidatorPoA":
+        """Build a consensus instance directly from settings without touching the DB."""
+        instance = cls(chain_id, load_state=False)
+        instance._load_validator_set_from_settings()
+        return instance
 
     def add_validator(self, address: str, stake: Decimal | float | str = Decimal("1000")) -> bool:
         """Add a new validator to the consensus"""

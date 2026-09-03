@@ -297,6 +297,18 @@ class PoAProposer:
         attestations: list[dict[str, str]] = []
         seen: set[str] = set()
 
+        active_validators = (
+            self._multi_validator.get_consensus_participants()
+            if self._multi_validator is not None
+            else list(self._validator_keys.keys())
+        )
+        configured_min = getattr(settings, "multi_validator_min_attestations", 0)
+        # The configured minimum cannot exceed the number of validators that are
+        # allowed to attest (everyone except the proposer).  This prevents an
+        # impossible quorum from stalling block production when the validator
+        # set is small or a member is offline.
+        effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
+
         if self._validator_keys:
             message = self._block_header_message(block)
             for address, private_key in self._validator_keys.items():
@@ -312,10 +324,13 @@ class PoAProposer:
                     self._logger.warning("Failed to collect attestation from %s: %s", address, e)
 
         if self._remote_attestation is not None:
-            min_remote = max(0, getattr(settings, "multi_validator_min_attestations", 0) - len(attestations))
-            if min_remote > 0 or getattr(settings, "multi_validator_min_attestations", 0) > 0:
+            min_remote = max(0, effective_min - len(attestations))
+            if min_remote > 0 or effective_min > 0:
+                # Give slow validators more time when more responses are needed.
+                base_timeout = getattr(settings, "multi_validator_attestation_timeout_seconds", 1.0)
+                timeout = max(float(base_timeout), 0.5 * min_remote + float(base_timeout))
                 try:
-                    remote = await self._remote_attestation.collect_attestations(block, min_remote)
+                    remote = await self._remote_attestation.collect_attestations(block, min_remote, timeout=timeout)
                     for att in remote:
                         addr = canonical_address(att["validator"])
                         if addr not in seen:
@@ -353,10 +368,17 @@ class PoAProposer:
             return
         self._logger.info("Stopping PoA proposer loop")
         self._stop_event.set()
-        await self._task
+        self._task.cancel()
+        try:
+            await asyncio.wait_for(self._task, timeout=5.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            self._logger.warning("PoA proposer loop did not stop within timeout")
         self._task = None
         if self._remote_attestation is not None:
-            await self._remote_attestation.stop()
+            try:
+                await asyncio.wait_for(self._remote_attestation.stop(), timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                self._logger.warning("Remote attestation listener did not stop within timeout")
             self._logger.info("Remote attestation listener stopped for chain %s", self._config.chain_id)
 
     async def _run_loop(self) -> None:
@@ -1006,13 +1028,22 @@ class PoAProposer:
             metadata_dict: dict[str, Any] = {}
             if self._multi_validator:
                 attestations = await self._collect_attestations(block)
-                min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
-                if min_attestations and len(attestations) < min_attestations:
+                configured_min = getattr(settings, "multi_validator_min_attestations", 0)
+                active_validators = self._multi_validator.get_consensus_participants()
+                effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
+                if configured_min > effective_min:
+                    self._logger.warning(
+                        "Configured min_attestations %d reduced to %d because only %d non-proposer validators are active",
+                        configured_min,
+                        effective_min,
+                        max(0, len(active_validators) - 1),
+                    )
+                if effective_min and len(attestations) < effective_min:
                     self._logger.warning(
                         "Not enough attestations for multi-validator block %s: got %d, need %d",
                         next_height,
                         len(attestations),
-                        min_attestations,
+                        effective_min,
                     )
                     session.rollback()
                     return False
