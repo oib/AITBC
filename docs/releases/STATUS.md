@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -51,14 +51,15 @@
 | v0.11.0 | Phase 4 & 2026 Roadmap Foundations | 🚧 Planned | OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 criteria, compliance modules |
 | v0.12.0 | OpenClaw Autonomous Economics | 🚧 Planned | Agent wallets/escrow, performance bonds, automated rebalancing, dynamic fee market, OpenClaw DAO economic governance |
 | v0.13.0 | Mature Autonomous Economic Infrastructure | 🚧 Planned | Automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals |
-| v0.14.1 | TEE-Backed Verification & Confidential Compute (Phase 1) | 🚧 Planned | Attestation, enclaves, confidential messaging, TEE-backed data processing |
-| v0.14.2 | TEE-Backed Verification & Confidential Compute (Phase 2) | 🚧 Planned | ZK+TEE dual verification, confidential transactions, healthcare/finance reference enclaves |
+| v0.14.1 | TEE-Backed Verification & Confidential Compute (Phase 1) | ⏸️ Deferred to v2.0 | Simulated path (`SIMULATED_TEE=1`) is live and gated; real attestation deferred until TEE hardware is available — see [Deferred to v2.0](#deferred-to-v20--hardware-backed-tee) |
+| v0.14.2 | TEE-Backed Verification & Confidential Compute (Phase 2) | ⏸️ Deferred to v2.0 | ZK+TEE dual verification, confidential transactions, healthcare/finance reference enclaves; blocked on the same hardware dependency as v0.14.1 |
 | v0.15.1 | Compliance-Ready Modules (Phase 1) | 🚧 Planned | Policy framework, data classification, encryption, immutable audit logging, HIPAA |
 | v0.15.2 | Compliance-Ready Modules (Phase 2) | 🚧 Planned | Compliance containers/sub-networks, financial regulatory module, middleware, CLI |
 | v0.16.1 | Platform Builder Tooling (Phase 1) | 🚧 Planned | CLI config tool, developer registry, DAO grants, local dev helpers, builder docs |
 | v0.16.2 | Platform Builder Tooling (Phase 2) | 🚧 Planned | SDK, SDK reference docs, white-label/plugin architecture |
 | v0.17.0 | Accessibility & Theme Engine | 🚧 Planned | Light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
+| v2.0.0 | Hardware-backed TEE attestation | 🚧 Planned (no date) | Holds the deferred v0.14.1/v0.14.2 scope. Cannot start until SGX/TDX-capable hardware is available to the fleet. |
 | v0.24.0 | Hub node development special | ✅ Complete | See [v0.24.0 overview](v0.24/v0.24.0_change.log); details split into v0.24.1–v0.24.18 |
 | v0.25.0 | On-chain liquidity, sync consolidation and MCP expansion | ✅ Complete | AIT-only on-chain liquidity pool, MCP server expansion; see v0.25.0_change.log |
 | v0.25.1 | Open follow-ups and design notes | ✅ Complete | Post-v0.25.0 live-validation gaps and operational tasks; see v0.25.1_change.log |
@@ -205,9 +206,44 @@ Honest assessment: the cryptographic enforcement was successfully activated and 
 
 | Property | Verdict | Notes |
 |---|---|---|
-| The result is verifiable | **IMPROVED, NOT FULLY INDEPENDENT** | ZK and TEE gates now enforce stronger checks: `receipt_model` proves a committed deterministic model executed on committed input/output and `computation_correct` is only `True` when public signals match coordinator-derived values; TEE requires a registered enclave from an owner-locked allowlist and rejects `auto_attested` / unregistered / self-consistent quotes for release. Both still depend on data supplied by the party being paid and do not establish an independent manufacturer/root-of-trust or semantic correctness of open-ended responses. |
+| The result is verifiable | **IMPROVED, NOT FULLY INDEPENDENT** | ZK and TEE gates now enforce stronger checks: `receipt_model` proves a committed deterministic model executed on committed input/output and `computation_correct` is only `True` when public signals match coordinator-derived values; TEE requires a registered enclave from an owner-locked allowlist and rejects `auto_attested` / unregistered / self-consistent quotes for release. The hardware-rooted half of TEE is deferred to release 2.0 until TEE-capable hardware is available (see [Deferred to v2.0](#deferred-to-v20--hardware-backed-tee)), so this row cannot improve before then. Both still depend on data supplied by the party being paid and do not establish an independent manufacturer/root-of-trust or semantic correctness of open-ended responses. |
 | A bad provider loses something | **HOLDS, LIVE TESTED** | A 50% `fraud` slash was exercised end-to-end in a previous session (operator dispute `refund` -> on-chain `BOND_SLASH` tx -> coordinator metadata updated). The `BondSlashingService` nonce lookup was also corrected to use the blockchain RPC `/rpc/accounts/{address}` endpoint (`fbb1fa54d`). |
 | Settlement is trust-minimised | **PARTIALLY HOLDS (live two-validator consensus recovered, not BFT)** | `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` with a real second, independently-keyed host (`aitbc1`) is live and recovered from the 2026-08-25 stall after fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. Blocks 14548+ advance every ~60s with round-robin proposers and valid cross-validator attestations in `block_metadata`. Independent live verification confirmed 15 consecutive blocks (14592–14612) with every proposer and attestation signature checking out and correctly attributed. `PBFTConsensus` is still not wired into production, and a two-validator, `min-attestations=1` setup can still stall if one validator is unreachable, so fault tolerance is not yet proven. Bridge multi-sig/Merkle enforcement is implemented and was live-tested; `bridge_release_enabled=true` on `hub.aitbc`/`aitbc3` but `aitbc1` (validator) still has `false`. Settlement is meaningfully less centralized than before, but not yet trust-minimised in a way this pass can certify as robust. |
+
+## Deferred to v2.0 — hardware-backed TEE
+
+**Decision (2026-09-03):** the TEE work is moved to **release 2.0** and held there
+until TEE-capable hardware is available. Nothing is being reverted or removed — the
+simulated path stays live and gated; only the hardware-rooted half is deferred.
+
+**What is live today.** The confidential-compute path runs under `SIMULATED_TEE=1`.
+Attestation, enclave registration, the owner-locked allowlist, confidential
+messaging and the release gate are all implemented and live-validated: a released
+escrow with `tee_status: verified` and `confidential: true`, plus a negative-case
+matrix that rejects `auto_attested`, unregistered and self-consistent quotes.
+
+**What is deferred.** Real SGX/TDX attestation — a quote signed by a chain that
+terminates at a hardware root of trust, rather than one generated by the same party
+that runs the workload. Without it the TEE gate raises the cost of lying but does
+not establish an independent root of trust, which is exactly the caveat recorded in
+the economic loop verdict below and in
+`docs/scenarios/46_tee_confidential_jobs.md`.
+
+**Blocking dependency.** No SGX/TDX-capable host in the fleet. All four validators
+(`hub.aitbc`, `hub2.aitbc`, `node1`, `node2`) are ordinary VMs with no enclave
+runtime — `aitbc tee launch` reports "no TEE runtime present". This is a hardware
+procurement dependency, not an engineering backlog item, so it carries no date.
+
+**Scope parked under v2.0.0:** v0.14.1 (Phase 1 — attestation, enclaves,
+confidential messaging, TEE-backed data processing) and v0.14.2 (Phase 2 — ZK+TEE
+dual verification, confidential transactions, healthcare/finance reference
+enclaves).
+
+**Re-entry criteria.** When hardware lands: obtain a real quote on that host, verify
+the certificate chain to the vendor root, pin the measurement of a reproducibly
+built enclave, and only then allow `tee_status: verified` to depend on a
+hardware-signed quote rather than a simulated one. Until then the release gate must
+keep treating simulated attestation as simulated.
 
 ## Closed design-cycle findings
 
