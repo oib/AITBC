@@ -283,6 +283,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Stale miner reaper disabled (COORDINATOR_STALE_MINER_REAPER_ENABLED=false)")
 
+        # G3/G5: proactively expire abandoned QUEUED/RUNNING jobs whose TTL has
+        # passed or whose assigned miner has gone dark. JobService._ensure_not_expired
+        # already performs this transition but only on incidental reads of a
+        # specific job; this reaper makes sure an orphaned job (nobody polling it)
+        # still gets expired, so StuckEscrowSweeper can refund its held escrow and
+        # BondSlashSweeper stops re-matching it every cycle.
+        from .contexts.infrastructure.services.stale_job_reaper import (
+            StaleJobReaper,
+            reaper_enabled as stale_job_reaper_enabled,
+        )
+
+        if stale_job_reaper_enabled():
+            await task_manager.start_task("stale_job_reaper", StaleJobReaper().run_forever)
+            logger.info("Stale job reaper started")
+        else:
+            logger.info("Stale job reaper disabled (COORDINATOR_STALE_JOB_REAPER_ENABLED=false)")
+
         logger.info("🚀 Coordinator API is ready to serve requests")
 
         lifecycle_state.set_state(lifecycle_state.RUNNING)
