@@ -10,7 +10,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `agent-wallet` — Agent-owned wallet, staking, and rebalancing commands.. Subcommands: `balance`, `rebalance`, `stake`
 - `ai` — AI job submission and inspection. Subcommands: `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit`
 - `analytics` — Chain analytics and monitoring commands. Subcommands: `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary`
-- `blockchain` — Multi-chain management commands. Subcommands: `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
+- `blockchain` — Multi-chain management commands. Subcommands: `add`, `backup`, `block`, `consensus`, `create`, `delete`, `height`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
 - `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up`
 - `bootstrap` — Bootstrap local development and configuration files.. Subcommands: `bootstrap-env`
 - `brand` — Show and manage white-label brand settings.. Subcommands: `list`, `show`
@@ -60,7 +60,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `start` — Start all AITBC services for the current (or selected) role
 - `stop` — Stop all AITBC services for the current (or selected) role
 - `sync` — Blockchain synchronization utilities. Subcommands: `bulk`, `status`
-- `system` — System management commands. Subcommands: `architect`, `audit`, `check`, `config`, `restart`, `status`
+- `system` — System management commands. Subcommands: `architect`, `audit`, `cat`, `check`, `config`, `cron`, `file`, `logs`, `restart`, `run-script`, `show`, `start`, `status`, `stop`
 - `trade` — Inter-chain trading operations. Subcommands: `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch`
 - `transactions` — Transaction management commands. Subcommands: `batch`, `estimate-fee`, `pending`, `search`, `send`, `status`
 - `update` — Pull the latest code and run scripts/deployment/update.sh.
@@ -68,3 +68,4 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `wallet` — Manage your wallets and transactions. Subcommands: `address`, `backup`, `balance`, `bridge`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-claim`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake`
 - `workflow` — Workflow management commands. Subcommands: `list`, `run`, `status`, `stop`
 - `zk` — Zero-knowledge proof commands.. Subcommands: `circuits`, `health`, `verify`
+- `http` — Generic HTTP client for local AITBC services. Subcommands: `call`
