@@ -2065,8 +2065,6 @@ def call_aitbc_http(
             timeout,
             auth,
             auth_env,
-            auth=auth,
-            auth_env=auth_env,
         )
     )
 
