@@ -90,7 +90,7 @@ def resolve_output_format(ctx, command_format: str | None = None) -> str:
     return "table"
 
 
-def OUTPUT_FORMAT_OPTION(command: Any | None = None, *, default: str = "table") -> Any:
+def OUTPUT_FORMAT_OPTION(command: Any | None = None, *, default: str | None = None) -> Any:
     """Decorator that adds ``--format`` / ``--output`` aliases to a command.
 
     Works as ``@OUTPUT_FORMAT_OPTION`` or as a click option factory.
