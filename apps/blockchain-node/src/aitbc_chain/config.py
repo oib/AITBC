@@ -612,6 +612,8 @@ class ChainSettings(BaseSettings):
     # validators will, but the slot then rotates on ordinary blocks instead of
     # only when a proposer is missing. The default leaves room for a validator
     # configured with a 180s empty-block interval.
+    # Left unset, this is derived from ``max_empty_block_interval`` -- see
+    # ``_scale_the_proposer_round_to_the_heartbeat``. An explicit value wins.
     consensus_proposer_round_seconds: int = 300
     # Drop a pre-prepare whose sender is not the scheduled proposer for the
     # block's height and round. Setting this False restores the pre-v0.25.6
@@ -636,6 +638,24 @@ class ChainSettings(BaseSettings):
     escrow_htlc_enabled: bool = True  # use HTLC contract for escrow
     escrow_htlc_contract_address: str = ""  # deployed CrossChainAtomicSwap.sol
     escrow_large_trade_threshold: int = 10000  # trades above this use large timeout
+
+    @model_validator(mode="after")
+    def _scale_the_proposer_round_to_the_heartbeat(self) -> ChainSettings:
+        """Size the round window from the heartbeat unless it was set explicitly.
+
+        The window has to clear the longest gap a healthy network leaves
+        between blocks, or an ordinary late block is attributed to the next
+        round and its proposer is skipped. That gap is set by
+        ``max_empty_block_interval``, so a constant here and a per-deployment
+        heartbeat there are free to drift apart -- and had: 300s against the
+        deployed 60s heartbeat, on a chain measured producing a block every
+        62-72s, meant a validator going dark cost five minutes on every height
+        it owned. Twice the heartbeat keeps a wide margin over the healthy gap
+        while rotating within about two block times.
+        """
+        if "consensus_proposer_round_seconds" not in self.model_fields_set:
+            self.consensus_proposer_round_seconds = max(120, 2 * self.max_empty_block_interval)
+        return self
 
     @model_validator(mode="after")
     def _resolve_validate_signatures(self) -> ChainSettings:
