@@ -12,7 +12,7 @@ Create a new mining pool
 - `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create genesis wallet with secure random secp256k1 private key
 - `apps/blockchain-node/create_genesis.py` — Simple script to create genesis block
 - `apps/blockchain-node/scripts/create_bootstrap_genesis.py` — Generate a genesis file with initial distribution for the exchange economy.
-- `Blockchain Node` exposes `POST /rpc/register-account` (operation `create_account_route_rpc_register_account_post`) — Create/register a new account on the blockchain
+- `Blockchain Node` exposes `POST /rpc/register-account` (operation `create_account_route_rpc_register_account_post`) — Report the on-chain state of an account address
 - `Coordinator API` exposes `POST /v1/bounty/create` (operation `create_bounty_v1_bounty_create_post`) — Create a new bounty
 - `Coordinator API` exposes `POST /v1/governance-enhanced/staking/pools` (operation `create_staking_pool_v1_governance_enhanced_staking_pools_post`) — Create Staking Pool
 
