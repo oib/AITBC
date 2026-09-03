@@ -14,6 +14,7 @@ from ..base_models import AgentStakeMemo, AgentStakeRecord, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account
+from ..protocol_escrow import confirmed_lock_total, queue_protocol_transfer, stake_escrow_address
 from .agent_economics_auth import require_int, require_operator_signature
 from .utils import get_chain_id, validate_chain_id
 
@@ -66,8 +67,10 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
         account = _account(session, chain_id, staker)
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
-        account.balance -= amount
-        session.add(account)
+        # Only the stake record is written here. The debit is carried by the
+        # STAKE_LOCK transfer and applied at block time; mutating the account
+        # table outside block processing desynchronises it from every block
+        # header. See ``protocol_escrow``.
         locked_until = datetime.now(UTC) + timedelta(days=lock_period)
         record = AgentStakeRecord(
             chain_id=chain_id,
@@ -81,15 +84,27 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
         )
         session.add(record)
         session.commit()
-        _logger.info("Agent stake locked: %s amount=%s staker=%s", stake_id, amount, staker)
-        return {
+        session.refresh(record)
+        result = {
             "success": True,
             "stake_id": record.stake_id,
             "amount": record.amount,
             "status": record.status,
             "locked_until": record.locked_until.isoformat(),
-            "remaining_balance": account.balance,
         }
+
+    tx_hash = queue_protocol_transfer(
+        sender=staker,
+        recipient=stake_escrow_address(),
+        amount=amount,
+        chain_id=chain_id,
+        tx_type="STAKE_LOCK",
+        payload={"agent_stake_id": str(stake_id)},
+    )
+    _logger.info("Agent stake lock queued: %s amount=%s staker=%s tx=%s", stake_id, amount, staker, tx_hash)
+    result["transaction_hash"] = tx_hash
+    result["message"] = "Stake lock submitted to mempool; the balance moves when the transaction is included in a block"
+    return result
 
 
 @rate_limit(rate=20, per=60)
@@ -112,13 +127,32 @@ async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, An
         account = _account(session, chain_id, user)
         if account.balance < additional:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {additional}")
-        account.balance -= additional
+        # As in create_agent_stake: the record grows here, the balance moves in
+        # a block. Each top-up queues its own STAKE_LOCK, and
+        # complete_agent_stake requires the confirmed locks to cover the whole
+        # principal before it releases anything.
         record.amount += additional
         record.updated_at = datetime.now(UTC)
-        session.add(account)
         session.add(record)
         session.commit()
-        return {"success": True, "stake_id": record.stake_id, "amount": record.amount, "remaining_balance": account.balance}
+        session.refresh(record)
+        total_amount = record.amount
+
+    tx_hash = queue_protocol_transfer(
+        sender=user,
+        recipient=stake_escrow_address(),
+        amount=additional,
+        chain_id=chain_id,
+        tx_type="STAKE_LOCK",
+        payload={"agent_stake_id": str(stake_id)},
+    )
+    return {
+        "success": True,
+        "stake_id": str(stake_id),
+        "amount": total_amount,
+        "transaction_hash": tx_hash,
+        "message": "Stake top-up submitted to mempool; the balance moves when the transaction is included in a block",
+    }
 
 
 @rate_limit(rate=20, per=60)
@@ -177,22 +211,39 @@ async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, 
             locked_until = locked_until.replace(tzinfo=UTC)
         if now < locked_until:
             raise HTTPException(status_code=400, detail="Lock period not expired")
-        account = session.get(Account, (chain_id, user))
-        if not account:
-            account = Account(chain_id=chain_id, address=user, balance=0, nonce=0)
-        account.balance += record.amount
+        # The escrow is shared across all stakers, so the full principal must
+        # be provably in it before any of it is released back.
+        funded = confirmed_lock_total(session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id)
+        if funded < record.amount:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Stake {record.stake_id} is not fully confirmed on-chain "
+                    f"({funded} of {record.amount} locked); retry once the lock transactions are in a block"
+                ),
+            )
+        amount = record.amount
         record.status = "completed"
         record.updated_at = now
-        session.add(account)
         session.add(record)
         session.commit()
-        return {
-            "success": True,
-            "stake_id": record.stake_id,
-            "status": record.status,
-            "amount": record.amount,
-            "remaining_balance": account.balance,
-        }
+
+    tx_hash = queue_protocol_transfer(
+        sender=stake_escrow_address(),
+        recipient=user,
+        amount=amount,
+        chain_id=chain_id,
+        tx_type="STAKE_RELEASE",
+        payload={"agent_stake_id": str(stake_id)},
+    )
+    return {
+        "success": True,
+        "stake_id": str(stake_id),
+        "status": "completed",
+        "amount": amount,
+        "transaction_hash": tx_hash,
+        "message": "Stake release submitted to mempool; the balance moves when the transaction is included in a block",
+    }
 
 
 def _write_memo(kind: str, body: dict[str, Any]) -> dict[str, Any]:

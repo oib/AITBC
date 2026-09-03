@@ -25,6 +25,7 @@ from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Escrow, Stake
+from ..protocol_escrow import queue_protocol_transfer, stake_escrow_address
 
 from .utils import _unsigned_tx_fields
 
@@ -209,15 +210,19 @@ async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | N
                         return None
             account = session.get(Account, (chain_id, address))
             if not account:
-                _logger.warning("AUTO_STAKE: no account for %s, creating with zero balance", address)
-                account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-                session.add(account)
+                # Do not create the row. The provider account is created by the
+                # ESCROW_RELEASE credit during block processing; writing it here
+                # would add an account no block header accounts for, and the
+                # state root is a full scan of that table.
+                _logger.warning("AUTO_STAKE: no account yet for %s; skipping reinvestment", address)
+                return None
             if account.balance < amount:
                 _logger.warning("AUTO_STAKE: insufficient balance for %s: %s < %s", address, account.balance, amount)
                 return None
-            account.balance -= amount
-            session.add(account)
             locked_until = datetime.now(UTC) + timedelta(days=30)
+            # The stake row is not part of the state root; the balance is. The
+            # debit therefore rides on a STAKE_LOCK transfer applied at block
+            # time rather than being committed here. See ``protocol_escrow``.
             stake = Stake(
                 chain_id=chain_id,
                 address=address,
@@ -228,7 +233,15 @@ async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | N
             session.add(stake)
             session.commit()
             session.refresh(stake)
-            _logger.info("AUTO_STAKE: %s staked %s, stake_id=%s", address, amount, stake.id)
+            queue_protocol_transfer(
+                sender=address,
+                recipient=stake_escrow_address(),
+                amount=amount,
+                chain_id=chain_id,
+                tx_type="STAKE_LOCK",
+                payload={"stake_id": str(stake.id), "source": "auto_stake"},
+            )
+            _logger.info("AUTO_STAKE: %s staking %s queued, stake_id=%s", address, amount, stake.id)
             # Stake.id is an int; every consumer (the release response, the
             # coordinator's ReceiptView.reinvest_stake_id) declares it a string.
             return str(stake.id)

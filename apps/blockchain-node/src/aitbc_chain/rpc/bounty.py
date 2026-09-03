@@ -14,6 +14,7 @@ from ..base_models import BountyContract, BountySubmissionRecord, _to_ait_addres
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account
+from ..protocol_escrow import bounty_escrow_address, confirmed_lock_total, queue_protocol_transfer
 from .agent_economics_auth import require_int, require_operator_signature
 from .utils import get_chain_id, validate_chain_id
 
@@ -31,6 +32,26 @@ def _get_bounty(session: Session, chain_id: str, bounty_id: str) -> BountyContra
     return session.exec(
         select(BountyContract).where(BountyContract.chain_id == chain_id, BountyContract.bounty_id == bounty_id)
     ).first()
+
+
+def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> None:
+    """Refuse to pay out of the shared bounty escrow before the lock has landed.
+
+    The BountyContract row is written as soon as the lock is queued -- it is not
+    part of the state root, so it cannot desynchronise it -- but that means a
+    bounty can look active while its funds are still in the mempool, or while
+    the lock has been dropped because the creator spent the balance first.
+    Paying then would come out of other creators' locked rewards.
+    """
+    funded = confirmed_lock_total(session, chain_id, "BOUNTY_LOCK", "bounty_id", bounty.bounty_id)
+    if funded < bounty.reward_amount:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Bounty {bounty.bounty_id} is not fully confirmed on-chain "
+                f"({funded} of {bounty.reward_amount} locked); retry once the lock transaction is in a block"
+            ),
+        )
 
 
 @rate_limit(rate=20, per=60)
@@ -58,7 +79,9 @@ async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any
         account = _account(session, chain_id, creator)
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
-        account.balance -= amount
+        # Only the contract row is written here. The debit rides on the
+        # BOUNTY_LOCK transfer and is applied at block time; see
+        # ``protocol_escrow`` for why the account table must not be touched.
         record = BountyContract(
             chain_id=chain_id,
             bounty_id=str(bounty_id),
@@ -67,17 +90,28 @@ async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any
             remaining_amount=amount,
             status="active",
         )
-        session.add(account)
         session.add(record)
         session.commit()
-        _logger.info("Bounty locked: %s amount=%s creator=%s", bounty_id, amount, creator)
-        return {
+        session.refresh(record)
+        result = {
             "success": True,
             "bounty_id": record.bounty_id,
             "remaining_amount": record.remaining_amount,
             "status": record.status,
-            "remaining_balance": account.balance,
         }
+
+    tx_hash = queue_protocol_transfer(
+        sender=creator,
+        recipient=bounty_escrow_address(),
+        amount=amount,
+        chain_id=chain_id,
+        tx_type="BOUNTY_LOCK",
+        payload={"bounty_id": str(bounty_id)},
+    )
+    _logger.info("Bounty lock queued: %s amount=%s creator=%s tx=%s", bounty_id, amount, creator, tx_hash)
+    result["transaction_hash"] = tx_hash
+    result["message"] = "Bounty lock submitted to mempool; the balance moves when the transaction is included in a block"
+    return result
 
 
 @rate_limit(rate=20, per=60)
@@ -141,18 +175,15 @@ async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
         if not submission:
             raise HTTPException(status_code=404, detail=f"Submission {submission_id} not found")
         now = datetime.now(UTC)
+        winner = None
         if verified:
+            _require_funded(session, chain_id, bounty)
             winner = submission.submitter_address
-            account = session.get(Account, (chain_id, winner))
-            if not account:
-                account = Account(chain_id=chain_id, address=winner, balance=0, nonce=0)
             payout = bounty.remaining_amount
-            account.balance += payout
             bounty.remaining_amount = 0
             bounty.status = "completed"
             bounty.winner_address = winner
             submission.status = "verified"
-            session.add(account)
         else:
             submission.status = "rejected"
             payout = 0
@@ -161,7 +192,20 @@ async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
         session.add(submission)
         session.add(bounty)
         session.commit()
-        return {"success": True, "bounty_id": bounty_id, "status": bounty.status, "payout": payout}
+        status = bounty.status
+
+    result = {"success": True, "bounty_id": bounty_id, "status": status, "payout": payout}
+    if winner and payout:
+        result["transaction_hash"] = queue_protocol_transfer(
+            sender=bounty_escrow_address(),
+            recipient=winner,
+            amount=payout,
+            chain_id=chain_id,
+            tx_type="BOUNTY_PAYOUT",
+            payload={"bounty_id": str(bounty_id), "submission_id": str(submission_id)},
+        )
+        result["message"] = "Bounty payout submitted to mempool; the balance moves when the transaction is included in a block"
+    return result
 
 
 @rate_limit(rate=20, per=60)
@@ -213,12 +257,23 @@ async def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
             raise HTTPException(status_code=400, detail="Bounty already completed")
         refund = bounty.remaining_amount
         if refund:
-            account = _account(session, chain_id, user)
-            account.balance += refund
-            session.add(account)
+            _require_funded(session, chain_id, bounty)
         bounty.remaining_amount = 0
         bounty.status = "expired"
         bounty.updated_at = datetime.now(UTC)
         session.add(bounty)
         session.commit()
-        return {"success": True, "bounty_id": bounty.bounty_id, "status": bounty.status, "refunded": refund}
+        status = bounty.status
+
+    result = {"success": True, "bounty_id": bounty_id, "status": status, "refunded": refund}
+    if refund:
+        result["transaction_hash"] = queue_protocol_transfer(
+            sender=bounty_escrow_address(),
+            recipient=user,
+            amount=refund,
+            chain_id=chain_id,
+            tx_type="BOUNTY_REFUND",
+            payload={"bounty_id": str(bounty_id)},
+        )
+        result["message"] = "Bounty refund submitted to mempool; the balance moves when the transaction is included in a block"
+    return result

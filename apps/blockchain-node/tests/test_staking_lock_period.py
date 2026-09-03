@@ -109,9 +109,30 @@ async def test_stake_succeeds_on_any_calendar_day(staking_env, monkeypatch, froz
 
 
 @pytest.mark.anyio
-async def test_balance_is_debited_exactly_once(staking_env, monkeypatch) -> None:
-    """The balance debit and the Stake row must both land -- the old bug raised between them."""
+async def test_stake_row_lands_and_the_debit_is_deferred_to_a_block(staking_env, monkeypatch) -> None:
+    """The Stake row lands here; the debit does not.
+
+    This test used to assert ``account.balance == 1_000_000 - 1000`` immediately
+    after the call, because stake_tokens committed the debit itself. That is the
+    defect that froze the fleet on 2026-09-03: the block header state_root is a
+    full scan of the account table, so a balance committed outside block
+    processing makes the computed root disagree with the parent header and the
+    proposer refuses to build. The debit now rides on a STAKE_LOCK transfer to
+    the protocol escrow and is applied at block time.
+    """
+    from aitbc_chain import mempool as mempool_module
+    from aitbc_chain.protocol_escrow import stake_escrow_address
+
     _freeze_now(monkeypatch, datetime(2026, 1, 31, 12, 0, tzinfo=UTC))
+
+    queued: list[dict] = []
+
+    class _Mempool:
+        def add(self, tx, chain_id=None, tx_hash=None):
+            queued.append(tx)
+            return "0x" + "cd" * 32
+
+    monkeypatch.setattr(mempool_module, "get_mempool", lambda: _Mempool())
 
     result = await _stake(amount=1000, lock_days=30)
 
@@ -120,10 +141,17 @@ async def test_balance_is_debited_exactly_once(staking_env, monkeypatch) -> None
         stakes = session.exec(select(Stake).where(Stake.address == STAKER)).all()
 
     assert account is not None
-    assert account.balance == 1_000_000 - 1000
-    assert result["remaining_balance"] == 1_000_000 - 1000
+    assert account.balance == 1_000_000, "the debit must happen in a block, not in the handler"
+    assert "remaining_balance" not in result
     assert len(stakes) == 1
     assert stakes[0].amount == 1000
+
+    assert len(queued) == 1
+    assert queued[0]["type"] == "STAKE_LOCK"
+    assert queued[0]["from"] == STAKER
+    assert queued[0]["to"] == stake_escrow_address()
+    assert queued[0]["amount"] == 1000
+    assert result["transaction_hash"] == "0x" + "cd" * 32
 
 
 @pytest.mark.anyio

@@ -15,6 +15,7 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..mempool import get_mempool
+from ..protocol_escrow import protocol_transfer_confirmed, queue_protocol_transfer, stake_escrow_address
 from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
 from .utils import get_chain_id, sign_transaction_data, validate_chain_id, verify_request_signature
 
@@ -66,23 +67,39 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
             raise HTTPException(status_code=404, detail=f"Account {address} not found")
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
-        account.balance -= amount
-        session.add(account)
+        # The stake row is not part of the state root, so writing it here is
+        # safe. The balance is, so it is not touched: the debit happens when
+        # the STAKE_LOCK transfer is included in a block. Committing
+        # ``account.balance -= amount`` here would put the account table out of
+        # step with every block header and stall the proposer -- the failure
+        # that froze the fleet on 2026-09-03. See ``protocol_escrow``.
         locked_until = datetime.now(UTC) + timedelta(days=lock_days)
         stake = Stake(chain_id=chain_id, address=address, amount=amount, locked_until=locked_until, status="active")
         session.add(stake)
         session.commit()
-        _logger.info("Tokens staked: %s staked %s on %s", address, amount, chain_id)
-        return {
-            "success": True,
-            "stake_id": stake.id,
-            "address": address,
-            "amount": amount,
-            "chain_id": chain_id,
-            "locked_until": locked_until.isoformat(),
-            "status": "active",
-            "remaining_balance": account.balance,
-        }
+        session.refresh(stake)
+        stake_id = stake.id
+
+    tx_hash = queue_protocol_transfer(
+        sender=address,
+        recipient=stake_escrow_address(),
+        amount=amount,
+        chain_id=chain_id,
+        tx_type="STAKE_LOCK",
+        payload={"stake_id": str(stake_id), "lock_days": lock_days},
+    )
+    _logger.info("Stake lock queued: %s staking %s on %s (tx %s)", address, amount, chain_id, tx_hash)
+    return {
+        "success": True,
+        "stake_id": stake_id,
+        "address": address,
+        "amount": amount,
+        "chain_id": chain_id,
+        "locked_until": locked_until.isoformat(),
+        "status": "active",
+        "transaction_hash": tx_hash,
+        "message": "Stake lock submitted to mempool; the balance moves when the transaction is included in a block",
+    }
 
 
 @rate_limit(rate=10, per=60)
@@ -129,25 +146,38 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
             raise HTTPException(
                 status_code=400, detail=f"Lock period not expired. Locked until: {stake.locked_until.isoformat()}"
             )
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-            session.add(account)
-        account.balance += stake.amount
-        session.add(account)
+        # Never release against a lock that has not landed. The escrow is
+        # shared, so paying out an unfunded stake would spend another staker's
+        # principal.
+        if not protocol_transfer_confirmed(session, chain_id, "STAKE_LOCK", "stake_id", stake_id):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Stake {stake_id} lock is not yet confirmed on-chain; retry once it is included in a block",
+            )
+        amount = stake.amount
         stake.status = "withdrawn"
         session.add(stake)
         session.commit()
-        _logger.info("Tokens unstaked: %s recovered %s from stake %s", address, stake.amount, stake_id)
-        return {
-            "success": True,
-            "stake_id": stake_id,
-            "address": address,
-            "amount": stake.amount,
-            "chain_id": chain_id,
-            "new_balance": account.balance,
-            "status": "withdrawn",
-        }
+
+    tx_hash = queue_protocol_transfer(
+        sender=stake_escrow_address(),
+        recipient=address,
+        amount=amount,
+        chain_id=chain_id,
+        tx_type="STAKE_RELEASE",
+        payload={"stake_id": str(stake_id)},
+    )
+    _logger.info("Stake release queued: %s recovering %s from stake %s (tx %s)", address, amount, stake_id, tx_hash)
+    return {
+        "success": True,
+        "stake_id": stake_id,
+        "address": address,
+        "amount": amount,
+        "chain_id": chain_id,
+        "status": "withdrawn",
+        "transaction_hash": tx_hash,
+        "message": "Stake release submitted to mempool; the balance moves when the transaction is included in a block",
+    }
 
 
 @rate_limit(rate=100, per=60)
