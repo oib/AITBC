@@ -1,7 +1,11 @@
 # v0.14.2 — TEE-Backed Verification & Confidential Compute (Phase 2)
 
 **Last Updated**: 2026-07-24
-**Status**: Planned 🚧
+**Status**: ⏸️ Deferred to release 2.0 (2026-09-03)
+**Deferral**: held until TEE-capable hardware is available. The simulated path
+(`SIMULATED_TEE=1`) stays live and gated; the hardware-rooted attestation scope in
+this document is parked under v2.0.0. See "Deferred to v2.0 — hardware-backed TEE"
+in `docs/releases/STATUS.md`.
 **Prerequisite**: v0.14.1 complete; v0.15.1–v0.15.2 planned
 
 ## Release Theme

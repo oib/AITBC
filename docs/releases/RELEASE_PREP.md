@@ -25,7 +25,7 @@ v0.10.18  (update deployment stabilization) ✅ complete
   → v0.11.0  (Phase 4 & 2026 roadmap foundations: memory, economics, grants, compliance) 🚧 in progress
   → v0.12.0  (OpenClaw Autonomous Economics) 🚧 planned
   → v0.13.0  (Mature Autonomous Economic Infrastructure) 🚧 planned
-  → v0.14.1  (TEE-Backed Verification & Confidential Compute Phase 1) 🚧 planned
+  → v0.14.1  (TEE-Backed Verification & Confidential Compute Phase 1) ⏸ deferred to v2.0 (awaiting TEE hardware)
   → v0.14.2  (TEE-Backed Verification & Confidential Compute Phase 2) 🚧 planned
   → v0.15.1  (Compliance-Ready Modules Phase 1: policies, encryption, audit, HIPAA) 🚧 planned
   → v0.15.2  (Compliance-Ready Modules Phase 2: containers, finance, middleware, CLI) 🚧 planned
@@ -45,7 +45,7 @@ Before code, write or review design docs for any cross-cutting types:
   strategies.
 - `v0.15.1` / `v0.15.2` — Data classification, consent, retention, audit log
   schema.
-- `v0.14.1` / `v0.14.2` — TEE quote format, attestation API, sealing key flow.
+- `v0.14.1` / `v0.14.2` — TEE quote format, attestation API, sealing key flow. Deferred to release 2.0 until TEE hardware is available.
 - `v0.16.1` / `v0.16.2` — SDK JSON-RPC/WebSocket contracts, plugin manifest
   schema.
 
