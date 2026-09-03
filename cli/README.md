@@ -21,7 +21,7 @@ aitbc --help
 | `agent-wallet` | Agent-owned wallet, staking, and rebalancing commands. | `balance`, `rebalance`, `stake` |
 | `ai` | AI job submission and inspection | `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit` |
 | `analytics` | Chain analytics and monitoring commands | `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary` |
-| `blockchain` | Multi-chain management commands | `add`, `backup`, `consensus`, `create`, `delete`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status` |
+| `blockchain` | Multi-chain management commands | `add`, `backup`, `block`, `consensus`, `create`, `delete`, `height`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status` |
 | `bond` | Provider performance bond lifecycle commands. | `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up` |
 | `bootstrap` | Bootstrap local development and configuration files. | `bootstrap-env` |
 | `brand` | Show and manage white-label brand settings. | `list`, `show` |
@@ -71,7 +71,7 @@ aitbc --help
 | `start` | Start all AITBC services for the current (or selected) role |  |
 | `stop` | Stop all AITBC services for the current (or selected) role |  |
 | `sync` | Blockchain synchronization utilities | `bulk`, `status` |
-| `system` | System management commands | `architect`, `audit`, `check`, `config`, `restart`, `status` |
+| `system` | System management commands | `architect`, `audit`, `cat`, `check`, `config`, `cron`, `file`, `logs`, `restart`, `run-script`, `show`, `start`, `status`, `stop` |
 | `trade` | Inter-chain trading operations | `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch` |
 | `transactions` | Transaction management commands | `batch`, `estimate-fee`, `pending`, `search`, `send`, `status` |
 | `update` | Pull the latest code and run scripts/deployment/update.sh. |  |
@@ -79,6 +79,7 @@ aitbc --help
 | `wallet` | Manage your wallets and transactions | `address`, `backup`, `balance`, `bridge`, `create`, `delete`, `earn`, `export`, `fund`, `import-wallet`, `info`, `liquidity-claim`, `liquidity-stake`, `liquidity-unstake`, `list`, `multisig-create`, `multisig-propose`, `multisig-sign`, `request-payment`, `restore`, `rewards`, `send`, `spend`, `stake`, `staking-info`, `stats`, `switch`, `transactions`, `unstake` |
 | `workflow` | Workflow management commands | `list`, `run`, `status`, `stop` |
 | `zk` | Zero-knowledge proof commands. | `circuits`, `health`, `verify` |
+| `http` | Generic HTTP client for local AITBC services | `call` |
 
 ## Market
 
