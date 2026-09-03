@@ -13,7 +13,7 @@ This makes the historical escrowed jobs refundable through the existing
 /rpc/escrow/{job_id}/refund path without any source-code changes.
 
 Revision ID: 9f8e7d6c5b4a
-Revises: fix_transaction_block_foreign_key
+Revises: b5e2a71c4f08
 Create Date: 2026-08-25 00:00:00.000000
 """
 
@@ -26,7 +26,17 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "9f8e7d6c5b4a"
-down_revision: str | None = "fix_transaction_block_foreign_key"
+# Chained onto the escrow lineage rather than the branchpoint this was written
+# against. The INSERT below writes escrow.chain_id, escrow.status and
+# escrow.lock_tx_hash, and the account INSERT writes the composite (chain_id,
+# address) key -- none of which exist at fix_transaction_block_foreign_key. They
+# are added by c9a4f1e2b73d and 498540b266b4 on the other branch, so hanging this
+# off the branchpoint declared a dependency the data repair does not actually
+# have and omitted the ones it does. It also left the graph with two heads, which
+# is not a style question: `alembic upgrade head` refuses to run at all with more
+# than one, so scripts/deployment/run-migrations.sh failed for this app on every
+# host. b5e2a71c4f08 is the tip of that lineage, so this now runs last.
+down_revision: str | None = "b5e2a71c4f08"
 branch_labels: str | None = None
 depends_on: str | None = None
 
