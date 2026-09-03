@@ -92,22 +92,6 @@ See the operator implementation plan and live reset checklist. After code upgrad
 
 ### Escrow / ZkRefundSweeper follow-ups (2026-09-01)
 
-- Documented  semantics:
-  -  is a coordinator ledger status, not an on-chain event type.
-  - The authoritative on-chain evidence is a non-empty  (the  transaction hash).
-  - A payment marked  without  is an unbacked or unsettled refund and must be downgraded to  so the ledger does not show a refund without proof.
-- Confirmed the blockchain  primary-key /  dedupe fix is in place ();  no longer uses .
-- Added explicit  handling to :
-  - Disputed payments are not refunded by the ZK sweeper; disputes are operator-resolvable and handled by  after .
-  - Added unit test .
-- Hardened  to apply the same  invariant as :
-  - A successful  that returns no on-chain hash now downgrades the payment and job to  instead of marking them .
-  - Added unit test .
-- TEE awareness in : deferred to release 2.0. Real SGX/SEV/TPM hardware is unavailable on live nodes; ZK and receipt verification remain the trust anchors for v0.25.2.
-
-
-### Escrow / ZkRefundSweeper follow-ups (2026-09-01)
-
 - Documented `refunded` semantics:
   - `refunded` is a coordinator ledger status, not an on-chain event type.
   - The authoritative on-chain evidence is a non-empty `refund_transaction_hash` (the `ESCROW_REFUND` transaction hash).
@@ -139,3 +123,23 @@ See the operator implementation plan and live reset checklist. After code upgrad
   - Governance and duplicate checks are now performed before `apply_transaction` so a skipped transaction cannot leave account mutations.
   - On exception, the entire session is rolled back and the block proposal aborted.
   - Verified on live mesh: after the fix, a second hub-down test produced no orphan transactions and no state-root divergence; the hub caught up cleanly.
+
+### PBFT view-change liveness (2026-09-03)
+
+- `d3861a2eb` `fix(consensus): let a later round supersede one that produced no block`
+  - **A later round now supersedes a round that produced no block.** `prepare_phase` pinned one block hash per height across *every* round. A round that failed left its hash pinned at that height, and the stand-in the next round hands the slot to necessarily proposes a different hash, so every validator refused it. A proposer dying between its pre-prepare and the commit quorum -- the exact fault the rotation exists to survive -- therefore froze that height until the survivors were restarted, because the pin lives only in memory. Being in round `r` is itself the evidence, derived from the parent block's timestamp and agreed by every node without a message, that no round below `r` produced a block. Same-round equivocation is still refused, and a round the node has already left behind is still refused.
+  - **The round carried on a pre-prepare is adopted as the PBFT view** (`_adopt_round_as_view`), in both `pre_prepare_phase` and the `PRE_PREPARE` branch of `handle_incoming_message`. Adoption is deliberately non-destructive: `handle_view_change` also discards every uncommitted message, which would throw away prepares peers had already broadcast for the very round being adopted, and the quorum would never form.
+  - **Removed the view-change timer** (`_start_consensus_timer`, `_on_timeout`, `_cancel_consensus_timer`). It was armed only by the proposer inside `pre_prepare_phase`, so the node that went dark was never counting down; nothing read the `current_view` it bumped; and it counted timed-out proposals as rotations in `consensus_view_changes_total`. `consensus_view_change_timeout_seconds` is now unused by code but the setting is left in place.
+  - **`consensus_proposer_round_seconds` is derived from the heartbeat** as `max(120, 2 * max_empty_block_interval)` unless set explicitly. The round window has to clear the longest gap a healthy network leaves between blocks, which `max_empty_block_interval` sets, so a constant here and a per-deployment heartbeat there were free to drift apart -- and had: 300 s against a deployed 60 s heartbeat on a chain measured producing a block every 62-72 s meant a dark validator cost five minutes on every height it owned.
+  - Tests: `test_one_block_per_height_per_round`, `test_a_later_round_supersedes_a_round_that_produced_no_block`, `test_a_round_already_left_behind_is_refused`, `test_the_round_is_adopted_as_the_view`, and `test_the_standin_commits_a_height_the_dead_proposer_had_prepared` (four real `eth_keys` nodes over in-memory gossip). The three liveness tests fail against the pre-fix `pbft.py`.
+  - **Requires all validators to be upgraded together**: the per-round prepare rule changes which proposals a node will accept.
+
+#### Live validation (2026-09-03)
+
+- Deployed to all four validators at tip `a0d13df0d`; both services restarted on all four hosts together. Derived round window confirmed as 120 s on each (heartbeat 60 s), down from 300 s.
+- Host-level outage of `hub.aitbc`, `08:57:03`-`09:06:42` UTC (9 min 39 s), with **both** `aitbc-blockchain-node` and `aitbc-blockchain-rpc` stopped -- the case left untested on 2026-09-02, where hub's RPC stayed up.
+  - Both heights hub owned at round 0 (4051, 4055) were taken over by node1 at round 1 after 122 s; every other height held 60-72 s. The chain never went more than 122 s without a block.
+  - Quorum held at exactly 3 of 3 survivors throughout (`required=3, prepares=3, commits=3`). Zero `refusing a second block at height` warnings and zero commit-quorum timeouts.
+  - Hub rejoined without intervention and proposed its own slot at 4059. All four converged at height 4059, hash `0xb0b1996e07119c51`, state root `0x50e75efff2f03fb4`.
+- Scope of the evidence: the faster rotation and the full-surface outage are proven live. The permanent-pin fix is proven only by unit test, because both live outages stopped hub cleanly between blocks with no pre-prepare outstanding.
+- Not addressed: rotation supersedes a round rather than running a NEW-VIEW exchange carrying prepared certificates, so a commit quorum on a dead proposer's hash still materialises no block (only a proposer writes its own block); the stand-in's block at the next round is what lands. `MultiValidatorPoA.validate_block` still has no production callers, so the receiver-side half of the schedule enforcement remains inert. With one validator down, quorum is 3 of 3 remaining with no slack.
