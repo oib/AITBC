@@ -26,7 +26,7 @@ def _resolve_wallet_name_and_path(
         return wp.stem, wp
 
     if wallet_name:
-        return wallet_name, resolve_wallet_dir() / f"{wallet_name}.json"
+        return wallet_name, find_wallet_file(wallet_name) or resolve_wallet_dir() / f"{wallet_name}.json"
 
     # Try environment and config in priority order
     wallet_name = os.environ.get("AITBC_MARKET_WALLET") or os.environ.get("AITBC_DEFAULT_WALLET")

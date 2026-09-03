@@ -11,7 +11,7 @@ from aitbc.utils.validation import validate_address, validate_address_strict
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import find_wallet_file
 
 logger = get_logger(__name__)
 
@@ -81,10 +81,10 @@ def register_onchain(
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Load wallet to get address
-        wallet_path = wallet_dir() / f"{wallet}.json"
+        wallet_path = find_wallet_file(wallet)
 
-        if not wallet_path.exists():
-            error(f"Wallet '{wallet}' not found at {wallet_path}")
+        if wallet_path is None:
+            error(f"Wallet '{wallet}' not found")
             return
 
         with open(wallet_path) as f:
@@ -195,10 +195,10 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
         # Load wallet to get address
-        wallet_path = wallet_dir() / f"{wallet}.json"
+        wallet_path = find_wallet_file(wallet)
 
-        if not wallet_path.exists():
-            error(f"Wallet '{wallet}' not found at {wallet_path}")
+        if wallet_path is None:
+            error(f"Wallet '{wallet}' not found")
             return
 
         with open(wallet_path) as f:

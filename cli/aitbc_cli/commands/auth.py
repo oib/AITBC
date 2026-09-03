@@ -16,7 +16,7 @@ from ..utils import error, output, success, warning
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import find_wallet_file
 
 
 @click.group(
@@ -52,12 +52,10 @@ def _resolve_private_key(
         raw = path.read_text().strip()
         return raw.removeprefix("0x").strip()
     if wallet_name:
-        # Service wallets do not always live under the invoking user's home: on a hub
-        # node they sit in /var/lib/aitbc/wallets. Allow AITBC_WALLET_DIR to point at
-        # them, keeping ~/.aitbc/wallets as the default.
-        wallet_path = wallet_dir() / f"{wallet_name}.json"
-        if not wallet_path.exists():
-            raise ValueError(f"Wallet not found: {wallet_path}")
+        # Search configured and service wallet directories (including /var/lib/aitbc/wallets).
+        wallet_path = find_wallet_file(wallet_name)
+        if wallet_path is None:
+            raise ValueError(f"Wallet not found: {wallet_name}")
         wallet_data = json.loads(wallet_path.read_text())
         private_key_field = wallet_data.get("private_key")
         if isinstance(private_key_field, str):
