@@ -45,7 +45,7 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
-from ..state.state_transition import _ensure_account, get_state_transition
+from ..state.state_transition import _ensure_account, get_block_version, get_state_transition
 
 logger = get_logger(__name__)
 
@@ -504,7 +504,10 @@ class PoAProposer:
                 "payload": tx_rec.payload or {},
                 "signature": "",
             }
-            success, msg = state_transition.apply_transaction(session, chain_id, tx_data, tx_rec.tx_hash)
+            block_version = get_block_version(parent, parent.height)
+            success, msg = state_transition.apply_transaction(
+                session, chain_id, tx_data, tx_rec.tx_hash, block_version=block_version
+            )
             if not success:
                 self._logger.error(
                     "[PROPOSE] Failed to re-apply parent tx %s at height %s: %s",
@@ -821,7 +824,11 @@ class PoAProposer:
                             tx_data_for_transition["nonce"] = 0
                             tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
                             success, error_msg = state_transition.apply_transaction(
-                                session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
+                                session,
+                                self._config.chain_id,
+                                tx_data_for_transition,
+                                tx.tx_hash,
+                                block_version=2,
                             )
                             if not success:
                                 self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
@@ -909,7 +916,11 @@ class PoAProposer:
                         tx_data_for_transition["nonce"] = sender_account.nonce
                         tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
                         success, error_msg = state_transition.apply_transaction(
-                            session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
+                            session,
+                            self._config.chain_id,
+                            tx_data_for_transition,
+                            tx.tx_hash,
+                            block_version=2,
                         )
                         if not success:
                             self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
@@ -1063,7 +1074,10 @@ class PoAProposer:
                 if pbft_certificate:
                     metadata_dict["pbft_certificate"] = pbft_certificate
 
-            block.block_metadata = json.dumps(metadata_dict) if metadata_dict else None
+            # v0.25.7: stamp the state-transition rule version so followers can
+            # replay this block with the same rules that produced its state_root.
+            metadata_dict["state_transition_version"] = 2
+            block.block_metadata = json.dumps(metadata_dict)
 
             # v0.7.2: Sign the canonical block header so the same signature is
             # valid for both PoA consensus and bridge proof verification.
