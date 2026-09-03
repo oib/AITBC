@@ -205,14 +205,38 @@ class BulkSyncMixin(SyncBase):
         # Check if parallel sync is enabled
         use_parallel = getattr(settings, "sync_parallel_enabled", False) and len(self._peer_tracker.get_all_peers()) > 1
         start_height = local_height + 1
-        if use_parallel:
-            imported = await self._parallel_bulk_import(
-                start_height, remote_height, source_url, dynamic_batch_size, adaptive_poll_interval
-            )
-        else:
-            imported = await self._sequential_bulk_import(
-                start_height, remote_height, source_url, dynamic_batch_size, adaptive_poll_interval
-            )
+
+        # Validate the first block before committing to a bulk pull. A peer whose
+        # next block does not build on our head is divergent; importing it in a
+        # batch would extend the wrong chain (V23-90).
+        first_batch = await self.fetch_blocks_range(start_height, start_height, source_url)
+        if not first_batch:
+            logger.warning("Source returned no first block for bulk sync", extra={"height": start_height, "source_url": source_url})
+            return 0
+        first_block = first_batch[0]
+        result = self.import_block(
+            first_block,
+            transactions=first_block.get("transactions"),
+            skip_state_root_validation=False,
+        )
+        if not result.accepted:
+            metrics_registry.increment("sync_bulk_source_rejected_total")
+            if result.diverged:
+                div = self.detect_divergence(source_url, local_height, first_block.get("parent_hash", ""))
+                if div:
+                    report_divergence(self._chain_id, div)
+            return 0
+
+        imported = 1
+        if start_height < remote_height:
+            if use_parallel:
+                imported += await self._parallel_bulk_import(
+                    start_height + 1, remote_height, source_url, dynamic_batch_size, adaptive_poll_interval
+                )
+            else:
+                imported += await self._sequential_bulk_import(
+                    start_height + 1, remote_height, source_url, dynamic_batch_size, adaptive_poll_interval
+                )
         logger.info(
             "Bulk import completed", extra={"imported": imported, "final_height": remote_height, "sync_mode": sync_mode}
         )
