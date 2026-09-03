@@ -162,8 +162,29 @@ class TestP1_3Bridge:
             assert proof["bridge_state_root"] == block.bridge_state_root
 
             # Confirm on the target chain.
-            completed = bridge.confirm_transfer(transfer.transfer_id, proof)
-            assert completed.status == BridgeStatus.completed
+            confirmed = bridge.confirm_transfer(transfer.transfer_id, proof)
+            assert confirmed.status == BridgeStatus.confirmed
+
+        # The release is created/pending; the transfer is not completed until the
+        # release transaction is sealed in a block.
+        with bridge._session_factory() as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            assert record.status == "confirmed"
+
+        # Simulate block inclusion and run the finalizer.
+        with bridge._session_factory() as session:
+            release_tx = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == target_chain,
+                    Transaction.tx_hash == confirmed.target_tx_hash,
+                )
+            ).first()
+            assert release_tx is not None
+            release_tx.block_height = 11
+            session.add(release_tx)
+            session.commit()
+        assert bridge._finalize_confirmed_transfers(target_chain) == 1
 
         # The recipient should now hold the transferred amount on the target chain.
         with bridge._session_factory() as session:
