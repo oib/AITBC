@@ -117,9 +117,26 @@ class ProposerSignatureValidator:
         except Exception:
             return set()
 
+    def _effective_min_attestations(self) -> int:
+        """Return the configured minimum clamped by the available validator set.
+
+        A block can never carry more non-proposer attestations than the set
+        contains, so requiring more would create an impossible quorum.
+        """
+        configured = getattr(settings, "multi_validator_min_attestations", 0)
+        if configured <= 0:
+            return 0
+        validator_set = self._load_validator_set() or self._trusted
+        if not validator_set:
+            return 0
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        active_non_proposer = max(0, len({canonical_address(v) for v in validator_set}) - 1)
+        return max(0, min(configured, active_non_proposer))
+
     def _validate_attestations(self, block_data: dict[str, Any]) -> tuple[bool, str]:
         """Validate attestations in block_metadata for multi-validator consensus."""
-        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+        min_attestations = self._effective_min_attestations()
         if min_attestations <= 0:
             return (True, "No attestations required")
 
@@ -176,7 +193,7 @@ class ProposerSignatureValidator:
         from aitbc.crypto.consensus_signing import verify_consensus_message
         from aitbc.crypto.signature_recovery import canonical_address
 
-        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
+        min_attestations = self._effective_min_attestations()
         validator_set = self._load_validator_set() or self._trusted
         validator_canonical = {canonical_address(v) for v in validator_set}
 
