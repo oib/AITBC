@@ -1,49 +1,51 @@
 #!/bin/bash
-# Reset an AITBC follower to the hub's new genesis block.
+# Reset an AITBC follower to the current fork chain database.
 #
-# This is a hard-fork reset: the local chain database is deleted and the
-# follower starts from height 0 using the provided genesis.json file.
+# This script is intended for the post-fork AITBC chain. The hub exposes a
+# consistent, read-only SQLite snapshot of the fork database at /agent/chain.db.
+# The local chain database is replaced with that snapshot and the follower starts
+# from the fork head (which may already contain the genesis and several blocks).
 #
 # Usage (run as root on the follower):
 #   sudo bash reset-follower-to-genesis.sh
 #
-# The script can either:
-#   - Download the genesis from the public hub URL (default)
-#   - Use a local file: GENESIS_FILE=/path/to/genesis.json bash reset-follower-to-genesis.sh
+# Override the source with CHAIN_DB_URL or a local CHAIN_DB_FILE:
+#   CHAIN_DB_FILE=/path/to/chain.db bash reset-follower-to-genesis.sh
 #
-# The public genesis URL is:
-#   http://hub.aitbc.bubuit.net/agent/genesis.json
+# Set STATE_TRANSITION_V2_HEIGHT=0 unless already configured.
 
 set -euo pipefail
 
 CHAIN_ID="${CHAIN_ID:-ait-hub.aitbc.bubuit.net}"
 HUB="${HUB:-hub.aitbc.bubuit.net}"
-GENESIS_URL="${GENESIS_URL:-http://${HUB}/agent/genesis.json}"
-GENESIS_FILE="${GENESIS_FILE:-}"  # set to use a local file instead of downloading
+CHAIN_DB_URL="${CHAIN_DB_URL:-http://${HUB}/agent/chain.db}"
+CHAIN_DB_FILE="${CHAIN_DB_FILE:-}"
 DB_DIR="${DB_DIR:-/var/lib/aitbc/data}"
 DB="${DB_DIR}/${CHAIN_ID}/chain.db"
 UNITS="aitbc-blockchain-node aitbc-blockchain-rpc"
+ENV_FILE="/etc/aitbc/blockchain.env"
 
-# Download from the hub unless a local file is provided
-if [ -z "$GENESIS_FILE" ]; then
-    GENESIS_FILE="/tmp/aitbc-genesis-${CHAIN_ID}.json"
-    echo "Downloading genesis from $GENESIS_URL"
-    if ! curl -fsSL "$GENESIS_URL" -o "$GENESIS_FILE"; then
-        echo "Failed to download genesis from $GENESIS_URL" >&2
+# Stop the local blockchain services before touching the database.
+for unit in $UNITS; do
+    if systemctl is-active --quiet "$unit"; then
+        echo "Stopping $unit"
+        systemctl stop "$unit" || true
+    fi
+done
+
+# Download the fork chain DB from the hub unless a local file is provided.
+if [ -z "$CHAIN_DB_FILE" ]; then
+    CHAIN_DB_FILE="/tmp/aitbc-chain-${CHAIN_ID}.db"
+    echo "Downloading fork chain DB from $CHAIN_DB_URL"
+    if ! curl -fsSL "$CHAIN_DB_URL" -o "$CHAIN_DB_FILE"; then
+        echo "Failed to download fork chain DB from $CHAIN_DB_URL" >&2
         exit 1
     fi
 fi
 
-[ -f "$GENESIS_FILE" ] || { echo "No genesis file: $GENESIS_FILE" >&2; exit 1; }
+[ -f "$CHAIN_DB_FILE" ] || { echo "No chain DB file: $CHAIN_DB_FILE" >&2; exit 1; }
 
-for unit in $UNITS; do
-    if systemctl is-active --quiet "$unit"; then
-        echo "Stopping $unit"
-        systemctl stop "$unit"
-    fi
-done
-
-# Preserve the old chain DB in case the operator needs to revert
+# Preserve the old chain DB in case the operator needs to revert.
 timestamp=$(date +%Y%m%d-%H%M%S)
 if [ -f "$DB" ]; then
     backup="${DB}.pre-reset.${timestamp}"
@@ -52,9 +54,20 @@ if [ -f "$DB" ]; then
     rm -f "$DB"
 fi
 
-# Install the new genesis file
-install -D -m 0640 -o aitbc -g aitbc "$GENESIS_FILE" "${DB_DIR}/${CHAIN_ID}/genesis.json"
-echo "Installed new genesis for $CHAIN_ID"
+# Remove stale WAL/SHM files from the previous database, if any.
+rm -f "${DB}"-wal "${DB}"-shm
+
+# Install the fork chain DB.
+install -D -m 0640 -o aitbc -g aitbc "$CHAIN_DB_FILE" "$DB"
+echo "Installed fork chain DB for $CHAIN_ID"
+
+# Ensure the version gate is configured for the v2 fork.
+if [ -f "$ENV_FILE" ]; then
+    if ! grep -qE '^STATE_TRANSITION_V2_HEIGHT=' "$ENV_FILE"; then
+        echo "STATE_TRANSITION_V2_HEIGHT=0" >> "$ENV_FILE"
+        echo "Set STATE_TRANSITION_V2_HEIGHT=0 in $ENV_FILE"
+    fi
+fi
 
 for unit in $UNITS; do
     echo "Starting $unit"
