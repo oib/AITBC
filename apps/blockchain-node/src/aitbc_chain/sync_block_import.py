@@ -28,7 +28,7 @@ from .state.pure_state_transition import (
     compute_state_delta,
     extract_read_write_sets,
 )
-from .state.state_transition import get_state_transition
+from .state.state_transition import get_block_version, get_state_transition
 from .consensus.multi_validator_poa import MultiValidatorPoA
 from aitbc.crypto.signature_recovery import canonical_address
 from .mempool import compute_tx_hash
@@ -362,6 +362,12 @@ class BlockImportMixin(SyncBase):
         # proposer is an active validator scheduled for this height.  This wires
         # MultiValidatorPoA.validate_block into the import path on the follower.
         self._validate_proposer_schedule(session, block_data, block)
+
+        # v0.25.7: determine the state-transition rule version for this block.
+        # New blocks carry an explicit version in block_metadata; unversioned
+        # legacy blocks fall back to the configured v2 activation height.
+        block_version = get_block_version(block_data, block_data["height"])
+
         if transactions:
             # Parallel transaction validation path (v0.6.1).
             # When enabled and the conflict rate is low enough, transactions are
@@ -370,7 +376,9 @@ class BlockImportMixin(SyncBase):
             # applied to an in-memory account_map in tx-index order (deterministic)
             # so the resulting state root matches the sequential path exactly.
             parallel_applied = False
-            if settings.parallel_tx_validation:
+            # Historical v1 blocks (pre state-transition fix) use the sequential
+            # path so the v1/v2 account-creation gating is applied correctly.
+            if settings.parallel_tx_validation and block_version >= 2:
                 # Build dependency graph from read/write sets.
                 graph = DependencyGraph()
                 tx_hash_to_data: dict[str, dict[str, Any]] = {}
@@ -501,13 +509,13 @@ class BlockImportMixin(SyncBase):
                     raw_to = tx_data.get("to", "")
                     if raw_from not in {"faucet", "bridge_release", "bridge_refund"}:
                         sender_acct = session.get(Account, (self._chain_id, sender_addr))
-                        if sender_acct is None:
+                        if sender_acct is None and block_version >= 2:
                             sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
                             session.add(sender_acct)
                             session.flush()
                     if raw_to != "bridge_lock":
                         recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
-                        if recipient_acct is None:
+                        if recipient_acct is None and block_version >= 2:
                             recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
                             session.add(recipient_acct)
                             session.flush()
@@ -522,7 +530,9 @@ class BlockImportMixin(SyncBase):
                     if "value" not in tx_data and "amount" in tx_data:
                         tx_data["value"] = tx_data["amount"]
                     state_transition = get_state_transition()
-                    success, error_msg = state_transition.apply_transaction(session, self._chain_id, tx_data, tx_hash)
+                    success, error_msg = state_transition.apply_transaction(
+                        session, self._chain_id, tx_data, tx_hash, block_version=block_version
+                    )
                     if not success:
                         logger.warning("[SYNC] Failed to apply transaction %s: %s", tx_hash, error_msg)
                     tx_type = tx_data.get("type", "TRANSFER")
