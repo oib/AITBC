@@ -21,7 +21,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import ait_to_units, units_to_ait
 from eth_utils import keccak
 
-from ..contracts.escrow import EscrowState, get_escrow_manager
+from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Escrow, Stake
@@ -39,8 +39,11 @@ def _settled_leg_ait(stored_units: int | None, settled_at: Any, locked_units: in
     """Return one settled leg of an escrow as AIT.
 
     ``released_amount``/``refunded_amount`` are NULL on rows written before metered
-    settlement, where a settled escrow always moved the whole lock -- fall back to
-    that so historical rows keep reporting the amount they actually moved.
+    settlement and on rows rebuilt by a node that did not serve the release. Both
+    are healed from the chain by ``backfill_settlement_legs`` on the way in, so
+    this is the last resort for an escrow whose settlement txns this node has not
+    synced. It reports the whole lock, which is the right order of magnitude but
+    overstates a release by the platform fee the provider never received.
     """
     if stored_units is not None:
         return str(units_to_ait(stored_units))
@@ -736,6 +739,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
+            if record is not None:
+                # Heal before the guards read the row: a release whose change leg
+                # was mined last reads back as a refund until it is reconciled,
+                # and would be rejected here as already refunded.
+                backfill_settlement_legs(session, record)
             if record and record.refunded_at is not None:
                 raise HTTPException(
                     status_code=409,
@@ -1044,6 +1052,10 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
     try:
         with session_scope() as session:
             db_record = session.get(Escrow, job_id)
+            if db_record is not None:
+                # A row rebuilt on a node that did not serve the release knows the
+                # escrow settled but not what it moved; take that from the chain.
+                backfill_settlement_legs(session, db_record)
     except Exception as e:
         _logger.warning("Failed to query Escrow DB: %s", e)
     derived_state = ""
