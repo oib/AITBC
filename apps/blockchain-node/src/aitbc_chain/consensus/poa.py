@@ -537,6 +537,8 @@ class PoAProposer:
 
         if not await self._ensure_synced_before_proposal():
             return False
+        if self._stop_event.is_set():
+            return False
 
         # Start a fresh per-block replay cache for this proposal.
         get_state_transition().reset_processed_cache()
@@ -1005,6 +1007,9 @@ class PoAProposer:
             # v0.7.7: if PBFT is enabled, run the full consensus round before
             # writing the block. The block hash is the digest of the proposed
             # block and the certificate is stored in block_metadata.
+            if self._stop_event.is_set():
+                session.rollback()
+                return False
             if self._pbft_consensus:
                 pbft_ok = await self._pbft_consensus.propose_and_wait(
                     proposer,
@@ -1026,6 +1031,9 @@ class PoAProposer:
             # them in block_metadata as JSON. The proposer signature remains the
             # canonical block signature.
             metadata_dict: dict[str, Any] = {}
+            if self._stop_event.is_set():
+                session.rollback()
+                return False
             if self._multi_validator:
                 attestations = await self._collect_attestations(block)
                 configured_min = getattr(settings, "multi_validator_min_attestations", 0)
@@ -1082,6 +1090,8 @@ class PoAProposer:
             self._logger.info("Proposed block", extra={"height": block.height, "hash": block.hash, "proposer": block.proposer})
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
             gossip_topic = f"blocks.{self._config.chain_id}"
+            if self._stop_event.is_set():
+                return False
             try:
                 subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
                 subscriber_count = len(subscribers)
@@ -1089,6 +1099,8 @@ class PoAProposer:
                 self._logger.info(
                     "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
                 )
+                if self._stop_event.is_set():
+                    return False
                 # v0.7.6: always publish to gossip_broker; the backend (Redis on
                 # hub, WSS on remote validators) is responsible for fan-out.
                 # Leases are still logged as a metric but do not gate block
