@@ -5,7 +5,7 @@ Tests that balance changes only occur through validated transactions.
 import sys
 """
 
-from aitbc_chain.state.state_transition import StateTransition
+from aitbc_chain.state.state_transition import StateTransition, get_block_version
 
 
 class TestStateTransition:
@@ -67,3 +67,13 @@ class TestStateTransition:
         # Verify reset
         assert len(state_transition._processed_tx_hashes) == 0
         assert len(state_transition._processed_nonces) == 0
+
+    def test_get_block_version_from_metadata(self):
+        """Version stored in block_metadata is preferred over the threshold."""
+        assert get_block_version({"block_metadata": '{"state_transition_version": 2}'}, height=0) == 2
+        assert get_block_version({"block_metadata": '{"state_transition_version": 1}'}, height=999999) == 1
+
+    def test_get_block_version_threshold_fallback(self):
+        """Unversioned blocks fall back to the configured v2 activation height."""
+        assert get_block_version({"block_metadata": None}, height=0) == 1
+        assert get_block_version({"block_metadata": None}, height=999999) == 2
