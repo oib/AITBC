@@ -616,5 +616,39 @@ def list_cron(ctx):
         raise click.ClickException(f"Error listing cron jobs: {e}")
 
 
+# Allowed script prefixes for ``aitbc system run-script --path``.
+_ALLOWED_SCRIPT_PREFIXES = (
+    "/opt/aitbc/scripts/",
+    "/opt/aitbc/monitoring/",
+    "/opt/aitbc/cluster/",
+)
+
+
+@system.command(
+    name="run-script",
+    epilog="""Examples:
+
+  aitbc system run-script --path /opt/aitbc/scripts/maintenance/backup.sh""",
+)
+@click.option("--path", required=True, help="Absolute path to an allowed AITBC script")
+@click.pass_context
+def run_script(ctx, path: str):
+    """Run an allowed AITBC maintenance or monitoring script."""
+    if not any(path.startswith(prefix) for prefix in _ALLOWED_SCRIPT_PREFIXES):
+        raise click.ClickException(f"script path not allowed: {path}")
+    if re.search(r"[;&|<>$`\\!\n\r]", path):
+        raise click.ClickException(f"invalid script path: {path}")
+    try:
+        result = subprocess.run(["bash", "--", path], capture_output=True, text=True, timeout=300)
+        if result.returncode == 0:
+            click.echo(result.stdout)
+            return
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"script failed: {path}")
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(f"Error running script {path}: {e}")
+
+
 if __name__ == "__main__":
     system()
