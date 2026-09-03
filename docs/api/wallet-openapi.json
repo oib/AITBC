@@ -1532,7 +1532,7 @@
             }
           },
           "503": {
-            "description": "Failed to calculate ETH amount / Could not fetch account nonce: {exc}",
+            "description": "Failed to calculate ETH amount / Internal server error",
             "content": {
               "application/json": {
                 "schema": {

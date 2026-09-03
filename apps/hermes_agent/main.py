@@ -234,14 +234,14 @@ async def run_hermes(request: HermesRunRequest):
     if timed_out:
         raise HTTPException(
             status_code=504,
-            detail=f"Hermes run exceeded max_time of {request.max_time}s",
+            detail="Hermes run exceeded max_time of " + str(request.max_time) + "s",
         )
 
     if returncode != 0:
         logger.warning("Hermes exited with code %s: %s", returncode, stderr[:500])
         raise HTTPException(
             status_code=502,
-            detail=f"Hermes run failed (exit {returncode}): {stderr[:1000]}",
+            detail="Hermes run failed (exit " + str(returncode) + ")",
         )
 
     result_text = stdout.strip()

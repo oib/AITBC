@@ -333,7 +333,9 @@ async def resolve_dispute(
         resolved_status = "released"
     if not settled:
         # Left disputed: the escrow is still funded and the ruling can be re-issued.
-        raise HTTPException(status_code=502, detail=f"the {req.outcome} did not settle on-chain; the payment stays disputed")
+        raise HTTPException(
+            status_code=502, detail="the " + req.outcome + " did not settle on-chain; the payment stays disputed"
+        )
     # G5/D1: this is the only place a dispute slashes a bond -- an operator has ruled
     # against the provider and the refund has actually settled. Slashing before the
     # settlement check would burn the bond for a refund that never happened, and the

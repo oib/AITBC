@@ -3,11 +3,14 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
+import logging
 import os
 from decimal import Decimal
 from typing import Annotated, Any
 
 from aitbc.network import SharedHttpClient
+
+logger = logging.getLogger(__name__)
 
 
 def _money_str(value: Decimal | float | str | None) -> str:
@@ -554,7 +557,8 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
         account_data = account_resp.json()
         nonce = account_data.get("nonce", 0)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Could not fetch account nonce: {exc}") from exc
+        logger.exception("Unhandled exception")
+        raise HTTPException(status_code=503, detail="Internal server error") from exc
 
     fee_ait = Decimal("0.01")
     amount_units = ait_to_units(ait_amount)

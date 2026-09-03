@@ -141,7 +141,7 @@ class TestSecurityIntegration:
     def test_pip_audit_in_venv(self):
         """Test that pip-audit is available in the virtual environment"""
         if not os.path.exists("./venv/bin/pip-audit"):
-            pass
+            pytest.skip("pip-audit not installed in ./venv")
 
         subprocess.run(["./venv/bin/pip-audit", "--version"], capture_output=True, text=True, timeout=10)
         # Should either succeed or fail gracefully
