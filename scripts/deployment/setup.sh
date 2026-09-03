@@ -431,6 +431,7 @@ clone_repo() {
 
     if ! git remote | grep -q '^github$'; then
         git remote add github "$GITHUB_REMOTE" 2>/dev/null || warning "Failed to add GitHub mirror (non-fatal)"
+        git remote set-url --push github no_push 2>/dev/null || warning "Failed to disable github push (non-fatal)"
     fi
     if ! git remote | grep -q '^gitea$'; then
         # Add a `gitea` named remote only if origin is not already the canonical Gitea URL.
