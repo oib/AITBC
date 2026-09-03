@@ -16,6 +16,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aitbc_chain.base_models import Escrow
+
 # Deterministic, valid EIP-55 0x addresses.
 # Derived via eth_account.Account.from_key(sha256(name.encode()).digest()).address
 BUYER = "0xe8b0db006F34bf5b5d2B22553C017431E8e86e4F"
@@ -43,8 +45,29 @@ def _manager():
     mgr.escrow_contracts = {"c-1": contract}
     mgr.release_lock.return_value = asyncio.Lock()
     mgr.snapshot_release_state.return_value = {"state": None}
-    mgr.release_full_payment = AsyncMock(return_value=(True, "released"))
+    mgr.release_payment = AsyncMock(return_value=(True, "released"))
     return mgr
+
+
+def _record(released_at):
+    """A real Escrow row, not a stub of the two fields this test reads.
+
+    The release route reads the row for its duplicate-release guards and for the
+    settled amounts it echoes back, and it grew fields as metered settlement
+    arrived. A SimpleNamespace carrying only ``released_at`` made each of those a
+    silent AttributeError inside the guard's ``except``, which skipped the guard
+    rather than failing the assertion that was meant to catch it.
+    """
+    return Escrow(
+        job_id="job-1",
+        chain_id="test-chain",
+        buyer=BUYER,
+        provider=PROVIDER,
+        amount=36_000_000,
+        status="locked",
+        created_at=ORIGINAL,
+        released_at=released_at,
+    )
 
 
 def _run_release(routes, record):
@@ -69,7 +92,7 @@ def _run_release(routes, record):
 def test_retry_keeps_the_original_settlement_time(stored):
     """An escrow that already carries a settlement time keeps it, tz-aware or not."""
     routes = _reload_routes()
-    record = SimpleNamespace(released_at=stored, job_tx_hash=None)
+    record = _record(stored)
 
     result = _run_release(routes, record)
 
@@ -81,7 +104,7 @@ def test_retry_keeps_the_original_settlement_time(stored):
 def test_first_release_stamps_the_current_time():
     """A genuine first release still records when it settled."""
     routes = _reload_routes()
-    record = SimpleNamespace(released_at=None, job_tx_hash=None)
+    record = _record(None)
     before = datetime.now(UTC)
 
     result = _run_release(routes, record)

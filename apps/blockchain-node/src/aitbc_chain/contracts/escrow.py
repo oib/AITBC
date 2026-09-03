@@ -89,6 +89,115 @@ class Milestone:
     verified: bool
 
 
+def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | None:
+    """Aggregate a job's settled escrow legs from the canonical on-chain txns.
+
+    A metered release settles two legs for one job -- the provider's payment and
+    the buyer's unbilled change -- so the single most recent settlement txn cannot
+    describe it. Reading only that one lets mining order decide the outcome: a
+    release whose change happened to be mined last reads back as a refund, and
+    either way the other leg is lost entirely.
+
+    ``refunded_at`` is left unset whenever a release exists. It marks an escrow
+    refunded *instead of* released, which is what the duplicate-release guard
+    tests before ``released_at``; a release's change is carried by
+    ``refunded_amount``/``refund_tx_hash`` instead.
+
+    Returns ``None`` when this node's chain holds no settlement txn for the job,
+    which is the ordinary case for an escrow that is still locked.
+    """
+    try:
+        from sqlmodel import select
+
+        from ..base_models import Transaction
+    except Exception as e:
+        logger.warning("Could not import chain models for settlement lookup: %s", e)
+        return None
+
+    try:
+        stmt = (
+            select(Transaction)
+            .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))
+            .where(Transaction.payload["job_id"].as_string() == job_id)
+            .order_by(Transaction.id)
+        )
+        legs: dict[str, Any] = {
+            "released_amount": 0,
+            "refunded_amount": 0,
+            "release_tx_hash": None,
+            "refund_tx_hash": None,
+            "released_at": None,
+            "refunded_at": None,
+        }
+        for tx in session.exec(stmt):
+            action = (tx.payload or {}).get("action")
+            if action == "escrow_release":
+                legs["released_amount"] += tx.value or 0
+                legs["release_tx_hash"] = tx.tx_hash
+                legs["released_at"] = tx.created_at
+            elif action == "escrow_refund":
+                legs["refunded_amount"] += tx.value or 0
+                legs["refund_tx_hash"] = tx.tx_hash
+                legs["refunded_at"] = tx.created_at
+    except Exception as e:
+        logger.warning("Failed to read settlement legs for job %s from chain: %s", job_id, e)
+        return None
+
+    if legs["release_tx_hash"] is None and legs["refund_tx_hash"] is None:
+        return None
+    if legs["release_tx_hash"] is not None:
+        legs["status"] = "released"
+        legs["refunded_at"] = None
+    else:
+        legs["status"] = "refunded"
+        legs["released_at"] = None
+    return legs
+
+
+def backfill_settlement_legs(session: Any, record: Escrow) -> bool:
+    """Fill a settled escrow row's per-leg amounts from the chain, in place.
+
+    Only the node that serves a release writes the amounts, so a row rebuilt on
+    any other node carries the settlement's status and timestamps but not what it
+    moved. Rows written before metered settlement existed have no amounts either.
+    Both then fall back to reporting the whole lock as the settled leg, which
+    overstates every release by the platform fee and hides a metered release's
+    change completely. The settlement txns are on this node's chain in both
+    cases, so take the amounts from there and keep them.
+
+    Returns True when the row was changed.
+    """
+    if record.released_amount is not None or record.refunded_amount is not None:
+        return False
+    if record.released_at is None and record.refunded_at is None:
+        return False
+    legs = settlement_legs_from_chain(session, record.job_id)
+    if legs is None:
+        return False
+
+    record.released_amount = legs["released_amount"]
+    record.refunded_amount = legs["refunded_amount"]
+    if not record.release_tx_hash and legs["release_tx_hash"]:
+        record.release_tx_hash = legs["release_tx_hash"]
+    if not record.refund_tx_hash and legs["refund_tx_hash"]:
+        record.refund_tx_hash = legs["refund_tx_hash"]
+    if legs["status"] == "released" and record.refunded_at is not None:
+        # The row was rebuilt from the change leg alone, so a release reads back
+        # as a refund -- and the duplicate-release guard would 409 on it.
+        record.status = "released"
+        record.released_at = legs["released_at"]
+        record.refunded_at = None
+    session.add(record)
+    session.commit()
+    logger.info(
+        "Back-filled settlement legs for job %s from chain: released=%s refunded=%s",
+        record.job_id,
+        legs["released_amount"],
+        legs["refunded_amount"],
+    )
+    return True
+
+
 class EscrowManager:
     """Manages escrow contracts for AI job marketplace"""
 
@@ -277,29 +386,12 @@ class EscrowManager:
                 logger.warning("Could not canonicalise addresses for job %s lock tx", job_id)
                 return None
 
-            # Check whether the funds were already released or refunded on-chain.
-            release_stmt = (
-                select(Transaction)
-                .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))
-                .where(Transaction.payload["job_id"].as_string() == job_id)
-                .order_by(Transaction.id.desc())
-            )
-            final_tx = session.exec(release_stmt).first()
-            final_action = (final_tx.payload or {}).get("action") if final_tx else None
-
-            record_status = "locked"
-            released_at = None
-            refunded_at = None
-            released_tx_hash = None
-            refund_tx_hash = None
-            if final_action == "escrow_refund":
-                record_status = "refunded"
-                refunded_at = final_tx.created_at
-                refund_tx_hash = final_tx.tx_hash
-            elif final_action == "escrow_release":
-                record_status = "released"
-                released_at = final_tx.created_at
-                released_tx_hash = final_tx.tx_hash
+            # Both settlement legs, not just the most recent txn: a metered
+            # release pays the provider and returns the buyer's change as two
+            # separate txns for one job, and taking the later of the two would
+            # drop the other and let mining order decide the escrow's status.
+            legs = settlement_legs_from_chain(session, job_id) or {}
+            record_status = legs.get("status", "locked")
 
             # v0.25.5: accounts are created deterministically when the
             # ESCROW_LOCK/RELEASE/REFUND transaction is applied; do not
@@ -315,10 +407,14 @@ class EscrowManager:
                 status=record_status,
                 created_at=lock_tx.created_at,
                 lock_tx_hash=lock_tx.tx_hash,
-                released_at=released_at,
-                refunded_at=refunded_at,
-                job_tx_hash=released_tx_hash,
-                refund_tx_hash=refund_tx_hash,
+                released_at=legs.get("released_at"),
+                refunded_at=legs.get("refunded_at"),
+                released_amount=legs.get("released_amount"),
+                refunded_amount=legs.get("refunded_amount"),
+                # ``job_tx_hash`` is the software_job proof of work, not the
+                # settlement; the release hash belongs in its own column.
+                release_tx_hash=legs.get("release_tx_hash"),
+                refund_tx_hash=legs.get("refund_tx_hash"),
             )
             session.add(record)
             session.commit()
