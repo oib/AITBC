@@ -22,6 +22,20 @@ def _make_consensus(n_validators: int = 4) -> MultiValidatorPoA:
     return consensus
 
 
+def _pre_prepare(pbft: PBFTConsensus, sender: str, view: int, height: int, block_hash: str) -> PBFTMessage:
+    """A signed-shape pre-prepare for ``height`` in ``view``, as a peer would send it."""
+    return PBFTMessage(
+        message_type=PBFTMessageType.PRE_PREPARE,
+        sender=sender,
+        view_number=view,
+        sequence_number=height,
+        digest=pbft.get_message_digest(block_hash, height, view),
+        signature="",
+        timestamp=0.0,
+        block_hash=block_hash,
+    )
+
+
 @pytest.mark.asyncio
 async def test_pre_prepare_creates_message():
     """pre_prepare_phase creates a message in pre_prepare_messages"""
@@ -463,11 +477,71 @@ async def test_out_of_turn_pre_prepare_is_dropped():
 
 
 @pytest.mark.asyncio
-async def test_only_one_block_prepared_per_height():
-    """Two proposals for one height, in different rounds, must not both be prepared.
+async def test_one_block_per_height_per_round():
+    """Two blocks offered for the same height in the same round: only the first.
 
-    Otherwise the round-0 proposer recovering mid-round and the round-1
-    proposer taking over could both collect a quorum and fork the chain.
+    Preparing both would let both collect a quorum and fork the height. The
+    round is the part that makes this rule survivable -- see
+    test_a_later_round_supersedes_a_round_that_produced_no_block.
+    """
+    consensus = _make_consensus(4)
+    height = 9
+    round0 = consensus.select_proposer(height, 0)
+    local = next(a for a in consensus.validators if a != round0)
+
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator=local)
+
+    first = _pre_prepare(pbft, round0, 0, height, "0x" + "aa" * 32)
+    equivocation = _pre_prepare(pbft, round0, 0, height, "0x" + "cc" * 32)
+    pbft.state.pre_prepare_messages[f"{height}:0"] = first
+
+    await pbft.prepare_phase(local, first)
+    assert pbft._prepared_heights[height] == (0, first.block_hash)
+    assert f"{height}:0" in pbft.state.prepared_messages
+
+    assert await pbft.prepare_phase(local, equivocation) is False
+    assert len(pbft.state.prepared_messages[f"{height}:0"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_later_round_supersedes_a_round_that_produced_no_block():
+    """The stand-in's block must be preparable even after the failed round's was.
+
+    This is the stall the rotation was supposed to end. A proposer that dies
+    between broadcasting its pre-prepare and the commit quorum leaves its block
+    hash prepared at that height on every survivor. While the rule was one block
+    per height across all rounds, the stand-in the next round hands the slot to
+    -- proposing a different block, as it must -- was refused by all of them,
+    and the height stayed frozen until the survivors were restarted, since the
+    record lives only in memory.
+    """
+    consensus = _make_consensus(4)
+    height = 9
+    round0 = consensus.select_proposer(height, 0)
+    round1 = consensus.select_proposer(height, 1)
+    assert round0 != round1
+    local = next(a for a in consensus.validators if a not in {round0, round1})
+
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator=local)
+
+    dead = _pre_prepare(pbft, round0, 0, height, "0x" + "aa" * 32)
+    standin = _pre_prepare(pbft, round1, 1, height, "0x" + "bb" * 32)
+    pbft.state.pre_prepare_messages[f"{height}:0"] = dead
+    pbft.state.pre_prepare_messages[f"{height}:1"] = standin
+
+    await pbft.prepare_phase(local, dead)
+    await pbft.prepare_phase(local, standin)
+
+    assert f"{height}:1" in pbft.state.prepared_messages
+    assert pbft._prepared_heights[height] == (1, standin.block_hash)
+
+
+@pytest.mark.asyncio
+async def test_a_round_already_left_behind_is_refused():
+    """Rotation is one-way: a recovering round-0 proposer cannot reclaim the slot.
+
+    Without this the round-0 proposer coming back mid-height would be prepared
+    alongside the stand-in, which is the fork the per-round rule exists to stop.
     """
     consensus = _make_consensus(4)
     height = 9
@@ -477,26 +551,101 @@ async def test_only_one_block_prepared_per_height():
 
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator=local)
 
-    def _pp(sender: str, view: int, block_hash: str) -> PBFTMessage:
-        return PBFTMessage(
-            message_type=PBFTMessageType.PRE_PREPARE,
-            sender=sender,
-            view_number=view,
-            sequence_number=height,
-            digest=pbft.get_message_digest(block_hash, height, view),
-            signature="",
-            timestamp=0.0,
-            block_hash=block_hash,
-        )
+    standin = _pre_prepare(pbft, round1, 1, height, "0x" + "bb" * 32)
+    latecomer = _pre_prepare(pbft, round0, 0, height, "0x" + "aa" * 32)
+    pbft.state.pre_prepare_messages[f"{height}:1"] = standin
+    pbft.state.pre_prepare_messages[f"{height}:0"] = latecomer
 
-    first = _pp(round0, 0, "0x" + "aa" * 32)
-    second = _pp(round1, 1, "0x" + "bb" * 32)
-    pbft.state.pre_prepare_messages[f"{height}:0"] = first
-    pbft.state.pre_prepare_messages[f"{height}:1"] = second
+    await pbft.prepare_phase(local, standin)
+    assert await pbft.prepare_phase(local, latecomer) is False
+    assert f"{height}:0" not in pbft.state.prepared_messages
+    assert pbft._prepared_heights[height] == (1, standin.block_hash)
 
-    await pbft.prepare_phase(local, first)
-    assert pbft._prepared_heights[height] == first.block_hash
-    assert f"{height}:0" in pbft.state.prepared_messages
 
-    assert await pbft.prepare_phase(local, second) is False
-    assert f"{height}:1" not in pbft.state.prepared_messages
+@pytest.mark.asyncio
+async def test_the_round_is_adopted_as_the_view():
+    """A pre-prepare from a later round moves the node's view, and counts as one.
+
+    The view used to be moved by a timer that only the proposer armed, so the
+    one node that mattered -- the one that had gone dark -- never armed it, and
+    consensus_view_changes_total counted proposals that timed out rather than
+    rotations that happened.
+    """
+    consensus = _make_consensus(4)
+    height, view = 11, 2
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator="0xlocal")
+    assert pbft.state.current_view == 0
+
+    await pbft.handle_incoming_message(
+        {
+            "message_type": "pre_prepare",
+            "sender": consensus.select_proposer(height, view),
+            "view_number": view,
+            "sequence_number": height,
+            "digest": "0xdigest",
+            "signature": "",
+            "timestamp": 0.0,
+            "block_hash": "0x" + "11" * 32,
+        }
+    )
+
+    assert pbft.state.current_view == view
+    assert pbft._view_change_count == 1
+
+
+@pytest.mark.asyncio
+async def test_the_standin_commits_a_height_the_dead_proposer_had_prepared():
+    """End to end on four nodes: the fault the rotation exists to survive.
+
+    The round-0 proposer announces a block, every survivor prepares it, and then
+    it dies without ever writing one -- only a proposer writes its own block, so
+    a commit quorum on a dead node's hash produces nothing. The stand-in must
+    still be able to finish the height.
+    """
+    from eth_keys import keys
+    import secrets
+
+    class Network:
+        def __init__(self):
+            self.nodes: list[PBFTConsensus] = []
+            self.down: set[str] = set()
+
+        async def publish(self, topic, msg_data):
+            for node in self.nodes:
+                if node._local_validator in self.down:
+                    continue
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    keypairs = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        keypairs.append((pk.public_key.to_checksum_address(), pk.to_hex()))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-standin")
+    for addr, _ in keypairs:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    height = 7
+    dead = shared_consensus.select_proposer(height, 0)
+    standin = shared_consensus.select_proposer(height, 1)
+    assert dead != standin
+
+    net = Network()
+    nodes: dict[str, PBFTConsensus] = {}
+    for addr, pk_hex in keypairs:
+        node = PBFTConsensus(shared_consensus, private_key=pk_hex, chain_id="test-pbft-standin", local_validator=addr)
+        node.set_gossip_backend(net)
+        net.nodes.append(node)
+        nodes[addr] = node
+
+    # Round 0: the proposer announces a block and the survivors prepare it.
+    await nodes[dead].pre_prepare_phase(dead, "0x" + secrets.token_hex(32), sequence=height, view=0)
+    assert all(nodes[a]._prepared_heights.get(height, (None, None))[0] == 0 for a in nodes if a != dead)
+
+    # ...and then the host goes away, so no block for this height is ever written.
+    net.down.add(dead)
+
+    result = await nodes[standin].propose_and_wait(standin, "0x" + secrets.token_hex(32), timeout=5.0, sequence=height, view=1)
+    assert result is True, "the stand-in could not finish a height the dead proposer had prepared"
