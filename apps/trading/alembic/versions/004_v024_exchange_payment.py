@@ -1,7 +1,7 @@
 """create exchange_payment table
 
 Revision ID: 004_v024_exchange_payment
-Revises: 003_v023_trading_domain_tables
+Revises: 003
 Create Date: 2026-08-29 09:30:00.000000+00:00
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "004_v024_exchange_payment"
-down_revision = "003_v023_trading_domain_tables"
+down_revision = "003"
 branch_labels = None
 depends_on = None
 
