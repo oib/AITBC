@@ -6,6 +6,7 @@ Provides real service health checks and node readiness reporting.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from decimal import Decimal
 from pathlib import Path
