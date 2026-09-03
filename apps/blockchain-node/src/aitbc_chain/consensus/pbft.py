@@ -95,14 +95,14 @@ class PBFTConsensus:
         self._local_validator = local_validator
         self._sync_manager: Any | None = sync_manager
         self._gossip_backend: Any = None
-        self._consensus_timer: asyncio.Task[None] | None = None
         self._view_change_count = 0
         self._message_event = asyncio.Event()
         self._local_prepared: set[str] = set()
         self._local_committed: set[str] = set()
-        # Block hash this node has already prepared at each height, across all
-        # views. See prepare_phase for why one per height and not one per key.
-        self._prepared_heights: dict[int, str] = {}
+        # The (round, block hash) this node has prepared at each height: one
+        # block per round, and rounds only ever move forward. See prepare_phase
+        # for why the round has to be part of it.
+        self._prepared_heights: dict[int, tuple[int, str]] = {}
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
@@ -136,11 +136,16 @@ class PBFTConsensus:
         """
         # H4: recalculate fault tolerance in case validator set changed
         self._recalculate_fault_tolerance()
-        # H6: start consensus timer (view change timeout)
-        self._start_consensus_timer()
 
         sequence = self.state.current_sequence + 1 if sequence is None else sequence
         view = self.state.current_view if view is None else view
+        # The round the caller derived from block timestamps is the view, and
+        # adopting it here is the whole of the view change. What used to sit in
+        # this spot was a local timer that bumped ``current_view`` on the
+        # proposer alone, 30s after it announced a block: nothing read the
+        # result, no other node was told, and the proposer that had actually
+        # gone dark was never running a timer in the first place.
+        self._adopt_round_as_view(view)
         digest = self.get_message_digest(block_hash, sequence, view)
 
         message = PBFTMessage(
@@ -286,26 +291,49 @@ class PBFTConsensus:
 
         # Only the local validator sends one prepare per key
         if validator == self._local_validator:
-            # v0.25.6: and only one *block* per height, across every view. When
-            # the round advances, the recovering round-0 proposer and the
-            # round-1 proposer can both be live with different keys for the
-            # same height. Preparing both would let both reach quorum and fork
-            # the chain; preparing only the first keeps the standard PBFT
-            # safety argument intact without a NEW-VIEW protocol.
+            # v0.25.6: one block per height per round, and never a round this
+            # node has already left behind. Preparing two blocks in the same
+            # round would let both reach a quorum and fork the height; going
+            # back to an earlier round would do the same in slow motion.
+            #
+            # v0.25.7: the rule used to be one block per height across *every*
+            # round, which is safe and also dead. A round that fails leaves its
+            # block hash pinned at that height, and the stand-in the next round
+            # hands the slot to necessarily proposes a different hash, so every
+            # validator refuses it. A proposer dying between its pre-prepare and
+            # the commit quorum -- the exact fault the rotation exists to
+            # survive -- therefore froze that height until the survivors were
+            # restarted, because the pin lives only in memory. Being in round r
+            # is itself the evidence, derived from the parent block's timestamp
+            # and agreed by every node without a message, that no round below r
+            # produced a block; superseding them is what lets the rotation
+            # finish the height instead of only re-nominating for it.
             height = pre_prepare_msg.sequence_number
-            already = self._prepared_heights.get(height)
-            if already is not None and already != pre_prepare_msg.block_hash:
-                logger.warning(
-                    "PBFT refusing a second block at height %s (prepared %s, offered %s)",
-                    height,
-                    already,
-                    pre_prepare_msg.block_hash,
-                )
-                return False
+            view = pre_prepare_msg.view_number
+            prepared = self._prepared_heights.get(height)
+            if prepared is not None:
+                prepared_view, prepared_hash = prepared
+                if view < prepared_view:
+                    logger.warning(
+                        "PBFT refusing height %s round %s: this node has already prepared round %s",
+                        height,
+                        view,
+                        prepared_view,
+                    )
+                    return False
+                if view == prepared_view and prepared_hash != pre_prepare_msg.block_hash:
+                    logger.warning(
+                        "PBFT refusing a second block at height %s round %s (prepared %s, offered %s)",
+                        height,
+                        view,
+                        prepared_hash,
+                        pre_prepare_msg.block_hash,
+                    )
+                    return False
             if key in self._local_prepared:
                 return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
             self._local_prepared.add(key)
-            self._prepared_heights[height] = pre_prepare_msg.block_hash
+            self._prepared_heights[height] = (view, pre_prepare_msg.block_hash)
 
         # Create prepare message
         prepare_msg = PBFTMessage(
@@ -388,9 +416,6 @@ class PBFTConsensus:
 
         # Update state
         self.state.current_sequence = sequence
-
-        # H6: consensus completed — cancel the view change timer
-        self._cancel_consensus_timer()
 
         # Clean up old messages
         self._cleanup_messages(sequence)
@@ -475,6 +500,21 @@ class PBFTConsensus:
 
         for height in [h for h in self._prepared_heights if h < sequence]:
             self._prepared_heights.pop(height, None)
+
+    def _adopt_round_as_view(self, view: int) -> None:
+        """Move to the round the network is in, keeping the messages for it.
+
+        ``handle_view_change`` also discards every uncommitted message, which is
+        what abandoning a round means and the opposite of what adopting one
+        does: the pre-prepare that announces the new round arrives interleaved
+        with the prepares its peers have already broadcast for it, so clearing
+        on arrival throws away votes for the very round being adopted and the
+        quorum never forms.
+        """
+        if view <= self.state.current_view:
+            return
+        self.state.current_view = view
+        self._view_change_count += 1
 
     def handle_view_change(self, new_view: int) -> bool:
         """Handle view change when proposer fails (H5: safe view change)."""
@@ -590,6 +630,10 @@ class PBFTConsensus:
                     message.sender,
                 )
                 return
+            # Follow the rotation the proposer's round implies. Every node
+            # derives the same round from the same on-chain timestamps, so a
+            # pre-prepare carrying a higher one is the view change arriving.
+            self._adopt_round_as_view(message.view_number)
             self.state.pre_prepare_messages[key] = message
             self._message_event.set()
             # As a validator, respond with a prepare for this pre-prepare
@@ -644,22 +688,3 @@ class PBFTConsensus:
             self.required_messages = max(2, min(base_required, min_attestations + 1))
         else:
             self.required_messages = base_required
-
-    def _start_consensus_timer(self) -> None:
-        """H6: start the consensus (view change) timer with exponential backoff."""
-        self._cancel_consensus_timer()
-        timeout = settings.consensus_view_change_timeout_seconds
-        # Exponential backoff: timeout * 2^view_change_count, capped at 300s
-        timeout = min(timeout * (2**self._view_change_count), 300)
-        self._consensus_timer = create_task_with_logging(self._on_timeout(timeout), name="pbft_consensus_timer")
-
-    async def _on_timeout(self, delay: float) -> None:
-        """H6: callback fired when the consensus timer elapses — triggers a view change."""
-        await asyncio.sleep(delay)
-        self.handle_view_change(self.state.current_view + 1)
-
-    def _cancel_consensus_timer(self) -> None:
-        """H6: cancel any pending consensus (view change) timer."""
-        if self._consensus_timer and not self._consensus_timer.done():
-            self._consensus_timer.cancel()
-        self._consensus_timer = None
