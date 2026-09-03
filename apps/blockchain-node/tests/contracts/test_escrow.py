@@ -37,7 +37,10 @@ class TestEscrowManager:
         assert contract.job_id == "job_001"
         assert contract.client_address == "0x1234567890123456789012345678901234567890"
         assert contract.agent_address == "0x2345678901234567890123456789012345678901"
-        assert contract.amount > Decimal("100.0")  # Includes platform fee
+        # The escrowed principal, not principal + fee: the platform fee comes out
+        # of the escrow on release, so anything above the lock is money the buyer
+        # never posted and a refund would pay out of the node wallet.
+        assert contract.amount == Decimal("100.0")
         assert contract.state == EscrowState.CREATED
 
     def test_create_contract_invalid_inputs(self):

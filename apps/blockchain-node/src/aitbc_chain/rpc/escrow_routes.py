@@ -931,10 +931,12 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     # same job_id has an ESCROW_REFUND transaction on-chain.
     record_refunded = False
     record_released = False
+    locked_units: int | None = None
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
             if record:
+                locked_units = record.amount
                 if record.refunded_at is not None:
                     record_refunded = True
                 if record.released_at is not None:
@@ -999,6 +1001,22 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
             raise HTTPException(status_code=400, detail=message)
         contract = mgr.escrow_contracts.get(contract_id)
         refund_amount = contract.refunded_amount if contract else Decimal(0)
+        if locked_units is not None:
+            # The lock is the ceiling: this pays out of the node wallet, and the
+            # in-memory contract is a reconstruction of an on-chain fact rather
+            # than the fact itself. It has been wrong before -- by exactly the
+            # platform fee -- and a refund that overpays is money the operator
+            # cannot get back, so cap it at what the chain says was locked.
+            locked_ait = units_to_ait(locked_units)
+            if refund_amount > locked_ait:
+                _logger.error(
+                    "Refund for job_id=%s clamped from %s to the locked %s AIT (contract_id=%s)",
+                    job_id,
+                    refund_amount,
+                    locked_ait,
+                    contract_id,
+                )
+                refund_amount = locked_ait
         tx_hash = await _submit_refund_tx(
             _to_canonical(contract.client_address) if contract else "",
             _to_canonical(contract.agent_address) if contract else "",
@@ -1031,6 +1049,9 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
                     record.status = "refunded"
                     record.refunded_at = refunded_at
                     record.refund_tx_hash = tx_hash
+                    # Record what moved, not just that something did; a NULL here
+                    # makes every reader fall back to reporting the whole lock.
+                    record.refunded_amount = ait_to_units(refund_amount)
                     session.commit()
         except Exception as e:
             _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
