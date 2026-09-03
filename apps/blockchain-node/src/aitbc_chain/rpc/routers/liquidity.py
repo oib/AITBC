@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -103,7 +103,7 @@ async def get_pool(pool_id: str, chain_id: str | None = None) -> dict[str, Any]:
 
 @router.get("/stakes/{address}", summary="List liquidity stakes for an address")
 @rate_limit(rate=100, per=60)
-async def list_stakes(address: str, chain_id: str | None = None) -> dict[str, Any]:
+async def list_stakes(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         stakes = session.exec(
