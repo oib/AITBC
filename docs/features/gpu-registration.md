@@ -12,7 +12,7 @@ Register GPU with immutable specs on blockchain
 - `apps/pool-hub/src/poolhub/clients/blockchain.py` — Return the exact bytes that are hashed and signed for a transaction.
 - `aitbc/marketplace/blockchain_rpc.py` — from **future** import annotations import logging from typing import Any, cast import httpx logger =...
 - `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` — Get pricing engine instance
-- `Blockchain Node` exposes `POST /rpc/register-account` (operation `create_account_route_rpc_register_account_post`) — Create/register a new account on the blockchain
+- `Blockchain Node` exposes `POST /rpc/register-account` (operation `create_account_route_rpc_register_account_post`) — Report the on-chain state of an account address
 - `Blockchain Node` exposes `POST /rpc/gpu/register` (operation `register_gpu_rpc_gpu_register_post`) — Register GPU on-chain
 - `Blockchain Node` exposes `GET /rpc/gpu/info/{gpu_id}` (operation `get_gpu_rpc_gpu_info__gpu_id__get`) — Query GPU registration
 

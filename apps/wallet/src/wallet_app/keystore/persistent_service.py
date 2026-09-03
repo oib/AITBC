@@ -201,12 +201,21 @@ class PersistentKeystoreService:
             return {
                 "success": result.get("success", False),
                 "created": result.get("created", False),
+                # The node does not create account rows outside consensus; a valid
+                # address it has never seen comes back pending until its first credit.
+                "pending": result.get("pending", False),
                 "message": result.get("message", ""),
                 "balance": result.get("balance", 0),
             }
         except Exception as e:
             # Log but don't fail - wallet is still created locally
-            return {"success": False, "created": False, "message": f"Failed to register on chain: {str(e)}", "balance": 0}
+            return {
+                "success": False,
+                "created": False,
+                "pending": False,
+                "message": f"Failed to register on chain: {str(e)}",
+                "balance": 0,
+            }
 
     def create_wallet(
         self,
@@ -273,6 +282,8 @@ class PersistentKeystoreService:
                 metadata_map["chain_balance"] = str(chain_registration.get("balance", 0))
                 if chain_registration.get("created"):
                     metadata_map["chain_status"] = "created"
+                elif chain_registration.get("pending"):
+                    metadata_map["chain_status"] = "unfunded"
                 else:
                     metadata_map["chain_status"] = "existing"
             else:
