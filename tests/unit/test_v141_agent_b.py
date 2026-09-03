@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import urllib.error
 from pathlib import Path
@@ -47,11 +48,14 @@ def test_tee_proxy_routes_messages() -> None:
     """The edge TEE proxy registers channels and routes payloads."""
     proxy_mod = _import_module("edge_app.tee_proxy", REPO_ROOT / "apps/edge/src")
     proxy = proxy_mod.TEEProxy()
-    proxy.register_channel("ch-1", "peer-1")
+    proxy.register_channel("ch-1", "peer-1", peer_public_key=b"x" * 32)
     proxy.open_channel("ch-1")
     result = proxy.route_to_channel("ch-1", {"data": "hello"})
     assert result["delivered"] is True
-    assert proxy.channels["ch-1"].messages[0]["payload"]["data"] == "hello"
+    channel = proxy.channels["ch-1"].channel
+    message = channel.messages[0]
+    decoded = json.loads(channel.decode(message).decode("utf-8"))
+    assert decoded["data"] == "hello"
 
 
 def test_tee_proxy_rejects_unregistered_or_closed() -> None:

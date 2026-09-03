@@ -97,7 +97,6 @@ UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
     (8013, "/health"),
     (8015, "/health"),
     (8015, "/v1/health"),
-    (8017, "/health"),
     (8080, "/health"),
     (8083, "/health"),
     (9090, "/-/healthy"),
@@ -361,6 +360,6 @@ class TestSpecificRegressions:
         assert "8104" not in marketplace.group(1), "the marketplace gate still probes trading"
 
     def test_monitoring_blackbox_targets_are_reachable_paths(self):
-        text = (REPO_ROOT / "scripts" / "monitoring" / "monitoring-setup.md").read_text()
+        text = (REPO_ROOT / "docs" / "infrastructure" / "monitoring-setup.md").read_text()
         assert "/v1/health" not in text, "the blackbox exporter still targets /v1/health"
         assert "blockchain-node:8080" not in text, "blockchain-node is on 8202, not 8080"
