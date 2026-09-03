@@ -95,6 +95,9 @@ FLAT_LAYOUT_APPS = frozenset(
         "blockchain-explorer",
         "exchange",
         "ffmpeg",
+        # hermes_agent is a service wrapper around hermes worker processes; it has a single
+        # entry-point script and no internal package, so the src/ layout would be empty.
+        "hermes_agent",
         # ipfs is a single-daemon wrapper around `kubo`; it has no internal package and only needs
         # a service unit and entry-point script, so the src/ layout would be empty. Triaged.
         "ipfs",
