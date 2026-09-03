@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import select
 from sqlmodel import func as sql_func
 
 from ..base_models import address_spellings
@@ -69,170 +69,14 @@ class BalanceTracker:
         self._session_factory = session_factory
         self._pending_changes: list[BalanceChange] = []
 
-    def record_transaction(
-        self,
-        session: Session,
-        sender: str,
-        recipient: str,
-        amount: int,
-        fee: int,
-        tx_hash: str,
-        chain_id: str,
-        tx_type: str = "transfer",
-    ) -> tuple[BalanceChange, BalanceChange]:
-        """
-        Record balance changes from a transaction.
-
-        Returns sender and recipient balance changes.
-        """
-        sender_account = session.get(Account, (chain_id, sender))
-        if not sender_account:
-            raise ValueError(f"Sender account not found: {sender}")
-        sender_balance_before = sender_account.balance
-        total_deduction = amount + fee
-        if sender_account.balance < total_deduction:
-            raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
-        sender_account.balance -= total_deduction
-        sender_account.nonce += 1
-        session.add(sender_account)
-        sender_change = BalanceChange(
-            address=sender,
-            chain_id=chain_id,
-            change_type=BalanceChangeType.transaction_send,
-            amount=-amount,
-            fee=-fee,
-            balance_before=sender_balance_before,
-            balance_after=sender_account.balance,
-            tx_hash=tx_hash,
-            timestamp=datetime.now(UTC),
-            details={"recipient": recipient, "tx_type": tx_type},
-        )
-        recipient_account = session.get(Account, (chain_id, recipient))
-        recipient_balance_before = 0
-        if not recipient_account:
-            recipient_account = Account(chain_id=chain_id, address=recipient, balance=0, nonce=0)
-            session.add(recipient_account)
-        else:
-            recipient_balance_before = recipient_account.balance
-        recipient_account.balance += amount
-        session.add(recipient_account)
-        recipient_change = BalanceChange(
-            address=recipient,
-            chain_id=chain_id,
-            change_type=BalanceChangeType.transaction_receive,
-            amount=amount,
-            fee=0,
-            balance_before=recipient_balance_before,
-            balance_after=recipient_account.balance,
-            tx_hash=tx_hash,
-            timestamp=datetime.now(UTC),
-            details={"sender": sender, "tx_type": tx_type},
-        )
-        logger.info("Transaction recorded: %s... -> %s... Amount: %s, Fee: %s", sender[:16], recipient[:16], amount, fee)
-        return (sender_change, recipient_change)
-
-    def record_stake(self, session: Session, address: str, amount: int, chain_id: str, stake_id: int) -> BalanceChange:
-        """Record balance change from staking (lock tokens)"""
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            raise ValueError(f"Account not found: {address}")
-        balance_before = account.balance
-        if account.balance < amount:
-            raise ValueError(f"Insufficient balance to stake: {account.balance} < {amount}")
-        account.balance -= amount
-        session.add(account)
-        change = BalanceChange(
-            address=address,
-            chain_id=chain_id,
-            change_type=BalanceChangeType.staking_lock,
-            amount=-amount,
-            fee=0,
-            balance_before=balance_before,
-            balance_after=account.balance,
-            tx_hash=None,
-            timestamp=datetime.now(UTC),
-            details={"stake_id": stake_id, "operation": "stake"},
-        )
-        logger.info("Stake recorded: %s... staked %s", address[:16], amount)
-        return change
-
-    def record_unstake(self, session: Session, address: str, amount: int, chain_id: str, stake_id: int) -> BalanceChange:
-        """Record balance change from unstaking (return tokens)"""
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-            session.add(account)
-        balance_before = account.balance
-        account.balance += amount
-        session.add(account)
-        change = BalanceChange(
-            address=address,
-            chain_id=chain_id,
-            change_type=BalanceChangeType.staking_unlock,
-            amount=amount,
-            fee=0,
-            balance_before=balance_before,
-            balance_after=account.balance,
-            tx_hash=None,
-            timestamp=datetime.now(UTC),
-            details={"stake_id": stake_id, "operation": "unstake"},
-        )
-        logger.info("Unstake recorded: %s... returned %s", address[:16], amount)
-        return change
-
-    def record_bridge_lock(
-        self, session: Session, address: str, amount: int, fee: int, chain_id: str, transfer_id: str
-    ) -> BalanceChange:
-        """Record balance change from bridge lock"""
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            raise ValueError(f"Account not found: {address}")
-        balance_before = account.balance
-        total = amount + fee
-        if account.balance < total:
-            raise ValueError(f"Insufficient balance for bridge: {account.balance} < {total}")
-        account.balance -= total
-        session.add(account)
-        change = BalanceChange(
-            address=address,
-            chain_id=chain_id,
-            change_type=BalanceChangeType.bridge_lock,
-            amount=-amount,
-            fee=-fee,
-            balance_before=balance_before,
-            balance_after=account.balance,
-            tx_hash=transfer_id,
-            timestamp=datetime.now(UTC),
-            details={"transfer_id": transfer_id, "operation": "lock"},
-        )
-        logger.info("Bridge lock recorded: %s... locked %s (fee: %s)", address[:16], amount, fee)
-        return change
-
-    def record_bridge_release(
-        self, session: Session, address: str, amount: int, chain_id: str, transfer_id: str
-    ) -> BalanceChange:
-        """Record balance change from bridge release (on target chain)"""
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-            session.add(account)
-        balance_before = account.balance
-        account.balance += amount
-        session.add(account)
-        change = BalanceChange(
-            address=address,
-            chain_id=chain_id,
-            change_type=BalanceChangeType.bridge_release,
-            amount=amount,
-            fee=0,
-            balance_before=balance_before,
-            balance_after=account.balance,
-            tx_hash=transfer_id,
-            timestamp=datetime.now(UTC),
-            details={"transfer_id": transfer_id, "operation": "release"},
-        )
-        logger.info("Bridge release recorded: %s... received %s", address[:16], amount)
-        return change
+    # The five record_* mutators that used to live here (record_transaction,
+    # record_stake, record_unstake, record_bridge_lock, record_bridge_release)
+    # were removed. They debited and credited ``account.balance`` directly,
+    # outside block processing, which is exactly what desynchronises the
+    # account table from the block headers -- the state root is a full scan of
+    # that table. Nothing called them: the only live uses of this class are the
+    # two read-only methods below. Balance movement belongs in the state
+    # transition, reached by queueing a transfer; see ``protocol_escrow``.
 
     def get_balance(self, address: str, chain_id: str) -> int | None:
         """Get current balance for an address"""
