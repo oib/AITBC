@@ -76,15 +76,23 @@ aitbc wallet --wallet-name staker stake 100.0 --duration 90
 **Expected output:**
 
 ```
-Staked 100.0 AITBC for 90 days
+Submitted a stake of 100.0 AITBC for 90 days
 wallet: staker
 stake_id: 7
 amount: 100.0
 duration_days: 90
 locked_until: 2026-09-23T12:00:00Z
-remaining_balance: 400.0
+transaction_hash: 0x9f2c...
 chain_id: ait-hub.aitbc.bubuit.net
 ```
+
+
+> **The balance moves in a block, not in the response.** `stake` and `unstake`
+> queue a transfer to or from the protocol staking escrow and return its
+> `transaction_hash`; the debit or credit appears once that transaction is
+> included in a block. Check with `aitbc wallet balance` a block later rather
+> than expecting a post-operation balance in the output above. `unstake` returns
+> HTTP 409 if the original lock is not yet confirmed on-chain.
 
 ### Step 2: Check on-chain staking info
 
@@ -119,12 +127,12 @@ aitbc wallet --wallet-name staker unstake 7
 **Expected output:**
 
 ```
-Unstaked tokens from stake 7
+Submitted an unstake of stake 7
 wallet: staker
 stake_id: 7
 amount: 100
-new_balance: 500.0
-status: unstaked
+transaction_hash: 0x4d81...
+status: withdrawn
 chain_id: ait-hub.aitbc.bubuit.net
 ```
 
