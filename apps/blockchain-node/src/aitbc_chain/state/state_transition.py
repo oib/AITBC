@@ -7,6 +7,7 @@ to ensure they only occur through validated transactions.
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -15,6 +16,7 @@ from eth_utils import keccak
 from sqlalchemy import text
 from sqlmodel import Session, select
 
+from ..config import settings
 from ..logger import get_logger
 from ..base_models import Bond, _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
@@ -101,6 +103,31 @@ def _tx_type(tx_data: dict[str, Any], tx_record: Transaction | None = None) -> s
         if isinstance(payload, dict):
             tx_type = payload.get("type", "TRANSFER")
     return (tx_type or "TRANSFER").upper()
+
+
+def get_block_version(block_data_or_block: dict[str, Any] | object, height: int = 0) -> int:
+    """Return the state-transition rule version that should be used for a block.
+
+    A block that explicitly stores ``state_transition_version`` in its
+    ``block_metadata`` uses that value. Unversioned blocks are treated as v1
+    below ``settings.state_transition_v2_height`` and as v2 at or above it.
+    This lets historical blocks replay under the rules that produced them.
+    """
+    metadata: str | None = None
+    if isinstance(block_data_or_block, dict):
+        metadata = block_data_or_block.get("block_metadata")
+    else:
+        metadata = getattr(block_data_or_block, "block_metadata", None)
+    if metadata:
+        try:
+            parsed = json.loads(metadata)
+            version = parsed.get("state_transition_version")
+            if version is not None:
+                return int(version)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+    threshold = getattr(settings, "state_transition_v2_height", 0)
+    return 2 if height >= threshold else 1
 
 
 class StateTransition:
@@ -252,7 +279,14 @@ class StateTransition:
                 return (False, f"Receipt {receipt_id} has invalid coordinator attestations")
         return (True, "Transaction validated successfully")
 
-    def apply_transaction(self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str) -> tuple[bool, str]:
+    def apply_transaction(
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+        block_version: int = 2,
+    ) -> tuple[bool, str]:
         """
         Apply a validated transaction to update state.
 
@@ -261,6 +295,10 @@ class StateTransition:
             chain_id: Chain identifier
             tx_data: Transaction data
             tx_hash: Transaction hash
+            block_version: State-transition rule version active for the block
+                that contains this transaction. v1 keeps pre-2026-09-01 rules
+                (no auto-created recipient/provider accounts); v2 applies the
+                current account-creation rules.
 
         Returns:
             Tuple of (success, error_message)
@@ -372,10 +410,12 @@ class StateTransition:
                 (tx_data.get("payload") or {}).get("eth_address"),
             )
             return (True, "Transaction applied successfully")
-        if tx_type == "ESCROW_LOCK":
+        if tx_type == "ESCROW_LOCK" and block_version >= 2:
             # v0.25.5: the Escrow DB record references the provider address, so
             # ensure the provider account exists even though the lock itself only
-            # transfers from buyer to the node wallet.
+            # transfers from buyer to the node wallet. Older v1 blocks (pre this
+            # fix) do not create the provider account, so replaying them must
+            # keep the original state-root behavior.
             provider_addr = _to_ait_address((tx_data.get("payload") or {}).get("provider", ""))
             if provider_addr:
                 _ensure_account(session, chain_id, provider_addr)
@@ -388,8 +428,10 @@ class StateTransition:
                 raise ValueError(f"Transaction total_cost overflow: {total_cost}")
             # v0.25.5: auto-create the recipient account on first credit so
             # release/refund/transfer to a new address is deterministic across
-            # validators and does not require a direct RPC write.
-            _ensure_account(session, chain_id, recipient_addr)
+            # validators and does not require a direct RPC write. This only
+            # applies to v2 blocks; v1 blocks keep the original account set.
+            if block_version >= 2:
+                _ensure_account(session, chain_id, recipient_addr)
         logger.info("Updating sender balance: %s -= %s", sender_addr, total_cost)
         session.execute(
             text(
