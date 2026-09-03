@@ -588,6 +588,12 @@ class ChainSettings(BaseSettings):
     # Minimum number of attestations required in block_metadata for a multi-validator
     # block to be accepted during sync (in addition to the proposer signature).
     multi_validator_min_attestations: int = 2  # G6: require at least 2 validator attestations when multi-validator is active
+    # v0.25.7: historical state-transition rule changes are gated by block version.
+    # New blocks set state_transition_version=2 in their metadata. Blocks that
+    # lack the version key are treated as v1 if their height is below this value
+    # and as v2 at or above it. Default 0 means all unversioned blocks are v1,
+    # so new chains with no history work under v2 from the first produced block.
+    state_transition_v2_height: int = 0
     # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
     multi_validator_attestation_timeout_seconds: float = 1.0
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
