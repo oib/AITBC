@@ -287,7 +287,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 _app_logger.warning("Failed to stop lease tracker: %s", exc)
             _app_logger.info("Blockchain node stopped")
 
-        await _shutdown()
+        try:
+            await asyncio.wait_for(_shutdown(), timeout=18.0)
+        except asyncio.TimeoutError:
+            _app_logger.warning("Blockchain node shutdown did not complete within 18s; systemd will kill the process")
 
 
 def create_app() -> FastAPI:
