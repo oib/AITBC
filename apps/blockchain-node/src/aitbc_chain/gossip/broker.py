@@ -185,7 +185,10 @@ class GossipBroker:
             with suppress(asyncio.CancelledError):
                 await self._priority_task
             self._priority_task = None
-        await self._backend.shutdown()
+        try:
+            await asyncio.wait_for(self._backend.shutdown(), timeout=5.0)
+        except asyncio.TimeoutError:
+            pass
 
 
 def create_backend(
