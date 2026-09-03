@@ -1382,7 +1382,7 @@
             }
           },
           "502": {
-            "description": "the {req.outcome} did not settle on-chain; the payment stays disputed",
+            "description": "Bad Gateway",
             "content": {
               "application/json": {
                 "schema": {
