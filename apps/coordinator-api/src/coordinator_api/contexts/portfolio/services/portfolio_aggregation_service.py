@@ -106,7 +106,7 @@ class PortfolioAggregationService:
     async def _get_marketplace_stats(self) -> dict[str, Any]:
         """Fetch marketplace statistics from marketplace service"""
         try:
-            response = await self.http_client.get(f"{self.marketplace_service_url}/marketplace/analytics?period_type=daily")
+            response = await self.http_client.get(f"{self.marketplace_service_url}/v1/marketplace/analytics?period_type=daily")
             if response.status_code == 200:
                 try:
                     data = response.json()
