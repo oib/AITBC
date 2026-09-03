@@ -75,5 +75,15 @@ class TestStateTransition:
 
     def test_get_block_version_threshold_fallback(self):
         """Unversioned blocks fall back to the configured v2 activation height."""
-        assert get_block_version({"block_metadata": None}, height=0) == 1
-        assert get_block_version({"block_metadata": None}, height=999999) == 2
+        import aitbc_chain.config as config
+
+        original = getattr(config.settings, "state_transition_v2_height", 0)
+        config.settings.state_transition_v2_height = 1000
+        try:
+            # Below the threshold: unversioned historical block uses v1 rules.
+            assert get_block_version({"block_metadata": None}, height=999) == 1
+            # At/above the threshold: unversioned block produced after the
+            # activation uses v2 rules (new chains with threshold 0 also see v2).
+            assert get_block_version({"block_metadata": None}, height=1000) == 2
+        finally:
+            config.settings.state_transition_v2_height = original
