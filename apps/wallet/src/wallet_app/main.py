@@ -103,7 +103,20 @@ async def _import_file_wallets() -> None:
                             data = json.load(f)
                         wallet_id = data.get("wallet_id") or wallet_file.stem
                         address = data.get("address", "")
-                        private_key_hex = data.get("private_key", "").lstrip("0x")
+                        raw_private_key = data.get("private_key", "")
+                        if not isinstance(raw_private_key, str):
+                            logger.warning(
+                                "Skipping wallet %s: private_key field is not a string (got %s)",
+                                wallet_file.name,
+                                type(raw_private_key).__name__,
+                            )
+                            continue
+                        # Strip a literal '0x'/'0X' prefix only. str.lstrip() treats its
+                        # argument as a set of characters to strip, not a fixed prefix, so
+                        # the previous .lstrip("0x") silently dropped any leading '0' or
+                        # 'x' characters -- e.g. "0x00ab..." became "ab...", corrupting a
+                        # key that legitimately starts with zero bytes.
+                        private_key_hex = raw_private_key[2:] if raw_private_key[:2] in ("0x", "0X") else raw_private_key
                         chain_id = data.get("chain_id", "ait-hub.aitbc.bubuit.net")
                         if wallet_id in existing:
                             continue
