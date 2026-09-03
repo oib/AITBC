@@ -60,8 +60,8 @@ async def _apply_offer_quote(req: JobCreate) -> tuple[JobCreate, OfferQuote | No
     except OfferUnavailable as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except OfferLookupFailed as exc:
-        logger.warning("Offer %s could not be resolved: %s", req.offer_id, exc)
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        logger.exception("Unhandled exception")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Internal server error") from exc
 
     # The offer decides who is paid. A caller may still name a provider, but only to
     # say the same thing: silently preferring the offer would hide a client bug whose
