@@ -52,7 +52,6 @@ async def sync_offers(
     svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
     chain_id: str | None = None,
     service_type: str | None = None,
-    force: bool = False,
 ):
     """Trigger offer sync for a specific chain or all chains."""
     if chain_id:
