@@ -6,7 +6,7 @@ from click import echo
 from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import load_multichain_config
 from ..models.chain import ChainType
-from ..utils import error, output, success
+from ..utils import OUTPUT_FORMAT_OPTION, error, output, resolve_output_format, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -1027,16 +1027,18 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str, format: str):
 
   aitbc blockchain height
 
-  aitbc blockchain height --node-url http://localhost:8202 --output json"""
+  aitbc --output=json blockchain height --node-url http://localhost:8202"""
 )
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Blockchain RPC URL")
+@OUTPUT_FORMAT_OPTION
 @click.pass_context
-def height(ctx, node_url: str):
+def height(ctx, node_url: str, output_format: str):
     """Get the current blockchain height from a node."""
+    output_format = resolve_output_format(ctx, output_format)
     client = AITBCHTTPClient(base_url=node_url, timeout=10)
     try:
         result = client.get("/rpc/height")
-        output(result, ctx.obj.get("output_format", "table"), title="Blockchain Height")
+        output(result, output_format, title="Blockchain Height")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
     finally:
@@ -1048,17 +1050,19 @@ def height(ctx, node_url: str):
 
   aitbc blockchain block --height 42
 
-  aitbc blockchain block --height 42 --node-url http://localhost:8202 --output json"""
+  aitbc --output=json blockchain block --height 42 --node-url http://localhost:8202"""
 )
 @click.option("--height", "block_height", required=True, type=int, help="Block height to fetch")
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Blockchain RPC URL")
+@OUTPUT_FORMAT_OPTION
 @click.pass_context
-def block(ctx, block_height: int, node_url: str):
+def block(ctx, block_height: int, node_url: str, output_format: str):
     """Get a block by height from a node."""
+    output_format = resolve_output_format(ctx, output_format)
     client = AITBCHTTPClient(base_url=node_url, timeout=10)
     try:
         result = client.get(f"/rpc/blocks/{block_height}")
-        output(result, ctx.obj.get("output_format", "table"), title=f"Block {block_height}")
+        output(result, output_format, title=f"Block {block_height}")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
     finally:
