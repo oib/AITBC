@@ -1020,3 +1020,46 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str, format: str):
         output(rows, ctx.obj.get("output_format", format), title=f"Slashing History for {chain_id}")
     except Exception as e:
         error(f"Error getting slashing history: {e}")
+
+
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain height
+
+  aitbc blockchain height --node-url http://localhost:8202 --output json"""
+)
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Blockchain RPC URL")
+@click.pass_context
+def height(ctx, node_url: str):
+    """Get the current blockchain height from a node."""
+    client = AITBCHTTPClient(base_url=node_url, timeout=10)
+    try:
+        result = client.get("/rpc/height")
+        output(result, ctx.obj.get("output_format", "table"), title="Blockchain Height")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+    finally:
+        client.close()
+
+
+@chain.command(
+    epilog="""Examples:
+
+  aitbc blockchain block --height 42
+
+  aitbc blockchain block --height 42 --node-url http://localhost:8202 --output json"""
+)
+@click.option("--height", "block_height", required=True, type=int, help="Block height to fetch")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Blockchain RPC URL")
+@click.pass_context
+def block(ctx, block_height: int, node_url: str):
+    """Get a block by height from a node."""
+    client = AITBCHTTPClient(base_url=node_url, timeout=10)
+    try:
+        result = client.get(f"/rpc/blocks/{block_height}")
+        output(result, ctx.obj.get("output_format", "table"), title=f"Block {block_height}")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+    finally:
+        client.close()
