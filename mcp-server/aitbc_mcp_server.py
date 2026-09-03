@@ -168,13 +168,6 @@ SSH_OPTS = [
 
 AITBC_CLI = os.getenv("AITBC_MCP_AITBC_CLI", "/opt/aitbc/venv/bin/aitbc")
 
-# Scripts/cron jobs the server is allowed to execute.
-ALLOWED_SCRIPT_PREFIXES = (
-    "/opt/aitbc/scripts/",
-    "/opt/aitbc/monitoring/",
-    "/opt/aitbc/cluster/",
-)
-
 # Logical service names accepted by ``aitbc http call``. The base URLs and
 # ports live in the CLI, not the MCP server, so no local network topology is
 # hardcoded here.
@@ -343,11 +336,6 @@ def _safe_command(command: str) -> tuple[bool, list[str]]:
         if re.search(r"[;&|<>$`\\!\n\r]", token):
             return False, [f"disallowed shell metacharacter in token: {token}"]
     return True, tokens
-
-
-def _is_allowed_script(path: str) -> bool:
-    """Check that a script path is within the allowed AITBC tree."""
-    return any(path.startswith(prefix) for prefix in ALLOWED_SCRIPT_PREFIXES)
 
 
 # ---------------------------------------------------------------------------
@@ -1052,21 +1040,18 @@ def run_cron_job(
 ) -> str:
     """Manually run an AITBC cron/script job on the selected node."""
     target = _host_for_role(role, host)
-    if not _is_allowed_script(script_path):
-        return _json(
-            {
-                "error": "script path not allowed",
-                "path": script_path,
-                "allowed_prefixes": ALLOWED_SCRIPT_PREFIXES,
-            }
-        )
-
-    real_command = f"bash {shlex.quote(script_path)}"
-    guard = _require_confirm(dry_run, confirm, real_command)
+    command = _build_aitbc_cli_command(
+        "system",
+        "run-script",
+        [],
+        {"path": script_path},
+        output_format="json",
+    )
+    guard = _require_confirm(dry_run, confirm, command)
     if guard is not None:
         return _json(guard)
 
-    return _json(_run_remote(target, real_command, timeout=120))
+    return _json(_run_aitbc_cli(target, "system", "run-script", [], {"path": script_path}, output_format="json", timeout=300))
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
