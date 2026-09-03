@@ -232,8 +232,6 @@ class EscrowManager:
             if not self._validate_contract_inputs(job_id, client_address, agent_address, amount):
                 return (False, "Invalid contract inputs", None)
             fee_rate = fee_rate or self.default_fee_rate
-            platform_fee = amount * fee_rate
-            total_amount = amount + platform_fee
             validated_milestones: list[dict[Any, Any]] = []
             if milestones:
                 validated = await self._validate_milestones(milestones, amount)
@@ -251,7 +249,17 @@ class EscrowManager:
                 job_id=job_id,
                 client_address=client_address,
                 agent_address=agent_address,
-                amount=total_amount,
+                # The escrowed principal, which is exactly what the buyer's
+                # ESCROW_LOCK moved into the node wallet. This used to be the
+                # amount plus the platform fee on top, a fee no one ever locked:
+                # the fee is taken *out* of the escrow on release, where the
+                # agent is paid the billed amount less ``fee_rate``. Carrying an
+                # inflated principal made every refund pay out lock x 1.025 and
+                # leak the fee out of the node wallet, since ``refund_contract``
+                # and friends return ``amount - released_amount``. The milestones
+                # below, ``load_from_db`` and ``_validate_milestones`` have always
+                # treated this field as the plain principal.
+                amount=amount,
                 fee_rate=fee_rate,
                 created_at=current_time,
                 expires_at=current_time + duration_days * 86400,
