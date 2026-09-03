@@ -63,8 +63,9 @@ def report_divergence(chain_id: str, div: Divergence) -> bool:
     logger.error(
         "Chain divergence on %s: peer %s has block %s at height %s where we have %s. No block from this peer can be "
         "imported until this is resolved. If the peer is authoritative, resync this node with "
-        "`sudo CHAIN_ID=%s /opt/aitbc/scripts/ops/reset-follower-to-genesis.sh` — it backs the database up first and "
-        "discards local blocks from height %s upward. If this node is authoritative, the peer needs the resync instead.",
+        "`sudo CHAIN_ID=%s /opt/aitbc/scripts/ops/reset-follower-to-snapshot.sh` (or the legacy "
+        "`reset-follower-to-genesis.sh`) — it backs the database up first and discards local blocks from height %s "
+        "upward. If this node is authoritative, the peer needs the resync instead.",
         chain_id,
         div.peer_url,
         div.peer_hash,
