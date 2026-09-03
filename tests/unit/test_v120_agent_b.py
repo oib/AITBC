@@ -127,7 +127,7 @@ def test_agent_wallet_balance_invocation() -> None:
 
     agent_wallet = _import_module("aitbc_cli.commands.agent_wallet")
     runner = CliRunner()
-    result = runner.invoke(agent_wallet.agent_wallet, ["balance", "agent-1"], obj={"output_format": "json"})
+    result = runner.invoke(agent_wallet.agent_wallet, ["balance", "--agent-id", "agent-1"], obj={"output_format": "json"})
     assert result.exit_code == 0
     assert "agent-1" in result.output
 
