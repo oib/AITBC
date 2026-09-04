@@ -106,10 +106,29 @@ def _is_valid_eth_address(address: str) -> bool:
     return normalized.startswith("0x") and len(normalized) == 42
 
 
+async def _post_eth_rpc(payload: Any, timeout: float) -> httpx.Response:
+    """POST to ETH_RPC_URL, retrying briefly on transient transport errors.
+
+    Mirrors bridge_monitor._post_eth_rpc -- Sepolia/Infura occasionally drops
+    a single connection attempt that succeeds again a moment later.
+    """
+    delays = (0.5, 1.5)
+    last_exc: httpx.TransportError | None = None
+    for attempt in range(len(delays) + 1):
+        try:
+            return await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=timeout)
+        except httpx.TransportError as e:
+            last_exc = e
+            if attempt < len(delays):
+                await asyncio.sleep(delays[attempt])
+    assert last_exc is not None
+    raise last_exc
+
+
 async def _eth_rpc(method: str, params: list[Any]) -> Any:
     """Call the Ethereum RPC and return the ``result`` field."""
     payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
-    response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
+    response = await _post_eth_rpc(payload, timeout=10.0)
     response.raise_for_status()
     data = response.json()
     if "error" in data:
