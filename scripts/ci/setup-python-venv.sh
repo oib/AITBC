@@ -8,8 +8,12 @@ SKIP_REQUIREMENTS="false"
 MODE="symlink"
 EXTRA_PACKAGES=""
 CACHE_ROOT="/var/cache/aitbc/python-venvs"
-PIP_CACHE_ROOT="/var/cache/aitbc/pip"
+PIP_CACHE_ROOT="${PIP_CACHE_ROOT:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+# Writable fallback roots for unprivileged CI runners.
+FALLBACK_CACHE_ROOT=""
+FALLBACK_PIP_CACHE_ROOT=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -41,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             CACHE_ROOT="$2"
             shift 2
             ;;
+        --pip-cache-root)
+            PIP_CACHE_ROOT="$2"
+            shift 2
+            ;;
         --python-bin)
             PYTHON_BIN="$2"
             shift 2
@@ -54,6 +62,27 @@ done
 
 VENV_DIR="${VENV_DIR:-$REPO_DIR/venv}"
 REQUIREMENTS_FILE="${REQUIREMENTS_FILE:-$REPO_DIR/requirements.txt}"
+
+# Fall back to repo-local writable cache directories when the configured
+# system-wide cache roots are not usable (e.g. unprivileged CI runners).
+FALLBACK_CACHE_ROOT="$REPO_DIR/.cache/python-venvs"
+FALLBACK_PIP_CACHE_ROOT="$REPO_DIR/.cache/pip"
+
+if [[ -z "$PIP_CACHE_ROOT" ]]; then
+    PIP_CACHE_ROOT="${CACHE_ROOT}/pip"
+fi
+
+if [[ ! -d "$CACHE_ROOT" ]] && ! mkdir -p "$CACHE_ROOT" 2>/dev/null; then
+    echo "⚠️ Cache root $CACHE_ROOT is not writable, falling back to $FALLBACK_CACHE_ROOT" >&2
+    CACHE_ROOT="$FALLBACK_CACHE_ROOT"
+    mkdir -p "$CACHE_ROOT"
+fi
+
+if [[ ! -d "$PIP_CACHE_ROOT" ]] && ! mkdir -p "$PIP_CACHE_ROOT" 2>/dev/null; then
+    echo "⚠️ Pip cache root $PIP_CACHE_ROOT is not writable, falling back to $FALLBACK_PIP_CACHE_ROOT" >&2
+    PIP_CACHE_ROOT="$FALLBACK_PIP_CACHE_ROOT"
+    mkdir -p "$PIP_CACHE_ROOT"
+fi
 
 if [[ "$SKIP_REQUIREMENTS" == "true" ]]; then
     REQUIREMENTS_FILE=""
