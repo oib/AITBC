@@ -45,6 +45,22 @@
 # 'type: ignore' comments covering them are reported as unused -- roughly 17 bogus
 # errors that would otherwise be baselined as real.
 #
+# 2026-09-05: the hook passed unconditionally again, for the third variant of the
+# same root cause. mypy is pinned in requirements-dev.txt, but the CI venv is built
+# from requirements.txt (scripts/ci/setup-python-venv.sh defaults to it), which ships
+# only mypy-extensions. So `$PYTHON -m mypy` printed "No module named mypy" and exited
+# 1 -- and 1 is the code for "ran, found errors", not "did not run". The STATUS > 1
+# guard below was written for a mypy that aborts; it cannot see an interpreter that
+# has no mypy at all. The error: grep then matched nothing, CURRENT came out empty,
+# and the gate reported success while checking zero files. An empty baseline was
+# generated the same way and committed.
+#
+# The tell was in the output the whole time: "56 baselined error(s) no longer
+# present" after a run that checked nothing. A whole baseline cannot evaporate at
+# once. The preflight below makes the interpreter prove it can import mypy before
+# any of this logic runs, because every exit-code check here is downstream of an
+# assumption that mypy executed.
+#
 # aitbc/ was the same defect one layer down, and adding cli did not fix it. The
 # top-level package was not in APPS either, so whether it got checked depended on
 # whether it happened to be pip-installed on the host: aitbc3 has aitbc==0.10.18
@@ -89,6 +105,17 @@ if [ -z "$PYTHON" ]; then
   else
     PYTHON=python3
   fi
+fi
+
+# Preflight: prove the interpreter actually has mypy before trusting any exit code
+# below. `python -m mypy` with mypy absent exits 1, which is indistinguishable from
+# "mypy ran and found errors" -- so this cannot be folded into the STATUS check.
+if ! "$PYTHON" -c 'import mypy' >/dev/null 2>&1; then
+    echo "MyPy is not installed for '$PYTHON'. It checked nothing; this is not a pass."
+    echo "   mypy is pinned in requirements-dev.txt, not requirements.txt."
+    echo "   Install it:  $PYTHON -m pip install 'mypy==2.1.0'"
+    echo "   Or point PYTHON at an interpreter that has it."
+    exit 1
 fi
 
 set +e
