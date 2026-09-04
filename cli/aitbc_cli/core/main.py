@@ -7,6 +7,7 @@ Canonical invocation: `aitbc` (installed via /opt/aitbc/venv/bin/aitbc)
 
 import sys
 from pathlib import Path
+from typing import Any, NoReturn, cast
 
 # Make the repository root discoverable so that the core ``aitbc`` package
 # can be imported by the CLI utilities. The CLI package itself lives under
@@ -34,39 +35,39 @@ class _UnavailableCommand:
         self.deprecated = False
         self.help = f"Command {name!r} is not available: {exc}"
         self.short_help = self.help
-        self.params = []
+        self.params: list[Any] = []
         self.callback = self._raise
         self.add_help_option = True
         self.no_args_is_help = False
         self.options_metavar = "[OPTIONS]"
         self.invoke_without_command = False
-        self.context_settings = {}
+        self.context_settings: dict[str, Any] = {}
 
-    def _raise(self, *args, **kwargs) -> None:
+    def _raise(self, *args, **kwargs) -> NoReturn:
         raise click.ClickException(f"Command {self.name!r} is not available: {self.exc}")
 
     def get_short_help_str(self, limit: int = 80) -> str:
         return f"({self.name} unavailable)"
 
-    def get_help(self, ctx) -> str:
+    def get_help(self, ctx: click.Context) -> str:
         return f"Command {self.name} is not available: {self.exc}"
 
-    def get_usage(self, ctx) -> str:
+    def get_usage(self, ctx: click.Context) -> str:
         return ""
 
-    def parse_args(self, ctx, args) -> None:
+    def parse_args(self, ctx: click.Context, args: list[str]) -> NoReturn:
         self._raise()
 
-    def invoke(self, ctx) -> None:
+    def invoke(self, ctx: click.Context) -> NoReturn:
         self._raise()
 
-    def make_context(self, *args, **kwargs) -> None:
+    def make_context(self, info_name: str, args: list[str], parent: click.Context | None = None, **extra: Any) -> NoReturn:
         self._raise()
 
-    def get_command(self, ctx, cmd_name: str):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> NoReturn:
         self._raise()
 
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: click.Context) -> list[str]:
         return []
 
 
@@ -76,43 +77,41 @@ class LazyCommand(click.Command):
     def __init__(self, module_name: str, attr_name: str, name: str | None = None) -> None:
         self._lazy_module = module_name
         self._lazy_attr = attr_name
+        self._command_name: str = name or attr_name
         self._lazy_loaded: click.Command | None = None
-        self.name = name or attr_name
+        self.name = self._command_name
 
     def _load(self) -> click.Command:
         if self._lazy_loaded is None:
             try:
                 mod = importlib.import_module(self._lazy_module)
-                self._lazy_loaded = getattr(mod, self._lazy_attr)
+                self._lazy_loaded = cast(click.Command, getattr(mod, self._lazy_attr))
             except Exception as exc:
                 logger.warning("Cannot load command %r from %s.%s: %s", self.name, self._lazy_module, self._lazy_attr, exc)
-                self._lazy_loaded = _UnavailableCommand(self.name, exc)
+                self._lazy_loaded = cast(click.Command, _UnavailableCommand(self._command_name, exc))
         return self._lazy_loaded
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the real command once loaded."""
         return getattr(self._load(), name)
 
     def get_short_help_str(self, limit: int = 80) -> str:
         """Return help text, masking load failures so `aitbc --help` stays usable."""
-        loaded = self._load()
-        if isinstance(loaded, _UnavailableCommand):
-            return f"({self.name} unavailable)"
-        return loaded.get_short_help_str(limit)
+        return self._load().get_short_help_str(limit)
 
-    def get_help(self, ctx) -> str:
+    def get_help(self, ctx: click.Context) -> str:
         return self._load().get_help(ctx)
 
-    def get_usage(self, ctx) -> str:
+    def get_usage(self, ctx: click.Context) -> str:
         return self._load().get_usage(ctx)
 
-    def parse_args(self, ctx, args) -> None:
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         return self._load().parse_args(ctx, args)
 
-    def invoke(self, ctx) -> None:
+    def invoke(self, ctx: click.Context) -> Any:
         return self._load().invoke(ctx)
 
-    def make_context(self, info_name, args, parent=None, **extra):
+    def make_context(self, info_name: str | None, args: list[str], parent: click.Context | None = None, **extra: Any) -> click.Context:
         return self._load().make_context(info_name, args, parent=parent, **extra)
 
 
@@ -122,51 +121,49 @@ class LazyGroup(click.Group):
     def __init__(self, module_name: str, attr_name: str, name: str | None = None) -> None:
         self._lazy_module = module_name
         self._lazy_attr = attr_name
+        self._command_name: str = name or attr_name
         self._lazy_loaded: click.Group | None = None
-        self.name = name or attr_name
+        self.name = self._command_name
 
     def _load(self) -> click.Group:
         if self._lazy_loaded is None:
             try:
                 mod = importlib.import_module(self._lazy_module)
-                self._lazy_loaded = getattr(mod, self._lazy_attr)
+                self._lazy_loaded = cast(click.Group, getattr(mod, self._lazy_attr))
             except Exception as exc:
                 logger.warning(
                     "Cannot load command group %r from %s.%s: %s", self.name, self._lazy_module, self._lazy_attr, exc
                 )
-                self._lazy_loaded = _UnavailableCommand(self.name, exc)
+                self._lazy_loaded = cast(click.Group, _UnavailableCommand(self._command_name, exc))
         return self._lazy_loaded
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the real group once loaded."""
         return getattr(self._load(), name)
 
-    def get_command(self, ctx, cmd_name: str):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
         return self._load().get_command(ctx, cmd_name)
 
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: click.Context) -> list[str]:
         return self._load().list_commands(ctx)
 
     def get_short_help_str(self, limit: int = 80) -> str:
         """Return help text, masking load failures so `aitbc --help` stays usable."""
-        loaded = self._load()
-        if isinstance(loaded, _UnavailableCommand):
-            return f"({self.name} unavailable)"
-        return loaded.get_short_help_str(limit)
+        return self._load().get_short_help_str(limit)
 
-    def get_help(self, ctx) -> str:
+    def get_help(self, ctx: click.Context) -> str:
         return self._load().get_help(ctx)
 
-    def get_usage(self, ctx) -> str:
+    def get_usage(self, ctx: click.Context) -> str:
         return self._load().get_usage(ctx)
 
-    def parse_args(self, ctx, args) -> None:
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         return self._load().parse_args(ctx, args)
 
-    def invoke(self, ctx) -> None:
+    def invoke(self, ctx: click.Context) -> Any:
         return self._load().invoke(ctx)
 
-    def make_context(self, info_name, args, parent=None, **extra):
+    def make_context(self, info_name: str | None, args: list[str], parent: click.Context | None = None, **extra: Any) -> click.Context:
         return self._load().make_context(info_name, args, parent=parent, **extra)
 
 
