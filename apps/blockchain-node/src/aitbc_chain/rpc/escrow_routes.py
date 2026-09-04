@@ -815,7 +815,14 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         provider_addr = contract.agent_address if contract else ""
         # What the buyer locked but the job did not consume. release_payment clamps an
         # over-estimate to the lock, so this is never negative.
-        locked_total = sum(Decimal(str(ms["amount"])) for ms in contract.milestones) if contract else Decimal(0)
+        # sum()'s no-start-value overload types as "T | Literal[0]" (its empty-iterable
+        # fallback is int 0), which mypy then propagates as "Decimal | int" through
+        # billed_gross/unbilled_amount into the refund call below. Passing an explicit
+        # Decimal start pins the type and makes an empty milestones list (which
+        # create_contract never actually produces) return Decimal(0) instead of int 0.
+        locked_total = (
+            sum((Decimal(str(ms["amount"])) for ms in contract.milestones), Decimal(0)) if contract else Decimal(0)
+        )
         billed_gross = locked_total if requested_amount is None else min(requested_amount, locked_total)
         unbilled_amount = locked_total - billed_gross
         # Reinvestment must be paid to the escrow's recorded provider; the caller must
