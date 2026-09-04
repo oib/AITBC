@@ -4796,7 +4796,7 @@
     "/v1/system/status": {
       "get": {
         "summary": "Get System Status",
-        "description": "Get comprehensive system status",
+        "description": "Get system status (protected endpoint)",
         "operationId": "get_system_status_v1_system_status_get",
         "responses": {
           "200": {
@@ -4813,16 +4813,6 @@
           },
           "401": {
             "description": "Invalid token / Authentication required / Authentication failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient permissions",
             "content": {
               "application/json": {
                 "schema": {
@@ -5360,6 +5350,72 @@
             }
           }
         }
+      }
+    },
+    "/v1/system/health": {
+      "get": {
+        "summary": "Get System Status",
+        "description": "Get comprehensive system status",
+        "operationId": "get_system_status_v1_system_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get System Status V1 System Health Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid token / Authentication required / Authentication failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/v1/swarm/list": {

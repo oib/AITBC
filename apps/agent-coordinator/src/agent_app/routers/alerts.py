@@ -150,7 +150,7 @@ async def record_sla_metric(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/system/status")
+@router.get("/system/health")
 @rate_limit(rate=200, per=60)
 async def get_system_status(
     request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
