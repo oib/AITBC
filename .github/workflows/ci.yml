@@ -24,10 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.13.5
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.13.5'
 
       - name: Cache venv
         uses: actions/cache@v4
@@ -55,34 +55,45 @@ jobs:
             fi
           done
 
-      - name: MyPy clean apps
-        run: bash scripts/ci/mypy-precommit.sh
+      - name: Version consistency check
+        run: make version-check
+
+      - name: Lint
+        run: make lint-strict
 
       - name: No float money
-        run: ./venv/bin/python scripts/lint/no_float_money.py
+        run: make no-float-money
 
-      - name: OpenAPI drift check
-        run: bash scripts/ci/check-openapi-drift.sh
+      - name: Typecheck
+        run: make typecheck
 
       - name: Unit tests
         env:
           PYTHONPATH: apps/blockchain-node/src
-        run: |
-          "$PYTHON" -m pytest -q \
-            --deselect=apps/coordinator-api/tests/test_phase8_integration.py \
-            --deselect=apps/coordinator-api/tests/test_zk_receipt.py \
-            apps/coordinator-api/tests/test_*.py \
-            apps/blockchain-node/tests
+        run: make test
+
+      - name: App tests
+        env:
+          PYTHONPATH: apps/blockchain-node/src
+        run: make test-apps
+
+      - name: Governance tests
+        run: make test-governance
 
       - name: CLI tests
         env:
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
-        run: |
-          "$PYTHON" -m pytest -q cli/tests
+        run: make test-cli
+
+      - name: OpenAPI drift check
+        run: make openapi-check
+
+      - name: CLI docs sync check
+        run: bash scripts/ci/check-cli-docs.sh
 
       - name: Live scenario dry-run
         env:
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
-        run: bash scripts/ci/live-scenario-dry-run.sh
+        run: make live-dry-run

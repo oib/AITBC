@@ -12,6 +12,21 @@ BACKUP_DIR="${BACKUP_BASE}/${TIMESTAMP}"
 RETENTION_DAYS=30
 LOG_TAG="aitbc-backup"
 
+# Use the active project Python if available, falling back to whatever is on PATH.
+# This keeps the backup compatible with both Poetry `.venv` and `venv` layouts.
+PYTHON="${PYTHON:-/opt/aitbc/venv/bin/python}"
+[ -x "$PYTHON" ] || PYTHON="$(command -v python3)"
+
+# Optional encrypted off-site backup configuration:
+#   BACKUP_GPG_RECIPIENT      GPG key ID/recipient used to encrypt key material.
+#   BACKUP_OFFSITE_SCRIPT     Operator-provided script that uploads $BACKUP_DIR.
+#   BACKUP_SHRED_PLAINTEXT    Set to "yes" to remove unencrypted key archives after
+#                             a successful off-site upload (only when GPG recipient
+#                             and off-site script are set).
+BACKUP_GPG_RECIPIENT="${BACKUP_GPG_RECIPIENT:-}"
+BACKUP_OFFSITE_SCRIPT="${BACKUP_OFFSITE_SCRIPT:-}"
+BACKUP_SHRED_PLAINTEXT="${BACKUP_SHRED_PLAINTEXT:-}"
+
 # Log to journal with proper priority levels (info/warning/err).
 # When running interactively (TTY), also echo to console.
 _log() { local pri="$1" msg="$2"; systemd-cat -t "$LOG_TAG" -p "$pri" <<< "$msg"; [[ -t 1 ]] && echo "$msg" || true; }
@@ -167,14 +182,61 @@ fi
 
 # ── Key audit ─────────────────────────────────────────────────────────────────
 log "Running key/address audit..."
-if PYTHONPATH="/opt/aitbc" /opt/aitbc/venv/bin/python /opt/aitbc/scripts/ops/key-audit.py --report "${BACKUP_DIR}/key-audit.json"; then
-    if /opt/aitbc/venv/bin/python -c "import json,sys; sys.exit(0 if json.load(open('${BACKUP_DIR}/key-audit.json')).get('ok') else 1)"; then
+if PYTHONPATH="/opt/aitbc" "$PYTHON" /opt/aitbc/scripts/ops/key-audit.py --report "${BACKUP_DIR}/key-audit.json"; then
+    if "$PYTHON" -c "import json,sys; sys.exit(0 if json.load(open('${BACKUP_DIR}/key-audit.json')).get('ok') else 1)"; then
         log "Key audit: OK (see ${BACKUP_DIR}/key-audit.json)"
     else
         warn "Key audit: mismatches detected (see ${BACKUP_DIR}/key-audit.json)"
     fi
 else
     error "Key audit: script failed"
+fi
+
+# ── Optional encrypted off-site copy of key material ───────────────────────────
+# If a GPG recipient and an off-site upload script are configured, create an
+# encrypted copy of keystore/wallet artifacts and upload it. The plaintext local
+# archives remain in place for quick restore unless BACKUP_SHRED_PLAINTEXT=yes.
+_OFFSITE_OK=false
+if [ -n "$BACKUP_GPG_RECIPIENT" ]; then
+    if command -v gpg >/dev/null 2>&1; then
+        for artifact in keystore.tar.gz wallets.tar.gz etc-aitbc.tar.gz; do
+            src="${BACKUP_DIR}/${artifact}"
+            if [ -f "$src" ]; then
+                log "Encrypting ${artifact} for off-site backup..."
+                if gpg --batch --yes --trust-model always \
+                       -r "$BACKUP_GPG_RECIPIENT" \
+                       -o "${src}.gpg" --encrypt "$src"; then
+                    chmod 600 "${src}.gpg"
+                    log "Encrypted ${artifact}: OK"
+                else
+                    error "Encryption FAILED for ${artifact}"
+                fi
+            fi
+        done
+    else
+        warn "BACKUP_GPG_RECIPIENT set but gpg not installed; skipping encryption"
+    fi
+fi
+
+if [ -n "$BACKUP_OFFSITE_SCRIPT" ]; then
+    if [ -x "$BACKUP_OFFSITE_SCRIPT" ]; then
+        log "Uploading backup to off-site destination via ${BACKUP_OFFSITE_SCRIPT}..."
+        if "$BACKUP_OFFSITE_SCRIPT" "$BACKUP_DIR"; then
+            log "Off-site backup: OK"
+            _OFFSITE_OK=true
+        else
+            error "Off-site backup FAILED"
+        fi
+    else
+        error "BACKUP_OFFSITE_SCRIPT is not executable: ${BACKUP_OFFSITE_SCRIPT}"
+    fi
+fi
+
+if [ "$BACKUP_SHRED_PLAINTEXT" = "yes" ] && [ -n "$BACKUP_GPG_RECIPIENT" ] && [ "$_OFFSITE_OK" = true ]; then
+    log "Removing plaintext key archives after successful off-site upload..."
+    for artifact in keystore.tar.gz wallets.tar.gz; do
+        [ -f "${BACKUP_DIR}/${artifact}" ] && shred -u "${BACKUP_DIR}/${artifact}" 2>/dev/null || rm -f "${BACKUP_DIR}/${artifact}"
+    done
 fi
 
 # ── Finalize ──────────────────────────────────────────────────────────────────
