@@ -110,10 +110,20 @@ build_cached_environment() {
     fi
 
     if [[ -n "$REQUIREMENTS_FILE" && -f "$REQUIREMENTS_FILE" ]]; then
-        if ! "$CACHE_VENV_DIR/bin/python" -m pip install -q -r "$REQUIREMENTS_FILE" --no-cache-dir; then
+        # `-e file://...` lines point at the absolute path of the repo checkout
+        # that had poetry.lock exported on it (packages/aitbc-shared, etc.) --
+        # meaningless on any other checkout, including this runner's own
+        # per-job workspace. Skip them here; the loop below reinstalls the
+        # same local packages editable from $REPO_DIR once the venv is in
+        # place, which is the only path that is ever valid in CI.
+        FILTERED_REQUIREMENTS="$(mktemp)"
+        grep -v '^-e file://' "$REQUIREMENTS_FILE" > "$FILTERED_REQUIREMENTS"
+        if ! "$CACHE_VENV_DIR/bin/python" -m pip install -q -r "$FILTERED_REQUIREMENTS" --no-cache-dir; then
+            rm -f "$FILTERED_REQUIREMENTS"
             rm -rf "$CACHE_VENV_DIR"
             return 1
         fi
+        rm -f "$FILTERED_REQUIREMENTS"
     fi
 
     if [[ -n "$EXTRA_PACKAGES" ]]; then
