@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-08-21
 
-Understand AITBC's hybrid Proof-of-Authority/Proof-of-Stake consensus mechanism.
+Understand AITBC's multi-validator Proof-of-Authority (PoA) consensus mechanism with optional PBFT finality.
 
 > **Current operational model:** The live network runs single-validator PoA by
 default. `multi_validator_consensus_enabled` is `False`, so `PoAProposer`
@@ -14,12 +14,12 @@ to `True`.
 
 ## Overview
 
-AITBC uses a hybrid PoA/PoS consensus mechanism with:
+AITBC uses a multi-validator PoA consensus mechanism with optional PBFT finality:
 
 - Fixed block time: 2 seconds
 - Multi-validator authority set with role-based permissions
-- Stake-weighted proposer selection and validator rotation
-- Byzantine fault tolerance via PBFT protocol
+- Round-robin proposer selection and validator rotation
+- Optional Byzantine fault tolerance via PBFT protocol
 - Transaction finality on each block
 
 ## Block Production
@@ -34,12 +34,7 @@ AITBC supports multiple validators with distinct roles:
 
 ### Proposer Selection
 
-Multiple selection strategies are available:
-
-- **Round-robin**: Validators take turns in fixed order
-- **Stake-weighted**: Higher stake increases selection probability
-- **Reputation-based**: Performance metrics influence selection
-- **Hybrid**: Combines stake and reputation scores (default)
+The current implementation uses **round-robin** selection across the active validator set. Future rotation strategies may incorporate stake and reputation weighting; they are not active in the default configuration.
 
 Proposers are selected from active validators with PROPOSER or VALIDATOR roles.
 

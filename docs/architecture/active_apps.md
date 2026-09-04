@@ -28,7 +28,7 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Blockchain node with RPC, P2P, and sync services
 **Maintainer**: @aitbc-blockchain
-**Service Files**: `aitbc-blockchain-node.service`, `aitbc-blockchain-p2p.service`, `aitbc-blockchain-rpc.service`, `aitbc-blockchain-sync.service`
+**Service Files**: `aitbc-blockchain-node.service`, `aitbc-blockchain-p2p.service`, `aitbc-blockchain-rpc.service`
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## AI/ML Services
@@ -123,14 +123,40 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Service File**: `aitbc-governance.service`
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
-### Agent Management
+### Hermes Agent
+
+**Path**: `apps/hermes_agent`
+**Status**: active
+**Purpose**: Background agent daemon and task execution
+**Maintainer**: @aitbc-public
+**Service File**: `aitbc-hermes-agent.service`
+**Recent Activity**: Active development (last commit: 2025-06-18)
+
+### IPFS
+
+**Path**: `apps/ipfs`
+**Status**: active
+**Purpose**: Local content-addressed storage and rental gateway
+**Maintainer**: @aitbc-public
+**Service Files**: `aitbc-ipfs.service`, `aitbc-island-ipfs.service`
+**Recent Activity**: Active development (last commit: 2025-06-18)
+
+### Memory
+
+**Path**: `apps/memory`
+**Status**: under development
+**Purpose**: Memory / context service for agent tasks
+**Maintainer**: @aitbc-public
+**Recent Activity**: Active development (last commit: 2025-06-18)
+
+### Agent Management (deprecated)
 
 **Path**: `apps/agent-management`
-**Status**: active
+**Status**: deprecated
 **Purpose**: Agent SDK and management
 **Maintainer**: @aitbc-internal
-**Service File**: `aitbc-agent-management.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
+**Service File**: `aitbc-agent-management.service` (no longer deployed)
+**Recent Activity**: Deprecated; agent SDK moved to `packages/py/aitbc-agent-sdk/` and `aitbc agent` CLI commands
 
 ### Miner
 
@@ -216,12 +242,12 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 
 ## Summary
 
-- **Total Applications**: 24
-- **Active**: 22
+- **Total Applications**: 26
+- **Active**: 24
 - **Under Development**: 2
 - **Shared Libraries**: 2
 - **Experimental**: 1
-- **Archived**: 0
+- **Deprecated**: 1
 
 All active applications have recent git activity (within the last 6 months) and are either:
 

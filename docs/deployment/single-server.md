@@ -12,7 +12,6 @@ apt update && apt upgrade -y
 
 # Create user
 useradd -m -s /bin/bash aitbc
-usermod -aG docker aitbc
 ```
 
 ### 2. Install Dependencies
@@ -27,9 +26,7 @@ apt install -y \
     curl \
     nginx \
     postgresql \
-    redis-server \
-    docker.io \
-    docker-compose
+    redis-server
 ```
 
 ### 3. Deploy Application
@@ -39,29 +36,22 @@ apt install -y \
 -u aitbc git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
-# Setup virtual environment
--u aitbc python3 -m venv /opt/aitbc/venv
--u aitbc /opt/aitbc/venv/bin/pip install -r requirements.txt
-
-# Setup database
--u postgres psql -c "CREATE DATABASE aitbc;"
--u postgres psql -c "CREATE USER aitbc WITH PASSWORD 'secure-password';"
--u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE aitbc TO aitbc;"
+# Run the setup script (creates venv, users, databases and systemd units)
+./scripts/deployment/setup.sh
 ```
 
 ### 4. Configure Systemd Services
 
 ```bash
-# Setup services
-./scripts/deployment/setup.sh
-
 # Enable services
-systemctl enable aitbc-blockchain
+systemctl enable aitbc-blockchain-node
+systemctl enable aitbc-blockchain-rpc
 systemctl enable aitbc-coordinator-api
 systemctl enable aitbc-marketplace
 
 # Start services
-systemctl start aitbc-blockchain
+systemctl start aitbc-blockchain-node
+systemctl start aitbc-blockchain-rpc
 systemctl start aitbc-coordinator-api
 systemctl start aitbc-marketplace
 ```

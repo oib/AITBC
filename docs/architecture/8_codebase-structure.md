@@ -16,7 +16,7 @@ aitbc/
 ├── packages/                # Shared libraries and SDKs
 ├── plugins/                 # Plugin integrations (Ollama)
 ├── scripts/                 # All scripts, organized by purpose
-│   ├── agent/               # Agent management scripts
+│   ├── agent/               # Agent CLI helper scripts
 │   ├── benchmarking/        # Performance benchmarking
 │   ├── ci/                  # CI/CD pipeline scripts
 │   ├── dependency-management/ # Dependency update scripts
@@ -67,7 +67,7 @@ apps/blockchain-node/
 │   ├── mempool.py           # Transaction mempool
 │   ├── metrics.py           # Prometheus metrics
 │   ├── logger.py            # Structured logging
-│   ├── consensus/poa.py     # Proof-of-Authority consensus
+│   ├── consensus/           # Consensus implementations (poa.py, multi_validator_poa.py, pbft.py)
 │   ├── gossip/              # P2P gossip protocol (broker, relay)
 │   ├── observability/       # Dashboards and exporters
 │   └── rpc/                 # JSON-RPC router and WebSocket
@@ -187,30 +187,6 @@ apps/agent-coordinator/
 └── tests/                   # Agent coordination tests
 ```
 
-### agent-daemon
-
-Background agent daemon for task execution.
-
-```
-apps/agent-daemon/
-├── src/
-│   └── main.py              # Daemon entry point
-└── config/                  # Agent configuration
-```
-
-### agent-management
-
-Agent lifecycle management and plugin system.
-
-```
-apps/agent-management/
-├── src/app/
-│   ├── main.py              # FastAPI entry point
-│   ├── services/            # Agent integration services
-│   └── examples/            # Plugin examples
-└── tests/                   # Agent management tests
-```
-
 ### ai-engine
 
 AI/ML inference engine for agent tasks.
@@ -299,17 +275,6 @@ apps/gpu/
 └── miners/                  # GPU miner management
 ```
 
-### agent
-
-Message passing and communication service.
-
-```
-apps/agent/
-├── src/
-│   └── main.py              # Agent entry point
-└── handlers/                # Message handlers
-```
-
 ### marketplace
 
 Marketplace service for GPU compute trading.
@@ -373,15 +338,24 @@ packages/
 
 ```
 scripts/
-├── aitbc-cli.sh             # Main CLI entry point
-├── deploy/                  # Deployment scripts (container, remote, blockchain, explorer, exchange, nginx)
-├── gpu/                     # GPU miner management (host miner, registry, exchange integration)
-├── service/                 # Service lifecycle (start, stop, diagnose, fix)
+├── agent/                   # Agent CLI helper scripts
+├── benchmarking/            # Performance benchmarking
+├── ci/                      # CI/CD pipeline scripts
+├── dependency-management/   # Dependency update scripts
+├── deployment/              # Deployment scripts
+├── development/             # Dev tools, local services
+├── git/                     # Git synchronization scripts
+├── github/                  # GitHub PR automation
+├── maintenance/             # System maintenance scripts
+├── monitoring/              # Monitoring and health checks
+├── multi-node/              # Multi-node blockchain testing
+├── notifications/           # Notification configuration
+├── ops/                     # Operational scripts
+├── performance/             # Load and performance tests
+├── plan/                    # Infrastructure planning scripts
+├── security/                # Security scanning
 ├── testing/                 # Test runners and verification scripts
-├── test/                    # Individual test scripts (coordinator, GPU, explorer)
-├── ci/                      # CI pipeline scripts
-├── ops/                     # Operational scripts (systemd install)
-└── dev/                     # Development tools (WebSocket load test)
+└── utils/                   # Shared shell helpers
 ```
 
 ---
@@ -390,10 +364,14 @@ scripts/
 
 ```
 scripts/deployment/
-├── deploy/                  # Deployment automation scripts
-├── deploy.sh                # Main deployment script
-├── setup_postgresql_databases.sh  # PostgreSQL setup
-└── backup/restore scripts   # Backup and restore utilities
+├── deploy.sh                # Main deployment / status / rollback script
+├── setup.sh                 # Initial host bootstrap
+├── update.sh                # Idempotent update path
+├── install-profiles.sh      # Declarative Python dependency profiles
+├── run-migrations.sh        # Alembic migration runner
+├── create_aitbc_user.sh     # Service user creation
+├── validate-env.sh          # Environment validation
+└── init_proposer.py         # Hub proposer wallet generation
 ```
 
 ---
@@ -402,17 +380,17 @@ scripts/deployment/
 
 ```
 tests/
-├── cli/                     # CLI tests (141 unit + 24 integration tests)
-│   ├── test_cli_integration.py  # CLI → live coordinator integration tests
-│   └── test_*.py            # CLI unit tests (admin, auth, blockchain, client, config, etc.)
-├── unit/                    # Unit tests (blockchain node, coordinator API, wallet daemon)
-├── integration/             # Integration tests (blockchain node, full workflow)
-├── e2e/                     # End-to-end tests (user scenarios, wallet daemon)
-├── security/                # Security tests (confidential transactions, comprehensive audit)
-├── load/                    # Load tests (Locust)
 ├── conftest.py              # Shared pytest fixtures
-└── test_blockchain_nodes.py # Live node connectivity tests
+├── smoke/                   # Import smoke tests
+├── unit/                    # Unit tests
+├── integration/             # Integration tests (needs services)
+├── e2e/                     # End-to-end tests
+├── security/                # Security tests
+├── cli/                     # CLI tests
+└── test_*.py                # Top-level test modules
 ```
+
+Each application also maintains its own `tests/` or `apps/<app>/tests/` directory.
 
 ---
 
@@ -435,10 +413,11 @@ website/
 
 | Directory | Purpose |
 |-----------|---------|
-| `cli/` | AITBC CLI package (12 command groups, 90+ subcommands, 141 unit + 24 integration tests, CI/CD, man page) |
-| `examples/nginx/` | Nginx reverse-proxy configuration for production |
-| `extensions/` | Firefox wallet extension source code |
-| `contracts/` | Standalone Solidity contracts (ZKReceiptVerifier) |
-| `scripts/systemd/` | Systemd unit files for all AITBC services |
-| `docs/` | Markdown documentation (10 numbered sections, guides, reference, architecture) |
-| `assets/` | Shared frontend assets (Tailwind CSS, FontAwesome, Lucide icons, Axios) |
+| `cli/` | AITBC CLI package (~65 top-level command groups, CI/CD, man page) |
+| `mcp-server/` | MCP operation server for live node management |
+| `examples/` | Environment and nginx configuration templates |
+| `extensions/` | Browser wallet extension source code |
+| `contracts/` | Standalone Solidity contracts |
+| `systemd/` | Systemd unit files (deprecated; live unit files now live in `apps/<app>/` and `scripts/`) |
+| `docs/` | Markdown documentation |
+| `assets/` | Shared frontend assets |

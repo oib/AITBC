@@ -4,7 +4,7 @@
 
 > **Important:** This document describes the designed production architecture following Linux Filesystem Hierarchy Standard (FHS). For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
-> **Note:** The FHS-compliant structure described below represents the target architecture. Current deployment may use the standard repository layout. Verify actual structure before making changes.
+> **Note:** Runtime state follows FHS (`/etc/aitbc` for config, `/var/lib/aitbc` for data, `/var/log/aitbc` for logs). Service code and unit files remain in the repository tree under `/opt/aitbc`.
 
 ## 🏗️ Proper System Architecture
 
@@ -40,13 +40,17 @@ find /etc/aitbc -name ".env" -o -name "*.env" 2>/dev/null
 /etc/aitbc/                    # Production configurations
 ├── .env                       # Production environment variables
 ├── blockchain.env             # Blockchain service config
-└── production/                # Production-specific configs
+├── node.env                   # Node identity / role config
+├── credentials/               # Secret material (keys, passwords)
+└── aitbc-*.env                # Per-service environment files
 
-/opt/aitbc/services/           # Production service scripts
-├── blockchain_http_launcher.py
-├── blockchain_simple.py
-├── marketplace.py
-└── ...                        # Other service scripts
+/opt/aitbc/                    # Repository root (read-only code)
+├── apps/                      # Service applications (each ships a .service file)
+├── cli/                       # AITBC CLI package
+├── mcp-server/                # MCP operation server
+├── packages/                  # Shared Python libraries
+├── scripts/                   # Deployment, maintenance, monitoring scripts
+└── systemd references         # Unit files live in apps/<app>/ and scripts/
 
 /var/lib/aitbc/                # Runtime data
 ├── data/                      # Blockchain databases
@@ -126,11 +130,11 @@ Current monitoring flow:
 
 ## 📋 Architecture Status
 
-The AITBC production environment follows FHS compliance:
+The AITBC production environment uses an FHS-separated runtime layout:
 
 - ✅ Configurations in `/etc/aitbc/`
-- ✅ Service scripts in `/opt/aitbc/services/`
+- ✅ Service code in `/opt/aitbc/apps/`, unit files in `apps/<app>/` and `scripts/`
 - ✅ Runtime data in `/var/lib/aitbc/`
 - ✅ Logs centralized in `/var/log/aitbc/`
 - ✅ Repository clean of runtime files
-- ✅ Proper FHS compliance achieved
+- ✅ systemd manages services; no Docker Compose is required

@@ -232,22 +232,7 @@ ETH_TO_AITBC_RATE=100000
 
 ## Deployment
 
-The Coordinator API runs in a Docker container with nginx proxy.
-
-### Docker Deployment
-
-```bash
-# Build image
-docker build -t aitbc-coordinator .
-
-# Run container
-docker run -d \
-  --name aitbc-coordinator \
-  -p 8203:8203 \
-  -e DATABASE_URL=sqlite:///data/coordinator.db \
-  -v $(pwd)/data:/app/data \
-  aitbc-coordinator
-```
+The Coordinator API runs as a systemd service behind nginx.
 
 ### Systemd Service
 
