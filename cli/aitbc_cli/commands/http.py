@@ -133,6 +133,7 @@ def call_http(
     """Call an AITBC HTTP endpoint by service name and path."""
     service = _normalize_service_name(service)
 
+    base_url: str | None
     if url:
         base_url = url
     else:
