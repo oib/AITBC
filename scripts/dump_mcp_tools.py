@@ -77,14 +77,9 @@ ROLE_HINTS: dict[str, list[str]] = {
     "agent-coordinator": ["hub"],
     "blockchain-event-bridge": ["hub"],
     "exchange": ["hub", "customer"],
-    "marketplace": ["hub", "customer", "shop"],
-    "gpu": ["shop", "follower", "follower2"],
+    # marketplace, gpu, pool-hub, whisper, ffmpeg, hermes, ollama are already
+    # covered by the identical CLI-group entries above.
     "blockchain-explorer": ["hub", "shop", "follower", "follower2"],
-    "pool-hub": ["shop", "follower", "follower2"],
-    "whisper": ["shop", "follower", "follower2"],
-    "ffmpeg": ["shop", "follower", "follower2"],
-    "hermes": ["shop", "follower", "follower2"],
-    "ollama": ["shop", "follower", "follower2"],
     "ipfs": ["hub", "customer", "customer2", "shop", "follower", "follower2"],
 }
 
