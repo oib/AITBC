@@ -34,12 +34,14 @@ This document catalogs the authentication and authorization patterns used across
 **Security Level**: High (JWT with refresh tokens)
 **Features**: Token expiry, refresh tokens, secret key management
 
-### Agent Management
+### Agent Coordinator
 
-**Location**: `apps/agent-management/src/app/deps.py`
+**Location**: `apps/agent-coordinator/src/app/deps.py`
 **Auth Method**: API Key Validation
 **Implementation**: Similar to coordinator-api pattern
 **Security Level**: Medium
+
+> **Note:** `apps/agent-management` was removed from the current checkout. Agent lifecycle and SDK commands now live in the CLI and `apps/agent-coordinator`.
 
 ### Exchange
 
